@@ -3097,12 +3097,15 @@ namespace QMC.CDT320
             var cassette = _machine.InputCassetteUnit;
             var feeder = _machine.InputFeederUnit;
 
-            // 카세트 존재 확인.
-            if (!DryRun && !cassette.CassetteExistSensor.IsOn)
+            // 선택 규격의 카세트 센서 두 점이 모두 감지되어야 로딩을 허용한다.
+            int cassetteSize = cassette.Config != null
+                ? MaterialStateService.ResolveWaferSizeInch(cassette.Config.InchSelect)
+                : 0;
+            if (!DryRun && !cassette.IsWaferCassettePresentAll(cassetteSize))
             {
                 AlarmManager.Raise(AlarmSeverity.Error, "LOT-NOCASS",
-                    cassette.Name, "Input cassette is not detected.");
-                Log("[LOTPORT] InputCassette absent. Load skipped.");
+                    cassette.Name, "Input cassette is not fully detected. Both cassette sensors must be ON.");
+                Log("[LOTPORT] InputCassette is not fully detected. Load skipped.");
                 return false;
             }
 

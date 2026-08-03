@@ -576,7 +576,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             if (!feeder.FeederY.IsAtTargetPosition(feeder.Recipe.AvoidPosition, 0.0))
             {
-                int moveResult = await feeder.MoveToFeederAvoidPosition(jogAxisMoveControl.SelectedSpeedType == JogSpeedType.Fine).ConfigureAwait(true);
+                int moveResult = await feeder.MoveToFeederAvoidPosition(
+                    jogAxisMoveControl.SelectedSpeedType,
+                    jogAxisMoveControl.GetSelectedSpeed(feeder.FeederY)).ConfigureAwait(true);
                 if (moveResult != 0)
                     return AbortSeq(title, "OutputFeederY Avoid 이동 실패. result=" + moveResult + ", " + feeder.DescribeBinFeederYMoveDoneState() + feeder.DescribeBinFeederYLastMotionFailure());
 
@@ -751,20 +753,20 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private Task<int> MoveStageTeachingPositionWithSelectedSpeedAsync(BinStageAxis axis, string positionName)
         {
-            return _outputStageUnit.MoveStageAxisToTeachingPosition(
+            return _outputStageUnit.MoveStageAxisToTeachingPositionForManualAction(
                 axis,
                 positionName,
                 jogAxisMoveControl.SelectedSpeedType,
-                jogAxisMoveControl.GetSelectedSpeed(ResolveOutputStageBaseAxis(axis)));
+                jogSpeedControl.SpeedPercent);
         }
 
         private Task<int> MoveStageAxisWithSelectedSpeedAsync(BinStageAxis axis, double target)
         {
-            return _outputStageUnit.MoveStageAxis(
+            return _outputStageUnit.MoveStageAxisForManualAction(
                 axis,
                 target,
                 jogAxisMoveControl.SelectedSpeedType,
-                jogAxisMoveControl.GetSelectedSpeed(ResolveOutputStageBaseAxis(axis)));
+                jogSpeedControl.SpeedPercent);
         }
 
         private BaseAxis ResolveOutputStageBaseAxis(BinStageAxis axis)
@@ -982,11 +984,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     // ===== NG BIN : SET CLAMP (Unclamp 체크 센서 + Clamp/Unclamp 출력 통합) =====
                     IoCylinderItem.Input("NG BIN UNCLAMP", () => unit.IsBinGuideUnclamped(BinSide.Ng)),
                     IoCylinderItem.Output("NG BIN CLAMP", () => unit.IsBinGuideClampOutputActive(BinSide.Ng),
-                        on => SetBinClampAsync(BinSide.Ng, on), "CLAMP", "UNCLAMP"),
-
-                    // ===== BOTTOM VISION BLOW (On/Off 출력 통합) =====
-                    IoCylinderItem.Output("BTM VISION BLOW", () => IsOn(unit.BottomVisionBlowOnOut),
-                        on => GuardedPairOut("BottomVisionBlow", null, unit.BottomVisionBlowOnOut, unit.BottomVisionBlowOffOut, on), "ON", "OFF")
+                        on => SetBinClampAsync(BinSide.Ng, on), "CLAMP", "UNCLAMP")
                 });
             }
             catch (Exception ex)
@@ -1003,94 +1001,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try { input?.UpdateStatus(); } catch { }
             return input != null && input.IsOn;
-        }
-
-        private static bool IsOn(QMC.Common.IO.BaseDigitalOutput output)
-        {
-            try { output?.UpdateStatus(); } catch { }
-            return output != null && output.IsOn;
-        }
-
-        private static void WriteOut(QMC.Common.IO.BaseDigitalOutput output, bool on)
-        {
-            if (output == null) return;
-            if (on) output.On(); else output.Off();
-        }
-
-        private static Task<int> WritePairOut(QMC.Common.IO.BaseDigitalOutput forward, QMC.Common.IO.BaseDigitalOutput backward, bool forwardOn)
-        {
-            try
-            {
-                WriteOut(forward, forwardOn);
-                WriteOut(backward, !forwardOn);
-                return Task.FromResult(0);
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-            }
-        }
-
-        // 실린더 DO pair 출력 전에 모션가드 Verify를 거친다.
-        // cylinder가 있으면 실린더 모션가드(VerifyCylinderMove)로, 없으면 이름 기반 가드로 검사한다.
-        private Task<int> GuardedPairOut(string movingName, QMC.Common.IO.BaseCylinder cylinder,
-            QMC.Common.IO.BaseDigitalOutput forward, QMC.Common.IO.BaseDigitalOutput backward, bool forwardOn)
-        {
-            try
-            {
-                string reason;
-                if (cylinder != null)
-                {
-                    // VerifyCylinderMove 내부에서 차단 시 Alarm/Log를 남긴다.
-                    if (!MotionGuardRuntime.VerifyCylinderMove(cylinder, forwardOn, out reason))
-                        return Task.FromResult(-1);
-                }
-                else
-                {
-                    if (!VerifyNamedCylinderMove(movingName, forwardOn, out reason))
-                    {
-                        QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error, "OUTPUT-STAGE", "UI", movingName + " output blocked by interlock: " + reason);
-                        return Task.FromResult(-1);
-                    }
-                }
-
-                return WritePairOut(forward, backward, forwardOn);
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-            }
-        }
-
-        // BaseCylinder가 없는 출력(예: 바텀비전 블로우)을 레지스트리 가드(CylinderMove)로 검사한다.
-        private bool VerifyNamedCylinderMove(string movingName, bool forwardOn, out string reason)
-        {
-            var context = MotionGuardRuntime.ContextProvider != null ? MotionGuardRuntime.ContextProvider() : null;
-            var request = new MotionGuardRuleContext(movingName, movingName, forwardOn ? 1.0 : 0.0,
-                MotionGuardMoveKind.CylinderMove, string.Empty, null, context);
-            return MotionGuardRuleRegistry.Verify(request, out reason);
-        }
-
-        private static Task<int> WriteOutAsync(QMC.Common.IO.BaseDigitalOutput output, bool on)
-        {
-            try
-            {
-                WriteOut(output, on);
-                return Task.FromResult(0);
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-            }
         }
 
         private Task<int> SetBinGuideAsync(BinSide side, bool on)

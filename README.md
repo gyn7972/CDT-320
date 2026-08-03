@@ -42,6 +42,8 @@ QMC.CDT-320/
 - [자동 시컨스 전체 흐름도](docs/architecture/auto-sequence-flow.md)
 - [전체 축 초기화 시퀀스형 리팩터링 구현 프롬프트](docs/initialization/axis-initialize-sequence-refactor-implementation-prompt.txt)
 - [전체 축 초기화 시퀀스형 리팩터링 검증 체크리스트](docs/initialization/axis-initialize-sequence-refactor-validation-checklist.txt)
+- [Material Journal + Checkpoint 구현 프롬프트](docs/material-state/material-journal-checkpoint-implementation-prompt.txt)
+- [Material Journal + Checkpoint 검증 체크리스트](docs/material-state/material-journal-checkpoint-validation-checklist.txt)
 
 ## 외부 Vision 계약
 

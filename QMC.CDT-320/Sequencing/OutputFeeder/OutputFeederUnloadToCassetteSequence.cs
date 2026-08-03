@@ -734,6 +734,15 @@ namespace QMC.CDT320.Sequencing
             if (!Feeder.CheckFeederCassetteReady(Options.Side, Options.SlotIndex, TransferMode.Unload, out readyReason))
                 return Fail("OUT-FEEDER-CST-UNLOAD-READY", Feeder.Name, "Output feeder cassette unload is not ready. " + readyReason);
 
+            if (Cassette == null || Cassette.Config == null)
+                return Fail("OUT-FEEDER-CST-MISSING", "OutputCassette", "Output cassette unit/config is not available.");
+
+            int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Cassette.Config.InchSelect);
+            if (!IsHardwareBypass() && !Cassette.IsBinCassettePresentAll(ResolveOutputTargetCassette(), cassetteSize))
+                return Fail("OUT-FEEDER-CST-SENSOR", Cassette.Name,
+                    "Output cassette is not fully detected. Both cassette sensors must be ON. target=" + ResolveOutputTargetCassette() +
+                    ", cassetteSize=" + cassetteSize + ".");
+
             // 기존 조건: 스테이지 상태를 확인하지 않고 카세트 배출을 진행했다.
             // 현재 기준: 스테이지에서 빼온 제품을 카세트로 보내는 흐름이므로, 배출 시작 전 대상 스테이지가
             //           언로드 위치(Good은 Y+Z, NG는 Y)를 유지하고 있어야 정상이다.

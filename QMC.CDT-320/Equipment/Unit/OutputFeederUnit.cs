@@ -331,6 +331,7 @@ namespace QMC.CDT320
         }
 
         public Task<int> MoveToFeederAvoidPosition(bool bFine = false) { return MoveBinFeederYNamedPositionAsync(Recipe.AvoidPosition, "OutputFeederY.AvoidPosition", bFine); }
+        public Task<int> MoveToFeederAvoidPosition(JogSpeedType speedType, double customSpeed) { return MoveBinFeederYNamedPositionAsync(Recipe.AvoidPosition, "OutputFeederY.AvoidPosition", speedType, customSpeed); }
         public Task<int> MoveToBinFeederAvoidPosition(bool bFine = false) { return MoveToFeederAvoidPosition(bFine); }
 
         public Task<int> MoveToFeederCassetteLoadPosition(BinSide side, int slotIndex, bool bFine = false)

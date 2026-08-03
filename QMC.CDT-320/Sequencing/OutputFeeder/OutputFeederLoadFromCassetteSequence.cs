@@ -127,7 +127,25 @@ namespace QMC.CDT320.Sequencing
             if (!Feeder.CheckBinFeederYMoveReady(out moveReason))
                 return Fail("OUT-FEEDER-MOVE-READY", Feeder.Name, "OutputFeederY is not ready to move. " + moveReason);
 
+            int cassetteReady = CheckTargetCassetteSensors();
+            if (cassetteReady != 0)
+                return cassetteReady;
+
             CurrentStep = OutputFeederLoadFromCassetteStep.CheckOutputStageEmpty;
+            return 0;
+        }
+
+        private int CheckTargetCassetteSensors()
+        {
+            if (Cassette == null || Cassette.Config == null)
+                return Fail("OUT-FEEDER-CST-MISSING", "OutputCassette", "Output cassette unit/config is not available.");
+
+            int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Cassette.Config.InchSelect);
+            if (!IsHardwareBypass() && !Cassette.IsBinCassettePresentAll(ResolveOutputTargetCassette(), cassetteSize))
+                return Fail("OUT-FEEDER-CST-SENSOR", Cassette.Name,
+                    "Output cassette is not fully detected. Both cassette sensors must be ON. target=" + ResolveOutputTargetCassette() +
+                    ", cassetteSize=" + cassetteSize + ".");
+
             return 0;
         }
 
@@ -197,6 +215,10 @@ namespace QMC.CDT320.Sequencing
         {
             ct.ThrowIfCancellationRequested();
 
+            int cassetteReady = CheckTargetCassetteSensors();
+            if (cassetteReady != 0)
+                return cassetteReady;
+
             if (Cassette == null)
                 return Fail("OUT-FEEDER-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
 
@@ -260,6 +282,10 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveFeederCassetteLoadPositionAsync(CancellationToken ct)
         {
+            int cassetteReady = CheckTargetCassetteSensors();
+            if (cassetteReady != 0)
+                return cassetteReady;
+
             int visionAvoid = await EnsureOutputVisionXAvoidForFeederMoveAsync(ct).ConfigureAwait(false);
             if (visionAvoid != 0)
                 return visionAvoid;

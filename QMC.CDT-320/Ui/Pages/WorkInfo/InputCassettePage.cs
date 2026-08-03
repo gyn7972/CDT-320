@@ -625,9 +625,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 return true;
 
             int cassetteSize = MaterialStateService.ResolveWaferSizeInch(cassette.Config.InchSelect);
-            if (!cassette.IsWaferCassetteExist(cassetteSize))
+            if (!cassette.IsWaferCassettePresentAll(cassetteSize))
             {
-                reason = "Input cassette is not detected. cassetteSize=" + cassetteSize + ". " + BuildCassetteSensorSummary(cassette);
+                reason = "Input cassette is not fully detected. Both cassette sensors must be ON. cassetteSize=" + cassetteSize + ". " + BuildCassetteSensorSummary(cassette);
                 return false;
             }
 

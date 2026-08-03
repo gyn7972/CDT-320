@@ -1,0 +1,421 @@
+﻿CDT-320 Material Journal + Checkpoint 검증 체크리스트
+====================================================
+
+작성 규칙
+--------
+
+- 각 항목은 [x]/[ ]로 표시한다.
+- [x]에는 파일·메서드·로그·테스트 결과를 결과/근거에 기록한다.
+- 코드만 보고 확인할 수 없는 항목은 완료 처리하지 않는다.
+- 실장비 검증 항목은 시뮬레이션 결과로 대체하지 않는다.
+- 실패 항목은 우회하지 말고 원인과 잔여 위험을 기록한다.
+
+1. 작업 보호
+-----------
+
+[ ] MJ-PROT-001 | git root가 D:\Source\CDT-320_New이다.
+    결과/근거:
+[ ] MJ-PROT-002 | 현재 branch와 git status를 작업 전후 기록했다.
+    결과/근거:
+[ ] MJ-PROT-003 | 다른 작업자의 dirty 파일과 변경 범위가 겹치지 않거나 기존 diff를 보존했다.
+    결과/근거:
+[ ] MJ-PROT-004 | 다른 CDT-320 복사본의 코드를 참조·복사하지 않았다.
+    결과/근거:
+[ ] MJ-PROT-005 | commit/push/pull/merge/rebase/reset/checkout/clean/rebuild를 수행하지 않았다.
+    결과/근거:
+[ ] MJ-PROT-006 | D:\CDT-320\State 운영 파일을 삭제·이동·초기화하지 않았다.
+    결과/근거:
+[ ] MJ-PROT-007 | 전체 초기화·모션·인터락·Vision 코드를 수정하지 않았다.
+    결과/근거:
+
+2. 변경 경로 전수 분석
+-------------------
+
+[ ] MJ-ANL-001 | NotifyAndSave 호출처를 전부 목록화했다.
+    결과/근거:
+[ ] MJ-ANL-002 | TryNotifyAndSave 호출처를 전부 목록화했다.
+    결과/근거:
+[ ] MJ-ANL-003 | TryFlushPendingSave 호출처를 전부 목록화했다.
+    결과/근거:
+[ ] MJ-ANL-004 | State.Wafers Add/Remove/RemoveAll 경로를 전부 목록화했다.
+    결과/근거:
+[ ] MJ-ANL-005 | State.Dies Add/Remove/RemoveAll 경로를 전부 목록화했다.
+    결과/근거:
+[ ] MJ-ANL-006 | Wafer/Die/Cassette/Slot 직접 필드 변경 경로를 확인했다.
+    결과/근거:
+[ ] MJ-ANL-007 | 각 변경 경로의 _stateSync 보유 여부를 기록했다.
+    결과/근거:
+[ ] MJ-ANL-008 | 각 변경을 Auto/Manual/Bulk/즉시 Durable로 분류했다.
+    결과/근거:
+[ ] MJ-ANL-009 | 각 변경 경로에 대응하는 Delta 종류를 매핑했다.
+    결과/근거:
+[ ] MJ-ANL-010 | machine_state.json과 Material 저장 경계를 섞지 않았다.
+    결과/근거:
+
+3. 기준 성능과 파일 크기
+--------------------
+
+[ ] MJ-BASE-001 | 변경 전 material_state.json Byte/Wafer/Die/Inspection 수를 기록했다.
+    결과/근거:
+[ ] MJ-BASE-002 | 변경 전 Material 전체 저장 평균/P95/Max 시간을 기록했다.
+    결과/근거:
+[ ] MJ-BASE-003 | 변경 전 _stateSync 보유 시간 평균/P95/Max를 기록했다.
+    결과/근거:
+[ ] MJ-BASE-004 | 변경 전 Auto 1 Cycle 평균/P95와 UPH를 동일 조건에서 기록했다.
+    결과/근거:
+[ ] MJ-BASE-005 | 오래된 Temp/Failed/Recovery/Journal 파일 현황을 삭제 없이 기록했다.
+    결과/근거:
+
+4. Delta 계약
+------------
+
+[ ] MJ-DELTA-001 | Delta에 SchemaVersion/EpochId/Sequence/OperationId/시간/이유가 있다.
+    결과/근거:
+[ ] MJ-DELTA-002 | Delta는 Runtime WaferMaterial/DieMaterial 객체 참조를 보관하지 않는다.
+    결과/근거:
+[ ] MJ-DELTA-003 | 실제 변경 필드만 복사하며 매번 전체 MaterialSnapshot을 포함하지 않는다.
+    결과/근거:
+[ ] MJ-DELTA-004 | 일반 Die 변경에 전체 DieMaterial을 매번 포함하지 않는다.
+    결과/근거:
+[ ] MJ-DELTA-005 | Wafer/Cassette/Slot 변경도 전체 State가 아니라 작은 Patch로 기록된다.
+    결과/근거:
+[ ] MJ-DELTA-006 | 삭제는 명시적인 WaferRemove/DieRemove Tombstone으로 기록된다.
+    결과/근거:
+[ ] MJ-DELTA-007 | Inspection Upsert/Remove가 Replay 가능한 계약으로 정의됐다.
+    결과/근거:
+[ ] MJ-DELTA-008 | SaveMaterialInspectionDetail=false이면 Measurements/Alignments 상세가 Journal에 없다.
+    결과/근거:
+[ ] MJ-DELTA-009 | 기존 CSV 검사/생산 이력 저장은 유지된다.
+    결과/근거:
+[ ] MJ-DELTA-010 | 같은 Runtime 변경에 Delta가 중복 발급되지 않는다.
+    결과/근거:
+
+5. Runtime 변경 원자성
+------------------
+
+[ ] MJ-ATOM-001 | Runtime 변경과 Sequence 발급이 같은 _stateSync 원자 경계 안에 있다.
+    결과/근거:
+[ ] MJ-ATOM-002 | Delta Queue 등록이 Runtime 변경과 같은 원자 경계 안에 있다.
+    결과/근거:
+[ ] MJ-ATOM-003 | 상태 변경 후 Delta를 사후 추정하는 경로가 없다.
+    결과/근거:
+[ ] MJ-ATOM-004 | _stateSync 안에서 파일 Open/Write/Flush를 하지 않는다.
+    결과/근거:
+[ ] MJ-ATOM-005 | _stateSync 안에서 전체 MaterialSnapshot 딥클론을 하지 않는다.
+    결과/근거:
+[ ] MJ-ATOM-006 | Auto Material 변경은 Queue 등록 후 Checkpoint를 기다리지 않고 반환한다.
+    결과/근거:
+[ ] MJ-ATOM-007 | Queue 등록 실패 또는 Persistence Unhealthy를 성공으로 반환하지 않는다.
+    결과/근거:
+[ ] MJ-ATOM-008 | 기존 _stateSync 밖 직접 변경 경로가 이관 목록에서 누락되지 않았다.
+    결과/근거:
+
+6. Journal Writer
+----------------
+
+[ ] MJ-WRITE-001 | 하나의 장기 Writer가 Journal 파일 Append를 소유한다.
+    결과/근거:
+[ ] MJ-WRITE-002 | Material 변경마다 Task.Run/Thread를 새로 생성하지 않는다.
+    결과/근거:
+[ ] MJ-WRITE-003 | Queue FIFO와 Sequence 순서가 일치한다.
+    결과/근거:
+[ ] MJ-WRITE-004 | Sequence 누락·역전·중복을 검출한다.
+    결과/근거:
+[ ] MJ-WRITE-005 | 50~100ms 또는 설정 건수 기준 Batch Write가 동작한다.
+    결과/근거:
+[ ] MJ-WRITE-006 | Journal Record에 Length/Checksum 또는 동등한 손상 검출 정보가 있다.
+    결과/근거:
+[ ] MJ-WRITE-007 | LastWrittenSequence는 Write 성공 후에만 증가한다.
+    결과/근거:
+[ ] MJ-WRITE-008 | LastDurableSequence는 실제 Flush 성공 후에만 증가한다.
+    결과/근거:
+[ ] MJ-WRITE-009 | Queue Length/Max/Batch Count/Bytes/WriteMs/FlushMs를 계측한다.
+    결과/근거:
+[ ] MJ-WRITE-010 | Disk Full/권한/IO 오류에서 Delta를 조용히 버리지 않는다.
+    결과/근거:
+[ ] MJ-WRITE-011 | Writer 실패 지속 시 Persistence Unhealthy와 안전 정지 정책이 동작한다.
+    결과/근거:
+[ ] MJ-WRITE-012 | Flush 전 비정상 종료 시 허용되는 최대 손실 시간이 문서화됐다.
+    결과/근거:
+
+7. Bulk Mapping
+--------------
+
+[ ] MJ-BULK-001 | Mapping 수백~수천 Die를 한 개의 거대한 Record로 만들지 않는다.
+    결과/근거:
+[ ] MJ-BULK-002 | 최대 항목 수 또는 최대 Byte 기준으로 Chunk를 나눈다.
+    결과/근거:
+[ ] MJ-BULK-003 | OperationId/ChunkIndex/ChunkCount로 전체 Mapping 작업을 식별한다.
+    결과/근거:
+[ ] MJ-BULK-004 | 중간 Chunk 누락 시 Mapping 전체를 완료로 인정하지 않는다.
+    결과/근거:
+[ ] MJ-BULK-005 | Mapping 중 Crash 후 안전한 재매핑 또는 Recovery Required 경로가 있다.
+    결과/근거:
+[ ] MJ-BULK-006 | Mapping 완료 후 승인된 Idle Checkpoint 경계가 있다.
+    결과/근거:
+
+8. Projection과 Checkpoint
+-----------------------
+
+[ ] MJ-CP-001 | Projection은 Runtime State와 별도 객체 그래프다.
+    결과/근거:
+[ ] MJ-CP-002 | Projection은 Journal Delta를 Sequence 순서로만 적용한다.
+    결과/근거:
+[ ] MJ-CP-003 | 같은 Delta 중복 적용을 검출하거나 안전하게 무시한다.
+    결과/근거:
+[ ] MJ-CP-004 | Checkpoint Worker는 Runtime MaterialStorage.State를 전체 복사하지 않는다.
+    결과/근거:
+[ ] MJ-CP-005 | material_state.json에 EpochId와 CheckpointSequence가 저장된다.
+    결과/근거:
+[ ] MJ-CP-006 | 기존 Temp → Backup → 원자 교체 안전성이 유지된다.
+    결과/근거:
+[ ] MJ-CP-007 | Checkpoint 성공 전에 Journal을 삭제·회전하지 않는다.
+    결과/근거:
+[ ] MJ-CP-008 | Checkpoint 성공 후 CheckpointSequence 이하 Record만 정리한다.
+    결과/근거:
+[ ] MJ-CP-009 | Journal 회전 파일의 보존 개수와 기간이 제한된다.
+    결과/근거:
+[ ] MJ-CP-010 | Checkpoint 도중 Auto 재시작/취소 정책이 정의됐다.
+    결과/근거:
+
+9. Material 컴팩션
+----------------
+
+[ ] MJ-COMP-001 | 컴팩션은 단순 시간 기준이 아니라 참조 관계를 계산한다.
+    결과/근거:
+[ ] MJ-COMP-002 | Cassette Slot 참조 Wafer를 보존한다.
+    결과/근거:
+[ ] MJ-COMP-003 | Feeder/Stage 위치 Wafer를 보존한다.
+    결과/근거:
+[ ] MJ-COMP-004 | Front/Rear Picker 위 Die를 보존한다.
+    결과/근거:
+[ ] MJ-COMP-005 | 예약 중인 Die를 보존한다.
+    결과/근거:
+[ ] MJ-COMP-006 | Wafer.DieIds 참조 Die를 보존한다.
+    결과/근거:
+[ ] MJ-COMP-007 | OutputReceiveSlots의 SourceDieUid/DieUid 참조 Die를 보존한다.
+    결과/근거:
+[ ] MJ-COMP-008 | Output Cassette 교체 전 Finish Material을 보존한다.
+    결과/근거:
+[ ] MJ-COMP-009 | LOT 완료만으로 실물 Output Material을 삭제하지 않는다.
+    결과/근거:
+[ ] MJ-COMP-010 | Empty+Unknown+미참조 Wafer를 제거한다.
+    결과/근거:
+[ ] MJ-COMP-011 | 미참조 Die와 역참조를 함께 제거한다.
+    결과/근거:
+[ ] MJ-COMP-012 | Runtime과 Projection에 같은 Remove Delta가 적용된다.
+    결과/근거:
+[ ] MJ-COMP-013 | Checkpoint 사본에서만 몰래 제외하여 재시작 전후 상태가 달라지지 않는다.
+    결과/근거:
+[ ] MJ-COMP-014 | 컴팩션 전후 Wafer/Die/Inspection/Byte 수를 기록한다.
+    결과/근거:
+[ ] MJ-COMP-015 | Data Clear Replay 후 삭제 Material이 다시 나타나지 않는다.
+    결과/근거:
+
+10. Startup Recovery와 마이그레이션
+--------------------------------
+
+[ ] MJ-REC-001 | Legacy Version 2 material_state.json을 읽을 수 있다.
+    결과/근거:
+[ ] MJ-REC-002 | Legacy Snapshot의 Epoch/Sequence 기본값과 마이그레이션이 명시됐다.
+    결과/근거:
+[ ] MJ-REC-003 | 가장 높은 정상 Epoch/CheckpointSequence를 기준으로 Checkpoint를 선택한다.
+    결과/근거:
+[ ] MJ-REC-004 | 데이터가 더 많다는 이유로 과거 Recovery 파일을 선택하지 않는다.
+    결과/근거:
+[ ] MJ-REC-005 | CheckpointSequence보다 큰 Journal만 Replay한다.
+    결과/근거:
+[ ] MJ-REC-006 | 잘린 마지막 Record만 안전하게 무시하고 경고를 남긴다.
+    결과/근거:
+[ ] MJ-REC-007 | 중간 Record 손상이나 Sequence Gap은 Recovery Required로 처리한다.
+    결과/근거:
+[ ] MJ-REC-008 | 알 수 없는 과거 material_journal_*.log를 자동 Replay하지 않는다.
+    결과/근거:
+[ ] MJ-REC-009 | Replay 완료 State와 종료 직전 Durable State가 동일하다.
+    결과/근거:
+[ ] MJ-REC-010 | Next Sequence가 마지막 Replay Sequence+1에서 시작한다.
+    결과/근거:
+[ ] MJ-REC-011 | 복구 후 실제 센서/축/카세트 상태 불일치 시 Auto를 차단한다.
+    결과/근거:
+
+11. Manual/UI Durable 저장
+------------------------
+
+[ ] MJ-UI-001 | Manual 변경 API가 발급된 Sequence를 호출자에게 반환한다.
+    결과/근거:
+[ ] MJ-UI-002 | 기존 TryFlushPendingSave UI 호출처가 FlushThrough(sequence, timeout)로 이관됐다.
+    결과/근거:
+[ ] MJ-UI-003 | Input Cassette 상태 변경/Slot Clear/All Clear의 저장 성공 여부가 UI에 표시된다.
+    결과/근거:
+[ ] MJ-UI-004 | Output Cassette GOOD/NG 변경·Clear의 저장 성공 여부가 UI에 표시된다.
+    결과/근거:
+[ ] MJ-UI-005 | Input/Output Stage 및 Picker 수동 Material 변경이 Durable 완료를 확인한다.
+    결과/근거:
+[ ] MJ-UI-006 | Map Transfer 수동 변경이 Durable 완료를 확인한다.
+    결과/근거:
+[ ] MJ-UI-007 | 저장 실패 시 메모리만 변경된 상태와 손실 위험을 사용자에게 알린다.
+    결과/근거:
+[ ] MJ-UI-008 | StateChanged는 Runtime 표시용이며 Durable 완료와 혼동되지 않는다.
+    결과/근거:
+
+12. 생명주기
+-----------
+
+[ ] MJ-LIFE-001 | Auto 변경은 Journal Queue 등록 후 즉시 계속한다.
+    결과/근거:
+[ ] MJ-LIFE-002 | Idle에서 Writer Durable 확인 후 Checkpoint를 수행한다.
+    결과/근거:
+[ ] MJ-LIFE-003 | LOT 완료에서 Lot 이력 저장→LOT ID Delta→컴팩션→Flush→Checkpoint 순서를 확인했다.
+    결과/근거:
+[ ] MJ-LIFE-004 | LOT 완료 중 물리적으로 남은 Output Material을 보존한다.
+    결과/근거:
+[ ] MJ-LIFE-005 | 종료 시 신규 변경 접수 종료→Queue Drain→Flush→Checkpoint→Dispose 순서다.
+    결과/근거:
+[ ] MJ-LIFE-006 | 종료 저장 실패가 기존 종료 확인 UI에 전달된다.
+    결과/근거:
+[ ] MJ-LIFE-007 | Emergency/Cycle Stop은 장비 안전 정지를 파일 저장보다 우선한다.
+    결과/근거:
+[ ] MJ-LIFE-008 | 안전 정지 후 Journal Flush가 요청된다.
+    결과/근거:
+
+13. 파일 증가 제한
+----------------
+
+[ ] MJ-SIZE-001 | 한 LOT 진행 중 Journal Byte 증가율을 계측했다.
+    결과/근거:
+[ ] MJ-SIZE-002 | Checkpoint 후 반영 완료 Journal이 회전·정리된다.
+    결과/근거:
+[ ] MJ-SIZE-003 | material_state.json은 현재 복구에 필요한 Material만 포함한다.
+    결과/근거:
+[ ] MJ-SIZE-004 | 반복 LOT/카세트 교체 후 Empty/Unknown 객체 수가 계속 증가하지 않는다.
+    결과/근거:
+[ ] MJ-SIZE-005 | material_state.failed.* 진단 파일 보존 개수/기간이 제한된다.
+    결과/근거:
+[ ] MJ-SIZE-006 | Temp 파일 정리가 정상 파일이나 활성 Journal을 삭제하지 않는다.
+    결과/근거:
+[ ] MJ-SIZE-007 | Recovery/Backup/Journal/Checkpoint의 역할과 보존 정책이 문서화됐다.
+    결과/근거:
+
+14. 장애 주입 복구 테스트
+----------------------
+
+[ ] MJ-FAIL-001 | Queue 등록 직후 Writer 전 종료를 검증했다.
+    결과/근거:
+[ ] MJ-FAIL-002 | Journal Write 후 Flush 전 종료를 검증했다.
+    결과/근거:
+[ ] MJ-FAIL-003 | Journal 마지막 Record 중간 절단을 검증했다.
+    결과/근거:
+[ ] MJ-FAIL-004 | Journal 중간 Record 손상을 검증했다.
+    결과/근거:
+[ ] MJ-FAIL-005 | Checkpoint 임시 파일 쓰기 중 종료를 검증했다.
+    결과/근거:
+[ ] MJ-FAIL-006 | Checkpoint 교체 후 Journal 회전 전 종료를 검증했다.
+    결과/근거:
+[ ] MJ-FAIL-007 | Journal 회전 중 종료를 검증했다.
+    결과/근거:
+[ ] MJ-FAIL-008 | Disk Full을 검증했다.
+    결과/근거:
+[ ] MJ-FAIL-009 | 파일 권한 오류를 검증했다.
+    결과/근거:
+[ ] MJ-FAIL-010 | Writer 처리 지연과 Queue High Watermark를 검증했다.
+    결과/근거:
+[ ] MJ-FAIL-011 | 같은 Delta 중복 Replay를 검증했다.
+    결과/근거:
+
+15. Auto 동작·택타임 검증
+-----------------------
+
+[ ] MJ-PERF-001 | Auto Hot Path에서 CreateSaveCopy(State)를 호출하지 않는다.
+    결과/근거:
+[ ] MJ-PERF-002 | Auto Hot Path에서 MaterialSnapshotStore.Save를 호출하지 않는다.
+    결과/근거:
+[ ] MJ-PERF-003 | Auto Hot Path에서 전체 Wafers/Dies 컬렉션을 직렬화하지 않는다.
+    결과/근거:
+[ ] MJ-PERF-004 | 변경 전후 동일 Die 수/속도/Sim 조건으로 Cycle Time을 비교했다.
+    결과/근거:
+[ ] MJ-PERF-005 | Auto 1 Cycle 평균이 변경 전보다 악화되지 않았다.
+    결과/근거:
+[ ] MJ-PERF-006 | Auto 1 Cycle P95/P99가 변경 전보다 악화되지 않았다.
+    결과/근거:
+[ ] MJ-PERF-007 | UPH가 변경 전보다 악화되지 않았다.
+    결과/근거:
+[ ] MJ-PERF-008 | _stateSync 보유 시간이 Delta 생성 수준으로 제한된다.
+    결과/근거:
+[ ] MJ-PERF-009 | Journal Batch 로그가 매 Die 로그 폭증을 만들지 않는다.
+    결과/근거:
+
+16. 기능 회귀 검증
+----------------
+
+[ ] MJ-REG-001 | Input Cassette Mapping/Load/Unload Material 결과가 동일하다.
+    결과/근거:
+[ ] MJ-REG-002 | Input Stage Align/Mapping/Review Material 결과가 동일하다.
+    결과/근거:
+[ ] MJ-REG-003 | Pick 예약/해제/Pick 완료 결과가 동일하다.
+    결과/근거:
+[ ] MJ-REG-004 | Bottom/Side 검사 요약 결과가 동일하다.
+    결과/근거:
+[ ] MJ-REG-005 | GOOD/NG Place와 Output Receive 결과가 동일하다.
+    결과/근거:
+[ ] MJ-REG-006 | Output Stage/Feeder/Cassette Load/Unload Material 결과가 동일하다.
+    결과/근거:
+[ ] MJ-REG-007 | LOT ID는 명시적인 LOT 완료 전까지 유지된다.
+    결과/근거:
+[ ] MJ-REG-008 | LOT 완료 후 Lot 이력/통계가 정상 저장된다.
+    결과/근거:
+[ ] MJ-REG-009 | 프로그램 재시작 후 Material 위치/상태/ID가 동일하게 복구된다.
+    결과/근거:
+[ ] MJ-REG-010 | 센서/Material 불일치 차단 정책이 유지된다.
+    결과/근거:
+
+17. 정적 검사와 빌드
+-----------------
+
+[ ] MJ-BUILD-001 | 신규 .cs 파일이 csproj Compile Include에 정확히 한 번 등록됐다.
+    결과/근거:
+[ ] MJ-BUILD-002 | C# 7.3/.NET Framework 4.7.2에서 지원되지 않는 문법/API가 없다.
+    결과/근거:
+[ ] MJ-BUILD-003 | 빈 catch, 의미 없는 finally, 예외 성공 변환이 없다.
+    결과/근거:
+[ ] MJ-BUILD-004 | 신규 운영 로그와 UI 오류 문구가 자연스러운 한글이다.
+    결과/근거:
+[ ] MJ-BUILD-005 | 수정 파일 UTF-8 BOM/CRLF/final newline을 확인했다.
+    결과/근거:
+[ ] MJ-BUILD-006 | git diff --check가 통과했다.
+    결과/근거:
+[ ] MJ-BUILD-007 | 격리 OutDir /t:Build가 오류 0으로 성공했다.
+    결과/근거:
+[ ] MJ-BUILD-008 | 관련 테스트가 있으면 실행했고, 없으면 없음을 보고했다.
+    결과/근거:
+
+18. 실장비 최종 검증
+-----------------
+
+[ ] MJ-FIELD-001 | 실제 생산 조건에서 Pick/Inspect/Place Material 전이를 확인했다.
+    결과/근거:
+[ ] MJ-FIELD-002 | 실제 생산 조건에서 Journal Queue/Flush 지연을 확인했다.
+    결과/근거:
+[ ] MJ-FIELD-003 | 실제 LOT 완료 후 물리 Output Material 보존을 확인했다.
+    결과/근거:
+[ ] MJ-FIELD-004 | 실제 카세트 교체와 Data Clear 후 파일 크기 감소를 확인했다.
+    결과/근거:
+[ ] MJ-FIELD-005 | 프로그램 강제 종료/재시작 복구를 승인된 절차로 확인했다.
+    결과/근거:
+[ ] MJ-FIELD-006 | 저장 장애 시 Auto 안전 정지와 운영자 안내를 확인했다.
+    결과/근거:
+
+19. 최종 보고
+-----------
+
+[ ] MJ-FINAL-001 | 완료 항목과 미완료 항목을 분리했다.
+    결과/근거:
+[ ] MJ-FINAL-002 | 실장비에서만 확인 가능한 항목을 별도로 표시했다.
+    결과/근거:
+[ ] MJ-FINAL-003 | 기존 대비 Cycle/UPH/Lock/파일 크기 수치를 표로 보고했다.
+    결과/근거:
+[ ] MJ-FINAL-004 | Journal Flush 손실 허용 구간과 잔여 위험을 보고했다.
+    결과/근거:
+[ ] MJ-FINAL-005 | 수정 파일과 사용자/다른 작업자 파일을 구분했다.
+    결과/근거:
+[ ] MJ-FINAL-006 | Git commit을 수행하지 않았음을 확인했다.
+    결과/근거:

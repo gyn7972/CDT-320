@@ -430,7 +430,7 @@
             // 
             this.grpManual.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpManual.Controls.Add(this.manualActionPanel);
-            this.grpManual.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.grpManual.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpManual.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpManual.Location = new System.Drawing.Point(4, 482);
             this.grpManual.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);

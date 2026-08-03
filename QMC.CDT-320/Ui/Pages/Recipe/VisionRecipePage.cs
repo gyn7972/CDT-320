@@ -22,6 +22,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private IDisposable bottomVisionPreview;
         private IDisposable sideVisionPreview;
         private VisionUnit _visionUnit;
+        private OutputStageUnit _outputStageUnit;
 
         public VisionRecipePage() : this("recipe.inputVision")
         {
@@ -209,6 +210,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 var machine = FindMachine();
                 _visionUnit = machine != null ? machine.VisionUnit : null;
+                _outputStageUnit = machine != null ? machine.OutputStageUnit : null;
                 if (_visionUnit != null && _visionUnit.Recipe != null)
                     _visionUnit.Recipe.EnsurePositionObjects();
                 SetEnabledState(_visionUnit != null);
@@ -374,7 +376,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 manualActionPanel.ColumnCount = 2;
                 manualActionPanel.SetItems(new[]
                 {
-                    ManualActionItem.Create("AVOID POSITION", () => ConfirmAndRunAsync("AVOID POSITION", () => _visionUnit.MoveToVisionAvoidPosition(), _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY)),
+                    ManualActionItem.Create("AVOID POSITION", () => ConfirmAndRunAsync("AVOID POSITION", MoveBothAvoidAsync, _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY)),
                     ManualActionItem.Create("PROCESS POSITION (0°)", () => ConfirmAndRunAsync("PROCESS POSITION (0°)", MoveBothProcess0Async, _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY)),
                     ManualActionItem.Create("PROCESS POSITION (90°)", () => ConfirmAndRunAsync("PROCESS POSITION (90°)", MoveBothProcess90Async, _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY)),
                     ManualActionItem.Create("RETICLE 공정 위치", () => RunReticleActionAsync("RETICLE 공정 위치", true)),
@@ -391,7 +393,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
         private async void btnAvoidPosition_Click(object sender, EventArgs e)
         {
-            await ConfirmAndRunAsync("AVOID POSITION", () => _visionUnit.MoveToVisionAvoidPosition(), _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY);
+            await ConfirmAndRunAsync("AVOID POSITION", MoveBothAvoidAsync, _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY);
         }
 
         private async void btnProcessPosition0_Click(object sender, EventArgs e)
@@ -404,13 +406,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             await ConfirmAndRunAsync("PROCESS POSITION (90°)", MoveBothProcess90Async, _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY);
         }
 
+        // Front/Rear 양측을 각자 Avoid 위치로 이동 — 현재 UI 속도 모드를 축별로 적용한다.
+        private Task<int> MoveBothAvoidAsync()
+        {
+            if (_visionUnit == null)
+                return Task.FromResult(-1);
+
+            return MoveBothVisionAxesWithSelectedSpeedAsync(
+                _visionUnit.Recipe.FrontSideVision.AvoidPosition,
+                _visionUnit.Recipe.RearSideVision.AvoidPosition);
+        }
+
         // Front/Rear 양측을 각자 Process 위치(0도)로 이동
         private async Task<int> MoveBothProcess0Async()
         {
             if (_visionUnit == null)
                 return -1;
 
-            return await _visionUnit.ManualMoveBothSideVisionProcess0Position();
+            return await MoveBothVisionAxesWithSelectedSpeedAsync(
+                _visionUnit.Recipe.FrontSideVision.Process0Position,
+                _visionUnit.Recipe.RearSideVision.Process0Position);
         }
 
         // Front/Rear 양측을 각자 Process 위치(90도)로 이동
@@ -419,7 +434,29 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (_visionUnit == null)
                 return -1;
 
-            return await _visionUnit.ManualMoveBothSideVisionProcess90Position();
+            return await MoveBothVisionAxesWithSelectedSpeedAsync(
+                _visionUnit.Recipe.FrontSideVision.Process90Position,
+                _visionUnit.Recipe.RearSideVision.Process90Position);
+        }
+
+        // 기존 양축 동시 이동(Task.WhenAll)은 유지하고, Current 속도는 각 축 Config 기준으로 따로 계산한다.
+        private async Task<int> MoveBothVisionAxesWithSelectedSpeedAsync(double frontTarget, double rearTarget)
+        {
+            JogSpeedType speedType = jogAxisMoveControl.SelectedSpeedType;
+            double frontSpeed = jogAxisMoveControl.GetSelectedSpeed(_visionUnit.FrontSideVisionY);
+            double rearSpeed = jogAxisMoveControl.GetSelectedSpeed(_visionUnit.RearSideVisionY);
+
+            int[] results = await Task.WhenAll(
+                _visionUnit.MoveVisionAxis(VisionAxis.FrontSideVisionY, frontTarget, speedType, frontSpeed),
+                _visionUnit.MoveVisionAxis(VisionAxis.RearSideVisionY, rearTarget, speedType, rearSpeed));
+
+            for (int i = 0; i < results.Length; i++)
+            {
+                if (results[i] != 0)
+                    return results[i];
+            }
+
+            return 0;
         }
 
         // ===== RETICLE 공정/대기 위치 실린더 일괄 동작 =====
@@ -663,12 +700,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 var unit = _visionUnit;
-                ioCylinderPanel.ColumnCount = 2;   // 2열 배치 (Front Head 기준)
-            ioCylinderPanel.SetItems(new[]
+                var outputStageUnit = _outputStageUnit;
+                var items = new List<IoCylinderItem>
                 {
-                    // ===== 단독(묶이지 않은) 체크 센서 — 최상단 =====
-                    IoCylinderItem.Input("WAFER STAGE TOUCH", () => IsOn(unit.WaferStageTouchSensor)),
-
                     // ===== SET: RETICLE LIFT (Up/Down 체크 센서 + Up/Down 출력 통합 실린더) =====
                     IoCylinderItem.Input("RETICLE UP", () => IsOn(unit.ReticleUpSensor)),
                     IoCylinderItem.Input("RETICLE DOWN", () => IsOn(unit.ReticleDownSensor)),
@@ -682,13 +716,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     // ===== SET: RETICLE REAR SLIDE (Fw/Bw 체크 센서 + Fw/Bw 출력 통합 실린더) =====
                     IoCylinderItem.Input("RETICLE REAR FW", () => IsOn(unit.ReticleRearSideFwSensor)),
                     IoCylinderItem.Input("RETICLE REAR BW", () => IsOn(unit.ReticleRearSideBwSensor)),
-                    IoCylinderItem.Cylinder("RETICLE REAR SLIDE", unit.ReticleRearSideSlide, "FW", "BW"),
+                    IoCylinderItem.Cylinder("RETICLE REAR SLIDE", unit.ReticleRearSideSlide, "FW", "BW")
+                };
 
-                    // ===== SET: NEEDLE VACUUM (진공 확인 센서 + 진공 출력) =====
-                    IoCylinderItem.Input("NEEDLE VACUUM CHECK", () => IsOn(unit.NeedleVacuumSensor)),
-                    IoCylinderItem.Output("NEEDLE VACUUM", () => IsOn(unit.NeedleVacuumOutput),
-                        on => WriteOutAsync(unit.NeedleVacuumOutput, on), "ON", "OFF")
-                });
+                if (outputStageUnit != null)
+                {
+                    // 물리 출력의 소유 Unit은 유지하고, 수동 조작 위치만 Vision 화면으로 옮긴다.
+                    items.Add(IoCylinderItem.Output("BTM VISION BLOW", () => IsOn(outputStageUnit.BottomVisionBlowOnOut),
+                        on => GuardedPairOut("BottomVisionBlow", null,
+                            outputStageUnit.BottomVisionBlowOnOut, outputStageUnit.BottomVisionBlowOffOut, on), "ON", "OFF"));
+                }
+
+                ioCylinderPanel.ColumnCount = 2;   // 2열 배치 (Front Head 기준)
+                ioCylinderPanel.SetItems(items);
             }
             catch (Exception ex)
             {
@@ -718,11 +758,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (on) output.On(); else output.Off();
         }
 
-        private static Task<int> WriteOutAsync(QMC.Common.IO.BaseDigitalOutput output, bool on)
+        private static Task<int> WritePairOut(QMC.Common.IO.BaseDigitalOutput forward,
+            QMC.Common.IO.BaseDigitalOutput backward, bool forwardOn)
         {
             try
             {
-                WriteOut(output, on);
+                WriteOut(forward, forwardOn);
+                WriteOut(backward, !forwardOn);
                 return Task.FromResult(0);
             }
             catch
@@ -732,6 +774,48 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        // 기존 Output Stage 화면과 동일하게 모션가드 검증 후 DO pair를 조작한다.
+        private Task<int> GuardedPairOut(string movingName, QMC.Common.IO.BaseCylinder cylinder,
+            QMC.Common.IO.BaseDigitalOutput forward, QMC.Common.IO.BaseDigitalOutput backward, bool forwardOn)
+        {
+            try
+            {
+                string reason;
+                if (cylinder != null)
+                {
+                    if (!MotionGuardRuntime.VerifyCylinderMove(cylinder, forwardOn, out reason))
+                        return Task.FromResult(-1);
+                }
+                else
+                {
+                    if (!VerifyNamedCylinderMove(movingName, forwardOn, out reason))
+                    {
+                        QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error,
+                            "OUTPUT-STAGE", "UI", movingName + " output blocked by interlock: " + reason);
+                        return Task.FromResult(-1);
+                    }
+                }
+
+                return WritePairOut(forward, backward, forwardOn);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        // BaseCylinder가 없는 바텀비전 블로우를 이름 기반 레지스트리 가드로 검사한다.
+        private bool VerifyNamedCylinderMove(string movingName, bool forwardOn, out string reason)
+        {
+            var context = MotionGuardRuntime.ContextProvider != null ? MotionGuardRuntime.ContextProvider() : null;
+            var request = new MotionGuardRuleContext(movingName, movingName, forwardOn ? 1.0 : 0.0,
+                MotionGuardMoveKind.CylinderMove, string.Empty, null, context);
+            return MotionGuardRuleRegistry.Verify(request, out reason);
         }
 
         private void BindJogPanel()

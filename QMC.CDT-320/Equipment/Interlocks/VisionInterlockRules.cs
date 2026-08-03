@@ -247,6 +247,10 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyAllPickerZSafeForReticleMove(request.Machine, "ReticleSideSlideFront", out reason))
                     return false;
 
+                if (!VerifyReticleLiftUpBeforeSlideForward(
+                    request.Machine, request.TargetValue, "ReticleSideSlideFront", out reason))
+                    return false;
+
                 switch (request.MoveKind)
                 {
                     case MotionGuardMoveKind.CylinderInitialize:
@@ -299,6 +303,10 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyAllPickerZSafeForReticleMove(request.Machine, "ReticleSideSlideRear", out reason))
                     return false;
 
+                if (!VerifyReticleLiftUpBeforeSlideForward(
+                    request.Machine, request.TargetValue, "ReticleSideSlideRear", out reason))
+                    return false;
+
                 switch (request.MoveKind)
                 {
                     case MotionGuardMoveKind.CylinderInitialize:
@@ -340,6 +348,33 @@ namespace QMC.CDT320.Interlocks
         #endregion
 
         #region Stage·Picker·Busy 공통 확인
+
+        // 절대 인터락: Reticle Slide 전진은 Lift가 완전한 UP 상태일 때만 허용한다.
+        // 후진은 비정상 위치에서도 안전 복귀할 수 있도록 이 조건으로 차단하지 않는다.
+        private static bool VerifyReticleLiftUpBeforeSlideForward(
+            CDT320_Machine machine,
+            double targetValue,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (targetValue < 0.5)
+                return true;
+
+            VisionUnit vision = machine != null ? machine.VisionUnit : null;
+            BaseCylinder lift = vision != null ? vision.ReticleLift : null;
+            if (lift != null && lift.IsFwd)
+                return true;
+
+            bool upSensorOn = lift != null && lift.InFwd != null && lift.InFwd.IsOn;
+            bool downSensorOn = lift != null && lift.InBwd != null && lift.InBwd.IsOn;
+            return MotionGuardRuleHelpers.Block(
+                movingName,
+                "Reticle Slide 전진 차단: Reticle Lift가 완전한 UP 상태가 아닙니다. " +
+                "liftUp=" + upSensorOn + ", liftDown=" + downSensorOn,
+                out reason);
+        }
 
         // 인터락 항목: SideVision 이동 전 InputStage 축 이동 중 여부를 확인한다.
         private static bool VerifyInputStageClear(CDT320_Machine machine, string movingName, out string reason)

@@ -448,6 +448,33 @@ namespace QMC.CDT320
     /// <summary>GOOD/NG 출력 스테이지와 BinCamera 축을 관리하는 유닛입니다.</summary>
     public class OutputStageUnit : BaseUnit<OutputStageSetup, OutputStageConfig, OutputStageRecipe>, IUnitJogController
     {
+        // Recipe Manual Action 전용 속도 정보입니다.
+        // Current는 축별 JogCoarseVelocity 기준이므로 절대속도를 공유하지 않고 퍼센트로 보관합니다.
+        private sealed class ManualActionStageSpeedProfile
+        {
+            public JogSpeedType SpeedType { get; private set; }
+            public int CurrentSpeedPercent { get; private set; }
+
+            public ManualActionStageSpeedProfile(JogSpeedType speedType, int currentSpeedPercent)
+            {
+                SpeedType = speedType;
+                CurrentSpeedPercent = Math.Max(1, Math.Min(100, currentSpeedPercent));
+            }
+
+            public double Resolve(BaseAxis axis)
+            {
+                // JogSpeedControl.GetCustomSpeed와 동일하게 Config 미확보 시 1.0을 안전 기본값으로 사용한다.
+                double customSpeed = 1.0;
+                if (axis != null && axis.Config != null)
+                {
+                    double ratio = CurrentSpeedPercent / 100.0;
+                    customSpeed = Math.Max(0.1, axis.Config.JogCoarseVelocity * ratio);
+                }
+
+                return UnitJogVelocityResolver.Resolve(axis, SpeedType, customSpeed);
+            }
+        }
+
         // ----------------------------------------------------------------------
         // ----------------------------------------------------------------------
 
@@ -1001,7 +1028,31 @@ namespace QMC.CDT320
             return await MoveStageAxis(axis, targetPos, speedType, customSpeed, false).ConfigureAwait(false);
         }
 
-        private async Task<int> MoveStageAxis(BinStageAxis axis, double targetPos, JogSpeedType speedType, double customSpeed, bool forceMove)
+        private Task<int> MoveStageAxis(
+            BinStageAxis axis,
+            double targetPos,
+            JogSpeedType speedType,
+            double customSpeed,
+            bool forceMove)
+        {
+            return MoveStageAxis(
+                axis,
+                targetPos,
+                speedType,
+                customSpeed,
+                forceMove,
+                null,
+                false);
+        }
+
+        private async Task<int> MoveStageAxis(
+            BinStageAxis axis,
+            double targetPos,
+            JogSpeedType speedType,
+            double customSpeed,
+            bool forceMove,
+            ManualActionStageSpeedProfile manualSpeedProfile,
+            bool useInternalMoveFailureReporting)
         {
             try
             {
@@ -1030,6 +1081,7 @@ namespace QMC.CDT320
                     targetPos,
                     itemTimeoutMs: ResolveStageAxisMoveTimeout(axis),
                     bFine: false,
+                    manualSpeedProfile: manualSpeedProfile,
                     ct: CancellationToken.None).ConfigureAwait(false);
                 if (clearResult != 0)
                     return clearResult;
@@ -1040,11 +1092,15 @@ namespace QMC.CDT320
                 EventLogger.Write(EventKind.Event, "QMC", "OS-MOVE", axis + " 조그 속도 위치 이동 시작. target=" + targetPos + ", velocity=" + velocity);
                 int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration, forceMove).ConfigureAwait(false);
                 if (result != 0 || item.IsAlarm)
-                    return RaiseOutputStageAlarm(
-                        "OS-MOVE",
+                {
+                    string failureMessage =
                         axis + " 조그 속도 위치 이동 명령 실패. result=" + result +
                         ", alarm=" + item.IsAlarm +
-                        FormatStageAxisLastMotionFailure(item));
+                        FormatStageAxisLastMotionFailure(item);
+                    return useInternalMoveFailureReporting
+                        ? ReportOutputStageMoveFailure("OS-MOVE", result, failureMessage)
+                        : RaiseOutputStageAlarm("OS-MOVE", failureMessage);
+                }
 
                 // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 return 0;
@@ -1052,6 +1108,40 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 return RaiseOutputStageAlarm("OS-MOVE-EX", axis + " 조그 속도 위치 이동 중 예외가 발생했습니다. " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Recipe Manual Action의 선택 속도를 대상축과 조건부 안전회피축에 동일한 모드로 적용합니다.
+        /// 기존 Auto/Ready/Jog 오버로드의 속도 의미와 인터락 조건은 변경하지 않습니다.
+        /// </summary>
+        public async Task<int> MoveStageAxisForManualAction(
+            BinStageAxis axis,
+            double targetPos,
+            JogSpeedType speedType,
+            int currentSpeedPercent)
+        {
+            try
+            {
+                if (!HasStageAxis(axis))
+                    return 0;
+
+                BaseAxis item = ResolveStageAxis(axis);
+                var speedProfile = new ManualActionStageSpeedProfile(speedType, currentSpeedPercent);
+                return await MoveStageAxis(
+                    axis,
+                    targetPos,
+                    speedProfile.SpeedType,
+                    speedProfile.Resolve(item),
+                    false,
+                    speedProfile,
+                    false).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm(
+                    "OS-MANUAL-MOVE-EX",
+                    axis + " Manual Action 이동 중 예외가 발생했습니다. " + ex.Message);
             }
         }
 
@@ -1146,6 +1236,19 @@ namespace QMC.CDT320
             return MoveStageAxis(axis, GetStageTeachingPosition(axis, positionName), speedType, customSpeed);
         }
 
+        public Task<int> MoveStageAxisToTeachingPositionForManualAction(
+            BinStageAxis axis,
+            string positionName,
+            JogSpeedType speedType,
+            int currentSpeedPercent)
+        {
+            return MoveStageAxisForManualAction(
+                axis,
+                GetStageTeachingPosition(axis, positionName),
+                speedType,
+                currentSpeedPercent);
+        }
+
         public async Task<int> MoveToStageAvoidPosition(bool bFine = false)
         {
             Recipe.EnsurePositionObjects();
@@ -1225,7 +1328,29 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task<int> EnsureGoodStageZNonAvoidMoveClearIfNeededAsync(BinStageAxis axis, double targetPos, int itemTimeoutMs, bool bFine, CancellationToken ct)
+        private Task<int> EnsureGoodStageZNonAvoidMoveClearIfNeededAsync(
+            BinStageAxis axis,
+            double targetPos,
+            int itemTimeoutMs,
+            bool bFine,
+            CancellationToken ct)
+        {
+            return EnsureGoodStageZNonAvoidMoveClearIfNeededAsync(
+                axis,
+                targetPos,
+                itemTimeoutMs,
+                bFine,
+                null,
+                ct);
+        }
+
+        private async Task<int> EnsureGoodStageZNonAvoidMoveClearIfNeededAsync(
+            BinStageAxis axis,
+            double targetPos,
+            int itemTimeoutMs,
+            bool bFine,
+            ManualActionStageSpeedProfile manualSpeedProfile,
+            CancellationToken ct)
         {
             try
             {
@@ -1239,10 +1364,11 @@ namespace QMC.CDT320
                 if (IsNgStageInAvoidPosition())
                     return 0;
 
-                return await EnsureNgStageAvoidBeforeGoodStageZNonAvoidMoveAsync(
+                return await EnsureNgStageAvoidBeforeGoodStageZLoadUnloadAsync(
                     "GoodStageZ 상승/공정 위치 이동",
                     itemTimeoutMs,
                     bFine,
+                    manualSpeedProfile,
                     ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
@@ -1662,7 +1788,26 @@ namespace QMC.CDT320
                 ct).ConfigureAwait(false);
         }
 
-        private async Task<int> EnsureNgStageAvoidBeforeGoodStageZLoadUnloadAsync(string motionName, int timeoutMs, bool bFine, CancellationToken ct)
+        private Task<int> EnsureNgStageAvoidBeforeGoodStageZLoadUnloadAsync(
+            string motionName,
+            int timeoutMs,
+            bool bFine,
+            CancellationToken ct)
+        {
+            return EnsureNgStageAvoidBeforeGoodStageZLoadUnloadAsync(
+                motionName,
+                timeoutMs,
+                bFine,
+                null,
+                ct);
+        }
+
+        private async Task<int> EnsureNgStageAvoidBeforeGoodStageZLoadUnloadAsync(
+            string motionName,
+            int timeoutMs,
+            bool bFine,
+            ManualActionStageSpeedProfile manualSpeedProfile,
+            CancellationToken ct)
         {
             try
             {
@@ -1674,11 +1819,12 @@ namespace QMC.CDT320
 
                 if (!IsGoodStageZInAvoidPosition())
                 {
-                    int goodZResult = await MoveStageAxisAndVerifyAsync(
+                    int goodZResult = await MoveStageAxisAndVerifyWithOptionalManualSpeedAsync(
                         BinStageAxis.GoodBinZ,
                         Recipe.GoodStageZ.AvoidPosition,
                         timeoutMs,
                         bFine,
+                        manualSpeedProfile,
                         ct).ConfigureAwait(false);
                     if (goodZResult != 0)
                     {
@@ -1716,7 +1862,22 @@ namespace QMC.CDT320
 
                 if (!IsNgStageInAvoidPosition())
                 {
-                    int ngAvoidResult = await MoveNgStageToAvoidAndVerifyAsync(timeoutMs, bFine, ct).ConfigureAwait(false);
+                    int ngAvoidResult;
+                    if (manualSpeedProfile == null)
+                    {
+                        // 기존 Auto/Ready 경로의 알람/예외 처리까지 그대로 보존한다.
+                        ngAvoidResult = await MoveNgStageToAvoidAndVerifyAsync(timeoutMs, bFine, ct).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        ngAvoidResult = await MoveStageAxisAndVerifyWithOptionalManualSpeedAsync(
+                            BinStageAxis.NgBinY,
+                            Recipe.NGStageY.AvoidPosition,
+                            timeoutMs,
+                            bFine,
+                            manualSpeedProfile,
+                            ct).ConfigureAwait(false);
+                    }
                     if (ngAvoidResult != 0)
                     {
                         return RaiseOutputStageAlarm(
@@ -2417,6 +2578,39 @@ namespace QMC.CDT320
                 return result;
 
             return 0;
+        }
+
+        private async Task<int> MoveStageAxisAndVerifyWithOptionalManualSpeedAsync(
+            BinStageAxis axis,
+            double targetPos,
+            int timeoutMs,
+            bool bFine,
+            ManualActionStageSpeedProfile manualSpeedProfile,
+            CancellationToken ct)
+        {
+            if (manualSpeedProfile == null)
+                return await MoveStageAxisAndVerifyAsync(axis, targetPos, timeoutMs, bFine, ct).ConfigureAwait(false);
+
+            if (!HasStageAxis(axis))
+                return 0;
+
+            ct.ThrowIfCancellationRequested();
+            BaseAxis item = ResolveStageAxis(axis);
+            // 기존 내부 안전이동과 동일한 TeachingMove 인터락 컨텍스트를 유지한다.
+            using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginAxisTeachingMove(
+                item,
+                targetPos,
+                "OutputStageUnit.InternalMoveAndVerify;" + axis))
+            {
+                return await MoveStageAxis(
+                    axis,
+                    targetPos,
+                    manualSpeedProfile.SpeedType,
+                    manualSpeedProfile.Resolve(item),
+                    false,
+                    null,
+                    true).ConfigureAwait(false);
+            }
         }
 
         private async Task<int> MoveStageAxisAndVerifyAsync(BinStageAxis axis, double targetPos, int timeoutMs, JogSpeedType speedType, double customSpeed, CancellationToken ct)

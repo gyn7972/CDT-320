@@ -9,6 +9,7 @@ using QMC.Common.Alarms;
 using QMC.Common.IO;
 using QMC.Common.Motion;
 using QMC.CDT320.Interlocks;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT320
 {
@@ -1360,10 +1361,11 @@ namespace QMC.CDT320
                     return true;
                 }
 
-                if (!IsAnyCassetteSensorOn(TargetCassette.Good1))
+                int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Config.InchSelect);
+                if (!IsBinCassettePresentAll(TargetCassette.Good1, cassetteSize))
                     return FailMappingScanBool("OUT-CST-MAP-GOOD-MISSING", "Good cassette is not detected.");
 
-                if (!IsAnyCassetteSensorOn(TargetCassette.Ng))
+                if (!IsBinCassettePresentAll(TargetCassette.Ng, cassetteSize))
                     return FailMappingScanBool("OUT-CST-MAP-NG-MISSING", "NG cassette is not detected.");
 
                 // To do: [존 분리 스캔] 전체 스캔 = NG(맨 아래) → Good1 → Good2(2단 구성 시) 순 세그먼트.
@@ -1406,10 +1408,11 @@ namespace QMC.CDT320
                     return true;
                 }
 
-                if (!IsAnyCassetteSensorOn(TargetCassette.Good1))
+                int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Config.InchSelect);
+                if (!IsBinCassettePresentAll(TargetCassette.Good1, cassetteSize))
                     return FailMappingScanBool("OUT-CST-MAP-GOOD-MISSING", "Good cassette is not detected.");
 
-                if (!IsAnyCassetteSensorOn(TargetCassette.Ng))
+                if (!IsBinCassettePresentAll(TargetCassette.Ng, cassetteSize))
                     return FailMappingScanBool("OUT-CST-MAP-NG-MISSING", "NG cassette is not detected.");
 
                 // To do: [존 분리 스캔] 각 존이 자기 시작점으로 접근하므로 현재 위치 무관. 전체 존 순차 스캔.
@@ -1477,6 +1480,12 @@ namespace QMC.CDT320
                 foreach (TargetCassette zone in zones)
                 {
                     ct.ThrowIfCancellationRequested();
+
+                    int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Config.InchSelect);
+                    if (!IsBinCassettePresentAll(zone, cassetteSize))
+                        return FailMappingScanBool("OUT-CST-MAP-CST-MISSING",
+                            "Output cassette is not fully detected before mapping. Both cassette sensors must be ON. cassette=" + zone +
+                            ", cassetteSize=" + cassetteSize + ".");
 
                     double zoneStart = ResolveZoneMappingStartPosition(zone);
                     double zoneEnd = ResolveZoneMappingEndPosition(zone);
@@ -1717,8 +1726,11 @@ namespace QMC.CDT320
             try
             {
                 ct.ThrowIfCancellationRequested();
-                if (!IsAnyCassetteSensorOn(referenceCassette))
-                    return FailMappingScanList("OUT-CST-MAP-CST-MISSING", "Output cassette is not detected. cassette=" + referenceCassette);
+                int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Config.InchSelect);
+                if (!IsBinCassettePresentAll(referenceCassette, cassetteSize))
+                    return FailMappingScanList("OUT-CST-MAP-CST-MISSING",
+                        "Output cassette is not fully detected for mapping. Both cassette sensors must be ON. cassette=" + referenceCassette +
+                        ", cassetteSize=" + cassetteSize + ".");
 
                 if (moveToStart)
                 {
@@ -2118,6 +2130,10 @@ namespace QMC.CDT320
                 throw new ArgumentNullException("feeder");
 
             ValidateSlotIndex(slotIndex);
+            int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Config.InchSelect);
+            if (!IsOutputCassetteHardwareBypassed() && !IsBinCassettePresentAll(source, cassetteSize))
+                return false;
+
             BinSide side = ToBinSide(source);
             int timeoutMs = ResolveTransferTimeoutMs(feeder);
 
@@ -2337,9 +2353,11 @@ namespace QMC.CDT320
 
             if (mode == TransferMode.Load || mode == TransferMode.Unload)
             {
-                if (!IsAnyCassetteSensorOn(cassette))
+                int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Config.InchSelect);
+                if (!IsBinCassettePresentAll(cassette, cassetteSize))
                 {
-                    reason = "Output cassette sensor is not detected. cassette=" + cassette + ", mode=" + mode + ". " +
+                    reason = "Output cassette is not fully detected. Both cassette sensors must be ON. cassette=" + cassette +
+                             ", cassetteSize=" + cassetteSize + ", mode=" + mode + ". " +
                              BuildOutputCassetteSensorSummary();
                     return false;
                 }
@@ -2377,9 +2395,11 @@ namespace QMC.CDT320
                 return false;
             }
 
-            if (!IsAnyCassetteSensorOn(cassette))
+            int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Config.InchSelect);
+            if (!IsBinCassettePresentAll(cassette, cassetteSize))
             {
-                reason = "Output cassette sensor is not detected for mapping. cassette=" + cassette + ". " +
+                reason = "Output cassette is not fully detected for mapping. Both cassette sensors must be ON. cassette=" + cassette +
+                         ", cassetteSize=" + cassetteSize + ". " +
                          BuildOutputCassetteSensorSummary();
                 return false;
             }

@@ -223,12 +223,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 // [LOADING | UNLOADING] / [READY | 빈칸] / [MAPPING START | MAPPING END]
                 manualActionPanel.SetItems(new[]
                 {
-                    ManualActionItem.Create("LOADING MOVE", () => MoveToTarget("LOADING Z", _InputCassetteUnit.Recipe.LoaingPosition)),
-                    ManualActionItem.Create("UNLOADING MOVE", () => MoveToTarget("UNLOADING Z", _InputCassetteUnit.Recipe.UnloadingPosition)),
-                    ManualActionItem.Create("READY MOVE", () => MoveToTarget("READY POSITION", _InputCassetteUnit.Recipe.AvoidPosition)),
+                    ManualActionItem.Create("LOADING MOVE", () => ConfirmManualMoveAsync("LOADING", () => MoveToTarget("LOADING Z", _InputCassetteUnit.Recipe.LoaingPosition))),
+                    ManualActionItem.Create("UNLOADING MOVE", () => ConfirmManualMoveAsync("UNLOADING", () => MoveToTarget("UNLOADING Z", _InputCassetteUnit.Recipe.UnloadingPosition))),
+                    ManualActionItem.Create("READY MOVE", () => ConfirmManualMoveAsync("READY", () => MoveToTarget("READY POSITION", _InputCassetteUnit.Recipe.AvoidPosition))),
                     null,
-                    ManualActionItem.Create("MAPPING START", () => MoveToTarget("MAPPING START Z", _InputCassetteUnit.Recipe.MappingStartPosition)),
-                    ManualActionItem.Create("MAPPING END", () => MoveToTarget("MAPPING END Z", _InputCassetteUnit.Recipe.MappingEndPosition))
+                    ManualActionItem.Create("MAPPING START", () => ConfirmManualMoveAsync("MAPPING START", () => MoveToTarget("MAPPING START Z", _InputCassetteUnit.Recipe.MappingStartPosition))),
+                    ManualActionItem.Create("MAPPING END", () => ConfirmManualMoveAsync("MAPPING END", () => MoveToTarget("MAPPING END Z", _InputCassetteUnit.Recipe.MappingEndPosition)))
                 });
             }
             catch (Exception ex)
@@ -239,6 +239,24 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
             }
         }
+
+        private async Task ConfirmManualMoveAsync(string targetName, Func<Task> moveAsync)
+        {
+            if (_InputCassetteUnit == null || moveAsync == null)
+                return;
+
+            DialogResult result = QMC.Common.MessageDialog.Show(
+                this,
+                targetName + " 위치로 이동하시겠습니까?",
+                "Input Cassette Move",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+            if (result != DialogResult.Yes)
+                return;
+
+            await moveAsync();
+        }
+
         private async void btnLoadingMove_Click(object sender, EventArgs e)
         {
             try
@@ -761,8 +779,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ioCylinderPanel.ColumnCount = 2;   // 2열 배치 (Input Feeder 기준)
                 ioCylinderPanel.SetItems(new[]
                 {
-                    IoCylinderItem.Input("8 INCH CASSETTE", () => _InputCassetteUnit.IsWaferCassetteExist(8)),
-                    IoCylinderItem.Input("12 INCH CASSETTE", () => _InputCassetteUnit.IsWaferCassetteExist(12)),
+                    IoCylinderItem.Input("8 INCH CASSETTE", () => _InputCassetteUnit.IsWaferCassettePresentAll(8)),
+                    IoCylinderItem.Input("12 INCH CASSETTE", () => _InputCassetteUnit.IsWaferCassettePresentAll(12)),
                     IoCylinderItem.Input("WAFER PROTRUSION", () => _InputCassetteUnit.IsWaferProtrusionDetected()),
                     IoCylinderItem.Input("WAFER MAPPING", () => _InputCassetteUnit.IsWaferMapping())
                 });
@@ -944,8 +962,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ioCylinderPanel.RefreshStates();
                 jogPositionListControl.RefreshState();
 
-                dot8Inch.IsOn = _InputCassetteUnit.IsWaferCassetteExist(8);
-                dot12Inch.IsOn = _InputCassetteUnit.IsWaferCassetteExist(12);
+                dot8Inch.IsOn = _InputCassetteUnit.IsWaferCassettePresentAll(8);
+                dot12Inch.IsOn = _InputCassetteUnit.IsWaferCassettePresentAll(12);
                 dotProtrusion.IsOn = _InputCassetteUnit.IsWaferProtrusionDetected();
                 dotMapping.IsOn = _InputCassetteUnit.IsWaferMapping();
             }

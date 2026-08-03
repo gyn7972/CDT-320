@@ -579,11 +579,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 // 2열 열우선 배치 ("WAFER FEEDER" 접두사 생략):
                 // [1열] RING/AVOID CHECK + LIFT 세트, [2열] OVERLOAD + CLAMP 세트
                 ioCylinderPanel.ColumnCount = 2;
+                ioCylinderPanel.AutoFitParentGroupHeight = true;   // 5개 행 높이에 맞추고 내부 스크롤을 제거한다.
                 ioCylinderPanel.SetItems(new[]
                 {
                     IoCylinderItem.Input("RING CHECK", () => _inputFeederUnit.IsWaferFeederRingDetected()),
-                    IoCylinderItem.Input("UP", () => _inputFeederUnit.IsWaferFeederUp()),
-                    IoCylinderItem.Input("DOWN", () => _inputFeederUnit.IsWaferFeederDown()),
+                    IoCylinderItem.Input("LIFT UP", () => _inputFeederUnit.IsWaferFeederUp()),
+                    IoCylinderItem.Input("LIFT DOWN", () => _inputFeederUnit.IsWaferFeederDown()),
                     IoCylinderItem.Cylinder("LIFT", _inputFeederUnit.InputFeederLift, "UP", "DOWN"),
                     IoCylinderItem.Input("AVOID CHECK", () => _inputFeederUnit.IsWaferFeederAvoidPositionCheck()),
 

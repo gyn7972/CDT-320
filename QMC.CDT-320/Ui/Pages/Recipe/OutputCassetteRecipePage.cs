@@ -225,15 +225,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 manualActionPanel.ColumnCount = 2;
                 manualActionPanel.SetItems(new[]
                 {
-                    ManualActionItem.Create("GOOD LOADING MOVE", () => MoveToTarget("GOOD LOADING Z", _OutCassetteUnit.Recipe.GoodLoaingPosition)),
-                    ManualActionItem.Create("NG LOADING MOVE", () => MoveToTarget("NG LOADING Z", _OutCassetteUnit.Recipe.NGLoaingPosition)),
-                    ManualActionItem.Create("GOOD UNLOADING MOVE", () => MoveToTarget("GOOD UNLOADING Z", _OutCassetteUnit.Recipe.GoodUnloadingPosition)),
-                    ManualActionItem.Create("NG UNLOADING MOVE", () => MoveToTarget("NG UNLOADING Z", _OutCassetteUnit.Recipe.NGUnloadingPosition)),
-                    ManualActionItem.Create("GOOD SLOT START", () => MoveCassetteSlot(TargetCassette.Good1, _OutCassetteUnit != null ? _OutCassetteUnit.Config.LoadingPositionOffset : 0.0, "Output cassette good slot start move")),
-                    ManualActionItem.Create("NG SLOT START", () => MoveCassetteSlot(TargetCassette.Ng, _OutCassetteUnit != null ? _OutCassetteUnit.Config.LoadingPositionOffset : 0.0, "Output cassette ng slot start move")),
-                    ManualActionItem.Create("GOOD SLOT END", () => MoveCassetteSlot(TargetCassette.Good1, _OutCassetteUnit != null ? _OutCassetteUnit.Config.UnloadingPositionOffset : 0.0, "Output cassette good slot end move")),
-                    ManualActionItem.Create("NG SLOT END", () => MoveCassetteSlot(TargetCassette.Ng, _OutCassetteUnit != null ? _OutCassetteUnit.Config.UnloadingPositionOffset : 0.0, "Output cassette ng slot end move")),
-                    ManualActionItem.Create("READY MOVE", () => MoveToTarget("READY POSITION", _OutCassetteUnit.Recipe.AvoidPosition))
+                    ManualActionItem.Create("GOOD LOADING MOVE", () => ConfirmManualMoveAsync("GOOD LOADING", () => MoveToTarget("GOOD LOADING Z", _OutCassetteUnit.Recipe.GoodLoaingPosition))),
+                    ManualActionItem.Create("NG LOADING MOVE", () => ConfirmManualMoveAsync("NG LOADING", () => MoveToTarget("NG LOADING Z", _OutCassetteUnit.Recipe.NGLoaingPosition))),
+                    ManualActionItem.Create("GOOD UNLOADING MOVE", () => ConfirmManualMoveAsync("GOOD UNLOADING", () => MoveToTarget("GOOD UNLOADING Z", _OutCassetteUnit.Recipe.GoodUnloadingPosition))),
+                    ManualActionItem.Create("NG UNLOADING MOVE", () => ConfirmManualMoveAsync("NG UNLOADING", () => MoveToTarget("NG UNLOADING Z", _OutCassetteUnit.Recipe.NGUnloadingPosition))),
+                    ManualActionItem.Create("GOOD SLOT START", () => ConfirmManualMoveAsync("GOOD SLOT START", () => MoveCassetteSlot(TargetCassette.Good1, _OutCassetteUnit != null ? _OutCassetteUnit.Config.LoadingPositionOffset : 0.0, "Output cassette good slot start move"))),
+                    ManualActionItem.Create("NG SLOT START", () => ConfirmManualMoveAsync("NG SLOT START", () => MoveCassetteSlot(TargetCassette.Ng, _OutCassetteUnit != null ? _OutCassetteUnit.Config.LoadingPositionOffset : 0.0, "Output cassette ng slot start move"))),
+                    ManualActionItem.Create("GOOD SLOT END", () => ConfirmManualMoveAsync("GOOD SLOT END", () => MoveCassetteSlot(TargetCassette.Good1, _OutCassetteUnit != null ? _OutCassetteUnit.Config.UnloadingPositionOffset : 0.0, "Output cassette good slot end move"))),
+                    ManualActionItem.Create("NG SLOT END", () => ConfirmManualMoveAsync("NG SLOT END", () => MoveCassetteSlot(TargetCassette.Ng, _OutCassetteUnit != null ? _OutCassetteUnit.Config.UnloadingPositionOffset : 0.0, "Output cassette ng slot end move"))),
+                    ManualActionItem.Create("READY MOVE", () => ConfirmManualMoveAsync("READY", () => MoveToTarget("READY POSITION", _OutCassetteUnit.Recipe.AvoidPosition)))
                 });
             }
             catch (Exception ex)
@@ -244,6 +244,24 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
             }
         }
+
+        private async Task ConfirmManualMoveAsync(string targetName, Func<Task> moveAsync)
+        {
+            if (_OutCassetteUnit == null || moveAsync == null)
+                return;
+
+            DialogResult result = QMC.Common.MessageDialog.Show(
+                this,
+                targetName + " 위치로 이동하시겠습니까?",
+                "Output Cassette Move",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+            if (result != DialogResult.Yes)
+                return;
+
+            await moveAsync();
+        }
+
         private async void btnGoodLoadingMove_Click(object sender, EventArgs e)
         {
             try
@@ -1019,10 +1037,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     //IoCylinderItem.Input("GOOD BIN 12 INCH CASSETTE", () => _OutCassetteUnit.IsGoodBin(12) && !_OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsGoodBin(8)),
                     //IoCylinderItem.Input("NG BIN 8 INCH CASSETTE", () => !_OutCassetteUnit.IsGoodBin(8) && _OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsGoodBin(12)),
                     //IoCylinderItem.Input("NG BIN 12 INCH CASSETTE", () => !_OutCassetteUnit.IsGoodBin(12) && _OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsGoodBin(8)),
-                    IoCylinderItem.Input("GOOD BIN 8 INCH CASSETTE", () => _OutCassetteUnit.IsGoodBin(8)),
-                    IoCylinderItem.Input("GOOD BIN 12 INCH CASSETTE", () => _OutCassetteUnit.IsGoodBin(12)),
-                    IoCylinderItem.Input("NG BIN 8 INCH CASSETTE", () => _OutCassetteUnit.IsNgBin(8)),
-                    IoCylinderItem.Input("NG BIN 12 INCH CASSETTE", () => _OutCassetteUnit.IsNgBin(12)),
+                    IoCylinderItem.Input("GOOD BIN 8 INCH CASSETTE", () => _OutCassetteUnit.IsBinCassettePresentAll(TargetCassette.Good1, 8)),
+                    IoCylinderItem.Input("GOOD BIN 12 INCH CASSETTE", () => _OutCassetteUnit.IsBinCassettePresentAll(TargetCassette.Good1, 12)),
+                    IoCylinderItem.Input("NG BIN 8 INCH CASSETTE", () => _OutCassetteUnit.IsBinCassettePresentAll(TargetCassette.Ng, 8)),
+                    IoCylinderItem.Input("NG BIN 12 INCH CASSETTE", () => _OutCassetteUnit.IsBinCassettePresentAll(TargetCassette.Ng, 12)),
                     IoCylinderItem.Input("BIN RING JUT CHECK", () => _OutCassetteUnit.IsBinProtrusionDetectionSensor()),
                     IoCylinderItem.Input("BIN MAPPING", () => _OutCassetteUnit.IsBinMapping()),
 
@@ -1421,8 +1439,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ioCylinderPanel.RefreshStates();
                 jogPositionListControl.RefreshState();
 
-                dot8Inch.IsOn = _OutCassetteUnit.IsGoodBin(8) || _OutCassetteUnit.IsNgBin(8);
-                dot12Inch.IsOn = _OutCassetteUnit.IsGoodBin(12) || _OutCassetteUnit.IsNgBin(12);
+                dot8Inch.IsOn = _OutCassetteUnit.IsBinCassettePresentAll(TargetCassette.Good1, 8) ||
+                                    _OutCassetteUnit.IsBinCassettePresentAll(TargetCassette.Ng, 8);
+                dot12Inch.IsOn = _OutCassetteUnit.IsBinCassettePresentAll(TargetCassette.Good1, 12) ||
+                                     _OutCassetteUnit.IsBinCassettePresentAll(TargetCassette.Ng, 12);
                 dotProtrusion.IsOn = _OutCassetteUnit.IsBinProtrusionDetected();
                 dotMapping.IsOn = _OutCassetteUnit.IsBinMapping();
             }

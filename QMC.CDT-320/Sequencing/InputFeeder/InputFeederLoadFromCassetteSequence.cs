@@ -1531,7 +1531,7 @@ namespace QMC.CDT320.Sequencing
                        IsSimulationDigitalInput(second);
             }
 
-            return IsRealDigitalInputOn(first) ||
+            return IsRealDigitalInputOn(first) &&
                    IsRealDigitalInputOn(second);
         }
 

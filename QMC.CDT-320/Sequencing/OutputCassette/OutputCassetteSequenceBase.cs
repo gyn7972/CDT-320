@@ -144,8 +144,8 @@ namespace QMC.CDT320.Sequencing
                     return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
 
                 int size = ResolveCassetteSize(cassette);
-                bool goodDetected = cassette.IsBinCassetteExist(TargetCassette.Good1, size);
-                bool ngDetected = cassette.IsBinCassetteExist(TargetCassette.Ng, size);
+                bool goodDetected = cassette.IsBinCassettePresentAll(TargetCassette.Good1, size);
+                bool ngDetected = cassette.IsBinCassettePresentAll(TargetCassette.Ng, size);
                 // To do: [존 분리 스캔] 대상 존만 감지 검사(GOOD 동작 시 NG 부재로 막히지 않도록, 반대도 동일).
                 bool targetDetected = IsNgMappingTarget() ? ngDetected : goodDetected;
                 if (!IsHardwareBypassed() && !targetDetected)
@@ -202,8 +202,8 @@ namespace QMC.CDT320.Sequencing
                     return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
 
                 int size = ResolveCassetteSize(cassette);
-                bool goodMatched = cassette.IsBinCassetteExist(TargetCassette.Good1, size);
-                bool ngMatched = cassette.IsBinCassetteExist(TargetCassette.Ng, size);
+                bool goodMatched = cassette.IsBinCassettePresentAll(TargetCassette.Good1, size);
+                bool ngMatched = cassette.IsBinCassettePresentAll(TargetCassette.Ng, size);
                 // To do: [존 분리 스캔] 대상 존만 사이즈 일치 검사.
                 bool matched = IsNgMappingTarget() ? ngMatched : goodMatched;
                 if (!IsHardwareBypassed() && !matched)

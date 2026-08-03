@@ -1006,6 +1006,7 @@ namespace QMC.CDT320
                 return Wafer8CassetteCheck0.IsOn && Wafer8CassetteCheck1.IsOn;
             if (recipeSize == 12)
                 return Wafer12CassetteCheck0.IsOn && Wafer12CassetteCheck1.IsOn;
+
             return IsAnyCassetteSensorOn();
         }
 
@@ -1433,9 +1434,10 @@ namespace QMC.CDT320
                 return false;
             if (mode == TransferMode.Load || mode == TransferMode.Unload)
             {
-                if (!IsAnyCassetteSensorOn())
+                int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Config.InchSelect);
+                if (!IsWaferCassettePresentAll(cassetteSize))
                 {
-                    reason = "Input cassette is not detected for transfer. mode=" + mode + ". " + BuildCassetteSensorSummary();
+                    reason = "Input cassette is not fully detected for transfer. Both cassette sensors must be ON. cassetteSize=" + cassetteSize + ", mode=" + mode + ". " + BuildCassetteSensorSummary();
                     Log.Write("Main", "SYSTEM", "InputCassetteUnit", "Transfer ready check failed: " + reason + " - Check");
                     return false;
                 }
@@ -1455,9 +1457,10 @@ namespace QMC.CDT320
             if (!CheckWaferCassetteMoveReady(out reason))
                 return false;
 
-            if (!IsAnyCassetteSensorOn())
+            int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Config.InchSelect);
+            if (!IsWaferCassettePresentAll(cassetteSize))
             {
-                reason = "Input cassette is not detected for mapping. " + BuildCassetteSensorSummary();
+                reason = "Input cassette is not fully detected for mapping. Both cassette sensors must be ON. cassetteSize=" + cassetteSize + ". " + BuildCassetteSensorSummary();
                 Log.Write("Main", "SYSTEM", "InputCassetteUnit", "Mapping ready check failed: " + reason + " - Check");
                 return false;
             }
@@ -2300,9 +2303,11 @@ namespace QMC.CDT320
             try
             {
                 ct.ThrowIfCancellationRequested();
-                if (!IsAnyCassetteSensorOn())
+                int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Config.InchSelect);
+                if (!IsWaferCassettePresentAll(cassetteSize))
                 {
-                    return FailMappingScan("IN-CST-MAP-CST-MISSING", "Cassette is not detected.");
+                    return FailMappingScan("IN-CST-MAP-CST-MISSING",
+                        "Cassette is not fully detected for mapping. Both cassette sensors must be ON. cassetteSize=" + cassetteSize + ".");
                 }
 
                 if (maxSlots <= 0)
@@ -2346,9 +2351,11 @@ namespace QMC.CDT320
             try
             {
                 ct.ThrowIfCancellationRequested();
-                if (!IsAnyCassetteSensorOn())
+                int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Config.InchSelect);
+                if (!IsWaferCassettePresentAll(cassetteSize))
                 {
-                    return FailMappingScan("IN-CST-MAP-CST-MISSING", "Cassette is not detected.");
+                    return FailMappingScan("IN-CST-MAP-CST-MISSING",
+                        "Cassette is not fully detected for mapping. Both cassette sensors must be ON. cassetteSize=" + cassetteSize + ".");
                 }
 
                 if (maxSlots <= 0)
@@ -2500,6 +2507,11 @@ namespace QMC.CDT320
                 // 스캔 순서: 1단(아래) 먼저, 2단 구성이면 이어서 2단.
                 for (int level = 1; level <= levelCount; level++)
                 {
+                    int cassetteSize = MaterialStateService.ResolveWaferSizeInch(Config.InchSelect);
+                    if (!IsWaferCassettePresentAll(cassetteSize))
+                        return FailMappingScan("IN-CST-MAP-CST-MISSING",
+                            "Cassette is not fully detected before mapping level" + level + ". Both cassette sensors must be ON. cassetteSize=" + cassetteSize + ".");
+
                     int flatLo = ToFlatSlotIndex(level, 0);
                     int flatHi = ToFlatSlotIndex(level, slotCount - 1);
 

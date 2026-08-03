@@ -145,9 +145,9 @@ namespace QMC.CDT320.Sequencing
                 if (cassette == null)
                     return Fail("IN-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
-                bool detected = cassette.IsWaferCassetteExist(ResolveCassetteSize(cassette));
+                bool detected = cassette.IsWaferCassettePresentAll(ResolveCassetteSize(cassette));
                 if (!IsHardwareBypassed() && !detected)
-                    return Fail("IN-CST-MISSING", cassette.Name, "Input cassette is not detected.");
+                    return Fail("IN-CST-MISSING", cassette.Name, "Input cassette is not fully detected. Both cassette sensors must be ON.");
                 if (IsHardwareBypassed() && !detected)
                     Context.LogPublic("[INPUT-CASSETTE] Hardware bypass: cassette detect sensor check skipped.");
 
@@ -695,7 +695,7 @@ namespace QMC.CDT320.Sequencing
         private bool IsCassetteSizeMatched(InputCassetteUnit cassette)
         {
             int size = ResolveCassetteSize(cassette);
-            return cassette.IsWaferCassetteExist(size);
+            return cassette.IsWaferCassettePresentAll(size);
         }
 
         private bool IsHardwareBypassed()
