@@ -389,6 +389,41 @@ namespace QMC.CDT320
     {
         private const string ContinuousJogTargetName = "ContinuousJog";
 
+        /// <summary>
+        /// InputStage 제한형 Continuous Jog 한 번의 실행 상태.
+        /// CameraX를 제외한 축은 작업영역 경계를 넘지 않도록 경계점까지 ABS 이동하고,
+        /// 버튼을 놓으면 그 이동을 중간 정지한다. 이때 발생하는 -4/-5를 실제 고장과
+        /// 구분하기 위해 시작 위치, 승인된 목표, 사용자 정지 요청을 같은 세션으로 묶는다.
+        /// </summary>
+        private sealed class BoundedJogSession
+        {
+            private int _stopRequested;
+
+            public BoundedJogSession(long generation, double startPosition, double targetPosition)
+            {
+                Generation = generation;
+                StartPosition = startPosition;
+                TargetPosition = targetPosition;
+            }
+
+            public long Generation { get; private set; }
+            public double StartPosition { get; private set; }
+            public double TargetPosition { get; private set; }
+            public bool IsStopRequested { get { return Volatile.Read(ref _stopRequested) != 0; } }
+
+            public void RequestStop()
+            {
+                Interlocked.Exchange(ref _stopRequested, 1);
+            }
+        }
+
+        private readonly object _boundedJogSync = new object();
+        // 축별 세션을 보관하여 이전 비동기 이동 결과가 다음 Jog 실행의 정지 요청을
+        // 잘못 소비하지 않도록 한다. 공용 AjinAxis의 모션 결과 계약은 변경하지 않는다.
+        private readonly Dictionary<BaseAxis, BoundedJogSession> _boundedJogSessions =
+            new Dictionary<BaseAxis, BoundedJogSession>();
+        private long _boundedJogGeneration;
+
         // ──────────────────────────────────────────────────────────────────────
         //  §1. 하드웨어 컴포넌트 선언
         // ──────────────────────────────────────────────────────────────────────
@@ -2172,18 +2207,23 @@ namespace QMC.CDT320
 
         private void StartBoundedJogMoveAsync(BaseAxis axis, double target, double speed)
         {
+            BoundedJogSession session = null;
             try
             {
                 // Continuous jog is dispatched as an absolute bounded move, so tag it
                 // for interlock rules that must allow manual recovery movement.
+                // 이동 명령보다 먼저 세션을 등록해야 빠른 버튼 해제도 같은 세션의
+                // 정상 정지로 연결할 수 있다.
+                session = BeginBoundedJogSession(axis, target);
                 Task<int> moveTask;
                 using (MotionGuardRuntime.BeginAxisTeachingMove(axis, target, ContinuousJogTargetName))
                     moveTask = SharedRailXMotionRuntime.MoveAxisAsync(axis, target, speed, true);
 
-                _ = ObserveBoundedJogMoveAsync(axis, target, moveTask);
+                _ = ObserveBoundedJogMoveAsync(axis, target, moveTask, session);
             }
             catch (Exception ex)
             {
+                CompleteBoundedJogSession(axis, session);
                 AlarmManager.Raise(AlarmSeverity.Error, "IN-STAGE-JOG-EX", Name, ex.Message);
             }
             finally
@@ -2191,7 +2231,11 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task ObserveBoundedJogMoveAsync(BaseAxis axis, double target, Task<int> moveTask)
+        private async Task ObserveBoundedJogMoveAsync(
+            BaseAxis axis,
+            double target,
+            Task<int> moveTask,
+            BoundedJogSession session)
         {
             try
             {
@@ -2199,7 +2243,10 @@ namespace QMC.CDT320
                     return;
 
                 int result = await moveTask.ConfigureAwait(false);
-                if (result == -4)
+                string stopReason;
+                // -5 전체를 성공 처리하지 않는다. 동일 세션에서 StopJog가 요청됐고
+                // 축이 승인 경로 안에서 정상 정지한 경우만 사용자 정지로 인정한다.
+                if (IsExpectedBoundedJogStop(axis, session, result, out stopReason))
                 {
                     LastStageMoveFailureMessage = string.Empty;
                     EventLogger.Write(
@@ -2207,17 +2254,30 @@ namespace QMC.CDT320
                         "QMC",
                         "IN-STAGE-JOG",
                         "InputStage 제한 조그 사용자 정지. axis=" + (axis != null ? axis.Name : "-") +
-                        ", target=" + target.ToString("F3"));
+                        ", result=" + result +
+                        ", actual=" + (axis != null ? axis.ActualPosition.ToString("F3") : "-") +
+                        ", target=" + target.ToString("F3") +
+                        ", generation=" + (session != null ? session.Generation.ToString() : "-"));
                     return;
                 }
 
                 if (result != 0)
                 {
+                    string message =
+                        "InputStage 제한 조그 이동 실패. axis=" + (axis != null ? axis.Name : "-") +
+                        ", result=" + result +
+                        ", actual=" + (axis != null ? axis.ActualPosition.ToString("F6") : "-") +
+                        ", command=" + (axis != null ? axis.CommandPosition.ToString("F6") : "-") +
+                        ", target=" + target.ToString("F6") +
+                        ", stopRequested=" + (session != null && session.IsStopRequested) +
+                        ", stopCheck=" + stopReason +
+                        FormatAxisLastMotionFailure(axis);
+                    LastStageMoveFailureMessage = message;
                     AlarmManager.Raise(
                         AlarmSeverity.Error,
                         "IN-STAGE-JOG-FAIL",
                         Name,
-                        "InputStage 제한 조그 이동 실패. result=" + result);
+                        message);
                 }
             }
             catch (Exception ex)
@@ -2236,12 +2296,131 @@ namespace QMC.CDT320
             }
             finally
             {
+                CompleteBoundedJogSession(axis, session);
             }
+        }
+
+        private BoundedJogSession BeginBoundedJogSession(BaseAxis axis, double target)
+        {
+            var session = new BoundedJogSession(
+                Interlocked.Increment(ref _boundedJogGeneration),
+                axis != null ? axis.ActualPosition : target,
+                target);
+
+            if (axis != null)
+            {
+                lock (_boundedJogSync)
+                    _boundedJogSessions[axis] = session;
+            }
+
+            return session;
+        }
+
+        private void RequestBoundedJogStop(BaseAxis axis)
+        {
+            if (axis == null)
+                return;
+
+            // StopJog보다 먼저 표시한다. 보드 정지 완료 Task가 즉시 끝나도
+            // ObserveBoundedJogMoveAsync가 정상 버튼 해제를 놓치지 않게 한다.
+            lock (_boundedJogSync)
+            {
+                BoundedJogSession session;
+                if (_boundedJogSessions.TryGetValue(axis, out session))
+                    session.RequestStop();
+            }
+        }
+
+        private void CompleteBoundedJogSession(BaseAxis axis, BoundedJogSession session)
+        {
+            if (axis == null || session == null)
+                return;
+
+            lock (_boundedJogSync)
+            {
+                BoundedJogSession current;
+                if (_boundedJogSessions.TryGetValue(axis, out current) &&
+                    ReferenceEquals(current, session))
+                    _boundedJogSessions.Remove(axis);
+            }
+        }
+
+        private bool IsExpectedBoundedJogStop(
+            BaseAxis axis,
+            BoundedJogSession session,
+            int result,
+            out string reason)
+        {
+            if (result != -4 && result != -5)
+            {
+                reason = "정지 완료로 처리할 수 없는 결과 코드입니다.";
+                return false;
+            }
+
+            if (axis == null || session == null || !session.IsStopRequested)
+            {
+                reason = "동일 제한 조그 세션의 사용자 정지 요청이 없습니다.";
+                return false;
+            }
+
+            try
+            {
+                axis.UpdateStatus();
+            }
+            catch (Exception ex)
+            {
+                reason = "축 상태 갱신에 실패했습니다. error=" + ex.Message;
+                return false;
+            }
+
+            if (!axis.IsServoOn || axis.IsAlarm || axis.IsMoving || axis.Sensor_PEL || axis.Sensor_MEL)
+            {
+                reason =
+                    "축이 정상 정지 상태가 아닙니다. servo=" + axis.IsServoOn +
+                    ", alarm=" + axis.IsAlarm +
+                    ", moving=" + axis.IsMoving +
+                    ", pel=" + axis.Sensor_PEL +
+                    ", mel=" + axis.Sensor_MEL;
+                return false;
+            }
+
+            double tolerance = ResolveAxisPositionTolerance(axis);
+            double minimum = Math.Min(session.StartPosition, session.TargetPosition) - tolerance;
+            double maximum = Math.Max(session.StartPosition, session.TargetPosition) + tolerance;
+            if (axis.ActualPosition < minimum || axis.ActualPosition > maximum)
+            {
+                reason =
+                    "정지 위치가 승인된 제한 조그 경로 밖입니다. start=" +
+                    session.StartPosition.ToString("F6") +
+                    ", actual=" + axis.ActualPosition.ToString("F6") +
+                    ", target=" + session.TargetPosition.ToString("F6") +
+                    ", tolerance=" + tolerance.ToString("F6");
+                return false;
+            }
+
+            if (axis.Setup != null && axis.Setup.SoftLimitEnabled &&
+                (axis.ActualPosition < axis.Setup.SoftLimitMinus - tolerance ||
+                 axis.ActualPosition > axis.Setup.SoftLimitPlus + tolerance))
+            {
+                reason =
+                    "정지 위치가 축 소프트리밋 밖입니다. actual=" + axis.ActualPosition.ToString("F6") +
+                    ", minus=" + axis.Setup.SoftLimitMinus.ToString("F6") +
+                    ", plus=" + axis.Setup.SoftLimitPlus.ToString("F6") +
+                    ", tolerance=" + tolerance.ToString("F6");
+                return false;
+            }
+
+            reason = "동일 세션의 사용자 정지 요청과 안전 정지 상태를 확인했습니다.";
+            return true;
         }
 
         public void ManualStopInputStageAxis(WaferStageAxis axis)
         {
-            ResolveInputStageAxis(axis).StopJog();
+            BaseAxis motionAxis = ResolveInputStageAxis(axis);
+            // 제한형 Jog 세션에 정지 의도를 먼저 기록한 뒤 실제 감속 정지를 실행한다.
+            // CameraX는 제한형 세션이 없으므로 기존 속도 Jog 정지만 그대로 수행된다.
+            RequestBoundedJogStop(motionAxis);
+            motionAxis.StopJog();
         }
 
         private BaseAxis ResolveInputStageAxis(WaferStageAxis axis)
