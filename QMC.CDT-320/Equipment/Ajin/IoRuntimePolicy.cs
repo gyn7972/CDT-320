@@ -1,8 +1,9 @@
-using QMC.Common.IO;
+﻿using QMC.Common.IO;
 using System;
 
 namespace QMC.CDT320.Ajin
 {
+    /// <summary>DryRun에서 입력 신호를 실제 하드웨어로 읽을지, 대기만 우회할지 구분합니다.</summary>
     public enum DryRunInputHandling
     {
         UseHardware,
@@ -15,6 +16,10 @@ namespace QMC.CDT320.Ajin
     /// </summary>
     public static class IoRuntimePolicy
     {
+        // 유지보수 주의:
+        // - 이름 토큰은 부분 문자열로 판정되므로 지나치게 넓은 토큰을 추가하지 않는다.
+        // - Hardware 목록을 먼저 검사해 두 목록에 모두 맞을 때 실제 입력 사용이 우선하도록 한다.
+
         // Dry-run must keep these inputs as real hardware signals.
         // Add safety, operator, cylinder, and equipment-state signals here.
         private static readonly string[] DryRunHardwareInputTokens =
@@ -61,6 +66,7 @@ namespace QMC.CDT320.Ajin
             "Material"
         };
 
+        // 일반 운전 / Simulation 모드의 객체 선택 정책
         public static bool ShouldUseInputSimulation(BaseDigitalInput input, bool simulationRequested, bool hardwareReady)
         {
             return simulationRequested || !hardwareReady || input is SimDigitalInput;
@@ -76,6 +82,7 @@ namespace QMC.CDT320.Ajin
             return simulationRequested || !hardwareReady || cylinder is SimCylinder;
         }
 
+        // DryRun 중 DI 대기 처리 정책
         public static DryRunInputHandling GetDryRunInputHandling(BaseDigitalInput input)
         {
             string name = input != null ? input.Name ?? string.Empty : string.Empty;

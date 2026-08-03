@@ -11,6 +11,8 @@ namespace QMC.CDT320.Sequencing
     /// <summary>등록된 유닛 시퀀스를 선택 옵션에 따라 병렬 실행하는 오케스트레이터입니다.</summary>
     public class AutoSequenceCoordinator
     {
+        #region 등록 및 실행 구성
+
         private readonly MachineSequenceContext _ctx;
         private readonly Dictionary<SequenceUnitKind, Func<UnitSequenceBase>> _factories =
             new Dictionary<SequenceUnitKind, Func<UnitSequenceBase>>();
@@ -76,6 +78,10 @@ namespace QMC.CDT320.Sequencing
             _ctx.LogPublic("[SEQ] Configure units=" + _options.Units + ", mode=" + _options.Mode +
                            ", active=" + _active.Count);
         }
+
+        #endregion
+
+        #region Coordinator 실행 수명주기
 
         /// <summary>활성 유닛 시퀀스를 병렬로 실행하고 모든 유닛 종료를 대기합니다.</summary>
         public async Task RunAsync(CancellationToken ct)
@@ -335,6 +341,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region 실행 시작 상태 복원
+
         private void ResetCoordinatorRunState()
         {
             try
@@ -527,6 +537,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Manual·Step 및 Cycle Stop 제어
+
         /// <summary>Manual 또는 Step 모드에서 지정 유닛을 1단계 진행시킵니다.</summary>
         public void StepUnit(SequenceUnitKind unit)
         {
@@ -565,6 +579,10 @@ namespace QMC.CDT320.Sequencing
             QMC.Common.Log.Write("Main", "SYSTEM", "SequenceCycleStop",
                 "Sequence cycle stop requested. - Requested");
         }
+
+        #endregion
+
+        #region 하위 시컨스 종료 대기
 
         private async Task WaitAllOrCancelOnFirstFailureAsync(List<Task> tasks, CancellationToken ct)
         {
@@ -782,6 +800,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Critical 알람 판정
+
         private static bool HasCriticalActiveAlarm()
         {
             try
@@ -860,6 +882,10 @@ namespace QMC.CDT320.Sequencing
                    value.StartsWith(token + "-", StringComparison.OrdinalIgnoreCase);
         }
 
+        #endregion
+
+        #region 하위 시컨스 중단
+
         /// <summary>실행 중인 모든 하위 유닛 시퀀스를 중단합니다.</summary>
         public void AbortChildren()
         {
@@ -880,6 +906,8 @@ namespace QMC.CDT320.Sequencing
                 _ctx.LogPublic("[SEQ] AbortChildren ignored: child cancellation source already disposed.");
             }
         }
+
+        #endregion
     }
 }
 

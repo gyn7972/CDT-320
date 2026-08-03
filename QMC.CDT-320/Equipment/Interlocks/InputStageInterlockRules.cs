@@ -5,6 +5,8 @@ namespace QMC.CDT320.Interlocks
 {
     public static class InputStageInterlockRules
     {
+        #region 규칙 진입
+
         // 현재 기준: InputStage 축별 홈/수동/자동 인터락을 이 파일에서 분기한다.
         // 인터락 항목: InputStage의 Y/T/Z/VisionX/Needle/EjectPinZ 이동 요청을 해당 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
@@ -42,6 +44,10 @@ namespace QMC.CDT320.Interlocks
 
             return true;
         }
+
+        #endregion
+
+        #region Wafer Stage Y
 
         // 인터락 항목: WaferStageY 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyWaferStageY(MotionGuardRuleContext request, out string reason)
@@ -216,6 +222,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region Wafer Stage T
+
         // 인터락 항목: WaferStageT 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyWaferStageT(MotionGuardRuleContext request, out string reason)
         {
@@ -344,6 +354,10 @@ namespace QMC.CDT320.Interlocks
             {
             }
         }
+
+        #endregion
+
+        #region Expander Z
 
         // 인터락 항목: ExpanderZ 이동 종류별로 홈/수동/자동 조건을 선택한다.
         private static bool VerifyWaferExpandingZ(MotionGuardRuleContext request, out string reason)
@@ -584,6 +598,10 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        #endregion
+
+        #region Input Vision X
+
         // 인터락 항목: InputVisionX 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyWaferVisionX(MotionGuardRuleContext request, out string reason)
         {
@@ -813,6 +831,10 @@ namespace QMC.CDT320.Interlocks
                    state.TargetZone == PickerWorkZone.Unknown ||
                    state.UnknownUnsafe;
         }
+
+        #endregion
+
+        #region Needle X 및 Manual·Home 판정
 
         // 인터락 항목: NeedleX 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyNeedleX(MotionGuardRuleContext request, out string reason)
@@ -1191,6 +1213,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region Needle Z 및 Eject Pin Z
+
         // 인터락 항목: NeedleZ 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyNeedleZ(MotionGuardRuleContext request, out string reason)
         {
@@ -1434,6 +1460,10 @@ namespace QMC.CDT320.Interlocks
             return request.Intent != null && request.Intent.ContinuousJog;
         }
 
+        #endregion
+
+        #region Input Stage 작업영역
+
         // 인터락 항목: InputStage 축 목표가 Needle 작업영역/원형 작업영역/비공정 안전 조건을 만족하는지 확인한다.
         private static bool VerifyInputStageWorkArea(MotionGuardRuleContext request, WaferStageAxis axis, string movingName, out string reason)
         {
@@ -1596,6 +1626,10 @@ namespace QMC.CDT320.Interlocks
             {
             }
         }
+
+        #endregion
+
+        #region Feeder·Busy 및 축 상태
 
         private static bool VerifyInputFeederClear(CDT320_Machine machine, string movingName, out string reason)
         {
@@ -1796,6 +1830,10 @@ namespace QMC.CDT320.Interlocks
 
             return 0.05;
         }
+
+        #endregion
+
+        #region Expander와 Picker Clearance
 
         // 인터락 항목: ExpanderZ 상승 전 InputVisionX가 Avoid 위치인지 확인한다.
         private static bool VerifyInputVisionXClearForExpanderZ(CDT320_Machine machine, out string reason)
@@ -2046,6 +2084,10 @@ namespace QMC.CDT320.Interlocks
 
             return true;
         }
+
+        #endregion
+
+        #region Picker Input 위험 및 Z 안전
 
         // 인터락 항목: Picker가 Input 영역 위험 상태일 때만 해당 PickerZ 전체 Avoid를 강제한다.
         private static bool VerifyPickerZAxesAvoidWhenInputRisk(MotionGuardRuleContext request, CDT320_Machine machine, bool isFront, string movingName, out string reason)
@@ -2369,6 +2411,10 @@ namespace QMC.CDT320.Interlocks
             return isTeachingAvoid != null && isTeachingAvoid();
         }
 
+        #endregion
+
+        #region 상태 문자열 및 차단 로그
+
         private static string BuildNeedleZState(InputStageUnit stage)
         {
             try
@@ -2414,5 +2460,7 @@ namespace QMC.CDT320.Interlocks
             {
             }
         }
+
+        #endregion
     }
 }

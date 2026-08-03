@@ -1,10 +1,12 @@
-using QMC.CDT320.Motion.SharedRailX;
+﻿using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
 {
     public static class CollisionDistanceCalculator
     {
+        #region 축 Pair Snapshot 생성
+
         public static AxisPairSafetySnapshot BuildSnapshot(
             SharedRailXAxis axisA,
             BaseAxis baseAxisA,
@@ -64,6 +66,10 @@ namespace QMC.CDT320.Interlocks
             return snapshot;
         }
 
+        #endregion
+
+        #region 간격 계산 및 방향 부호 해석
+
         public static double CalculateClearance(
             double homeClearance,
             int axisATowardSign,
@@ -91,5 +97,7 @@ namespace QMC.CDT320.Interlocks
             signA = pair.AxisBTowardSign;
             signB = pair.AxisATowardSign;
         }
+
+        #endregion
     }
 }

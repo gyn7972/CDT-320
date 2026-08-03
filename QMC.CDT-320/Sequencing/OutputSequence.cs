@@ -100,6 +100,8 @@ namespace QMC.CDT320.Sequencing
     //   OutputSequence.Safety.cs           리소스 점유, Picker Avoid 게이트, 인터락 재확인, 옵션 빌더
     public partial class OutputSequence : UnitSequenceBase
     {
+        #region 실행 상태 및 생성
+
         // 하위 시퀀스/액션에서 이미 Fail()로 Alarm을 발생시킨 실패를 상위 계층이 중복 Alarm 없이
         // 전파하기 위한 내부 예외입니다. (규칙: 동일 실패의 중복 Alarm 금지)
         private sealed class StepAlreadyAlarmedException : Exception
@@ -122,6 +124,10 @@ namespace QMC.CDT320.Sequencing
             : base(ctx, SequenceUnitKind.OutputUnloader, "Output")
         {
         }
+
+        #endregion
+
+        #region Auto·Step 진입
 
         protected override async Task ExecuteAutoAsync(CancellationToken ct)
         {
@@ -227,6 +233,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region Output Action 및 Batch 실행
 
         public async Task<int> ExecuteNextOutputStepAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
@@ -921,6 +931,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Manual Load·Unload
+
         public async Task<int> ExecuteNextOutputLoadAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
             try
@@ -1223,6 +1237,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region 복구·Drain·Stage Ready Signal
 
         // To do: [NG 스킵] NG 카세트 사용 여부 - OutputCassette Config.UseNgCassette 파라미터를 단일 기준으로 사용한다.
         private bool IsNgCassetteUsed()
@@ -1693,6 +1711,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Stage → Cassette 저장
+
         public async Task<int> ExecuteStoreStageToCassetteAsync(CancellationToken ct, DieGrade grade, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
             bool loaderActive = false;
@@ -2019,6 +2041,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Cassette → Stage 공급
+
         public Task<int> ExecuteSupplyCassetteToStageAsync(CancellationToken ct, BinSide side = BinSide.Good, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
             return ExecuteSupplyCassetteToStageAsync(ct, side, null, bFine, moveTimeoutMs, startMode);
@@ -2333,6 +2359,10 @@ namespace QMC.CDT320.Sequencing
                    "/wafer=" + (plan.WaferId ?? string.Empty);
         }
 
+        #endregion
+
+        #region Options·Material 보조
+
         private OutputFeederSequenceOptions BuildFeederOptions(
             int slotIndex,
             int nextSlotIndex,
@@ -2351,6 +2381,8 @@ namespace QMC.CDT320.Sequencing
             options.ExpectedWaferId = ResolveExpectedOutputWaferId(side, options.CassetteRole, slotIndex);
             options.FineMove = bFine;
             options.MoveTimeoutMs = moveTimeoutMs > 0 ? moveTimeoutMs : options.MoveTimeoutMs;
+            AppSettings settings = AppSettingsStore.Current;
+            options.UseBarcode = settings != null && settings.UseOutputBinBarcode;
             options.RunMode = Mode;
             options.StartMode = startMode;
             return options;
@@ -2462,6 +2494,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Alarm·정지·로그
+
         private int Fail(string alarmCode, string source, string message)
         {
             try
@@ -2532,5 +2568,7 @@ namespace QMC.CDT320.Sequencing
             // 시퀀스 로그를 이력(EventLogger)에도 분류 기록(스코프 Kind 또는 메시지 접두어 라우팅).
             SequenceLog.EmitTrace(QMC.Common.Logging.EventKind.OutputSeq, source, message);
         }
+
+        #endregion
     }
 }

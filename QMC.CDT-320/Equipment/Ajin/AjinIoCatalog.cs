@@ -30,6 +30,10 @@ namespace QMC.CDT320.Ajin
     /// </summary>
     public static class AjinIoCatalog
     {
+        // 유지보수 주의:
+        // - DigitalInputs/DigitalOutputs는 선언 순서대로 No가 부여되므로 항목 순서를 변경하지 않는다.
+        // - Name, Module, Bit, Nc는 저장 설정 및 실배선과 연결되므로 현장 검증 없이 변경하지 않는다.
+        // - 실제 적용 주소는 EquipmentData의 Setup이 덮어쓸 수 있으므로 주소 변경 시 함께 확인한다.
         private const int BitsPerModule = 32;
         private const int OutputModuleBase = 3;
         private static int _inputNo;
@@ -37,6 +41,7 @@ namespace QMC.CDT320.Ajin
 
         public static readonly DioDefault[] DigitalOutputs =
         {
+            // DO Module 3: 조작반, Input Feeder, Reticle, Good Bin
             DO("StartLamp", 3, 0),
             DO("StopLamp", 3, 1),
             DO("ResetLamp", 3, 2),
@@ -61,6 +66,8 @@ namespace QMC.CDT320.Ajin
             DO("GoodBinClampDown", 3, 29),
             DO("GoodBinClamp", 3, 30),
             DO("GoodBinUnclamp", 3, 31),
+
+            // DO Module 4: NG Bin, Output Feeder, Vision, Needle, Front Picker
             DO("NgBinGuideUp", 4, 0),
             DO("NgBinGuideDown", 4, 1),
             DO("NgBinClampUp", 4, 2),
@@ -93,6 +100,8 @@ namespace QMC.CDT320.Ajin
             DO("FrontPicker6Blow", 4, 29),
             DO("FrontPicker7Blow", 4, 30),
             DO("FrontPicker8Blow", 4, 31),
+
+            // DO Module 5: Rear Picker
             DO("RearPicker1_Vacuum", 5, 0),
             DO("RearPicker2_Vacuum", 5, 1),
             DO("RearPicker3_Vacuum", 5, 2),
@@ -113,6 +122,7 @@ namespace QMC.CDT320.Ajin
 
         public static readonly DioDefault[] DigitalInputs =
         {
+            // DI Module 0: 조작반, Utility, Door, Input Cassette, Input Feeder
             DI("StartButton", 0, 0),
             DI("StopButton", 0, 1),
             DI("ResetButton", 0, 2),
@@ -145,6 +155,8 @@ namespace QMC.CDT320.Ajin
             DI("WaferFeederDown", 0, 29),
             DI("WaferFeederUnClamp", 0, 30),
             DI("WaferFeederRingCheck", 0, 31),
+
+            // DI Module 1: Input Feeder, Input Stage, Reticle, Needle, Picker, Good Bin
             DI("WaferFeederOverloadCheck", 1, 0),
             DI("WaferStage8RingCheck", 1, 1),
             DI("WaferStage12RingCheck", 1, 2),
@@ -177,6 +189,8 @@ namespace QMC.CDT320.Ajin
             DI("RearPicker7Flow", 1, 29),
             DI("RearPicker8Flow", 1, 30),
             DI("GoodBinGuideUp", 1, 31),
+
+            // DI Module 2: Bin Stage, Output Feeder, Output Cassette, Avoid 센서
             DI("GoodBinGuideDown", 2, 0),
             DI("GoodBinClampUp", 2, 1),
             DI("GoodBinUnclamp", 2, 2),
@@ -214,21 +228,29 @@ namespace QMC.CDT320.Ajin
 
         public static readonly CylinderDefault[] Cylinders =
         {
+            // Input Feeder
             CYL("InputFeederLift", DORef(3, 16), DORef(3, 17), DIRef(0, 28), DIRef(0, 29)),
             CYL("InputFeederClamp", DORef(3, 18), DORef(3, 19), null, DIRef(0, 30)),
+
+            // Reticle
             CYL("ReticleLift", DORef(3, 20), DORef(3, 21), DIRef(1, 4), DIRef(1, 5)),
             CYL("ReticleSideSlideFront", DORef(3, 22), DORef(3, 23), DIRef(1, 6), DIRef(1, 7)),
             CYL("ReticleSideSlideRear", DORef(3, 24), DORef(3, 25), DIRef(1, 8), DIRef(1, 9)),
+
+            // Output Stage
             CYL("NGBinGuideLift", DORef(4, 0), DORef(4, 1), DIRef(2, 4), DIRef(2, 5)),
             CYL("NGBinGuideClampLift", DORef(4, 2), DORef(4, 3), DIRef(2, 6), null),
             CYL("NGBinGuideClamp", DORef(4, 4), DORef(4, 5), DIRef(2, 7), null),
             CYL("GoodBinGuideLift", DORef(3, 26), DORef(3, 27), DIRef(1, 31), DIRef(2, 0)),
             CYL("GoodBinGuideClampLift", DORef(3, 28), DORef(3, 29), DIRef(2, 1), null),
             CYL("GoodBinGuideClamp", DORef(3, 30), DORef(3, 31), null, DIRef(2, 2)),
+
+            // Output Feeder
             CYL("OutputFeederLift", DORef(4, 6), DORef(4, 7), DIRef(2, 9), DIRef(2, 10)),
             CYL("OutputFeederClamp", DORef(4, 8), DORef(4, 9), null, DIRef(2, 11))
         };
 
+        // 자주 사용하는 카탈로그 항목을 문자열 없이 참조하기 위한 이름별 접근자입니다.
         public static class Inputs
         {
             public static readonly DioDefault StartButton = FindInput("StartButton");
@@ -305,7 +327,7 @@ namespace QMC.CDT320.Ajin
             public static readonly CylinderDefault OutputFeederLift = FindCylinder("OutputFeederLift");
             public static readonly CylinderDefault OutputFeederClamp = FindCylinder("OutputFeederClamp");
 
-
+            // 기존 Unit 호출부와의 호환을 위해 유지하는 별칭입니다.
             public static readonly CylinderDefault WaferFeederUpDownCyl = InputFeederLift;
             public static readonly CylinderDefault WaferFeederClampCyl = InputFeederClamp;
             public static readonly CylinderDefault NgBinGuideCyl = NGBinGuideLift;

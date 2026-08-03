@@ -17,6 +17,8 @@ namespace QMC.CDT320.Sequencing
 
     internal sealed class AutoSequenceCoordinatorGate
     {
+        #region 실행 구성 및 공유 상태
+
         private const int PickerWorkZonePollIntervalMs = 20;
         // R4/B5: 선행검사 카메라 존 획득 상한. FIFO head가 물리 클리어/CanSet를 무한 대기하면
         // 무언정지가 되므로, 이 시간 초과 시 예외로 전환해 복구 알람으로 처리한다.
@@ -89,6 +91,10 @@ namespace QMC.CDT320.Sequencing
                    _context.Machine.PickerRearUnit.Config != null &&
                    _context.Machine.PickerRearUnit.Config.UseUnit;
         }
+
+        #endregion
+
+        #region 작업 진입 및 작업 구역 초기화
 
         public Task<AutoSequenceLoaderWorkLease> BeginInputWorkAsync(
             string holder,
@@ -250,6 +256,10 @@ namespace QMC.CDT320.Sequencing
                 _context.LogPublic("[SEQ] Picker work zones reset. reason=" + (reason ?? "-"));
         }
 
+        #endregion
+
+        #region Cycle Stop Drain 판정
+
         private bool ShouldDeferCycleStopForOutputCameraDrain(AutoSequenceCameraWorkKind kind)
         {
             if (kind != AutoSequenceCameraWorkKind.OutputCamera)
@@ -302,6 +312,10 @@ namespace QMC.CDT320.Sequencing
                 return false;
             }
         }
+
+        #endregion
+
+        #region Camera·Loader·Picker 작업 구역 대기
 
         private async Task<AutoSequenceCameraWorkZoneLease> WaitAndSetCameraWorkZoneAsync(
             AutoSequenceCameraWorkKind kind,
@@ -540,6 +554,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region 작업 구역 진입 조건 판정
+
         private bool CanSetPickerWorkZoneNoLock(
             PickerSequenceSide side,
             PickerWorkZone zone,
@@ -700,6 +718,10 @@ namespace QMC.CDT320.Sequencing
                 ", rear=" + rearDetail;
             return false;
         }
+
+        #endregion
+
+        #region 작업 구역 상태 및 Lease 해제
 
         private bool IsCameraWorkZoneOccupiedNoLock(PickerWorkZone zone, out string owner)
         {
@@ -881,6 +903,10 @@ namespace QMC.CDT320.Sequencing
                 ", zone=" + zone + ", holder=" + holder);
         }
 
+        #endregion
+
+        #region Picker 시작 게이트 점유
+
         private async Task<AutoSequencePickerGateLeases> AcquireBothPickerStartGatesAsync(
             string holder,
             bool deferCycleStopForPickerDrain,
@@ -995,6 +1021,10 @@ namespace QMC.CDT320.Sequencing
                 await Task.Delay(20, ct).ConfigureAwait(false);
             }
         }
+
+        #endregion
+
+        #region 시작 차단 및 장비 상태 판정
 
         private bool IsPickerProcessStartBlocked()
         {
@@ -1121,7 +1151,11 @@ namespace QMC.CDT320.Sequencing
             string current = _context.Resources.GetHolder(resource);
             return string.IsNullOrWhiteSpace(current) ? "-" : current;
         }
+
+        #endregion
     }
+
+    #region 작업 구역 Lease 형식
 
     internal sealed class AutoSequencePickerWorkZoneLease : IDisposable
     {
@@ -1284,4 +1318,6 @@ namespace QMC.CDT320.Sequencing
             }
         }
     }
+
+    #endregion
 }

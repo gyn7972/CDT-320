@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
@@ -9,6 +9,7 @@ using QMC.Common.IO;
 
 namespace QMC.CDT320.Ajin
 {
+    // cylinder_settings.json 직렬화 모델입니다. 공개 멤버명은 기존 저장 데이터와의 호환을 위해 유지합니다.
     [DataContract]
     public sealed class CylinderSettings
     {
@@ -34,6 +35,10 @@ namespace QMC.CDT320.Ajin
         [DataMember] public int CommandFeedbackSettleMs { get; set; } = 500;
     }
 
+    /// <summary>
+    /// 실린더의 센서 사용 여부, Timeout, Simulation 등 동작 설정을 저장하고 적용합니다.
+    /// 물리 IO 주소는 이 파일이 아니라 AjinConfig의 Cylinder 매핑에서 관리합니다.
+    /// </summary>
     public static class CylinderSettingsStore
     {
         public static string RootDir { get; } = @"D:\CDT-320";
@@ -47,6 +52,7 @@ namespace QMC.CDT320.Ajin
             try { Directory.CreateDirectory(Dir); } catch { }
         }
 
+        // 저장 파일 읽기 / 쓰기
         public static CylinderSettings Load()
         {
             try
@@ -103,6 +109,7 @@ namespace QMC.CDT320.Ajin
             }
         }
 
+        // 이름별 설정 조회 / 변경
         public static CylinderItemSettings Get(string name)
         {
             try
@@ -158,6 +165,7 @@ namespace QMC.CDT320.Ajin
 
         public static void Apply(BaseCylinder cylinder)
         {
+            // 설정값을 먼저 반영한 뒤, 애플리케이션 모드에 따라 DryRun 또는 Simulation 정책을 적용합니다.
             try
             {
                 if (cylinder == null) return;
@@ -265,6 +273,7 @@ namespace QMC.CDT320.Ajin
             return settings;
         }
 
+        // 카탈로그에 존재하지만 저장 파일에 없는 실린더와 누락된 기본값을 보완합니다.
         private static void Normalize(CylinderSettings settings)
         {
             try

@@ -6,6 +6,8 @@ namespace QMC.CDT320.Interlocks
 {
     public static class PickerFrontInterlockRules
     {
+        #region 규칙 진입
+
         // 인터락 항목: FrontPicker X/Y/T/Z 이동 요청을 해당 축별 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
@@ -32,6 +34,10 @@ namespace QMC.CDT320.Interlocks
 
             return true;
         }
+
+        #endregion
+
+        #region Picker X 및 이동 예외
 
         // 인터락 항목: FrontPickerX 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyFrontPickerX(MotionGuardRuleContext request, out string reason)
@@ -488,6 +494,10 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.IsColletCalibrationFineAlignMove(request, true, out fineAlignDetail);
         }
 
+        #endregion
+
+        #region Picker Y·T
+
         // 인터락 항목: FrontPickerY 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyFrontPickerY(MotionGuardRuleContext request, out string reason)
         {
@@ -686,6 +696,10 @@ namespace QMC.CDT320.Interlocks
                 LogBlockedReason(reason);
             }
         }
+
+        #endregion
+
+        #region Manual Picker X 존 진입
 
         // 인터락 항목: 수동 FrontPickerX 이동 전 목표 존별 Input/Process/Output 진입 조건과 PickerZone 조건을 확인한다.
         private static bool CanManualFrontPickerX(MotionGuardRuleContext request, out string reason)
@@ -1097,6 +1111,10 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.Block("FrontPickerX", "FrontPickerX 이동 불가: 상대 RearPickerY가 Avoid 위치가 아닙니다.", out reason);
         }
 
+        #endregion
+
+        #region Picker X·Y·T Home
+
         // 인터락 항목: FrontPickerX 홈 전 VisionX, ExpanderZ, PickerY/Z, InputFeeder 안전 위치를 확인한다.
         private static bool CanHomeFrontPickerX(CDT320_Machine machine, out string reason)
         {
@@ -1267,6 +1285,10 @@ namespace QMC.CDT320.Interlocks
                 LogBlockedReason(reason);
             }
         }
+
+        #endregion
+
+        #region Picker Z
 
         // 인터락 항목: FrontPickerZ 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyFrontPickerZ(MotionGuardRuleContext request, out string reason)
@@ -1488,6 +1510,10 @@ namespace QMC.CDT320.Interlocks
         {
             return (value ?? string.Empty).IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0;
         }
+
+        #endregion
+
+        #region 공통 기구 및 축 상태
 
         // 인터락 항목: Picker 이동 전 Reticle 관련 실린더가 이동 중인지 확인한다.
         private static bool VerifyReticleCylinderClear(CDT320_Machine machine, string movingName, out string reason)
@@ -1858,6 +1884,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region 차단 로그
+
         // 인터락 기준: FrontPicker 인터락 차단 사유를 로그에 기록한다.
         private static void LogBlockedReason(string reason)
         {
@@ -1874,5 +1904,7 @@ namespace QMC.CDT320.Interlocks
             {
             }
         }
+
+        #endregion
     }
 }

@@ -6,6 +6,8 @@ namespace QMC.CDT320.Interlocks
 {
     public static class PickerRearInterlockRules
     {
+        #region 규칙 진입
+
         // 인터락 항목: RearPicker X/Y/T/Z 이동 요청을 해당 축별 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
@@ -32,6 +34,10 @@ namespace QMC.CDT320.Interlocks
 
             return true;
         }
+
+        #endregion
+
+        #region Picker X 및 존 진입
 
         // 인터락 항목: RearPickerX 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyRearPickerX(MotionGuardRuleContext request, out string reason)
@@ -883,6 +889,10 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.IsColletCalibrationFineAlignMove(request, false, out fineAlignDetail);
         }
 
+        #endregion
+
+        #region Picker Y·T
+
         // 인터락 항목: RearPickerY 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyRearPickerY(MotionGuardRuleContext request, out string reason)
         {
@@ -1075,6 +1085,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region Picker X·Y·T Home
+
         // 인터락 항목: RearPickerX 홈 전 VisionX, ExpanderZ, 양쪽 PickerY, RearPickerZ 안전 위치를 확인한다.
         private static bool CanHomeRearPickerX(CDT320_Machine machine, out string reason)
         {
@@ -1212,6 +1226,10 @@ namespace QMC.CDT320.Interlocks
                 LogBlockedReason(reason);
             }
         }
+
+        #endregion
+
+        #region Picker Z
 
         // 인터락 항목: RearPickerZ 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyRearPickerZ(MotionGuardRuleContext request, out string reason)
@@ -1433,6 +1451,10 @@ namespace QMC.CDT320.Interlocks
         {
             return (value ?? string.Empty).IndexOf(pattern, System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
+
+        #endregion
+
+        #region 공통 기구 및 축 상태
 
         // 인터락 항목: Picker 이동 전 Reticle 관련 실린더가 이동 중인지 확인한다.
         private static bool VerifyReticleCylinderClear(CDT320_Machine machine, string movingName, out string reason)
@@ -1775,6 +1797,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region 차단 로그
+
         // 인터락 기준: RearPicker 인터락 차단 사유를 로그에 기록한다.
         private static void LogBlockedReason(string reason)
         {
@@ -1791,5 +1817,7 @@ namespace QMC.CDT320.Interlocks
             {
             }
         }
+
+        #endregion
     }
 }

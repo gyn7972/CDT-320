@@ -10,6 +10,8 @@ namespace QMC.CDT320.Sequencing
 {
     internal abstract class InputStageSequenceBase<TStep> where TStep : struct
     {
+        #region 실행 구성 및 장비 접근
+
         private const string SequenceNamePrefix = "InputStageSequence";
 
         protected InputStageSequenceBase(
@@ -47,6 +49,10 @@ namespace QMC.CDT320.Sequencing
         {
             get { return Context != null && Context.Machine != null ? Context.Machine.PickerRearUnit : null; }
         }
+
+        #endregion
+
+        #region State Machine 실행 수명주기
 
         public async Task<int> RunAsync(CancellationToken ct, InputStageSequenceOptions options)
         {
@@ -120,6 +126,10 @@ namespace QMC.CDT320.Sequencing
         }
 
         protected abstract Task<int> ExecuteCurrentStepAsync(CancellationToken ct);
+
+        #endregion
+
+        #region 재개 안전 확인 및 기본 Stage 동작
 
         // 재개 안전 재확인: 저장된 스텝(중간 모션 스텝)부터 재개할 때, Stage 축을 움직이기 전에
         // InputFeederY가 Avoid 위치에서 정지해 있는지 확인한다. 불만족이면 fail-closed로 차단한다.
@@ -287,6 +297,10 @@ namespace QMC.CDT320.Sequencing
             return -1;
         }
 
+        #endregion
+
+        #region Picker 회피 및 Input 이송 인터락
+
         protected async Task<int> WaitPickersClearForInputTransportAsync(string description, CancellationToken ct)
         {
             try
@@ -365,6 +379,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region Stage 축 명령 및 상태 진단
 
         private async Task<int> MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis axis, double target)
         {
@@ -596,6 +614,10 @@ namespace QMC.CDT320.Sequencing
             return Math.Abs(axis.ActualPosition - target) <= tolerance;
         }
 
+        #endregion
+
+        #region 재개·Timeout 및 공통 유틸리티
+
         private int ResolveTimeout()
         {
             return Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 10000;
@@ -676,5 +698,7 @@ namespace QMC.CDT320.Sequencing
             // 시퀀스 로그를 이력(EventLogger)에도 분류 기록(스코프 Kind 또는 메시지 접두어 라우팅).
             SequenceLog.EmitTrace(QMC.Common.Logging.EventKind.InputSeq, source, message);
         }
+
+        #endregion
     }
 }

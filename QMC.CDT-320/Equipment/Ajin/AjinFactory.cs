@@ -17,6 +17,8 @@ namespace QMC.CDT320.Ajin
     /// </summary>
     public static class AjinFactory
     {
+        // 유지보수 흐름: Catalog 이름 -> AjinConfig 매핑 -> 실제/Sim 객체 생성 -> 저장된 Setup/Config 적용.
+        // 이 순서와 null/미등록 항목의 fallback은 현재 장비 동작이므로 가독성 정리 과정에서 변경하지 않는다.
         public static bool UseRealBoard { get; set; } = false;
 
         public static MotionAxisManager AxisManager { get; } = new MotionAxisManager();
@@ -26,6 +28,8 @@ namespace QMC.CDT320.Ajin
         private static AjinConfig Cfg => AjinConfigStore.Current;
         private static readonly object AxisGate = new object();
         private static readonly object IoGate = new object();
+
+        // 동일한 물리 주소의 DI/DO를 여러 Unit이 요청해도 하나의 객체를 공유하기 위한 캐시입니다.
         private static readonly Dictionary<string, BaseDigitalInput> SharedInputs =
             new Dictionary<string, BaseDigitalInput>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, BaseDigitalOutput> SharedOutputs =
@@ -39,6 +43,8 @@ namespace QMC.CDT320.Ajin
 
         public static void RegisterConfiguredAxes()
         {
+            // 1) ajin-map의 축 매핑을 AxisManager에 등록한다.
+            // 2) 등록 완료 후 motion_axes.json의 사용자 편집 Setup/Config를 적용한다.
             lock (AxisGate)
             {
                 if (_configuredAxesRegistered) 
@@ -361,6 +367,9 @@ namespace QMC.CDT320.Ajin
         //  Digital IO
         // ──────────────────────────────────────
 
+        // 이름과 기본 주소는 AjinIoCatalog, 장비별 적용 주소는 AjinConfig에서 가져옵니다.
+        // 생성된 DI/DO는 물리 주소(Module/Bit/Nc)를 기준으로 SharedInputs/SharedOutputs에서 공유합니다.
+
         [Obsolete("Use AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.xxx). I/O must be registered only in AjinIoCatalog.", true)]
         public static BaseDigitalInput CreateDigitalInput(string name, int? module = null, int? bit = null, bool nc = false)
         {
@@ -532,6 +541,9 @@ namespace QMC.CDT320.Ajin
         //  Cylinder
         // ──────────────────────────────────────
 
+        // 실린더는 AjinIoCatalog의 논리 이름으로 찾고, AjinConfig의 입출력 매핑을 우선 적용합니다.
+        // 생성 후 CylinderSettingsStore의 저장 설정을 적용하므로 이 호출 순서를 유지해야 합니다.
+
         /// <summary>
         /// Cylinder — 컨피그의 cylinders 항목 우선. 없으면 <c>{name}_OutFwd/OutBwd/InFwd/InBwd</c>
         /// 를 DIO 맵에서 조회. 그래도 없으면 Sim.
@@ -580,6 +592,10 @@ namespace QMC.CDT320.Ajin
             CylinderSettingsStore.Apply(sim);
             return sim;
         }
+
+        // ──────────────────────────────────────
+        //  Simulation / Dry Run Runtime Policy
+        // ──────────────────────────────────────
 
         public static void ApplyInputSimulation(BaseDigitalInput input, bool simulationMode)
         {

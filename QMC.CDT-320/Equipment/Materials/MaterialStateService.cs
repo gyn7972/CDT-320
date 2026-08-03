@@ -3021,6 +3021,212 @@ namespace QMC.CDT320.Materials
             return true;
         }
 
+        /// <summary>
+        /// Stage에 있는 물리 Wafer/Bin의 임시 ID를 실제 바코드로 원자 승격합니다.
+        /// 물리 식별에는 WaferInstanceId를 계속 사용하며, 연관 Die/수신 계획/slot 포인터의 표시 ID도
+        /// 같은 lock 안에서 함께 갱신합니다.
+        /// </summary>
+        public static bool TryApplyWaferBarcode(
+            string waferInstanceId,
+            MaterialLocationKind expectedLocation,
+            string barcode,
+            string source,
+            int attempts,
+            out string previousWaferId,
+            out string reason)
+        {
+            previousWaferId = "";
+            reason = "";
+
+            string normalizedInstanceId = (waferInstanceId ?? "").Trim();
+            string normalizedBarcode = NormalizeBarcodeValue(barcode);
+            if (string.IsNullOrWhiteSpace(normalizedInstanceId))
+            {
+                reason = "바코드를 적용할 WaferInstanceId가 없습니다.";
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(normalizedBarcode) ||
+                string.Equals(normalizedBarcode, "WAFER-NULL-ID", StringComparison.OrdinalIgnoreCase))
+            {
+                reason = "유효한 바코드 값이 없습니다.";
+                return false;
+            }
+            if (expectedLocation == MaterialLocationKind.Unknown)
+            {
+                reason = "바코드 적용 대상 Stage 위치가 지정되지 않았습니다.";
+                return false;
+            }
+
+            string locationText;
+            DateTime updatedAt = DateTime.Now;
+            lock (_stateSync)
+            {
+                List<WaferMaterial> candidates = State != null && State.Wafers != null
+                    ? State.Wafers.Where(w =>
+                        w != null &&
+                        string.Equals(
+                            w.WaferInstanceId ?? "",
+                            normalizedInstanceId,
+                            StringComparison.OrdinalIgnoreCase)).ToList()
+                    : new List<WaferMaterial>();
+                if (candidates.Count != 1)
+                {
+                    reason = "WaferInstanceId로 물리 Material을 1개로 확정할 수 없습니다. instance=" +
+                             normalizedInstanceId + ", candidates=" + candidates.Count;
+                    return false;
+                }
+
+                WaferMaterial wafer = candidates[0];
+                MaterialLocation location = wafer.CurrentLocation;
+                if (location == null || location.Kind != expectedLocation)
+                {
+                    reason = "바코드 대상 Material 위치가 변경되었습니다. expected=" + expectedLocation +
+                             ", actual=" + (location != null ? location.Kind.ToString() : "null") +
+                             ", wafer=" + (wafer.WaferId ?? "") +
+                             ", instance=" + normalizedInstanceId;
+                    return false;
+                }
+                if (WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Empty)
+                {
+                    reason = "빈 Material에는 바코드를 적용할 수 없습니다. location=" + expectedLocation +
+                             ", instance=" + normalizedInstanceId;
+                    return false;
+                }
+
+                WaferMaterial duplicate = State.Wafers.FirstOrDefault(w =>
+                    w != null &&
+                    !string.Equals(
+                        w.WaferInstanceId ?? "",
+                        normalizedInstanceId,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty &&
+                    (string.Equals(w.WaferId ?? "", normalizedBarcode, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(w.BarcodeId ?? "", normalizedBarcode, StringComparison.OrdinalIgnoreCase)));
+                if (duplicate != null)
+                {
+                    reason = "같은 바코드를 사용하는 다른 활성 Material이 있습니다. barcode=" +
+                             normalizedBarcode + ", otherWafer=" + (duplicate.WaferId ?? "") +
+                             ", otherInstance=" + (duplicate.WaferInstanceId ?? "") +
+                             ", otherLocation=" +
+                             (duplicate.CurrentLocation != null ? duplicate.CurrentLocation.ToString() : "null");
+                    return false;
+                }
+
+                previousWaferId = wafer.WaferId ?? "";
+                if (string.IsNullOrWhiteSpace(wafer.OriginalWaferId))
+                    wafer.OriginalWaferId = previousWaferId;
+                wafer.WaferId = normalizedBarcode;
+                wafer.BarcodeId = normalizedBarcode;
+                wafer.BarcodeConfirmed = true;
+                wafer.BarcodeSource = string.IsNullOrWhiteSpace(source) ? "BARCODE" : source.Trim();
+                wafer.BarcodeUpdatedAt = updatedAt;
+                wafer.BarcodeAttemptCount = Math.Max(1, attempts);
+                wafer.UpdatedAt = updatedAt;
+                locationText = location.ToString();
+
+                if (State.Dies != null)
+                {
+                    foreach (DieMaterial die in State.Dies)
+                    {
+                        if (die == null)
+                            continue;
+
+                        bool changed = false;
+                        if (string.Equals(
+                            die.InputWaferInstanceId ?? "",
+                            normalizedInstanceId,
+                            StringComparison.OrdinalIgnoreCase))
+                        {
+                            die.WaferID_Input = normalizedBarcode;
+                            changed = true;
+                        }
+                        if (string.Equals(
+                            die.OutputWaferInstanceId ?? "",
+                            normalizedInstanceId,
+                            StringComparison.OrdinalIgnoreCase))
+                        {
+                            die.WaferID_Output = normalizedBarcode;
+                            changed = true;
+                        }
+                        if (changed)
+                            die.UpdatedAt = updatedAt;
+                    }
+                }
+
+                foreach (WaferMaterial linkedWafer in State.Wafers)
+                {
+                    if (linkedWafer == null ||
+                        !string.Equals(
+                            linkedWafer.OutputReceiveSourceWaferInstanceId ?? "",
+                            normalizedInstanceId,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    linkedWafer.OutputReceiveSourceWaferId = normalizedBarcode;
+                    linkedWafer.UpdatedAt = updatedAt;
+                }
+
+                if (State.Cassettes != null)
+                {
+                    foreach (CassetteMaterial cassette in State.Cassettes)
+                    {
+                        if (cassette == null || cassette.Slots == null)
+                            continue;
+                        foreach (CassetteSlotMaterial slot in cassette.Slots)
+                        {
+                            if (slot != null &&
+                                string.Equals(
+                                    slot.WaferInstanceId ?? "",
+                                    normalizedInstanceId,
+                                    StringComparison.OrdinalIgnoreCase))
+                            {
+                                slot.WaferId = normalizedBarcode;
+                            }
+                        }
+                    }
+                }
+
+                DieTapeFrame frame = !string.IsNullOrWhiteSpace(wafer.DieMapFrameObjId)
+                    ? MaterialStorage.GetFrame(wafer.DieMapFrameObjId)
+                    : null;
+                if (frame == null && !string.IsNullOrWhiteSpace(previousWaferId))
+                    frame = MaterialStorage.GetFrame(previousWaferId);
+                if (frame != null)
+                    frame.BarcodeId = normalizedBarcode;
+            }
+
+            NotifyAndSave("ApplyWaferBarcode");
+            Log.Write(
+                "Main",
+                string.IsNullOrWhiteSpace(source) ? "SYSTEM" : source,
+                "ApplyWaferBarcode",
+                "Material 바코드 적용 완료. previous=" + previousWaferId +
+                ", barcode=" + normalizedBarcode +
+                ", instance=" + normalizedInstanceId +
+                ", location=" + locationText +
+                ", attempts=" + Math.Max(1, attempts) + " - Ok");
+            return true;
+        }
+
+        private static string NormalizeBarcodeValue(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return "";
+
+            var chars = new List<char>(value.Length);
+            foreach (char ch in value)
+            {
+                if (ch == '\x02' || ch == '\x03' || char.IsWhiteSpace(ch))
+                    continue;
+                if (char.IsControl(ch))
+                    return "";
+                chars.Add(ch);
+            }
+            return new string(chars.ToArray());
+        }
+
         public static void MoveWafer(string waferId, MaterialLocation location, WaferMaterialState state)
         {
             lock (_stateSync)

@@ -10,6 +10,8 @@ namespace QMC.CDT320.Sequencing
 {
     internal abstract class InputFeederSequenceBase<TStep> where TStep : struct
     {
+        #region 실행 구성 및 장비 접근
+
         private const string SequenceNamePrefix = "InputFeederSequence";
 
         protected InputFeederSequenceBase(
@@ -37,6 +39,10 @@ namespace QMC.CDT320.Sequencing
         {
             get { return Context != null && Context.Machine != null ? Context.Machine.InputFeederUnit : null; }
         }
+
+        #endregion
+
+        #region State Machine 실행 수명주기
 
         public async Task<int> RunAsync(CancellationToken ct, InputFeederSequenceOptions options)
         {
@@ -110,6 +116,10 @@ namespace QMC.CDT320.Sequencing
 
         protected abstract Task<int> ExecuteCurrentStepAsync(CancellationToken ct);
 
+        #endregion
+
+        #region 공통 검사 및 이송 동작
+
         protected int CheckUnit(TStep nextStep)
         {
             if (Feeder == null)
@@ -164,7 +174,9 @@ namespace QMC.CDT320.Sequencing
                 Options.SlotIndex,
                 ResolveTimeout(),
                 Options.FineMove,
-                Options.UseBarcode,
+                // 실제 Wafer barcode reader는 InputCameraX에 있다. Cassette -> Feeder 구간의
+                // 기존 FeederY barcode hook은 사용하지 않고 Stage 적재 완료 후 별도 판독한다.
+                false,
                 Options.CassetteRole,
                 ct).ConfigureAwait(false);
 
@@ -266,6 +278,10 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        #endregion
+
+        #region 실패 처리 및 이동 완료 대기
+
         protected int FailUnsupportedStep()
         {
             return Fail("IN-FEEDER-STEP", Name, "Unsupported input feeder step: " + CurrentStep);
@@ -346,6 +362,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region 재개·Timeout 및 공통 유틸리티
 
         protected virtual TStep ResolveStartStep(TStep initialStep)
         {
@@ -442,5 +462,7 @@ namespace QMC.CDT320.Sequencing
             // 시퀀스 로그를 이력(EventLogger)에도 분류 기록(스코프 Kind 또는 메시지 접두어 라우팅).
             SequenceLog.EmitTrace(QMC.Common.Logging.EventKind.InputSeq, source, message);
         }
+
+        #endregion
     }
 }

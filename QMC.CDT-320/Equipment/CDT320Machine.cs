@@ -48,8 +48,18 @@ namespace QMC.CDT320
     /// <summary>IBarcodeReader 빌드용 Null Object.</summary>
     internal class NullBarcodeReader : IBarcodeReader
     {
+        public NullBarcodeReader(string readerName = "BARCODE")
+        {
+            ReaderName = string.IsNullOrWhiteSpace(readerName) ? "BARCODE" : readerName;
+        }
+
+        public string ReaderName { get; private set; }
+        public bool IsConnected => false;
+        public bool TryOpen() => false;
+        public void Close() { }
+
         public Task<string> ReadAsync(int timeoutMs = 3000)
-            => Task.FromResult("WAFER-NULL-ID");
+            => Task.FromResult("");
     }
 
     /// <summary>IVisionTcpClient 빌드용 Null Object (InputStageUnit용).</summary>
@@ -273,8 +283,11 @@ namespace QMC.CDT320
         /// <summary>Stage 47 - Ionizer (정전기 제거기).</summary>
         public IonizerUnit          IonizerUnit          { get; }
 
-        /// <summary>Stage 50 - Bin Barcode Reader (Output 카세트 ID 읽기).</summary>
-        public IBarcodeReader       BinBarcodeReader { get; }
+        /// <summary>Input Camera X에 설치된 Wafer Barcode Reader.</summary>
+        public IBarcodeReader       WaferBarcodeReader { get; private set; }
+
+        /// <summary>Output Camera X에 설치된 Bin Barcode Reader.</summary>
+        public IBarcodeReader       BinBarcodeReader { get; private set; }
 
         /// <summary>
         /// <see cref="CDT320_Machine"/>을 초기화하고 6개 Unit 트리를 구성한다.<br/>
@@ -323,9 +336,8 @@ namespace QMC.CDT320
             // Stage 47 - Ionizer (정전기 제거기)
             IonizerUnit = new IonizerUnit();
 
-            // Stage 50 - Bin Barcode Reader (별도 IBarcodeReader 인스턴스)
-            //   실보드 운영 시 BarcodeSerialAdapter 로 교체 가능
-            BinBarcodeReader = new NullBarcodeReader();
+            // Input/Output 카메라에 설치된 두 Barcode Reader는 AppSettings 채널별 설정으로 구성합니다.
+            ReloadBarcodeReaders();
 
 
             Units.Add(InputCassetteUnit);
@@ -341,6 +353,59 @@ namespace QMC.CDT320
             Units.Add(OpPanelUnit);
 
             BindPickerFlowTransitionDiagnostics();
+        }
+
+        /// <summary>
+        /// 저장된 채널별 설정으로 Input Wafer/Output Bin 리더를 다시 구성합니다.
+        /// 설정 화면은 장비와 시퀀스가 정지된 상태에서만 이 메서드를 호출해야 합니다.
+        /// </summary>
+        public void ReloadBarcodeReaders()
+        {
+            AppSettings settings = AppSettingsStore.Current ?? new AppSettings();
+            IBarcodeReader oldWaferReader = WaferBarcodeReader;
+            IBarcodeReader oldBinReader = BinBarcodeReader;
+
+            WaferBarcodeReader = CreateBarcodeReader(
+                "INPUT WAFER",
+                settings.WaferBarcodeSerialPort,
+                settings.WaferBarcodeSerialBaud,
+                settings.InputBarcodeTriggerCommand);
+            BinBarcodeReader = CreateBarcodeReader(
+                "OUTPUT BIN",
+                settings.BinBarcodeSerialPort,
+                settings.BinBarcodeSerialBaud,
+                settings.OutputBarcodeTriggerCommand);
+
+            CloseBarcodeReader(oldWaferReader);
+            if (!ReferenceEquals(oldBinReader, oldWaferReader))
+                CloseBarcodeReader(oldBinReader);
+        }
+
+        private static IBarcodeReader CreateBarcodeReader(
+            string readerName,
+            int portNumber,
+            int baudRate,
+            string triggerCommand)
+        {
+            int safePortNumber = Math.Max(1, portNumber);
+            int safeBaudRate = baudRate > 0 ? baudRate : 9600;
+            return new VisionComm.BarcodeSerialAdapter(
+                readerName,
+                "COM" + safePortNumber,
+                safeBaudRate,
+                triggerCommand);
+        }
+
+        private static void CloseBarcodeReader(IBarcodeReader reader)
+        {
+            if (reader == null)
+                return;
+            try { reader.Close(); } catch { }
+            IDisposable disposable = reader as IDisposable;
+            if (disposable != null)
+            {
+                try { disposable.Dispose(); } catch { }
+            }
         }
 
         private void BindPickerFlowTransitionDiagnostics()

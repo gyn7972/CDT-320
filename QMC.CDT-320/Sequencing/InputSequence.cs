@@ -45,6 +45,8 @@ namespace QMC.CDT320.Sequencing
     //   InputSequence.Steps.Review.cs  ReviewStage / Complete
     public partial class InputSequence : UnitSequenceBase
     {
+        #region 실행 상태 및 생성
+
         // 하위 시퀀스/step에서 이미 Fail()로 Alarm을 발생시킨 실패를 상위 계층이 중복 Alarm 없이
         // 전파하기 위한 내부 예외입니다. 동일 실패가 step -> cycle -> auto 순서로 세 번 Alarm되던
         // cascade를 막는다. (규칙: 동일 실패의 중복 Alarm 금지)
@@ -88,6 +90,10 @@ namespace QMC.CDT320.Sequencing
             : base(ctx, SequenceUnitKind.InputLoader, "Input")
         {
         }
+
+        #endregion
+
+        #region Auto 실행 및 Cycle 진입
 
         protected override async Task ExecuteAutoAsync(CancellationToken ct)
         {
@@ -312,6 +318,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region Stage 완료·Picker 대기·Unload 연계·Signal
 
         private async Task<WaferMaterial> EnsureInputStageFinishBeforePickerReadyAsync(WaferMaterial stageWafer, CancellationToken ct)
         {
@@ -1100,6 +1110,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Manual·Step 재개 상태 복원
+
         protected override async Task ExecuteStepAsync(CancellationToken ct)
         {
             try
@@ -1742,6 +1756,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Step Dispatch 및 실행 전 인터락
+
         private async Task<int> ExecuteCurrentInputStepAsync(CancellationToken ct, bool requireVisionAlign)
         {
             // 재개를 포함한 모든 실행에서 Step 시작 직전에 인터락/자재 정합성을 다시 확인한다.
@@ -2048,6 +2066,10 @@ namespace QMC.CDT320.Sequencing
 
             return true;
         }
+
+        #endregion
+
+        #region 외부 실행 API 및 하위 시컨스 호출
 
         public async Task<int> ExecuteMappingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
@@ -2832,6 +2854,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region 리소스 점유·Picker Avoid·Review 복귀
+
         private InputCassetteSequenceOptions BuildCassetteSequenceOptions(bool bFine, int moveTimeoutMs, SequenceStartMode startMode)
         {
             try
@@ -3405,6 +3431,10 @@ namespace QMC.CDT320.Sequencing
             return false;
         }
 
+        #endregion
+
+        #region Options·Material·Slot 보조
+
         private InputFeederSequenceOptions BuildFeederSequenceOptions(
             int slotIndex,
             int nextSlotIndex,
@@ -3427,7 +3457,37 @@ namespace QMC.CDT320.Sequencing
             options.MoveTimeoutMs = moveTimeoutMs > 0 ? moveTimeoutMs : options.MoveTimeoutMs;
             options.RunMode = Mode;
             options.StartMode = startMode;
+            options.UseBarcode = ResolveInputBarcodeUse(options.RunMode);
             return options;
+        }
+
+        private bool ResolveInputBarcodeUse(SequenceRunMode runMode)
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            if (settings == null || !settings.UseInputWaferBarcode)
+                return false;
+
+            if (runMode != SequenceRunMode.Auto)
+                return true;
+
+            try
+            {
+                string recipeName = Context != null && Context.Controller != null
+                    ? Context.Controller.ActiveRecipeName
+                    : string.Empty;
+                QMC.CDT320.Recipes.RecipeProject project = !string.IsNullOrWhiteSpace(recipeName)
+                    ? QMC.CDT320.Recipes.RecipeStore.Load(recipeName)
+                    : QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
+                return project != null && project.LoadFrame != null && project.LoadFrame.AutoBarcodeRead;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputSequence", "Input barcode recipe option resolve failed. Barcode disabled. error=" + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private InputStageSequenceOptions BuildStageSequenceOptions(
@@ -3681,6 +3741,10 @@ namespace QMC.CDT320.Sequencing
             return 12;
         }
 
+        #endregion
+
+        #region Alarm·정지·로그
+
         private int Fail(string alarmCode, string source, string message)
         {
             try
@@ -3785,6 +3849,8 @@ namespace QMC.CDT320.Sequencing
             // 시퀀스 로그를 이력(EventLogger)에도 분류 기록(스코프 Kind 또는 메시지 접두어 라우팅).
             SequenceLog.EmitTrace(QMC.Common.Logging.EventKind.InputSeq, source, message);
         }
+
+        #endregion
     }
 }
 

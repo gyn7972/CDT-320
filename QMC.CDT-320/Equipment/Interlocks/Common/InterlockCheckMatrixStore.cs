@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
@@ -8,6 +8,8 @@ using System.Xml;
 
 namespace QMC.CDT320.Interlocks
 {
+    #region 저장 DTO
+
     [DataContract]
     public sealed class InterlockCheckMatrixFile
     {
@@ -25,8 +27,12 @@ namespace QMC.CDT320.Interlocks
         [DataMember(Order = 3)] public string SourceCell { get; set; }
     }
 
+    #endregion
+
     public static class InterlockCheckMatrixStore
     {
+        #region 설정 경로
+
         public static string ConfigDir
         {
             get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config"); }
@@ -36,6 +42,10 @@ namespace QMC.CDT320.Interlocks
         {
             get { return Path.Combine(ConfigDir, "interlock-check-matrix.json"); }
         }
+
+        #endregion
+
+        #region 기본 매트릭스 적재·생성
 
         public static InterlockCheckMatrix LoadOrDefault()
         {
@@ -100,6 +110,10 @@ namespace QMC.CDT320.Interlocks
             };
         }
 
+        #endregion
+
+        #region JSON 읽기·쓰기
+
         private static InterlockCheckMatrixFile Read(string path)
         {
             using (var fs = File.OpenRead(path))
@@ -124,5 +138,7 @@ namespace QMC.CDT320.Interlocks
                 }
             }
         }
+
+        #endregion
     }
 }

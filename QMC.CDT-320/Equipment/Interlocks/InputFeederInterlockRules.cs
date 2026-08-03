@@ -8,6 +8,8 @@ namespace QMC.CDT320.Interlocks
 {
     public static class InputFeederInterlockRules
     {
+        #region Stage T 복구 및 규칙 진입
+
         private const double PositionTolerance = 0.05;
         private const double StageTZeroTolerance = 0.1;
 
@@ -67,6 +69,10 @@ namespace QMC.CDT320.Interlocks
 
             return true;
         }
+
+        #endregion
+
+        #region Input Feeder Y
 
         // 인터락 항목: InputFeederY 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyInputFeederY(MotionGuardRuleContext request, out string reason)
@@ -510,6 +516,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region Lift 실린더
+
         // 인터락 항목: InputFeederLift 실린더 이동 종류별로 초기화/일반 이동 조건을 선택한다.
         private static bool VerifyInputFeederLift(MotionGuardRuleContext request, out string reason)
         {
@@ -697,6 +707,10 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        #endregion
+
+        #region Clamp 실린더
+
         // 인터락 항목: InputFeederClamp 실린더 이동 종류별로 초기화/일반 이동 조건을 선택한다.
         private static bool VerifyInputFeederClamp(MotionGuardRuleContext request, out string reason)
         {
@@ -763,6 +777,10 @@ namespace QMC.CDT320.Interlocks
 
             return true;
         }
+
+        #endregion
+
+        #region 연관 장비 및 센서 상태
 
         // 인터락 기준: InputFeederY 이동 전 InputStageY가 로드 또는 언로드 위치인지 판단한다.
         private static bool IsInputStageYAtLoadOrUnload(InputStageUnit stage)
@@ -970,6 +988,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region 차단 로그
+
         private static void LogBlockedReason(string reason)
         {
             try
@@ -984,6 +1006,8 @@ namespace QMC.CDT320.Interlocks
             {
             }
         }
+
+        #endregion
 
     }
 }

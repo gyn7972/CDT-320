@@ -4,6 +4,8 @@ using System.Linq;
 
 namespace QMC.CDT320.Interlocks
 {
+    #region 매트릭스 계약 형식
+
     public enum InterlockTargetKind
     {
         Axis,
@@ -30,8 +32,12 @@ namespace QMC.CDT320.Interlocks
         public InterlockTargetKind CheckKind { get { return InterlockCheckMatrix.ResolveKind(CheckKey); } }
     }
 
+    #endregion
+
     public sealed class InterlockCheckMatrix
     {
+        #region 축·실린더 키 및 Alias
+
         private static readonly string[] CylinderKeys =
         {
             "InputFeederLift",
@@ -91,6 +97,10 @@ namespace QMC.CDT320.Interlocks
             };
 
         public static readonly InterlockCheckMatrix Default = new InterlockCheckMatrix(CreateDefaultPairs());
+
+        #endregion
+
+        #region 검사 조회와 이름 정규화
 
         private readonly List<InterlockCheckPair> _pairs;
         private readonly Dictionary<string, List<InterlockCheckPair>> _byMovingKey;
@@ -153,6 +163,10 @@ namespace QMC.CDT320.Interlocks
             }
             return InterlockTargetKind.Axis;
         }
+
+        #endregion
+
+        #region 기본 검사 Pair 정의
 
         private static InterlockCheckPair P(string movingName, string checkName, string sourceCell)
         {
@@ -279,5 +293,7 @@ namespace QMC.CDT320.Interlocks
                 P("OutputLifterZ", "OutputFeeder Clamp/UnClamp", "AZ57")
             };
         }
+
+        #endregion
     }
 }

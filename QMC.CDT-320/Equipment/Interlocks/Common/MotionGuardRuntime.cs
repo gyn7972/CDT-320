@@ -9,6 +9,8 @@ namespace QMC.CDT320.Interlocks
 {
     public static class MotionGuardRuntime
     {
+        #region 공유 상태 및 기본 축 이동 검증
+
         private static readonly object Sync = new object();
         private static readonly AsyncLocal<AxisMoveScope> CurrentAxisMoveScope = new AsyncLocal<AxisMoveScope>();
         private static readonly AsyncLocal<CylinderMoveScope> CurrentCylinderMoveScope = new AsyncLocal<CylinderMoveScope>();
@@ -96,6 +98,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region Picker Y 초기화 상태 및 조그 검증
+
         public static bool IsPickerYPairInitializeHomeActive(BaseAxis frontPickerY, BaseAxis rearPickerY)
         {
             lock (Sync)
@@ -167,6 +173,10 @@ namespace QMC.CDT320.Interlocks
                 return false;
             }
         }
+
+        #endregion
+
+        #region Teaching·Home·실린더 검증
 
         public static IDisposable BeginAxisTeachingMove(BaseAxis axis, double targetPosition, string targetName)
         {
@@ -368,6 +378,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region 실행 Scope 진입
+
         public static IDisposable BeginCylinderInitializeMove(QMC.Common.IO.BaseCylinder cylinder, bool moveFwd, string targetName)
         {
             CylinderMoveScope previous = CurrentCylinderMoveScope.Value;
@@ -452,6 +466,10 @@ namespace QMC.CDT320.Interlocks
                        ReferenceEquals(scope.RearPickerY, rearPickerY);
             }
         }
+
+        #endregion
+
+        #region Picker Y 충돌 복구 조그
 
         // 충돌 복구 전용 방향: FrontPickerY는 -방향, RearPickerY는 +방향만 인정한다.
         internal static bool IsPickerYCollisionRecoveryDirection(BaseAxis axis, int direction)
@@ -820,6 +838,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region Picker Y Pair Home 승인
+
         public static bool IsPickerYPairHomeActive(BaseAxis frontPickerY, BaseAxis rearPickerY)
         {
             PickerYPairHomeScope scope = CurrentPickerYPairHomeScope.Value;
@@ -860,6 +882,10 @@ namespace QMC.CDT320.Interlocks
             scope.IsAuthorized = true;
             return true;
         }
+
+        #endregion
+
+        #region 서비스 수명주기 및 공통 판정
 
         public static void Reload()
         {
@@ -920,6 +946,10 @@ namespace QMC.CDT320.Interlocks
             ExecutionModeScope scope = CurrentExecutionModeScope.Value;
             return scope != null ? scope.Mode : MotionGuardExecutionMode.Default;
         }
+
+        #endregion
+
+        #region Scope 및 해제 Token 형식
 
         private sealed class AxisMoveScope
         {
@@ -1157,5 +1187,7 @@ namespace QMC.CDT320.Interlocks
                 _disposed = true;
             }
         }
+
+        #endregion
     }
 }

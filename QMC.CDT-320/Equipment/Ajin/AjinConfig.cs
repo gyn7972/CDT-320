@@ -9,6 +9,7 @@ using QMC.Common.Logging;
 
 namespace QMC.CDT320.Ajin
 {
+    // ajin-map.json 직렬화 모델입니다. 클래스명과 공개 멤버명은 저장 데이터 계약으로 유지합니다.
     [DataContract]
     public class AxisMap
     {
@@ -65,10 +66,19 @@ namespace QMC.CDT320.Ajin
 
     public static class AjinAxisDefaults
     {
+        // 유지보수 주의:
+        // - Axis, AxisName, BoardNo, ChannelNo는 장비 매핑과 연결되므로 현장 검증 없이 변경하지 않는다.
+        // - AxisName은 기준 키이며 LegacyKeys는 기존 설정과 호출부의 호환을 위해 유지한다.
+        // - 축 목록은 Axis 번호 순서로 유지하고, 보기 좋게 만들기 위한 재정렬은 하지 않는다.
         public static readonly AxisDefault[] All =
         {
+            // Input Cassette
             ADD( 0, "InputLifterZ",      "IndexCassette",    0, 0,  200, true,  "mm",  100, "NEG","LifterZ"),
+
+            // Input Feeder
             ADD( 1, "InputFeederY",      "InputFeeder",    0, 0,  300, false, "mm",  100, "NEG" ,"FeederY"),
+
+            // Input Stage
             ADD( 2, "InputStageY",       "InputStage",     0, 0,  400, false, "mm",  100, "NEG", "StageY"),
             ADD( 3, "InputStageT",       "InputStage",     0, 0,  360, false, "deg",  30, "POS", "StageT"),
             ADD( 4, "InputExpandingZ",   "InputStage",     0, 0,  100, false, "mm",  100, "NEG", "ExpanderZ"),
@@ -76,6 +86,8 @@ namespace QMC.CDT320.Ajin
             ADD( 6, "NeedleX",           "InputStage",     0, 0,  200, false, "mm",  100, "NEG", "NeedleBlockX"),
             ADD( 7, "NeedleZ",           "InputStage",     0, 0,  100, true,  "mm",  100, "NEG"),
             ADD( 8, "EjectPinZ",         "InputStage",     0, 0,   50, false, "mm",   50, "NEG"),
+
+            // Front Picker
             ADD( 9, "FrontPickerX",      "FrontPicker",    0, 0, 1500, false, "mm",  800, "NEG", "FrontPickerX"),
             ADD(10, "FrontPickerY",      "FrontPicker",    0, 0,  750, false, "mm",  100, "NEG", "FrontPickerY"),
             ADD(11, "FrontPickerT0",     "FrontPicker",    0, 0,  360, false, "deg", 100, "NEG", "FrontPickerT0"),
@@ -86,8 +98,12 @@ namespace QMC.CDT320.Ajin
             ADD(16, "FrontPickerZ2",     "FrontPicker",    0, 0,   50, false, "mm",  200, "NEG", "FrontPickerZ2"),
             ADD(17, "FrontPickerT3",     "FrontPicker",    0, 0,  360, false, "deg", 100, "NEG", "FrontPickerT3"),
             ADD(18, "FrontPickerZ3",     "FrontPicker",    0, 0,   50, false, "mm",  200, "NEG", "FrontPickerZ3"),
+
+            // Side Vision
             ADD(19, "FrontSideVisionY0", "Vision",    0, 0,  200, false, "mm",  100, "NEG", "FrontSideVisionY0"),
             ADD(20, "RearSideVisionY0",  "Vision",     0, 0,  200, false, "mm",  100, "NEG", "RearSideVisionY0"),
+
+            // Rear Picker
             ADD(21, "RearPickerX",       "RearPicker",     0, 0, 1500, false, "mm",  800, "NEG", "RearPickerX"),
             ADD(22, "RearPickerY",       "RearPicker",     0, 0,  750, false, "mm",  100, "NEG", "RearPickerY"),
             ADD(23, "RearPickerT0",      "RearPicker",     0, 0,  360, false, "deg", 100, "NEG", "RearPickerT0"),
@@ -98,11 +114,17 @@ namespace QMC.CDT320.Ajin
             ADD(28, "RearPickerZ2",      "RearPicker",     0, 0,   50, false, "mm",  200, "NEG", "RearPickerZ2"),
             ADD(29, "RearPickerT3",      "RearPicker",     0, 0,  360, false, "deg", 100, "NEG", "RearPickerT3"),
             ADD(30, "RearPickerZ3",      "RearPicker",     0, 0,   50, false, "mm",  200, "NEG", "RearPickerZ3"),
+
+            // Output Stage
             ADD(31, "OutputGoodStageY",  "OutputStage",    0, 0,  500, false, "mm",  100, "NEG", "GoodStage_StageY"),
             ADD(32, "OutputGoodStageZ",  "OutputStage",    0, 0,  100, false, "mm",  100, "NEG", "GoodStage_StageZ"),
             ADD(33, "OutputNGStageY",    "OutputStage",    0, 0,  500, false, "mm",  100, "NEG", "NGStage_StageY"),
             ADD(34, "OutputVisionX",        "OutputStage",    0, 0,  300, false, "mm",  100, "NEG", "BinCameraX", "OutputVisionX"),
+
+            // Output Feeder
             ADD(35, "OutputFeederY",        "OutputFeeder", 0, 0,  300, false, "mm",  100, "NEG", "FeederY_Output", "OutputFeederY"),
+
+            // Output Cassette
             ADD(36, "OutputLifterZ",        "OutputCassette", 0, 0,  200, true,  "mm",  100, "NEG", "ElevatorZ_Output", "OutputLifterZ")
         };
 
@@ -217,6 +239,7 @@ namespace QMC.CDT320.Ajin
 
     public static class AjinConfigStore
     {
+        // 코드 기본값은 누락 항목을 채우는 기준이며, 저장된 ajin-map.json의 기존 매핑을 우선 유지합니다.
         public static string RootDir { get; } = @"D:\CDT-320";
         public static string Dir { get; } = Path.Combine(RootDir, "Config");
         public static string Path_ { get; } = System.IO.Path.Combine(Dir, "ajin-map.json");

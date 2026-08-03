@@ -1,7 +1,9 @@
-using System;
+﻿using System;
 
 namespace QMC.CDT320.Interlocks
 {
+    #region 충돌 판정 Enum
+
     public enum CollisionGateDecision
     {
         Allow,
@@ -32,6 +34,10 @@ namespace QMC.CDT320.Interlocks
         Forward,
         Moving
     }
+
+    #endregion
+
+    #region Gate 판정 결과
 
     public sealed class CollisionGateResult
     {
@@ -71,6 +77,10 @@ namespace QMC.CDT320.Interlocks
         }
     }
 
+    #endregion
+
+    #region Picker 상태 Snapshot
+
     public sealed class PickerSafetySnapshot
     {
         public PickerSafetySide Side { get; set; }
@@ -100,6 +110,10 @@ namespace QMC.CDT320.Interlocks
                    ", yMoving=" + YMoving;
         }
     }
+
+    #endregion
+
+    #region 축 Pair Snapshot
 
     public sealed class AxisPairSafetySnapshot
     {
@@ -158,6 +172,10 @@ namespace QMC.CDT320.Interlocks
         }
     }
 
+    #endregion
+
+    #region 전체 안전 상태
+
     public sealed class MotionSafetyState
     {
         public PickerSafetySnapshot Front { get; set; }
@@ -165,4 +183,6 @@ namespace QMC.CDT320.Interlocks
         public AxisPairSafetySnapshot FrontRearPickerPair { get; set; }
         public DateTime CapturedUtc { get; set; }
     }
+
+    #endregion
 }

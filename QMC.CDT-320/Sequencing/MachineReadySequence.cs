@@ -17,6 +17,8 @@ namespace QMC.CDT320.Sequencing
     /// <summary>장비 전체 모션을 안전한 Ready(Avoid) 위치로 복귀시키는 시퀀스입니다.</summary>
     internal sealed class MachineReadySequence
     {
+        #region 실행 구성·Step 등록 및 진행 제어
+
         // ─────────────────────────────────────────────────────────────────────────────
         // [옵션 2026-07-29 / 테스트용 하드코딩] Ready 피더 후퇴에서 "제품 보유 시" +방향 이탈 거리(mm).
         //
@@ -286,6 +288,10 @@ namespace QMC.CDT320.Sequencing
                 get { return "ReadyStep " + No + "/" + Id + " [" + Name + "]"; }
             }
         }
+
+        #endregion
+
+        #region 활성 Ready 복귀 동작 및 병렬 작업 보조
 
         private async Task<int> MoveReticleAvoidAsync(CancellationToken ct)
         {
@@ -690,6 +696,10 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        #endregion
+
+        #region Picker·Side Vision 장치 단위 복귀
+
         private async Task<int> MoveFrontPickerAvoidAsync(CancellationToken ct)
         {
             try
@@ -848,6 +858,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Ready 선행 Z 복귀 및 안전 검사 흐름
+
         private async Task<int> MoveInputStageNeedleEjectZAvoidAsync(CancellationToken ct)
         {
             try
@@ -925,6 +939,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region Feeder 안전 복구 및 Output 인계 검증
 
         // Ready 진입 시 InputFeeder가 Avoid/Down이 아니면(웨이퍼 이송 도중 정지 등) 기존에는 확인만 하고
         // 실패해 START가 수동 Recover 전까지 영구 차단되었다. 여기서는 다음 기계적 전제 아래에서만
@@ -1741,6 +1759,10 @@ namespace QMC.CDT320.Sequencing
             return valueKey == targetKey && Math.Abs(value - target) <= tolerance;
         }
 
+        #endregion
+
+        #region Stage Z 안전 복구 및 조건 검사
+
         // Ready 진입 시 ExpanderZ가 0보다 위 티칭 위치(예: 로딩 구간의 WaferZ.LoadPosition)에 남아 있으면
         // (로딩 도중 정지, 수동 INPUT LOAD 후 등) 기존에는 확인만 하고 실패해 START가 차단되었다.
         // 인터락 자체(상부 헤드/픽커 X 이동 전 ExpanderZ ≤ 0, 픽커 공유 레일 간섭 방지)는 유지하고,
@@ -1924,6 +1946,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Stage 장치 단위 전체 복귀
+
         private async Task<int> MoveInputStageAvoidAsync(CancellationToken ct)
         {
             try
@@ -2057,6 +2083,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region 축·Feeder·Cassette 단위 Avoid 실행
 
         private async Task<int> MoveFrontPickerAxisAvoidAsync(PickerFrontUnit unit, PickerAxis axis, string label, CancellationToken ct)
         {
@@ -2859,6 +2889,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region 공통 축·Teaching 해석 및 상태 진단
+
         private static BaseAxis ResolveInputStageAxis(InputStageUnit unit, WaferStageAxis axis)
         {
             try
@@ -3414,5 +3448,7 @@ namespace QMC.CDT320.Sequencing
         {
             Log.Write("Main", "SYSTEM", "MachineReadySequence", message + " - Ok");
         }
+
+        #endregion
     }
 }

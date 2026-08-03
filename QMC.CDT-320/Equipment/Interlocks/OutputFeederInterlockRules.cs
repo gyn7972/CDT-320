@@ -9,6 +9,8 @@ namespace QMC.CDT320.Interlocks
 {
     public static class OutputFeederInterlockRules
     {
+        #region 규칙 진입
+
         // 인터락 항목: OutputFeederY/Lift/Clamp 이동 요청을 각 Feeder 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
@@ -39,6 +41,10 @@ namespace QMC.CDT320.Interlocks
 
             return true;
         }
+
+        #endregion
+
+        #region Output Feeder Y
 
         // 인터락 항목: OutputFeederY 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyBinFeederY(MotionGuardRuleContext request, out string reason)
@@ -483,6 +489,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region Lift 실린더
+
         // 인터락 항목: OutputFeederLift 실린더 이동 종류별로 초기화/일반 이동 조건을 선택한다.
         private static bool VerifyOutputFeederLift(MotionGuardRuleContext request, out string reason)
         {
@@ -654,6 +664,10 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        #endregion
+
+        #region Clamp 실린더
+
         // 인터락 항목: OutputFeederClamp 실린더 이동 종류별로 초기화/일반 이동 조건을 선택한다.
         private static bool VerifyOutputFeederClamp(MotionGuardRuleContext request, out string reason)
         {
@@ -717,6 +731,10 @@ namespace QMC.CDT320.Interlocks
 
             return true;
         }
+
+        #endregion
+
+        #region 연관 장비 및 센서 상태
 
         private static string ResolveCylinderDirection(double targetValue, string fwdText, string bwdText)
         {
@@ -902,6 +920,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region 차단 로그
+
         private static void LogBlockedReason(string reason)
         {
             try
@@ -916,5 +938,7 @@ namespace QMC.CDT320.Interlocks
             {
             }
         }
+
+        #endregion
     }
 }

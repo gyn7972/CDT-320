@@ -36,6 +36,11 @@ QMC.CDT-320/
 
 일반 생산 흐름은 카세트 공급 → Input Stage → Wafer 정렬 → Die Pickup → Bottom/Side 검사 → Output Place → 결과 저장 → Wafer 배출 순서다. 두 픽커와 검사 존의 공유 자원은 시퀀스 락과 모션 인터락을 함께 사용한다.
 
+## 코드 탐색 문서
+
+- [축·IO·실린더 정의 코드 탐색표](docs/architecture/equipment-definition-code-map.md)
+- [자동 시컨스 전체 흐름도](docs/architecture/auto-sequence-flow.md)
+
 ## 외부 Vision 계약
 
 - 명령 채널: Wafer 5100, BottomInspection 5101, Bin 5103, Main 5104, FrontSide 5105, RearSide 5106

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Barcode;
 using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
@@ -35,6 +36,7 @@ namespace QMC.CDT320.Sequencing
         MoveNgStageAvoidAfterLoad,
         LowerNgStageGuideAfterAvoid,
         VerifyBinTransferredToStage,
+        RunBarcodeSequence,
         LowerOutputStageGuideBeforeProcess,
         MoveOutputStageProcessPosition,
         UpdateFeederData,
@@ -166,6 +168,10 @@ namespace QMC.CDT320.Sequencing
                     case OutputFeederLoadToStageStep.VerifyBinTransferredToStage:
                         return VerifyBinTransferredToStageAsync(ct);
 
+                    // Stage 적재와 Feeder Avoid/Down 확인 후 OutputCameraX에서 Bin 바코드 판독
+                    case OutputFeederLoadToStageStep.RunBarcodeSequence:
+                        return RunBarcodeSequenceAsync(ct);
+
                     // 프로세스 이동 전 아웃풋 스테이지 가이드 다운
                     case OutputFeederLoadToStageStep.LowerOutputStageGuideBeforeProcess:
                         return LowerOutputStageGuideBeforeProcessAsync(ct);
@@ -185,6 +191,10 @@ namespace QMC.CDT320.Sequencing
                     default:
                         return Task.FromResult(FailUnsupportedStep());
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -585,9 +595,8 @@ namespace QMC.CDT320.Sequencing
 
         private OutputFeederLoadToStageStep ResolveAfterFeederAvoidStep()
         {
-            return Options.Side == BinSide.Ng
-                ? OutputFeederLoadToStageStep.MoveNgStageAvoidAfterLoad
-                : OutputFeederLoadToStageStep.VerifyBinTransferredToStage;
+            // Material 이동과 Ring 전달 확인이 끝나기 전에는 GOOD/NG StageY를 움직이지 않는다.
+            return OutputFeederLoadToStageStep.VerifyBinTransferredToStage;
         }
 
         private async Task<int> MoveNgStageAvoidAfterLoadAsync(CancellationToken ct)
@@ -620,7 +629,8 @@ namespace QMC.CDT320.Sequencing
                     "NG Stage Avoid 이동 후 Guide가 Down 상태가 아닙니다. " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = OutputFeederLoadToStageStep.VerifyBinTransferredToStage;
+            // Ring 전달 검증과 바코드 판독은 NG Avoid 이동 전에 이미 완료된다.
+            CurrentStep = OutputFeederLoadToStageStep.UpdateFeederData;
             return 0;
         }
 
@@ -659,10 +669,564 @@ namespace QMC.CDT320.Sequencing
                     wafer.WaferId + ", detail=" +
                     Feeder.LastTransportRingConfirmationFailure);
 
-            CurrentStep = Options.Side == BinSide.Ng
-                ? OutputFeederLoadToStageStep.UpdateFeederData
-                : OutputFeederLoadToStageStep.LowerOutputStageGuideBeforeProcess;
+            CurrentStep = OutputFeederLoadToStageStep.RunBarcodeSequence;
             return 0;
+        }
+
+        private async Task<int> RunBarcodeSequenceAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Options == null || !Options.UseBarcode)
+                {
+                    CurrentStep = ResolveAfterBarcodeStep();
+                    return 0;
+                }
+
+                if (Stage == null || Stage.OutputCameraX == null || Stage.Recipe == null)
+                    return Fail("OUT-BARCODE-STAGE-MISSING", "OutputStage",
+                        "Output Bin barcode 판독에 필요한 OutputStage/OutputCameraX를 확인할 수 없습니다.");
+
+                Stage.Recipe.EnsurePositionObjects();
+                WaferMaterial wafer = ResolveStageWafer();
+                if (wafer == null)
+                    return Fail("OUT-BARCODE-MATERIAL-MISSING", "Material",
+                        "Output Bin barcode 판독 전 선택 Stage의 Material 데이터가 없습니다. side=" + Options.Side);
+
+                // 재개 시 동일 물리 Bin의 판독 완료 정보가 이미 저장되어 있으면 중복 판독하지 않는다.
+                if (wafer.BarcodeConfirmed && IsUsableBarcode(wafer.BarcodeId))
+                {
+                    int resumeAvoid = await EnsureOutputVisionAvoidAfterBarcodeAsync(
+                        "barcode-confirmed resume",
+                        ct).ConfigureAwait(false);
+                    if (resumeAvoid != 0)
+                        return resumeAvoid;
+
+                    Options.ExpectedWaferId = wafer.WaferId ?? string.Empty;
+                    WriteLog(Name,
+                        "Output Bin barcode already confirmed. scan skipped. side=" + Options.Side +
+                        ", waferInstanceId=" + wafer.WaferInstanceId +
+                        ", barcode=" + wafer.BarcodeId + " - Ok");
+                    CurrentStep = ResolveAfterBarcodeStep();
+                    return 0;
+                }
+
+                AppSettings settings = AppSettingsStore.Current ?? new AppSettings();
+                int readTimeoutMs = settings.OutputBarcodeReadTimeoutMs > 0
+                    ? settings.OutputBarcodeReadTimeoutMs
+                    : 3000;
+                int retryCount = Math.Max(0, settings.OutputBarcodeRetryCount);
+                double retryStepMm = Math.Abs(settings.OutputBarcodeRetryStepMm);
+                int totalAttempts = 0;
+                string lastFailure = string.Empty;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    IBarcodeReader reader = Context != null && Context.Machine != null
+                        ? Context.Machine.BinBarcodeReader
+                        : null;
+                    string readerFailure;
+                    if (!TryEnsureBarcodeReaderReady(reader, out readerFailure))
+                    {
+                        BarcodeRecoveryResponse unavailableResponse = await RequestBarcodeRecoveryAsync(
+                            wafer,
+                            readerFailure,
+                            retryCount,
+                            retryStepMm,
+                            ct).ConfigureAwait(false);
+
+                        ApplyRecoveryRetryParameters(unavailableResponse, ref retryCount, ref retryStepMm);
+                        if (unavailableResponse != null &&
+                            unavailableResponse.Decision == BarcodeRecoveryDecision.ManualApply)
+                        {
+                            int manualResult = await ApplyBarcodeAndFinishAsync(
+                                wafer,
+                                unavailableResponse.ManualBarcode,
+                                totalAttempts,
+                                "Manual",
+                                ct).ConfigureAwait(false);
+                            return manualResult;
+                        }
+
+                        if (unavailableResponse == null ||
+                            unavailableResponse.Decision == BarcodeRecoveryDecision.Cancelled)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            return await FailBarcodeWithAvoidRecoveryAsync(
+                                "OUT-BARCODE-RECOVERY-CANCELLED",
+                                "Output Bin barcode Reader 연결 복구 Dialog를 완료하지 못했습니다. " +
+                                readerFailure).ConfigureAwait(false);
+                        }
+
+                        // Dialog의 X/CLOSE도 Retry로 반환되므로 Reader 연결 확인부터 다시 수행한다.
+                        continue;
+                    }
+
+                    int feederSafe = VerifyFeederSafeForBarcodeMotion();
+                    if (feederSafe != 0)
+                        return feederSafe;
+
+                    double stageBaseTarget = Options.Side == BinSide.Ng
+                        ? Stage.Recipe.NGStageY.BarcodePosition
+                        : Stage.Recipe.GoodStageY.BarcodePosition;
+                    string targetReason;
+                    if (!ValidateOutputBarcodeStageYTargets(
+                        Options.Side,
+                        stageBaseTarget,
+                        retryCount,
+                        retryStepMm,
+                        out targetReason))
+                    {
+                        return Fail(
+                            "OUT-BARCODE-STAGE-Y-TEACH",
+                            Stage.Name,
+                            "Output Bin barcode StageY teaching/retry 범위가 유효하지 않습니다. side=" +
+                            Options.Side + ", " + targetReason);
+                    }
+
+                    double visionTarget = Stage.Recipe.VisionX.BarcodePosition;
+                    int visionMove = await Stage.MoveVisionXToTargetAndVerifyAsync(
+                        visionTarget,
+                        ResolveTimeout(),
+                        Options.FineMove,
+                        ct).ConfigureAwait(false);
+                    if (visionMove != 0 || !IsOutputStageAxisReadyAt(BinStageAxis.VisionX, visionTarget))
+                    {
+                        return await FailBarcodeWithAvoidRecoveryAsync(
+                            "OUT-BARCODE-VISION-X",
+                            "OutputCameraX barcode 위치 이동/확인 실패. result=" + visionMove + ", " +
+                            Stage.BuildStageAxisState(BinStageAxis.VisionX, visionTarget)).ConfigureAwait(false);
+                    }
+
+                    string barcode = string.Empty;
+                    int scanCount = retryCount + 1;
+                    for (int attemptIndex = 0; attemptIndex < scanCount; attemptIndex++)
+                    {
+                        ct.ThrowIfCancellationRequested();
+
+                        double offset = ResolveBarcodeRetryOffset(attemptIndex, retryStepMm);
+                        double stageTarget = stageBaseTarget + offset;
+                        int stageMove = await Stage.MoveStageYToBarcodeAndVerifyAsync(
+                            Options.Side,
+                            stageTarget,
+                            ResolveTimeout(),
+                            Options.FineMove,
+                            ct).ConfigureAwait(false);
+                        if (stageMove != 0)
+                        {
+                            BinStageAxis yAxis = Options.Side == BinSide.Ng
+                                ? BinStageAxis.NgBinY
+                                : BinStageAxis.GoodBinY;
+                            return await FailBarcodeWithAvoidRecoveryAsync(
+                                "OUT-BARCODE-STAGE-Y",
+                                "Output Bin barcode StageY 이동/확인 실패. side=" + Options.Side +
+                                ", attempt=" + (attemptIndex + 1) +
+                                ", offset=" + offset.ToString("F3") +
+                                ", result=" + stageMove + ", " +
+                                Stage.BuildStageAxisState(yAxis, stageTarget)).ConfigureAwait(false);
+                        }
+
+                        totalAttempts++;
+                        try
+                        {
+                            string readValue = await reader.ReadAsync(readTimeoutMs).ConfigureAwait(false);
+                            barcode = NormalizeBarcode(readValue);
+                            if (IsUsableBarcode(barcode))
+                                break;
+
+                            lastFailure = "바코드가 검출되지 않았습니다. reader=" + reader.ReaderName +
+                                ", attempt=" + totalAttempts +
+                                ", stageYOffset=" + offset.ToString("F3");
+                        }
+                        catch (Exception ex)
+                        {
+                            lastFailure = "바코드 통신/판독 예외. reader=" + reader.ReaderName +
+                                ", attempt=" + totalAttempts +
+                                ", error=" + ex.Message;
+                        }
+                    }
+
+                    if (IsUsableBarcode(barcode))
+                    {
+                        return await ApplyBarcodeAndFinishAsync(
+                            wafer,
+                            barcode,
+                            totalAttempts,
+                            "Reader",
+                            ct).ConfigureAwait(false);
+                    }
+
+                    int promptAvoid = await EnsureOutputVisionAvoidAfterBarcodeAsync(
+                        "barcode read failed before operator recovery",
+                        ct).ConfigureAwait(false);
+                    if (promptAvoid != 0)
+                        return promptAvoid;
+
+                    if (string.IsNullOrWhiteSpace(lastFailure))
+                        lastFailure = "설정된 재시도 횟수 안에 Output Bin 바코드를 읽지 못했습니다.";
+
+                    BarcodeRecoveryResponse response = await RequestBarcodeRecoveryAsync(
+                        wafer,
+                        lastFailure,
+                        retryCount,
+                        retryStepMm,
+                        ct).ConfigureAwait(false);
+                    ApplyRecoveryRetryParameters(response, ref retryCount, ref retryStepMm);
+
+                    if (response != null && response.Decision == BarcodeRecoveryDecision.ManualApply)
+                    {
+                        return await ApplyBarcodeAndFinishAsync(
+                            wafer,
+                            response.ManualBarcode,
+                            totalAttempts,
+                            "Manual",
+                            ct).ConfigureAwait(false);
+                    }
+
+                    if (response == null || response.Decision == BarcodeRecoveryDecision.Cancelled)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        return await FailBarcodeWithAvoidRecoveryAsync(
+                            "OUT-BARCODE-RECOVERY-CANCELLED",
+                            "Output Bin barcode 판독 복구 Dialog를 완료하지 못했습니다. " +
+                            lastFailure).ConfigureAwait(false);
+                    }
+
+                    // Retry는 base 위치부터 다시 판독한다.
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                string avoidFailure = await TryRestoreOutputVisionAvoidBestEffortAsync(
+                    "barcode cancellation").ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(avoidFailure))
+                {
+                    return Fail(
+                        "OUT-BARCODE-CANCEL-RECOVERY",
+                        Name,
+                        "Output Bin barcode 취소 후 OutputCameraX Avoid 복귀에 실패했습니다. " +
+                        "RecoveryRequired. " + avoidFailure);
+                }
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return await FailBarcodeWithAvoidRecoveryAsync(
+                    "OUT-BARCODE-EX",
+                    "Output Bin barcode sequence exception. side=" + Options.Side +
+                    ", error=" + ex.Message).ConfigureAwait(false);
+            }
+            finally
+            {
+            }
+        }
+
+        private OutputFeederLoadToStageStep ResolveAfterBarcodeStep()
+        {
+            return Options.Side == BinSide.Ng
+                ? OutputFeederLoadToStageStep.MoveNgStageAvoidAfterLoad
+                : OutputFeederLoadToStageStep.LowerOutputStageGuideBeforeProcess;
+        }
+
+        private int VerifyFeederSafeForBarcodeMotion()
+        {
+            if (Feeder == null || Feeder.FeederY == null ||
+                Feeder.FeederY.IsMoving ||
+                !Feeder.IsBinFeederAvoidPositionCheck() ||
+                !Feeder.IsFeederDown())
+            {
+                return Fail("OUT-BARCODE-FEEDER-SAFE", Feeder != null ? Feeder.Name : "OutputFeeder",
+                    "OutputCameraX/StageY barcode 이동 전 OutputFeeder가 정지된 Avoid/Lift Down 상태가 아닙니다. side=" +
+                    Options.Side + ", " + (Feeder != null ? Feeder.DescribeFeederCylinderState() : "OutputFeeder=null"));
+            }
+
+            return 0;
+        }
+
+        private bool IsOutputStageAxisReadyAt(BinStageAxis axis, double target)
+        {
+            if (Stage == null || !Stage.HasStageAxis(axis))
+                return false;
+
+            QMC.Common.Motion.BaseAxis item = axis == BinStageAxis.VisionX
+                ? Stage.OutputCameraX
+                : (axis == BinStageAxis.NgBinY ? Stage.NgStage.StageY : Stage.GoodStage.StageY);
+            if (item == null)
+                return false;
+
+            item.UpdateStatus();
+            return item.IsServoOn && !item.IsAlarm && !item.IsMoving && item.IsInPosition &&
+                Stage.IsStageAxisAtPosition(axis, target);
+        }
+
+        private async Task<int> ApplyBarcodeAndFinishAsync(
+            WaferMaterial expectedWafer,
+            string barcode,
+            int attempts,
+            string sourceKind,
+            CancellationToken ct)
+        {
+            string normalized = NormalizeBarcode(barcode);
+            if (!IsUsableBarcode(normalized))
+                return Fail("OUT-BARCODE-MANUAL-INVALID", "Barcode",
+                    "입력된 Output Bin 바코드가 비어 있거나 유효하지 않습니다.");
+
+            MaterialLocationKind expectedLocation = Options.Side == BinSide.Ng
+                ? MaterialLocationKind.OutputStageNg
+                : MaterialLocationKind.OutputStageGood;
+            string previousWaferId;
+            string applyReason;
+            bool applied = MaterialStateService.TryApplyWaferBarcode(
+                expectedWafer.WaferInstanceId,
+                expectedLocation,
+                normalized,
+                Name + ":" + Options.Side + ":" + sourceKind,
+                attempts,
+                out previousWaferId,
+                out applyReason);
+            if (!applied)
+            {
+                return await FailBarcodeWithAvoidRecoveryAsync(
+                    "OUT-BARCODE-MATERIAL-APPLY",
+                    "Output Bin barcode Material 갱신 실패. side=" + Options.Side +
+                    ", waferInstanceId=" + expectedWafer.WaferInstanceId +
+                    ", barcode=" + normalized +
+                    ", reason=" + applyReason).ConfigureAwait(false);
+            }
+
+            WaferMaterial refreshed = ResolveStageWafer();
+            if (refreshed == null ||
+                !string.Equals(refreshed.WaferInstanceId, expectedWafer.WaferInstanceId, StringComparison.OrdinalIgnoreCase) ||
+                !refreshed.BarcodeConfirmed ||
+                !string.Equals(refreshed.WaferId, normalized, StringComparison.Ordinal))
+            {
+                return await FailBarcodeWithAvoidRecoveryAsync(
+                    "OUT-BARCODE-MATERIAL-CHECK",
+                    "Output Bin barcode Material 최종 확인 실패. side=" + Options.Side +
+                    ", expectedInstanceId=" + expectedWafer.WaferInstanceId +
+                    ", expectedBarcode=" + normalized +
+                    ", actualWafer=" + (refreshed != null ? refreshed.WaferId : "null")).ConfigureAwait(false);
+            }
+
+            Options.ExpectedWaferId = refreshed.WaferId ?? string.Empty;
+            int avoidResult = await EnsureOutputVisionAvoidAfterBarcodeAsync(
+                "barcode apply completed",
+                ct).ConfigureAwait(false);
+            if (avoidResult != 0)
+                return avoidResult;
+
+            WriteLog(Name,
+                "Output Bin barcode applied. side=" + Options.Side +
+                ", waferInstanceId=" + refreshed.WaferInstanceId +
+                ", previousWaferId=" + previousWaferId +
+                ", barcode=" + refreshed.WaferId +
+                ", attempts=" + attempts +
+                ", source=" + sourceKind + " - Ok");
+            CurrentStep = ResolveAfterBarcodeStep();
+            return 0;
+        }
+
+        private async Task<int> EnsureOutputVisionAvoidAfterBarcodeAsync(string context, CancellationToken ct)
+        {
+            if (Stage == null || Stage.OutputCameraX == null || Stage.Recipe == null)
+                return Fail("OUT-BARCODE-VISION-AVOID-MISSING", "OutputStage",
+                    "Output Bin barcode 후 OutputCameraX Avoid 확인에 필요한 축/레시피가 없습니다. context=" + context);
+
+            Stage.Recipe.EnsurePositionObjects();
+            double avoidTarget = Stage.Recipe.VisionX.AvoidPosition;
+            if (IsOutputStageAxisReadyAt(BinStageAxis.VisionX, avoidTarget))
+                return 0;
+
+            int result = await Stage.MoveVisionXToAvoidAndVerifyAsync(
+                ResolveTimeout(),
+                Options.FineMove,
+                ct).ConfigureAwait(false);
+            if (result != 0 || !IsOutputStageAxisReadyAt(BinStageAxis.VisionX, avoidTarget))
+            {
+                return Fail("OUT-BARCODE-VISION-AVOID", "OutputStage",
+                    "Output Bin barcode 후 OutputCameraX Avoid 복귀/확인 실패. context=" + context +
+                    ", result=" + result + ", " +
+                    Stage.BuildStageAxisState(BinStageAxis.VisionX, avoidTarget));
+            }
+
+            return 0;
+        }
+
+        private async Task<int> FailBarcodeWithAvoidRecoveryAsync(string alarmCode, string message)
+        {
+            string avoidFailure = await TryRestoreOutputVisionAvoidBestEffortAsync(message).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(avoidFailure))
+                message += " | RecoveryRequired: OutputCameraX Avoid 복귀 실패. " + avoidFailure;
+            return Fail(alarmCode, Name, message);
+        }
+
+        private async Task<string> TryRestoreOutputVisionAvoidBestEffortAsync(string context)
+        {
+            try
+            {
+                if (Stage == null || Stage.OutputCameraX == null || Stage.Recipe == null)
+                    return "OutputStage/OutputCameraX/Recipe unavailable.";
+
+                Stage.Recipe.EnsurePositionObjects();
+                double target = Stage.Recipe.VisionX.AvoidPosition;
+                if (IsOutputStageAxisReadyAt(BinStageAxis.VisionX, target))
+                    return string.Empty;
+
+                int cleanupTimeoutMs = Math.Max(1000, Math.Min(ResolveTimeout(), 30000));
+                using (var cleanupCts = new CancellationTokenSource())
+                {
+                    cleanupCts.CancelAfter(cleanupTimeoutMs);
+                    int result = await Stage.MoveVisionXToAvoidAndVerifyAsync(
+                        cleanupTimeoutMs,
+                        Options != null && Options.FineMove,
+                        cleanupCts.Token).ConfigureAwait(false);
+                    if (result == 0 && IsOutputStageAxisReadyAt(BinStageAxis.VisionX, target))
+                        return string.Empty;
+
+                    return "context=" + context + ", result=" + result + ", " +
+                        Stage.BuildStageAxisState(BinStageAxis.VisionX, target);
+                }
+            }
+            catch (Exception ex)
+            {
+                return "context=" + context + ", error=" + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<BarcodeRecoveryResponse> RequestBarcodeRecoveryAsync(
+            WaferMaterial wafer,
+            string failureMessage,
+            int retryCount,
+            double retryStepMm,
+            CancellationToken ct)
+        {
+            var request = new BarcodeRecoveryRequest
+            {
+                Channel = BarcodeReaderChannel.OutputBin,
+                MaterialId = wafer != null ? wafer.WaferId : string.Empty,
+                MaterialInstanceId = wafer != null ? wafer.WaferInstanceId : string.Empty,
+                FailureMessage = failureMessage ?? string.Empty,
+                RetryCount = retryCount,
+                RetryStepMm = retryStepMm
+            };
+            return await BarcodeOperatorPromptService.RequestAsync(request, ct).ConfigureAwait(false);
+        }
+
+        private static void ApplyRecoveryRetryParameters(
+            BarcodeRecoveryResponse response,
+            ref int retryCount,
+            ref double retryStepMm)
+        {
+            if (response == null)
+                return;
+
+            retryCount = Math.Max(0, response.RetryCount);
+            retryStepMm = Math.Abs(response.RetryStepMm);
+        }
+
+        private static bool TryEnsureBarcodeReaderReady(IBarcodeReader reader, out string reason)
+        {
+            reason = string.Empty;
+            if (reader == null)
+            {
+                reason = "Output Bin barcode reader가 구성되지 않았습니다.";
+                return false;
+            }
+
+            try
+            {
+                if (reader.IsConnected)
+                    return true;
+
+                if (reader.TryOpen() && reader.IsConnected)
+                    return true;
+
+                reason = "Output Bin barcode reader 연결에 실패했습니다. reader=" + reader.ReaderName;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                reason = "Output Bin barcode reader 연결 예외. reader=" + reader.ReaderName +
+                    ", error=" + ex.Message;
+                return false;
+            }
+        }
+
+        private static double ResolveBarcodeRetryOffset(int attemptIndex, double retryStepMm)
+        {
+            if (attemptIndex <= 0 || retryStepMm <= 0.0)
+                return 0.0;
+
+            int distanceMultiplier = (attemptIndex + 1) / 2;
+            double sign = attemptIndex % 2 == 1 ? 1.0 : -1.0;
+            return sign * distanceMultiplier * retryStepMm;
+        }
+
+        private bool ValidateOutputBarcodeStageYTargets(
+            BinSide side,
+            double baseTarget,
+            int retryCount,
+            double retryStepMm,
+            out string reason)
+        {
+            reason = string.Empty;
+            QMC.Common.Motion.BaseAxis stageY = side == BinSide.Ng
+                ? (Stage != null && Stage.NgStage != null ? Stage.NgStage.StageY : null)
+                : (Stage != null && Stage.GoodStage != null ? Stage.GoodStage.StageY : null);
+            if (stageY == null || stageY.Setup == null)
+            {
+                reason = "StageY axis/setup is unavailable.";
+                return false;
+            }
+
+            int scanCount = Math.Max(0, retryCount) + 1;
+            for (int attemptIndex = 0; attemptIndex < scanCount; attemptIndex++)
+            {
+                double offset = ResolveBarcodeRetryOffset(attemptIndex, Math.Abs(retryStepMm));
+                double target = baseTarget + offset;
+                if (stageY.Setup.SoftLimitEnabled &&
+                    (target < stageY.Setup.SoftLimitMinus || target > stageY.Setup.SoftLimitPlus))
+                {
+                    reason = "attempt=" + (attemptIndex + 1) +
+                        ", target=" + target.ToString("F3") +
+                        ", softLimitMinus=" + stageY.Setup.SoftLimitMinus.ToString("F3") +
+                        ", softLimitPlus=" + stageY.Setup.SoftLimitPlus.ToString("F3");
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static string NormalizeBarcode(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return string.Empty;
+
+            var chars = new System.Collections.Generic.List<char>(value.Length);
+            foreach (char ch in value)
+            {
+                if (ch == '\x02' || ch == '\x03' || char.IsWhiteSpace(ch))
+                    continue;
+                if (char.IsControl(ch))
+                    return string.Empty;
+                chars.Add(ch);
+            }
+            return new string(chars.ToArray());
+        }
+
+        private static bool IsUsableBarcode(string value)
+        {
+            string normalized = NormalizeBarcode(value);
+            return !string.IsNullOrWhiteSpace(normalized) &&
+                !string.Equals(normalized, "WAFER-NULL-ID", StringComparison.OrdinalIgnoreCase);
         }
 
         // 현재 기준: 수령 직후 LowerOutputStageGuideAfterReceive에서 이미 GUIDE DOWN이 완료되므로

@@ -10,6 +10,8 @@ namespace QMC.CDT320.Interlocks
 {
     public sealed class RealtimeCollisionSupervisor : IDisposable
     {
+        #region 구성 및 감시 수명주기
+
         private const int DefaultMonitorPeriodMs = 100;
         private const int RiskLogThrottleMs = 10000;
         private const int StateLogThrottleMs = 30000;
@@ -106,6 +108,10 @@ namespace QMC.CDT320.Interlocks
                 "실시간 충돌 감시 정지. - Ok");
         }
 
+        #endregion
+
+        #region Picker 상태 갱신 및 Snapshot
+
         public void SetPickerPhase(PickerSafetySide side, PickerSafetyPhase phase, bool carrying)
         {
             lock (_sync)
@@ -160,6 +166,10 @@ namespace QMC.CDT320.Interlocks
         {
             Stop();
         }
+
+        #endregion
+
+        #region 실시간 감시 및 위험 판정
 
         private async Task MonitorLoopAsync(CancellationToken token)
         {
@@ -234,6 +244,10 @@ namespace QMC.CDT320.Interlocks
                 pair.Describe() + ", " + state.Front.Describe() + ", " + state.Rear.Describe());
         }
 
+        #endregion
+
+        #region Picker Y 복구 예외 판정
+
         private bool IsSafePickerYPairInitialize(MotionSafetyState state)
         {
             if (state == null || state.Front == null || state.Rear == null ||
@@ -295,6 +309,10 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        #endregion
+
+        #region Picker Pair Snapshot 및 이동 경로 판정
+
         private AxisPairSafetySnapshot BuildFrontRearFacingSnapshot(PickerSafetySnapshot front, PickerSafetySnapshot rear)
         {
             return new AxisPairSafetySnapshot
@@ -346,6 +364,10 @@ namespace QMC.CDT320.Interlocks
             double rearMax = Math.Max(rearStart, rearEnd);
             return rearMax >= frontMin && rearMin <= frontMax;
         }
+
+        #endregion
+
+        #region Hard Stop 및 축 정지
 
         private void RaiseHardStop(
             string reason,
@@ -430,6 +452,10 @@ namespace QMC.CDT320.Interlocks
             {
             }
         }
+
+        #endregion
+
+        #region Picker 상태 해석 및 축 조회
 
         private PickerSafetySnapshot BuildPickerSnapshot(PickerSafetySide side, PickerSafetyPhase phase, bool carrying)
         {
@@ -596,6 +622,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region Throttled 로그
+
         private void WriteThrottledRiskLog(string message)
         {
             DateTime now = DateTime.UtcNow;
@@ -615,5 +645,7 @@ namespace QMC.CDT320.Interlocks
             _lastStateLogUtc = now;
             QMC.Common.Log.Write("Main", "SYSTEM", "RealtimeCollisionSupervisor", message + " - Ok");
         }
+
+        #endregion
     }
 }

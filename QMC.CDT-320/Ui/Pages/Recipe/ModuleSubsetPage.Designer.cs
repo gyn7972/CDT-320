@@ -124,7 +124,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpPickPlace.Controls.Add(this.lblPlaceDelay, 0, 2);
             this.tlpPickPlace.Controls.Add(this._nPlaceDelay, 1, 2);
             this.tlpPickPlace.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpPickPlace.Location = new System.Drawing.Point(6, 25);
+            this.tlpPickPlace.Location = new System.Drawing.Point(6, 20);
             this.tlpPickPlace.Margin = new System.Windows.Forms.Padding(0);
             this.tlpPickPlace.Name = "tlpPickPlace";
             this.tlpPickPlace.RowCount = 4;
@@ -132,7 +132,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpPickPlace.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpPickPlace.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpPickPlace.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tlpPickPlace.Size = new System.Drawing.Size(527, 109);
+            this.tlpPickPlace.Size = new System.Drawing.Size(527, 114);
             this.tlpPickPlace.TabIndex = 0;
             // 
             // lblPickRetry
@@ -163,7 +163,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nPickRetry.Name = "_nPickRetry";
-            this._nPickRetry.Size = new System.Drawing.Size(301, 27);
+            this._nPickRetry.Size = new System.Drawing.Size(301, 23);
             this._nPickRetry.TabIndex = 2;
             this._nPickRetry.Value = new decimal(new int[] {
             1,
@@ -194,7 +194,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nPickDelay.Name = "_nPickDelay";
-            this._nPickDelay.Size = new System.Drawing.Size(301, 27);
+            this._nPickDelay.Size = new System.Drawing.Size(301, 23);
             this._nPickDelay.TabIndex = 4;
             // 
             // lblPlaceDelay
@@ -220,7 +220,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nPlaceDelay.Name = "_nPlaceDelay";
-            this._nPlaceDelay.Size = new System.Drawing.Size(301, 27);
+            this._nPlaceDelay.Size = new System.Drawing.Size(301, 23);
             this._nPlaceDelay.TabIndex = 6;
             // 
             // grpCollet
@@ -249,14 +249,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpCollet.Controls.Add(this.lblColletInterval, 0, 1);
             this.tlpCollet.Controls.Add(this._nColletInterval, 1, 1);
             this.tlpCollet.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpCollet.Location = new System.Drawing.Point(6, 25);
+            this.tlpCollet.Location = new System.Drawing.Point(6, 20);
             this.tlpCollet.Margin = new System.Windows.Forms.Padding(0);
             this.tlpCollet.Name = "tlpCollet";
             this.tlpCollet.RowCount = 3;
             this.tlpCollet.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpCollet.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpCollet.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tlpCollet.Size = new System.Drawing.Size(527, 75);
+            this.tlpCollet.Size = new System.Drawing.Size(527, 80);
             this.tlpCollet.TabIndex = 0;
             // 
             // lblColletEnable
@@ -308,7 +308,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nColletInterval.Name = "_nColletInterval";
-            this._nColletInterval.Size = new System.Drawing.Size(301, 27);
+            this._nColletInterval.Size = new System.Drawing.Size(301, 23);
             this._nColletInterval.TabIndex = 11;
             this._nColletInterval.Value = new decimal(new int[] {
             1,
@@ -342,14 +342,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpInspection.Controls.Add(this.lblPlacementInspection, 0, 1);
             this.tlpInspection.Controls.Add(this._cbPlacementInspect, 1, 1);
             this.tlpInspection.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpInspection.Location = new System.Drawing.Point(6, 25);
+            this.tlpInspection.Location = new System.Drawing.Point(6, 20);
             this.tlpInspection.Margin = new System.Windows.Forms.Padding(0);
             this.tlpInspection.Name = "tlpInspection";
             this.tlpInspection.RowCount = 3;
             this.tlpInspection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpInspection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpInspection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tlpInspection.Size = new System.Drawing.Size(527, 75);
+            this.tlpInspection.Size = new System.Drawing.Size(527, 80);
             this.tlpInspection.TabIndex = 0;
             // 
             // lblBottomInspection

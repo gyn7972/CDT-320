@@ -1819,6 +1819,62 @@ namespace QMC.CDT320
             }
         }
 
+        /// <summary>
+        /// Output Bin 바코드 판독 중 선택된 GOOD/NG StageY를 지정 위치로 이동하고
+        /// 기존 축 완료 계약과 최종 위치를 다시 확인합니다.
+        /// </summary>
+        public async Task<int> MoveStageYToBarcodeAndVerifyAsync(
+            BinSide side,
+            double targetPos,
+            int timeoutMs,
+            bool bFine,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                BinStageAxis axis = side == BinSide.Ng
+                    ? BinStageAxis.NgBinY
+                    : BinStageAxis.GoodBinY;
+                int result = await MoveStageAxisAndVerifyAsync(
+                    axis,
+                    targetPos,
+                    timeoutMs,
+                    bFine,
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                BaseAxis item = ResolveStageAxis(axis);
+                item.UpdateStatus();
+                if (!item.IsServoOn || item.IsAlarm || item.IsMoving || !item.IsInPosition ||
+                    !IsStageAxisAtPosition(axis, targetPos))
+                {
+                    return RaiseOutputStageAlarm(
+                        "OS-BARCODE-STAGE-Y-CHECK",
+                        "Output Bin barcode StageY final check failed. side=" + side + ", " +
+                        BuildStageAxisState(axis, targetPos));
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm(
+                    "OS-BARCODE-STAGE-Y-EX",
+                    "Output Bin barcode StageY move exception. side=" + side +
+                    ", target=" + targetPos + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> MoveVisionXToAvoidAndVerifyAsync(int timeoutMs, JogSpeedType speedType, double customSpeed, CancellationToken ct)
         {
             try
@@ -2327,6 +2383,7 @@ namespace QMC.CDT320
             if (string.Equals(positionName, "Process", StringComparison.OrdinalIgnoreCase)) return positions.ProcessPosition;
             if (string.Equals(positionName, "Unload", StringComparison.OrdinalIgnoreCase)) return positions.UnloadPosition;
             if (string.Equals(positionName, "Reticle", StringComparison.OrdinalIgnoreCase)) return positions.ReticlePosition;
+            if (string.Equals(positionName, "Barcode", StringComparison.OrdinalIgnoreCase)) return positions.BarcodePosition;
             throw new ArgumentException("Unknown stage teaching position: " + positionName, "positionName");
         }
 
@@ -2817,6 +2874,7 @@ namespace QMC.CDT320
             else if (string.Equals(positionName, "Process", StringComparison.OrdinalIgnoreCase)) positions.ProcessPosition = position;
             else if (string.Equals(positionName, "Unload", StringComparison.OrdinalIgnoreCase)) positions.UnloadPosition = position;
             else if (string.Equals(positionName, "Reticle", StringComparison.OrdinalIgnoreCase)) positions.ReticlePosition = position;
+            else if (string.Equals(positionName, "Barcode", StringComparison.OrdinalIgnoreCase)) positions.BarcodePosition = position;
             else throw new ArgumentException("Unknown stage teaching position: " + positionName, "positionName");
         }
 

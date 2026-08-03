@@ -80,6 +80,7 @@
   <ItemGroup>
     <!-- Equipment / Core -->
     <Compile Include="Equipment\AppSettings.cs" />
+    <Compile Include="Equipment\BarcodeOperatorPromptService.cs" />
     <Compile Include="Equipment\LogRetentionService.cs" />
     <Compile Include="Equipment\Alarms\AlarmResponsePolicy.cs" />
     <Compile Include="Equipment\Alarms\AlarmResponseService.cs" />
@@ -175,6 +176,12 @@
     <Compile Include="Equipment\Vision\VisionReconnectWatchdog.cs" />
     <Compile Include="Ui\Dialogs\EnumPickerDialog.cs">
       <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\BarcodeRecoveryDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\BarcodeRecoveryDialog.Designer.cs">
+      <DependentUpon>BarcodeRecoveryDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\LogSettingsDialog.cs">
       <SubType>Form</SubType>
@@ -1209,8 +1216,8 @@
     <Compile Include="Ui\Pages\Recipe\FrontPickerRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\ManualMoveGuard.cs" />
-    <Compile Include="Ui\Pages\Recipe\RecipePickerMoveTarget.cs" />
+    <Compile Include="Ui\Pages\Recipe\Helper\ManualMoveGuard.cs" />
+    <Compile Include="Ui\Pages\Recipe\Helper\RecipePickerMoveTarget.cs" />
     <Compile Include="Ui\Pages\Recipe\RearPickerRecipePage.Designer.cs">
       <DependentUpon>RearPickerRecipePage.cs</DependentUpon>
     </Compile>
@@ -1230,7 +1237,7 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\Helper\RecipeLayoutHelpers.cs" />
-    <Compile Include="Ui\Pages\Recipe\RecipeVisionPreview.cs" />
+    <Compile Include="Ui\Pages\Recipe\Helper\RecipeVisionPreview.cs" />
     <Compile Include="Ui\Pages\Recipe\VisionRecipePage.Designer.cs">
       <DependentUpon>VisionRecipePage.cs</DependentUpon>
     </Compile>

@@ -11,6 +11,8 @@ namespace QMC.CDT320.Sequencing
 {
     internal abstract class OutputFeederSequenceBase<TStep> where TStep : struct
     {
+        #region 실행 구성 및 장비 접근
+
         private const string SequenceNamePrefix = "OutputFeederSequence";
         private bool _resumeStateCompletedAtLogicalCutover;
 
@@ -56,6 +58,10 @@ namespace QMC.CDT320.Sequencing
         {
             get { return Context != null && Context.Machine != null ? Context.Machine.OutputCassetteUnit : null; }
         }
+
+        #endregion
+
+        #region State Machine 실행 수명주기
 
         public async Task<int> RunAsync(CancellationToken ct, OutputFeederSequenceOptions options)
         {
@@ -139,6 +145,10 @@ namespace QMC.CDT320.Sequencing
         }
 
         protected abstract Task<int> ExecuteCurrentStepAsync(CancellationToken ct);
+
+        #endregion
+
+        #region 유닛·자재·이송 사전 조건
 
         protected int CheckUnit(TStep nextStep)
         {
@@ -305,6 +315,10 @@ namespace QMC.CDT320.Sequencing
             CurrentStep = nextStep;
             return 0;
         }
+
+        #endregion
+
+        #region Feeder 이동 및 센서 검증
 
         protected async Task<int> MoveFeederYCommandAsync(Task<int> moveTask, string description, CancellationToken ct)
         {
@@ -484,6 +498,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region Picker 회피 및 Output 이송 인터락
 
         private static string LocalizeFeederMoveDescription(string description)
         {
@@ -734,6 +752,10 @@ namespace QMC.CDT320.Sequencing
                 ");";
         }
 
+        #endregion
+
+        #region 실패·재개 및 공통 유틸리티
+
         protected int FailUnsupportedStep()
         {
             return Fail("OUT-FEEDER-STEP", Name, "Unsupported output feeder step: " + CurrentStep);
@@ -889,6 +911,10 @@ namespace QMC.CDT320.Sequencing
             SequenceLog.EmitTrace(QMC.Common.Logging.EventKind.OutputSeq, source, message);
         }
 
+        #endregion
+
+
+        #region Output Cassette Avoid 복귀
 
         protected async Task<int> MoveOutputCassetteAvoidPositionAsync(CancellationToken ct)
         {
@@ -977,6 +1003,8 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
 
     }
 }

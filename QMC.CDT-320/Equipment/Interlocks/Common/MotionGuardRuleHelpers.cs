@@ -8,6 +8,8 @@ namespace QMC.CDT320.Interlocks
 {
     internal static class MotionGuardRuleHelpers
     {
+        #region 공유 레일 간격 및 요청 종류 판정
+
         private const double DefaultPositionTolerance = 0.05;
 
         /// <summary>
@@ -142,6 +144,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region 축·실린더 상태와 Teaching 대상 판정
+
         public static bool IsAt(BaseAxis axis, double target)
         {
             return IsAt(axis, target, ResolveTolerance(axis));
@@ -205,6 +211,10 @@ namespace QMC.CDT320.Interlocks
                 || name.EndsWith("Ready", StringComparison.OrdinalIgnoreCase)
                 || name.IndexOf("Safe", StringComparison.OrdinalIgnoreCase) >= 0;
         }
+
+        #endregion
+
+        #region Reticle 및 Picker Y 절대 안전 판정
 
         public static bool IsReticleRetracted(CDT320_Machine machine)
         {
@@ -368,6 +378,10 @@ namespace QMC.CDT320.Interlocks
             return Math.Abs(request.TargetValue) <= tolerance;
         }
 
+        #endregion
+
+        #region TargetName 정규화 및 PickUpZHold 면제
+
         public static string NormalizeTargetName(string targetName)
         {
             string name = targetName ?? string.Empty;
@@ -415,6 +429,10 @@ namespace QMC.CDT320.Interlocks
             exemptPickerIndex = pickerNo - 1;
             return true;
         }
+
+        #endregion
+
+        #region Collet Calibration 미세 정렬 판정
 
         public static bool IsColletCalibrationFineAlignMove(MotionGuardRuleContext request, bool isFront, out string detail)
         {
@@ -581,6 +599,10 @@ namespace QMC.CDT320.Interlocks
             return 0.2;
         }
 
+        #endregion
+
+        #region 공통 허용 오차
+
         private static double ResolveTolerance(BaseAxis axis)
         {
             if (axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0)
@@ -588,5 +610,7 @@ namespace QMC.CDT320.Interlocks
 
             return DefaultPositionTolerance;
         }
+
+        #endregion
     }
 }

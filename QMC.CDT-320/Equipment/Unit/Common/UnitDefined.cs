@@ -19,16 +19,16 @@ namespace QMC.CDT320
         Plus = 1
     }
 
-    /// <summary>WaferStage 시트에 정의된 축입니다.</summary>
+    /// <summary>WaferStage 시트에 정의된 논리 축입니다. enum 값은 실제 하드웨어 Axis 번호가 아닙니다.</summary>
     public enum WaferStageAxis { WaferY, WaferT, WaferExpandingZ, VisionX, NeedleX, NeedleZ, EjectPinZ }
 
-    /// <summary>Picker 시트에 정의된 축입니다.</summary>
+    /// <summary>Picker 시트에 정의된 논리 축입니다. enum 값은 실제 하드웨어 Axis 번호가 아닙니다.</summary>
     public enum PickerAxis { PickerX, PickerY, PickerT0, PickerZ0, PickerT1, PickerZ1, PickerT2, PickerZ2, PickerT3, PickerZ3 }
 
-    /// <summary>Vision 시트에 정의된 축입니다.</summary>
+    /// <summary>Vision 시트에 정의된 논리 축입니다. enum 값은 실제 하드웨어 Axis 번호가 아닙니다.</summary>
     public enum VisionAxis { FrontSideVisionY, RearSideVisionY }
 
-    /// <summary>OutputStage 시트에 정의된 축입니다.</summary>
+    /// <summary>OutputStage 시트에 정의된 논리 축입니다. enum 값은 실제 하드웨어 Axis 번호가 아닙니다.</summary>
     public enum BinStageAxis { NgBinY, NgBinZ, GoodBinY, GoodBinZ, VisionX }
 
     /// <summary>Bin 계열 좌우/양불 작업 영역입니다.</summary>
@@ -318,7 +318,10 @@ namespace QMC.CDT320
             return Task.FromResult(0);
         }
 
-        /// <summary>축을 등록하고 Components에 추가합니다.</summary>
+        /// <summary>
+        /// Unit의 논리 축 enum과 카탈로그 축 이름을 연결하고 Components에 추가합니다.
+        /// TAxis의 enum 숫자는 물리 Axis 번호로 사용하지 않습니다.
+        /// </summary>
         protected BaseAxis RegisterAxis(TAxis axis, string axisName)
         {
             var item = AjinFactory.CreateAxis(axisName);
@@ -342,7 +345,9 @@ namespace QMC.CDT320
             return false;
         }
 
-        /// <summary>입력 포트를 등록하고 Components에 추가합니다.</summary>
+        /// <summary>
+        /// key는 Unit 내부 조회 이름이고 catalogName은 AjinIoCatalog에 등록된 하드웨어 이름입니다.
+        /// </summary>
         protected BaseDigitalInput RegisterInput(string key, string catalogName)
         {
             var item = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput(catalogName));
@@ -351,7 +356,9 @@ namespace QMC.CDT320
             return item;
         }
 
-        /// <summary>출력 포트를 등록하고 Components에 추가합니다.</summary>
+        /// <summary>
+        /// key는 Unit 내부 조회 이름이고 catalogName은 AjinIoCatalog에 등록된 하드웨어 이름입니다.
+        /// </summary>
         protected BaseDigitalOutput RegisterOutput(string key, string catalogName)
         {
             var item = AjinFactory.CreateDigitalOutput(AjinIoCatalog.FindOutput(catalogName));

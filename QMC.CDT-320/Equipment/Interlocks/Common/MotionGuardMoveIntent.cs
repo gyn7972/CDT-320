@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 
@@ -6,6 +6,8 @@ namespace QMC.CDT320.Interlocks
 {
     public sealed class MotionGuardMoveIntent
     {
+        #region 생성 및 해석 결과
+
         private readonly Dictionary<string, string> _values;
 
         private MotionGuardMoveIntent(string targetName)
@@ -50,6 +52,10 @@ namespace QMC.CDT320.Interlocks
         {
             return new MotionGuardMoveIntent(targetName);
         }
+
+        #endregion
+
+        #region 토큰 및 값 조회
 
         public bool HasToken(string token)
         {
@@ -109,6 +115,10 @@ namespace QMC.CDT320.Interlocks
             string value;
             return TryGetValue(key, out value) ? ParsePickerWorkZone(value) : PickerWorkZone.Unknown;
         }
+
+        #endregion
+
+        #region Picker 작업 구역 해석
 
         private PickerWorkZone ResolvePickerZone()
         {
@@ -173,6 +183,10 @@ namespace QMC.CDT320.Interlocks
             return (value ?? string.Empty).IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        #endregion
+
+        #region Key=Value 토큰 파싱
+
         private static Dictionary<string, string> ParseValues(string targetName)
         {
             var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -200,5 +214,7 @@ namespace QMC.CDT320.Interlocks
 
             return values;
         }
+
+        #endregion
     }
 }

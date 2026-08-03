@@ -73,12 +73,28 @@ namespace QMC.CDT320
         [DataMember] public double ViewerMeasureScaleFactor { get; set; } = 1.0;
 
         // ── Barcode link (CDT-310 매뉴얼 사양 — Serial Port 4/6) ──
+        /// <summary>Input Wafer 로딩 중 바코드 읽기 사용 여부.</summary>
+        [DataMember] public bool   UseInputWaferBarcode { get; set; } = false;
+        /// <summary>Output Bin 로딩 중 바코드 읽기 사용 여부.</summary>
+        [DataMember] public bool   UseOutputBinBarcode { get; set; } = false;
         /// <summary>Stage 43 — Wafer Barcode 시리얼 포트 번호.</summary>
         [DataMember] public int    WaferBarcodeSerialPort { get; set; } = 4;
         /// <summary>Stage 43 — Bin Barcode 시리얼 포트 번호.</summary>
         [DataMember] public int    BinBarcodeSerialPort   { get; set; } = 6;
-        /// <summary>Stage 43 — 시리얼 baudrate (기본 9600).</summary>
+        /// <summary>이전 설정 파일 호환용 공통 baudrate.</summary>
         [DataMember] public int    BarcodeSerialBaud      { get; set; } = 9600;
+        [DataMember] public int    WaferBarcodeSerialBaud { get; set; } = 9600;
+        [DataMember] public int    BinBarcodeSerialBaud { get; set; } = 9600;
+        [DataMember] public int    InputBarcodeReadTimeoutMs { get; set; } = 3000;
+        [DataMember] public int    OutputBarcodeReadTimeoutMs { get; set; } = 3000;
+        [DataMember] public int    InputBarcodeRetryCount { get; set; } = 3;
+        [DataMember] public int    OutputBarcodeRetryCount { get; set; } = 3;
+        [DataMember] public double InputBarcodeRetryStepMm { get; set; } = 1.000;
+        [DataMember] public double OutputBarcodeRetryStepMm { get; set; } = 1.000;
+        /// <summary>빈 문자열이면 명령을 송신하지 않고 리더 수신만 대기합니다.</summary>
+        [DataMember] public string InputBarcodeTriggerCommand { get; set; } = "";
+        /// <summary>빈 문자열이면 명령을 송신하지 않고 리더 수신만 대기합니다.</summary>
+        [DataMember] public string OutputBarcodeTriggerCommand { get; set; } = "";
 
         // ── Simulator link — auto connect ──
         [DataMember] public bool   SimulatorAutoConnect { get; set; } = false;
@@ -176,12 +192,50 @@ namespace QMC.CDT320
         {
             UseVision = true;
             UseRealVisionInSimulation = true;
+            UseInputWaferBarcode = false;
+            UseOutputBinBarcode = false;
+            WaferBarcodeSerialPort = 4;
+            BinBarcodeSerialPort = 6;
+            BarcodeSerialBaud = 9600;
+            // 구 설정 파일의 공통 BarcodeSerialBaud를 OnDeserialized에서 채울 수 있도록 0으로 시작합니다.
+            WaferBarcodeSerialBaud = 0;
+            BinBarcodeSerialBaud = 0;
+            InputBarcodeReadTimeoutMs = 3000;
+            OutputBarcodeReadTimeoutMs = 3000;
+            InputBarcodeRetryCount = 3;
+            OutputBarcodeRetryCount = 3;
+            InputBarcodeRetryStepMm = 1.000;
+            OutputBarcodeRetryStepMm = 1.000;
+            InputBarcodeTriggerCommand = "";
+            OutputBarcodeTriggerCommand = "";
             WaferCompleteRunMode = WaferCompleteRunMode.Continue;
             ViewerMeasureScaleFactor = 1.0;   // 구 settings.json 에 키 없으면 0 으로 로드되는 것 방지(기본=저장 스케일 그대로)
             FileLogHistoryEnabled = true;   // 구 settings.json 에 키가 없으면 false 로 로드되어 이력 화면이 꺼지는 문제 방지
             // ArchiveKeepDays 는 키가 없으면 0(무기한 보관)으로 로드되며, 이는 기본값과 같아 별도 처리가 필요 없다.
             LogCompressEnabled = true;      // 구 settings.json 에 키 없으면 압축이 꺼지는 것 방지(기존 동작=항상 압축)
             LogCompressDays = 14;           // 구 settings.json 에 키 없으면 0 으로 로드되는 것 방지(기존 고정값 14)
+        }
+
+        [OnDeserialized]
+        internal void OnDeserialized(StreamingContext ctx)
+        {
+            int legacyBaud = BarcodeSerialBaud > 0 ? BarcodeSerialBaud : 9600;
+            if (WaferBarcodeSerialBaud <= 0) WaferBarcodeSerialBaud = legacyBaud;
+            if (BinBarcodeSerialBaud <= 0) BinBarcodeSerialBaud = legacyBaud;
+            if (WaferBarcodeSerialPort <= 0) WaferBarcodeSerialPort = 4;
+            if (BinBarcodeSerialPort <= 0) BinBarcodeSerialPort = 6;
+            InputBarcodeReadTimeoutMs = Math.Max(100, Math.Min(60000, InputBarcodeReadTimeoutMs));
+            OutputBarcodeReadTimeoutMs = Math.Max(100, Math.Min(60000, OutputBarcodeReadTimeoutMs));
+            InputBarcodeRetryCount = Math.Max(0, Math.Min(20, InputBarcodeRetryCount));
+            OutputBarcodeRetryCount = Math.Max(0, Math.Min(20, OutputBarcodeRetryCount));
+            if (double.IsNaN(InputBarcodeRetryStepMm) || double.IsInfinity(InputBarcodeRetryStepMm) || InputBarcodeRetryStepMm <= 0)
+                InputBarcodeRetryStepMm = 1.000;
+            if (double.IsNaN(OutputBarcodeRetryStepMm) || double.IsInfinity(OutputBarcodeRetryStepMm) || OutputBarcodeRetryStepMm <= 0)
+                OutputBarcodeRetryStepMm = 1.000;
+            InputBarcodeRetryStepMm = Math.Min(100.000, InputBarcodeRetryStepMm);
+            OutputBarcodeRetryStepMm = Math.Min(100.000, OutputBarcodeRetryStepMm);
+            InputBarcodeTriggerCommand = InputBarcodeTriggerCommand ?? "";
+            OutputBarcodeTriggerCommand = OutputBarcodeTriggerCommand ?? "";
         }
 
         public bool BypassHardware => SimulationMode;

@@ -9,6 +9,8 @@ namespace QMC.CDT320.Interlocks
 
     public sealed class MotionGuardRuleContext
     {
+        #region 요청 생성 및 속성
+
         public MotionGuardRuleContext(
             string movingName,
             string movingKey,
@@ -135,6 +137,10 @@ namespace QMC.CDT320.Interlocks
             get { return Context != null ? Context.Machine : null; }
         }
 
+        #endregion
+
+        #region 축·실린더 조회
+
         public BaseAxis GetAxis(string name)
         {
             if (Context == null || Context.Axes == null)
@@ -152,10 +158,14 @@ namespace QMC.CDT320.Interlocks
             BaseCylinder cylinder;
             return Context.Cylinders.TryGetValue(InterlockCheckMatrix.NormalizeName(name), out cylinder) ? cylinder : null;
         }
+
+        #endregion
     }
 
     public static class MotionGuardRuleRegistry
     {
+        #region 규칙 등록 및 순차 검증
+
         private static readonly object Sync = new object();
         private static readonly List<MotionGuardRule> Rules = new List<MotionGuardRule>();
 
@@ -209,5 +219,7 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             return true;
         }
+
+        #endregion
     }
 }

@@ -12,6 +12,8 @@ namespace QMC.CDT320.Sequencing
 {
     internal sealed class PickerProcessSequence : PickerSequenceBase<PickerProcessStep>
     {
+        #region 실행 상태·Abort·Process 진입
+
         private const int OutputStageExchangeStallTimeoutMs = 120000;
         private PickerPickUpSequence _pickUpSequence;
         private PickerBottomInspectionSequence _bottomInspectionSequence;
@@ -28,6 +30,7 @@ namespace QMC.CDT320.Sequencing
         private bool _resumePartialPickUpWithoutMarkPermission;
         private bool _firstForwardTurnHandled;
         private bool _resumeDrainWaitHandled;
+
         // [동적 선행 대기점, 지시서 2026-07-27] 촬영(선행검사) 진행 중 대기 픽커 X를
         // "배치 maxVisionX + 팔로잉 클리어런스(+여유)"까지 선행 접근시키는 기능의 이동 Task/목표.
         // 허가 대기 세션당 1회만 발동(재명령 금지 — AXM 0x1038 선례), 세션 시작 시 초기화.
@@ -211,6 +214,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region 리소스 점유·Step 실행·Resume Drain
 
         private Task<SequenceResourceLease> AcquirePickerProcessResourceAsync(CancellationToken ct)
         {
@@ -553,6 +560,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Step Dispatch·Material 기반 다음 단계
+
         private Task<int> ExecuteStepAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
@@ -881,6 +892,10 @@ namespace QMC.CDT320.Sequencing
             return die != null &&
                    (die.Result == DieResult.Good || die.Result == DieResult.NG);
         }
+
+        #endregion
+
+        #region Input Vision·PickUp·동적 선행 이동
 
         private async Task<int> RunInputCameraMarkInspectionAsync(CancellationToken ct)
         {
@@ -1524,6 +1539,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Bottom·Side Inspection
+
         private async Task<int> RunBottomInspectionAsync(CancellationToken ct)
         {
             if ((Options == null || Options.RunMode == SequenceRunMode.Auto) &&
@@ -2108,6 +2127,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Place 및 Output Stage 대기
+
         private async Task<int> RunPlaceAsync(CancellationToken ct)
         {
             try
@@ -2435,6 +2458,10 @@ namespace QMC.CDT320.Sequencing
                 ", reason=" + reason +
                 ", keepPickerYForwardForContinuousPlace=" + _keepPickerYForwardForContinuousPlace + " - Check");
         }
+
+        #endregion
+
+        #region Picker Phase·Work Zone
 
         private async Task<int> EnterOrTransitionPickerPhaseAsync(
             PickerProcessPhase requestedPhase,
@@ -2891,6 +2918,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Signal·상대 Picker 상태
+
         private string GetOwnBottomInspectionSignal()
         {
             return Side == PickerSequenceSide.Front
@@ -3110,6 +3141,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region 하위 Picker Options
+
         private PickerSequenceOptions BuildChildSequenceOptions(
             bool keepZAfterBottomInspection = false,
             bool enterSideFromBottomInspection = false,
@@ -3137,6 +3172,8 @@ namespace QMC.CDT320.Sequencing
                 KeepZUntilSideInspectionComplete = source.KeepZUntilSideInspectionComplete || (isAuto && keepZUntilSideInspectionComplete)
             };
         }
+
+        #endregion
     }
 }
 

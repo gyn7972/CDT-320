@@ -453,6 +453,14 @@ namespace QMC.CDT320.Materials
     public class WaferMaterial
     {
         [DataMember] public string WaferId { get; set; } = "";
+        /// <summary>최초 바코드 승격 전의 Mapping/임시 식별자.</summary>
+        [DataMember] public string OriginalWaferId { get; set; } = "";
+        /// <summary>Input Wafer 또는 Output Bin에서 실제로 읽은 생산 바코드.</summary>
+        [DataMember] public string BarcodeId { get; set; } = "";
+        [DataMember] public bool BarcodeConfirmed { get; set; }
+        [DataMember] public string BarcodeSource { get; set; } = "";
+        [DataMember] public DateTime BarcodeUpdatedAt { get; set; } = DateTime.MinValue;
+        [DataMember] public int BarcodeAttemptCount { get; set; }
         /// <summary>
         /// 같은 Cassette/Slot 표시 WaferId가 재사용되어도 물리 Wafer 세대를 구분하는 영속 ID.
         /// </summary>
@@ -548,6 +556,12 @@ namespace QMC.CDT320.Materials
         [OnDeserializing]
         private void OnDeserializing(StreamingContext ctx)
         {
+            OriginalWaferId = "";
+            BarcodeId = "";
+            BarcodeConfirmed = false;
+            BarcodeSource = "";
+            BarcodeUpdatedAt = DateTime.MinValue;
+            BarcodeAttemptCount = 0;
             WaferInstanceId = "";
             SourceCassetteSlotPosition = double.NaN;
             CurrentCassetteSlotPosition = double.NaN;

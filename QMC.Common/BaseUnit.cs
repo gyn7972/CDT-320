@@ -61,7 +61,9 @@ namespace QMC.Common
 
             // Composite Pattern: 자식 노드들에게 Save()를 위임
             foreach (BaseEquipmentNode component in Components)
+            {
                 component.Save();
+            }
         }
 
         /// <summary>

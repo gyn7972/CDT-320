@@ -119,6 +119,16 @@ namespace QMC.CDT320.Sequencing
                     if (feederResult != 0)
                         return Fail("SEQ-IN-STEP-FEEDER-STAGE", "InputFeeder",
                             "InputFeeder -> InputStage loading 실패. result=" + feederResult);
+
+                    // Barcode 적용 시 WaferInstanceId는 유지되지만 생산 식별자인 WaferId가 판독값으로
+                    // 승격된다. 이후 Align/Mapping과 로그가 이전 임시 ID를 계속 사용하지 않도록
+                    // child 완료 직후 현재 InputStage Material을 기준으로 다시 동기화한다.
+                    WaferMaterial stageWafer = ResolveStageWaferFromRuntimeState();
+                    if (stageWafer == null || string.IsNullOrWhiteSpace(stageWafer.WaferId))
+                        return Fail("SEQ-IN-STAGE-WAFER-ID", "Material",
+                            "InputFeeder -> InputStage loading 완료 후 Stage WaferId를 확인할 수 없습니다.");
+
+                    _autoWaferId = stageWafer.WaferId;
                 }
 
                 return 0;

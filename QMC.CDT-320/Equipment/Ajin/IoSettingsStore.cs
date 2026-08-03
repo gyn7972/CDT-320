@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
@@ -8,6 +8,7 @@ using System.Xml;
 
 namespace QMC.CDT320.Ajin
 {
+    // io_settings.json 직렬화 모델입니다. DI와 DO의 이름별 Simulation 설정만 저장합니다.
     [DataContract]
     public sealed class IoSettings
     {
@@ -21,6 +22,10 @@ namespace QMC.CDT320.Ajin
         [DataMember] public bool IsSimulationMode { get; set; } = true;
     }
 
+    /// <summary>
+    /// DI/DO별 Simulation 사용 여부를 저장하고 조회합니다.
+    /// 물리 주소(Module/Bit/Nc)는 이 파일이 아니라 AjinConfig에서 관리합니다.
+    /// </summary>
     public static class IoSettingsStore
     {
         public static string RootDir { get; } = @"D:\CDT-320";
@@ -34,6 +39,7 @@ namespace QMC.CDT320.Ajin
             try { Directory.CreateDirectory(Dir); } catch { }
         }
 
+        // 저장 파일 읽기 / 쓰기
         public static IoSettings Load()
         {
             try
@@ -90,6 +96,7 @@ namespace QMC.CDT320.Ajin
             }
         }
 
+        // 이름별 DI/DO Simulation 설정 조회
         public static bool InputSimulation(string name, bool defaultValue)
         {
             try
@@ -128,6 +135,7 @@ namespace QMC.CDT320.Ajin
             return defaultValue;
         }
 
+        // 이름별 DI/DO Simulation 설정 변경
         public static void SetInputSimulation(string name, bool value)
         {
             try
@@ -173,6 +181,7 @@ namespace QMC.CDT320.Ajin
             return settings;
         }
 
+        // 카탈로그에 존재하지만 저장 파일에 없는 DI/DO를 현재 보드 준비 상태에 맞춰 보완합니다.
         private static void Normalize(IoSettings settings)
         {
             try

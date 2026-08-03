@@ -17,6 +17,8 @@ namespace QMC.CDT320.Sequencing
 {
     internal abstract class PickerSequenceBase<TStep> where TStep : struct
     {
+        #region 실행 구성·수명주기 및 상태 저장
+
         private const double DefaultAutoProcessCorrectionMaxDistance = 2.0;
         protected PickerSequenceBase(
             MachineSequenceContext context,
@@ -230,6 +232,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region Runtime Bottom AutoFocus
 
         protected void RecordBottomAutoFocusPickCount(int pickerNo, DieMaterial die)
         {
@@ -631,6 +637,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Picker 선택 및 운전 조건
+
         protected int ResolvePickerNo()
         {
             int pickerNo = Options != null && Options.PickerNo > 0 ? Options.PickerNo : 1;
@@ -867,6 +877,10 @@ namespace QMC.CDT320.Sequencing
                 return RearPicker.Config.RunOrderMode;
             return PickerRunOrderMode.Descending;
         }
+
+        #endregion
+
+        #region 동적 선행 대기점 및 검증 이동
 
         // ===== [동적 선행 대기점 공용 산출, 사용자 승인 2026-07-27] =====
         // "배치 구속 극값 비전 X + FollowMove 클리어런스(+여유)" 대기점 산출 코어.
@@ -1281,6 +1295,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region Shared Rail X 및 대향 PickerY 이동 게이트
 
         private Task<int> WaitPickerXSharedRailDistanceBeforeAutoMoveAsync(
             IDictionary<PickerAxis, double> targets,
@@ -2026,6 +2044,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region 공정 위치 이동 및 안전 Avoid
+
         protected async Task<int> MovePickerToDiePositionAndVerifyAsync(string positionArrayName, int pickerNo, string description, CancellationToken ct)
         {
             int index = pickerNo - 1;
@@ -2752,6 +2774,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Picker 작업 영역 예약 및 해제
+
         protected void EnsurePickerWorkAreaReserved(PickerWorkZone zone, string description)
         {
             try
@@ -2870,6 +2896,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region Vacuum·Blow·Flow IO
 
         protected void SetPickerVacuum(int pickerNo, bool on)
         {
@@ -3038,6 +3068,10 @@ namespace QMC.CDT320.Sequencing
 
             return false;
         }
+
+        #endregion
+
+        #region 축 명령·완료 대기 및 상태 진단
 
         protected Task<int> MovePickerAxisCommandAsync(PickerAxis axis, double target, string targetName = null, bool forceMove = false, bool useSafeMoveMotion = false)
         {
@@ -3559,6 +3593,10 @@ namespace QMC.CDT320.Sequencing
             return RearPicker.GetPickerTeachingPosition(axis, positionName);
         }
 
+        #endregion
+
+        #region AF 기반 공정 Z 보정
+
         // ── AF 기반 Pick/Place 공정 Z (Bottom to Pick/Place) ─────────────────────────────
         // 부호 규칙: 픽커 Z 위=+ / 아래=-. 산식(승인 2026-07-29, Place·헤드OD 추가 지시 동일자):
         //   콜렛 AF: PickPosition = AF BestZ + ColletOffset(Rim/Flat) + DieThickness + BottomToPickMm
@@ -3923,6 +3961,10 @@ namespace QMC.CDT320.Sequencing
             return IsFiniteSideInspectionZ(value) ? value : 0.0;
         }
 
+        #endregion
+
+        #region Input Die Vision 재시도 및 보정 한계
+
         // ─────────────────────────────────────────────
         //  Input die vision 실패/과대 보정 Die 처리 (Wait vs 상한 초과 SKIP)
         //  [사용자 확정 2026-07-29] 기존 SKIP(영구 제외) → Wait(다음 라운드 재촬영)로 변경.
@@ -4125,6 +4167,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region Zone 좌표·Calibration Offset 및 Alignment Snapshot
 
         protected double ResolvePickerZoneX(string positionArrayName, int pickerIndex)
         {
@@ -4414,6 +4460,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Vision 측정값 구성
+
         protected static InspectionMeasurement BuildMeasurement(
             string name,
             double value,
@@ -4597,6 +4647,10 @@ namespace QMC.CDT320.Sequencing
             return new string(chars);
         }
 
+        #endregion
+
+        #region 시컨스 리소스 및 실패·Alarm 처리
+
         protected async Task<SequenceResourceLease> AcquireResourceAsync(
             SequenceResourceKind resource,
             string holder,
@@ -4741,6 +4795,10 @@ namespace QMC.CDT320.Sequencing
                 " 이동 명령을 중단합니다. 이미 활성 알람 상태입니다. - Stopped");
             return -1;
         }
+
+        #endregion
+
+        #region 이동 시간 및 공통 로그
 
         private sealed class PickerMoveAxisLogDetail
         {
@@ -4929,5 +4987,7 @@ namespace QMC.CDT320.Sequencing
             // 시퀀스 로그를 이력(EventLogger)에도 분류 기록(스코프 Kind 또는 메시지 접두어 라우팅).
             SequenceLog.EmitTrace(Side == PickerSequenceSide.Front ? QMC.Common.Logging.EventKind.FrontHeadSeq : QMC.Common.Logging.EventKind.RearHeadSeq, source, message);
         }
+
+        #endregion
     }
 }

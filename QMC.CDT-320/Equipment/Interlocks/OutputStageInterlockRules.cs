@@ -8,6 +8,8 @@ namespace QMC.CDT320.Interlocks
 {
     public static class OutputStageInterlockRules
     {
+        #region 규칙 진입
+
         // 인터락 항목: OutputStage의 Good/NG/VisionX/실린더 이동 요청을 해당 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
@@ -53,6 +55,10 @@ namespace QMC.CDT320.Interlocks
 
             return true;
         }
+
+        #endregion
+
+        #region Good Stage Y
 
         // 인터락 항목: OutputGoodStageY 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyBinGoodY(MotionGuardRuleContext request, out string reason)
@@ -275,6 +281,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region Good Stage Z
+
         // 인터락 항목: OutputGoodStageZ 이동 종류별로 홈/수동/자동 조건을 선택한다.
         private static bool VerifyBinGoodZ(MotionGuardRuleContext request, out string reason)
         {
@@ -382,6 +392,10 @@ namespace QMC.CDT320.Interlocks
             return VerifyOutputStageNotBusy(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason);
         }
 
+        #endregion
+
+        #region NG Stage Y
+
         // 인터락 항목: OutputNGStageY 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyBinNgY(MotionGuardRuleContext request, out string reason)
         {
@@ -443,6 +457,10 @@ namespace QMC.CDT320.Interlocks
 
             return VerifyOutputStageNotBusy(stage, "OutputNGStageY", out reason);
         }
+
+        #endregion
+
+        #region Output Vision X
 
         // 인터락 항목: OutputVisionX 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyBinVisionX(MotionGuardRuleContext request, out string reason)
@@ -721,6 +739,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region Good·NG Stage Manual 및 Home
+
         // 인터락 항목: 수동 GoodStageY 이동은 Feeder/NG Clamp/기구 간섭/Stage Busy 조건을 확인한다.
         private static bool CanManualOutputGoodStageY(MotionGuardRuleContext request, out string reason)
         {
@@ -948,6 +970,10 @@ namespace QMC.CDT320.Interlocks
                 LogBlockedReason(reason);
             }
         }
+
+        #endregion
+
+        #region Output Stage 실린더
 
         // 인터락 항목: OutputStage 실린더 이동 종류별로 초기화/일반 이동 조건을 선택한다.
         private static bool VerifyOutputStageCylinder(MotionGuardRuleContext request, string movingName, out string reason)
@@ -1265,6 +1291,10 @@ namespace QMC.CDT320.Interlocks
             return targetValue >= 0.5 ? fwdText : bwdText;
         }
 
+        #endregion
+
+        #region NG 자재 및 Clamp 안전 판정
+
         public static bool TryGetNgStageMaterialPresence(
             OutputStageUnit outputStage,
             string operationName,
@@ -1342,6 +1372,10 @@ namespace QMC.CDT320.Interlocks
             {
             }
         }
+
+        #endregion
+
+        #region 기구 절대 안전 조건
 
         // 인터락 항목: GoodStageY 이동 전 GoodStageZ 하강/NGStageY 위치에 따른 기구 간섭을 확인한다.
         private static bool VerifyGoodStageYMechanicalClear(MotionGuardRuleContext request, string movingName, out string reason)
@@ -1576,6 +1610,10 @@ namespace QMC.CDT320.Interlocks
                 : 0.01;
         }
 
+        #endregion
+
+        #region Hardware·Busy 및 차단 로그
+
         // 인터락 항목: OutputStage 내부 다른 축/실린더가 이동 중인지 확인한다.
         // 기존 조건: OutputVisionX 이동 중에도 스테이지 축/실린더 이동을 차단했다.
         // 현재 기준(사용자 지시 2026-07-26): OutputStage 축과 OutputVisionX는 물리 간섭이 없어
@@ -1683,5 +1721,7 @@ namespace QMC.CDT320.Interlocks
             {
             }
         }
+
+        #endregion
     }
 }

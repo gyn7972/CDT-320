@@ -13,6 +13,8 @@ namespace QMC.CDT320.Ajin
 {
     public class AjinAxis : BaseAxis
     {
+        #region 공통 상태 및 초기화 리밋 검색
+
         private static readonly bool ForceTestBoard = false;
         private static readonly bool BlockSetupWriteToBoard = true;
         private const double ForcedTestBoardVelocity = 20.0;
@@ -304,6 +306,10 @@ namespace QMC.CDT320.Ajin
             return FailMotion(-2, action, reason, targetPosition, hasTarget);
         }
 
+        #endregion
+
+        #region 생성 및 이동 오버라이드
+
         public AjinAxis(string name, int axisNo) : base(name)
         {
             AxisNo = axisNo;
@@ -527,6 +533,8 @@ namespace QMC.CDT320.Ajin
             {
             }
         }
+
+        #endregion
 
         #region 팔로잉 이동 (FollowMove)
 
@@ -1232,6 +1240,8 @@ namespace QMC.CDT320.Ajin
 
         #endregion
 
+        #region 서보·알람 및 기본 이동
+
         public override void ServoOn()
         {
             if (UseSimulation)
@@ -1675,6 +1685,10 @@ namespace QMC.CDT320.Ajin
                 AXM.StopEmergency(AxisNo);
         }
 
+        #endregion
+
+        #region 원점 검색 및 위치 상태 복원
+
         public override async Task<int> HomeSearchAsync()
         {
             bool sharedRailXHomeLimitSuppress = false;
@@ -1909,6 +1923,10 @@ namespace QMC.CDT320.Ajin
                 Sensor_ORG = true;
             }
         }
+
+        #endregion
+
+        #region 조그 이동 및 조그 정지
 
         public override void MoveJogContinuous(int direction, JogSpeedType speedType, double customVel = 0)
         {
@@ -2218,6 +2236,11 @@ namespace QMC.CDT320.Ajin
             base.StopJog();
             UpdateStatus();
         }
+
+        #endregion
+
+        #region 위치 판정 및 실시간 상태 갱신
+
         public override bool IsAtTargetPosition(double target, double tolerance)
         {
             bool bret = false;
@@ -2469,6 +2492,10 @@ namespace QMC.CDT320.Ajin
             else if (homeRet == 0)
                 IsHomeDone = homeResult == AXT_MOTION_HOME_RESULT.HOME_SUCCESS;
         }
+
+        #endregion
+
+        #region 리밋 복구 및 축 알람 처리
 
         private double ResolveSoftLimitStatusTolerance()
         {
@@ -2819,6 +2846,10 @@ namespace QMC.CDT320.Ajin
             {
             }
         }
+
+        #endregion
+
+        #region 보드 상태 및 설정 읽기·쓰기
 
         /// <summary>
         /// 보드에서 모니터링 전용 라이브 값을 한 번에 읽어 <see cref="AxisLiveStatus"/> 로 반환한다.<br/>
@@ -3297,6 +3328,10 @@ namespace QMC.CDT320.Ajin
                 field + " write failed: " + ex.Message);
         }
 
+        #endregion
+
+        #region 보드 Enum 매핑 및 단위 변환
+
         /// <summary>
         /// 프로젝트 PulseOutput(3 종) → AXL MotorOutputMethod(8 종) 역매핑.
         /// 모델은 정보가 적으므로 AXL 의 대표값을 선택한다.
@@ -3401,6 +3436,10 @@ namespace QMC.CDT320.Ajin
         {
             return boardAcceleration;
         }
+
+        #endregion
+
+        #region 이동 완료 대기
 
         // 기존 조건: BaseAxis 공용 합류 대기(IsMoving/CommandPosition 캐시 관측)를 그대로 사용했다.
         // 현재 기준: 실장비 경로는 보드를 직접 조회한다 — 완료 판정은 AXM.GetInMotion 10ms 폴링,
@@ -3561,6 +3600,8 @@ namespace QMC.CDT320.Ajin
             UpdateStatus();
             return IsAlarm ? (int)AlarmCode : 0;
         }
+
+        #endregion
     }
 }
 

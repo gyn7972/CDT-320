@@ -298,7 +298,7 @@
             this._cbMapLibrary.Location = new System.Drawing.Point(4, 5);
             this._cbMapLibrary.Margin = new System.Windows.Forms.Padding(0, 1, 4, 1);
             this._cbMapLibrary.Name = "_cbMapLibrary";
-            this._cbMapLibrary.Size = new System.Drawing.Size(1123, 28);
+            this._cbMapLibrary.Size = new System.Drawing.Size(1123, 23);
             this._cbMapLibrary.TabIndex = 0;
             // 
             // _btnMapLoad
@@ -450,7 +450,7 @@
             this._tbFrameSpecName.Margin = new System.Windows.Forms.Padding(1);
             this._tbFrameSpecName.Name = "_tbFrameSpecName";
             this._tbFrameSpecName.ReadOnly = true;
-            this._tbFrameSpecName.Size = new System.Drawing.Size(242, 27);
+            this._tbFrameSpecName.Size = new System.Drawing.Size(242, 23);
             this._tbFrameSpecName.TabIndex = 2;
             this._tbFrameSpecName.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this._recipeLocationToolTip.SetToolTip(this._tbFrameSpecName, "Recipe → 웨이퍼 사양 → Spec name에서 설정합니다.");
@@ -491,7 +491,7 @@
             0});
             this._nGridX.Name = "_nGridX";
             this._nGridX.ReadOnly = true;
-            this._nGridX.Size = new System.Drawing.Size(242, 27);
+            this._nGridX.Size = new System.Drawing.Size(242, 23);
             this._nGridX.TabIndex = 4;
             this._nGridX.TabStop = false;
             this._nGridX.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -538,7 +538,7 @@
             0});
             this._nGridY.Name = "_nGridY";
             this._nGridY.ReadOnly = true;
-            this._nGridY.Size = new System.Drawing.Size(242, 27);
+            this._nGridY.Size = new System.Drawing.Size(242, 23);
             this._nGridY.TabIndex = 6;
             this._nGridY.TabStop = false;
             this._nGridY.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -581,7 +581,7 @@
             0});
             this._nPitchX.Name = "_nPitchX";
             this._nPitchX.ReadOnly = true;
-            this._nPitchX.Size = new System.Drawing.Size(242, 27);
+            this._nPitchX.Size = new System.Drawing.Size(242, 23);
             this._nPitchX.TabIndex = 8;
             this._nPitchX.TabStop = false;
             this._nPitchX.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -624,7 +624,7 @@
             0});
             this._nPitchY.Name = "_nPitchY";
             this._nPitchY.ReadOnly = true;
-            this._nPitchY.Size = new System.Drawing.Size(242, 27);
+            this._nPitchY.Size = new System.Drawing.Size(242, 23);
             this._nPitchY.TabIndex = 10;
             this._nPitchY.TabStop = false;
             this._nPitchY.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -672,7 +672,7 @@
             196608});
             this._nDieSizeX.Name = "_nDieSizeX";
             this._nDieSizeX.ReadOnly = true;
-            this._nDieSizeX.Size = new System.Drawing.Size(242, 27);
+            this._nDieSizeX.Size = new System.Drawing.Size(242, 23);
             this._nDieSizeX.TabIndex = 12;
             this._nDieSizeX.TabStop = false;
             this._nDieSizeX.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -720,7 +720,7 @@
             196608});
             this._nDieSizeY.Name = "_nDieSizeY";
             this._nDieSizeY.ReadOnly = true;
-            this._nDieSizeY.Size = new System.Drawing.Size(242, 27);
+            this._nDieSizeY.Size = new System.Drawing.Size(242, 23);
             this._nDieSizeY.TabIndex = 14;
             this._nDieSizeY.TabStop = false;
             this._nDieSizeY.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -768,7 +768,7 @@
             0});
             this._nDiameter.Name = "_nDiameter";
             this._nDiameter.ReadOnly = true;
-            this._nDiameter.Size = new System.Drawing.Size(242, 27);
+            this._nDiameter.Size = new System.Drawing.Size(242, 23);
             this._nDiameter.TabIndex = 12;
             this._nDiameter.TabStop = false;
             this._nDiameter.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -809,7 +809,7 @@
             this._cbEdgeSkipMode.Location = new System.Drawing.Point(177, 267);
             this._cbEdgeSkipMode.Margin = new System.Windows.Forms.Padding(1);
             this._cbEdgeSkipMode.Name = "_cbEdgeSkipMode";
-            this._cbEdgeSkipMode.Size = new System.Drawing.Size(242, 28);
+            this._cbEdgeSkipMode.Size = new System.Drawing.Size(242, 23);
             this._cbEdgeSkipMode.TabIndex = 18;
             this._recipeLocationToolTip.SetToolTip(this._cbEdgeSkipMode, "Recipe → 웨이퍼 사양 → Edge skip mode에서 설정합니다.");
             // 
@@ -860,7 +860,7 @@
             0});
             this._nSideEdgeSkip.Name = "_nSideEdgeSkip";
             this._nSideEdgeSkip.ReadOnly = true;
-            this._nSideEdgeSkip.Size = new System.Drawing.Size(120, 27);
+            this._nSideEdgeSkip.Size = new System.Drawing.Size(120, 23);
             this._nSideEdgeSkip.TabIndex = 0;
             this._nSideEdgeSkip.TabStop = false;
             this._nSideEdgeSkip.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -881,7 +881,7 @@
             0});
             this._nTopBottomEdgeSkip.Name = "_nTopBottomEdgeSkip";
             this._nTopBottomEdgeSkip.ReadOnly = true;
-            this._nTopBottomEdgeSkip.Size = new System.Drawing.Size(120, 27);
+            this._nTopBottomEdgeSkip.Size = new System.Drawing.Size(120, 23);
             this._nTopBottomEdgeSkip.TabIndex = 1;
             this._nTopBottomEdgeSkip.TabStop = false;
             this._nTopBottomEdgeSkip.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;

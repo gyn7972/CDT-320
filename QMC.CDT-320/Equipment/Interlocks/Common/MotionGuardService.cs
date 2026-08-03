@@ -6,6 +6,8 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
 {
+    #region MotionGuard 계약 및 실행 Context
+
     public enum MotionGuardMoveKind
     {
         AxisMove,
@@ -86,8 +88,12 @@ namespace QMC.CDT320.Interlocks
         }
     }
 
+    #endregion
+
     public sealed class MotionGuardService
     {
+        #region 생성 및 축 이동 검증
+
         private readonly InterlockCheckMatrix _matrix;
 
         public MotionGuardService()
@@ -213,6 +219,10 @@ namespace QMC.CDT320.Interlocks
                 skipSharedRailXRule,
                 executionMode);
         }
+
+        #endregion
+
+        #region 실린더 및 공통 이동 검증
 
         public MotionGuardResult VerifyCylinderMove(BaseCylinder cylinder, bool moveFwd, MotionGuardContext context)
         {
@@ -342,6 +352,10 @@ namespace QMC.CDT320.Interlocks
             return result;
         }
 
+        #endregion
+
+        #region 이동 종류 및 진단 메시지
+
         private static MotionGuardMoveKind ResolveEffectiveMoveKind(
             MotionGuardMoveKind moveKind,
             MotionGuardExecutionMode executionMode)
@@ -433,5 +447,7 @@ namespace QMC.CDT320.Interlocks
             }
             return missing;
         }
+
+        #endregion
     }
 }

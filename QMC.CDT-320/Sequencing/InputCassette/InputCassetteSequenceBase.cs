@@ -16,6 +16,8 @@ namespace QMC.CDT320.Sequencing
 {
     internal abstract class InputCassetteSequenceBase<TStep> where TStep : struct
     {
+        #region 실행 구성 및 장비 접근
+
         private const string SequenceNamePrefix = "InputCassetteSequence";
 
         protected InputCassetteSequenceBase(
@@ -48,6 +50,10 @@ namespace QMC.CDT320.Sequencing
         {
             get { return Context != null && Context.Machine != null ? Context.Machine.InputFeederUnit : null; }
         }
+
+        #endregion
+
+        #region State Machine 실행 수명주기
 
         public async Task<int> RunAsync(CancellationToken ct, InputCassetteSequenceOptions options)
         {
@@ -107,6 +113,10 @@ namespace QMC.CDT320.Sequencing
         }
 
         protected abstract Task<int> ExecuteCurrentStepAsync(CancellationToken ct);
+
+        #endregion
+
+        #region Lot·Cassette·Feeder 사전 조건
 
         protected int CheckLot(TStep nextStep)
         {
@@ -287,6 +297,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region Cassette 이동 및 Mapping
 
         protected async Task<int> MoveLoadingPositionAsync(CancellationToken ct)
         {
@@ -491,6 +505,10 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
+
+        #region 실패·재개 및 Mapping 보조
 
         protected int FailUnsupportedStep()
         {
@@ -853,6 +871,10 @@ namespace QMC.CDT320.Sequencing
             return object.Equals(left, right);
         }
 
+        #endregion
+
+        #region 공통 로그
+
         protected static void WriteLog(string source, string message)
         {
             try
@@ -869,5 +891,7 @@ namespace QMC.CDT320.Sequencing
             // 시퀀스 로그를 이력(EventLogger)에도 분류 기록(스코프 Kind 또는 메시지 접두어 라우팅).
             SequenceLog.EmitTrace(QMC.Common.Logging.EventKind.InputSeq, source, message);
         }
+
+        #endregion
     }
 }

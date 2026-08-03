@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -10,6 +10,7 @@ namespace QMC.CDT320.Ajin
     /// <summary>
     /// CDT-320 standard axis list provider.
     /// All UI pages and popups should use this source.
+    /// AjinConfig의 축 번호 순서를 기준으로 Machine 축과 AxisManager 축을 하나의 목록으로 정리합니다.
     /// </summary>
     public static class AjinAxisRegistry
     {
@@ -20,6 +21,7 @@ namespace QMC.CDT320.Ajin
 
         public static List<BaseAxis> GetOrderedAxes(CDT320_Machine machine)
         {
+            // 설정 로드 -> Factory 등록 -> Machine/Registry 축 병합 -> 저장 축 설정 적용 -> 축 번호순 정렬.
             AjinConfig config = AjinConfigStore.Load();
             AjinFactory.RegisterConfiguredAxes();
 
@@ -40,6 +42,8 @@ namespace QMC.CDT320.Ajin
 
         private static List<BaseAxis> OrderAxes(AjinConfig config, IEnumerable<BaseAxis> preferredAxes, IEnumerable<BaseAxis> fallbackAxes)
         {
+            // 실제 Machine이 가진 축을 우선 사용하고, 없을 때 AxisManager 등록 축을 사용합니다.
+            // 동일한 기준 이름 또는 축 번호가 중복되면 첫 번째로 선택된 축만 유지합니다.
             var preferred = (preferredAxes ?? Enumerable.Empty<BaseAxis>())
                 .Where(axis => axis != null && axis.Setup != null)
                 .ToList();
@@ -79,6 +83,7 @@ namespace QMC.CDT320.Ajin
 
         private static IEnumerable<KeyValuePair<string, AxisMap>> GetConfiguredAxisMaps(AjinConfig config)
         {
+            // Legacy 키는 기준 이름으로 해석하되 목록에는 기준 키만 포함하고, 설정이 없으면 코드 기본값을 사용합니다.
             var axes = config != null && config.Axes != null
                 ? config.Axes
                 : new Dictionary<string, AxisMap>();
@@ -112,6 +117,7 @@ namespace QMC.CDT320.Ajin
 
         private static BaseAxis FindAxis(IEnumerable<BaseAxis> axes, string key, int axisNo)
         {
+            // 조회 우선순위: 정확한 이름 -> Legacy 이름을 정규화한 기준 이름 -> 물리 축 번호.
             foreach (BaseAxis axis in axes ?? Enumerable.Empty<BaseAxis>())
             {
                 if (axis == null || axis.Setup == null) continue;
@@ -172,6 +178,7 @@ namespace QMC.CDT320.Ajin
 
         private static IEnumerable<BaseAxis> EnumerateMachineAxes(CDT320_Machine machine)
         {
+            // Machine의 Unit/Component 트리를 순회해 실제로 연결된 축 인스턴스를 찾습니다.
             if (machine == null) yield break;
 
             var visited = new HashSet<BaseEquipmentNode>();

@@ -25,6 +25,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             Process,
             Unload,
             Ready,
+            Barcode,
             Reticle,
             EjectPinFinder
         }
@@ -77,7 +78,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             AddTeachingAxis(axes, "EJECT PIN Z", unit => unit.EjectPinZ, unit => unit.Recipe.EjectPinZ, false, false);
 
             var positions = new List<StageTeachingPosition>();
-            foreach (StagePositionKind kind in new[] { StagePositionKind.Avoid, StagePositionKind.Load, StagePositionKind.Process, StagePositionKind.Unload, StagePositionKind.Ready, StagePositionKind.Reticle, StagePositionKind.EjectPinFinder })
+            foreach (StagePositionKind kind in new[] { StagePositionKind.Avoid, StagePositionKind.Load, StagePositionKind.Process, StagePositionKind.Unload, StagePositionKind.Ready, StagePositionKind.Barcode, StagePositionKind.Reticle, StagePositionKind.EjectPinFinder })
             {
                 foreach (StageTeachingAxis axis in axes)
                 {
@@ -93,6 +94,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         !string.Equals(axis.AxisLabel, "NEEDLE X", StringComparison.OrdinalIgnoreCase) &&
                         !string.Equals(axis.AxisLabel, "NEEDLE Z", StringComparison.OrdinalIgnoreCase) &&
                         !string.Equals(axis.AxisLabel, "EJECT PIN Z", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (kind == StagePositionKind.Barcode &&
+                        !string.Equals(axis.AxisLabel, "WAFER Y", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(axis.AxisLabel, "VISION X", StringComparison.OrdinalIgnoreCase))
                         continue;
 
                     AddTeachingPosition(positions, axis, kind);
@@ -182,6 +187,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 case StagePositionKind.Ready:
                     AddTeachingPosition(positions, axis, kind, set => set.ReadyPosition, (set, value) => set.ReadyPosition = value);
                     break;
+                // Barcode 판독 위치 레시피 항목 추가
+                case StagePositionKind.Barcode:
+                    AddTeachingPosition(positions, axis, kind, set => set.BarcodePosition, (set, value) => set.BarcodePosition = value);
+                    break;
                 // Reticle 위치 레시피 항목 추가
                 case StagePositionKind.Reticle:
                     if (string.Equals(axis.AxisLabel, "EXPANDER Z", StringComparison.OrdinalIgnoreCase))
@@ -218,6 +227,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 // Ready 위치 라벨 반환
                 case StagePositionKind.Ready:
                     return "READY POSITION";
+                // Barcode 판독 위치 라벨 반환
+                case StagePositionKind.Barcode:
+                    return "BARCODE POSITION";
                 // Reticle 위치 라벨 반환
                 case StagePositionKind.Reticle:
                     return "RETICLE POSITION";
@@ -1575,6 +1587,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             StagePositionKind.Load,
             StagePositionKind.Unload,
             StagePositionKind.Ready,
+            StagePositionKind.Barcode,
             StagePositionKind.Process,
             StagePositionKind.Reticle,
             StagePositionKind.EjectPinFinder

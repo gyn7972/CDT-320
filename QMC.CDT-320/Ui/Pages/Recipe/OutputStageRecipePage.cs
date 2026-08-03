@@ -324,6 +324,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 AddKindGroup(items, "PROCESS POSITION", "Process", true, true, true, true);
                 AddKindGroup(items, "UNLOAD POSITION", "Unload", true, true, true, false);
                 AddKindGroup(items, "RETICLE POSITION", "Reticle", false, true, false, true);
+                AddKindGroup(items, "BARCODE POSITION", "Barcode", true, false, true, true);
 
                 // 빈맵(원형) 형상은 BIN DIE MAP CREATE 페이지에서 레시피 맵으로 저장/관리한다.
 
@@ -382,6 +383,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 case "Unload": getter = () => set().UnloadPosition; setter = v => set().UnloadPosition = v; break;
                 // Reticle 위치 레시피 연결
                 case "Reticle": getter = () => set().ReticlePosition; setter = v => set().ReticlePosition = v; break;
+                // Barcode 판독 위치 레시피 연결
+                case "Barcode": getter = () => set().BarcodePosition; setter = v => set().BarcodePosition = v; break;
                 default: getter = () => 0.0; setter = v => { }; break;
             }
 

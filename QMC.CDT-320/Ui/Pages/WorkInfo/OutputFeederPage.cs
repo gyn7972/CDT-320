@@ -325,6 +325,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             options.ExpectedWaferId = wafer != null ? (wafer.WaferId ?? "") : "";
             options.MoveTimeoutMs = ResolveMoveTimeoutMs(host);
             options.FineMove = false;
+            AppSettings settings = AppSettingsStore.Current;
+            options.UseBarcode = settings != null && settings.UseOutputBinBarcode;
             return options;
         }
 

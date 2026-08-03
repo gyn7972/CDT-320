@@ -1,15 +1,20 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using QMC.Common.IO;
 using QMC.Common.Logging;
 
 namespace QMC.CDT320.Ajin
 {
+    /// <summary>
+    /// 카탈로그 이름을 기준으로 실린더 인스턴스를 관리하고, AjinConfig 매핑과 저장 설정을 적용합니다.
+    /// </summary>
     public static class CylinderManager
     {
+        // 정상 등록된 실린더를 이름별로 보관해 동일한 이름 요청에서 공유하는 인스턴스입니다.
         private static readonly Dictionary<string, BaseCylinder> _items =
             new Dictionary<string, BaseCylinder>(StringComparer.OrdinalIgnoreCase);
 
+        // 이미 적용한 물리 IO 조합을 기록해 불필요한 Rebind를 방지합니다.
         private static readonly Dictionary<string, string> _appliedMappingKeys =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -17,6 +22,7 @@ namespace QMC.CDT320.Ajin
 
         public static void Initialize()
         {
+            // 초기화 순서: 저장 설정 로드 -> 카탈로그 객체 생성 -> IO 매핑 -> 동작 설정 적용.
             try
             {
                 _items.Clear();
@@ -94,6 +100,7 @@ namespace QMC.CDT320.Ajin
 
         public static void ApplySettings()
         {
+            // 현재 IO 연결은 유지하고 Simulation, 센서 사용 여부, Timeout 등 동작 설정만 다시 적용합니다.
             try
             {
                 foreach (BaseCylinder cylinder in _items.Values)
@@ -109,6 +116,7 @@ namespace QMC.CDT320.Ajin
 
         public static void ApplyMappings()
         {
+            // AjinConfig의 현재 IO 매핑으로 모든 등록 실린더를 강제로 다시 연결한 뒤 설정을 적용합니다.
             try
             {
                 foreach (var pair in _items)
@@ -201,6 +209,7 @@ namespace QMC.CDT320.Ajin
             DioMap inFwd,
             DioMap inBwd)
         {
+            // AjinCylinder는 전용 Rebind를 사용하고, 그 외 구현은 BaseCylinder의 IO를 교체합니다.
             AjinCylinder ajinCylinder = cylinder as AjinCylinder;
             if (ajinCylinder != null)
             {

@@ -39,6 +39,18 @@ namespace QMC.CDT320
     /// </summary>
     public interface IBarcodeReader
     {
+        /// <summary>설정 화면과 로그에 표시할 리더 이름.</summary>
+        string ReaderName { get; }
+
+        /// <summary>시리얼 포트가 실제로 열려 있는지 여부.</summary>
+        bool IsConnected { get; }
+
+        /// <summary>설정된 시리얼 포트를 엽니다.</summary>
+        bool TryOpen();
+
+        /// <summary>열려 있는 시리얼 포트를 닫습니다.</summary>
+        void Close();
+
         /// <summary>
         /// 바코드 리더를 트리거하여 웨이퍼 ID 문자열을 비동기로 반환한다.
         /// </summary>

@@ -7,6 +7,8 @@ namespace QMC.CDT320.Interlocks
 {
     public static class InputCassetteInterlockRules
     {
+        #region 규칙 진입
+
         // 인터락 항목: InputLifterZ 이동 요청을 Input Cassette 리프터 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
@@ -34,6 +36,10 @@ namespace QMC.CDT320.Interlocks
 
             return true;
         }
+
+        #endregion
+
+        #region Wafer Lifter Z
 
         // 인터락 항목: InputLifterZ 이동 종류별로 수동/홈/자동 리프터 조건을 선택한다.
         public static bool VerifyWaferLifterZ(
@@ -108,6 +114,10 @@ namespace QMC.CDT320.Interlocks
 
 
         }
+
+        #endregion
+
+        #region Unload Release Lift
 
         internal static bool VerifyUnloadReleaseLift(
             CDT320_Machine machine,
@@ -302,6 +312,10 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        #endregion
+
+        #region Picker X Avoid 확인
+
         // 인터락 조건: InputLifterZ 이동 전 FrontPickerX가 정확한 AvoidPosition인지 확인한다.
         private static bool VerifyFrontPickerXAvoidPosition(
             PickerFrontUnit frontPicker,
@@ -370,6 +384,10 @@ namespace QMC.CDT320.Interlocks
 
             return true;
         }
+
+        #endregion
+
+        #region Manual·Home·Auto 허용 조건
 
         // 인터락 항목: 수동 InputLifterZ 이동은 카세트 돌출 감지와 InputFeederY 이동 중 여부를 확인한다.
         private static bool CanManualWaferLifterZ(InputCassetteUnit Cassette, InputFeederUnit feeder, out string reason)
@@ -496,6 +514,10 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        #endregion
+
+        #region Feeder 상태 및 차단 로그
+
         // 인터락 기준: InputLifterZ 이동 전 InputFeederY가 카세트 측 안전 위치인지 판단한다.
         // 기존 조건: 티칭 위치 predicate(Avoid/Exchange/Home)만 안전으로 인정했다.
         //           세 위치 모두 0 부근이라, 피더가 wafer를 들고 스테이지 쪽(WaferUnloadPosition 607 등)에 있는
@@ -587,6 +609,8 @@ namespace QMC.CDT320.Interlocks
             {
             }
         }
+
+        #endregion
 
     }
 }

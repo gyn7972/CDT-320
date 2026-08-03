@@ -8,6 +8,8 @@ namespace QMC.CDT320.Sequencing
     /// <summary>개별 장비 유닛 시퀀스의 공통 실행 기반 클래스입니다.</summary>
     public abstract class UnitSequenceBase
     {
+        #region 실행 상태 및 구성
+
         private readonly SemaphoreSlim _stepGate = new SemaphoreSlim(0, int.MaxValue);
         private int _stepBusyOrQueued;
 
@@ -37,6 +39,10 @@ namespace QMC.CDT320.Sequencing
         {
             Mode = mode;
         }
+
+        #endregion
+
+        #region 시컨스 실행 수명주기
 
         /// <summary>유닛 시퀀스를 현재 실행 모드에 따라 실행합니다.</summary>
         public async Task RunAsync(CancellationToken ct)
@@ -168,6 +174,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #endregion
+
+        #region Manual·Step 실행 제어
+
         /// <summary>Manual 또는 Step 모드에서 유닛 1단계 실행 신호를 입력합니다.</summary>
         public void StepUnit()
         {
@@ -188,6 +198,10 @@ namespace QMC.CDT320.Sequencing
         {
             return ExecuteAutoAsync(ct);
         }
+
+        #endregion
+
+        #region 공유 리소스 점유
 
         protected async Task<SequenceResourceLease> AcquireResourceForRunAsync(
             SequenceResourceKind resource,
@@ -260,6 +274,8 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #endregion
     }
 }
 
