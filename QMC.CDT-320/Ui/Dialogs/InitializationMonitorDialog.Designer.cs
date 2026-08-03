@@ -17,6 +17,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private System.Windows.Forms.DataGridViewTextBoxColumn colTargetType;
         private System.Windows.Forms.DataGridViewTextBoxColumn colTarget;
         private System.Windows.Forms.DataGridViewTextBoxColumn colCommand;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colCurrentCheck;
         private System.Windows.Forms.DataGridViewTextBoxColumn colStatus;
         private System.Windows.Forms.DataGridViewTextBoxColumn colDescription;
 
@@ -43,6 +44,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colTargetType = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colTarget = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colCommand = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colCurrentCheck = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colStatus = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colDescription = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.pnlButtons = new System.Windows.Forms.FlowLayoutPanel();
@@ -110,6 +112,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colTargetType,
             this.colTarget,
             this.colCommand,
+            this.colCurrentCheck,
             this.colStatus,
             this.colDescription});
             this.grid.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -174,6 +177,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colCommand.Name = "colCommand";
             this.colCommand.ReadOnly = true;
             this.colCommand.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
+            // colCurrentCheck
+            //
+            this.colCurrentCheck.FillWeight = 105F;
+            this.colCurrentCheck.HeaderText = "현재 판정";
+            this.colCurrentCheck.Name = "colCurrentCheck";
+            this.colCurrentCheck.ReadOnly = true;
+            this.colCurrentCheck.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // colStatus
             // 

@@ -58,14 +58,21 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (plan == null || plan.Steps == null)
                     return;
 
+                // 실행 이력(Status)과 현재 물리 상태 판정을 섞지 않고 별도 열에 표시합니다.
+                AxisInitializeRouteResult routePreview =
+                    _controller.GetAxisInitializeRoutePreview();
+
                 foreach (AxisInitializeStep step in plan.Steps
                     .Where(x => x != null)
                     .OrderBy(x => x.StepNo)
                     .ThenBy(x => x.GroupName))
                 {
-                    AddActionRows(step, step.PreActions, "PreActions");
-                    AddHomeRow(step);
-                    AddActionRows(step, step.PostActions, "PostActions");
+                    AxisInitializeRouteStep routeStep = routePreview != null
+                        ? routePreview.FindStep(step.StepNo, step.GroupName)
+                        : null;
+                    AddActionRows(step, step.PreActions, "PreActions", routeStep);
+                    AddHomeRow(step, routeStep);
+                    AddActionRows(step, step.PostActions, "PostActions", routeStep);
                 }
 
                 ApplyStoredStatuses();
@@ -81,7 +88,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        private void AddActionRows(AxisInitializeStep step, IList<AxisInitializeAction> actions, string phase)
+        private void AddActionRows(
+            AxisInitializeStep step,
+            IList<AxisInitializeAction> actions,
+            string phase,
+            AxisInitializeRouteStep routeStep)
         {
             if (step == null || actions == null)
                 return;
@@ -99,15 +110,19 @@ namespace QMC.CDT_320.Ui.Dialogs
                     action.TargetType,
                     action.Name,
                     action.Command,
+                    routeStep != null ? routeStep.BuildCheckText() : "확인 불가",
                     status,
                     action.Description);
                 DataGridViewRow row = grid.Rows[rowIndex];
                 row.Tag = step.StepNo;
                 ApplyStatusStyle(row, status);
+                ApplyRouteCheckStyle(row, routeStep);
             }
         }
 
-        private void AddHomeRow(AxisInitializeStep step)
+        private void AddHomeRow(
+            AxisInitializeStep step,
+            AxisInitializeRouteStep routeStep)
         {
             if (step == null || step.AxisNames == null || step.AxisNames.Count == 0)
                 return;
@@ -120,11 +135,45 @@ namespace QMC.CDT_320.Ui.Dialogs
                 "Axis",
                 string.Join("; ", step.AxisNames.ToArray()),
                 "Home",
+                routeStep != null ? routeStep.BuildCheckText() : "확인 불가",
                 status,
                 step.Comment);
             DataGridViewRow row = grid.Rows[rowIndex];
             row.Tag = step.StepNo;
             ApplyStatusStyle(row, status);
+            ApplyRouteCheckStyle(row, routeStep);
+        }
+
+        private void ApplyRouteCheckStyle(
+            DataGridViewRow row,
+            AxisInitializeRouteStep routeStep)
+        {
+            if (row == null || colCurrentCheck == null)
+                return;
+
+            DataGridViewCell cell = row.Cells[colCurrentCheck.Index];
+            cell.ToolTipText = routeStep != null
+                ? routeStep.BuildDisplayText()
+                : "현재 상태를 확인하지 못했습니다.";
+
+            if (routeStep == null)
+            {
+                cell.Style.BackColor = Color.FromArgb(238, 238, 238);
+                return;
+            }
+
+            if (string.Equals(
+                routeStep.State,
+                AxisInitializeRouteState.ReadyNow,
+                StringComparison.OrdinalIgnoreCase))
+                cell.Style.BackColor = Color.FromArgb(200, 230, 201);
+            else if (string.Equals(
+                routeStep.State,
+                AxisInitializeRouteState.Disabled,
+                StringComparison.OrdinalIgnoreCase))
+                cell.Style.BackColor = Color.FromArgb(238, 238, 238);
+            else
+                cell.Style.BackColor = Color.FromArgb(255, 245, 157);
         }
 
         private async void btnRunSelected_Click(object sender, EventArgs e)

@@ -236,6 +236,10 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                // SAFETY CONTRACT:
+                // - 통합 검사 완료 경계는 모든 PickerZ Avoid와 pending T0 복귀만 보장한다.
+                // - PickerX/Y는 Side 종료 위치를 의도적으로 유지하며 다음 Place phase/Output zone 전환 후 직접 이동한다.
+                // - 이 child 완료를 "Picker 전체 Avoid"로 해석하지 않는다.
                 CurrentStep = PickerBottomAndSideInspectionStep.MoveFinalZToAvoid;
                 result = await CompletePendingZAvoidAsync(ct).ConfigureAwait(false);
                 if (result != 0)

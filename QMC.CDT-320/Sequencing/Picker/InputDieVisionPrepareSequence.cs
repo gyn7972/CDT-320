@@ -2390,6 +2390,13 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        #region InputVision 복귀 — PickerX 선행 Follow
+
+        // SAFETY CONTRACT:
+        // - Auto Conti 게이트에서 PickerX가 선행하고 InputVisionX가 후행한다.
+        // - 가장 제약이 큰 Picker와 반대편 Picker 제약을 함께 유지하고, 실패 시 기존 일반 이동 경로로 폴백한다.
+        // - 복귀 유지간격(SafetyDistance + 경계여유)을 Retreat Extra와 혼동하거나 임의 통합하지 않는다.
+
         private async Task<int> MoveInputVisionXAndVerifyAsync(
             InputStageUnit stage,
             double target,
@@ -2627,7 +2634,8 @@ namespace QMC.CDT320.Sequencing
         //   (a) 목표가 양 피커 Actual/Command 페어 간격을 이미 만족 → false(존이 빔, 일반 이동 직행)
         //   (b) 제약 피커 실측 위치 기준 전진 여유(slack)가 있고 간격이 실제로 벌어지는 중
         //       (20ms 샘플 간 간격 확대 + 선행축 IsMoving = 퇴장 이동 감지) → true(즉시 추종 진입).
-        //       중간 creep·간격 유지는 FollowMoveAsync(safetyGap=Safety+Extra 설정값)가 담당한다.
+        //       중간 creep·간격 유지는 FollowMoveAsync(safetyGap=SafetyDistance+경계여유 2mm,
+        //       Retreat Extra 제외 — 2026-07-30 현재 기준)가 담당한다.
         //   (c) 피커 정지/작업 중(간격 불변·축소)이면 출발하지 않는다 — "정지 피커 앞 선진입 금지"
         //       (사용자 지시 2026-07-25)는 이 조건이 보존한다. 타임아웃 규칙은 기존 존 대기와
         //       동일 — 선행검사 모드는 주기 로그+무한 대기, 그 외는 타임아웃 후 일반 경로 위임.
@@ -3017,6 +3025,8 @@ namespace QMC.CDT320.Sequencing
                 ct: ct,
                 additionalConstraints: additionalConstraints).ConfigureAwait(false);
         }
+
+        #endregion
 
         private async Task<int> MoveNeedleXAndVerifyAsync(
             InputStageUnit stage,

@@ -1846,6 +1846,13 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        #region OutputVision 검사 복귀 — PickerX 선행 Follow
+
+        // SAFETY CONTRACT:
+        // - Conti Place 대상에서 PickerX가 선행하고 OutputVisionX가 후행한다.
+        // - 제약 Picker와 반대편 Picker를 함께 검사하며, 복귀 유지간격을 Output Retreat Extra와 혼동하지 않는다.
+        // - Vision 후행축의 targetName 미지정과 Follow 실패 후 일반 이동 폴백은 현재 의도된 계약이다.
+
         // 플레이스 Conti 게이트(수정 2026-07-24): 요청에 명시 플래그(MinimalRetreatEligible —
         // Auto 플레이스 등록 경로에서만 설정)가 있고 픽커 컨텍스트를 가지며 해당 픽커의
         // Place.MotionMode가 ContiSegmentedPlace일 때만 최소 회피를 적용한다.
@@ -2300,6 +2307,8 @@ namespace QMC.CDT320.Sequencing
                 ct: ct,
                 additionalConstraints: additionalConstraints).ConfigureAwait(false);
         }
+
+        #endregion
 
         private async Task<int> MoveStageAxisAndVerifyAsync(
             OutputStageUnit stage,

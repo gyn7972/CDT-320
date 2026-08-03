@@ -57,6 +57,35 @@ namespace QMC.CDT320.Initialization
             ISet<string> allowedConcurrentAxisNames,
             out string reason)
         {
+            return VerifyStepCore(
+                step,
+                allowedConcurrentAxisNames,
+                true,
+                out reason);
+        }
+
+        /// <summary>
+        /// Monitor와 경로 미리보기에서 사용하는 읽기 전용 검사입니다.
+        /// 실행용 VerifyStep과 같은 규칙을 사용하지만 실패 로그와 Alarm을 발생시키지 않습니다.
+        /// </summary>
+        public bool InspectStep(
+            AxisInitializeStep step,
+            ISet<string> allowedConcurrentAxisNames,
+            out string reason)
+        {
+            return VerifyStepCore(
+                step,
+                allowedConcurrentAxisNames,
+                false,
+                out reason);
+        }
+
+        private bool VerifyStepCore(
+            AxisInitializeStep step,
+            ISet<string> allowedConcurrentAxisNames,
+            bool reportFailure,
+            out string reason)
+        {
             reason = "";
             try
             {
@@ -78,8 +107,16 @@ namespace QMC.CDT320.Initialization
                             ", target=" + rule.TargetType + ":" + rule.Name +
                             ", expected=" + rule.ExpectedState +
                             ", reason=" + reason + correctiveAction;
-                        Log.Write("Main", "SYSTEM", "AxisInitializeInterlock", message + " - Failed");
-                        AlarmManager.Raise(AlarmSeverity.Error, "INIT-INTERLOCK", "MachineController", message);
+                        if (reportFailure)
+                        {
+                            Log.Write("Main", "SYSTEM", "AxisInitializeInterlock", message + " - Failed");
+                            AlarmManager.Raise(
+                                AlarmSeverity.Error,
+                                "INIT-INTERLOCK",
+                                "MachineController",
+                                message);
+                        }
+
                         reason = message;
                         return false;
                     }
@@ -90,9 +127,17 @@ namespace QMC.CDT320.Initialization
             catch (Exception ex)
             {
                 reason = "초기화 인터락 확인 중 예외 발생: " + ex.Message;
-                Log.Write("Main", "SYSTEM", "AxisInitializeInterlock",
-                    "Initialize interlock verify failed: " + ex.Message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Error, "INIT-INTERLOCK-EX", "MachineController", reason);
+                if (reportFailure)
+                {
+                    Log.Write("Main", "SYSTEM", "AxisInitializeInterlock",
+                        "Initialize interlock verify failed: " + ex.Message + " - Failed");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "INIT-INTERLOCK-EX",
+                        "MachineController",
+                        reason);
+                }
+
                 return false;
             }
             finally

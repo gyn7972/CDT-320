@@ -631,6 +631,12 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // SAFETY CONTRACT:
+        // - Picker→OutputStage Material 전이는 Vacuum OFF settle, 선택적 Blow/dwell 뒤 Z full Avoid 완료
+        //   또는 승인된 Conti Near-Avoid 이탈 확인을 전제로 한다.
+        // - Conti 잔여 Z 상승은 pending Task로 유지되며 후속 안전 경계에서 반드시 합류한다.
+        // - 이 경로에는 제품 분리를 확인하는 Flow OFF 센서 검증이 없으므로 "센서 확인 후 Material 이동"으로 해석하지 않는다.
+        // - release 조건 변경은 가독성 정리가 아니라 별도의 실장비 검증 대상이다.
         private int UpdateMaterialToOutputStage(CancellationToken ct)
         {
             bool preserveInspectionResult = IsInspectionFlowComplete(_currentDie) &&

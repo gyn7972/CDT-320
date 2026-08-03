@@ -127,6 +127,70 @@ namespace QMC.CDT320.Initialization
             return ResolveInitializeLaneAxisNames(laneSteps);
         }
 
+        /// <summary>
+        /// Plan에 등장하는 축의 현재 상태를 읽기 전용으로 복사합니다.
+        /// 이 메서드에서는 Servo, Alarm, HOME, 이동 명령을 변경하지 않습니다.
+        /// </summary>
+        public AxisInitializeSafetySnapshot CaptureSafetySnapshot(
+            IEnumerable<AxisInitializeStep> steps)
+        {
+            var axisNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                foreach (AxisInitializeStep step in steps ?? new AxisInitializeStep[0])
+                {
+                    if (step == null)
+                        continue;
+
+                    foreach (BaseAxis axis in ResolveAxesByNames(step.AxisNames))
+                    {
+                        if (axis != null && !string.IsNullOrWhiteSpace(axis.Name))
+                            axisNames.Add(axis.Name);
+                    }
+
+                    AddInitializeActionAxisNames(axisNames, step.PreActions);
+                    AddInitializeActionAxisNames(axisNames, step.PostActions);
+
+                    foreach (AxisInitializeInterlockRule rule in
+                        step.Interlocks ?? new List<AxisInitializeInterlockRule>())
+                    {
+                        if (rule == null || !rule.Enabled ||
+                            !string.Equals(
+                                rule.TargetType,
+                                AxisInitializeInterlockTarget.Axis,
+                                StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        BaseAxis interlockAxis = FindAxisByName(rule.Name);
+                        if (interlockAxis != null && !string.IsNullOrWhiteSpace(interlockAxis.Name))
+                            axisNames.Add(interlockAxis.Name);
+                    }
+                }
+
+                var states = axisNames
+                    .Select(FindAxisByName)
+                    .Where(x => x != null)
+                    .OrderBy(x => x.Setup != null ? x.Setup.AxisNo : int.MaxValue)
+                    .ThenBy(x => x.Name)
+                    .Select(AxisInitializeAxisState.Capture)
+                    .Where(x => x != null)
+                    .ToList();
+
+                return new AxisInitializeSafetySnapshot(DateTime.Now, states);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "AxisInitializeSafetySnapshot",
+                    "Axis initialize safety snapshot failed. error=" + ex.Message + " - Failed");
+                return new AxisInitializeSafetySnapshot(
+                    DateTime.Now,
+                    new List<AxisInitializeAxisState>());
+            }
+            finally
+            {
+            }
+        }
+
         public bool HasEnabledActions(AxisInitializeStep step)
         {
             return HasEnabledInitializeActions(step);
@@ -142,6 +206,15 @@ namespace QMC.CDT320.Initialization
         public bool VerifyStep(AxisInitializeStep step, out string reason)
         {
             return VerifyStep(step, null, out reason);
+        }
+
+        /// <summary>
+        /// Monitor 미리보기용 인터락 검사입니다.
+        /// 실행용 VerifyStep과 같은 규칙을 사용하지만 실패 Alarm을 발생시키지 않습니다.
+        /// </summary>
+        public bool InspectStep(AxisInitializeStep step, out string reason)
+        {
+            return _interlockService.InspectStep(step, null, out reason);
         }
 
         public bool VerifyStep(

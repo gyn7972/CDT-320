@@ -498,6 +498,11 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // SAFETY CONTRACT:
+        // - Auto CycleStop은 활성 PickUp/검사/Place child 또는 Picker가 보유한 InputTarget Die가 있으면
+        //   즉시 공정 중단이 아니라 안전 배출 경계까지 드레인할 수 있다.
+        // - Alarm 활성 시에는 드레인을 허용하지 않으며 InputCamera/Check/Idle/Complete 경계는 즉시 Stop 판단을 따른다.
+        // - 이 메서드의 true를 "즉시 축 정지"로 해석하지 않는다.
         private bool ShouldDeferCycleStopForActivePickerDrain()
         {
             try
@@ -2144,6 +2149,11 @@ namespace QMC.CDT320.Sequencing
                     _placeSequence = new PickerPlaceSequence(Context, Side);
                     _placeSequence.ForceSafeYBeforeFirstPlaceMove = _forceSafeYBeforePlaceResume;
                     _placeSequence.KeepPickerYForwardDuringPlaceReadyWait = _keepPickerYForwardForContinuousPlace;
+                    // SAFETY CONTRACT:
+                    // - Bottom/Side EPD 완료와 최종 판정 완료는 같은 시점이 아닐 수 있다.
+                    // - Bottom FINAL은 Place XY/보정 이동 전, Bottom+Side FINAL은 PickerZ의 최종
+                    //   Place 접촉 하강 전에 각각 별도 배리어로 기다린다.
+                    // - 이 callback 연결을 Place 완료 전 해제하거나 하나의 대기로 합치지 않는다.
                     if (_bottomAndSideInspectionSequence != null &&
                         _bottomAndSideInspectionSequence.IsComplete)
                     {
@@ -2245,6 +2255,11 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // SAFETY CONTRACT:
+        // - OutputStage 교체 handoff는 Picker 전체 Safe와 Output 작업영역 해제를 확인한 뒤
+        //   phase/work-zone을 해제하고 Picker process resource를 반환해 Loader가 획득할 수 있게 한다.
+        // - 보유 Die, cursor, 지연된 검사 RESULT 상태는 같은 sequence 인스턴스에 유지한다.
+        // - 새 Stage Material Ready, 해당 Ready signal, Loader 비활성 조건 전에는 Place 리소스를 재획득해 진입하지 않는다.
         private async Task<int> WaitForOutputStageExchangeWithProcessHandoffAsync(
             BinSide outputSide,
             int pickerNo,

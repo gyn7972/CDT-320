@@ -592,6 +592,13 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
         }
 
+        #region InputVision 사전 위치 — PickUpCompleteToBottom Follow
+
+        // SAFETY CONTRACT:
+        // - PickUpCompleteToBottom 세션에서 퇴장 PickerX가 선행하고 InputVisionX가 후행한다.
+        // - 선행 Picker 퇴장량·최초 이동량·시작 대기 조건은 정지 Picker 옆 선진입을 막는 한 묶음의 게이트다.
+        // - 일반 이동에 Position Override를 재도입하지 않으며, Follow 실패는 기존 Standby 경로에 폴백한다.
+
         // 2026-07-28 사용자 지시: 위치 오버라이드는 팔로잉(FollowMove) 전용 — 선행이동의
         // TryOverrideMovingAxisToFinal(이동 중 최종 진입 오버라이드)은 무효 성공 레이스
         // (완료된 이동에 AxmOverridePos가 0을 반환, MOVE JOIN -5)로 폐지·삭제했다.
@@ -784,6 +791,8 @@ namespace QMC.CDT320.Sequencing
                 moveTimeoutMs,
                 ct).ConfigureAwait(false);
         }
+
+        #endregion
 
         private static async Task StopAndDrainMoveTaskAsync(
             BaseAxis axis,

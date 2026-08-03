@@ -65,6 +65,13 @@ namespace QMC.CDT320.Motion.SharedRailX
             return false;
         }
 
+        #region SharedRailX 간격 검증 및 Follow·Retreat 경계 계산
+
+        // SAFETY CONTRACT:
+        // - HomeClearance, AxisATowardSign/AxisBTowardSign, SafetyDistance는 배포 설정에 담긴 실장비 기구값이다.
+        // - 접근 방향을 코드에 다시 하드코딩하거나 Retreat Extra와 복귀 Follow 경계여유를 같은 값으로 합치지 않는다.
+        // - 이 구역의 산식·페어 구성 변경은 문서 정리가 아니라 별도의 실장비 안전 검증 대상이다.
+
         /// <summary>
         /// 두 공유 레일 축의 지정 위치 조합이 페어 간격식으로 SafetyDistance를 만족하는지 판정한다.
         /// 인터락 제3 분기("간격 충족 시 진입 허용" — 사용자 승인 2026-07-24)에서 사용한다.
@@ -713,6 +720,14 @@ namespace QMC.CDT320.Motion.SharedRailX
             return true;
         }
 
+        #endregion
+
+        #region SharedRailX 조그 및 일반 이동 Dispatch (Follow 아님)
+
+        // SAFETY BOUNDARY:
+        // - 아래 다축 이동은 개별 절대이동을 소프트웨어에서 병렬 실행하는 경로이며 하드웨어 축 결합이 아니다.
+        // - 이 구역의 AutoMoveGuard 보호 범위를 AjinAxis.FollowMoveAsync까지 확장해 해석하지 않는다.
+
         public bool VerifyJogMove(BaseAxis axis, int direction, out string reason)
         {
             reason = string.Empty;
@@ -997,6 +1012,8 @@ namespace QMC.CDT320.Motion.SharedRailX
             using (BaseAxis.BeginForceMoveScope())
                 return await axis.MoveAbsoluteAsync(targetPosition, velocity).ConfigureAwait(false);
         }
+
+        #endregion
 
         private void Add(List<SharedRailXAxisSetting> list, SharedRailXAxis railAxis, BaseAxis axis)
         {

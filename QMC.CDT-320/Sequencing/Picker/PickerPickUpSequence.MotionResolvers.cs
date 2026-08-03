@@ -594,6 +594,10 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
+                // SAFETY WARNING:
+                // - 아래 flowOn=true는 현행 Test override이므로 이 블록과 완료 로그를 실센서 흡착 확인으로 해석하지 않는다.
+                // - 실제 Flow 확인은 PickUp Z 경로와 다음 검사 진입 precheck에 별도로 존재한다.
+                // - override 제거·변경은 이번 가독성 정리 범위가 아니며 실장비 검증과 별도 승인이 필요하다.
                 bool flowOn = ReadPickerFlowState(pickerNo);
                 //Todo : Test Flow code
                 flowOn = true;

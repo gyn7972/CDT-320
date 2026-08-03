@@ -1,0 +1,116 @@
+﻿CDT-320 전체 축 초기화 시퀀스형 구조 리팩터링 구현 프롬프트
+=============================================================
+
+1. 작업 기준
+-----------
+- 저장소: D:\Source\CDT-320_New
+- 솔루션: D:\Source\CDT-320_New\QMC.CDT-320.sln
+- 대상: .NET Framework 4.7.2 / C# 7.3
+- D:\Source\CDT-320_New 밖의 CDT-320 코드는 참조하지 않는다.
+- commit, push, pull, merge, reset, checkout, clean, rebuild를 수행하지 않는다.
+- 기존 변경 파일이 있으면 현재 작업과 겹치는지 먼저 확인한다.
+
+2. 목표
+------
+MachineController와 AxisInitializeExecutor에 분산된 전체 초기화 순서 관리를
+AxisInitializeSequence로 분리한다.
+
+코드를 읽는 사람이 AxisInitializeSequence 한 파일에서 다음 흐름을 확인할 수 있어야 한다.
+
+공통 선행 Step
+→ Input/Output Lane 병렬 실행
+→ SharedRail 후행 Step
+→ 성공 또는 최초 실패 결과 반환
+
+AxisInitializeExecutor는 선택된 한 Step의 실행만 담당한다.
+
+Prepare
+→ Interlock
+→ StopGroup
+→ PreAction
+→ HOME
+→ PostAction
+
+3. 이번 구현 범위
+-----------------
+- AxisInitializeSequence.cs 신규 생성
+- 전체 Plan 실행 및 Input/Output 병렬 Lane orchestration 이동
+- Lane 실패 전파, 반대 Lane 취소, 전체 축 정지 요청 이동
+- MachineController가 전체 초기화 시 AxisInitializeSequence를 호출하도록 연결
+- Executor의 단일 Step 실행, 개별축 HOME, 진행 이벤트는 유지
+- QMC.CDT-320.csproj Compile Include 등록
+- 기존 public InitializeAllAxesAsync(bool) API와 UI 진행 이벤트 유지
+
+4. 이번 구현에서 변경하지 않을 동작
+----------------------------------
+- AxisInitializePlan.CreateDefault의 Step 번호·축·Action·Interlock
+- 기존 StepNo 순서
+- Input/Output Lane 지정 범위와 Lane 내부 순차 실행
+- SharedRail Step 340 → 350 → 360 → 370 직렬 순서
+- PickerYPair 전용 HOME 절차
+- Prepare → Interlock → StopGroup → PreAction → HOME → PostAction 순서
+- MotionGuard와 모든 기존 인터락
+- 병렬 Lane 최초 실패 시 전체 축 정지
+- MachineInitialized 및 EquipmentStatus 상태 전이
+- 초기화 Monitor의 Waiting/Running/Complete/Failed/Reinitialize Required 의미
+- 실장비 모션·IO를 실행하지 않는다.
+
+5. 후속 단계로 분리할 항목
+-------------------------
+다음은 안전 동작 변경이므로 이번 동작 보존 리팩터링에 섞지 않는다.
+
+- PickerZ ↔ Reticle 상태별 선행순서 변경
+- FeederY ↔ PickerX HOME 센서/Avoid 센서 기반 선행순서 변경
+- GoodStageZ ↔ NGStageY 상태별 선행순서 변경
+- Excel 인터락 표 전체 조건 적용
+- 센서 Debounce 및 새로운 INIT-DEADLOCK 판정
+- 초기화 성능 최적화 또는 신규 병렬화
+
+6. 구현 원칙
+------------
+- MachineController를 신규 Sequence에 주입하지 않는다.
+- AxisInitializeExecutor와 제한된 AxisInitializeRuntime만 주입한다.
+- 전체 순서 결정은 AxisInitializeSequence에서만 수행한다.
+- 단일 Step의 실제 모션 실행은 AxisInitializeExecutor에서만 수행한다.
+- 기존 전체 실행 경로를 복제한 채 두 개의 활성 경로로 남기지 않는다.
+- 실패를 성공으로 바꾸거나 Alarm을 숨기지 않는다.
+- 신규 코드에는 역할과 안전 불변조건을 설명하는 한글 주석을 작성한다.
+
+7. 검증
+------
+- 관련 호출 경로와 메서드 참조 정적 확인
+- 기존 순서·병렬 범위·실패 정지 경로 비교
+- git diff --check
+- 별도 OutDir을 지정한 Debug Build
+- 실제 장비 HOME은 수행하지 않고 현장 검증 항목으로 남긴다.
+
+8. 2차 작업 - Step 정의 단일화
+-----------------------------
+목표:
+- AxisInitializePlanStore에 있던 기본 Step 순서 정의를 AxisInitializeSequence로 이동한다.
+- AxisInitializePlanStore.CreateDefault는 AxisInitializeSequence.CreateDefaultPlan을 호출하는 Wrapper로 축소한다.
+- AxisInitializeSequence 상단에서 다음 구간을 이름으로 구분해 읽을 수 있게 한다.
+  1) 수직축
+  2) Reticle
+  3) Stage Z 안전 준비
+  4) Picker T
+  5) Picker Y Pair
+  6) Input Feeder
+  7) Input Stage/Cassette
+  8) Output Lane
+  9) SharedRail
+  10) Input/Output Lane 지정
+
+2차 안전 불변조건:
+- 기존 StepNo, GroupName, AxisNames 후보, RunMode, ParallelLane을 변경하지 않는다.
+- PreActions, PostActions, Interlocks와 메시지를 변경하지 않는다.
+- Plan Load/Save 비활성 정책을 변경하지 않는다.
+- 조건부 HOME 선행순서와 센서 판정은 아직 추가하지 않는다.
+- 다른 작업자가 수정 중인 Picker/Vision/SharedRail 모션 파일을 수정하지 않는다.
+
+2차 완료 기준:
+- PlanStore의 기본 순서 본문이 Sequence 정의를 호출하는 Wrapper가 된다.
+- Step 정의가 중복 활성화되지 않는다.
+- 기존 HEAD 기준 Plan 생성 호출 목록을 정적으로 비교한다.
+- 별도 OutDir Debug Build가 성공한다.
+

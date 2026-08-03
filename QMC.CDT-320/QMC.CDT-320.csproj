@@ -134,9 +134,13 @@
     <Compile Include="Equipment\Initialization\AxisInitializeInterlockService.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializePlan.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializeProgressStore.cs" />
+    <Compile Include="Equipment\Initialization\AxisInitializeRoutePlanner.cs" />
+    <Compile Include="Equipment\Initialization\AxisInitializeRouteResult.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializeResult.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializeRunState.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializeRuntime.cs" />
+    <Compile Include="Equipment\Initialization\AxisInitializeSafetySnapshot.cs" />
+    <Compile Include="Equipment\Initialization\AxisInitializeSequence.cs" />
     <Compile Include="Equipment\Interlocks\InputCassetteInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\InputFeederInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\Common\SharedRailXInterlockRules.cs" />

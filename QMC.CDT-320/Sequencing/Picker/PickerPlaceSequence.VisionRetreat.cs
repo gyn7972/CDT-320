@@ -322,6 +322,13 @@ namespace QMC.CDT320.Sequencing
             return await RunOwnOutputVisionRetreatAsync(exactTarget, ct).ConfigureAwait(false);
         }
 
+        #region Place 진입 — OutputVision 선행·PickerX Follow
+
+        // SAFETY CONTRACT:
+        // - OutputVisionX가 선행하고 PickerX만 후행 Follow한다. 일반 PlaceTargets 경로는 PickerT 병렬·
+        //   X/T 완료 후 Y 이동이며, Conti 호출부는 별도 StageY/Z 조정 순서를 따른다.
+        // - Follow 실패 시 Vision Task 합류 후 일반 이동으로 전환하며 PickerZone=Output targetName을 유지한다.
+
         // O-2-F: follow를 타지 않는 일반 이동 분기 공통 방어 — 진행 중인 회피 Task(자체/외부
         // 인수/합성)가 있으면 완료(join)까지 확인한다. 회피 미완료 상태에서 비전이 아직 촬영/검사
         // 위치에 있는데 피커 X가 일반 이동으로 Output 존에 진입하면 인터락(-11)에 걸리기 때문이다.
@@ -527,6 +534,8 @@ namespace QMC.CDT320.Sequencing
                 BuildFollowEntryTargetName(targetName, PickerWorkZone.Output),
                 ct).ConfigureAwait(false);
         }
+
+        #endregion
 
     }
 }

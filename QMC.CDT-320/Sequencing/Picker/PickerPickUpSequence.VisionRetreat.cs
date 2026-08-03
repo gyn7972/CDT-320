@@ -506,6 +506,12 @@ namespace QMC.CDT320.Sequencing
             return await RunInputVisionRetreatMoveAsync(stage, exactTarget, ct).ConfigureAwait(false);
         }
 
+        #region PickUp 진입 — InputVision 선행·PickerX Follow
+
+        // SAFETY CONTRACT:
+        // - InputVisionX가 선행하고 PickerX가 후행한다. Follow 실패 시 선행 Vision Task를 합류한 뒤 일반 이동으로 폴백한다.
+        // - PickerZone=Input 의도를 담는 targetName은 MotionGuard의 존 판정 계약이므로 제거하거나 일반 문자열로 바꾸지 않는다.
+
         // R3(follow-entry): Abort 등 동기 경로에서 회피 Task를 관찰(observe)만 하고 흘려보낸다.
         private void ObserveInputVisionRetreatMoveTaskOnAbort()
         {
@@ -893,6 +899,8 @@ namespace QMC.CDT320.Sequencing
             int[] results = await Task.WhenAll(pickerXMove, pickerTMove).ConfigureAwait(false);
             return results[0] != 0 ? results[0] : results[1];
         }
+
+        #endregion
 
     }
 }

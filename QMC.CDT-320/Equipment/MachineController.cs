@@ -75,6 +75,7 @@ namespace QMC.CDT320
         private readonly AxisInitializeInterlockService _axisInitializeInterlocks;
         private readonly AxisInitializeRuntime _axisInitializeRuntime;
         private readonly AxisInitializeExecutor _axisInitializeExecutor;
+        private readonly AxisInitializeSequence _axisInitializeSequence;
         private readonly AxisInitializeProgressStore _axisInitializeProgressStore =
             new AxisInitializeProgressStore();
         private readonly SemaphoreSlim _axisInitializeOperationGate =
@@ -470,6 +471,10 @@ namespace QMC.CDT320
                 EnumerateAxes,
                 _axisInitializeInterlocks);
             _axisInitializeExecutor = new AxisInitializeExecutor(_axisInitializeRuntime);
+            // 전체 초기화 순서는 Sequence가, 선택된 한 Step의 실제 HOME은 Executor가 담당합니다.
+            _axisInitializeSequence = new AxisInitializeSequence(
+                _axisInitializeExecutor,
+                _axisInitializeRuntime);
             _axisInitializeExecutor.StepProgressChanged += OnAxisInitializeExecutorStepProgressChanged;
             MotionGuardRuntime.ContextProvider = () =>
                 new MotionGuardContext(_machine, EnumerateAxes(), QMC.CDT320.Ajin.CylinderManager.Items.Values);
@@ -4422,6 +4427,31 @@ namespace QMC.CDT320
             }
         }
 
+        /// <summary>
+        /// 초기화 Monitor가 현재 축·인터락 상태를 읽을 때 사용합니다.
+        /// 실제 HOME 실행과 장비 상태 변경은 수행하지 않습니다.
+        /// </summary>
+        internal AxisInitializeRouteResult GetAxisInitializeRoutePreview()
+        {
+            try
+            {
+                AxisInitializePlan plan = GetAxisInitializePlan();
+                if (plan == null || plan.Steps == null)
+                    return null;
+
+                return _axisInitializeSequence.PreviewRoute(plan.Steps);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "GetAxisInitializeRoutePreview",
+                    "Get initialize route preview failed. error=" + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
         public IList<AxisInitializeStepProgress> GetAxisInitializeStepStatusSnapshot()
         {
             try
@@ -5170,7 +5200,7 @@ namespace QMC.CDT320
         {
             try
             {
-                AxisInitializeResult result = await _axisInitializeExecutor.ExecuteAsync(steps).ConfigureAwait(false);
+                AxisInitializeResult result = await _axisInitializeSequence.ExecuteAsync(steps).ConfigureAwait(false);
                 if (result == null)
                 {
                     LastActionFailureMessage = "초기화 Executor가 결과를 반환하지 않았습니다.";
@@ -8682,7 +8712,7 @@ namespace QMC.CDT320
                 TactTimeRecorder tact = CreateTactTimeRecorder(options);
                 _activeTactTimeRecorder = tact;
                 ResetInspectionTactTimeState();
-                ResetOutputReceiveTactTimeState();                
+                ResetOutputReceiveTactTimeState();
                 // 새 시퀀스 시작: 4개 유닛 상태를 Idle 로 초기화하고 동일 ActivityMonitor 를 컨텍스트에 주입한다.
                 _sequenceActivity.Reset();
 

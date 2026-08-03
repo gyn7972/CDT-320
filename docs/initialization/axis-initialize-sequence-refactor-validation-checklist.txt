@@ -1,0 +1,126 @@
+﻿CDT-320 전체 축 초기화 시퀀스형 구조 리팩터링 검증 체크리스트
+================================================================
+
+1. 작업 보호
+-----------
+[x] PROT-001 | 저장소 루트가 D:\Source\CDT-320_New이다.
+    결과/근거: git rev-parse --show-toplevel = D:/Source/CDT-320_New
+[x] PROT-002 | 작업 시작 시 기존 변경과 대상 파일의 겹침이 없다.
+    결과/근거: 작업 시작 시 git status --short 결과가 비어 있었다.
+[x] PROT-003 | commit/push/pull/merge/reset/checkout/clean/rebuild를 수행하지 않았다.
+    결과/근거: 로컬 파일 수정과 /t:Build만 수행했다.
+[x] PROT-004 | 관련 없는 파일과 기존 동작을 수정하지 않았다.
+    결과/근거: 초기화 Sequence/Executor 연결, csproj, 문서만 변경했다.
+
+2. 구조
+------
+[x] STR-001 | AxisInitializeSequence.cs가 전체 Plan 실행 진입점을 가진다.
+    결과/근거: AxisInitializeSequence.ExecuteAsync(IList<AxisInitializeStep>)
+[x] STR-002 | MachineController의 전체 초기화가 AxisInitializeSequence를 호출한다.
+    결과/근거: ExecuteInitializeStepsAsync → _axisInitializeSequence.ExecuteAsync
+[x] STR-003 | AxisInitializeExecutor는 단일 Step 실행과 개별축 HOME을 유지한다.
+    결과/근거: ExecuteStepAsync/ExecuteSingleAxisHomeAsync 본문 유지, 전체 Plan 메서드 제거
+[x] STR-004 | 신규 파일이 QMC.CDT-320.csproj에 등록됐다.
+    결과/근거: Equipment\Initialization\AxisInitializeSequence.cs Compile Include 확인
+[x] STR-005 | MachineController 전체 참조를 AxisInitializeSequence에 주입하지 않았다.
+    결과/근거: 생성자 의존성은 AxisInitializeExecutor와 AxisInitializeRuntime뿐이다.
+[x] STR-006 | 전체 Plan을 실행하는 활성 경로가 중복되지 않는다.
+    결과/근거: AxisInitializeExecutor.ExecuteAsync와 기존 전체 orchestration 메서드를 제거했다.
+
+3. 동작 보존
+-----------
+[x] FLOW-001 | 활성 Step은 기존처럼 StepNo 오름차순으로 처리된다.
+    결과/근거: ExecuteAsync, 직렬 구간, 각 Lane 모두 OrderBy(StepNo)를 유지한다.
+[x] FLOW-002 | 공통 선행 구간이 Input/Output 병렬 Lane보다 먼저 완료된다.
+    결과/근거: CommonPreLane 성공 후에만 ExecuteParallelLanesAsync를 호출한다.
+[x] FLOW-003 | Input/Output Lane만 기존 범위에서 병렬 실행된다.
+    결과/근거: AxisInitializeParallelLane.Input/Output 메타데이터만 병렬 분리한다.
+[x] FLOW-004 | 각 Lane 내부 Step은 기존처럼 순차 실행된다.
+    결과/근거: ExecuteLaneAsync의 for 루프에서 한 Step씩 await한다.
+[x] FLOW-005 | SharedRail 340→350→360→370이 병렬 Lane 완료 후 직렬 실행된다.
+    결과/근거: postLaneSteps를 SharedRailPostLane으로 StepNo 오름차순 직렬 실행한다.
+[x] FLOW-006 | PickerYPair 전용 실행 경로가 유지된다.
+    결과/근거: Executor의 IsPickerYPairStep → ExecutePickerYPairAsync 호출 유지
+[x] FLOW-007 | Step 실행 순서가 Prepare→Interlock→StopGroup→PreAction→HOME→PostAction이다.
+    결과/근거: Executor ExecuteStepAsync 본문과 호출 순서 diff 없음
+[x] FLOW-008 | 기존 AxisInitializePlan Step/Action/Interlock diff가 0이다.
+    결과/근거: git diff --quiet AxisInitializePlan.cs 통과
+
+4. 병렬 실패와 진행 상태
+----------------------
+[x] PAR-001 | Input/Output Lane 축 중복 검증이 유지된다.
+    결과/근거: ResolveLaneAxisNames 후 Intersect 중복 검사 유지
+[x] PAR-002 | 한 Lane 실패 시 반대 Lane 취소 요청이 유지된다.
+    결과/근거: ParallelLaneExecutionState.Cancel 및 Token 검사 유지
+[x] PAR-003 | 병렬 Lane 최초 실패 시 StopAllAxesAsync가 한 번 요청된다.
+    결과/근거: Interlocked 기반 TryRequestAxisStop 후 StopAllAxesAsync 호출 유지
+[x] PAR-004 | 실패 Step/Lane/Group/Result/Reason 정보가 보존된다.
+    결과/근거: ResolveParallelLaneFailureMessage와 AxisInitializeResult.Failure 필드 유지
+[x] UI-001 | Waiting/Running/Complete/Failed/Reinitialize Required 진행 상태가 유지된다.
+    결과/근거: 기존 AxisInitializeStepStatus 상수와 Executor 진행 이벤트 호출 유지
+[x] UI-002 | MachineController의 AxisInitializeStepProgressChanged 전달 경로가 유지된다.
+    결과/근거: Executor.StepProgressChanged 구독과 forwarding 메서드 diff 없음
+
+5. 안전 불변조건
+--------------
+[x] SAFE-001 | 기존 Interlock 조건을 삭제·완화·우회하지 않았다.
+    결과/근거: Plan/InterlockService/Runtime diff가 모두 0이다.
+[x] SAFE-002 | MotionGuard 명령 직전 검증 경로가 유지된다.
+    결과/근거: Runtime의 실제 HOME 경로를 수정하지 않았다.
+[x] SAFE-003 | InterlockGroup 정지와 정지 완료 대기가 유지된다.
+    결과/근거: Executor의 StopInterlockGroupAsync 호출 위치가 유지된다.
+[x] SAFE-004 | 신규 자동 Jog 또는 임의 복구 이동을 추가하지 않았다.
+    결과/근거: 신규 Sequence에는 축/IO 직접 제어 코드가 없다.
+[x] SAFE-005 | 상태별 HOME 선행순서 변경은 이번 diff에 포함되지 않았다.
+    결과/근거: StepNo와 ParallelLane 메타데이터를 그대로 사용한다.
+
+6. 정적 검사와 빌드
+-----------------
+[x] TEST-001 | 신규/변경 C# 파일의 컴파일 참조 오류가 없다.
+    결과/근거: QMC.CDT-320.sln Debug Build 성공, 오류 0
+[x] TEST-002 | git diff --check가 통과한다.
+    결과/근거: UTF-8 BOM/CRLF 정리 후 git diff --check 재실행 통과
+[x] TEST-003 | 별도 OutDir Debug Build가 통과한다.
+    결과/근거: _build_check_handler\out, /t:Build, Debug|Any CPU 성공
+[x] TEST-004 | Clean/Rebuild를 실행하지 않았다.
+    결과/근거: MSBuild /t:Build만 실행했다.
+[x] TEST-005 | 관련 자동 테스트가 없으면 그 사실을 기록했다.
+    결과/근거: 솔루션에 초기화 전용 자동 테스트 프로젝트가 없다.
+
+7. 현장 후속 검증
+----------------
+[ ] FIELD-001 | 정상 안전 배치에서 전체 HOME 순서와 Monitor 표시를 확인한다.
+    결과/근거: 미수행 - 실장비 축/IO 상태 확인이 필요하다.
+[ ] FIELD-002 | Input Lane 실패 시 Output Lane 취소와 전체 축 정지를 확인한다.
+    결과/근거: 미수행 - 실장비 또는 전용 초기화 시뮬레이터가 필요하다.
+[ ] FIELD-003 | Output Lane 실패 시 Input Lane 취소와 전체 축 정지를 확인한다.
+    결과/근거: 미수행 - 실장비 또는 전용 초기화 시뮬레이터가 필요하다.
+[ ] FIELD-004 | PickerY Pair HOME과 SharedRail 직렬 HOME을 실장비에서 확인한다.
+    결과/근거: 미수행 - 실장비 충돌 감시 상태에서 확인해야 한다.
+
+8. 2차 Step 정의 단일화
+----------------------
+[x] P2-001 | AxisInitializeSequence에 기본 Plan 생성 진입점이 있다.
+    결과/근거: AxisInitializeSequence.CreateDefaultPlan(IEnumerable<BaseAxis>)을 추가했다.
+[x] P2-002 | PlanStore.CreateDefault가 Sequence 정의를 호출하는 Wrapper다.
+    결과/근거: AxisInitializePlanStore.CreateDefault 본문은 AxisInitializeSequence.CreateDefaultPlan 호출 한 줄이다.
+[x] P2-003 | 수직축/Reticle/StageZ/PickerT/PickerY/Input/Output/SharedRail 구간이 이름 있는 메서드로 구분된다.
+    결과/근거: CreateDefaultPlan 상단에서 9개 구간 메서드와 Lane 지정 메서드를 순서대로 호출한다.
+[x] P2-004 | 기존 StepNo와 GroupName 목록이 동일하다.
+    결과/근거: HEAD의 기존 CreateDefault와 신규 정의의 Builder 호출 123개를 공백 제거 후 순서 비교했고 불일치 0개다.
+[x] P2-005 | 기존 Axis 후보, RunMode, Lane 지정이 동일하다.
+    결과/근거: 위 123개 호출의 전체 인수를 문자열 단위로 비교했고 불일치 0개다.
+[x] P2-006 | 기존 Action/Interlock 호출과 메시지가 동일하다.
+    결과/근거: Action/Interlock Builder 호출과 메시지를 포함한 전체 호출 비교 결과 불일치 0개다.
+[x] P2-007 | 기본 Step 정의의 활성 실행 경로가 중복되지 않는다.
+    결과/근거: PlanStore에는 Wrapper만 남기고 실제 기본 Step 본문은 Sequence로 이동했다.
+[x] P2-008 | Plan Load/Save 비활성 정책이 유지된다.
+    결과/근거: Load의 테스트 return null과 Save의 테스트 return true를 포함한 본문은 수정하지 않았다.
+[x] P2-009 | 조건부 센서 HOME 순서 변경을 포함하지 않았다.
+    결과/근거: Step Builder 호출이 기존과 동일하며 신규 센서 판정이나 분기를 추가하지 않았다.
+[x] P2-010 | 다른 작업자의 Picker/Vision/SharedRail 변경을 수정하지 않았다.
+    결과/근거: 2차 수정 범위를 AxisInitializePlan, AxisInitializeSequence, 본 문서로 제한했다.
+[x] P2-011 | UTF-8 BOM/CRLF 및 git diff --check가 정상이다.
+    결과/근거: 대상 4개 파일 인코딩/줄바꿈 정리 후 git diff --check 통과를 확인했다.
+[x] P2-012 | 별도 OutDir Debug Build가 오류 0으로 성공한다.
+    결과/근거: MSBuild /t:Build, Debug|Any CPU, _build_check_handler\out 결과 성공(오류 0)이다.
