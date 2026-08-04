@@ -17,7 +17,9 @@ namespace QMC.CDT320.Initialization
             _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         }
 
-        public AxisInitializeRouteResult Build(IList<AxisInitializeStep> steps)
+        public AxisInitializeRouteResult Build(
+            IList<AxisInitializeStep> steps,
+            bool useDefaultSequenceFlow)
         {
             var orderedSteps = (steps ?? new AxisInitializeStep[0])
                 .Where(x => x != null)
@@ -28,17 +30,10 @@ namespace QMC.CDT320.Initialization
             AxisInitializeSafetySnapshot snapshot =
                 _runtime.CaptureSafetySnapshot(orderedSteps);
 
-            int firstLaneStepNo;
-            int lastLaneStepNo;
-            ResolveLaneBarrier(orderedSteps, out firstLaneStepNo, out lastLaneStepNo);
-
             var routeSteps = new List<AxisInitializeRouteStep>();
             foreach (AxisInitializeStep step in orderedSteps)
             {
-                routeSteps.Add(BuildStep(
-                    step,
-                    firstLaneStepNo,
-                    lastLaneStepNo));
+                routeSteps.Add(BuildStep(step, useDefaultSequenceFlow));
             }
 
             return new AxisInitializeRouteResult(snapshot, routeSteps);
@@ -46,15 +41,18 @@ namespace QMC.CDT320.Initialization
 
         private AxisInitializeRouteStep BuildStep(
             AxisInitializeStep step,
-            int firstLaneStepNo,
-            int lastLaneStepNo)
+            bool useDefaultSequenceFlow)
         {
             var routeStep = new AxisInitializeRouteStep
             {
                 StepNo = step.StepNo,
                 GroupName = step.GroupName ?? string.Empty,
-                Phase = ResolvePhase(step, firstLaneStepNo, lastLaneStepNo),
-                Lane = step.ParallelLane ?? string.Empty
+                Phase = useDefaultSequenceFlow
+                    ? AxisInitializeSequence.ResolveDefaultRoutePhase(step.StepNo)
+                    : AxisInitializeRoutePhase.SerialFallback,
+                Lane = useDefaultSequenceFlow
+                    ? step.ParallelLane ?? string.Empty
+                    : string.Empty
             };
 
             if (!step.Enabled)
@@ -75,57 +73,5 @@ namespace QMC.CDT320.Initialization
             return routeStep;
         }
 
-        /// <summary>
-        /// 수정자가 전체 경로 구분을 한곳에서 확인할 수 있도록 Phase 판단을 모았습니다.
-        /// </summary>
-        private static string ResolvePhase(
-            AxisInitializeStep step,
-            int firstLaneStepNo,
-            int lastLaneStepNo)
-        {
-            if (AxisInitializeParallelLane.Is(
-                step.ParallelLane,
-                AxisInitializeParallelLane.Input))
-                return AxisInitializeRoutePhase.InputLane;
-
-            if (AxisInitializeParallelLane.Is(
-                step.ParallelLane,
-                AxisInitializeParallelLane.Output))
-                return AxisInitializeRoutePhase.OutputLane;
-
-            if (firstLaneStepNo == int.MaxValue || lastLaneStepNo == int.MinValue)
-                return AxisInitializeRoutePhase.SerialFallback;
-
-            if (step.StepNo < firstLaneStepNo)
-                return AxisInitializeRoutePhase.CommonPreLane;
-            if (step.StepNo > lastLaneStepNo)
-                return AxisInitializeRoutePhase.SharedRailPostLane;
-
-            // 현재 Plan에서는 발생하지 않아야 하며, 실행부도 Lane 누락으로 차단하는 구간입니다.
-            return AxisInitializeRoutePhase.SerialFallback;
-        }
-
-        private static void ResolveLaneBarrier(
-            IList<AxisInitializeStep> steps,
-            out int firstLaneStepNo,
-            out int lastLaneStepNo)
-        {
-            var laneSteps = (steps ?? new AxisInitializeStep[0])
-                .Where(x => x != null && x.Enabled &&
-                    (AxisInitializeParallelLane.Is(
-                         x.ParallelLane,
-                         AxisInitializeParallelLane.Input) ||
-                     AxisInitializeParallelLane.Is(
-                         x.ParallelLane,
-                         AxisInitializeParallelLane.Output)))
-                .ToList();
-
-            firstLaneStepNo = laneSteps.Count > 0
-                ? laneSteps.Min(x => x.StepNo)
-                : int.MaxValue;
-            lastLaneStepNo = laneSteps.Count > 0
-                ? laneSteps.Max(x => x.StepNo)
-                : int.MinValue;
-        }
     }
 }

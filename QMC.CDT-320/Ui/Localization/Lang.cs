@@ -135,8 +135,8 @@ namespace QMC.CDT_320.Ui.Localization
             A("header.state.none",    "NONE",             "NONE");
             A("status.mapEmpty",      "빈 맵",             "Empty Map");
             A("status.project",       "Project Name :",   "Project Name :");
-            A("status.barcode",       "Barcode Name :",   "Barcode Name :");
-            A("status.bin",           "1Bin :",           "1Bin :");
+            A("status.barcode",       "Wafer ID :",       "Wafer ID :");
+            A("status.bin",           "Bin ID :",         "Bin ID :");
             A("status.vision",        "VISION",           "VISION");
             A("status.pick",          "PICK",             "PICK");
             A("status.reference",     "REFERENCE",        "REFERENCE");
@@ -498,8 +498,8 @@ namespace QMC.CDT_320.Ui.Localization
             // 상태바
             Z("status.mapEmpty",     "映射: 空");
             Z("status.project",      "项目");
-            Z("status.barcode",      "条码");
-            Z("status.bin",          "Bin");
+            Z("status.barcode",      "Wafer ID");
+            Z("status.bin",          "Bin ID");
             Z("status.vision",       "视觉");
             Z("status.pick",         "拾取");
             Z("status.reference",    "参考");
@@ -589,8 +589,8 @@ namespace QMC.CDT_320.Ui.Localization
             J("header.user",         "ユーザー");
             J("header.time",         "時刻");
             J("status.project",      "プロジェクト");
-            J("status.barcode",      "バーコード");
-            J("status.bin",          "Bin");
+            J("status.barcode",      "Wafer ID");
+            J("status.bin",          "Bin ID");
             J("status.vision",       "ビジョン");
             J("status.pick",         "ピック");
             J("status.reference",    "リファレンス");

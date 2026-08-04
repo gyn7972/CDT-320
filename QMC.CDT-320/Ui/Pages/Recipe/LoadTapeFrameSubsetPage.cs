@@ -19,7 +19,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             var l = _project.LoadFrame ?? new LoadTapeFrameSubset();
             _cbRole.SelectedItem = l.Role ?? "Load";
             if (_cbRole.SelectedIndex < 0) _cbRole.SelectedIndex = 0;
-            _cbAutoBarcode.Checked = l.AutoBarcodeRead;
+            // 바코드 사용 여부는 레시피에서 관리하지 않는다(설정 → 바코드 화면 단일 소스).
             _cbAutoAlign.Checked = l.AutoAlignment;
             _nAlignPts.Value = l.AlignmentPoints;
         }
@@ -28,7 +28,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             var l = _project.LoadFrame ?? (_project.LoadFrame = new LoadTapeFrameSubset());
             l.Role = _cbRole.SelectedItem?.ToString() ?? "Load";
-            l.AutoBarcodeRead = _cbAutoBarcode.Checked;
             l.AutoAlignment = _cbAutoAlign.Checked;
             l.AlignmentPoints = (int)_nAlignPts.Value;
         }

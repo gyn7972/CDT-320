@@ -314,14 +314,44 @@ namespace QMC.CDT320.Barcode
             return Math.Max(0.001, Math.Min(100.000, value));
         }
 
+        // 작업자 호출 알림(사용자 확정 2026-08-05):
+        //  - 부저는 계속 울리지 않고 짧게 2회만 울린다(Auto가 응답을 기다리는 동안 소음 지속 방지).
+        //  - 경광등은 녹색+노란색을 켜 "라인 대기 / 작업자 확인 필요"를 표시한다(빨강=알람과 구분).
+        private const int AttentionBeepCount = 2;
+        private const int AttentionBeepOnMs = 250;
+        private const int AttentionBeepOffMs = 200;
+
         private static void StartBuzzer(QMC.CDT_320.Form1 host)
         {
             try
             {
-                if (host != null && host.OpPanelMonitor != null)
-                    host.OpPanelMonitor.StartRunReviewBuzzer();
-                else
-                    host?.Machine?.OpPanelUnit?.Buzzer?.On();
+                var panel = host?.Machine?.OpPanelUnit;
+                if (panel == null)
+                    return;
+
+                try { panel.TowerLampOperatorAttention(); }
+                catch { }
+
+                // 부저 2회는 시퀀스 스레드를 막지 않도록 백그라운드에서 처리한다.
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        for (int i = 0; i < AttentionBeepCount; i++)
+                        {
+                            panel.Buzzer?.On();
+                            await System.Threading.Tasks.Task.Delay(AttentionBeepOnMs).ConfigureAwait(false);
+                            panel.Buzzer?.Off();
+                            if (i < AttentionBeepCount - 1)
+                                await System.Threading.Tasks.Task.Delay(AttentionBeepOffMs).ConfigureAwait(false);
+                        }
+                    }
+                    catch
+                    {
+                        try { panel.Buzzer?.Off(); }
+                        catch { }
+                    }
+                });
             }
             catch
             {
@@ -342,6 +372,29 @@ namespace QMC.CDT320.Barcode
             }
         }
 
+        // 작업자 응답이 끝나면 경광등 표시를 되돌린다. 현재 장비 상태에 맞는 색으로 복원하고,
+        // 상태 확인이 어려우면 운전 중(녹색)으로 되돌린다(이 대화는 Auto 진행 중에만 뜬다).
+        private static void RestoreTowerLampAfterAttention(QMC.CDT_320.Form1 host)
+        {
+            try
+            {
+                var panel = host?.Machine?.OpPanelUnit;
+                if (panel == null)
+                    return;
+
+                try { panel.Buzzer?.Off(); }
+                catch { }
+
+                if (host.Controller != null && host.Controller.Status == EquipmentStatus.AutoRunning)
+                    panel.TowerLampRunning();
+                else
+                    panel.TowerLampWarning();
+            }
+            catch
+            {
+            }
+        }
+
         private static void EndBuzzer(QMC.CDT_320.Form1 host)
         {
             if (host == null || host.IsDisposed)
@@ -351,6 +404,9 @@ namespace QMC.CDT320.Barcode
             {
                 try
                 {
+                    // 작업자 확인 표시(녹색+노란색)를 현재 상태 색으로 되돌린다.
+                    RestoreTowerLampAfterAttention(host);
+
                     if (host.OpPanelMonitor != null)
                         host.OpPanelMonitor.EndRunReviewBuzzer();
                     else

@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
-using System.Runtime.Serialization.Json;
 using QMC.Common;
+using QMC.Common.IO;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Initialization
@@ -42,6 +41,13 @@ namespace QMC.CDT320.Initialization
         [DataMember] public List<AxisInitializeInterlockRule> Interlocks { get; set; } =
             new List<AxisInitializeInterlockRule>();
         [DataMember] public bool Enabled { get; set; } = true;
+
+        // 전체 초기화 실행 시 AxisInitializeSequence의 Step switch가 실제 Unit 객체를 연결합니다.
+        // 문자열 필드는 Monitor/로그/기존 파일 호환용이며 실제 HOME 대상 선택에는 사용하지 않습니다.
+        internal List<BaseAxis> RuntimeAxes { get; set; } = new List<BaseAxis>();
+        internal List<BaseAxis> RuntimeInterlockAxes { get; set; } = new List<BaseAxis>();
+        internal bool RuntimeParallelHome { get; set; }
+        internal bool RuntimePickerYPairHome { get; set; }
     }
 
     [DataContract]
@@ -55,6 +61,13 @@ namespace QMC.CDT320.Initialization
         [DataMember] public int TimeoutMs { get; set; } = 0;
         [DataMember] public bool Enabled { get; set; } = true;
         [DataMember] public string Description { get; set; }
+
+        // 실행 전 Step switch에서 연결되는 실제 장치입니다. DataContract 저장 대상이 아닙니다.
+        internal BaseAxis RuntimeAxis { get; set; }
+        internal BaseCylinder RuntimeCylinder { get; set; }
+        internal double RuntimeTargetPosition { get; set; }
+        internal bool HasRuntimeTargetPosition { get; set; }
+        internal string RuntimeTargetName { get; set; }
     }
 
     [DataContract]
@@ -69,6 +82,13 @@ namespace QMC.CDT320.Initialization
         [DataMember] public double Tolerance { get; set; } = 0.01;
         [DataMember] public bool Enabled { get; set; } = true;
         [DataMember] public string Description { get; set; }
+
+        // 인터락 판정은 실행 시 연결된 실제 Unit 장치를 우선 사용합니다.
+        // 값이 없을 때만 구형/외부 Plan 호환을 위해 기존 이름 해석 경로를 사용합니다.
+        internal BaseAxis RuntimeAxis { get; set; }
+        internal BaseCylinder RuntimeCylinder { get; set; }
+        internal BaseDigitalInput RuntimeDigitalInput { get; set; }
+        internal bool RuntimeTargetBindingApplied { get; set; }
     }
 
     public static class AxisInitializeInterlockTarget
@@ -188,9 +208,6 @@ namespace QMC.CDT320.Initialization
             {
                 return false;
             }
-            finally
-            {
-            }
         }
     }
 
@@ -210,28 +227,19 @@ namespace QMC.CDT320.Initialization
             {
                 return false;
             }
-            finally
-            {
-            }
         }
     }
 
     public static class AxisInitializePlanStore
     {
-        public static string RootDir => @"D:\CDT-320";
-        public static string Dir => Path.Combine(RootDir, "Config");
-        public static string PlanPath => Path.Combine(Dir, "axis_initialize_plan.json");
-        public static string BackupPath => Path.Combine(Dir, "axis_initialize_plan.bak");
-
         public static AxisInitializePlan LoadOrCreateDefault(IEnumerable<BaseAxis> axes)
         {
             try
             {
                 AxisInitializePlan plan = CreateDefault(axes);
                 EnsureEditableHelp(plan);
-                EnsureRequiredInitializeActions(plan);
                 Log.Write("Main", "SYSTEM", "AxisInitializePlanLoad",
-                    "Axis initialize plan loaded from CreateDefault. saved file ignored while sequence steps are being edited. file=" + PlanPath + " - Ok");
+                    "Built-in axis initialize plan created. - Ok");
                 return plan;
             }
             catch (Exception ex)
@@ -239,96 +247,6 @@ namespace QMC.CDT320.Initialization
                 Log.Write("Main", "SYSTEM", "AxisInitializePlanLoad",
                     "Axis initialize plan load/create failed: " + ex.Message + " - Failed");
                 return CreateDefault(axes);
-            }
-            finally
-            {
-            }
-        }
-
-        public static AxisInitializePlan Load()
-        {
-
-            //Test 완료 하고 불러오자.
-            return null;
-            try
-            {
-                if (!File.Exists(PlanPath))
-                    return null;
-
-                using (var fs = File.OpenRead(PlanPath))
-                {
-                    var serializer = new DataContractJsonSerializer(typeof(AxisInitializePlan));
-                    return (AxisInitializePlan)serializer.ReadObject(fs);
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanLoad",
-                    "Axis initialize plan load failed: " + PlanPath + " / " + ex.Message + " - Failed");
-                return null;
-            }
-            finally
-            {
-            }
-        }
-
-        public static bool Save(AxisInitializePlan plan)
-        {
-            //Test 완료 하고 저장하자.
-            return true;
-
-            try
-            {
-                if (plan == null)
-                {
-                    Log.Write("Main", "SYSTEM", "AxisInitializePlanSave",
-                        "Axis initialize plan save failed: plan is null. - Failed");
-                    return false;
-                }
-
-                Directory.CreateDirectory(Dir);
-                plan.SavedAt = DateTime.Now;
-                if (plan.Steps == null)
-                    plan.Steps = new List<AxisInitializeStep>();
-                EnsureEditableHelp(plan);
-                EnsureRequiredInitializeActions(plan);
-
-                string tmp = PlanPath + ".tmp";
-                using (var fs = File.Create(tmp))
-                {
-                    var serializer = new DataContractJsonSerializer(typeof(AxisInitializePlan));
-                    serializer.WriteObject(fs, plan);
-                }
-
-                if (File.Exists(PlanPath))
-                {
-                    try
-                    {
-                        if (File.Exists(BackupPath)) File.Delete(BackupPath);
-                        File.Move(PlanPath, BackupPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Write("Main", "SYSTEM", "AxisInitializePlanBackup",
-                            "Axis initialize plan backup failed: " + BackupPath + " / " + ex.Message + " - Failed");
-                    }
-                    finally
-                    {
-                    }
-                }
-
-                if (File.Exists(PlanPath)) File.Delete(PlanPath);
-                File.Move(tmp, PlanPath);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanSave",
-                    "Axis initialize plan save failed: " + PlanPath + " / " + ex.Message + " - Failed");
-                return false;
-            }
-            finally
-            {
             }
         }
 
@@ -339,39 +257,6 @@ namespace QMC.CDT320.Initialization
         public static AxisInitializePlan CreateDefault(IEnumerable<BaseAxis> axes)
         {
             return AxisInitializeSequence.CreateDefaultPlan(axes);
-        }
-
-        internal static void AssignParallelLane(
-            AxisInitializePlan plan,
-            string laneName,
-            params string[] groupNames)
-        {
-            try
-            {
-                if (plan == null || plan.Steps == null || groupNames == null)
-                    return;
-
-                var groups = new HashSet<string>(
-                    groupNames.Where(x => !string.IsNullOrWhiteSpace(x)),
-                    StringComparer.OrdinalIgnoreCase);
-                foreach (AxisInitializeStep step in plan.Steps)
-                {
-                    if (step == null || string.IsNullOrWhiteSpace(step.GroupName))
-                        continue;
-
-                    if (groups.Contains(step.GroupName))
-                        step.ParallelLane = laneName ?? AxisInitializeParallelLane.None;
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
-                    "Initialize parallel lane assignment failed. lane=" + laneName +
-                    ", error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
-            }
         }
 
         internal static void ApplyCommonSafetyInterlocks(AxisInitializePlan plan)
@@ -421,9 +306,6 @@ namespace QMC.CDT320.Initialization
                 Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
                     "Common initialize safety interlock add failed. error=" + ex.Message + " - Failed");
             }
-            finally
-            {
-            }
         }
 
         internal static void AddFeederSafeInterlocks(
@@ -456,9 +338,6 @@ namespace QMC.CDT320.Initialization
                 Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
                     "Feeder initialize safety interlock add failed. group=" + groupName +
                     ", error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
             }
         }
 
@@ -524,9 +403,6 @@ namespace QMC.CDT320.Initialization
                     ", group=" + groupName +
                     ", error=" + ex.Message + " - Failed");
             }
-            finally
-            {
-            }
         }
 
         internal static void AddAxisHomeDoneInterlocks(
@@ -558,9 +434,6 @@ namespace QMC.CDT320.Initialization
                     "Initialize prerequisite axis interlock add failed. step=" + stepNo +
                     ", group=" + groupName +
                     ", error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
             }
         }
 
@@ -597,9 +470,6 @@ namespace QMC.CDT320.Initialization
                     ", group=" + groupName +
                     ", target=" + targetType + ":" + name +
                     ", error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
             }
         }
 
@@ -639,9 +509,6 @@ namespace QMC.CDT320.Initialization
                 Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
                     "Initialize interlock add failed. target=" + targetType + ":" + name +
                     ", error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
             }
         }
 
@@ -693,9 +560,6 @@ namespace QMC.CDT320.Initialization
                 Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
                     "Action-only initialize step add failed. group=" + groupName +
                     ", error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
             }
         }
 
@@ -751,9 +615,6 @@ namespace QMC.CDT320.Initialization
                     ", position=" + positionName +
                     ", error=" + ex.Message + " - Failed");
             }
-            finally
-            {
-            }
         }
 
         internal static void AddCustomActionOnlyStep(
@@ -805,583 +666,6 @@ namespace QMC.CDT320.Initialization
                     ", action=" + actionName +
                     ", error=" + ex.Message + " - Failed");
             }
-            finally
-            {
-            }
-        }
-
-        private static void AddKnownStepAllowDuplicate(
-            AxisInitializePlan plan,
-            IDictionary<string, BaseAxis> axisByName,
-            int stepNo,
-            string groupName,
-            string runMode,
-            string comment,
-            params string[] axisNames)
-        {
-            try
-            {
-                if (plan == null || axisByName == null || axisNames == null)
-                    return;
-
-                var resolved = new List<string>();
-                var duplicateGuard = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (string axisName in axisNames)
-                {
-                    if (string.IsNullOrWhiteSpace(axisName))
-                        continue;
-
-                    BaseAxis axis;
-                    if (TryResolveAxis(axisByName, axisName, out axis) && axis != null &&
-                        duplicateGuard.Add(axis.Name))
-                        resolved.Add(axis.Name);
-                }
-
-                if (resolved.Count == 0)
-                    return;
-
-                plan.Steps.Add(new AxisInitializeStep
-                {
-                    Comment = comment,
-                    StepNo = stepNo,
-                    GroupName = groupName,
-                    AxisNames = resolved,
-                    RunMode = runMode,
-                    InterlockGroup = groupName,
-                    Interlocks = new List<AxisInitializeInterlockRule>(),
-                    Enabled = true
-                });
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
-                    "Duplicate initialize step add failed. group=" + groupName +
-                    ", error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
-            }
-        }
-
-        private static void AddPreCylinderAction(
-            AxisInitializePlan plan,
-            int stepNo,
-            string cylinderName,
-            string command,
-            string description)
-        {
-            try
-            {
-                if (plan == null || string.IsNullOrWhiteSpace(cylinderName))
-                    return;
-
-                AxisInitializeStep step = plan.Steps
-                    .FirstOrDefault(x => x != null && x.StepNo == stepNo);
-                if (step == null)
-                    return;
-
-                if (step.PreActions == null)
-                    step.PreActions = new List<AxisInitializeAction>();
-
-                step.PreActions.Add(new AxisInitializeAction
-                {
-                    Comment = "Step 시작 전에 실행되는 실린더 준비 동작입니다.",
-                    TargetType = AxisInitializeInterlockTarget.Cylinder,
-                    Name = cylinderName,
-                    Command = command,
-                    TimeoutMs = 0,
-                    Enabled = true,
-                    Description = description
-                });
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
-                    "Pre cylinder action add failed. cylinder=" + cylinderName +
-                    ", error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
-            }
-        }
-
-        private static void AddPreCylinderAction(
-            AxisInitializePlan plan,
-            int stepNo,
-            string groupName,
-            string cylinderName,
-            string command,
-            string description)
-        {
-            try
-            {
-                if (plan == null || string.IsNullOrWhiteSpace(groupName) || string.IsNullOrWhiteSpace(cylinderName))
-                    return;
-
-                AxisInitializeStep step = plan.Steps
-                    .FirstOrDefault(x => x != null &&
-                                         x.StepNo == stepNo &&
-                                         string.Equals(x.GroupName, groupName, StringComparison.OrdinalIgnoreCase));
-                if (step == null)
-                    return;
-
-                AddPreCylinderAction(step, cylinderName, command, description);
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
-                    "Pre cylinder action add failed. group=" + groupName +
-                    ", cylinder=" + cylinderName +
-                    ", error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
-            }
-        }
-
-        private static void AddPreCylinderAction(
-            AxisInitializeStep step,
-            string cylinderName,
-            string command,
-            string description)
-        {
-            if (step == null || string.IsNullOrWhiteSpace(cylinderName))
-                return;
-
-            if (step.PreActions == null)
-                step.PreActions = new List<AxisInitializeAction>();
-
-            step.PreActions.Add(new AxisInitializeAction
-            {
-                Comment = "Step 시작 전에 실행되는 실린더 준비 동작입니다.",
-                TargetType = AxisInitializeInterlockTarget.Cylinder,
-                Name = cylinderName,
-                Command = command,
-                TimeoutMs = 0,
-                Enabled = true,
-                Description = description
-            });
-        }
-
-        private static void AddPostCylinderAction(
-            AxisInitializePlan plan,
-            int stepNo,
-            string groupName,
-            string cylinderName,
-            string command,
-            string description)
-        {
-            try
-            {
-                if (plan == null || string.IsNullOrWhiteSpace(groupName) || string.IsNullOrWhiteSpace(cylinderName))
-                    return;
-
-                AxisInitializeStep step = plan.Steps
-                    .FirstOrDefault(x => x != null &&
-                                         x.StepNo == stepNo &&
-                                         string.Equals(x.GroupName, groupName, StringComparison.OrdinalIgnoreCase));
-                if (step == null)
-                    return;
-
-                AddPostCylinderAction(step, cylinderName, command, description);
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
-                    "Post cylinder action add failed. group=" + groupName +
-                    ", cylinder=" + cylinderName +
-                    ", error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
-            }
-        }
-
-        private static void AddPostCylinderAction(
-            AxisInitializeStep step,
-            string cylinderName,
-            string command,
-            string description)
-        {
-            if (step == null || string.IsNullOrWhiteSpace(cylinderName))
-                return;
-
-            if (step.PostActions == null)
-                step.PostActions = new List<AxisInitializeAction>();
-
-            step.PostActions.Add(new AxisInitializeAction
-            {
-                Comment = "Step HOME 완료 후 실행되는 실린더 후처리 동작입니다.",
-                TargetType = AxisInitializeInterlockTarget.Cylinder,
-                Name = cylinderName,
-                Command = command,
-                TimeoutMs = 0,
-                Enabled = true,
-                Description = description
-            });
-        }
-
-        private static void AddPostAxisTeachingAction(
-            AxisInitializePlan plan,
-            int stepNo,
-            string groupName,
-            string axisName,
-            string positionName,
-            string description)
-        {
-            try
-            {
-                if (plan == null || string.IsNullOrWhiteSpace(groupName) || string.IsNullOrWhiteSpace(axisName))
-                    return;
-
-                AxisInitializeStep step = plan.Steps
-                    .FirstOrDefault(x => x != null &&
-                                         x.StepNo == stepNo &&
-                                         string.Equals(x.GroupName, groupName, StringComparison.OrdinalIgnoreCase));
-                if (step == null)
-                    return;
-
-                AddPostAxisTeachingAction(step, axisName, positionName, description);
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
-                    "Post axis teaching action add failed. group=" + groupName +
-                    ", axis=" + axisName +
-                    ", position=" + positionName +
-                    ", error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
-            }
-        }
-
-        private static void AddPostAxisTeachingAction(
-            AxisInitializeStep step,
-            string axisName,
-            string positionName,
-            string description)
-        {
-            if (step == null || string.IsNullOrWhiteSpace(axisName))
-                return;
-
-            if (step.PostActions == null)
-                step.PostActions = new List<AxisInitializeAction>();
-
-            step.PostActions.Add(new AxisInitializeAction
-            {
-                Comment = "Step HOME 완료 후 실행되는 축 티칭 위치 이동입니다.",
-                TargetType = AxisInitializeInterlockTarget.Axis,
-                Name = axisName,
-                Command = AxisInitializeActionCommand.AxisTeachingMove,
-                PositionName = string.IsNullOrWhiteSpace(positionName) ? "AvoidPosition" : positionName,
-                TimeoutMs = 0,
-                Enabled = true,
-                Description = description
-            });
-        }
-
-        private static bool EnsureRequiredInitializeActions(AxisInitializePlan plan)
-        {
-            bool changed = false;
-
-            //여기 우선 막자.
-            return true;
-            try
-            {
-                if (plan == null || plan.Steps == null)
-                    return false;
-
-                changed |= NormalizeRequiredInitializeActions(plan);
-
-                changed |= EnsureActionOnlyCylinderStep(plan, 30, "OutputStageZClampLift", "NGBinGuideClampLift",
-                    AxisInitializeActionCommand.CylinderFwd,
-                    "NG bin clamp lift moves up before OutputGoodStageZ home.");
-                changed |= EnsureActionOnlyAxisTeachingStep(plan, 80, "FrontPickerYAvoid", "FrontPickerY", "AvoidPosition",
-                    "FrontPickerY moves to Avoid after home.");
-                changed |= EnsureActionOnlyAxisTeachingStep(plan, 100, "RearPickerYAvoid", "RearPickerY", "AvoidPosition",
-                    "RearPickerY moves to Avoid after home.");
-                changed |= EnsureActionOnlyCylinderStep(plan, 210, "InputFeederLiftDown", "InputFeederLift",
-                    AxisInitializeActionCommand.CylinderBwd,
-                    "Input feeder lift moves down after InputFeederY home.");
-                changed |= EnsureActionOnlyAxisTeachingStep(plan, 170, "InputStageAvoid", "InputStageY", "AvoidPosition",
-                    "InputStageY moves to Avoid after home.");
-
-                return changed;
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
-                    "Required initialize action update failed: " + ex.Message + " - Failed");
-                return changed;
-            }
-            finally
-            {
-            }
-        }
-
-        private static bool NormalizeRequiredInitializeActions(AxisInitializePlan plan)
-        {
-            bool changed = false;
-
-            try
-            {
-                if (plan == null || plan.Steps == null)
-                    return false;
-
-                foreach (AxisInitializeStep step in plan.Steps)
-                {
-                    if (step == null || step.PostActions == null)
-                        continue;
-
-                    foreach (AxisInitializeAction action in step.PostActions)
-                    {
-                        if (action == null)
-                            continue;
-
-                        if (string.Equals(action.TargetType, AxisInitializeInterlockTarget.Axis, StringComparison.OrdinalIgnoreCase) &&
-                            string.Equals(action.Command, AxisInitializeActionCommand.AxisTeachingMove, StringComparison.OrdinalIgnoreCase) &&
-                            string.Equals(action.Name, "GoodStage_StageZ", StringComparison.OrdinalIgnoreCase))
-                        {
-                            action.Name = "OutputGoodStageZ";
-                            changed = true;
-                        }
-                    }
-                }
-
-                return changed;
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
-                    "Required initialize action normalize failed: " + ex.Message + " - Failed");
-                return changed;
-            }
-            finally
-            {
-            }
-        }
-
-        private static bool EnsurePostAxisTeachingAction(
-            AxisInitializePlan plan,
-            int stepNo,
-            string groupName,
-            string axisName,
-            string positionName,
-            string description)
-        {
-            AxisInitializeStep step = FindStep(plan, stepNo, groupName);
-            if (step == null)
-                return false;
-
-            if (step.PostActions == null)
-            {
-                step.PostActions = new List<AxisInitializeAction>();
-            }
-
-            bool exists = step.PostActions.Any(x =>
-                x != null &&
-                x.Enabled &&
-                string.Equals(x.TargetType, AxisInitializeInterlockTarget.Axis, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(x.Name, axisName, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(x.Command, AxisInitializeActionCommand.AxisTeachingMove, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(NormalizePositionName(x.PositionName), NormalizePositionName(positionName), StringComparison.OrdinalIgnoreCase));
-            if (exists)
-                return false;
-
-            AddPostAxisTeachingAction(step, axisName, positionName, description);
-            return true;
-        }
-
-        private static bool EnsurePostCylinderAction(
-            AxisInitializePlan plan,
-            int stepNo,
-            string groupName,
-            string cylinderName,
-            string command,
-            string description)
-        {
-            AxisInitializeStep step = FindStep(plan, stepNo, groupName);
-            if (step == null)
-                return false;
-
-            if (step.PostActions == null)
-            {
-                step.PostActions = new List<AxisInitializeAction>();
-            }
-
-            bool exists = step.PostActions.Any(x =>
-                x != null &&
-                x.Enabled &&
-                string.Equals(x.TargetType, AxisInitializeInterlockTarget.Cylinder, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(x.Name, cylinderName, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(x.Command, command, StringComparison.OrdinalIgnoreCase));
-            if (exists)
-                return false;
-
-            AddPostCylinderAction(step, cylinderName, command, description);
-            return true;
-        }
-
-        private static bool EnsureActionOnlyCylinderStep(
-            AxisInitializePlan plan,
-            int stepNo,
-            string groupName,
-            string cylinderName,
-            string command,
-            string description)
-        {
-            try
-            {
-                if (plan == null)
-                    return false;
-
-                if (plan.Steps == null)
-                    plan.Steps = new List<AxisInitializeStep>();
-
-                AxisInitializeStep step = FindStep(plan, stepNo, groupName);
-                if (step == null)
-                {
-                    AddActionOnlyStep(plan, stepNo, groupName, cylinderName, command, description);
-                    return true;
-                }
-
-                bool changed = false;
-                if (step.AxisNames == null)
-                {
-                    step.AxisNames = new List<string>();
-                    changed = true;
-                }
-
-                if (step.PreActions == null)
-                {
-                    step.PreActions = new List<AxisInitializeAction>();
-                    changed = true;
-                }
-
-                bool exists = step.PreActions.Any(x =>
-                    x != null &&
-                    x.Enabled &&
-                    string.Equals(x.TargetType, AxisInitializeInterlockTarget.Cylinder, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(x.Name, cylinderName, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(x.Command, command, StringComparison.OrdinalIgnoreCase));
-                if (!exists)
-                {
-                    AddPreCylinderAction(step, cylinderName, command, description);
-                    changed = true;
-                }
-
-                return changed;
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
-                    "Action-only cylinder step ensure failed. group=" + groupName +
-                    ", cylinder=" + cylinderName +
-                    ", error=" + ex.Message + " - Failed");
-                return false;
-            }
-            finally
-            {
-            }
-        }
-
-        private static bool EnsureActionOnlyAxisTeachingStep(
-            AxisInitializePlan plan,
-            int stepNo,
-            string groupName,
-            string axisName,
-            string positionName,
-            string description)
-        {
-            try
-            {
-                if (plan == null)
-                    return false;
-
-                if (plan.Steps == null)
-                    plan.Steps = new List<AxisInitializeStep>();
-
-                AxisInitializeStep step = FindStep(plan, stepNo, groupName);
-                if (step == null)
-                {
-                    AddAxisTeachingActionOnlyStep(plan, stepNo, groupName, axisName, positionName, description);
-                    return true;
-                }
-
-                bool changed = false;
-                if (step.AxisNames == null)
-                {
-                    step.AxisNames = new List<string>();
-                    changed = true;
-                }
-
-                if (step.PreActions == null)
-                {
-                    step.PreActions = new List<AxisInitializeAction>();
-                    changed = true;
-                }
-
-                bool exists = step.PreActions.Any(x =>
-                    x != null &&
-                    x.Enabled &&
-                    string.Equals(x.TargetType, AxisInitializeInterlockTarget.Axis, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(x.Name, axisName, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(x.Command, AxisInitializeActionCommand.AxisTeachingMove, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(NormalizePositionName(x.PositionName), NormalizePositionName(positionName), StringComparison.OrdinalIgnoreCase));
-                if (!exists)
-                {
-                    step.PreActions.Add(new AxisInitializeAction
-                    {
-                        Comment = "독립 Step에서 실행되는 축 티칭 위치 이동입니다.",
-                        TargetType = AxisInitializeInterlockTarget.Axis,
-                        Name = axisName,
-                        Command = AxisInitializeActionCommand.AxisTeachingMove,
-                        PositionName = NormalizePositionName(positionName),
-                        TimeoutMs = 0,
-                        Enabled = true,
-                        Description = description
-                    });
-                    changed = true;
-                }
-
-                return changed;
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
-                    "Action-only axis teaching step ensure failed. group=" + groupName +
-                    ", axis=" + axisName +
-                    ", position=" + positionName +
-                    ", error=" + ex.Message + " - Failed");
-                return false;
-            }
-            finally
-            {
-            }
-        }
-
-        private static AxisInitializeStep FindStep(AxisInitializePlan plan, int stepNo, string groupName)
-        {
-            if (plan == null || plan.Steps == null)
-                return null;
-
-            return plan.Steps.FirstOrDefault(x =>
-                x != null &&
-                x.StepNo == stepNo &&
-                string.Equals(x.GroupName, groupName, StringComparison.OrdinalIgnoreCase));
-        }
-
-        private static string NormalizePositionName(string positionName)
-        {
-            if (string.IsNullOrWhiteSpace(positionName))
-                return "AvoidPosition";
-
-            string value = positionName.Trim();
-            if (string.Equals(value, "Avoid", StringComparison.OrdinalIgnoreCase))
-                return "AvoidPosition";
-
-            return value;
         }
 
         internal static void AddKnownStep(
@@ -1433,9 +717,6 @@ namespace QMC.CDT320.Initialization
                 Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
                     "Known initialize step add failed. group=" + groupName + ", error=" + ex.Message + " - Failed");
             }
-            finally
-            {
-            }
         }
 
         internal static void AddKnownSingleStep(
@@ -1484,9 +765,6 @@ namespace QMC.CDT320.Initialization
                 Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
                     "Known single initialize step add failed. group=" + groupName + ", error=" + ex.Message + " - Failed");
             }
-            finally
-            {
-            }
         }
 
         private static bool TryResolveAxis(
@@ -1523,9 +801,6 @@ namespace QMC.CDT320.Initialization
             {
                 axis = null;
                 return false;
-            }
-            finally
-            {
             }
         }
 
@@ -1601,62 +876,6 @@ namespace QMC.CDT320.Initialization
                     return new[] { "NgStage_StageY" };
                 default:
                     return null;
-            }
-        }
-
-        private static void AddRemainingGroupedSteps(
-            AxisInitializePlan plan,
-            IList<BaseAxis> cleanAxes,
-            ISet<string> used,
-            int firstStepNo)
-        {
-            try
-            {
-                if (plan == null || cleanAxes == null || used == null)
-                    return;
-
-                var remainingGroups = cleanAxes
-                    .Where(x => x != null && !used.Contains(x.Name))
-                    .GroupBy(x => !string.IsNullOrWhiteSpace(x.Setup != null ? x.Setup.UnitName : "")
-                        ? x.Setup.UnitName
-                        : "Ungrouped")
-                    .OrderBy(g => g.Min(x => x.Setup != null ? x.Setup.AxisNo : int.MaxValue))
-                    .ThenBy(g => g.Key);
-
-                int stepNo = firstStepNo;
-                foreach (var group in remainingGroups)
-                {
-                    var names = group
-                        .OrderBy(x => x.Setup != null ? x.Setup.AxisNo : int.MaxValue)
-                        .ThenBy(x => x.Name)
-                        .Select(x => x.Name)
-                        .Where(x => used.Add(x))
-                        .ToList();
-
-                    if (names.Count == 0)
-                        continue;
-
-                    plan.Steps.Add(new AxisInitializeStep
-                    {
-                        Comment = "Known sequence에 없는 축을 UnitName 기준으로 보존한 자동 Step입니다.",
-                        StepNo = stepNo,
-                        GroupName = group.Key,
-                        AxisNames = names,
-                        RunMode = AxisInitializeRunMode.Serial,
-                        InterlockGroup = group.Key,
-                        Interlocks = new List<AxisInitializeInterlockRule>(),
-                        Enabled = true
-                    });
-                    stepNo += 10;
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
-                    "Remaining initialize steps add failed: " + ex.Message + " - Failed");
-            }
-            finally
-            {
             }
         }
 
@@ -1821,9 +1040,6 @@ namespace QMC.CDT320.Initialization
                 Log.Write("Main", "SYSTEM", "AxisInitializePlanHelp",
                     "Axis initialize plan help update failed: " + ex.Message + " - Failed");
                 return changed;
-            }
-            finally
-            {
             }
         }
     }

@@ -80,6 +80,7 @@
   <ItemGroup>
     <!-- Equipment / Core -->
     <Compile Include="Equipment\AppSettings.cs" />
+    <Compile Include="Equipment\BarcodeDisabledNoticeService.cs" />
     <Compile Include="Equipment\BarcodeOperatorPromptService.cs" />
     <Compile Include="Equipment\LogRetentionService.cs" />
     <Compile Include="Equipment\Alarms\AlarmResponsePolicy.cs" />
@@ -815,6 +816,12 @@
     </Compile>
     <Compile Include="Ui\Dialogs\ColletCalibrationDialog.Designer.cs">
       <DependentUpon>ColletCalibrationDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ColletChangeDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ColletChangeDialog.Designer.cs">
+      <DependentUpon>ColletChangeDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\ColletCleaningControlDialog.cs">
       <SubType>Form</SubType>

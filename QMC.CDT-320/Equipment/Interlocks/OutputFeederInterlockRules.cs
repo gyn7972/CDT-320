@@ -89,7 +89,19 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
-            if (!IsOutputVisionXInAvoidPosition(stage) && cameraX.ActualPosition < 1000.0)
+            bool initializeVisionRetreatVerified =
+                request.MoveKind == MotionGuardMoveKind.AxisHome &&
+                MotionGuardRuntime.IsFeederHomeVisionRetreatActive(
+                    feeder.FeederY,
+                    cameraX,
+                    false);
+
+            // 좌표값이 유실됐더라도 Step 260이 PEL(+)을 확인한 정확한 축 쌍이면
+            // OutputFeederY HOME 1회만 허용합니다. Dog OFF 분기의 -5mm 이탈은 HOME 뒤에 수행합니다.
+            // Auto/Manual과 다른 Feeder/Vision 조합에는 이 예외가 적용되지 않습니다.
+            if (!initializeVisionRetreatVerified &&
+                !IsOutputVisionXInAvoidPosition(stage) &&
+                cameraX.ActualPosition < 1000.0)
                 return MotionGuardRuleHelpers.Block(
                     "OutputFeederY",
                     "OutputFeederY 이동 불가: OutputCameraX가 정확한 Avoid 또는 1000 이상 위치여야 합니다. " +

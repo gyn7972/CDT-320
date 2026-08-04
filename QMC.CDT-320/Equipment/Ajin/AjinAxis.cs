@@ -83,7 +83,8 @@ namespace QMC.CDT320.Ajin
             int direction,
             double velocity,
             int timeoutMs,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool allowMotion = true)
         {
             int searchDirection = direction < 0 ? -1 : 1;
             bool completed = false;
@@ -92,17 +93,33 @@ namespace QMC.CDT320.Ajin
                 if (timeoutMs <= 0)
                     timeoutMs = 30000;
 
+                cancellationToken.ThrowIfCancellationRequested();
                 if (UseSimulation)
                 {
                     if (!IsServoOn || IsAlarm)
                         return FailAjinAxisNotReady("INITIALIZE LIMIT SEARCH", 0.0, false);
+
+                    Volatile.Write(ref _hardwareLimitSearchDirection, searchDirection);
+                    if (IsTargetHardwareLimitActive(searchDirection))
+                    {
+                        completed = true;
+                        return 0;
+                    }
+                    if (!allowMotion)
+                    {
+                        return FailMotion(
+                            -14,
+                            "INITIALIZE LIMIT SEARCH",
+                            "현재 목표 하드리밋이 OFF이므로 무이동 확인에 실패했습니다.",
+                            0.0,
+                            false);
+                    }
 
                     await Task.Delay(100, cancellationToken).ConfigureAwait(false);
                     if (searchDirection < 0)
                         Sensor_MEL = true;
                     else
                         Sensor_PEL = true;
-                    Volatile.Write(ref _hardwareLimitSearchDirection, searchDirection);
                     completed = true;
                     return 0;
                 }
@@ -110,6 +127,9 @@ namespace QMC.CDT320.Ajin
                 if (!AjinSystem.IsOpen)
                     return FailMotion(-2, "INITIALIZE LIMIT SEARCH", "AXL is not open.", 0.0, false);
 
+                // 초기화가 의도한 외측 Limit은 일반 LIMIT-HIT로 기록되면 안 됩니다.
+                // 상태를 갱신하기 전에 방향을 먼저 등록하고, 실패 시 finally에서 해제합니다.
+                Volatile.Write(ref _hardwareLimitSearchDirection, searchDirection);
                 UpdateStatus();
                 if (!IsServoOn)
                     return FailMotion(-2, "INITIALIZE LIMIT SEARCH", "Servo is OFF.", 0.0, false);
@@ -117,8 +137,6 @@ namespace QMC.CDT320.Ajin
                     return FailAjinAxisNotReady("INITIALIZE LIMIT SEARCH", 0.0, false);
 
                 ClearExpectedHardwareLimitAlarm(searchDirection);
-                Volatile.Write(ref _hardwareLimitSearchDirection, searchDirection);
-
                 if (IsTargetHardwareLimitActive(searchDirection))
                 {
                     completed = true;
@@ -128,12 +146,23 @@ namespace QMC.CDT320.Ajin
                 if (IsOppositeHardwareLimitActive(searchDirection))
                     return FailMotion(-12, "INITIALIZE LIMIT SEARCH", "Opposite hardware limit is active.", 0.0, false);
 
+                if (!allowMotion)
+                {
+                    return FailMotion(
+                        -14,
+                        "INITIALIZE LIMIT SEARCH",
+                        "현재 목표 하드리밋이 OFF이므로 무이동 확인에 실패했습니다.",
+                        0.0,
+                        false);
+                }
+
                 double safeVelocity = velocity > 0.0
                     ? Math.Abs(velocity)
                     : Math.Abs(Config != null ? Config.JogFineVelocity : 1.0);
                 double signedVelocity = searchDirection * Math.Max(0.000001, safeVelocity);
                 int motionStopSerial = Volatile.Read(ref _motionStopSerial);
 
+                cancellationToken.ThrowIfCancellationRequested();
                 CurrentVelocity = signedVelocity;
                 IsMoving = true;
                 IsInPosition = false;
@@ -141,11 +170,15 @@ namespace QMC.CDT320.Ajin
 
                 int ret;
                 lock (_sync)
+                {
+                    // 반대 Lane의 Stop이 먼저 완료됐다면 보드 이동 명령을 새로 발행하지 않습니다.
+                    cancellationToken.ThrowIfCancellationRequested();
                     ret = AXM.MoveVelocity(
                         AxisNo,
                         ToBoardVelocity(signedVelocity),
                         ToBoardAcceleration(ResolveJogAcceleration()),
                         ToBoardAcceleration(ResolveJogDeceleration()));
+                }
                 if (ret != 0)
                 {
                     IsMoving = false;
@@ -208,6 +241,166 @@ namespace QMC.CDT320.Ajin
             }
         }
 
+        /// <summary>
+        /// 기존 Step Jog를 재사용해 감지된 하드리밋의 반대 방향으로만 이탈합니다.
+        /// 좌표가 유실된 SharedRail 초기화이므로 이동 전후 실제 엔코더와 Limit OFF를 별도로 확인합니다.
+        /// </summary>
+        internal async Task<int> BackOffHardwareLimitForInitializeAsync(
+            int searchedDirection,
+            double distance,
+            double velocity,
+            CancellationToken cancellationToken)
+        {
+            int searchDirection = searchedDirection < 0 ? -1 : 1;
+            double safeDistance = Math.Abs(distance);
+            double startActual = ActualPosition;
+            bool startPel = Sensor_PEL;
+            bool startMel = Sensor_MEL;
+            int readError = 0;
+
+            try
+            {
+                if (Volatile.Read(ref _hardwareLimitSearchDirection) != searchDirection ||
+                    safeDistance <= 0.0)
+                {
+                    return FailMotion(
+                        -14,
+                        "INITIALIZE LIMIT BACKOFF",
+                        "활성 하드리밋 탐색 또는 이탈 거리가 올바르지 않습니다.",
+                        0.0,
+                        false);
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!UseSimulation &&
+                    !TryReadInitializeHardwareFeedback(
+                        out startActual,
+                        out startPel,
+                        out startMel,
+                        out readError))
+                {
+                    return FailMotion(
+                        readError,
+                        "INITIALIZE LIMIT BACKOFF",
+                        "AJIN 실제 위치/리밋 조회에 실패했습니다.",
+                        0.0,
+                        false);
+                }
+
+                bool targetLimitOn = searchDirection < 0 ? startMel : startPel;
+                bool oppositeLimitOn = searchDirection < 0 ? startPel : startMel;
+                if (!targetLimitOn || oppositeLimitOn)
+                {
+                    return FailMotion(
+                        -14,
+                        "INITIALIZE LIMIT BACKOFF",
+                        "이탈 시작 전 목표 하드리밋 상태가 올바르지 않습니다.",
+                        0.0,
+                        false);
+                }
+
+                int result;
+                if (UseSimulation)
+                {
+                    result = await MoveJogStepAsync(
+                        -searchDirection,
+                        JogSpeedType.Custom,
+                        safeDistance,
+                        velocity).ConfigureAwait(false);
+                }
+                else
+                {
+                    // 좌표 기반 SharedRail 재배치만 건너뛰고, MoveJogStep 내부의 일반 MotionGuard는 그대로 확인합니다.
+                    using (SharedRailXMotionRuntime.EnterInternalDispatch())
+                    {
+                        result = await MoveJogStepAsync(
+                            -searchDirection,
+                            JogSpeedType.Custom,
+                            safeDistance,
+                            velocity).ConfigureAwait(false);
+                    }
+                }
+
+                if (result != 0)
+                    return result;
+
+                if (UseSimulation)
+                {
+                    if (searchDirection < 0)
+                        Sensor_MEL = false;
+                    else
+                        Sensor_PEL = false;
+                }
+
+                double endActual = ActualPosition;
+                bool endPel = Sensor_PEL;
+                bool endMel = Sensor_MEL;
+                if (!UseSimulation &&
+                    !TryReadInitializeHardwareFeedback(
+                        out endActual,
+                        out endPel,
+                        out endMel,
+                        out readError))
+                {
+                    return FailMotion(
+                        readError,
+                        "INITIALIZE LIMIT BACKOFF",
+                        "이탈 후 AJIN 실제 위치/리밋 조회에 실패했습니다.",
+                        0.0,
+                        false);
+                }
+
+                UpdateStatus();
+                double expectedDelta = -searchDirection * safeDistance;
+                double actualDelta = endActual - startActual;
+                double tolerance = Config != null && Config.InPositionTolerance > 0.0
+                    ? Config.InPositionTolerance
+                    : 0.01;
+                bool limitReleased = searchDirection < 0 ? !endMel : !endPel;
+                if (!limitReleased || IsMoving || !IsInPosition || !IsServoOn || IsAlarm ||
+                    Math.Abs(actualDelta - expectedDelta) > tolerance)
+                {
+                    return FailMotion(
+                        -14,
+                        "INITIALIZE LIMIT BACKOFF",
+                        "5mm 이탈 실측 확인 실패. actualDelta=" +
+                        actualDelta.ToString("0.###") +
+                        ", expectedDelta=" + expectedDelta.ToString("0.###") +
+                        ", limitReleased=" + limitReleased +
+                        ", moving=" + IsMoving +
+                        ", inPosition=" + IsInPosition +
+                        ", servo=" + IsServoOn +
+                        ", alarm=" + IsAlarm,
+                        0.0,
+                        false);
+                }
+
+                QMC.Common.Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    "InitializeLimitBackoff",
+                    "Vision X 하드리밋 이탈 완료. axis=" + Name +
+                    ", actualDelta=" + actualDelta.ToString("0.###") +
+                    ", limitReleased=True - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                Stop();
+                return FailMotion(
+                    -4,
+                    "INITIALIZE LIMIT BACKOFF",
+                    "하드리밋 이탈이 취소되었습니다.",
+                    0.0,
+                    false);
+            }
+            catch (Exception ex)
+            {
+                Stop();
+                return FailMotion(-1, "INITIALIZE LIMIT BACKOFF", ex.Message, 0.0, false);
+            }
+        }
+
         public void StopInitializeHardwareLimitSearch()
         {
             try
@@ -222,7 +415,44 @@ namespace QMC.CDT320.Ajin
 
         public void ReleaseInitializeHardwareLimitSearch()
         {
-            Volatile.Write(ref _hardwareLimitSearchDirection, 0);
+            int searchDirection = Interlocked.Exchange(ref _hardwareLimitSearchDirection, 0);
+            if (!UseSimulation)
+                return;
+
+            // Simulation Limit는 검색 함수가 만든 합성값이므로 다음 초기화에 남기지 않습니다.
+            if (searchDirection < 0)
+                Sensor_MEL = false;
+            else if (searchDirection > 0)
+                Sensor_PEL = false;
+        }
+
+        /// <summary>
+        /// 하드리밋 이탈 전후에 필요한 실제 엔코더와 MEL/PEL만 보드에서 직접 읽습니다.
+        /// </summary>
+        internal bool TryReadInitializeHardwareFeedback(
+            out double actualPosition,
+            out bool sensorPel,
+            out bool sensorMel,
+            out int errorCode)
+        {
+            actualPosition = 0.0;
+            sensorPel = false;
+            sensorMel = false;
+            errorCode = AjinSystem.IsOpen ? 0 : -2;
+            if (errorCode != 0)
+                return false;
+
+            lock (_sync)
+            {
+                errorCode = AXM.GetActualPosition(AxisNo, ref actualPosition);
+                if (errorCode == 0)
+                    errorCode = AXM.GetPositiveLimitValue(AxisNo, ref sensorPel);
+                if (errorCode == 0)
+                    errorCode = AXM.GetNegativeLimitValue(AxisNo, ref sensorMel);
+            }
+
+            actualPosition = FromBoardPosition(actualPosition);
+            return errorCode == 0;
         }
 
         private bool IsTargetHardwareLimitActive(int direction)

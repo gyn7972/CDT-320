@@ -53,7 +53,8 @@ namespace QMC.CDT320
 
         [DataMember] public int NeedlePinCalVisionTimeoutMs { get; set; } = 5000;
 
-        [DataMember] public int BarcodeReadTimeoutMs { get; set; } = 3000;
+        // 바코드 판독 타임아웃은 설정(Settings) → 바코드 화면의 AppSettings.InputBarcodeReadTimeoutMs를 쓴다.
+        // 여기 있던 동일 목적 필드는 시퀀스가 참조하지 않는 중복이라 제거했다.
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)

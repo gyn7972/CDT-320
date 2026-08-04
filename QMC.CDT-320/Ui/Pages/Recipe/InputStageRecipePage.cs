@@ -1446,7 +1446,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 AddNeedlePickUpSettingItems(items, unit);   // NEEDLE PIN CAL POSITION 바로 아래 배치
                 AddWorkAreaSettingItems(items, unit);
                 AddInputDieVisionSettingItems(items, unit);
-                items.Add(ParameterGridItem.Int("BARCODE READ TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.Setup.BarcodeReadTimeoutMs, v => unit.Setup.BarcodeReadTimeoutMs = Math.Max(0, v)));
+                // 바코드 설정은 설정(Settings) → 바코드 화면 한 곳에서만 관리한다.
+                // (레시피 화면에 있던 BARCODE READ TIMEOUT은 시퀀스가 쓰지 않는 중복 항목이라 제거)
                 items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
                 items.Add(ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)));
                 items.Add(ParameterGridItem.Double("ALIGN T LIMIT", "deg", ParameterGridScope.Config, () => unit.Config.AlignThetaCorrectionLimitDeg, v => unit.Config.AlignThetaCorrectionLimitDeg = Math.Max(0.001, v)));

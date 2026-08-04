@@ -474,7 +474,8 @@ namespace QMC.CDT320
             // 전체 초기화 순서는 Sequence가, 선택된 한 Step의 실제 HOME은 Executor가 담당합니다.
             _axisInitializeSequence = new AxisInitializeSequence(
                 _axisInitializeExecutor,
-                _axisInitializeRuntime);
+                _axisInitializeRuntime,
+                _machine);
             _axisInitializeExecutor.StepProgressChanged += OnAxisInitializeExecutorStepProgressChanged;
             MotionGuardRuntime.ContextProvider = () =>
                 new MotionGuardContext(_machine, EnumerateAxes(), QMC.CDT320.Ajin.CylinderManager.Items.Values);
@@ -4212,7 +4213,7 @@ namespace QMC.CDT320
 
                 SetMachineInitialized(false, "InitializeGroupStart:" + groupName, false);
                 SetStatus(EquipmentStatus.Initializing);
-                int initResult = await ExecuteInitializeStepsAsync(steps).ConfigureAwait(false);
+                int initResult = await ExecuteInitializeStepsAsync(steps, false).ConfigureAwait(false);
                 if (initResult != 0)
                 {
                     SetMachineInitialized(false, "InitializeGroupFailed:" + groupName, true);
@@ -4291,10 +4292,9 @@ namespace QMC.CDT320
                 var steps = ResolveEnabledInitializeSteps(plan);
                 if (steps.Count == 0)
                 {
-                    LastActionFailureMessage = "초기화 Plan Step 정보가 없습니다. file=" + AxisInitializePlanStore.PlanPath;
+                    LastActionFailureMessage = "내장 초기화 Plan에 실행 가능한 Step이 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAllAxes",
-                        "All axes initialize failed: initialize plan has no enabled step. file=" +
-                        AxisInitializePlanStore.PlanPath + " - Failed");
+                        "All axes initialize failed: built-in initialize plan has no enabled step. - Failed");
                     AlarmManager.Raise(AlarmSeverity.Error, "INIT-PLAN-EMPTY", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
@@ -4315,9 +4315,9 @@ namespace QMC.CDT320
 
                 SetMachineInitialized(false, "InitializeAllAxesStart", false);
                 SetStatus(EquipmentStatus.Initializing);
-                Log("[INIT] Axis initialize plan start. file=" + AxisInitializePlanStore.PlanPath);
+                Log("[INIT] Built-in axis initialize plan start.");
 
-                int initResult = await ExecuteInitializeStepsAsync(steps).ConfigureAwait(false);
+                int initResult = await ExecuteInitializeStepsAsync(steps, true).ConfigureAwait(false);
                 if (initResult != 0)
                 {
                     SetMachineInitialized(false, "InitializeAllAxesFailed", true);
@@ -4484,7 +4484,6 @@ namespace QMC.CDT320
         public async Task<int> InitializePlanStepAsync(int stepNo)
         {
             bool initializeOperationEntered = false;
-            bool initializeRunStarted = false;
             try
             {
                 initializeOperationEntered =
@@ -4512,38 +4511,12 @@ namespace QMC.CDT320
                     return -1;
                 }
 
-                AxisInitializeResult axisRegistrationResult =
-                    _axisInitializeExecutor.VerifyDeclaredStepAxes(steps);
-                if (!axisRegistrationResult.Succeeded)
-                {
-                    LastActionFailureMessage = axisRegistrationResult.ErrorMessage;
-                    return axisRegistrationResult.ResultCode;
-                }
-
                 SetMachineInitialized(false, "InitializePlanStepStart:" + stepNo, false);
                 SetStatus(EquipmentStatus.Initializing);
 
-                _axisInitializeExecutor.BeginRun(steps);
-                initializeRunStarted = true;
-
-                int result;
-                if (steps.Count == 1)
-                {
-                    result = await ExecuteInitializeSingleStepAsync(steps[0]).ConfigureAwait(false);
-                }
-                else
-                {
-                    result = 0;
-                    foreach (AxisInitializeStep step in steps.OrderBy(x => x.GroupName))
-                    {
-                        int stepResult = await ExecuteInitializeSingleStepAsync(step).ConfigureAwait(false);
-                        if (stepResult != 0)
-                        {
-                            result = stepResult;
-                            break;
-                        }
-                    }
-                }
+                // Monitor의 개별 Step도 전체 초기화와 같은 switch/Unit 객체 바인딩을 사용합니다.
+                // Executor를 직접 호출하면 AxisNames 문자열 경로로 돌아가므로 Sequence를 단일 진입점으로 둡니다.
+                int result = await ExecuteInitializeStepsAsync(steps, false).ConfigureAwait(false);
 
                 SaveMachineRuntimeState("InitializePlanStep:" + stepNo);
                 SetStatus(result == 0 ? EquipmentStatus.Idle : EquipmentStatus.Alarm);
@@ -4558,8 +4531,6 @@ namespace QMC.CDT320
             }
             finally
             {
-                if (initializeRunStarted)
-                    _axisInitializeExecutor.EndRun();
                 if (initializeOperationEntered)
                     ExitAxisInitializeOperation("InitializePlanStep");
             }
@@ -5199,11 +5170,15 @@ namespace QMC.CDT320
                 "StageY.Avoid").ConfigureAwait(false);
         }
 
-        private async Task<int> ExecuteInitializeStepsAsync(IList<AxisInitializeStep> steps)
+        private async Task<int> ExecuteInitializeStepsAsync(
+            IList<AxisInitializeStep> steps,
+            bool requireCompleteDefaultSequence)
         {
             try
             {
-                AxisInitializeResult result = await _axisInitializeSequence.ExecuteAsync(steps).ConfigureAwait(false);
+                AxisInitializeResult result = await _axisInitializeSequence.ExecuteAsync(
+                    steps,
+                    requireCompleteDefaultSequence).ConfigureAwait(false);
                 if (result == null)
                 {
                     LastActionFailureMessage = "초기화 Executor가 결과를 반환하지 않았습니다.";

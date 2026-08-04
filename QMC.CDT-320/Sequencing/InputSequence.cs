@@ -3461,32 +3461,40 @@ namespace QMC.CDT320.Sequencing
             return options;
         }
 
+        // 바코드 사용 여부는 장비 고정 설정(Setup 스코프) 한 곳으로 통일한다 — Recipe → Picker/InputStage 화면의
+        // USE INPUT BARCODE(AppSettings.UseInputWaferBarcode)만 본다.
+        // 이전에는 레시피 LoadFrame.AutoBarcodeRead까지 AND 조건이라 Auto에서 "설정은 켰는데 안 읽는" 상황이 생겼고,
+        // 레시피 로드 예외 시 조용히 비활성화되어 원인을 알 수 없었다. Output(UseOutputBinBarcode)과 기준을 맞춘다.
         private bool ResolveInputBarcodeUse(SequenceRunMode runMode)
         {
             AppSettings settings = AppSettingsStore.Current;
-            if (settings == null || !settings.UseInputWaferBarcode)
-                return false;
+            bool use = settings != null && settings.UseInputWaferBarcode;
 
-            if (runMode != SequenceRunMode.Auto)
-                return true;
+            // Auto에서 바코드를 쓰지 않는 상태는 품질 추적 누락으로 이어지므로, 알람 대신 모달리스 안내로 알린다.
+            // (테스트 중에는 바코드 없이 진행해야 하므로 진행은 막지 않는다. 창은 최소화/숨기기 가능.)
+            if (runMode == SequenceRunMode.Auto)
+            {
+                if (!use)
+                    NotifyBarcodeDisabledInAuto();
+                else
+                    BarcodeDisabledNoticeService.Close();
+            }
 
+            return use;
+        }
+
+        private void NotifyBarcodeDisabledInAuto()
+        {
             try
             {
-                string recipeName = Context != null && Context.Controller != null
-                    ? Context.Controller.ActiveRecipeName
-                    : string.Empty;
-                QMC.CDT320.Recipes.RecipeProject project = !string.IsNullOrWhiteSpace(recipeName)
-                    ? QMC.CDT320.Recipes.RecipeStore.Load(recipeName)
-                    : QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
-                return project != null && project.LoadFrame != null && project.LoadFrame.AutoBarcodeRead;
+                BarcodeDisabledNoticeService.Show(
+                    "INPUT WAFER 바코드 판독이 꺼져 있어 Auto 진행 중 웨이퍼 ID가 바코드로 갱신되지 않습니다.\r\n" +
+                    "필요하면 레시피 → INPUT STAGE 화면의 'USE INPUT BARCODE'를 켜십시오.\r\n" +
+                    "테스트 목적이면 이 창을 최소화한 상태로 계속 진행할 수 있습니다.");
             }
             catch (Exception ex)
             {
-                WriteLog("InputSequence", "Input barcode recipe option resolve failed. Barcode disabled. error=" + ex.Message);
-                return false;
-            }
-            finally
-            {
+                WriteLog("InputSequence", "Input barcode disabled notice failed. error=" + ex.Message);
             }
         }
 

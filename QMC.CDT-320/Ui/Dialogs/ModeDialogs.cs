@@ -3,17 +3,8 @@ using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public class ColletChangeDialog : ModeOverlayDialog
-    {
-        public ColletChangeDialog() : base("dlg.colletChange")
-        {
-            SetTitle("work.colletMode");
-            UseCompactCommandLayout(actionColumns: 1);
-            AddAction("#1 COLLET CHANGE", width: 160);
-            AddAction("#2 COLLET CHANGE", width: 160);
-            AddAction("COMPLETE", width: 160);
-        }
-    }
+    // ColletChangeDialog는 동작 없는 오버레이 껍데기였다(#1/#2/COMPLETE 버튼만).
+    // 실제 교체 위치 이동을 수행하는 폼(Ui\Dialogs\ColletChangeDialog.cs)으로 교체했다.
 
     public class ColletCleaningDialog : ModeOverlayDialog
     {

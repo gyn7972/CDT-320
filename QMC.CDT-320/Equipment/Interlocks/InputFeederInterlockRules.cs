@@ -118,10 +118,20 @@ namespace QMC.CDT320.Interlocks
             //Todo: Feeder 가 안전 위치고 클램프가 업상태이면 PASS
 
             bool feederAvoidDogOn = feeder.IsWaferFeederAvoidPositionCheck();
+            bool initializeVisionRetreatVerified =
+                request.MoveKind == MotionGuardMoveKind.AxisHome &&
+                MotionGuardRuntime.IsFeederHomeVisionRetreatActive(
+                    feeder.FeederY,
+                    cameraX,
+                    true);
 
             if (!feederAvoidDogOn)
             {
-                if (!IsInputVisionXInAvoidPosition(stage) && cameraX.ActualPosition > 0.0)
+                // 전체 초기화 Step 180이 MEL(-)을 확인한 정확한 축 쌍만 좌표 유실 상태의
+                // Feeder HOME 1회에 허용합니다. 5mm 이탈은 Dog 복구 후 수행하며 Auto/Manual은 그대로입니다.
+                if (!initializeVisionRetreatVerified &&
+                    !IsInputVisionXInAvoidPosition(stage) &&
+                    cameraX.ActualPosition > 0.0)
                     return MotionGuardRuleHelpers.Block(
                         "InputFeederY",
                         "InputFeederY 이동 불가: InputCameraX가 정확한 Avoid 또는 0 이하 위치여야 합니다. " +

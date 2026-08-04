@@ -882,12 +882,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             // 기존 조건: 활성 Lot이 없으면 ResolveFallbackProjectName()이 "레시피 목록의 첫 번째 파일"을 표시해
             //           현재 사용 중인 레시피와 무관한 이름(예: 7_7_Test)이 나왔다.
-            //           (생산 LotId와 저장된 Lot의 LotID가 다르면 위에서 lot=null이 되므로 fallback으로 자주 빠진다.)
-            // 현재 기준: 상단 상태바 Project Name과 항상 같은 값을 표시한다(사용자 확정 2026-07-26).
-            //           ① 활성 Lot의 RecipeName -> ② 상단바와 동일한 ActiveRecipeName -> ③ Recipe.ProductId -> ④ "--"
-            string project = lot != null && !string.IsNullOrWhiteSpace(lot.RecipeName)
-                ? lot.RecipeName
-                : ResolveActiveProjectName(host);
+            // 이전 기준: ① 활성 Lot의 RecipeName을 최우선으로 썼는데, 이 값은 LOT 시작 시점에 고정된 스냅샷이라
+            //           이후 레시피를 바꿔도 갱신되지 않아 옛 이름(예: JMB)이 계속 표시됐다(상단 상태바와 불일치).
+            // 현재 기준(사용자 확정 2026-08-05): 상단 상태바 Project Name과 항상 같은 "현재 활성 레시피"를 표시한다.
+            //           ① ActiveRecipeName(상단바와 동일) -> ② Recipe.ProductId -> ③ 활성 Lot의 RecipeName -> ④ "--"
+            string project = ResolveActiveProjectName(host);
+            if ((string.IsNullOrWhiteSpace(project) || project == "--") &&
+                lot != null && !string.IsNullOrWhiteSpace(lot.RecipeName))
+            {
+                project = lot.RecipeName;
+            }
 
             snap.Project = project;
             snap.PickFail = (ctrl?.PickFailCount ?? 0) + " ea";

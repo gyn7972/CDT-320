@@ -388,7 +388,7 @@ namespace QMC.CDT_320
             this.lblBarcodeCaption.Name = "lblBarcodeCaption";
             this.lblBarcodeCaption.Size = new System.Drawing.Size(130, 22);
             this.lblBarcodeCaption.TabIndex = 3;
-            this.lblBarcodeCaption.Text = "Barcode Name :";
+            this.lblBarcodeCaption.Text = "Wafer ID :";
             // 
             // lblBarcodeValue
             // 
@@ -410,7 +410,7 @@ namespace QMC.CDT_320
             this.lblBinCaption.Name = "lblBinCaption";
             this.lblBinCaption.Size = new System.Drawing.Size(60, 22);
             this.lblBinCaption.TabIndex = 5;
-            this.lblBinCaption.Text = "1Bin :";
+            this.lblBinCaption.Text = "Bin ID :";
             // 
             // lblBinValue
             // 
@@ -419,7 +419,7 @@ namespace QMC.CDT_320
             this.lblBinValue.ForeColor = System.Drawing.Color.White;
             this.lblBinValue.Location = new System.Drawing.Point(940, 4);
             this.lblBinValue.Name = "lblBinValue";
-            this.lblBinValue.Size = new System.Drawing.Size(80, 22);
+            this.lblBinValue.Size = new System.Drawing.Size(430, 22);
             this.lblBinValue.TabIndex = 6;
             this.lblBinValue.Text = "0";
             // 

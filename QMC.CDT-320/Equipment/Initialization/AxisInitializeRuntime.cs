@@ -22,6 +22,8 @@ namespace QMC.CDT320.Initialization
     {
         private const int InitializeAxisStopWaitTimeoutMs = 5000;
         private const int InitializeAxisStopPollIntervalMs = 20;
+        private const double FeederVisionLimitBackoffDistanceMm = 5.0;
+        private const int FeederVisionServoSettleMs = 500;
 
         private readonly CDT320_Machine _machine;
         private readonly AxisInterferenceMap _axisInterferenceMap;
@@ -117,14 +119,100 @@ namespace QMC.CDT320.Initialization
                 missingAxisNames.Add("축 목록 해석 예외: " + ex.Message);
                 return false;
             }
-            finally
-            {
-            }
         }
 
-        public HashSet<string> ResolveLaneAxisNames(IList<AxisInitializeStep> laneSteps)
+        /// <summary>
+        /// Step switch가 선택한 실제 축을 기준으로 간섭 정지 대상을 한 번만 해석합니다.
+        /// AxisInterferenceMap의 문자열은 설정 파일 계약으로만 사용하고 실행 중에는 BaseAxis를 보관합니다.
+        /// </summary>
+        public bool TryResolveInterlockAxes(
+            AxisInitializeStep step,
+            IEnumerable<BaseAxis> fallbackAxes,
+            out List<BaseAxis> resolved,
+            out string reason)
         {
-            return ResolveInitializeLaneAxisNames(laneSteps);
+            resolved = new List<BaseAxis>();
+            reason = string.Empty;
+            try
+            {
+                if (step == null || string.IsNullOrWhiteSpace(step.InterlockGroup))
+                    return true;
+
+                foreach (BaseAxis axis in ResolveAxesByGroup(step.InterlockGroup))
+                {
+                    if (axis != null && !resolved.Contains(axis))
+                        resolved.Add(axis);
+                }
+
+                if (resolved.Count > 0)
+                    return true;
+
+                IReadOnlyList<string> mappedAxisNames;
+                bool hasRegisteredInterferenceGroup =
+                    _axisInterferenceMap.TryResolveRegisteredInterferenceAxes(
+                        step.InterlockGroup,
+                        out mappedAxisNames);
+                if (hasRegisteredInterferenceGroup)
+                {
+                    var unresolvedMappedAxes = new List<string>();
+                    foreach (string axisName in (mappedAxisNames ?? new string[0])
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .Select(x => x.Trim())
+                        .Distinct(StringComparer.OrdinalIgnoreCase))
+                    {
+                        BaseAxis axis = FindAxisByName(axisName);
+                        if (axis != null && !resolved.Contains(axis))
+                            resolved.Add(axis);
+                        else if (axis == null)
+                            unresolvedMappedAxes.Add(axisName);
+                    }
+
+                    // 기존 정지 경로와 동일하게 간섭맵의 축 하나라도 해석하지 못하면
+                    // 일부 축만 정지한 채 HOME을 계속하지 않고 시작 전에 실패시킵니다.
+                    if (unresolvedMappedAxes.Count > 0)
+                    {
+                        reason = "간섭맵에 등록되지 않은 축이 포함되어 있습니다. step=" +
+                            step.StepNo + ", interlockGroup=" + step.InterlockGroup +
+                            ", unresolved=" + string.Join(",", unresolvedMappedAxes.ToArray());
+                        return false;
+                    }
+
+                    if (resolved.Count > 0)
+                        return true;
+                }
+
+                if (!hasRegisteredInterferenceGroup)
+                {
+                    BaseAxis directAxis = FindAxisByName(step.InterlockGroup);
+                    if (directAxis != null)
+                        resolved.Add(directAxis);
+                }
+
+                if (resolved.Count == 0)
+                {
+                    foreach (BaseAxis axis in fallbackAxes ?? Enumerable.Empty<BaseAxis>())
+                    {
+                        if (axis != null && !resolved.Contains(axis))
+                            resolved.Add(axis);
+                    }
+                }
+
+                if (resolved.Count > 0)
+                    return true;
+
+                reason = "정지할 실제 등록 축을 찾지 못했습니다. step=" + step.StepNo +
+                    ", group=" + step.GroupName +
+                    ", interlockGroup=" + step.InterlockGroup;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                reason = "초기화 Step 간섭 그룹 축 해석 중 예외가 발생했습니다. step=" +
+                    (step != null ? step.StepNo : 0) + ", error=" + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "ResolveInitializeInterlockAxes",
+                    reason + " - Failed");
+                return false;
+            }
         }
 
         /// <summary>
@@ -134,7 +222,7 @@ namespace QMC.CDT320.Initialization
         public AxisInitializeSafetySnapshot CaptureSafetySnapshot(
             IEnumerable<AxisInitializeStep> steps)
         {
-            var axisNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var capturedAxes = new HashSet<BaseAxis>();
             try
             {
                 foreach (AxisInitializeStep step in steps ?? new AxisInitializeStep[0])
@@ -142,14 +230,25 @@ namespace QMC.CDT320.Initialization
                     if (step == null)
                         continue;
 
-                    foreach (BaseAxis axis in ResolveAxesByNames(step.AxisNames))
+                    IEnumerable<BaseAxis> stepAxes = step.RuntimeAxes != null && step.RuntimeAxes.Count > 0
+                        ? step.RuntimeAxes
+                        : ResolveAxesByNames(step.AxisNames);
+                    foreach (BaseAxis axis in stepAxes)
                     {
-                        if (axis != null && !string.IsNullOrWhiteSpace(axis.Name))
-                            axisNames.Add(axis.Name);
+                        if (axis != null)
+                            capturedAxes.Add(axis);
                     }
 
-                    AddInitializeActionAxisNames(axisNames, step.PreActions);
-                    AddInitializeActionAxisNames(axisNames, step.PostActions);
+                    foreach (AxisInitializeAction action in step.PreActions ?? new List<AxisInitializeAction>())
+                    {
+                        if (action != null && action.Enabled && action.RuntimeAxis != null)
+                            capturedAxes.Add(action.RuntimeAxis);
+                    }
+                    foreach (AxisInitializeAction action in step.PostActions ?? new List<AxisInitializeAction>())
+                    {
+                        if (action != null && action.Enabled && action.RuntimeAxis != null)
+                            capturedAxes.Add(action.RuntimeAxis);
+                    }
 
                     foreach (AxisInitializeInterlockRule rule in
                         step.Interlocks ?? new List<AxisInitializeInterlockRule>())
@@ -161,15 +260,13 @@ namespace QMC.CDT320.Initialization
                                 StringComparison.OrdinalIgnoreCase))
                             continue;
 
-                        BaseAxis interlockAxis = FindAxisByName(rule.Name);
-                        if (interlockAxis != null && !string.IsNullOrWhiteSpace(interlockAxis.Name))
-                            axisNames.Add(interlockAxis.Name);
+                        BaseAxis interlockAxis = rule.RuntimeAxis ?? FindAxisByName(rule.Name);
+                        if (interlockAxis != null)
+                            capturedAxes.Add(interlockAxis);
                     }
                 }
 
-                var states = axisNames
-                    .Select(FindAxisByName)
-                    .Where(x => x != null)
+                var states = capturedAxes
                     .OrderBy(x => x.Setup != null ? x.Setup.AxisNo : int.MaxValue)
                     .ThenBy(x => x.Name)
                     .Select(AxisInitializeAxisState.Capture)
@@ -185,9 +282,6 @@ namespace QMC.CDT320.Initialization
                 return new AxisInitializeSafetySnapshot(
                     DateTime.Now,
                     new List<AxisInitializeAxisState>());
-            }
-            finally
-            {
             }
         }
 
@@ -219,12 +313,12 @@ namespace QMC.CDT320.Initialization
 
         public bool VerifyStep(
             AxisInitializeStep step,
-            ISet<string> allowedConcurrentAxisNames,
+            ISet<BaseAxis> allowedConcurrentAxes,
             out string reason)
         {
             return _interlockService.VerifyStep(
                 step,
-                allowedConcurrentAxisNames,
+                allowedConcurrentAxes,
                 out reason);
         }
 
@@ -254,69 +348,6 @@ namespace QMC.CDT320.Initialization
             return ExecutePickerYPairInitializeAsync(step, axes);
         }
 
-        private HashSet<string> ResolveInitializeLaneAxisNames(IList<AxisInitializeStep> laneSteps)
-        {
-            var axisNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            try
-            {
-                foreach (AxisInitializeStep step in laneSteps ?? new AxisInitializeStep[0])
-                {
-                    foreach (BaseAxis axis in ResolveAxesByNames(step != null ? step.AxisNames : null))
-                    {
-                        if (axis != null && !string.IsNullOrWhiteSpace(axis.Name))
-                            axisNames.Add(axis.Name);
-                    }
-
-                    AddInitializeActionAxisNames(axisNames, step != null ? step.PreActions : null);
-                    AddInitializeActionAxisNames(axisNames, step != null ? step.PostActions : null);
-                }
-
-                return axisNames;
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.Log.Write("Main", "SYSTEM", "ResolveInitializeLaneAxes",
-                    "Initialize lane axis resolve failed. error=" + ex.Message + " - Failed");
-                return axisNames;
-            }
-            finally
-            {
-            }
-        }
-
-        private void AddInitializeActionAxisNames(
-            ISet<string> axisNames,
-            IList<AxisInitializeAction> actions)
-        {
-            try
-            {
-                if (axisNames == null || actions == null)
-                    return;
-
-                foreach (AxisInitializeAction action in actions)
-                {
-                    if (action == null || !action.Enabled ||
-                        !string.Equals(
-                            action.TargetType,
-                            AxisInitializeInterlockTarget.Axis,
-                            StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    BaseAxis axis = FindInitializeActionAxis(action.Name);
-                    if (axis != null && !string.IsNullOrWhiteSpace(axis.Name))
-                        axisNames.Add(axis.Name);
-                }
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.Log.Write("Main", "SYSTEM", "ResolveInitializeLaneAxes",
-                    "Initialize lane action axis resolve failed. error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
-            }
-        }
-
         private bool HasEnabledInitializeActions(AxisInitializeStep step)
         {
             try
@@ -327,9 +358,6 @@ namespace QMC.CDT320.Initialization
             catch
             {
                 return false;
-            }
-            finally
-            {
             }
         }
 
@@ -345,9 +373,6 @@ namespace QMC.CDT320.Initialization
             catch
             {
                 return false;
-            }
-            finally
-            {
             }
         }
 
@@ -369,9 +394,6 @@ namespace QMC.CDT320.Initialization
             catch
             {
                 return null;
-            }
-            finally
-            {
             }
         }
 
@@ -398,9 +420,6 @@ namespace QMC.CDT320.Initialization
                     "Resolve axes by group failed. group=" + groupName + ", error=" + ex.Message + " - Failed");
                 return axes;
             }
-            finally
-            {
-            }
         }
 
         private async Task<int> StopInitializeInterlockGroupAsync(AxisInitializeStep step)
@@ -409,6 +428,24 @@ namespace QMC.CDT320.Initialization
             {
                 if (step == null || string.IsNullOrWhiteSpace(step.InterlockGroup))
                     return 0;
+
+                // 전체 초기화 switch가 연결한 실제 축이 있으면 이름 재해석 없이 그대로 정지합니다.
+                if (step.RuntimeInterlockAxes != null && step.RuntimeInterlockAxes.Count > 0)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "StopInitializeInterlockGroup",
+                        "Initialize interlock group stop requested with typed axes. step=" + step.StepNo +
+                        ", interlockGroup=" + step.InterlockGroup +
+                        ", axes=" + string.Join(",", step.RuntimeInterlockAxes
+                            .Where(x => x != null)
+                            .Select(x => x.Name)
+                            .ToArray()) + " - Start");
+                    return await StopAxesAndWaitUntilStoppedAsync(
+                        step.RuntimeInterlockAxes,
+                        false,
+                        "초기화 Step 간섭 그룹 정지. step=" + step.StepNo +
+                        ", group=" + step.GroupName +
+                        ", interlockGroup=" + step.InterlockGroup).ConfigureAwait(false);
+                }
 
                 var axes = ResolveAxesByGroup(step.InterlockGroup)
                     .Select(x => x.Name)
@@ -534,9 +571,6 @@ namespace QMC.CDT320.Initialization
                     message + " - Failed");
                 return -1;
             }
-            finally
-            {
-            }
         }
 
         private int FailInitializeAxisStop(string context, string detail)
@@ -551,6 +585,103 @@ namespace QMC.CDT320.Initialization
                 "MachineController",
                 message);
             return -1;
+        }
+
+        private async Task<int> StopAxesAndWaitUntilStoppedAsync(
+            IEnumerable<BaseAxis> sourceAxes,
+            bool emergencyStop,
+            string context)
+        {
+            try
+            {
+                var axes = (sourceAxes ?? Enumerable.Empty<BaseAxis>())
+                    .Where(x => x != null)
+                    .Distinct()
+                    .ToList();
+                if (axes.Count == 0)
+                    return 0;
+
+                var stopFailures = new List<string>();
+                foreach (BaseAxis axis in axes)
+                {
+                    try
+                    {
+                        if (emergencyStop)
+                            axis.EStop();
+                        else
+                            axis.Stop();
+
+                        QMC.Common.Log.Write("Main", "SYSTEM", "StopAxes",
+                            "Axis stopped. axis=" + axis.Name +
+                            ", emergency=" + emergencyStop + " - Ok");
+                    }
+                    catch (Exception stopEx)
+                    {
+                        stopFailures.Add(axis.Name + ":" + stopEx.Message);
+                        QMC.Common.Log.Write("Main", "SYSTEM", "StopAxes",
+                            "Axis stop failed. axis=" + axis.Name +
+                            ", error=" + stopEx.Message + " - Failed");
+                    }
+                }
+
+                // 한 축의 Stop 호출이 실패해도 나머지 간섭축에는 모두 Stop을 요청한 뒤 실패합니다.
+                // 기존 문자열 경로의 best-effort 정지 정책을 typed 객체 경로에서도 유지합니다.
+                if (stopFailures.Count > 0)
+                {
+                    return FailInitializeAxisStop(
+                        context,
+                        "Stop 요청 실패. failures=" + string.Join(" | ", stopFailures.ToArray()));
+                }
+
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+                while (true)
+                {
+                    var movingStates = new List<string>();
+                    foreach (BaseAxis axis in axes)
+                    {
+                        try
+                        {
+                            axis.UpdateStatus();
+                        }
+                        catch (Exception statusEx)
+                        {
+                            return FailInitializeAxisStop(
+                                context,
+                                "정지 상태 갱신 실패. axis=" + axis.Name +
+                                ", error=" + statusEx.Message);
+                        }
+
+                        if (axis.IsMoving)
+                            movingStates.Add(BuildInitializeAxisStopState(axis));
+                    }
+
+                    if (movingStates.Count == 0)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisStop",
+                            "Axis stop verified. context=" + context +
+                            ", axes=" + string.Join(",", axes.Select(x => x.Name).ToArray()) +
+                            ", elapsedMs=" + stopwatch.ElapsedMilliseconds + " - Ok");
+                        return 0;
+                    }
+
+                    if (stopwatch.ElapsedMilliseconds >= InitializeAxisStopWaitTimeoutMs)
+                    {
+                        return FailInitializeAxisStop(
+                            context,
+                            "Stop 후 정지 확인 시간 초과. timeoutMs=" +
+                            InitializeAxisStopWaitTimeoutMs +
+                            ", movingAxes=" + string.Join(" | ", movingStates.ToArray()));
+                    }
+
+                    await Task.Delay(InitializeAxisStopPollIntervalMs).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                return FailInitializeAxisStop(
+                    context,
+                    "Stop 및 정지 확인 중 예외. error=" + ex.Message);
+            }
         }
 
         private async Task<int> StopAxesAndWaitUntilStoppedAsync(
@@ -640,9 +771,6 @@ namespace QMC.CDT320.Initialization
                     context,
                     "Stop 및 정지 확인 중 예외. error=" + ex.Message);
             }
-            finally
-            {
-            }
         }
 
         private async Task<int> StopAxesAsync(
@@ -697,9 +825,6 @@ namespace QMC.CDT320.Initialization
                 QMC.Common.Log.Write("Main", "SYSTEM", "StopAxes",
                     "Axis stop failed: " + ex.Message + " - Failed");
                 return -1;
-            }
-            finally
-            {
             }
         }
 
@@ -765,9 +890,6 @@ namespace QMC.CDT320.Initialization
                 AlarmManager.Raise(AlarmSeverity.Error, "INIT-ACTION-EX", "MachineController", message);
                 return -1;
             }
-            finally
-            {
-            }
         }
 
         private async Task<int> ExecuteInitializeActionAsync(
@@ -788,7 +910,7 @@ namespace QMC.CDT320.Initialization
                     return await ExecuteInitializeAxisTeachingActionAsync(step, action).ConfigureAwait(false);
 
                 if (string.Equals(command, AxisInitializeActionCommand.CustomHook, StringComparison.OrdinalIgnoreCase))
-                    return await ExecuteCustomInitializeActionAsync(step, action, phase).ConfigureAwait(false);
+                    return await ExecuteCustomInitializeActionAsync(action, phase).ConfigureAwait(false);
 
                 return FailInitializePreparation("지원하지 않는 초기화 Action입니다. target=" +
                     targetType + ":" + action.Name + ", command=" + command);
@@ -798,9 +920,6 @@ namespace QMC.CDT320.Initialization
                 return FailInitializePreparation("초기화 Action 예외. target=" +
                     (action != null ? action.TargetType + ":" + action.Name : "-") +
                     ", error=" + ex.Message);
-            }
-            finally
-            {
             }
         }
 
@@ -813,13 +932,21 @@ namespace QMC.CDT320.Initialization
                 if (action == null)
                     return FailInitializePreparation("축 티칭 이동 Action 정보가 없습니다.");
 
-                BaseAxis axis = FindInitializeActionAxis(action.Name);
+                // 전체 초기화 switch가 연결한 실제 Unit 축을 우선 사용합니다.
+                BaseAxis axis = action.RuntimeAxis ?? FindInitializeActionAxis(action.Name);
                 if (axis == null)
                     return FailInitializePreparation("초기화 축 티칭 이동 대상을 찾을 수 없습니다. axis=" + action.Name);
 
                 double targetPosition;
                 string targetName;
-                if (!TryResolveInitializeAxisTeachingPosition(axis, action, out targetPosition, out targetName))
+                if (action.HasRuntimeTargetPosition)
+                {
+                    targetPosition = action.RuntimeTargetPosition;
+                    targetName = string.IsNullOrWhiteSpace(action.RuntimeTargetName)
+                        ? action.PositionName
+                        : action.RuntimeTargetName;
+                }
+                else if (!TryResolveInitializeAxisTeachingPosition(axis, action, out targetPosition, out targetName))
                 {
                     return FailInitializePreparation("초기화 축 티칭 위치를 찾을 수 없습니다. axis=" +
                         action.Name + ", position=" + action.PositionName);
@@ -834,6 +961,8 @@ namespace QMC.CDT320.Initialization
 
                 double explicitVelocity = 0.0;
 
+                // Step 300의 정확한 기존 조건에서만 NG StageY JogCoarseVelocity를 사용합니다.
+                // Step 번호만 같은 잘못된 Plan Action에 속도 정책이 확대 적용되지 않도록 합니다.
                 bool useJogCoarseVelocity =
                     step != null &&
                     step.StepNo == 300 &&
@@ -885,9 +1014,6 @@ namespace QMC.CDT320.Initialization
                 return FailInitializePreparation("축 티칭 이동 Action 예외. axis=" +
                     (action != null ? action.Name : "-") + ", error=" + ex.Message);
             }
-            finally
-            {
-            }
         }
 
         private async Task<int> MoveAxisTeachingAsync(
@@ -936,9 +1062,6 @@ namespace QMC.CDT320.Initialization
                     (axis != null ? axis.Name : "-") +
                     ", error=" + ex.Message);
             }
-            finally
-            {
-            }
         }
 
         private static double ResolveAxisDefaultVelocity(BaseAxis axis)
@@ -953,7 +1076,8 @@ namespace QMC.CDT320.Initialization
         {
             try
             {
-                BaseCylinder cylinder = FindCylinderByName(action.Name);
+                // 전체 초기화 switch가 연결한 실제 Unit 실린더를 우선 사용합니다.
+                BaseCylinder cylinder = action.RuntimeCylinder ?? FindCylinderByName(action.Name);
                 if (cylinder == null)
                     return FailInitializePreparation("초기화 실린더를 찾을 수 없습니다. cylinder=" + action.Name);
 
@@ -986,9 +1110,6 @@ namespace QMC.CDT320.Initialization
                 return FailInitializePreparation("실린더 Action 예외. cylinder=" +
                     (action != null ? action.Name : "-") + ", error=" + ex.Message);
             }
-            finally
-            {
-            }
         }
 
         private BaseAxis FindInitializeActionAxis(string axisName)
@@ -1008,9 +1129,6 @@ namespace QMC.CDT320.Initialization
             catch
             {
                 return null;
-            }
-            finally
-            {
             }
         }
 
@@ -1196,9 +1314,6 @@ namespace QMC.CDT320.Initialization
                     ", error=" + ex.Message + " - Failed");
                 return false;
             }
-            finally
-            {
-            }
         }
 
         private static bool IsInitializeAxisName(string requestedName, string actualName, params string[] names)
@@ -1234,7 +1349,6 @@ namespace QMC.CDT320.Initialization
         }
 
         private async Task<int> ExecuteCustomInitializeActionAsync(
-            AxisInitializeStep step,
             AxisInitializeAction action,
             string phase)
         {
@@ -1257,8 +1371,169 @@ namespace QMC.CDT320.Initialization
                 return FailInitializePreparation("Custom 초기화 Action 예외. action=" +
                     (action != null ? action.Name : "-") + ", error=" + ex.Message);
             }
-            finally
+        }
+
+        /// <summary>
+        /// Vision X를 일반 MotionGuard 밖에서 외측으로 움직이기 전에, 이번 전체 초기화에서
+        /// 수직축과 PickerY HOME이 실제 완료됐는지 Runtime 실행 이력으로 다시 확인합니다.
+        /// </summary>
+        private bool VerifyFeederVisionRetreatRunPrerequisites(out string reason)
+        {
+            reason = string.Empty;
+            try
             {
+                if (_machine.InputStageUnit == null ||
+                    _machine.OutputStageUnit == null ||
+                    _machine.OutputStageUnit.GoodStage == null ||
+                    _machine.PickerFrontUnit == null ||
+                    _machine.PickerRearUnit == null)
+                {
+                    reason = "Vision X 퇴피 전 공통 Z/PickerY Unit 구성을 확인할 수 없습니다.";
+                    return false;
+                }
+
+                var requiredAxes = new List<BaseAxis>
+                {
+                    _machine.PickerFrontUnit.PickerZ0,
+                    _machine.PickerFrontUnit.PickerZ1,
+                    _machine.PickerFrontUnit.PickerZ2,
+                    _machine.PickerFrontUnit.PickerZ3,
+                    _machine.PickerRearUnit.PickerZ0,
+                    _machine.PickerRearUnit.PickerZ1,
+                    _machine.PickerRearUnit.PickerZ2,
+                    _machine.PickerRearUnit.PickerZ3,
+                    _machine.InputStageUnit.NeedleZ,
+                    _machine.InputStageUnit.EjectPinZ,
+                    _machine.InputStageUnit.ExpanderZ,
+                    _machine.OutputStageUnit.GoodStage.StageZ,
+                    _machine.PickerFrontUnit.PickerY,
+                    _machine.PickerRearUnit.PickerY
+                };
+
+                if (requiredAxes.Any(x => x == null))
+                {
+                    reason = "Vision X 퇴피 전 필수 Z/PickerY 축 참조가 누락되었습니다.";
+                    return false;
+                }
+
+                foreach (BaseAxis axis in requiredAxes.Distinct())
+                {
+                    if (!_runState.IsAxisHomed(axis))
+                    {
+                        reason = "Vision X 퇴피는 이번 전체 초기화에서 공통 Z와 PickerY HOME을 먼저 완료해야 합니다. axis=" +
+                            (axis != null ? axis.Name : "missing");
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "Vision X 퇴피 선행 HOME 확인 예외. error=" + ex.Message;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 실장비에서는 Feeder Avoid Dog를 보드에서 즉시 갱신하고, Simulation에서만 가상 위치 판정을 사용합니다.
+        /// </summary>
+        private bool TryRefreshFeederAvoidDog(
+            bool inputSide,
+            out bool dogOn,
+            out string reason)
+        {
+            dogOn = false;
+            reason = string.Empty;
+            try
+            {
+                BaseDigitalInput dogInput = inputSide
+                    ? (_machine.InputFeederUnit != null
+                        ? _machine.InputFeederUnit.WaferFeederAvoidPositionCheckSensor
+                        : null)
+                    : (_machine.OutputFeederUnit != null
+                        ? _machine.OutputFeederUnit.BinFeederAvoidPositionCheckSensor
+                        : null);
+
+                if (AjinFactory.IsRealBoardReady)
+                {
+                    if (dogInput == null || dogInput.Config == null ||
+                        dogInput.Config.IsSimulationMode || dogInput.Config.IgnoreWaits)
+                    {
+                        reason = (inputSide ? "Input" : "Output") +
+                            "Feeder Avoid Dog 실입력을 확인할 수 없습니다. 실장비 초기화에서는 Simulation/IgnoreWaits를 허용하지 않습니다.";
+                        return false;
+                    }
+
+                    int readError;
+                    if (!AjinIoScanService.TryReadHardwareInput(dogInput, out readError))
+                    {
+                        reason = (inputSide ? "Input" : "Output") +
+                            "Feeder Avoid Dog 실입력 갱신에 실패했습니다. error=" + readError;
+                        return false;
+                    }
+                }
+
+                dogOn = inputSide
+                    ? _machine.InputFeederUnit.IsWaferFeederAvoidPositionCheck()
+                    : _machine.OutputFeederUnit.IsBinFeederAvoidPositionCheck();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = (inputSide ? "Input" : "Output") +
+                    "Feeder Avoid Dog 확인 예외. error=" + ex.Message;
+                return false;
+            }
+        }
+
+        private bool VerifyPickerAxesStoppedForVisionRetreat(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                var axes = new List<BaseAxis>();
+                if (_machine.PickerFrontUnit != null)
+                {
+                    axes.Add(_machine.PickerFrontUnit.PickerX);
+                    axes.Add(_machine.PickerFrontUnit.PickerY);
+                    axes.Add(_machine.PickerFrontUnit.PickerZ0);
+                    axes.Add(_machine.PickerFrontUnit.PickerZ1);
+                    axes.Add(_machine.PickerFrontUnit.PickerZ2);
+                    axes.Add(_machine.PickerFrontUnit.PickerZ3);
+                }
+                if (_machine.PickerRearUnit != null)
+                {
+                    axes.Add(_machine.PickerRearUnit.PickerX);
+                    axes.Add(_machine.PickerRearUnit.PickerY);
+                    axes.Add(_machine.PickerRearUnit.PickerZ0);
+                    axes.Add(_machine.PickerRearUnit.PickerZ1);
+                    axes.Add(_machine.PickerRearUnit.PickerZ2);
+                    axes.Add(_machine.PickerRearUnit.PickerZ3);
+                }
+
+                if (axes.Any(x => x == null))
+                {
+                    reason = "Vision X 퇴피 전 Front/Rear Picker X/Y/Z 축 구성을 확인할 수 없습니다.";
+                    return false;
+                }
+
+                foreach (BaseAxis axis in axes.Distinct())
+                {
+                    axis.UpdateStatus();
+                    if (axis.IsMoving)
+                    {
+                        reason = "Vision X 퇴피 전 Picker 축이 이동 중입니다. axis=" + axis.Name;
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "Vision X 퇴피 전 Picker 정지 확인 예외. error=" + ex.Message;
+                return false;
             }
         }
 
@@ -1292,7 +1567,10 @@ namespace QMC.CDT320.Initialization
                     Command = AxisInitializeActionCommand.CylinderBwd,
                     TimeoutMs = action != null ? action.TimeoutMs : 0,
                     Enabled = true,
-                    Description = "NG Stage material state independent: Clamp Bwd before ClampLift Up."
+                    Description = "NG Stage material state independent: Clamp Bwd before ClampLift Up.",
+                    RuntimeCylinder = action != null && action.RuntimeCylinder != null
+                        ? action.RuntimeCylinder
+                        : outputStage.NgBinGuideClampCylinder
                 };
 
                 int result = await ExecuteInitializeCylinderActionAsync(releaseAction).ConfigureAwait(false);
@@ -1316,9 +1594,6 @@ namespace QMC.CDT320.Initialization
             catch (Exception ex)
             {
                 return FailInitializePreparation("NG Clamp Bwd 초기화 준비 예외. error=" + ex.Message);
-            }
-            finally
-            {
             }
         }
 
@@ -1345,9 +1620,6 @@ namespace QMC.CDT320.Initialization
             catch
             {
                 return null;
-            }
-            finally
-            {
             }
         }
 
@@ -1486,11 +1758,7 @@ namespace QMC.CDT320.Initialization
                         return pickerYRestoreResult;
                 }
 
-                // 홈 잡고 Avoid로 움직이는 부분 막자.
-                // 홈 시컨스에서 제어 하도록 하고 메뉴얼로 할떄는 홈잡고 멈춰야한다!
-                //int completeHomeResult = await CompleteAxisHomeConditionAsync(axis).ConfigureAwait(false);
-                //if (completeHomeResult != 0)
-                //    return completeHomeResult;
+                // 개별 HOME은 원점에서 종료하고, Avoid 이동은 전체 초기화 Step이 명시적으로 수행합니다.
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
                     "Axis initialize completed. axis=" + axis.Name + " - Ok");
@@ -1517,20 +1785,264 @@ namespace QMC.CDT320.Initialization
             }
         }
 
+        /// <summary>
+        /// Step 180/260 전용입니다. Vision X 물리 퇴피와 Feeder HOME을 한 흐름에서 처리해
+        /// Step 사이에 임시 상태나 권한을 보관하지 않습니다.
+        /// </summary>
+        private async Task<int> ExecuteFeederHomeWithVisionRetreatAsync(
+            bool inputSide,
+            BaseAxis feederY,
+            CancellationToken cancellationToken)
+        {
+            BaseAxis visionX = inputSide
+                ? (_machine.InputStageUnit != null ? _machine.InputStageUnit.CameraX : null)
+                : (_machine.OutputStageUnit != null ? _machine.OutputStageUnit.OutputCameraX : null);
+            AjinAxis ajinVisionX = visionX as AjinAxis;
+            int searchDirection = inputSide ? -1 : 1;
+            bool limitSearchActive = false;
+
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                BaseAxis expectedFeederY = inputSide
+                    ? (_machine.InputFeederUnit != null ? _machine.InputFeederUnit.FeederY : null)
+                    : (_machine.OutputFeederUnit != null ? _machine.OutputFeederUnit.FeederY : null);
+                if (feederY == null || visionX == null || !ReferenceEquals(feederY, expectedFeederY))
+                {
+                    return FailInitializePreparation(
+                        (inputSide ? "Input" : "Output") +
+                        " Feeder/Vision 실제 Unit 축 구성이 올바르지 않습니다.");
+                }
+
+                string reason;
+                if (!VerifyFeederVisionRetreatRunPrerequisites(out reason) ||
+                    !VerifyPickerAxesStoppedForVisionRetreat(out reason))
+                {
+                    return FailInitializePreparation(reason);
+                }
+
+                bool liftDown = inputSide
+                    ? _machine.InputFeederUnit.IsWaferFeederDown()
+                    : _machine.OutputFeederUnit.IsFeederDown();
+                bool feederEmpty = inputSide
+                    ? _machine.InputFeederUnit.IsWaferFeederEmpty()
+                    : _machine.OutputFeederUnit.IsFeederEmpty();
+                bool feederUnclamped = inputSide
+                    ? _machine.InputFeederUnit.IsWaferFeederUnclamp()
+                    : _machine.OutputFeederUnit.IsFeederUnclamped();
+                if (!liftDown || !feederEmpty || !feederUnclamped)
+                {
+                    return FailInitializePreparation(
+                        (inputSide ? "Input" : "Output") +
+                        " Feeder HOME 안전조건 실패. liftDown=" + liftDown +
+                        ", empty=" + feederEmpty +
+                        ", unclamped=" + feederUnclamped);
+                }
+
+                bool dogOn;
+                if (!TryRefreshFeederAvoidDog(inputSide, out dogOn, out reason))
+                    return FailInitializePreparation(reason);
+
+                if (visionX.IsMoving)
+                {
+                    return FailInitializePreparation(
+                        "Vision X가 이동 중이어서 Feeder HOME 복구를 시작할 수 없습니다. axis=" +
+                        visionX.Name);
+                }
+
+                // Dog OFF이면 카메라를 먼저 움직이지 않습니다. 정확한 외측 Limit ON만 확인합니다.
+                if (!dogOn)
+                {
+                    bool targetLimitOn = inputSide ? visionX.Sensor_MEL : visionX.Sensor_PEL;
+                    bool oppositeLimitOn = inputSide ? visionX.Sensor_PEL : visionX.Sensor_MEL;
+                    bool simulation = visionX.Config != null && visionX.Config.IsSimulationMode;
+                    if (!simulation && ajinVisionX != null)
+                    {
+                        double actualPosition;
+                        bool sensorPel;
+                        bool sensorMel;
+                        int readError;
+                        if (!ajinVisionX.TryReadInitializeHardwareFeedback(
+                            out actualPosition,
+                            out sensorPel,
+                            out sensorMel,
+                            out readError))
+                        {
+                            return FailInitializePreparation(
+                                "Vision X 외측 Limit 원시 신호 읽기 실패. axis=" + visionX.Name +
+                                ", error=" + readError);
+                        }
+
+                        targetLimitOn = inputSide ? sensorMel : sensorPel;
+                        oppositeLimitOn = inputSide ? sensorPel : sensorMel;
+                    }
+
+                    if (ajinVisionX == null || !targetLimitOn || oppositeLimitOn)
+                    {
+                        return FailInitializePreparation(
+                            (inputSide ? "Input" : "Output") +
+                            " Feeder Avoid Dog OFF 상태에서 Vision X 외측 Limit을 확인할 수 없습니다. " +
+                            "Servo 조작과 X축 이동을 수행하지 않았습니다.");
+                    }
+                }
+
+                visionX.Stop();
+                visionX.ServoOff();
+                await Task.Delay(FeederVisionServoSettleMs, cancellationToken).ConfigureAwait(false);
+                visionX.ResetAlarm();
+                await Task.Delay(FeederVisionServoSettleMs, cancellationToken).ConfigureAwait(false);
+                visionX.ServoOn();
+                await Task.Delay(FeederVisionServoSettleMs, cancellationToken).ConfigureAwait(false);
+
+                double velocity = visionX.Config != null && visionX.Config.JogFineVelocity > 0.0
+                    ? visionX.Config.JogFineVelocity
+                    : 1.0;
+                if (ajinVisionX != null)
+                {
+                    // Dog ON은 Limit까지 실제 탐색하고, Dog OFF는 현재 Limit ON만 무이동 재확인합니다.
+                    int searchResult = await ajinVisionX.SearchHardwareLimitForInitializeAsync(
+                        searchDirection,
+                        velocity,
+                        30000,
+                        cancellationToken,
+                        dogOn).ConfigureAwait(false);
+                    if (searchResult == 0)
+                        limitSearchActive = true;
+
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (searchResult != 0)
+                        return FailInitializePreparation(BuildAxisMotionFailureMessage(
+                            visionX,
+                            "Vision X 외측 Limit 확인 실패",
+                            searchResult));
+
+                    if (dogOn)
+                    {
+                        int backoffResult = await ajinVisionX.BackOffHardwareLimitForInitializeAsync(
+                            searchDirection,
+                            FeederVisionLimitBackoffDistanceMm,
+                            velocity,
+                            cancellationToken).ConfigureAwait(false);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (backoffResult != 0)
+                            return FailInitializePreparation(BuildAxisMotionFailureMessage(
+                                visionX,
+                                "Vision X 5mm 이탈 실패",
+                                backoffResult));
+
+                        ajinVisionX.ReleaseInitializeHardwareLimitSearch();
+                        limitSearchActive = false;
+                    }
+                }
+                else
+                {
+                    if (visionX.Config == null || !visionX.Config.IsSimulationMode || !dogOn)
+                    {
+                        return FailInitializePreparation(
+                            "실장비 Vision X가 AjinAxis가 아니거나 Simulation Dog가 OFF입니다. axis=" +
+                            visionX.Name);
+                    }
+
+                    await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+                }
+
+                // 반대 Lane이 실패했다면 StopAll 이후 Feeder HOME을 새로 시작하지 않습니다.
+                cancellationToken.ThrowIfCancellationRequested();
+                int homeResult;
+                // 이 Scope는 정확한 FeederY AxisHome의 Camera 위치 조건만 잠시 대체합니다.
+                using (MotionGuardRuntime.BeginFeederHomeVisionRetreat(feederY, visionX, inputSide))
+                {
+                    homeResult = await ExecuteSingleAxisHomeAsync(feederY).ConfigureAwait(false);
+                }
+                if (homeResult != 0)
+                    return homeResult;
+
+                // HOME 중 반대 Lane이 실패했으면 후속 5mm 이탈을 새로 시작하지 않습니다.
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!TryRefreshFeederAvoidDog(inputSide, out dogOn, out reason))
+                    return FailInitializePreparation(reason);
+                if (!dogOn)
+                {
+                    return FailInitializePreparation(
+                        (inputSide ? "Input" : "Output") +
+                        " FeederY HOME 후 Avoid Dog가 ON이 아닙니다.");
+                }
+
+                if (limitSearchActive)
+                {
+                    int backoffResult = await ajinVisionX.BackOffHardwareLimitForInitializeAsync(
+                        searchDirection,
+                        FeederVisionLimitBackoffDistanceMm,
+                        velocity,
+                        cancellationToken).ConfigureAwait(false);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (backoffResult != 0)
+                        return FailInitializePreparation(BuildAxisMotionFailureMessage(
+                            visionX,
+                            "Feeder HOME 후 Vision X 5mm 이탈 실패",
+                            backoffResult));
+
+                    ajinVisionX.ReleaseInitializeHardwareLimitSearch();
+                    limitSearchActive = false;
+                }
+
+                QMC.Common.Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    "VisionXFeederHomeRetreat",
+                    (inputSide ? "Input" : "Output") +
+                    " Vision X 물리 퇴피와 FeederY HOME 완료. - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return FailInitializePreparation(
+                    (inputSide ? "Input" : "Output") +
+                    " Feeder/Vision 초기화 예외. error=" + ex.Message);
+            }
+            finally
+            {
+                if (limitSearchActive && ajinVisionX != null)
+                    ajinVisionX.StopInitializeHardwareLimitSearch();
+            }
+        }
+
         public async Task<int> ExecuteSerialHomeAsync(
             AxisInitializeStep step,
-            IList<BaseAxis> axes)
+            IList<BaseAxis> axes,
+            CancellationToken cancellationToken)
         {
             try
             {
+                if (step != null && step.StepNo == 180)
+                    return await ExecuteFeederHomeWithVisionRetreatAsync(
+                        true,
+                        axes.FirstOrDefault(),
+                        cancellationToken).ConfigureAwait(false);
+                if (step != null && step.StepNo == 260)
+                    return await ExecuteFeederHomeWithVisionRetreatAsync(
+                        false,
+                        axes.FirstOrDefault(),
+                        cancellationToken).ConfigureAwait(false);
+
                 foreach (BaseAxis axis in axes)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     int result = await ExecuteSingleAxisHomeAsync(axis).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
 
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1545,9 +2057,6 @@ namespace QMC.CDT320.Initialization
                     "MachineController",
                     message);
                 return -1;
-            }
-            finally
-            {
             }
         }
 
@@ -1582,9 +2091,6 @@ namespace QMC.CDT320.Initialization
                     "MachineController",
                     message);
                 return -1;
-            }
-            finally
-            {
             }
         }
 
@@ -2076,9 +2582,6 @@ namespace QMC.CDT320.Initialization
             {
                 return false;
             }
-            finally
-            {
-            }
         }
 
         private static bool IsPickerZHomeAxis(BaseAxis axis)
@@ -2094,9 +2597,6 @@ namespace QMC.CDT320.Initialization
             catch
             {
                 return false;
-            }
-            finally
-            {
             }
         }
 
@@ -2179,9 +2679,6 @@ namespace QMC.CDT320.Initialization
                     (targetAxis != null ? targetAxis.Name : "-") +
                     ", error=" + ex.Message);
             }
-            finally
-            {
-            }
         }
 
         private int RestorePairedPickerYServoAfterHome(
@@ -2252,9 +2749,6 @@ namespace QMC.CDT320.Initialization
                     "반대 PickerY 상태 복원 중 예외가 발생했습니다. error=" + ex.Message,
                     reportFailure);
             }
-            finally
-            {
-            }
         }
 
         private int ReportPickerYServoRestoreFailure(string message, bool reportFailure)
@@ -2272,9 +2766,6 @@ namespace QMC.CDT320.Initialization
             catch
             {
                 return -1;
-            }
-            finally
-            {
             }
         }
 
@@ -2341,9 +2832,6 @@ namespace QMC.CDT320.Initialization
                 QMC.Common.Log.Write("Main", "SYSTEM", "StopAllAxes",
                     "All axis stop failed: " + ex.Message + " - Failed");
                 return -1;
-            }
-            finally
-            {
             }
         }
 

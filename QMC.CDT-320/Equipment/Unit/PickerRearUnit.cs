@@ -65,6 +65,10 @@ namespace QMC.CDT320
         [DataMember] public PickerPickUpMotionConfig PickUp { get; set; } = new PickerPickUpMotionConfig();
         [DataMember] public PickerBottomInspectionMotionConfig BottomInspection { get; set; } = new PickerBottomInspectionMotionConfig();
         [DataMember] public PickerPlaceMotionConfig Place { get; set; } = new PickerPlaceMotionConfig();
+        // 콜렛 교체 위치(PickerX)입니다. Recipe가 아니라 Config에 두어 레시피를 바꿔도 교체 위치는 그대로 씁니다.
+        // Y/T/Z는 교체 시 항상 Avoid(0)로 후퇴하므로 별도 티칭값을 두지 않습니다.
+        [DataMember] public double ColletExchangeInputX { get; set; }  // 공용 X레일에서 Input 방향 끝 교체 위치입니다.
+        [DataMember] public double ColletExchangeOutputX { get; set; } // 공용 X레일에서 Output 방향 끝 교체 위치입니다.
         [DataMember] public int VisionInspectionSettleMs { get; set; } = 0;
         [DataMember] public int SideInspectionTurnSettleMs { get; set; } = 0;
 

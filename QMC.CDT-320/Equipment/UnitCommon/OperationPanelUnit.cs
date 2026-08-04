@@ -92,6 +92,17 @@ namespace QMC.CDT320
             Buzzer.On();
         }
 
+        /// <summary>
+        /// 신호탑 — 작업자 확인 대기(녹색+노란색 동시 점등). 빨강 OFF.
+        /// Auto 진행 중 바코드 판독 실패처럼 "라인은 멈춰 있고 작업자 조작을 기다리는" 상태를 표시한다.
+        /// 운전 중(녹색 단독)·경고(노란색 단독)·알람(빨간색)과 색 조합으로 구분된다.
+        /// 부저는 여기서 제어하지 않는다(호출부가 2회만 울린다).
+        /// </summary>
+        public void TowerLampOperatorAttention()
+        {
+            TlGreen.On(); TlYellow.On(); TlRed.Off();
+        }
+
         /// <summary>신호탑 OFF + 부저 OFF.</summary>
         public void TowerLampOff()
         {

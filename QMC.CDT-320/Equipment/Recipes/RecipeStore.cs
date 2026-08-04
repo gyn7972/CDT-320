@@ -526,7 +526,8 @@ namespace QMC.CDT320.Recipes
     public class LoadTapeFrameSubset
     {
         [DataMember] public string Role             { get; set; } = "Load";
-        [DataMember] public bool   AutoBarcodeRead  { get; set; } = true;
+        // 바코드 사용 여부는 레시피가 아니라 장비 설정(설정 → 바코드, AppSettings.UseInputWaferBarcode)에서만 관리한다.
+        // 기존 AutoBarcodeRead 항목 제거 — 구 레시피 파일에 남아 있어도 역직렬화 시 무시된다.
         [DataMember] public bool   AutoAlignment    { get; set; } = true;
         [DataMember] public int    AlignmentPoints  { get; set; } = 3;
     }

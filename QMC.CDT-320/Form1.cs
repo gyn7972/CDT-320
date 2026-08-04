@@ -874,8 +874,13 @@ namespace QMC.CDT_320
             }
         }
 
+        // 장비 메인 기동 순서.
+        // 주의: 아래 초기화는 앞 단계의 상태를 다음 단계가 사용하는 구조이므로 호출 순서를 변경하지 않는다.
         private void Form1_Load(object sender, EventArgs e)
         {
+            #region 01. 디자인 모드 차단 및 공통 설정
+
+            // Visual Studio 디자이너에서는 하드웨어와 통신 객체를 초기화하지 않는다.
             if (DesignMode || LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                 return;
 
@@ -883,6 +888,11 @@ namespace QMC.CDT_320
             if (!string.IsNullOrEmpty(cfg.Language)) Lang.SetLanguage(cfg.Language);
             QMC.Common.Alarms.AlarmManager.LanguageProvider = () => Lang.Current ?? "ko";
 
+            #endregion
+
+            #region 02. AJIN 축, IO, 실린더 구성
+
+            // Simulation(BypassHardware) 중에는 실보드를 열지 않는다.
             QMC.CDT320.Ajin.AjinConfigStore.Load();
             QMC.CDT320.Ajin.AjinFactory.UseRealBoard = cfg.UseAjin && !cfg.BypassHardware;
             if (QMC.CDT320.Ajin.AjinFactory.UseRealBoard) 
@@ -891,6 +901,10 @@ namespace QMC.CDT_320
             QMC.CDT320.Ajin.CylinderManager.Initialize();
 
             QMC.CDT320.Ajin.AjinFactory.RegisterConfiguredAxes();
+
+            #endregion
+
+            #region 03. Vision 6채널 통신 준비
 
             // Stage 43 - 6채널: Wafer/Inspection/Bin + Main/FrontSide/RearSide
             // Vision PC 가 레시피를 요청(RECIPEREQ)하면 현재 활성 레시피로 응답 — 핸들러가 먼저 안 보내도 Vision 이 능동 동기화.
@@ -906,12 +920,19 @@ namespace QMC.CDT_320
             QMC.CDT320.VisionComm.VisionHub.ConnectionChanged += OnVisionHubChanged;
             QMC.CDT320.VisionComm.VisionReconnectWatchdog.Start(BroadcastCurrentRecipeToVision);
 
+            #endregion
+
+            #region 04. Machine 생성 및 런타임 모드 적용
+
+            // 장비 유닛을 생성한 뒤 저장된 축, IO, 실린더 설정을 적용한다.
             Machine    = new CDT320_Machine();
             LoadMachineSettings();
             AutoConnectBarcodeReaders();
+
             // [주소 불일치 감시 2026-07-28] Setup 파일이 카탈로그 주소를 덮어쓴 채 조용히 운전되던 문제
             // (GoodBinRing/NgBinRing Bit 뒤바뀜)를 기동 시 로그로 드러낸다. 값은 고치지 않고 경고만 남긴다.
             QMC.CDT320.Ajin.AjinFactory.VerifyCatalogAddresses("Startup");
+
             // [실장비 시뮬 강제 해제 2026-07-29] ★실장비 미검증★
             // LoadMachineSettings() 안에서 EquipmentData\Config\*.json 이 실보드 포인트를 시뮬로
             // 되돌려놓는 경로가 있었다(AjinDigitalInput/Output.LoadSettings 주석 참조).
@@ -919,15 +940,26 @@ namespace QMC.CDT_320
             // 합계가 0 이 아니면 그동안 그만큼의 실신호가 죽어 있었다는 뜻이다.
             QMC.CDT320.Ajin.AjinDigitalInput.LogSimForcedRealSummary();
             QMC.CDT320.Ajin.AjinDigitalOutput.LogSimForcedRealSummary();
+
+            // 1차 적용: Controller 생성 전에 Machine의 축, IO, 실린더 운전 모드를 확정한다.
             ApplyRuntimeMode();
             Bridge     = new SimulatorBridge(Machine);
             BeginSimulatorAutoConnect(cfg);
             Controller = new MachineController(Machine);
             Controller.SetActiveRecipeName(ActiveRecipeName);
+
+            // 2차 적용: 생성된 Controller의 DryRun/GlobalDryRun 상태까지 동기화한다.
             ApplyRuntimeMode();
             Controller.ApplyStartupMachineRuntimeState(cfg);
+
+            #endregion
+
+            #region 05. 알람 대응 및 Material/LOT 복구
+
             AlarmResponse = new QMC.CDT320.Alarms.AlarmResponseService(Controller);
             AlarmResponse.Start();
+
+            // Material Snapshot 복구 여부를 먼저 결정한 뒤 활성 LOT을 복구한다.
             PromptMaterialRecoveryOnStartup();
             // Material을 사용하지 않기로 선택해도 LOT은 작업자가 [LOT 완료]하기 전까지 유지한다.
             // 신규 활성 포인터를 우선하고, 도입 전 데이터는 초기화 직전 Snapshot LOT ID로 제한 복구한다.
@@ -950,6 +982,11 @@ namespace QMC.CDT_320
                 {
                 }
             };
+
+            #endregion
+
+            #region 06. 모션, 충돌, IO, 조작반 실시간 감시
+
             MotionMonitor = new MotionMonitorService();
             MotionMonitor.Start(CurrentAxes(), QMC.CDT320.Ajin.AjinFactory.UseRealBoard ? 50 : 250);
             CollisionSupervisor = new QMC.CDT320.Interlocks.RealtimeCollisionSupervisor(
@@ -967,6 +1004,11 @@ namespace QMC.CDT_320
             ApplyDoorSimulationState(_topDoorClosed);
             UpdateTopCommandButtons();
 
+            #endregion
+
+            #region 07. 선택 통신 및 로컬 카세트 시뮬레이터
+
+            // SECS는 선택 기능이므로 기동 실패가 메인 프로그램 시작을 막지 않는다.
             try
             {
                 SecsHost = new QMC.CDT320.Secs.SecsHost(5000);
@@ -974,6 +1016,7 @@ namespace QMC.CDT_320
             }
             catch { /* Optional startup failure ignored. */ }
 
+            // AJIN을 사용하지 않는 구성에서만 로컬 카세트/피더 센서 시뮬레이터를 생성한다.
             if (!cfg.UseAjin)
             {
                 CassetteDriver = new QMC.CDT320.Sim.SimCassetteDriver(
@@ -982,6 +1025,11 @@ namespace QMC.CDT_320
                     Machine.OutputCassetteUnit,
                     Machine.OutputFeederUnit);
             }
+
+            #endregion
+
+            #region 08. Controller 이벤트 및 운전 로그 연결
+
             Controller.StatusChanged += OnEquipmentStatusChanged;
             Controller.OperatorMessageRequested += OnOperatorMessageRequested;
             Controller.InputStageRunReviewManualStateChanged += OnInputStageRunReviewManualStateChanged;
@@ -1012,6 +1060,10 @@ namespace QMC.CDT_320
             if (Program.AutoCycleCount > 0)
                 Controller.LogMessage += s => Console.WriteLine("[CTRL] " + s);
 
+            #endregion
+
+            #region 09. 메인 탭 생성 및 화면에 연결
+
             _workTab     = new WorkTab     { Dock = DockStyle.Fill, Visible = false };
             _workInfoTab = new WorkInfoTab { Dock = DockStyle.Fill, Visible = false };
             _historyTab  = new HistoryTab  { Dock = DockStyle.Fill, Visible = false };
@@ -1033,7 +1085,11 @@ namespace QMC.CDT_320
             pnlContent.Controls.Add(_settingsTab);
             pnlContent.Controls.Add(_userTab);
 
-            // Bottom navigation i18n tags.
+            #endregion
+
+            #region 10. 다국어 및 사용자 세션 초기화
+
+            // 하단 메뉴 다국어 키
             btnTabWork    .Tag = "i18n:tab.work";
             btnTabWorkInfo.Tag = "i18n:tab.workInfo";
             btnTabHistory .Tag = "i18n:tab.history";
@@ -1042,7 +1098,7 @@ namespace QMC.CDT_320
             btnTabUser    .Tag = "i18n:tab.user";
             btnTabExit    .Tag = "i18n:tab.exit";
 
-            // Status bar i18n tags.
+            // 상단 상태 표시 다국어 키
             lblMapMode        .Tag = "i18n:status.mapEmpty";
             lblProjectCaption .Tag = "i18n:status.project";
             lblBarcodeCaption .Tag = "i18n:status.barcode";
@@ -1051,7 +1107,14 @@ namespace QMC.CDT_320
             lblPick           .Tag = "i18n:status.pick";
             lblReference      .Tag = "i18n:status.reference";
 
-            // ?ㅻ뜑
+            // PICK/REFERENCE 표시는 갱신하는 코드가 없어 항상 ON/OFF로 고정되어 오해를 준다.
+            // 표시할 상태가 정의될 때까지 숨긴다(VISION은 실제 연결 상태로 동작하므로 유지).
+            HideUnusedStatusIndicators();
+
+            // 화면 버전은 어셈블리 버전에서 자동으로 표시한다(수동 문자열과 실제 빌드 불일치 방지).
+            ApplyAssemblyVersionText();
+
+            // 상단 헤더 다국어 키
             lblTitle          .Tag = "i18n:app.title";
             lblUserCaption    .Tag = "i18n:header.user";
             lblTimeCaption    .Tag = "i18n:header.time";
@@ -1067,6 +1130,11 @@ namespace QMC.CDT_320
                 "admin", QMC.CDT_320.Ui.Security.UserLevel.Admin);
             OnUserChanged();
 
+            #endregion
+
+            #region 11. 마지막 Recipe 및 Material 기본 상태 적용
+
+            // 활성 Recipe 이름은 LoadMachineRecipe가 성공한 경우에만 설정된다.
             try
             {
                 var last = QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
@@ -1101,12 +1169,17 @@ namespace QMC.CDT_320
             if (!_materialSnapshotRestored && MaterialStorage.State.Cassettes.Count == 0)
                 MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
 
+            #endregion
+
+            #region 12. 기본 화면 및 선택적 자동 시험 기능
+
             timerClock.Start();
             UpdateClock();
 
-            // Default page.
+            // 기본 진입 화면
             ShowTab(MainTab.Work);
 
+            // 명령행 --start-page가 지정된 경우 해당 페이지를 기동 후 표시한다.
             if (!string.IsNullOrEmpty(Program.StartPage))
             {
                 BeginInvoke(new Action(() =>
@@ -1132,6 +1205,7 @@ namespace QMC.CDT_320
                 }));
             }
 
+            // UI 감사 기능: --click-test-all은 실제 버튼 이벤트까지 호출하므로 실장비에서 사용하지 않는다.
             if (Program.AuditAll)
             {
                 BeginInvoke(new Action(() =>
@@ -1181,6 +1255,7 @@ namespace QMC.CDT_320
                 }));
             }
 
+            // 자동 INIT/CYCLE 시험 기능: 명령행 옵션이 지정된 경우 실제 Controller 운전을 시작한다.
             if (Program.AutoCycleCount > 0 || Program.AutoInitOnly)
             {
                 int n = Program.AutoCycleCount;
@@ -1200,6 +1275,8 @@ namespace QMC.CDT_320
                     }
                 });
             }
+
+            #endregion
         }
 
         private void PromptMaterialRecoveryOnStartup()
@@ -3079,11 +3156,9 @@ namespace QMC.CDT_320
             if (InvokeRequired) { BeginInvoke(new Action(OnVisionHubChanged)); return; }
             // VisionHub 연결 상태를 상단 VIS 표시로 반영합니다.
             bool connected = QMC.CDT320.VisionComm.VisionHub.AllConnected;
-            var h = connected ? "O" : "X";
-            SetTextIfChanged(lblBarcodeValue, "VIS " + h);
-            SetForeColorIfChanged(lblBarcodeValue,
-                connected ? System.Drawing.Color.LightGreen : System.Drawing.Color.White);
-            // 상단 VISION 점등도 실제 연결 상태에 동기화(끊기면 소등).
+            // Vision 연결 상태는 상단 VISION 점등으로만 표시한다.
+            // (이전에는 Barcode Name 라벨을 "VIS O/X"로 덮어써서 진행 웨이퍼 바코드명을 볼 수 없었다.)
+            // 상단 VISION 점등을 실제 연결 상태에 동기화(끊기면 소등).
             if (dotVision != null) dotVision.IsOn = connected;
         }
 
@@ -3153,6 +3228,104 @@ namespace QMC.CDT_320
         private void UpdateClock()
         {
             SetTextIfChanged(lblTimeValue, DateTime.Now.ToString("yyyy-MM-dd  HH:mm:ss"));
+            UpdateProcessingMaterialIds();
+        }
+
+        /// <summary>
+        /// 상단 "Wafer ID"/"Bin ID"에 현재 공정 진행 중인 자재 ID를 표시한다.
+        /// - Wafer ID: InputStage의 웨이퍼(바코드를 읽었으면 바코드값, 아니면 웨이퍼 ID)
+        /// - Bin ID  : OutputStage의 GOOD / NG Bin (두 개를 함께 표시)
+        /// 해당 위치에 자재가 없으면(배출 완료) "-"로 되돌린다.
+        /// </summary>
+        private void UpdateProcessingMaterialIds()
+        {
+            try
+            {
+                SetTextIfChanged(lblBarcodeValue,
+                    ResolveMaterialDisplayId(MaterialLocationKind.InputStage));
+
+                // NG 카세트를 쓰지 않는 장비/설정에서는 NG가 항상 "-"로만 보여 잡음이 되므로 GOOD만 표시한다.
+                string good = ResolveMaterialDisplayId(MaterialLocationKind.OutputStageGood);
+                string ng = ResolveMaterialDisplayId(MaterialLocationKind.OutputStageNg);
+                bool showNg = IsNgBinDisplayEnabled() || ng != "-";
+                SetTextIfChanged(lblBinValue,
+                    showNg ? "GOOD " + good + "   NG " + ng : "GOOD " + good);
+            }
+            catch
+            {
+                // 상단 표시 실패로 UI 타이머를 멈추지 않는다.
+            }
+        }
+
+        /// <summary>표시할 상태가 정의되지 않은 상단 인디케이터(PICK/REFERENCE)를 숨긴다.</summary>
+        private void HideUnusedStatusIndicators()
+        {
+            try
+            {
+                if (dotPick != null) dotPick.Visible = false;
+                if (lblPick != null) lblPick.Visible = false;
+                if (dotReference != null) dotReference.Visible = false;
+                if (lblReference != null) lblReference.Visible = false;
+            }
+            catch
+            {
+            }
+        }
+
+        /// <summary>
+        /// 상단 버전 라벨을 AssemblyFileVersion으로 표시한다(예: v0.1.0).
+        /// AssemblyVersion은 참조 호환성 때문에 1.0.0.0으로 고정하고, 릴리스 표기는 FileVersion만 올린다(사용자 확정).
+        /// </summary>
+        private void ApplyAssemblyVersionText()
+        {
+            try
+            {
+                if (lblVersion == null)
+                    return;
+
+                string fileVersion = System.Diagnostics.FileVersionInfo
+                    .GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location)
+                    .FileVersion;
+                if (string.IsNullOrWhiteSpace(fileVersion))
+                    return;
+
+                // 4자리(0.1.0.0) 중 뒤 Revision은 표기에서 제외해 v0.1.0 형태로 보여준다.
+                string[] parts = fileVersion.Split('.');
+                string text = parts.Length >= 3
+                    ? "v" + parts[0] + "." + parts[1] + "." + parts[2]
+                    : "v" + fileVersion;
+                SetTextIfChanged(lblVersion, text);
+            }
+            catch
+            {
+            }
+        }
+
+        /// <summary>NG 카세트 사용 설정 여부. 설정을 못 읽으면 표시하는 쪽(true)으로 둔다.</summary>
+        private bool IsNgBinDisplayEnabled()
+        {
+            try
+            {
+                var cassette = Machine != null ? Machine.OutputCassetteUnit : null;
+                return cassette == null || cassette.Config == null || cassette.Config.UseNgCassette;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        /// <summary>해당 위치 자재의 표시용 ID. 바코드를 읽었으면 바코드값, 없으면 자재 ID, 자재가 없으면 "-".</summary>
+        private static string ResolveMaterialDisplayId(MaterialLocationKind location)
+        {
+            WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(location);
+            if (wafer == null)
+                return "-";
+
+            if (!string.IsNullOrWhiteSpace(wafer.BarcodeId))
+                return wafer.BarcodeId;
+
+            return string.IsNullOrWhiteSpace(wafer.WaferId) ? "-" : wafer.WaferId;
         }
 
         private static void SetTextIfChanged(Control control, string text)
