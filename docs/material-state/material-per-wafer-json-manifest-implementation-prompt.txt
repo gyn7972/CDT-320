@@ -1,0 +1,1280 @@
+﻿CDT-320 Material Per-Wafer JSON + Manifest 구현 프롬프트
+
+문서 목적
+
+이 문서는 CDT-320의 Material 런타임 동작, Auto Sequence, Interlock을 변경하지 않고
+Material 영속화 방식만 "전체 material_state.json 반복 저장"에서
+"Wafer별 JSON + 고정 세대 Manifest" 방식으로 전환하기 위한 구현 지시서다.
+
+이 문서의 우선순위는 다음 두 가지다.
+
+1. Material을 재시작 후에도 의미적으로 정확하게 복구한다.
+2. 생산 Wafer 누적에 따라 한 번의 저장 byte와 hot-path 저장 비용이 계속 커지지 않게 한다.
+
+단순히 파일을 여러 개로 나누는 것만으로 완료로 판단하지 않는다.
+완료 Wafer 파일을 매 저장마다 다시 쓰지 않고, 세대·Temp·진단 파일까지 고정 상한 안에서
+관리되며, 복구 시 여러 파일의 혼합 세대를 선택하지 않는 것이 필수다.
+
+
+0. 작업 시작 방식
+
+구현자는 첫 응답에서 코드를 수정하지 말고 다음 내용을 먼저 보고한다.
+
+- 실제 Git root, branch, HEAD, working tree 상태
+- 이 문서에 기재된 경로와 현재 코드가 일치하는지
+- 현재 Material save/load/capture/compaction 호출 흐름
+- 변경이 필요한 정확한 파일 후보
+- 수정하지 않을 Auto Sequence/Interlock/Motion/Vision 경로
+- 현재 material_state.json의 크기, 저장 주기, 저장 시간 측정 계획
+- Wafer/Die 문서 분할 규칙과 원자 commit 계획
+- Legacy migration과 rollback 계획
+- 발견된 모순, 미확정 위험, 구현 단계
+
+사용자가 구현 진행을 명시적으로 승인하기 전에는 코드, 프로젝트 파일, 운영 데이터를 수정하지 않는다.
+
+분석 기준으로 확인된 소스 HEAD는 ee0914e8434c155f37b57e4b799f83c4cbec117d였지만,
+이를 현재 HEAD라고 가정하지 않는다. 작업 시작 시 실제 HEAD를 다시 기록한다.
+
+
+1. 작업 경로와 보호 대상
+
+소스 저장소:
+
+D:\Source\CDT-320_New
+
+운영/시뮬레이션 설치 및 데이터 경로:
+
+D:\CDT-320
+
+다음 보호 규칙은 예외 없이 적용한다.
+
+- 사용자의 명시적 요청 없이 commit, amend, push, pull, merge, rebase, reset, checkout, clean을 하지 않는다.
+- 기존 dirty 파일과 다른 작업자가 만든 변경을 수정, 정리, 포맷, 이동, 삭제하지 않는다.
+- D:\CDT-320의 운영 State, Recipe, Log, 결과 파일을 수정하거나 삭제하지 않는다.
+- 테스트는 별도 승인된 복사본 또는 격리된 임시 디렉터리에서만 수행한다.
+- 운영 Material 파일을 destructive fault test 대상으로 사용하지 않는다.
+- 기존 Journal 구현 프롬프트와 체크리스트를 덮어쓰지 않는다.
+- 관련 없는 경고나 스타일을 정리한다는 이유로 범위를 넓히지 않는다.
+- 신규 NuGet 또는 native dependency를 추가하지 않는다.
+- SQLite, Journal append log, Delta replay 구조를 이번 작업에 섞지 않는다.
+
+작업 중 HEAD 또는 working tree가 외부에서 변경되면 즉시 현재 상태를 다시 확인한다.
+겹치는 파일이 변경됐다면 임의로 되돌리거나 합치지 말고 사용자에게 보고한다.
+작업 시작 시 Sequencing/Interlock/Motion/Vision의 실제 대상 파일 inventory와 SHA-256을 만들고,
+작업 종료 시 같은 inventory/hash를 비교한다. 단순 HEAD diff만으로 기존 dirty 파일 무변경을
+증명했다고 간주하지 않는다.
+
+
+2. 최상위 변경 금지 범위
+
+다음 영역은 코드 diff가 0이어야 한다.
+
+- QMC.CDT-320\Sequencing\**
+- Interlock 관련 파일과 조건식
+- Motion, Axis, Vision, Unit 제어
+- 정상 상태의 Auto Start, Cycle, Stop, Recovery 동작
+- 물리 동작 성공/실패 판정
+- Recipe 판정 및 생산 결과 판정
+- 기존 Material 상태 전이의 비즈니스 의미
+- 기존 NotifyAndSave 호출 위치와 호출 순서
+- 기존 StateChanged 소비자의 동작 의미
+
+저장 원자성 또는 dirty tracking을 증명하기 어렵다는 이유로 Sequence나 Interlock을 수정하지 않는다.
+무수정 조건 안에서 증명할 수 없다면 해당 검증을 PASS 처리하지 말고 BLOCKED 또는 FAIL로 보고한다.
+
+
+3. 허용되는 변경 범위
+
+변경은 원칙적으로 Material persistence 경계에 한정한다.
+
+우선 검토 대상:
+
+- QMC.CDT-320\Equipment\Materials\MaterialSnapshotStore.cs
+- QMC.CDT-320\Equipment\Materials\MaterialStorage.cs의 load/facade 부분
+- QMC.CDT-320\Equipment\Materials\MaterialStateService.cs의
+  NotifyAndSave, TryNotifyAndSave, TryFlushPendingSave, save worker, SaveCurrentSnapshot 영역
+- QMC.CDT-320\Equipment\Materials\Persistence\** 신규 파일
+- 신규 Compile 항목을 등록하기 위한 QMC.CDT-320.csproj
+- 격리 테스트 또는 검증 프로그램 파일
+- 모든 신규 Manifest가 손상된 경우 빈 Material 초기화를 막기 위한
+  Form1.cs의 PromptMaterialRecoveryOnStartup 복구 실패 분기
+
+MaterialStateService의 앞부분에 있는 Material 생성, 이동, 예약, 검사, Pick, Place, Mapping,
+Cassette 처리 메서드는 수정 대상이 아니다.
+Form1.cs는 신규 store 존재 + 정상 Manifest 0개인 Recovery Required 경우를 fail-closed로
+처리하는 최소 분기만 허용한다. 정상 복구, 사용자 선택, Auto 시작, 일반 초기화 흐름은 수정하지 않는다.
+Form1 무수정을 추가 조건으로 요구하면 손상 시 빈 Material 초기화 방지 계약을 만족할 수 없으므로
+코드 수정 전에 사용자에게 BLOCKED로 보고한다.
+
+가능하면 기존 public facade를 보존한다.
+
+- MaterialSnapshotStore.Exists
+- MaterialSnapshotStore.Load
+- MaterialSnapshotStore.Save
+- MaterialSnapshotStore.SnapshotPath
+- MaterialSnapshotStore.LastLoadedPath
+- MaterialStateService.NotifyAndSave
+- MaterialStateService.TryNotifyAndSave
+- MaterialStateService.TryFlushPendingSave
+
+호출자가 신규 저장 형식을 알 필요가 없도록 한다.
+신규 형식 활성화 후 SnapshotPath와 LastLoadedPath가 오래된 Legacy material_state.json을
+현재 durable 상태처럼 표시하지 않도록 모든 소비자를 감사하고 실제 선택 Manifest를 진단할 수 있게 한다.
+
+
+4. 현재 구조에서 해결해야 할 문제
+
+현재 저장 흐름은 대략 다음과 같다.
+
+Material 변경
+  -> NotifyAndSave
+  -> background save request
+  -> _stateSync 안에서 전체 MaterialSnapshot 저장 사본 생성
+  -> lock 밖에서 전체 JSON 직렬화
+  -> material_state.json 전체 교체
+  -> 기존 primary를 material_state.bak으로 교체
+
+현재 구현은 파일 I/O를 background task에서 수행하지만 다음 비용이 남아 있다.
+
+- 저장마다 전체 Wafer/Die 그래프 복사
+- 저장마다 전체 그래프 직렬화
+- 완료 Wafer까지 포함한 전체 material_state.json 쓰기
+- primary와 backup에 의한 write amplification
+- Cassette slot이 채워질수록 저장 byte 증가
+
+현재 MaterialStateCompactor는 물리적으로 남아 있거나 Empty가 아닌 Wafer,
+Cassette Slot이 참조하는 Wafer, 그 Wafer가 참조하는 Die와 검사 정보를 보존한다.
+이는 Material 보존 관점에서는 안전하지만, 전체 Snapshot 반복 쓰기와 결합되어 I/O가 커진다.
+
+이번 변경은 완료 Material을 몰래 버리는 방식이 아니라
+"변하지 않은 완료 Wafer 문서를 다시 쓰지 않는 방식"으로 문제를 해결한다.
+
+
+5. 목표와 비목표
+
+5.1 필수 목표
+
+- material_state.json 한 파일에 생산 데이터가 계속 누적되는 구조를 중단한다.
+- 한 Wafer 문서의 크기는 해당 Wafer의 최대 Material 정보로 제한한다.
+- 이전에 완료된 Wafer 수가 늘어도 한 번의 hot save에서 쓰는 byte가 증가하지 않게 한다.
+- 완료됐지만 Cassette에 실물이 남은 Wafer와 Die 정보는 보존한다.
+- Cassette 교체 또는 명시적 Clear 후 더 이상 도달 가능한 Material이 아니면 안전하게 회수한다.
+- 저장 도중 종료되어도 이전 정상 전체 상태 또는 새 정상 전체 상태 중 하나로 복구한다.
+- 서로 다른 세대의 Cassette/Wafer/Die를 섞어 정상 상태로 인정하지 않는다.
+- 기존 MaterialSnapshot으로 재조립한 뒤 기존 검증기를 통과해야만 런타임에 게시한다.
+- Auto hot path가 디스크 write/flush/manifest replace를 기다리지 않게 한다.
+- 저장 시간, lock 시간, byte, backlog, PendingDurabilityAge를 계측한다.
+
+5.2 이 작업의 비목표
+
+- 무한 생산 이력 저장소 구축
+- 검사 결과 CSV나 LOT 이력 형식 변경
+- 완료 Wafer 상세를 summary로 축약하여 기존 재시작 의미를 바꾸는 것
+- Auto Sequence/Interlock 개선
+- Material 비즈니스 규칙 변경
+- SQLite 도입
+- Journal/Delta/Replay 도입
+- MiniDump를 Material 영속화 수단으로 사용하는 것
+- 전원 차단 직전 메모리 변경까지 0건 손실이라고 근거 없이 주장하는 것
+
+
+6. 파일 증가 목표의 정확한 정의
+
+"파일이 커지지 않는다"는 다음 계약으로 정의한다.
+
+- 활성 Wafer 문서는 그 Wafer가 진행되는 동안 상세 정보에 따라 증가할 수 있다.
+- 단일 Wafer 문서는 장비가 처리할 수 있는 단일 Wafer 최대 Die/Inspection 크기를 넘어서
+  이전 생산 Wafer 때문에 계속 증가하지 않는다.
+- Manifest는 현재 복구에 필요한 물리 Material 참조 수까지만 증가한다.
+- PWJ 소유 영역은 현재 reachable Material graph 최대 수와 고정 세대 수로 계산한 상한 안에 머문다.
+- Cassette를 채우는 동안 총량은 물리 Wafer 수만큼 증가할 수 있다.
+- Cassette 교체/Clear 후 fallback 보존 세대가 해제되면 미참조 파일을 회수한다.
+- 반복 생산 횟수 100회, 1,000회 자체가 최대 파일 수 공식에 포함되면 안 된다.
+- Temp, failed, recovery 진단 파일에도 개수와 기간 상한이 있어야 한다.
+
+reachable Material graph에는 물리 위치의 Wafer뿐 아니라 Die의 Input/Output parent,
+OutputReceiveSource 및 기타 reference 때문에 유지되는 dependency-only Wafer도 포함한다.
+파일/용량 상한은 단순 Cassette Slot 수가 아니라 이 dependency union의 장비상 최대치를 사용한다.
+
+전체 폴더를 첫 Wafer 크기로 영구 고정하려면 완료 Material 상세를 summary 또는 외부 archive로
+이관해야 한다. 이는 재시작 후 Material 의미와 UI 소비자를 변경할 수 있으므로 이번 범위에 넣지 않는다.
+
+
+7. 런타임 상태 계약
+
+런타임에서는 기존 MaterialSnapshot, CassetteMaterial, WaferMaterial, DieMaterial을 그대로 사용한다.
+
+- MaterialStorage.State가 authoritative runtime state다.
+- 기존 MaterialStateService의 mutation 순서와 결과를 바꾸지 않는다.
+- 저장 형식 때문에 런타임 객체를 lazy proxy나 DB row 객체로 바꾸지 않는다.
+- 로드 완료 시 기존 MaterialSnapshot 한 개로 재조립한다.
+- 기존 MaterialStorage.TryPrepareStateForUse와 기존 raw/graph 검증을 재사용하되, 신규 format load에서는
+  prepare 전후 normalized digest/count/ID/list order가 같고 compaction이 idempotent인지 확인한다.
+  신규 committed snapshot을 prepare가 변경하면 그 후보를 정상으로 게시하지 않는다.
+- 기존 enum, DateTime sentinel, field-specific double 정규화 의미를 보존한다. 현재 persistence가
+  NaN/Infinity를 위치/offset/measurement별 fallback으로 바꾸는 계약을 raw NaN 보존으로 바꾸지 않는다.
+- WaferId는 표시용 ID이며 파일 identity로 사용하지 않는다.
+- WaferInstanceId를 물리 Wafer의 stable identity로 사용한다.
+- DieId의 대소문자 비교와 중복 판정은 기존 의미를 보존한다.
+
+
+8. 저장 디렉터리 구조
+
+권장 구조:
+
+State\
+  material-pwj\
+    material-manifest.0.json
+    material-manifest.1.json
+    material-manifest.2.json
+    wafers\
+      {safe-wafer-key}\
+        state.0.json
+        state.1.json
+        state.2.json
+  material-pwj.bootstrap.{guid}\
+    ... migration 준비 중 파일 ...
+
+명칭은 현재 프로젝트 규칙에 맞게 조정할 수 있지만 다음 속성은 유지한다.
+
+- Manifest slot 수는 고정이다.
+- 각 논리 문서의 revision slot 수도 고정이다.
+- Temp는 최종 파일과 같은 디렉터리 및 같은 volume에 만든다.
+- Manifest는 해당 store directory root 기준 상대 경로만 저장한다.
+- Manifest의 RelativePath에는 material-pwj 또는 material-pwj.bootstrap.{guid} 이름을 넣지 않는다.
+- 예를 들어 document path는 wafers\{safe-wafer-key}\state.0.json 형태다.
+- 표시용 WaferId를 디렉터리명으로 사용하지 않는다.
+- WaferInstanceId 원문을 그대로 경로에 넣지 말고 검증된 canonical storage key를 사용한다.
+- path traversal, rooted path, device path, alternate data stream, 금지 문자를 거부한다.
+
+canonical storage key 기본 계약:
+
+- WaferInstanceId를 Trim한다.
+- 기존 OrdinalIgnoreCase identity 의미에 맞게 invariant case로 정규화한다.
+- 정규화된 ID의 UTF-8 byte에 full SHA-256을 적용하고 전체 hex를 storage key로 쓴다.
+- Manifest StableId와 document StableId를 OrdinalIgnoreCase로 다시 대조한다.
+- 같은 key가 다른 identity를 가리키거나 collision/duplicate가 발생하면 save/load를 거부한다.
+
+별도의 단일 active marker를 새 형식 활성화의 유일한 근거로 두지 않는다.
+검증을 마친 bootstrap directory 전체를 같은 volume의 최종 material-pwj directory로
+Directory.Move 또는 검증된 동등 방식으로 원자 게시한다.
+최종 material-pwj directory가 존재하면 신규 형식이 한 번 활성화된 것으로 간주하고,
+그 뒤에는 Legacy 파일로 자동 fallback하지 않는다.
+Migration 중 생성된 material-pwj.bootstrap.* directory는 활성화 근거가 아니며
+state 후보에도 포함하지 않는다.
+
+State root와 store instance root를 구분한다.
+
+- State root는 final/bootstrap directory를 찾고 게시하는 부모인 D:\CDT-320\State다.
+- Store instance root는 지금 검증하거나 사용하는 정확한 directory다. migration 준비 중에는
+  material-pwj.bootstrap.{guid}, 게시 후에는 material-pwj다.
+- core store는 constructor 또는 명시적 parameter로 정확한 store instance root를 주입받는다.
+- Manifest RelativePath는 주입된 store instance root에만 resolve하고, canonical full path가 그 root
+  내부인지 확인한 뒤 open/write/delete한다.
+- 문자열 canonical containment만 신뢰하지 않는다. State root부터 target까지 존재하는 각 path component의
+  FileAttributes.ReparsePoint를 거부하거나 handle 기반 final path가 허용 root 내부임을 증명한다.
+- 아직 없는 path는 가장 가까운 existing parent부터 한 component씩 만들고 매 단계 reparse/containment를
+  다시 확인한다. Manifest read/write/delete, GC, bootstrap lifecycle 모두 같은 규칙을 사용한다.
+- 자동 삭제는 앱이 만든 것으로 식별된 regular file과 reparse point가 아닌 빈 directory에만 허용한다.
+- bootstrap에서 검증한 동일 Manifest는 Directory.Move 뒤 final store instance root에 다시 bind해도
+  RelativePath나 payload hash 변경 없이 같은 내부 파일을 가리켜야 한다.
+- production static facade만 D:\CDT-320\State를 State root로 bind하고 final/bootstrap용 store instance를
+  명시적으로 만든다. Test Harness는 매 실행마다 생성한 격리 temp State root와 그 아래 store instance만
+  사용한다. Test가 static production RootDir를 reflection으로 바꾸거나 D:\CDT-320을 fallback으로
+  사용하는 구조는 금지한다.
+- final/bootstrap directory 생성·게시·잔여 bootstrap 정리 같은 lifecycle 작업은 State root 바로 아래의
+  인식된 directory 이름에만 허용하고, 그 밖의 State root 파일이나 directory는 건드리지 않는다.
+
+production State root가 local NTFS이며 bootstrap/final/temp가 같은 volume인지 확인한다.
+대상 filesystem에서 File.Replace/File.Move/Directory.Move의 원자 경계를 검증한다.
+Flush(true)만으로 검증하지 않은 전원 차단 내구성까지 보장한다고 표현하지 않는다.
+원자 directory 게시를 증명할 수 없는 filesystem이면 migration을 BLOCKED 처리한다.
+
+
+9. Manifest 계약
+
+Manifest에는 최소 다음 정보가 있어야 한다.
+
+- StoreFormatVersion
+- MaterialSnapshotVersion
+- EpochId
+- Generation
+- SnapshotRevision
+- CommitKind = NormalSave | RedundancyRepair | RetirementBarrier | Migration
+- WriterSessionId
+- CapturedSaveVersion
+- SourceGeneration. RedundancyRepair에서 필수다.
+- RetirementBarrierId, RetirementBarrierStage, RetirementBarrierTargetCount. RetirementBarrier에서 필수다.
+- SnapshotSavedAtUtc. MaterialSnapshot.SavedAt의 canonical UTC 값이다.
+- CommittedAtUtc. 해당 physical Manifest generation의 commit 진단 시각이다.
+- SaveReason
+- RecipeName
+- LotId
+- Cassettes와 모든 Slot 참조
+- OrderedWaferInstanceIds. MaterialSnapshot.Wafers의 정확한 순서다.
+- 문서 entry 목록
+- 전체 Wafer 수
+- 전체 Die 수
+- NormalizedSnapshotSha256
+- ManifestPayloadSha256
+
+각 문서 entry에는 최소 다음 정보가 있어야 한다.
+
+- DocumentKind
+- StableId
+- RelativePath
+- DocumentSchemaVersion
+- ByteLength
+- Sha256
+- WaferCount
+- DieCount
+
+Manifest의 Generation과 SnapshotRevision은 서로 다른 의미를 가진다.
+
+- Generation은 저장소 commit 순서다.
+- SnapshotRevision은 기존 Material snapshot 발급 순서다.
+- NormalSave와 RetirementBarrier의 WriterSessionId/CapturedSaveVersion은 현재 process 요청과 snapshot을
+  연결한다. 같은 current WriterSessionId의 NormalSave는 Committed receipt, 완료된 full-ring barrier만
+  Sealed receipt가 된다.
+- RedundancyRepair는 source Manifest의 WriterSessionId/CapturedSaveVersion을 그대로 보존하고
+  SourceGeneration을 기록한다. 새 business snapshot 또는 새 durability acknowledgement로 세지 않는다.
+- RedundancyRepair의 SnapshotRevision과 재조립 의미는 source와 동일해야 한다.
+- RetirementBarrier의 모든 stage는 같은 WriterSessionId/CapturedSaveVersion/SnapshotRevision/semantic digest를
+  가지며 마지막 stage와 full rescan이 성공한 뒤에만 originating WriterSession의 durability receipt가 된다.
+- Migration과 중간 RetirementBarrier stage는 현재 process의 CommittedSaveVersion을 전진시키지 않는다.
+- Startup 최신 상태 선택에는 process-local CapturedSaveVersion을 사용하지 않는다.
+- 둘 다 신뢰 가능한 단조 증가 범위를 검증한다.
+- 파일 수정 시각이나 파일 크기로 최신 상태를 선택하지 않는다.
+- 같은 Epoch에서 동일 Generation을 가진 서로 다른 Manifest가 둘 이상이면 임의로 하나를 고르지 않는다.
+- byte/hash까지 완전히 같은 중복인지 확인하고, 서로 다르면 해당 Generation을 ambiguous corruption으로 거부한다.
+- 하나의 최종 store directory에는 하나의 authoritative EpochId만 허용한다.
+- 서로 다른 Epoch의 최종 Manifest가 공존하면 Generation을 상호 비교하지 않고 Recovery Required로 처리한다.
+- 같은 Epoch 안에서는 Generation만 commit 정렬 키로 사용한다.
+- 더 높은 Generation의 SnapshotRevision이 더 낮으면 해당 후보를 손상으로 거부한다.
+- 동일 Generation의 byte-identical 복제본은 서로 다른 두 보호 generation으로 세지 않는다.
+
+Manifest는 작은 전역 checkpoint다. OrderedWaferInstanceIds는 reachable Wafer 수로 제한되며 각 ID는
+문서 entry와 정확히 1:1이어야 한다. Wafer 상세 또는 전체 Die 목록을 Manifest에 중복 저장하지 않는다.
+
+NormalizedSnapshotSha256는 물리 slot path와 commit metadata에 독립적인 logical snapshot digest다.
+다음 canonical descriptor의 SHA-256으로 계산한다.
+
+- MaterialSnapshotVersion과 SnapshotRevision
+- 정규화된 SnapshotSavedAtUtc/SaveReason/RecipeName/LotId/Cassettes/Slot reference 전체
+- OrderedWaferInstanceIds
+- OrderedWaferInstanceIds 순서의 logical document tuple:
+  DocumentKind, normalized StableId, DocumentSchemaVersion, ByteLength, Sha256, WaferCount, DieCount
+- 전체 Wafer/Die count
+
+RelativePath, Generation, CommitKind, WriterSessionId, CapturedSaveVersion, CommittedAtUtc,
+barrier stage는 이 logical digest에서 제외한다. document Sha256에는 Wafer/Die 내용과 global Die order link가
+포함된다. load는 모든 document를 검증한 뒤 같은 descriptor를 재계산해 Manifest 값과 비교한다.
+RetirementBarrier의 모든 stage는 이 digest가 정확히 같아야 한다.
+
+ManifestPayloadSha256는 필수다.
+ManifestPayloadSha256 필드만 빈 값으로 둔 canonical Manifest payload 전체의 SHA-256으로 계산하며
+NormalizedSnapshotSha256를 포함한 다른 모든 필드는 payload hash에 포함한다.
+Manifest JSON을 parse한 직후, entry 경로를 열거나 document를 읽기 전에 payload hash를 검증한다.
+
+
+10. Wafer 문서 계약
+
+각 Wafer 문서는 최소 다음을 가진다.
+
+- DocumentSchemaVersion
+- DocumentKind
+- StableId
+- WaferMaterial 한 개
+- 해당 문서가 canonical owner인 DieMaterial 목록
+- 각 persisted Die entry의 PreviousGlobalDieId. 첫 항목은 null sentinel이며 MaterialSnapshot.Dies의
+  전역 순서를 보존하기 위한 persistence-only link다.
+
+중요:
+
+- Global SnapshotRevision, SnapshotSavedAtUtc, CommittedAtUtc, SaveReason처럼 저장마다 바뀌는 값을
+  Wafer 문서 내용에 넣지 않는다.
+- 저장마다 바뀌는 전역 필드를 넣으면 완료 Wafer 파일까지 매번 hash가 달라져 다시 쓰게 된다.
+- 문서 내용이 의미적으로 변하지 않았으면 이전 문서 reference를 그대로 재사용한다.
+- 동일한 Die는 전체 문서 집합에서 정확히 한 번만 저장한다.
+- MaterialSnapshot.Wafers는 Manifest의 OrderedWaferInstanceIds 순서로 재조립한다.
+- 전체 문서의 PreviousGlobalDieId는 정확히 하나의 head를 가진 비순환 chain을 이루고 모든 Die를
+  정확히 한 번 방문해야 한다. 그 chain 순서로 MaterialSnapshot.Dies를 재조립한다.
+- predecessor가 제거/삽입/이동되어 link가 바뀌면 해당 owner document도 변경 문서로 판정한다.
+- 이 분산 order metadata는 현재 reachable Wafer/Die 수 O(Nr + Nd)로 제한되며 생산 누적 이력이 아니다.
+- 각 Wafer.DieIds, OutputReceiveSlots, inspection/measurement 등 다른 List도 원래 순서를 보존한다.
+- 정렬로 의미를 바꾸지 않는다.
+- Wafer.State가 Finish라는 이유만으로 문서를 강제로 동결하지 않는다.
+- 해당 Wafer가 canonical owner인 Die의 Place/Inspection/Output 정보가 계속 바뀌면
+  그 owner 문서는 변경 문서이며 함께 저장해야 한다.
+- Wafer와 canonical-owned Die 전체 byte가 실제로 같을 때만 완료 문서를 재사용한다.
+
+문서 byte를 canonical serialization한 뒤 SHA-256을 계산한다.
+문서가 이전 commit의 문서와 byte/hash가 같으면 새 파일을 쓰지 않는다.
+
+Canonical serialization은 wall-clock time, process, culture, time zone에 독립적이어야 한다.
+동일 의미 document를 다른 시각 또는 프로그램 재시작 후 직렬화해도 byte와 SHA-256이 같아야 한다.
+
+최소 고정 계약:
+
+- UTF-8 BOM 없음
+- indentation과 불필요한 공백 없음
+- persistence DTO의 명시적인 member 순서
+- invariant culture
+- enum 표현 방식 고정
+- double NaN/Infinity/negative zero 정규화 정책 고정
+- DateTime Kind/UTC/ticks 또는 ISO-8601 표현 규칙 고정
+- optional DateTime sentinel은 SafeEmptyDateTime 1900-01-01T00:00:00Z 같은 고정값 사용
+- per-document fallback에 DateTime.Now/UtcNow 사용 금지
+
+특히 BarcodeUpdatedAt, PickedAt 같은 optional sentinel과 필수 CreatedAt/UpdatedAt의 비정상 값은
+저장 시각마다 달라지지 않는 필드별 deterministic 정책을 사용한다.
+현재 NormalizeSnapshotDateTimes의 DateTime.Now fallback을 per-wafer hash 입력에 그대로 사용하지 않는다.
+MaterialSnapshot.SavedAt/SaveReason은 capture 시점의 SnapshotSavedAtUtc/SaveReason으로 Manifest에 두고,
+physical generation commit 시각은 별도 CommittedAtUtc로 둔다. load 시 MaterialSnapshot.SavedAt과
+SaveReason은 선택 Manifest의 capture 값을 복원한다. barrier/repair stage가 이 값을 임의 재발급하지 않는다.
+
+동일 persistence snapshot에 변경을 주지 않고 100회 저장 요청했을 때
+초기 physical replica가 모두 정상인 fault/recovery/repair 없는 steady state에서는
+changed document count와 document write count가 모두 0이어야 한다.
+
+
+11. Die canonical ownership
+
+Die의 canonical owner는 다음 우선순위로 결정한다.
+
+1. 유효한 InputWaferInstanceId
+2. Input owner가 없을 때 유효한 OutputWaferInstanceId
+3. 유효한 owner가 없으면 기존 graph validation과 동일하게 저장 실패
+
+다음 규칙을 지킨다.
+
+- Input과 Output Wafer 양쪽 문서에 같은 Die를 중복 저장하지 않는다.
+- Output Wafer의 OutputReceiveSlots는 DieId/SourceDieUid reference를 유지한다.
+- 로드 시 모든 문서를 읽은 뒤 reference를 연결하고 graph 전체를 검증한다.
+- Input owner Wafer가 물리 위치에서 사라져도 Output Material이 해당 Die를 참조하면
+  그 owner 문서는 dependency로 계속 보존한다.
+- owner WaferMaterial이 실제 snapshot에 없는데 owner ID만 남는 비정상 graph를 임의 보정하지 않는다.
+- 신규 persistence 계층이 Material을 임의 삭제하지 않는다.
+- 기존 MaterialStateCompactor.TryValidateForSave를 먼저 통과시킨다.
+- 그 후 partition 추가 계약으로 저장 사본에 남은 모든 Die가 정확히 하나의 canonical owner를
+  가져야 한다.
+- passive parentless Die는 기존 validator보다 엄격해지는 신규 persistence validation이다.
+  Baseline 또는 Legacy migration에서 발견되면 조용히 삭제하거나 owner를 임의 발급하지 말고
+  구현/마이그레이션을 BLOCKED로 보고한다.
+
+Pick/Place처럼 Input과 Output 양쪽이 함께 바뀌면 관련 문서들을 모두 먼저 쓰고
+하나의 Manifest commit으로 동시에 publish한다.
+
+
+12. 저장용 사본과 문서 변경 검출
+
+안전한 1차 구현은 현재의 일관된 전체 MaterialSnapshot 저장 사본 생성을 보존한다.
+
+권장 1차 순서:
+
+1. _stateSync 안에서 기존 방식대로 일관된 immutable MaterialSnapshot 사본을 만든다.
+2. _stateSync를 해제한다.
+3. 사본을 Manifest 및 Wafer 문서로 분할한다.
+4. 각 문서를 직렬화하고 이전 committed hash와 비교한다.
+5. 변경된 문서만 디스크에 쓴다.
+6. 작은 Manifest만 매 commit 갱신한다.
+
+이 방식은 전체 사본 생성 비용은 남지만, 가장 큰 문제인 전체 파일 반복 disk write를 먼저 제거한다.
+현재보다 lock 시간이 늘어나서는 안 된다.
+
+다음 항목만으로 변경 문서를 판정하지 않는다.
+
+- SaveReason 문자열
+- UpdatedAt 하나
+- 현재 위치 하나
+- 최근 Auto 메서드 이름 추정
+
+현재 모든 mutation 경로가 UpdatedAt을 일관되게 갱신한다고 증명되지 않았기 때문이다.
+
+save worker/capture와 동시에 실행 가능한 모든 persisted Material 필드 mutation이 _stateSync와 같은
+일관성 경계 안에서 수행되거나 증명된 immutable 전달 경로를 사용한다는 정적 감사가 선행돼야 한다.
+MaterialStateService.State와 MaterialStorage.State의 public mutable 노출을 포함해 모든 write site를 찾는다.
+
+startup의 InitializeDefaultState와 RecipeName/LotId 직접 대입처럼 lock 밖 mutation은 save worker,
+Auto-cycle task, UI/background mutation 등록 전에 끝난다는 happens-before를 코드 경로와 테스트로
+증명한 경우에만 허용한다. worker 시작 후에는 같은 direct mutation 경로가 없어야 한다. 이 ordering을
+증명하지 못하거나 concurrent direct write가 하나라도 남으면 위험 보고만 하고 구현 완료를 BLOCKED
+처리한다. 필요한 최소 persistence-boundary wrapper가 저장 계층 범위를 넘어가면 먼저 사용자 승인을
+받으며, 이를 고치기 위해 Sequence/Interlock을 수정하지 않는다.
+
+성능 측정에서 전체 사본 생성이 여전히 UPH gate를 실패하게 하는 경우에만 2차 최적화를 검토한다.
+2차 최적화도 Auto 호출부를 수정하지 않고 persistence 계층에서 완전한 포함 규칙을 증명할 수 있어야 한다.
+증명할 수 없으면 Sequence를 건드리지 말고 잔여 병목으로 보고한다.
+
+
+13. 고정 세대와 immutable-while-referenced 규칙
+
+권장 기본값:
+
+- ManifestSlotCount = 3
+- ProtectedValidManifestCount = 2
+- DocumentSlotCount = 3
+- FailedDiagnosticRetentionCount = 3
+- TempArtifactRetentionCount = 3
+- TempArtifactMaxAge = 24시간
+- OrphanArtifactMaxCount와 OrphanArtifactMaxBytes = 사전 승인된 고정값
+- BootstrapArtifactMaxCount와 BootstrapArtifactMaxBytes = 사전 승인된 고정값
+
+이 값은 한곳에서 정의하고 코드와 문서가 다르게 되지 않게 한다.
+
+다음 규칙이 핵심이다.
+
+- 최신 정상 Manifest 두 개가 들어 있는 Manifest slot 자체를 overwrite하지 않는다.
+- 세 번째 비보호 Manifest slot에만 새 Manifest를 commit한다.
+- 최신 정상 Manifest 두 개가 참조하는 문서 slot은 overwrite하거나 삭제하지 않는다.
+- 변경 문서는 보호 중인 두 Manifest가 참조하지 않는 slot에만 쓴다.
+- 쓸 수 있는 안전 slot이 없으면 기존 정상 파일을 덮어쓰지 말고 save를 실패 처리한다.
+- 최신 보호 Manifest 두 개가 참조하는 동안 문서는 immutable하다.
+- 세 번째 비보호 Manifest와 그 전용 reference는 retirement candidate이며 다음 commit 준비 중
+  overwrite되어 invalid가 될 수 있다.
+- 새 Manifest commit 전에는 최신 보호 Manifest 두 개와 그 참조 문서가 온전히 남아 있어야 한다.
+- cleanup은 새 Manifest commit 성공 후에만 수행한다.
+
+최신 두 Manifest의 physical independence도 필수다.
+
+- 최신 두 정상 Manifest는 서로 다른 Generation이어야 하며 동일 Manifest 복사본을 두 세대로 세지 않는다.
+- 두 Manifest에 공통으로 존재하는 같은 logical document는 서로 다른 physical slot path를 참조해야 한다.
+- 새 content hash가 처음 생긴 fault-free 정상 commit transition에서는 보호되지 않은 제3 slot에
+  primary를 한 번 쓴다.
+- 다음 commit에서 내용이 그대로이면 직전 최신 Manifest와 다른 path의 검증된 동일-hash replica를 선택한다.
+- 검증된 alternate replica가 없으면 fault-free independence 확보 transition에서 보호되지 않은 slot에
+  같은 canonical byte를 한 번 복제하고,
+  Flush(true)/readback/hash 검증 후 새 Manifest가 그 replica를 참조한다.
+- 동일 hash의 healthy trusted replica 두 개가 확보되고 fault/recovery/repair가 없으면 두 path를 교대로
+  참조하며 추가 write를 하지 않는다.
+- 내용이 다시 바뀌면 위 절차를 새 content hash에 대해 반복한다.
+- 신규 logical document가 최신 Manifest에 처음 등장하는 경우 이전 Manifest에는 그 Material이 없는
+  old state가 있으므로 첫 commit은 primary 한 개로 허용한다.
+- orphan 파일은 hash가 우연히 같아도 replica로 신뢰하지 않는다.
+- startup에서 완전 검증된 정상 Manifest가 참조했거나 현재 writer가 write/readback으로 검증한
+  physical file만 replica로 재사용한다.
+- 이 independence를 만들 수 없으면 같은 path를 최신 두 Manifest에 공유하지 말고 save를 실패한다.
+
+따라서 "변경되지 않은 완료 Wafer write 0"의 정확한 의미는 다음과 같다.
+
+- 같은 content hash가 연속적으로 유지되고 검증된 replica가 하나 이상 보존되는 residence의
+  fault-free 정상 transition당 primary write 최대 1회
+- 같은 residence의 fault-free independence 확보 transition당 replica write 최대 1회
+- 동일 hash replica 두 개 확보 후 그 residence가 유지되는 동안 write 0
+- 과거 content의 모든 replica가 합법적으로 retire/GC된 뒤 같은 hash가 다시 등장하면 새 residence로
+  보고 primary/replica를 다시 쓸 수 있다.
+- Migration/bootstrap에서는 운영 시작 전에 두 replica를 미리 만든다.
+
+document write/Flush/readback 뒤 Manifest commit 전 종료되거나 I/O가 실패하면 같은 content를 재시도하며
+actual write가 2회 이상일 수 있다. 미커밋 orphan은 hash가 같다는 이유만으로 trusted replica로 승격하지
+않는다. FailedAttemptWriteCount/Bytes와 retry count/backoff/age를 정상 primary/replica write와 별도로
+계측하고, retry는 제한된 backoff와 operator-visible health warning을 사용한다. Temp/orphan fixed slot 및
+count/byte hard cap을 지키며, 재시도 때문에 파일 수나 용량이 무한 증가해서는 안 된다. 따라서 위 1회
+gate는 fault-free 정상 transition 기준이지 crash/I/O failure를 포함한 저장소 수명 전체 actual-write
+상한이 아니다.
+
+두 physical replica 교대는 단일 replica 손상 뒤 최소 한 개의 완전한 fallback generation을 보장하며,
+손상 직후 정상 독립 generation 두 개가 그대로 남는다고 주장하지 않는다. 정상 독립 generation이
+두 개 미만이거나 공통 document independence가 깨진 상태는 degraded recovery 상태다. 이때 일반 GC와
+retirement cleanup을 금지하고, 현재 정상 snapshot에서 두 번째 독립 generation/replica를 먼저 복구한 뒤
+전체 검증한다. startup은 복구 전 Auto로 진행하지 않으며, 복구 실패는 Recovery Required다. 실행 중
+발견되면 ordinary save보다 redundancy repair를 우선하고, 복구 실패를 정상 save 성공으로 숨기지 않는다.
+
+Material identity 삭제의 durable 경계는 별도 retirement barrier를 사용한다.
+
+- destructive retirement는 SaveReason 문자열이 아니라 직전 committed persistence snapshot과 새 immutable
+  snapshot의 구조 diff로 판정한다. reachable WaferInstanceId/DieId 집합 감소, 전체 state 초기화,
+  Cassette Slot의 HasWafer true->false 또는 WaferId/WaferInstanceId pointer 제거 후 그 identity가 다른
+  physical root로 이동하지 않고 dependency-only로만 남는 경우, physical root/location membership 제거를
+  포함한다. 기존 SaveMaterialInspectionDetail trim은 먼저 적용한 canonical persistence snapshot끼리 비교한다.
+- 위 diff 누락에 대한 안전망으로 TryFlushPendingSave가 명시적으로 기다리는 target snapshot은 삭제 여부와
+  관계없이 모든 고정 Manifest slot을 같은 의미로 채우는 retirement-style durability barrier를 통과해야만
+  성공을 반환한다. Manual/Data Clear/명시적 저장/정상 종료 경계는 따라서 stale pre-boundary fallback을
+  남기지 않는다. 이 판정에도 SaveReason substring을 사용하지 않는다.
+- 해당 snapshot을 RetirementBarrierStage 1..ManifestSlotCount의 서로 다른 Generation으로 동일 atomic
+  경로를 통해 순차 commit한다. 각 단계는 같은 semantic digest/receipt를 가지며 공통 document의 physical
+  independence를 지킨다.
+- 각 단계에서는 직전 최신 보호 두 세대를 보존하고 안전한 제3 slot만 쓴다. 마지막 단계가 끝나면 모든
+  고정 Manifest slot이 post-retirement 의미만 담아 pre-retirement Manifest fallback을 제거해야 한다.
+- 마지막 stage 후 전체 slot/document를 rescan해 post-retirement 의미, 독립성, pre-retirement 정상 후보 0개를
+  확인한다. barrier WriterSessionId가 current WriterSessionId와 같은 originating process에서만
+  CapturedSaveVersion을 CommittedSaveVersion과 SealedSaveVersion으로 인정한다.
+- barrier 중 GC를 금지한다. 중간 종료 후 가장 높은 정상 barrier Manifest가 있으면 그 exact snapshot으로
+  barrier를 재개한 뒤 Auto를 시작한다. 재개/검증 실패는 Recovery Required다.
+- 새 process의 startup resume는 on-disk barrier 복구만 완료한다. 이전 process의 WriterSessionId와
+  CapturedSaveVersion을 보존하되 current process의 CommittedSaveVersion/SealedSaveVersion을 둘 다
+  갱신하거나 초기화하지 않는다.
+- barrier 도중 들어온 더 최신 request는 dirty로 남기며, barrier snapshot에 섞지 않는다.
+- 일반 move/update는 기존 one-generation commit이고, persisted Wafer/Die identity 감소만 이 드문 추가
+  Manifest I/O를 발생시킨다. Auto/Sequence 호출부를 수정하지 않고 writer가 구조 diff로 처리한다.
+
+고정 ring이 실제로 두 정상 세대를 보호할 수 있는지 상태 전이표와 테스트로 증명한다.
+
+
+14. 원자 저장 절차
+
+단일 writer가 다음 순서를 직렬로 수행한다.
+
+1. _stateSync와 기존 lock order를 지키며 WriterSessionId, captured request version,
+   SnapshotRevision, reason을 일관된 snapshot 사본에 결합한다.
+2. 기존 Material validation과 저장용 사본 생성을 수행한다.
+3. 현재 정상 Manifest 후보와 보호 reference 집합을 계산한다.
+   직전 두 committed/trusted Manifest의 document reference union은 새 Manifest commit이 끝날 때까지
+   불변 보호 집합이다. overwrite/delete/GC 후보가 이 union 밖이라는 사실을 Manifest schema/self-hash와
+   startup 또는 current-writer trusted receipt로 보수적으로 다시 확인한다. reference나 receipt가 불명확하거나
+   실제 손상을 발견하면 overwrite/delete/GC를 모두 금지하고 redundancy repair를 우선한다. 이를 위해
+   hot path에서 보호 document 전체를 매번 다시 hash하지 않는다.
+4. 저장 사본을 전역 정보와 논리 문서로 분할한다.
+5. 각 문서를 canonical byte로 직렬화하고 SHA-256을 계산한다.
+6. 이전 committed 문서와 동일하면 직전 최신 Manifest와 다른 path의 검증된 동일-hash replica를
+   선택하고, 없으면 보호되지 않은 제3 slot에 independence replica를 최대 한 번 만든다.
+7. candidate commit 이후 owned artifact/retirement/temp/backup/directory/transient peak를 미리 계산해
+   모든 hard cap을 통과시킨다.
+8. 변경 문서는 보호되지 않은 고정 slot의 Temp에 primary를 쓴다.
+9. FileOptions.WriteThrough 또는 동등한 옵션을 검토하고 FileStream.Flush(true)를 수행한다.
+10. Temp를 닫은 뒤 byte length, hash, schema, stable ID를 다시 검증한다.
+11. 같은 volume에서 Temp를 최종 문서 경로로 원자 교체/이동한다.
+12. 모든 신규/재사용 문서 reference로 새 Manifest를 만든다.
+13. 신규 작성 문서는 readback으로 length/hash/identity를 검증한다.
+    재사용 문서는 startup 또는 이전 commit에서 검증된 entry와 현재 canonical hash 일치를 확인하고,
+    hot commit마다 완료 문서 전체를 disk read/hash하지 않는다.
+14. Manifest Temp를 write, Flush(true), close한다.
+15. Manifest Temp 자체를 다시 읽어 검증한다.
+16. 같은 volume에서 대상 Manifest slot로 원자 교체한다.
+17. Manifest 교체 성공 시점만 durable commit으로 인정한다.
+18. commit receipt에 WriterSessionId, CapturedSaveVersion, SnapshotRevision, Generation, CommitKind를 묶는다.
+    committed Generation/SnapshotRevision은 Manifest 교체 후에만 갱신한다.
+19. NormalSave는 Manifest WriterSessionId가 current WriterSessionId와 같을 때만 Manifest commit 후 정확한
+    CapturedSaveVersion까지 CommittedSaveVersion을 전진시킨다. 완료된 RetirementBarrier도 Manifest
+    WriterSessionId가 current WriterSessionId와 같고 마지막 stage/full rescan이 성공했을 때만
+    CommittedSaveVersion과 SealedSaveVersion을 같은 CapturedSaveVersion까지 전진시킨다.
+    RedundancyRepair와 Migration은 CommittedSaveVersion 또는 현재 process flush watermark를 전진시키지 않는다.
+20. 현재 process에서 새로 생성한 WriterSessionId와 SealedSaveVersion이 flush 목표 이상일 때만
+    명시적 flush 목표를 완료로 판정한다. persisted source receipt로 현재 writer watermark를 초기화하지 않는다.
+    commit된 capture보다 새 request가 있으면 dirty 요청을 유지한다.
+21. 보호 집합을 다시 계산한 뒤 orphan/temp/failed cleanup을 시도한다.
+
+문서 일부만 성공했거나 Manifest commit 전 실패하면 이전 정상 generation을 그대로 사용한다.
+미커밋 파일은 startup에서 state로 자동 편입하지 않는다.
+
+cleanup 실패는 이미 성공한 commit을 무효화하지 않지만 health warning과 재시도 대상으로 남긴다.
+전체 on-disk document hash scrub은 startup 또는 승인된 idle background 진단으로 분리하고
+Auto hot commit과 동시에 전체 문서를 읽지 않는다.
+File.Replace backup 경로를 사용할 경우에도 고정 slot/cap 안에 포함해야 하며,
+timestamp/GUID backup을 commit마다 새로 남기지 않는다. 가능하면 별도 unbounded backup 없이
+보호 Manifest와 document replica가 recovery 역할을 담당한다.
+
+
+15. Save worker와 Auto hot path
+
+기존 API와 호출 계약을 유지한다.
+
+저장 요청 상태 이름을 다음처럼 구분한다.
+
+- RequestedSaveVersion: NotifyAndSave가 접수한 최신 process-local 요청
+- CapturedSaveVersion: 현재 immutable snapshot 사본에 실제 포함됐다고 확정한 요청
+- CommittedSaveVersion: 최소 한 정상 Manifest commit receipt로 durable 확인된 요청
+- SealedSaveVersion: full-ring barrier와 rescan으로 모든 고정 Manifest slot에서 pre-boundary fallback을
+  제거했다고 확인한 요청. 명시적 TryFlush 성공 기준이다.
+
+- NotifyAndSave는 StateChanged와 background save 요청 의미를 유지한다.
+- Auto 호출자는 파일 저장 완료를 기다리지 않는다.
+- TryFlushPendingSave는 호출 시점의 target RequestedSaveVersion을 기억하고 같은 WriterSession에서
+  SealedSaveVersion이 target 이상일 때만 성공한다. target이 이미 NormalSave로 commit됐어도 아직 seal되지
+  않았으면 target 이상을 포함한 최신 immutable snapshot의 full-ring barrier를 요청하고 기다린다.
+- 저장 실패 시 dirty 요청을 잃지 않고 제한된 backoff로 재시도한다.
+- 오래된 save가 더 최신 generation을 덮어쓰지 못한다.
+- 저장 도중 신규 요청이 들어오면 신규 요청은 dirty로 남는다.
+- 하나의 writer만 Manifest와 문서 slot을 변경한다.
+- _stateSync 안에서 file open/write/flush/hash readback/replace/cleanup을 하지 않는다.
+- WriterSessionId가 다른 과거 request version을 현재 flush 완료 근거로 사용하지 않는다.
+- _stateSync와 _saveRequestSync의 lock 취득 순서를 문서화하고 역순 취득이 없음을 증명한다.
+- CapturedSaveVersion은 live state가 바뀔 수 없는 capture 경계 안에서 snapshot과 함께 고정한다.
+- snapshot copy가 끝난 뒤 도착한 더 높은 RequestedSaveVersion을 방금 만든 snapshot의
+  CapturedSaveVersion으로 올려 적지 않는다.
+- current WriterSessionId의 NormalSave commit 또는 완료된 RetirementBarrier 후 CommittedSaveVersion은 정확히
+  그 snapshot의 CapturedSaveVersion까지만 전진하며, 완료 시점의 최신 RequestedSaveVersion으로 건너뛰지 않는다.
+- SealedSaveVersion은 current WriterSessionId에서 완료된 full-ring RetirementBarrier의
+  CapturedSaveVersion까지만 전진한다.
+- RedundancyRepair/Migration과 중간 RetirementBarrier stage는 request acknowledgement가 아니다.
+- WriterSessionId는 process 시작마다 새로 만들고 persisted source receipt로 초기화하지 않는다.
+- Program의 Global\QMC.CDT-320.SingleInstance mutex가 production에서 두 번째 process writer를
+  실제로 차단하는지 확인한다.
+- 같은 State root를 두 process가 동시에 쓸 수 있다면 store-level exclusive writer lock 없이는
+  완료 처리하지 않는다.
+
+RetryMinInterval, RetryMaxBackoff, RetryWriteAttemptsPerHour, RetryWriteBytesPerHour,
+RetryCircuitOpenDuration을 배포 전에 숫자로 고정한다. 실패가 시간당 attempt/byte budget을 넘으면
+circuit을 열어 추가 file write를 멈추되 dirty 요청은 유지하고 operator 경고와 수동 재시도 경로를
+제공한다. 영구 I/O 실패가 UPH와 디스크에 무제한 재시도 부하를 만들면 안 된다.
+
+현재 quiet interval은 1초, minimum interval은 5초다.
+값을 무조건 변경하지 말고 먼저 기준 성능과 PendingDurabilityAge를 측정한다.
+
+worker의 save 시작 조건은 다음 OR 조건이다.
+
+- LastRequestUtc 이후 full quiet interval이 지났거나
+- FirstPendingRequestUtc 기준 max dirty age에 도달했다.
+
+두 번째 조건은 요청 간격이 quiet보다 짧게 계속될 때 quiet 대기를 override하여 영구 지연을 막는다.
+
+이를 위해 FirstPendingRequestUtc, LastRequestUtc, Requested/Captured/Committed/SealedSaveVersion,
+last committed UTC를 명시적으로 관리한다.
+quiet 판단은 LastRequestUtc를, max dirty age와 PendingDurabilityAge는 FirstPendingRequestUtc를 사용한다.
+FirstPendingRequestUtc는 해당 pending 범위가 commit된 뒤에만 초기화한다.
+정확한 quiet/max-age 값은 baseline과 장비팀 승인값으로 결정한다.
+
+
+16. 비정상 종료와 데이터 유실 계약
+
+Auto가 durable commit을 기다리지 않는 한 마지막 background commit 이후 메모리 변경은
+프로세스 강제 종료 또는 전원 차단에서 유실될 수 있다.
+
+따라서 다음을 지킨다.
+
+- "Material 데이터 0건 유실 보장"이라고 표현하지 않는다.
+- last requested revision, last committed revision, last durable UTC를 계측한다.
+- requested request version, captured request version, committed request version의 관계를 계측한다.
+- PendingDurabilityAge는 pending request가 없으면 0으로 정의하고,
+  pending request가 있으면 가장 오래된 미커밋 요청 시각부터 현재까지로 정의한다.
+- 정상 운전 중 PendingDurabilityAge의 P50/P95/P99/Max를 측정한다.
+- 단순 LastCommitAge는 장시간 Material 변경이 없으면 계속 증가하므로 durability gate로 사용하지 않는다.
+- 프로세스 crash 시 복구 가능한 마지막 committed generation을 로그에 남긴다.
+- Manual 작업, Data Clear, 명시적 저장, 정상 종료처럼 기존에 Flush가 필요한 경계는
+  TryFlushPendingSave의 성공을 확인한다.
+- MiniDump 메모리를 공식 Material 복구 수단으로 사용하지 않는다.
+
+엄격한 0-loss가 요구되면 Auto가 durable acknowledgement를 기다리거나
+SQLite WAL/동기 Journal 같은 별도 구조가 필요하다.
+이는 현재 "Auto Sequence 무수정 + UPH 우선" 범위와 충돌하므로 임의로 구현하지 않고 보고한다.
+
+
+17. Startup load와 generation 선택
+
+최종 material-pwj directory가 존재하여 새 형식이 활성화된 경우 다음 순서로 로드한다.
+
+1. 고정 Manifest slot 전체를 검색한다.
+2. 각 candidate read를 EmptySlot, Valid, DeterministicCorruption, TransientUnavailable로 분류한다.
+3. 각 Manifest의 format, epoch, generation, revision 범위를 검증한다.
+4. Manifest의 모든 상대 경로를 final material-pwj store instance root에 resolve하고 그 root 내부인지 확인한다.
+5. 참조 문서의 존재, length, SHA-256, schema, stable ID를 검증한다.
+6. 중복 WaferInstanceId, 중복 DieId, 중복 path, 중복 entry를 거부한다.
+7. OrderedWaferInstanceIds와 PreviousGlobalDieId chain을 검증해 전체 문서를 MaterialSnapshot으로 재조립한다.
+8. Manifest count와 재조립 count를 비교한다.
+9. 기존 raw value 검증과 graph validation을 수행한다.
+10. TryPrepareStateForUse 전/후 normalized digest/count/ID/list order 동일성과 compaction idempotence를 검증한다.
+11. 모든 검증을 통과한 같은 Epoch 후보 중 가장 높은 Generation을 선택한다.
+12. 미완료 RetirementBarrier가 있으면 그 exact snapshot으로 모든 slot barrier를 먼저 완료한다.
+13. 서로 다른 Generation의 정상 후보 두 개와 공통 document physical independence가 있는지 확인한다.
+14. 둘 중 하나라도 부족하면 아래 startup repair 계약을 수행한다.
+15. repair 후에도 정상 독립 generation 두 개를 확보하지 못하면 Recovery Required다.
+16. 보호 generation 두 개와 완료된 retirement barrier가 확보된 뒤 선택된 snapshot만 MaterialStorage.State에 게시한다.
+
+TransientUnavailable에는 sharing violation, access denied, 일시적 device/path unavailable 및 read I/O 예외가
+포함된다. 하나라도 있으면 사전 승인된 횟수/간격의 bounded retry 동안 전체 candidate scan을 다시 하고,
+해소 전에는 낮은 Generation fallback, startup repair, overwrite, GC를 하지 않는다. retry 후에도 남으면
+Recovery Required다. 완전 read 후의 JSON/schema/self-hash/length/hash/identity 불일치 같은
+DeterministicCorruption만 해당 generation을 버리는 fallback 근거로 사용한다. Manifest 자체를 열지 못해
+Generation을 모르는 transient slot도 더 높은 plausible candidate일 수 있으므로 동일하게 fail-closed다.
+아직 commit된 적 없는 고정 Manifest slot의 정상적인 부재는 EmptySlot이며 오류가 아니다. 반면 Valid
+Manifest가 참조한 document의 FileNotFound/경로 부재는 bounded retry와 안정된 재확인 후에만
+DeterministicCorruption으로 확정한다. File.Exists가 access/I/O 오류를 false로 숨기는 방식에 의존하지 않는다.
+
+가장 최신 후보가 DeterministicCorruption이면 그 generation 전체를 버리고 이전 완전한 generation으로 fallback한다.
+일부 최신 문서와 일부 과거 문서를 조합해 새로운 정상 상태를 만들지 않는다.
+같은 Epoch/Generation의 서로 다른 정상 후보가 충돌하면 파일 시각으로 결정하지 말고
+그 Generation을 거부하거나 Recovery Required로 처리한다.
+정상 후보가 하나 남았다는 이유만으로 degraded 상태에서 Auto startup을 계속하지 않는다.
+
+startup repair 계약:
+
+- 완전 정상 후보 수와 관계없이 최신 두 distinct Generation을 구성할 수 없거나 공통 logical document의
+  physical independence가 없으면 repair한다.
+- repair source는 가장 높은 Generation의 완전 정상 Manifest다. commit 전까지 현재 최신 보호 후보와
+  그 모든 참조 document를 절대 overwrite/delete하지 않는다.
+- 같은 Epoch에서 JSON/schema/header/self-hash까지 검증된 모든 Manifest header를 모은다. document까지
+  정상인 후보만 source로 사용할 수 있지만, repair Generation 충돌 방지를 위해 document가 손상된
+  self-hash-valid Manifest의 Generation도 이 max 계산에는 포함한다.
+- repair Generation은 checked(max trusted-header Generation + 1)이다. 범위 초과/overflow면 Recovery Required다.
+- 다른 Epoch의 self-hash-valid Manifest가 있으면 기존 규칙대로 Recovery Required이며 max에 섞지 않는다.
+- 보호되지 않은 Manifest/document slot만 사용하고 14장의 동일한 atomic document-then-Manifest commit
+  경로, Flush(true), readback, self-hash 검증을 그대로 적용한다.
+- CommitKind는 RedundancyRepair다. SnapshotRevision과 persistence 의미, WriterSessionId,
+  CapturedSaveVersion은 source와 동일하게 보존하고 SourceGeneration을 기록한다.
+- repair commit은 CommittedSaveVersion을 전진시키거나 manual/exit flush 목표를 만족한 것으로 세지 않는다.
+- commit 뒤 고정 Manifest slot 전체와 모든 document를 처음부터 다시 scan하고, 서로 다른 정상 Generation
+  두 개와 공통 logical document의 physical independence를 확인해야만 정상 startup을 계속한다.
+- repair 어느 단계든 실패하면 source를 보존한 채 GC를 금지하고 Recovery Required로 남긴다.
+
+모든 후보가 실패하면 빈 상태로 조용히 초기화하거나 Legacy 파일을 자동 부활시키지 않는다.
+Recovery Required로 명확히 보고하고 기존 안전 차단 흐름을 유지한다.
+
+MaterialSnapshotStore는 최소한 다음 load 결과를 호출자가 구분할 수 있게 한다.
+
+- 저장소가 실제로 없음
+- Legacy migration 가능
+- 신규 저장소 정상 load
+- 신규 저장소 증거는 있으나 정상 Manifest 0개인 Recovery Required
+
+Recovery Required에서 Form1.PromptMaterialRecoveryOnStartup은 InitializeForRecipe를 호출하지 않는다.
+명시적 결과 또는 전용 예외를 호출자에게 전달해 Form1 생성이 Auto-cycle task 등록 지점까지
+계속 진행하지 않게 하고, 오류 표시 후 startup을 중단하거나 프로그램을 종료한다.
+현재 PromptMaterialRecoveryOnStartup 바깥의 일반 catch(Exception)가 Recovery Required 전용 결과/예외를
+일반 load 오류로 흡수해 InitializeForRecipe를 호출하지 않도록 전용 catch를 먼저 두거나 즉시 rethrow/종료한다.
+빈 default Material을 둔 채 Form/UI/Controller 초기화를 계속하는 구현은 fail-closed로 인정하지 않는다.
+정상 snapshot 복원 선택과 "저장소가 실제로 없음" 초기화 동작은 기존 의미를 유지한다.
+이를 구현하기 위해 Form1의 다른 startup/Auto 흐름을 넓게 수정하지 않는다.
+
+알 수 없는 미래 StoreFormatVersion은 임의 보정하지 않는다.
+
+
+18. Legacy material_state.json 마이그레이션
+
+최종 material-pwj directory가 없을 때만 Legacy migration을 검토한다.
+
+권장 순서:
+
+1. 기존 MaterialSnapshotStore.Load의 legacy primary/recovery/backup 선택 로직을
+   별도 TryLoadLegacy 계층으로 보존해 읽는다. 신규 facade Load를 재귀 호출하지 않는다.
+2. 기존 revision 선택과 MaterialStorage.TryPrepareStateForUse 검증을 통과시킨다.
+3. Legacy 파일을 수정하지 않은 상태에서 material-pwj.bootstrap.{guid} directory를 만든다.
+4. 모든 logical document의 검증된 physical replica 두 개와, 서로 다른 replica를 참조하는
+   같은 Epoch의 정상 Manifest generation 1과 2를 bootstrap directory 안에 만든다.
+5. 아직 최종 이름으로 게시하지 않은 두 Manifest와 신규 문서를 통해 각각 다시 조립·검증한다.
+6. 두 generation 모두 정규화된 Material 의미 digest와 count/reference가 Legacy 결과와 같은지 비교한다.
+7. Manifest RelativePath를 bootstrap store instance root에 bind하여 전체 bootstrap inventory, self-hash,
+   document hash, path, 파일 수를 검증하고 flush/close한다. RelativePath는 bootstrap directory 이름을
+   포함하지 않으며 final root로 rebind해도 payload 변경이 없어야 한다.
+8. 완전히 같을 때만 bootstrap directory를 같은 volume의 최종 material-pwj directory로 원자 이동한다.
+9. 이동 직후 동일 Manifest를 final material-pwj store instance root에 bind해 다시 전체 검증한다.
+10. 최종 material-pwj directory 게시 자체를 신규 형식 활성화 commit point로 사용한다.
+11. 최종 directory가 게시된 뒤에는 신규 형식만 primary로 사용한다.
+
+마이그레이션은 idempotent해야 한다.
+중간 종료 후 재실행해도 Wafer/Die가 중복되지 않아야 한다.
+남은 bootstrap directory는 개수/byte 상한 안에서 진단 후 정리하되 최종 store로 읽지 않는다.
+
+Legacy material_state.json, .bak, .recovery.json은 즉시 삭제하거나 overwrite하지 않는다.
+단, 신규 형식 활성화 후 이를 자동 fallback으로 사용하면 오래된 Material이 되살아날 수 있으므로 금지한다.
+신규 형식 활성화 후 Legacy 파일의 byte, SHA-256, LastWriteTime이 더 이상 바뀌지 않는지 검증한다.
+
+신규 형식으로 생산이 진행된 뒤 구버전 프로그램을 실행하면 Legacy 파일이 오래됐을 수 있다.
+rollback 시에는 검증된 신규 -> Legacy export 또는 명시적 운영 복구 절차가 필요하다.
+live dual-write는 I/O를 다시 증가시키므로 기본 구현에 넣지 않는다.
+
+
+19. Garbage collection과 보존
+
+GC는 저장과 분리된 후처리이며 다음 순서를 지킨다.
+
+- hot commit 직후 GC는 Manifest JSON/schema/self-hash/generation과 startup 또는 현재 writer가 만든 trusted
+  document receipt set만 확인해 reference 보호 집합을 보수적으로 계산한다.
+- hot GC가 모든 completed document를 다시 open/hash하지 않는다. receipt 신뢰가 불명확하면 삭제하지 않고
+  GC를 연기한다. 전체 document scrub은 startup 또는 승인된 idle background 진단에서만 수행한다.
+- 가장 최신 정상 Manifest 두 개의 모든 문서 reference를 보호한다.
+- 고정 Manifest slot은 임의 삭제하지 않는다.
+- 최종 material-pwj store directory 자체를 GC가 삭제하거나 이름 변경하지 않는다.
+- 보호 대상인 최신 P개 정상 Manifest 중 어느 것도 참조하지 않는 문서만 삭제 후보로 만든다.
+- 세 번째 비보호 Manifest는 다음 slot 재사용 과정에서 invalid/retired될 수 있으며
+  startup은 남아 있는 최신 두 정상 Manifest만으로 계속 복구 가능해야 한다.
+- Manifest/document/temp 삭제 path가 현재 final store instance root 내부인지 다시 확인한다.
+- 잔여 bootstrap directory lifecycle 정리는 State root 바로 아래의 인식된 bootstrap 이름과 exact path를
+  별도로 검증하며, bootstrap 내부 대상도 해당 bootstrap store instance root를 벗어나지 못한다.
+- startup load 성공 전에는 destructive cleanup을 하지 않는다.
+- commit 전에는 cleanup을 하지 않는다.
+- 서로 다른 정상 보호 generation 두 개와 공통 document independence가 확보되지 않은 degraded 상태에서는
+  일반 GC/retirement cleanup을 하지 않고 먼저 redundancy repair를 수행한다.
+- cleanup 실패는 로그와 health 상태로 남기고 다음 idle/commit에서 재시도한다.
+- failed/temp artifact는 개수와 기간을 모두 제한한다.
+- orphan/bootstrap/failed/temp에는 개수뿐 아니라 total byte hard cap도 둔다.
+- 인식 가능한 빈 Wafer directory를 보호 reference가 없을 때 정리한다.
+- cleanup 권한 오류가 반복되어 orphan count/byte hard cap에 도달하면 새 orphan을 계속 만들지 않는다.
+- hard cap에서 보호 파일을 overwrite하지 말고 save를 실패시키며 운영 경고를 남긴다.
+- orphan cap에 도달한 상태에서는 size 최종 gate를 PASS 처리하지 않는다.
+- 사용자 운영 파일이나 알 수 없는 파일은 자동 삭제하지 않는다.
+
+삭제 대상이 불명확하면 삭제하지 않고 orphan으로 보고한다.
+
+writer는 document를 쓰기 전에 candidate commit이 만들 retirement-only document, 미커밋 final slot,
+Temp/replace backup, 빈 Wafer directory까지 포함한 post-commit projected file/byte/directory와 transient peak를
+계산한다. 어느 owned hard cap이라도 넘으면 첫 file write/mkdir 전에 save를 실패하고 dirty와 기존 보호
+세대를 유지한다. Orphan allowance O에는 retirement Manifest만 참조하는 document와 Manifest가 참조하지
+않는 미커밋 final-slot file도 포함한다. directory 생성도 같은 projected cap을 통과해야 한다.
+
+
+20. 상태 의미 동등성
+
+저장 전 snapshot과 재로드 snapshot을 JSON 문자열로 비교하지 않는다.
+다음 의미 필드를 정규화하여 비교한다.
+
+비교 기준 원본은 raw live State가 아니라 기존 compaction, SaveMaterialInspectionDetail trim,
+문서화된 DateTime/double 정규화를 적용한 persistence snapshot이다.
+이 정책으로 의도적으로 제외된 상세 외의 차이는 허용하지 않는다.
+
+아래 수동 목록만 신뢰하지 않는다.
+비교기와 persistence DTO는 MaterialSnapshot graph의 모든 DataMember를 재귀 inventory로 관리한다.
+신규 DataMember가 모델에 추가됐는데 DTO, serializer 또는 comparer에 포함되지 않으면
+contract inventory 테스트가 실패해야 한다.
+허용되는 차이는 SaveMaterialInspectionDetail 정책과 문서화된 DateTime/double sentinel 정규화뿐이다.
+
+- Version, SnapshotRevision, RecipeName, LotId
+- Cassette의 모든 DataMember
+- CassetteId, CassetteLotId, Role, State, Level, Enabled, IsPresent, IsMapped, LastScanTime
+- SlotNumber, HasWafer, WaferId, WaferInstanceId
+- 모든 WaferInstanceId와 표시 WaferId
+- Wafer CurrentLocation, State, Grade, Lot, map/align/review 상태
+- Wafer.DieIds 순서
+- OutputReceiveSlots 순서와 모든 reference
+- 모든 DieId
+- Input/Output Wafer parent identity
+- Die CurrentLocation
+- ReservedPickerLocation/No
+- PickedPickerLocation/No
+- Result, NG code
+- WaferOffset, BinOffset
+- Inspection 종류, 결과, 측정값, alignment
+- SaveMaterialInspectionDetail 설정에 따른 상세 포함 정책
+- CreatedAt, UpdatedAt 및 기존 DateTime sentinel 의미
+
+정규화 과정이 결함을 숨기도록 누락 필드에 기본값을 넣거나 ID를 새로 발급하면 안 된다.
+
+
+21. 장애 주입
+
+다음 지점마다 별도 격리 State root에서 프로세스 kill 또는 예외를 주입한다.
+
+- 첫 문서 Temp 생성 전
+- 첫 문서 write 중
+- 여러 변경 문서 중 N번째 write 중
+- 문서 Flush(true) 전과 후
+- 문서 Temp 검증 후 최종 교체 전
+- 모든 문서 완료 후 Manifest 작성 전
+- Manifest write 중
+- Manifest Flush(true) 직후
+- Manifest 최종 교체 직전
+- Manifest 교체 직후 committed revision 기록 전
+- commit 직후 GC 전
+- GC 중
+- 종료 flush 중 신규 요청 유입
+- stale writer의 늦은 완료
+- disk full
+- access denied/read-only
+- 파일 잠금
+- 문서 missing
+- 문서 truncation
+- byte length mismatch
+- SHA-256 mismatch
+- Manifest JSON 손상
+- JSON parsing은 성공하지만 Manifest 단일 payload 필드가 바뀐 self-hash 손상
+- 동일 Epoch/Generation의 서로 다른 Manifest
+- 서로 다른 Epoch Manifest 공존
+- Generation 증가 + SnapshotRevision 감소
+- duplicate StableId
+- duplicate DieId
+- path traversal entry
+- 미래 schema
+- 같은 logical document의 replica A만 missing/truncate/hash 손상
+- 같은 logical document의 replica B만 missing/truncate/hash 손상
+- replica A 또는 B를 silent hash 손상시킨 뒤 writer가 이를 아직 모르는 상태에서 changed/unchanged
+  normal save를 각각 최소 두 번의 ring 회전, 즉 3-slot 기준 6회 이상 수행하고 hot GC를 실행한다.
+  보호 reference union overwrite/delete 0, 전 구간 완전 정상 fallback 1개 이상, 다음 startup에서 손상 검출과
+  정상 독립 generation 두 개 repair 완료 후에만 Auto 진행을 확인한다.
+- store 내부/외부를 가리키는 junction/symlink/reparse point
+- Manifest/document sharing violation, access denied, transient I/O가 retry 중 지속되는 상태
+- 정상 후보 둘 이상이지만 공통 document가 같은 physical path를 공유하는 상태
+- OrderedWaferInstanceIds duplicate/missing/order 변경
+- PreviousGlobalDieId missing predecessor/duplicate successor/cycle/multiple head/unvisited Die
+- document content 변경 직후 종료
+- independence replica 생성 중 종료
+- bootstrap directory 생성 중 종료
+- bootstrap 검증 후 final directory move 직전/중/직후 종료
+- cleanup 실패로 orphan hard cap 도달
+- candidate commit의 projected post-commit cap 초과
+- RetirementBarrier 각 stage 전/중/후 종료 및 startup resume
+- startup repair Generation max/overflow와 각 atomic fault point
+
+각 시험의 복구 결과는 "이전 정상 전체" 또는 "새 정상 전체" 중 하나여야 한다.
+혼합 상태, 조용한 빈 상태, 오래된 Legacy 부활은 FAIL이다.
+
+
+22. 파일 크기와 장기 반복 검증
+
+hard bound의 소유 경계를 먼저 고정한다.
+
+- PWJ-owned 영역은 final material-pwj directory의 인식된 Manifest/document/temp/backup/diagnostic,
+  State root 바로 아래의 인식된 material-pwj.bootstrap.* sibling, 그리고 명시한 고정 Legacy allowance다.
+- MachineRuntime, LOT/검사 CSV, 사용자 파일, 알 수 없는 State root 항목은 owned hard bound에서 제외하고
+  전체 State root total byte는 관찰값으로만 기록한다. 그 증가 때문에 PWJ 파일을 삭제하지 않는다.
+- material-pwj 안의 unknown/reparse artifact도 자동 삭제하지 않으며 별도 contamination warning으로
+  보고한다. PWJ가 생성한 인식 artifact와 unknown byte를 섞어 bounded라고 주장하지 않는다.
+
+시험 전에 다음 PWJ-owned 절대 상한을 코드 상수/승인 설정과 수식/숫자로 고정한다.
+
+- Nr = 최신 보호 두 Manifest가 필요로 할 수 있는 reachable logical Wafer document union 최대 수
+- Gm = Manifest slot 수
+- Gd = document slot 수
+- T/F/O/B = temp/failed/orphan/bootstrap file 및 byte cap
+- C = 고정 파일과 보존 Legacy allowance
+- MaxOwnedFiles
+- MaxOwnedBytes
+- MaxOwnedDirectories
+- MaxOwnedTransientPeakBytes
+- MaxLogicalDocuments, MaxDocumentBytes, MaxManifestBytes
+- MaxDiePerWafer, MaxWaferDieIds, MaxOutputReceiveSlots
+- 모든 persisted nested List의 field별 MaxItemCount와 모든 문자열의 field별 MaxUtf8Bytes
+
+Nr에는 물리 위치 Wafer뿐 아니라 dependency-only parent Wafer가 포함된다.
+MaxOwnedFiles 기본식은 Gm + Gd x Nr + T + F + O + B + C를 바탕으로 실제 layout에 맞게 증명한다.
+MaxOwnedBytes에는 code-enforced MaxDocumentBytes x Gd x Nr, MaxManifestBytes x Gm,
+고정 Legacy allowance와 모든 owned artifact cap을 포함한다.
+MaxOwnedTransientPeakBytes에는 candidate post-commit inventory, 한 document Temp, Manifest Temp,
+atomic replace/backup 중 허용 peak를 포함한다. MaxOwnedDirectories에는 per-Wafer, bootstrap, empty/failed
+directory allowance를 모두 포함한다.
+
+save는 capture/partition 직후 모든 logical/nested/string count를 검증하고 canonical byte가
+MaxDocumentBytes/MaxManifestBytes 이하인지 확인한 뒤에만 file open/write를 허용한다. load는 파일 length와
+entry/count limit를 allocation/deserialize 전에 검증한다. 상한 초과 시 데이터를 truncate/drop하지 말고
+save/load를 fail-closed하고 dirty 상태와 operator-visible health를 유지한다. 이 코드 제한이 없으면
+MaxOwnedBytes를 hard bound라 부르지 않고 장비 정상 입력에서의 empirical bound로만 보고한다.
+누적 생산 횟수는 어떤 상한 공식에도 들어가지 않는다.
+
+최소 다음 시나리오를 동일 설정에서 실행한다.
+
+- 빈 상태
+- 1-slot 진행 중
+- 1-slot 완료
+- 13-slot을 Clear하지 않고 순차 완료
+- 25-slot을 Clear하지 않고 순차 완료
+- Cassette 교체/Clear를 포함한 100 Wafer
+- Cassette 교체/Clear를 포함한 1,000 Wafer
+- 단일 Wafer 최대 Die 수
+- SaveMaterialInspectionDetail true/false
+- GOOD/NG 혼합 및 최대 검사 상세
+
+매 commit마다 다음 raw 값을 기록한다.
+
+- requested revision
+- committed revision
+- generation
+- changed/reused document count
+- content-change primary write count/byte
+- physical-independence replica write count/byte
+- failed-attempt/retry write count/byte/age
+- document serialize byte
+- FileStream.Write에 전달한 payload byte
+- process I/O write byte
+- 가능한 경우 ETW/성능 카운터 기반 physical disk byte
+- Manifest byte
+- PWJ-owned total byte/file count/directory count
+- 전체 shared State root total byte. 관찰 전용이며 hard gate가 아니다.
+- unknown/reparse contamination byte/count
+- temp/orphan/failed count
+- max single document byte
+- transient peak byte
+
+필수 판정:
+
+- 완료 Slot 수가 1 -> 13 -> 25로 증가해도 active 변화 1건당 actual document write byte가
+  완료 Slot 수에 비례해 증가하지 않는다.
+- fault-free 정상 transition에서는 같은 residence의 primary 최대 1회와 independence replica 최대 1회다.
+- failed-attempt/retry write는 별도 계측하고 fixed artifact cap과 제한된 backoff를 지킨다.
+- 동일 hash의 두 replica가 확보된 변경되지 않은 완료 Wafer 문서의 write count는 증가하지 않는다.
+- healthy replica/fault·recovery·repair 없는 무변경 100회에서 changed/write count가 0이다.
+- 100/1,000 Wafer 반복에서 Cassette turnover 후 file count와 total byte가 plateau를 이룬다.
+- 파일 수 상한 공식에 누적 생산 Wafer 수가 포함되지 않는다.
+- Clear 후 보호 세대가 해제되면 미참조 파일이 회수된다.
+- PWJ-owned file/byte/directory/transient peak가 사전 계산한 절대 상한 이하이다.
+
+
+23. 성능 계측과 합격 기준
+
+변경 전후 동일 조건을 사용한다.
+
+- 정확한 baseline HEAD SHA와 candidate HEAD SHA
+- 동일 x64 Release 설정
+- 동일 PC와 저장장치
+- 동일 recipe
+- 동일 Wafer/Die 수
+- 동일 simulation/vision 조건
+- 동일 warm-up과 측정 cycle 수
+- 백신/동기화/다른 부하 조건 기록
+
+측정 항목:
+
+- UPH
+- Cycle 평균/P50/P95/P99/Max
+- _stateSync capture hold 평균/P50/P95/P99/Max
+- snapshot copy 시간
+- partition 시간
+- serialize 시간
+- hash 시간
+- document write 시간
+- Flush(true) 시간
+- Manifest write/replace 시간
+- GC 시간
+- writer backlog
+- PendingDurabilityAge
+- 실제 disk bytes/write count
+- NotifyAndSave 반환 시간 P50/P95/P99/Max
+- NotifyAndSave 호출 thread의 synchronous file I/O count
+
+권장 기본 gate:
+
+- UPH 저하 1% 이하
+- 평균 Cycle 증가 1% 이하
+- Cycle P95/P99 증가 3% 이하
+- 동일 조건 3회 반복 모두 통과
+- 금지 경로 diff 0
+- healthy 동일-hash replica 두 개와 fault/recovery/repair 없는 steady state에서 완료 Wafer file write 0
+- 25-slot steady-state process write bytes/save가 기존 전체 Snapshot baseline의 20% 이하
+- NotifyAndSave 호출 thread synchronous file open/write/flush/replace 0건
+
+_stateSync 절대 상한과 PendingDurabilityAge 상한은 baseline 측정 후 장비팀 승인값을 기록한다.
+평균만 보고 P99/Max 악화를 숨기지 않는다.
+1/13/25-slot과 최대 Inspection 상세 각각에서 같은 UPH/Cycle matrix를 반복한다.
+물리 disk byte처럼 환경 잡음이 큰 값은 payload/process I/O와 분리하고 측정 오차와 gate 숫자를
+시험 전에 고정한다.
+
+
+24. 정적 검증과 빌드
+
+- C# 7.3 문법을 지킨다.
+- .NET Framework 4.7.2에서 빌드한다.
+- 현재 x64/AnyCPU 배포 조건을 확인한다.
+- 신규 파일의 csproj Compile Include가 정확히 한 번인지 확인한다.
+- 기존 package/native dependency를 변경하지 않는다.
+- UTF-8 BOM, CRLF, final newline 등 저장소 기존 텍스트 규칙을 확인한다.
+- git diff --check를 통과한다.
+- 기존 output을 덮어쓰지 않는 격리 OutDir로 빌드한다.
+- error 0을 확인한다.
+- warning은 baseline과 신규 warning을 분리한다.
+- 테스트가 D:\CDT-320 운영 State를 참조하지 않는지 확인한다.
+
+
+25. 구현 단계
+
+Phase 0 - 읽기 전용 재분석
+
+- 실제 HEAD/status와 현재 저장 흐름 확인
+- 모든 변경 후보와 금지 경로 목록 확정
+- 현재 저장 크기/시간/UPH baseline 수집
+- 구현 전 사용자 승인
+
+Phase 1 - DTO, partition, canonical serialization
+
+- Manifest와 Wafer document 계약 구현
+- Die canonical ownership 구현
+- Wafers/Dies global order metadata와 NormalizedSnapshotSha256 구현
+- 중복/누락/path 검증 구현
+- logical/nested/string/document/Manifest hard limit 구현
+- 기존 snapshot -> documents -> snapshot 의미 동등성 테스트
+- 아직 production save 경로를 전환하지 않는다.
+
+Phase 2 - 고정 세대 store와 recovery
+
+- immutable-while-referenced slot 선택
+- Temp/write-through/Flush/hash/atomic replace
+- Manifest commit point
+- generation scan, transient/deterministic 분류, fallback/repair
+- physical independence와 full-ring RetirementBarrier
+- store-root/reparse containment
+- fault injection
+
+Phase 3 - Legacy migration과 facade 연결
+
+- 기존 Load/Save facade 보존
+- idempotent migration
+- 첫 최종 Manifest를 activation commit point로 사용
+- stale Legacy 부활 방지
+- rollback 절차
+
+Phase 4 - background save 연결
+
+- 기존 NotifyAndSave 호출부 무수정 확인
+- full snapshot copy 후 document diff/write
+- request version과 dirty 보존
+- CommitKind별 request receipt와 manual/exit full-ring flush barrier
+- retry rate/byte budget와 circuit-open
+- 계측 추가
+
+Phase 5 - size/performance/functional 검증
+
+- 1/13/25-slot
+- 100/1,000 Wafer turnover와 PWJ-owned plateau
+- crash/fault matrix
+- 의미 동등성
+- UPH/lock/disk I/O 비교
+
+각 Phase 후 변경 파일, 테스트, 실패 항목, 잔여 위험을 보고한다.
+다음 Phase가 앞 단계 안전성에 의존하면 앞 단계 FAIL 상태에서 진행하지 않는다.
+
+
+26. Test Harness의 의미
+
+이 문서에서 Test Harness는 생산 코드가 아니라
+격리된 임시 State root와 가짜 Material snapshot을 사용해 저장/종료/손상/복구를 반복하는
+검증용 실행 프로그램 또는 테스트 프로젝트를 뜻한다.
+
+- 운영 장비 Sequence를 실행하거나 변경하는 도구가 아니다.
+- D:\CDT-320 운영 데이터를 쓰지 않는다.
+- Test Harness가 통과해도 실장비 검증 항목을 자동 PASS 처리하지 않는다.
+- Harness를 신규로 만들 경우 범위, 삭제/보존 여부, csproj 영향을 먼저 보고한다.
+
+
+27. 중단 및 보고 조건
+
+다음 상황에서는 임의 우회하지 말고 작업을 중단해 사용자에게 보고한다.
+
+- Sequence/Interlock 수정 없이는 correctness를 증명할 수 없는 경우
+- 서비스 밖 live 객체 직접 변경 때문에 일관된 snapshot capture를 증명할 수 없는 경우
+- MachineRuntime/사용자 파일까지 포함한 shared State root 전체의 hard cap 보장을 요구한 경우
+- Auto crash 직전 변경도 0건 손실해야 한다는 요구가 추가된 경우
+- 운영 데이터를 직접 변환하거나 삭제해야 하는 경우
+- dirty worktree에서 동일 파일 충돌이 발견된 경우
+- 신규 dependency 또는 배포 native DLL이 필요한 경우
+- 모든 Manifest 세대가 손상되어 자동 복구할 정상 후보가 없는 경우
+
+
+28. 최종 산출물
+
+최종 보고에는 최소 다음을 포함한다.
+
+- 기준 HEAD와 최종 HEAD
+- 변경 파일 전체 목록
+- 금지 경로 diff 0 증거
+- 구현된 저장 형식과 directory 예
+- 파일 수/용량 상한 공식
+- atomic commit과 fallback 설명
+- Legacy migration/rollback 설명
+- 1/13/25-slot 및 100/1,000 Wafer 결과
+- fault injection 결과
+- 의미 동등성 결과
+- UPH/Cycle/_stateSync/disk write 비교
+- PendingDurabilityAge와 crash 손실 가능 구간
+- 미실행 FIELD 항목
+- 잔여 위험
+- commit을 수행하지 않았다는 확인
+
+코드 검토만 한 항목을 runtime PASS로 표시하지 않는다.
+실행하지 못한 항목은 BLOCKED 또는 NOT RUN으로 명확하게 남긴다.
+기능 회귀 시나리오 중 하나라도 FAIL/BLOCKED이면 최종 구현 완료나 배포 가능으로 보고하지 않는다.
+
+
+29. 최종 완료 조건
+
+다음 조건을 모두 만족해야 구현 완료로 판단한다.
+
+- 기존 Auto Sequence와 Interlock diff가 0이다.
+- 기존 Material mutation 호출 계약이 유지된다.
+- 재시작 후 Material 의미가 마지막 정상 commit과 동일하다.
+- 손상된 최신 세대가 이전 정상 세대를 훼손하지 않는다.
+- 동일 hash의 두 replica가 정상이고 fault/recovery/repair가 없는 steady-state hot save에서
+  변경되지 않은 완료 Wafer 파일을 다시 쓰지 않는다.
+- actual write byte가 완료 Wafer 누적 수에 비례하지 않는다.
+- PWJ-owned 파일·Temp·진단 세대가 코드로 강제한 고정 상한 안에 있다.
+- Cassette turnover 후 PWJ-owned 영역이 plateau를 이룬다.
+- UPH/Cycle 성능 gate를 통과한다.
+- PendingDurabilityAge와 비동기 손실 구간이 측정·승인됐다.
+- 격리 빌드와 검증이 통과했다.
+- 운영 데이터와 다른 작업자 파일을 건드리지 않았다.
+- 사용자의 요청 없이 Git commit을 만들지 않았다.

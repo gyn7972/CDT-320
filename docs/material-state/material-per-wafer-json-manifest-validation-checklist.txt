@@ -1,0 +1,1162 @@
+﻿CDT-320 Material Per-Wafer JSON + Manifest 검증 체크리스트
+
+문서 목적
+
+이 체크리스트는 Material 저장 구조를 Wafer별 JSON + 고정 세대 Manifest로 변경할 때
+다음 두 목표를 객관적 증거로 검증하기 위한 문서다.
+
+1. 생산 Wafer 누적에 따라 hot save의 실제 disk write byte가 계속 증가하지 않는다.
+2. 프로그램 재시작 후 Material 상태가 마지막 정상 commit과 의미적으로 동일하다.
+
+Auto Sequence, Interlock, Motion, Vision, Material 비즈니스 전이는 수정하지 않는다.
+저장 원자성이나 성능을 증명할 수 없으면 금지 영역을 수정해 우회하지 말고
+FAIL 또는 BLOCKED로 남긴다.
+
+
+0. 사용 규칙
+
+체크 상태:
+
+[ ] 미검증
+[x] 검증 완료
+
+판정 값:
+
+- PASS
+- FAIL
+- BLOCKED
+- NOT RUN
+- N/A
+
+중요:
+
+- 체크 표시만으로 PASS 처리하지 않는다.
+- CODE 검토만으로 runtime, crash, performance, field 항목을 PASS 처리하지 않는다.
+- 실행하지 않은 항목은 NOT RUN으로 남긴다.
+- 환경 또는 승인 부재로 실행할 수 없으면 BLOCKED와 이유를 기록한다.
+- FAIL 항목을 경고로 축소하거나 다음 단계에서 자동 면제하지 않는다.
+- Auto Sequence/Interlock diff가 하나라도 있으면 보호 gate는 FAIL이다.
+- 혼합 generation 복구가 한 번이라도 발생하면 atomic recovery gate는 FAIL이다.
+- 운영 D:\CDT-320 데이터를 수정한 destructive test는 무효다.
+
+
+0.1 항목별 증거 기록 형식
+
+ID:
+상태: PASS | FAIL | BLOCKED | NOT RUN | N/A
+검증 기준:
+대상 HEAD:
+대상 build/config:
+대상 PC/장비:
+Recipe/Lot/Slot 조건:
+방법: CODE | TEST | FAULT | PERF | FIELD | ARTIFACT
+실행 명령 또는 테스트명:
+기대 결과:
+실제 결과:
+정량값:
+코드 근거: 절대경로:라인
+로그 근거: 파일:라인 또는 timestamp/event id
+산출물: 파일 경로, 크기, SHA-256
+표본 수/반복 횟수:
+잔여 위험:
+검증자:
+검증 시각:
+
+증거별 최소 요건:
+
+- CODE: 파일과 line, 호출 경로, 왜 안전한지 설명
+- TEST: 테스트명, exit code, assertion 수, 실패 수
+- FAULT: 주입 지점, 종료 직전 generation, 복구 generation, old/new/mixed 판정
+- PERF: raw sample 경로, 표본 수, warm-up, 평균/P50/P95/P99/Max, 계산 방법
+- FIELD: 장비 ID, 운영자, Recipe, Lot, Cassette/Slot, 시간, 관련 로그
+- ARTIFACT: Manifest/문서 inventory, byte length, SHA-256, generation 관계
+
+
+1. 작업 보호와 Git 기준점
+
+[ ] PWJ-PROT-001 | 실제 Git root가 D:\Source\CDT-320_New인지 확인했다.
+[ ] PWJ-PROT-002 | 작업 시작 branch와 HEAD SHA를 기록했다.
+[ ] PWJ-PROT-003 | 작업 시작 git status --short 결과를 원문으로 보관했다.
+[ ] PWJ-PROT-004 | 기존 dirty/untracked 파일의 소유자를 임의로 추정하지 않았다.
+[ ] PWJ-PROT-005 | 변경 허용 파일 목록을 코드 수정 전에 고정했다.
+[ ] PWJ-PROT-006 | 사용자의 요청 없이 commit/amend/push/pull/merge/rebase/reset을 하지 않았다.
+[ ] PWJ-PROT-007 | checkout/clean 또는 사용자 파일을 되돌리는 명령을 하지 않았다.
+[ ] PWJ-PROT-008 | 기존 Journal prompt/checklist를 수정하지 않았다.
+[ ] PWJ-PROT-009 | D:\CDT-320 운영 State/Recipe/Log/결과 파일을 수정·삭제·이동하지 않았다.
+[ ] PWJ-PROT-010 | destructive test는 격리된 별도 State root에서만 실행했다.
+[ ] PWJ-PROT-011 | 외부 변경으로 HEAD/status가 달라졌을 때 기준점을 다시 기록했다.
+[ ] PWJ-PROT-012 | 다른 작업자와 겹치는 파일을 발견했을 때 임의 merge/revert하지 않았다.
+[ ] PWJ-PROT-013 | 신규 dependency, NuGet, native DLL을 추가하지 않았다.
+[ ] PWJ-PROT-014 | SQLite/Journal/Delta/Replay 구현을 이번 변경에 섞지 않았다.
+[ ] PWJ-PROT-015 | 최종 변경 파일 목록이 승인된 persistence 범위 안에 있다.
+
+보호 gate:
+
+[ ] PWJ-PROT-G01 | QMC.CDT-320\Sequencing\** diff 결과가 0 files다.
+[ ] PWJ-PROT-G02 | Interlock 관련 파일과 조건식 diff 결과가 0 files다.
+[ ] PWJ-PROT-G03 | Motion/Axis/Vision/Unit 제어 파일 diff 결과가 0 files다.
+[ ] PWJ-PROT-G04 | 정상 상태의 Auto Start/Cycle/Stop/Recovery 흐름 diff가 0이며 Recovery Required 조기 중단만 예외다.
+[ ] PWJ-PROT-G05 | 기존 Material mutation 메서드 본문 diff가 0이거나 사전 승인된 persistence-only 영역뿐이다.
+[ ] PWJ-PROT-G06 | 기존 NotifyAndSave 호출 위치와 순서 diff가 0이다.
+[ ] PWJ-PROT-G07 | 실제 Sequencing/Interlock/Motion/Vision 대상 inventory의 작업 전후 SHA-256이 동일하다.
+
+필수 증거 예:
+
+git diff --name-only <base-head> -- QMC.CDT-320/Sequencing
+git diff --name-only <base-head> -- QMC.CDT-320/Equipment/Interlocks
+작업 시작 시 rg --files와 이름/namespace 검색으로 확정한 Interlock/Collision/Motion/Vision
+inventory 전체의 작업 전후 SHA-256 비교
+git diff --stat <base-head>
+
+
+2. 현재 코드 재분석
+
+[ ] PWJ-ANL-001 | MaterialSnapshot 모델의 모든 DataMember를 다시 목록화했다.
+[ ] PWJ-ANL-002 | CassetteMaterial/Slot/WaferMaterial/DieMaterial reference graph를 그렸다.
+[ ] PWJ-ANL-003 | WaferId와 WaferInstanceId의 용도 차이를 확인했다.
+[ ] PWJ-ANL-004 | InputWaferInstanceId와 OutputWaferInstanceId가 함께 존재하는 Die를 확인했다.
+[ ] PWJ-ANL-005 | OutputReceiveSlots의 DieId/SourceDieUid/PlacementUid 관계를 확인했다.
+[ ] PWJ-ANL-006 | Picker current/reservation이 graph root가 되는 경로를 확인했다.
+[ ] PWJ-ANL-007 | 기존 raw value validation과 graph validation 호출 순서를 확인했다.
+[ ] PWJ-ANL-008 | 기존 normalization이 DateTime, NaN, enum에 미치는 영향을 확인했다.
+[ ] PWJ-ANL-009 | 현재 primary/recovery/backup 후보 선택 기준을 확인했다.
+[ ] PWJ-ANL-010 | 현재 SnapshotRevision 발급/commit/fallback 의미를 확인했다.
+[ ] PWJ-ANL-011 | SaveCurrentSnapshot의 _stateSync 보유 범위를 확인했다.
+[ ] PWJ-ANL-012 | 실제 file I/O가 _stateSync 밖에서 수행되는지 확인했다.
+[ ] PWJ-ANL-013 | 전체 snapshot copy와 전체 serialization 비용을 분리했다.
+[ ] PWJ-ANL-014 | MaterialStateCompactor가 보존하는 physical/reachable root를 확인했다.
+[ ] PWJ-ANL-015 | 서비스 밖에서 live Material 객체를 직접 변경하는 경로를 검색했다.
+[ ] PWJ-ANL-016 | UpdatedAt이 모든 mutation에서 일관되게 갱신되는지 확인했다.
+[ ] PWJ-ANL-017 | SaveReason만으로 변경 문서를 판정할 수 없는 경로를 기록했다.
+[ ] PWJ-ANL-018 | StateChanged 소비자와 SnapshotPath/LastLoadedPath 소비자를 확인했다.
+[ ] PWJ-ANL-019 | 정상 종료, Manual, Data Clear의 TryFlushPendingSave 호출 계약을 확인했다.
+[ ] PWJ-ANL-020 | 분석에서 발견한 미증명 원자성은 BLOCKED/위험으로 기록했다.
+[ ] PWJ-ANL-021 | MaterialSnapshot.Wafers/Dies 전역 List 순서 소비자와 mutation을 감사했다.
+[ ] PWJ-ANL-022 | public State direct write와 worker startup happens-before를 감사했다.
+[ ] PWJ-ANL-023 | TryPrepareStateForUse가 신규 snapshot을 normalize/compact해 변경할 수 있음을 확인했다.
+[ ] PWJ-ANL-024 | Form1 outer catch(Exception)의 Recovery Required 흡수 경로를 확인했다.
+[ ] PWJ-ANL-025 | shared State root에서 PWJ-owned/MachineRuntime/user/unknown inventory를 분리했다.
+[ ] PWJ-ANL-026 | 모든 persisted nested List/string의 장비상 최대와 기존 초과 사례를 조사했다.
+
+
+3. Baseline 측정
+
+[ ] PWJ-BASE-001 | 측정 source HEAD, binary SHA-256, build configuration을 기록했다.
+[ ] PWJ-BASE-002 | OS, CPU, RAM, 저장장치 모델/파일시스템/여유 공간을 기록했다.
+[ ] PWJ-BASE-003 | simulation/vision/recipe/die 수/속도 조건을 기록했다.
+[ ] PWJ-BASE-004 | 백신, 동기화, 로그 수집 등 disk 간섭 조건을 기록했다.
+[ ] PWJ-BASE-005 | material_state.json primary byte를 기록했다.
+[ ] PWJ-BASE-006 | material_state.bak/recovery/failed/temp byte와 개수를 기록했다.
+[ ] PWJ-BASE-007 | 빈 상태, 1-slot, 13-slot, 25-slot 예상 크기를 기록했다.
+[ ] PWJ-BASE-008 | save 요청 빈도와 실제 commit 빈도를 기록했다.
+[ ] PWJ-BASE-009 | snapshot copy 시간 P50/P95/P99/Max를 기록했다.
+[ ] PWJ-BASE-010 | serialize 시간 P50/P95/P99/Max를 기록했다.
+[ ] PWJ-BASE-011 | file write/replace 시간 P50/P95/P99/Max를 기록했다.
+[ ] PWJ-BASE-012 | _stateSync hold 시간 P50/P95/P99/Max를 기록했다.
+[ ] PWJ-BASE-013 | Cycle 시간 평균/P50/P95/P99/Max를 기록했다.
+[ ] PWJ-BASE-014 | UPH를 동일 조건 3회 이상 기록했다.
+[ ] PWJ-BASE-015 | process write bytes/write count를 raw sample로 기록했다.
+[ ] PWJ-BASE-016 | last requested와 last committed revision 차이를 기록했다.
+[ ] PWJ-BASE-017 | pending request가 있을 때의 PendingDurabilityAge P50/P95/P99/Max를 기록했다.
+[ ] PWJ-BASE-018 | baseline raw 파일과 계산 스크립트의 SHA-256을 기록했다.
+[ ] PWJ-BASE-019 | FileStream payload/process I/O/physical disk byte를 가능한 범위에서 분리했다.
+[ ] PWJ-BASE-020 | NotifyAndSave 반환 시간 P50/P95/P99/Max를 기록했다.
+[ ] PWJ-BASE-021 | State root directory count와 transient peak byte를 기록했다.
+
+Baseline은 변경 후 binary로 다시 측정해 덮어쓰지 않는다.
+
+
+4. 변경 범위와 API 호환성
+
+[ ] PWJ-SCOPE-001 | 변경은 Equipment\Materials persistence 영역에 한정됐다.
+[ ] PWJ-SCOPE-002 | MaterialSnapshotStore facade를 기존 호출자가 계속 사용할 수 있다.
+[ ] PWJ-SCOPE-003 | Exists의 기존 호출 의미가 유지된다.
+[ ] PWJ-SCOPE-004 | Load가 기존처럼 MaterialSnapshot을 반환한다.
+[ ] PWJ-SCOPE-005 | Save public signature와 성공/실패 의미가 유지된다.
+[ ] PWJ-SCOPE-006 | SnapshotPath/LastLoadedPath 소비자가 깨지지 않는다.
+[ ] PWJ-SCOPE-007 | NotifyAndSave public signature가 유지된다.
+[ ] PWJ-SCOPE-008 | TryNotifyAndSave public signature와 오류 의미가 유지된다.
+[ ] PWJ-SCOPE-009 | TryFlushPendingSave가 최신 요청 durability를 확인한다.
+[ ] PWJ-SCOPE-010 | StateChanged 발생 의미와 UI 갱신 의미가 유지된다.
+[ ] PWJ-SCOPE-011 | MaterialStorage.State 런타임 모델이 그대로 유지된다.
+[ ] PWJ-SCOPE-012 | 기존 enum/DateTime과 field-specific NaN/Infinity persistence normalization 의미가 유지된다.
+[ ] PWJ-SCOPE-013 | 기존 CSV/LOT/검사 결과 저장 형식이 변경되지 않았다.
+[ ] PWJ-SCOPE-014 | MiniDump에 Material 복구 책임을 추가하지 않았다.
+[ ] PWJ-SCOPE-015 | 완료 Material summary 축약을 몰래 추가하지 않았다.
+[ ] PWJ-SCOPE-016 | 신규 활성화 후 SnapshotPath/LastLoadedPath가 stale Legacy를 현재 상태처럼 표시하지 않는다.
+[ ] PWJ-SCOPE-017 | Form1 변경은 PromptMaterialRecoveryOnStartup의 Recovery Required fail-closed 분기뿐이다.
+[ ] PWJ-SCOPE-018 | Form1의 정상 복원 선택, 일반 초기화, Auto 시작 흐름에는 다른 diff가 없다.
+[ ] PWJ-SCOPE-019 | Recovery Required에서 Form1 생성이 Auto-cycle 등록 지점까지 진행하지 않는다.
+[ ] PWJ-SCOPE-020 | 빈 default Material로 startup을 계속하는 경로를 fail-closed PASS로 인정하지 않는다.
+
+
+5. Store format 분리
+
+[ ] PWJ-FMT-001 | StoreFormatVersion과 MaterialSnapshot.Version이 별도 필드다.
+[ ] PWJ-FMT-002 | EpochId와 Generation의 생성/검증 규칙이 문서화됐다.
+[ ] PWJ-FMT-003 | Generation과 SnapshotRevision 의미가 분리됐다.
+[ ] PWJ-FMT-004 | Manifest 필수 필드가 누락 없이 직렬화된다.
+[ ] PWJ-FMT-005 | Manifest에 Cassette와 모든 Slot reference가 들어간다.
+[ ] PWJ-FMT-006 | Manifest entry마다 kind/stable ID/path/schema/length/hash/count가 있다.
+[ ] PWJ-FMT-007 | Manifest total Wafer/Die count가 있다.
+[ ] PWJ-FMT-008 | Wafer document에 WaferMaterial과 canonical owner Die만 들어간다.
+[ ] PWJ-FMT-009 | 한 Die가 여러 문서에 중복 저장되지 않는다.
+[ ] PWJ-FMT-010 | Wafer document에 매 save마다 변하는 global SavedAt/Reason/Generation을 넣지 않았다.
+[ ] PWJ-FMT-011 | 변경 없는 문서가 canonical byte/hash 동일성을 유지한다.
+[ ] PWJ-FMT-012 | 의미가 있는 List 순서를 보존한다.
+[ ] PWJ-FMT-013 | Serializer 설정이 기존 문자열/숫자/DateTime 의미를 보존한다.
+[ ] PWJ-FMT-014 | unknown future format/schema를 임의 보정하지 않는다.
+[ ] PWJ-FMT-015 | Manifest 밖 파일을 state에 자동 편입하지 않는다.
+[ ] PWJ-FMT-016 | 같은 Epoch/Generation의 서로 다른 Manifest를 mtime으로 임의 선택하지 않는다.
+[ ] PWJ-FMT-017 | 동일 Generation 중복이 byte/hash 동일인지 검사하고 충돌이면 해당 generation을 거부한다.
+[ ] PWJ-FMT-018 | Manifest에 WriterSessionId와 CapturedSaveVersion이 있다.
+[ ] PWJ-FMT-019 | process-local request version을 startup 최신 generation 선택에 사용하지 않는다.
+[ ] PWJ-FMT-020 | ManifestPayloadSha256가 필수 필드다.
+[ ] PWJ-FMT-021 | ManifestPayloadSha256만 제외하고 NormalizedSnapshotSha256 포함 payload 전체 hash를 검증한다.
+[ ] PWJ-FMT-022 | Manifest self-hash를 document path open보다 먼저 검증한다.
+[ ] PWJ-FMT-023 | JSON parse가 성공하는 단일 필드 변경도 self-hash로 거부한다.
+[ ] PWJ-FMT-024 | document canonical byte가 wall-clock/process/culture/time zone에 독립적이다.
+[ ] PWJ-FMT-025 | UTF-8 no BOM/no indentation/member order/enum/double/DateTime 계약이 고정됐다.
+[ ] PWJ-FMT-026 | per-document DateTime fallback에 DateTime.Now/UtcNow를 사용하지 않는다.
+[ ] PWJ-FMT-027 | optional sentinel은 고정 SafeEmptyDateTime 정책을 사용한다.
+[ ] PWJ-FMT-028 | 무변경 snapshot을 다른 시각/프로세스에서 직렬화한 golden byte/hash가 같다.
+[ ] PWJ-FMT-029 | Manifest CommitKind가 NormalSave/RedundancyRepair/RetirementBarrier/Migration을 구분한다.
+[ ] PWJ-FMT-030 | RedundancyRepair에 SourceGeneration이 있고 source receipt/Revision 의미를 보존한다.
+[ ] PWJ-FMT-031 | Manifest OrderedWaferInstanceIds가 전역 Wafers 순서를 정확히 보존한다.
+[ ] PWJ-FMT-032 | 각 persisted Die entry에 nullable PreviousGlobalDieId가 있다.
+[ ] PWJ-FMT-033 | RetirementBarrierId/Stage/TargetCount가 Manifest self-hash payload에 포함된다.
+[ ] PWJ-FMT-034 | 모든 barrier stage의 snapshot digest/receipt/Revision이 동일하다.
+[ ] PWJ-FMT-035 | OrderedWaferInstanceIds 크기는 MaxLogicalDocuments 이하이고 전체 Die 목록은 Manifest에 없다.
+[ ] PWJ-FMT-036 | Manifest에 NormalizedSnapshotSha256가 있고 logical descriptor 알고리즘이 고정됐다.
+[ ] PWJ-FMT-037 | logical digest는 RelativePath/Generation/CommittedAt/receipt/barrier stage에 독립적이다.
+[ ] PWJ-FMT-038 | logical digest가 ordered global fields/document identity/hash/count를 모두 포함한다.
+[ ] PWJ-FMT-039 | SnapshotSavedAtUtc/SaveReason과 physical CommittedAtUtc 의미를 분리한다.
+[ ] PWJ-FMT-040 | logical digest가 captured SnapshotSavedAtUtc/SaveReason을 포함한다.
+
+
+6. 경로와 파일명 안전성
+
+[ ] PWJ-PATH-001 | 표시용 WaferId를 파일 identity로 사용하지 않는다.
+[ ] PWJ-PATH-002 | WaferInstanceId 기반 canonical storage key를 사용한다.
+[ ] PWJ-PATH-003 | 같은 표시 WaferId를 재사용해도 다른 instance가 분리된다.
+[ ] PWJ-PATH-004 | absolute/rooted/device/UNC 경로 entry를 거부한다.
+[ ] PWJ-PATH-005 | .. path traversal을 거부한다.
+[ ] PWJ-PATH-006 | Windows 금지 문자와 reserved device name을 처리한다.
+[ ] PWJ-PATH-007 | alternate data stream 형식의 colon을 거부한다.
+[ ] PWJ-PATH-008 | Manifest RelativePath가 해당 store instance root 기준이며 store directory 이름을 포함하지 않는다.
+[ ] PWJ-PATH-009 | case-insensitive path 중복을 검출한다.
+[ ] PWJ-PATH-010 | Temp와 최종 파일이 같은 directory/volume에 있다.
+[ ] PWJ-PATH-011 | Manifest/document/temp 삭제 전 대상 path가 현재 store instance root 내부인지 다시 검증한다.
+[ ] PWJ-PATH-012 | 알 수 없는 사용자 파일을 GC 대상으로 자동 포함하지 않는다.
+[ ] PWJ-PATH-013 | stable ID를 Trim + invariant case 정규화 후 full SHA-256 hex key로 만든다.
+[ ] PWJ-PATH-014 | Manifest/document StableId를 기존 OrdinalIgnoreCase 의미로 역검증한다.
+[ ] PWJ-PATH-015 | key collision 또는 한 key의 다른 identity 매핑을 save/load에서 거부한다.
+[ ] PWJ-PATH-016 | core store가 constructor/parameter로 정확한 store instance root를 받는다.
+[ ] PWJ-PATH-017 | production facade만 D:\CDT-320\State에 bind한다.
+[ ] PWJ-PATH-018 | Harness는 격리 temp root store instance만 사용한다.
+[ ] PWJ-PATH-019 | Harness에 production root fallback 또는 global root reflection 변경이 없다.
+[ ] PWJ-PATH-020 | 모든 Manifest-relative read/write/delete의 resolved path가 해당 store instance root 내부다.
+[ ] PWJ-PATH-021 | production root가 local NTFS이고 temp/bootstrap/final이 같은 volume이다.
+[ ] PWJ-PATH-022 | File/Directory atomic move 범위를 대상 filesystem에서 검증했다.
+[ ] PWJ-PATH-023 | State root와 final/bootstrap store instance root의 역할이 분리됐다.
+[ ] PWJ-PATH-024 | bootstrap Manifest의 RelativePath가 Directory.Move 전후 payload 변경 없이 같은 내부 파일을 가리킨다.
+[ ] PWJ-PATH-025 | bootstrap 검증 resolver는 bootstrap root, 게시 후 resolver는 final root에 bind된다.
+[ ] PWJ-PATH-026 | store directory lifecycle 작업은 State root 바로 아래의 인식된 exact directory에만 허용된다.
+[ ] PWJ-PATH-027 | State/store root부터 target까지 각 existing path component의 ReparsePoint를 거부한다.
+[ ] PWJ-PATH-028 | 아직 없는 path는 component별 생성 후 reparse/containment를 다시 검증한다.
+[ ] PWJ-PATH-029 | Manifest read/write/delete, GC, bootstrap lifecycle에 같은 reparse 정책을 적용한다.
+[ ] PWJ-PATH-030 | 자동 삭제는 인식된 regular file 또는 reparse가 아닌 빈 directory에만 허용된다.
+
+
+7. Snapshot partition과 Die ownership
+
+[ ] PWJ-PART-001 | 일관된 MaterialSnapshot 사본 하나에서 partition한다.
+[ ] PWJ-PART-002 | 모든 Cassette Slot 참조 Wafer가 문서 집합에 있다.
+[ ] PWJ-PART-003 | Input/Output Stage와 Feeder 위치 Wafer가 문서 집합에 있다.
+[ ] PWJ-PART-004 | Picker current/reservation Die가 문서 집합에 있다.
+[ ] PWJ-PART-005 | Wafer.DieIds가 참조하는 모든 Die가 존재한다.
+[ ] PWJ-PART-006 | OutputReceiveSlots가 참조하는 모든 Die가 존재한다.
+[ ] PWJ-PART-007 | InputWaferInstanceId가 유효하면 canonical owner로 선택한다.
+[ ] PWJ-PART-008 | Input owner가 없고 Output owner가 유효하면 Output을 선택한다.
+[ ] PWJ-PART-009 | 유효한 Input/Output owner가 없는 Die는 위치/예약과 무관하게 save를 거부한다.
+[ ] PWJ-PART-010 | passive unreachable 제거는 기존 compaction 의미만 따른다.
+[ ] PWJ-PART-011 | persistence partitioner가 Material을 독자적으로 삭제하지 않는다.
+[ ] PWJ-PART-012 | Input owner가 물리 위치에서 사라져도 reachable Output reference가 있으면 보존한다.
+[ ] PWJ-PART-013 | 중복 DieId를 fail-closed로 거부한다.
+[ ] PWJ-PART-014 | 누락 parent/wafer reference를 임의 새 ID로 보정하지 않는다.
+[ ] PWJ-PART-015 | Input/Output cross-wafer 변경이 한 Manifest에 함께 반영된다.
+[ ] PWJ-PART-016 | partition 전후 Wafer/Die/Inspection count가 일치한다.
+[ ] PWJ-PART-017 | partition -> reassembly 정규화 digest가 원본과 같다.
+[ ] PWJ-PART-018 | SaveMaterialInspectionDetail true/false 정책이 기존과 같다.
+[ ] PWJ-PART-019 | Wafer.State=Finish만으로 document를 동결하지 않는다.
+[ ] PWJ-PART-020 | canonical-owned Die가 계속 변하면 Finish Wafer의 owner document도 변경 저장한다.
+[ ] PWJ-PART-021 | owner 없는 Die를 조용히 제외하거나 shared 문서로 우회하지 않는다.
+[ ] PWJ-PART-022 | 기존 TryValidateForSave를 변경 없이 먼저 통과시킨다.
+[ ] PWJ-PART-023 | 기존 TryValidateForSave 후에도 남는 모든 Die에 canonical owner를 추가 검증한다.
+[ ] PWJ-PART-024 | passive parentless Die 발견 시 삭제/ID 발급 없이 migration을 BLOCKED 처리한다.
+[ ] PWJ-PART-025 | DTO와 semantic comparer가 모든 MaterialSnapshot graph DataMember를 재귀 포함한다.
+[ ] PWJ-PART-026 | 신규 DataMember 누락 시 contract inventory 테스트가 실패한다.
+[ ] PWJ-PART-027 | 의미 비교 원본은 compaction/detail-trim/정규화 적용 persistence snapshot이다.
+[ ] PWJ-PART-028 | OrderedWaferInstanceIds가 document StableId의 중복 없는 정확한 permutation이다.
+[ ] PWJ-PART-029 | PreviousGlobalDieId chain의 null head가 Die 0개면 0개, 그 외 정확히 1개다.
+[ ] PWJ-PART-030 | PreviousGlobalDieId가 missing predecessor를 참조하지 않는다.
+[ ] PWJ-PART-031 | 한 predecessor에 successor가 둘 이상 붙는 duplicate successor를 거부한다.
+[ ] PWJ-PART-032 | PreviousGlobalDieId cycle을 거부한다.
+[ ] PWJ-PART-033 | chain traversal이 모든 Die를 정확히 한 번 방문한다.
+[ ] PWJ-PART-034 | partition/reassembly 후 MaterialSnapshot.Wafers와 Dies의 exact list order가 같다.
+[ ] PWJ-PART-035 | predecessor 제거/삽입 시 link가 바뀐 owner document만 추가 변경으로 판정한다.
+
+
+8. 저장용 사본과 변경 검출
+
+[ ] PWJ-CAP-001 | _stateSync 안에서는 일관된 immutable 사본 생성까지만 수행한다.
+[ ] PWJ-CAP-002 | file open/write/flush/replace/readback/GC는 _stateSync 밖이다.
+[ ] PWJ-CAP-003 | snapshot 사본 생성 중 live collection 변경 예외가 없다.
+[ ] PWJ-CAP-004 | lock 해제 후 저장 코드가 live runtime 객체를 참조하지 않는다.
+[ ] PWJ-CAP-005 | partition/serialization/hash는 immutable 사본만 읽는다.
+[ ] PWJ-CAP-006 | SaveReason만으로 변경 문서를 판정하지 않는다.
+[ ] PWJ-CAP-007 | UpdatedAt만으로 변경 문서를 판정하지 않는다.
+[ ] PWJ-CAP-008 | 위치 하나만 보고 문서를 제외하지 않는다.
+[ ] PWJ-CAP-009 | canonical byte/hash가 같은 문서는 기존 reference를 재사용한다.
+[ ] PWJ-CAP-010 | hash가 다르면 안전한 새 slot에 문서를 쓴다.
+[ ] PWJ-CAP-011 | trusted replica가 정상이고 fault/repair 없는 steady state에서 변경 없는 완료 Wafer write가 0이다.
+[ ] PWJ-CAP-012 | 변경 검출 cache가 손상돼도 Manifest/hash 검증으로 안전하게 fallback한다.
+[ ] PWJ-CAP-013 | 전체 사본 생성 성능이 baseline보다 악화되지 않았다.
+[ ] PWJ-CAP-014 | 선택 최적화가 completeness를 증명하지 못하면 활성화하지 않았다.
+[ ] PWJ-CAP-015 | 서비스 밖 direct mutation 발견 시 Sequence 수정 없이 위험을 보고했다.
+[ ] PWJ-CAP-016 | MaterialStateService.State/MaterialStorage.State의 모든 mutable write site를 정적 inventory했다.
+[ ] PWJ-CAP-017 | worker와 동시 실행 가능한 persisted mutation만 capture lock/immutable 경로로 제한했다.
+[ ] PWJ-CAP-018 | startup lock 밖 초기화가 worker/Auto/UI background 등록보다 먼저 끝나는 happens-before가 있다.
+[ ] PWJ-CAP-019 | worker 시작 후 InitializeDefaultState/RecipeName/LotId direct mutation 경로가 없다.
+[ ] PWJ-CAP-020 | 최소 wrapper가 저장 계층 범위를 넘으면 Sequence 수정 없이 사용자 승인 전 BLOCKED 처리한다.
+
+Capture gate:
+
+[ ] PWJ-CAP-G01 | capture와 동시 실행 가능한 모든 persisted mutation이 동일 일관성 경계에서 보임을 증명했다.
+[ ] PWJ-CAP-G02 | 위 capture 일관성을 증명하지 못하면 구현 완료가 BLOCKED 처리됐다.
+
+
+9. 고정 세대 보호
+
+[ ] PWJ-GEN-001 | Manifest slot 수가 코드와 문서에서 동일하다.
+[ ] PWJ-GEN-002 | 보호할 정상 Manifest 수가 코드와 문서에서 동일하다.
+[ ] PWJ-GEN-003 | 각 논리 document slot 수가 고정이다.
+[ ] PWJ-GEN-004 | 최신 정상 Manifest 두 개를 먼저 식별한다.
+[ ] PWJ-GEN-005 | 보호 Manifest가 참조하는 모든 document slot을 보호한다.
+[ ] PWJ-GEN-006 | 보호 중인 document를 overwrite하지 않는다.
+[ ] PWJ-GEN-007 | 보호 중인 document를 cleanup하지 않는다.
+[ ] PWJ-GEN-008 | 안전한 slot이 없으면 기존 정상 파일을 덮지 않고 save를 실패한다.
+[ ] PWJ-GEN-009 | 최신 보호 Manifest 두 개가 참조하는 동안 document가 immutable하다.
+[ ] PWJ-GEN-010 | generation wrap/overflow 정책이 fail-closed다.
+[ ] PWJ-GEN-011 | stale writer가 최신 generation slot을 덮지 못한다.
+[ ] PWJ-GEN-012 | 고정 ring 상태 전이표가 작성됐다.
+[ ] PWJ-GEN-013 | 모든 ring 상태 전이를 자동 테스트했다.
+[ ] PWJ-GEN-014 | 파일 수정 시각과 개수로 generation을 선택하지 않는다.
+[ ] PWJ-GEN-015 | Epoch가 다른 stale 파일을 현재 generation에 섞지 않는다.
+[ ] PWJ-GEN-016 | 최신 정상 Manifest 두 개가 들어 있는 Manifest slot 자체를 overwrite하지 않는다.
+[ ] PWJ-GEN-017 | 세 번째 비보호 Manifest slot에만 새 Manifest를 commit한다.
+[ ] PWJ-GEN-018 | 세 번째 비보호 Manifest는 retirement candidate이며 그 reference만 먼저 invalid될 수 있다.
+[ ] PWJ-GEN-019 | retirement 중에도 최신 보호 Manifest 두 개가 온전히 복구된다.
+[ ] PWJ-GEN-020 | 최신 두 보호 Manifest는 서로 다른 Generation이다.
+[ ] PWJ-GEN-021 | 동일 Generation의 byte-identical Manifest 복제본을 두 보호 세대로 세지 않는다.
+[ ] PWJ-GEN-022 | 최신 두 Manifest에 공통인 logical document의 RelativePath가 서로 다르다.
+[ ] PWJ-GEN-023 | 같은 hash 연속 residence의 fault-free 정상 transition당 primary write는 최대 1회다.
+[ ] PWJ-GEN-024 | 같은 residence의 fault-free independence transition당 replica write는 최대 1회다.
+[ ] PWJ-GEN-025 | healthy 동일-hash replica 두 개와 fault/repair 없는 residence에서 추가 write가 0이다.
+[ ] PWJ-GEN-026 | replica는 정상 Manifest의 startup 검증 또는 현재 writer readback을 통과한 파일뿐이다.
+[ ] PWJ-GEN-027 | orphan의 동일 hash만 보고 replica로 신뢰하지 않는다.
+[ ] PWJ-GEN-028 | independence를 만들 수 없으면 같은 path를 공유하지 않고 save를 실패한다.
+[ ] PWJ-GEN-029 | 4세대 이상 연속 ring 순환에서 최신 두 정상 세대가 유지된다.
+[ ] PWJ-GEN-030 | replica가 모두 retire/GC된 뒤 같은 hash가 재등장하면 새 residence로 분류한다.
+[ ] PWJ-GEN-031 | replica 하나 손상 시 최소 한 정상 fallback 세대를 보장하며 두 세대 잔존을 과장하지 않는다.
+[ ] PWJ-GEN-032 | 정상 독립 세대가 두 개 미만이면 일반 GC보다 redundancy repair를 우선한다.
+[ ] PWJ-GEN-033 | degraded repair 실패를 정상 save 성공으로 숨기지 않는다.
+[ ] PWJ-GEN-034 | failed attempt/retry write를 primary/replica 정상 write와 별도 계측한다.
+[ ] PWJ-GEN-035 | fault 뒤 동일 content 재시도 actual write가 2회 이상일 수 있음을 gate가 허용한다.
+[ ] PWJ-GEN-036 | destructive retirement는 SaveReason이 아니라 normalized graph 구조 diff로 판정한다.
+[ ] PWJ-GEN-037 | Wafer/Die ID 또는 physical-root membership 제거를 retirement로 검출한다.
+[ ] PWJ-GEN-038 | dependency-only identity가 남아도 Cassette pointer/physical root 제거를 검출한다.
+[ ] PWJ-GEN-039 | TryFlushPendingSave target은 삭제 여부와 무관하게 full-ring durability barrier를 통과한다.
+[ ] PWJ-GEN-040 | barrier가 ManifestSlotCount stage를 안전 slot 순서로 commit한다.
+[ ] PWJ-GEN-041 | barrier 완료 후 모든 Manifest slot이 같은 post-boundary 의미를 가진다.
+[ ] PWJ-GEN-042 | barrier 완료 후 pre-boundary 완전 정상 Manifest 후보가 0개다.
+[ ] PWJ-GEN-043 | 중간 barrier stage는 request durability acknowledgement가 아니다.
+[ ] PWJ-GEN-044 | 직전 두 committed/trusted Manifest의 document reference union을 새 commit 완료까지 보호한다.
+[ ] PWJ-GEN-045 | overwrite/delete/GC 후보가 보호 union 밖인지 Manifest self-hash와 trusted receipt로 재확인한다.
+[ ] PWJ-GEN-046 | reference/receipt 불명확 또는 손상 발견 시 overwrite/delete/GC 없이 repair를 우선한다.
+[ ] PWJ-GEN-047 | 단일 silent document 손상 뒤 연속 save에서도 완전 정상 fallback이 최소 하나 남는다.
+
+
+10. Atomic document/Manifest commit
+
+[ ] PWJ-ATOM-001 | 단일 writer만 document와 Manifest slot을 변경한다.
+[ ] PWJ-ATOM-002 | 변경 문서 전체를 Manifest보다 먼저 작성한다.
+[ ] PWJ-ATOM-003 | 문서 Temp write에 승인된 write-through 정책을 적용했다.
+[ ] PWJ-ATOM-004 | 문서 Temp에 FileStream.Flush(true)를 호출한다.
+[ ] PWJ-ATOM-005 | Flush 후 close된 Temp를 다시 검증한다.
+[ ] PWJ-ATOM-006 | Temp length와 예상 length가 일치한다.
+[ ] PWJ-ATOM-007 | Temp SHA-256과 예상 hash가 일치한다.
+[ ] PWJ-ATOM-008 | Temp schema/kind/stable ID가 예상 entry와 일치한다.
+[ ] PWJ-ATOM-009 | 같은 volume에서 Temp를 최종 문서 slot으로 원자 교체한다.
+[ ] PWJ-ATOM-010 | 모든 문서가 준비된 뒤 Manifest를 생성한다.
+[ ] PWJ-ATOM-011 | Manifest의 전체 reference를 commit 전에 검증한다.
+[ ] PWJ-ATOM-012 | Manifest Temp에 Flush(true)를 호출한다.
+[ ] PWJ-ATOM-013 | Manifest Temp를 다시 deserialize/validate한다.
+[ ] PWJ-ATOM-014 | Manifest를 같은 volume에서 원자 교체한다.
+[ ] PWJ-ATOM-015 | Manifest 교체 성공만 durable commit point다.
+[ ] PWJ-ATOM-016 | committed revision/generation을 Manifest 교체 전에 노출하지 않는다.
+[ ] PWJ-ATOM-017 | Manifest 교체 전 실패 시 이전 정상 generation이 온전하다.
+[ ] PWJ-ATOM-018 | 일부 신규 문서를 startup에서 자동 state로 편입하지 않는다.
+[ ] PWJ-ATOM-019 | cross-wafer Place가 old 전체 또는 new 전체로만 복구된다.
+[ ] PWJ-ATOM-020 | cleanup은 Manifest commit 후에만 실행한다.
+[ ] PWJ-ATOM-021 | cleanup 실패가 성공한 commit을 무효화하지 않는다.
+[ ] PWJ-ATOM-022 | 저장 실패를 성공 로그/return으로 숨기지 않는다.
+[ ] PWJ-ATOM-023 | StateChanged와 durable commit 완료를 같은 의미로 혼동하지 않는다.
+[ ] PWJ-ATOM-024 | new request가 save 중 들어오면 후속 dirty 상태로 남는다.
+[ ] PWJ-ATOM-025 | 이전 request 완료가 더 최신 request를 clean 처리하지 않는다.
+[ ] PWJ-ATOM-026 | hot commit은 신규 문서만 on-disk readback/hash 검증한다.
+[ ] PWJ-ATOM-027 | 재사용 문서는 이전 검증 entry와 현재 canonical hash 일치로 판정한다.
+[ ] PWJ-ATOM-028 | 완료 문서 전체 on-disk hash scrub을 Auto hot commit에서 수행하지 않는다.
+[ ] PWJ-ATOM-029 | 전체 hash scrub은 startup 또는 승인된 idle background 진단으로 분리됐다.
+[ ] PWJ-ATOM-030 | content-change primary write와 redundancy-repair write를 별도 계측한다.
+[ ] PWJ-ATOM-031 | replica 생성/Flush/readback 중 종료 시 기존 보호 두 세대가 온전하다.
+[ ] PWJ-ATOM-032 | replica 각각을 단독 손상해도 다른 정상 generation으로 fallback한다.
+[ ] PWJ-ATOM-033 | File.Replace가 timestamp/GUID backup을 commit마다 누적하지 않는다.
+[ ] PWJ-ATOM-034 | replace backup을 사용한다면 fixed cap과 MaxOwnedFiles/MaxOwnedBytes에 포함했다.
+[ ] PWJ-ATOM-035 | 첫 write/mkdir 전 candidate post-commit file/byte/directory/peak를 계산한다.
+[ ] PWJ-ATOM-036 | projected hard cap 초과 시 기존 보호 세대를 유지하고 file write 전에 실패한다.
+[ ] PWJ-ATOM-037 | current WriterSession의 NormalSave만 단일 Manifest commit 직후 CommittedSaveVersion을 전진시킨다.
+[ ] PWJ-ATOM-038 | current WriterSession의 RetirementBarrier만 마지막 stage/full rescan 뒤 CommittedSaveVersion을 전진시킨다.
+[ ] PWJ-ATOM-039 | RedundancyRepair/Migration은 current process request watermark를 전진시키지 않는다.
+[ ] PWJ-ATOM-040 | commit 후 hot GC가 completed document 전체를 다시 open/hash하지 않는다.
+[ ] PWJ-ATOM-041 | hot GC는 Manifest self-hash와 startup/current-writer trusted receipt로 보수적 보호 집합을 만든다.
+[ ] PWJ-ATOM-042 | current WriterSession의 NormalSave는 Committed만, 같은 session의 완료된 full-ring barrier는 Committed와 Sealed를 전진시킨다.
+[ ] PWJ-ATOM-043 | persisted repair/barrier receipt가 새 process의 Committed/Sealed watermark를 둘 다 초기화하지 않는다.
+
+Atomic gate:
+
+[ ] PWJ-ATOM-G01 | 모든 fault point에서 old 전체 또는 new 전체만 관찰됐다.
+[ ] PWJ-ATOM-G02 | mixed cassette/wafer/die generation 관찰 0건이다.
+
+
+11. Background worker와 flush
+
+[ ] PWJ-WORK-001 | NotifyAndSave 호출자는 파일 commit을 기다리지 않는다.
+[ ] PWJ-WORK-002 | writer 인스턴스가 동시에 둘 이상 실행되지 않는다.
+[ ] PWJ-WORK-003 | RequestedSaveVersion이 단조 증가하고 overflow 정책이 있다.
+[ ] PWJ-WORK-004 | last request UTC를 기록한다.
+[ ] PWJ-WORK-005 | LastRequest quiet 충족 OR FirstPending max-age 도달 시 save를 시작한다.
+[ ] PWJ-WORK-006 | continuous 변경에서는 max-age가 quiet 대기를 override해 commit 지연을 막는다.
+[ ] PWJ-WORK-007 | 현재 1초 quiet/5초 interval 변경 전 baseline 근거가 있다.
+[ ] PWJ-WORK-008 | save 중 신규 request가 유실되지 않는다.
+[ ] PWJ-WORK-009 | save 실패 후 dirty가 유지된다.
+[ ] PWJ-WORK-010 | retry가 무제한 busy loop를 만들지 않는다.
+[ ] PWJ-WORK-011 | retry/backoff 중 상태와 오류를 계측한다.
+[ ] PWJ-WORK-012 | stale async save가 최신 committed generation을 덮지 않는다.
+[ ] PWJ-WORK-013 | shutdown 중 신규 요청 접수와 drain 순서가 정의됐다.
+[ ] PWJ-WORK-014 | TryFlushPendingSave가 호출 시점 목표 revision을 기다린다.
+[ ] PWJ-WORK-015 | flush 성공은 목표 snapshot의 full-ring barrier와 rescan까지 완료됐음을 뜻한다.
+[ ] PWJ-WORK-016 | flush timeout/failure가 false 또는 명시적 오류로 전달된다.
+[ ] PWJ-WORK-017 | StateChanged coalescing이 기존 UI 의미를 바꾸지 않는다.
+[ ] PWJ-WORK-018 | generation당 요약 로그만 남기고 Die별 저장 로그 폭증이 없다.
+[ ] PWJ-WORK-019 | capture 시 WriterSessionId/CapturedSaveVersion/SnapshotRevision을 같은 commit receipt로 묶는다.
+[ ] PWJ-WORK-020 | CommitKind별 허용 시점 전에는 CommittedSaveVersion을 갱신하지 않는다.
+[ ] PWJ-WORK-021 | TryFlush 목표와 Committed/SealedSaveVersion receipt를 같은 WriterSession 안에서만 비교한다.
+[ ] PWJ-WORK-022 | capture 이후 신규 request가 있으면 dirty를 유지한다.
+[ ] PWJ-WORK-023 | _stateSync/_saveRequestSync lock order가 문서화됐고 역순 취득이 없다.
+[ ] PWJ-WORK-024 | snapshot copy 후 도착한 RequestedSaveVersion을 이미 만든 snapshot의 CapturedSaveVersion으로 올리지 않는다.
+[ ] PWJ-WORK-025 | CommittedSaveVersion을 완료 시점 최신 요청으로 건너뛰지 않는다.
+[ ] PWJ-WORK-026 | FirstPendingRequestUtc와 LastRequestUtc를 별도로 관리한다.
+[ ] PWJ-WORK-027 | quiet 판단은 LastRequestUtc, max-age 판단은 FirstPendingRequestUtc를 사용한다.
+[ ] PWJ-WORK-028 | FirstPendingRequestUtc는 해당 pending 범위 commit 후에만 초기화한다.
+[ ] PWJ-WORK-029 | WriterSessionId는 process마다 새로 만들고 persisted receipt로 초기화하지 않는다.
+[ ] PWJ-WORK-030 | RedundancyRepair/Migration/중간 barrier stage가 flush 목표를 만족시키지 않는다.
+[ ] PWJ-WORK-031 | RetryMinInterval/MaxBackoff/AttemptsPerHour/BytesPerHour/CircuitOpenDuration을 숫자로 고정했다.
+[ ] PWJ-WORK-032 | retry budget 초과 시 circuit을 열고 dirty 유지/경고/수동 재시도 경로를 제공한다.
+[ ] PWJ-WORK-033 | barrier 도중 더 최신 request가 들어오면 barrier snapshot과 섞지 않고 dirty로 남긴다.
+[ ] PWJ-WORK-034 | CommittedSaveVersion과 full-ring SealedSaveVersion을 별도 관리한다.
+[ ] PWJ-WORK-035 | TryFlush는 current WriterSession의 SealedSaveVersion이 target 이상일 때만 성공한다.
+[ ] PWJ-WORK-036 | target이 이미 NormalSave commit됐어도 미seal 상태면 target 이상 snapshot barrier를 요청한다.
+
+
+12. Durability와 crash 손실 구간
+
+[ ] PWJ-DUR-001 | last requested revision을 계측한다.
+[ ] PWJ-DUR-002 | last captured revision을 계측한다.
+[ ] PWJ-DUR-003 | last committed revision을 계측한다.
+[ ] PWJ-DUR-004 | last durable UTC를 계측한다.
+[ ] PWJ-DUR-005 | PendingDurabilityAge P50/P95/P99/Max를 측정한다.
+[ ] PWJ-DUR-006 | Auto background save의 미커밋 손실 가능 구간을 문서화했다.
+[ ] PWJ-DUR-007 | 0-loss를 보장한다고 근거 없이 표현하지 않았다.
+[ ] PWJ-DUR-008 | MiniDump를 공식 Material 복구 수단으로 사용하지 않는다.
+[ ] PWJ-DUR-009 | Manual durable 경계에서 TryFlushPendingSave 성공을 확인한다.
+[ ] PWJ-DUR-010 | Data Clear durable 경계에서 기존 flush 의미를 유지한다.
+[ ] PWJ-DUR-011 | 정상 종료에서 최신 요청 drain/commit을 확인한다.
+[ ] PWJ-DUR-012 | 강제 process kill 시 마지막 committed generation까지 복구한다.
+[ ] PWJ-DUR-013 | 전원 차단 시험 가능 여부와 미실행 위험을 명시한다.
+[ ] PWJ-DUR-014 | 장비팀이 PendingDurabilityAge Max 기준을 사전 승인했다.
+[ ] PWJ-DUR-015 | pending request가 없으면 PendingDurabilityAge를 0으로 계산한다.
+[ ] PWJ-DUR-016 | pending request가 있으면 가장 오래된 미커밋 요청부터 age를 계산한다.
+[ ] PWJ-DUR-017 | 단순 LastCommitAge를 durability gate로 사용하지 않는다.
+[ ] PWJ-DUR-018 | Manual/Data Clear/명시적 저장/정상 종료 flush는 full-ring barrier 뒤 성공한다.
+[ ] PWJ-DUR-019 | barrier 모든 stage가 같은 captured receipt와 normalized semantic digest를 가진다.
+[ ] PWJ-DUR-020 | barrier 완료 후 pre-boundary fallback으로 삭제 Material이 되살아나지 않는다.
+[ ] PWJ-DUR-021 | 미완료 barrier는 startup에서 exact snapshot으로 재개되며 실패 시 Recovery Required다.
+[ ] PWJ-DUR-022 | regular async durability와 explicit flush full-ring seal watermark를 구분한다.
+
+Durability gate:
+
+[ ] PWJ-DUR-G01 | 승인된 PendingDurabilityAge 상한을 3회 반복 모두 통과했다.
+[ ] PWJ-DUR-G02 | strict 0-loss 요구가 추가되지 않았거나 별도 architecture 결정으로 분리됐다.
+
+
+13. Startup load와 recovery
+
+[ ] PWJ-LOAD-001 | 최종 material-pwj directory가 존재하면 신규 format만 primary로 읽는다.
+[ ] PWJ-LOAD-002 | 모든 Manifest slot을 후보로 검색한다.
+[ ] PWJ-LOAD-003 | Manifest JSON/schema/epoch/generation/revision을 검증한다.
+[ ] PWJ-LOAD-004 | 모든 entry path를 final store instance root에 resolve하고 그 root 내부인지 확인한다.
+[ ] PWJ-LOAD-005 | 모든 참조 document의 존재를 확인한다.
+[ ] PWJ-LOAD-006 | document byte length를 확인한다.
+[ ] PWJ-LOAD-007 | document SHA-256을 확인한다.
+[ ] PWJ-LOAD-008 | document kind/schema/stable ID를 확인한다.
+[ ] PWJ-LOAD-009 | 중복 path/stable ID/WaferInstanceId/DieId를 거부한다.
+[ ] PWJ-LOAD-010 | Manifest count와 deserialize count를 비교한다.
+[ ] PWJ-LOAD-011 | 문서 전체를 MaterialSnapshot으로 재조립한다.
+[ ] PWJ-LOAD-012 | 기존 raw value validation을 수행한다.
+[ ] PWJ-LOAD-013 | 기존 graph validation을 수행한다.
+[ ] PWJ-LOAD-014 | 신규 snapshot의 TryPrepareStateForUse 전후 digest/count/ID/list order가 동일하다.
+[ ] PWJ-LOAD-015 | 완전히 정상인 후보 중 가장 높은 generation을 선택한다.
+[ ] PWJ-LOAD-016 | 최신 후보가 DeterministicCorruption이면 그 generation 전체를 거부한다.
+[ ] PWJ-LOAD-017 | transient-unavailable 후보가 없을 때만 이전 완전한 generation으로 fallback한다.
+[ ] PWJ-LOAD-018 | 서로 다른 generation 문서를 섞어 복구하지 않는다.
+[ ] PWJ-LOAD-019 | file mtime/크기/데이터 수가 최신 선택 기준이 아니다.
+[ ] PWJ-LOAD-020 | Manifest 밖 orphan/temp를 state에 편입하지 않는다.
+[ ] PWJ-LOAD-021 | 모든 후보 실패 시 빈 상태로 조용히 초기화하지 않는다.
+[ ] PWJ-LOAD-022 | 모든 후보 실패 시 stale Legacy를 자동 부활시키지 않는다.
+[ ] PWJ-LOAD-023 | Recovery Required와 기존 안전 차단 흐름이 유지된다.
+[ ] PWJ-LOAD-024 | cleanup 실패와 load 성공을 분리한다.
+[ ] PWJ-LOAD-025 | LastLoadedPath와 진단 로그가 실제 선택 후보를 가리킨다.
+[ ] PWJ-LOAD-026 | 동일 Epoch/Generation의 상충 후보는 ambiguous corruption으로 처리한다.
+[ ] PWJ-LOAD-027 | No Store/Legacy Migration/New Store Loaded/Recovery Required 결과를 구분한다.
+[ ] PWJ-LOAD-028 | 신규 store evidence + 정상 Manifest 0개이면 Form1이 InitializeForRecipe를 호출하지 않는다.
+[ ] PWJ-LOAD-029 | Recovery Required가 Auto 시작 전에 fail-closed 또는 종료로 처리된다.
+[ ] PWJ-LOAD-030 | 저장소가 실제로 없을 때의 기존 빈 상태 초기화 의미는 유지된다.
+[ ] PWJ-LOAD-031 | 하나의 최종 store에 authoritative EpochId가 정확히 하나다.
+[ ] PWJ-LOAD-032 | 서로 다른 Epoch가 공존하면 Generation을 비교하지 않고 Recovery Required다.
+[ ] PWJ-LOAD-033 | 같은 Epoch에서는 Generation만 commit 정렬 키로 사용한다.
+[ ] PWJ-LOAD-034 | 높은 Generation의 낮은 SnapshotRevision 후보를 손상으로 거부한다.
+[ ] PWJ-LOAD-035 | WriterSessionId/CapturedSaveVersion을 startup 정렬에 사용하지 않는다.
+[ ] PWJ-LOAD-036 | 정상 load 완료 전에 서로 다른 정상 Generation 두 개를 확보한다.
+[ ] PWJ-LOAD-037 | 두 보호 Generation의 공통 logical document physical path가 독립적이다.
+[ ] PWJ-LOAD-038 | distinct 정상 세대 2개 또는 physical independence가 부족하면 startup repair 후 재검증한다.
+[ ] PWJ-LOAD-039 | startup repair 실패 시 degraded Auto 진행 없이 Recovery Required다.
+[ ] PWJ-LOAD-040 | 동일 Generation 복제본을 정상 두 Generation으로 세지 않는다.
+[ ] PWJ-LOAD-041 | repair가 최신 완전 정상 source와 현재 보호 후보/reference를 overwrite/delete하지 않는다.
+[ ] PWJ-LOAD-042 | repair Generation은 같은 Epoch의 schema/header/self-hash-valid 전체 max + 1 checked 연산이다.
+[ ] PWJ-LOAD-043 | self-hash-valid지만 document-invalid인 Manifest Generation도 repair 충돌 방지 max에 포함한다.
+[ ] PWJ-LOAD-044 | repair Generation overflow/range 초과는 Recovery Required다.
+[ ] PWJ-LOAD-045 | repair는 보호되지 않은 slot과 동일 atomic document-then-Manifest 경로만 사용한다.
+[ ] PWJ-LOAD-046 | repair SnapshotRevision/의미/receipt가 source와 같고 새 durability ack로 세지 않는다.
+[ ] PWJ-LOAD-047 | repair 뒤 전체 slot/document를 rescan해 두 독립 정상 Generation을 확인한다.
+[ ] PWJ-LOAD-048 | candidate 결과를 EmptySlot/Valid/DeterministicCorruption/TransientUnavailable로 구분한다.
+[ ] PWJ-LOAD-049 | sharing/access/device/path/read I/O transient는 승인된 bounded retry로 전체 rescan한다.
+[ ] PWJ-LOAD-050 | transient가 하나라도 남으면 lower fallback/repair/overwrite/GC를 금지한다.
+[ ] PWJ-LOAD-051 | transient retry 소진 시 stale rollback 대신 Recovery Required다.
+[ ] PWJ-LOAD-052 | JSON/schema/self-hash/length/hash/identity deterministic 불일치만 fallback 근거다.
+[ ] PWJ-LOAD-053 | OrderedWaferInstanceIds와 PreviousGlobalDieId chain으로 exact global list order를 재조립한다.
+[ ] PWJ-LOAD-054 | prepare/compaction이 신규 committed snapshot을 바꾸면 후보를 거부한다.
+[ ] PWJ-LOAD-055 | 신규 format load의 compaction idempotence를 검증한다.
+[ ] PWJ-LOAD-056 | 미완료 RetirementBarrier를 exact snapshot으로 완료하기 전 Auto를 시작하지 않는다.
+[ ] PWJ-LOAD-057 | Form1 outer catch(Exception)가 Recovery Required 예외/결과를 InitializeForRecipe로 흡수하지 않는다.
+[ ] PWJ-LOAD-058 | 정상 후보가 2개 이상이어도 same-path independence 위반이면 repair한다.
+[ ] PWJ-LOAD-059 | document 검증 후 NormalizedSnapshotSha256를 재계산해 Manifest와 비교한다.
+[ ] PWJ-LOAD-060 | unused Manifest slot 부재는 EmptySlot, referenced document 부재는 retry 후 corruption으로 구분한다.
+[ ] PWJ-LOAD-061 | File.Exists가 access/I/O 오류를 false로 숨기는 결과를 상태 판정에 사용하지 않는다.
+[ ] PWJ-LOAD-062 | startup barrier resume는 이전 WriterSession receipt를 보존하되 새 process의 Committed/Sealed watermark를 갱신하지 않는다.
+
+
+14. Legacy migration과 rollback
+
+[ ] PWJ-MIG-001 | 최종 material-pwj directory가 없을 때만 Legacy migration을 시작한다.
+[ ] PWJ-MIG-002 | 기존 Legacy 후보 선택기를 사용한다.
+[ ] PWJ-MIG-003 | Legacy snapshot이 기존 prepare/validation을 통과한다.
+[ ] PWJ-MIG-004 | migration 중 Legacy primary/bak/recovery를 수정하지 않는다.
+[ ] PWJ-MIG-005 | 신규 파일을 material-pwj.bootstrap.{guid}에 먼저 생성한다.
+[ ] PWJ-MIG-006 | 같은 Epoch의 서로 다른 Generation Manifest 두 개를 만든다.
+[ ] PWJ-MIG-007 | 모든 logical document의 서로 다른 physical replica 두 개를 bootstrap에서 검증한다.
+[ ] PWJ-MIG-008 | 두 Manifest 각각을 재조립해 Legacy와 의미 digest/count/reference를 비교한다.
+[ ] PWJ-MIG-009 | bootstrap 전체 검증 후 같은 volume Directory.Move로 최종 directory를 게시한다.
+[ ] PWJ-MIG-010 | migration 중간 종료 후 재실행이 idempotent하다.
+[ ] PWJ-MIG-011 | 재실행에서 Wafer/Die 중복이 생기지 않는다.
+[ ] PWJ-MIG-012 | 최종 material-pwj directory 게시 후 Legacy를 자동 fallback으로 사용하지 않는다.
+[ ] PWJ-MIG-013 | 신규 활성화 후 구버전 실행 위험이 문서화됐다.
+[ ] PWJ-MIG-014 | rollback용 신규 -> Legacy export 또는 운영 절차가 있다.
+[ ] PWJ-MIG-015 | 성능을 악화시키는 live dual-write를 기본값으로 두지 않았다.
+[ ] PWJ-MIG-016 | migration 전 운영 backup/inventory/checksum 절차가 있다.
+[ ] PWJ-MIG-017 | downgrade가 안전하지 않으면 명시적으로 차단/경고한다.
+[ ] PWJ-MIG-018 | 신규 활성화 후 Legacy 파일 byte/SHA-256/LastWriteTime이 더 이상 변하지 않는다.
+[ ] PWJ-MIG-019 | Legacy loader가 신규 facade Load를 재귀 호출하지 않는다.
+[ ] PWJ-MIG-020 | bootstrap directory는 state 후보로 읽지 않는다.
+[ ] PWJ-MIG-021 | migration 중간 종료 후 남은 bootstrap count/byte가 고정 상한 안이다.
+[ ] PWJ-MIG-022 | final directory move 전/중/후 crash에서 Legacy 또는 완전한 신규 store만 선택된다.
+[ ] PWJ-MIG-023 | 두 generation의 전체 검증과 의미 동등성 통과 전 final directory를 게시하지 않는다.
+[ ] PWJ-MIG-024 | Manifest RelativePath를 bootstrap store root에 bind해 게시 전에 전체 검증한다.
+[ ] PWJ-MIG-025 | Directory.Move 직후 동일 Manifest를 final store root에 rebind해 전체 검증한다.
+[ ] PWJ-MIG-026 | bootstrap/final rebind 사이에 Manifest byte/self-hash/RelativePath가 바뀌지 않는다.
+
+
+15. GC, Temp, failed 파일
+
+[ ] PWJ-GC-001 | hot GC는 Manifest self-hash/schema와 trusted receipt로 reference 집합만 보수적으로 검증한다.
+[ ] PWJ-GC-002 | 최신 정상 Manifest 두 개의 모든 reference를 보호한다.
+[ ] PWJ-GC-003 | 고정 Manifest slot을 삭제하지 않는다.
+[ ] PWJ-GC-004 | 어떤 보호 Manifest도 참조하지 않는 문서만 삭제 후보가 된다.
+[ ] PWJ-GC-005 | load 성공 전 destructive cleanup을 하지 않는다.
+[ ] PWJ-GC-006 | commit 전 cleanup을 하지 않는다.
+[ ] PWJ-GC-007 | Manifest/document/temp 삭제 path가 현재 store instance root 내부인지 다시 검증한다.
+[ ] PWJ-GC-008 | unknown/user 파일을 자동 삭제하지 않는다.
+[ ] PWJ-GC-009 | Temp 개수 상한이 코드와 문서에 있다.
+[ ] PWJ-GC-010 | Temp 기간 상한이 코드와 문서에 있다.
+[ ] PWJ-GC-011 | failed diagnostic 개수 상한이 있다.
+[ ] PWJ-GC-012 | failed diagnostic가 Material state 후보로 선택되지 않는다.
+[ ] PWJ-GC-013 | cleanup 실패를 warning/health 상태로 남긴다.
+[ ] PWJ-GC-014 | cleanup 실패 후 다음 idle/commit에서 재시도한다.
+[ ] PWJ-GC-015 | 반복 cleanup 실패가 무한 파일 증가로 이어지지 않는 감시가 있다.
+[ ] PWJ-GC-016 | Cassette Clear 후 fallback 세대 해제 전에는 필요한 파일을 삭제하지 않는다.
+[ ] PWJ-GC-017 | fallback 세대 해제 후 미참조 파일이 회수된다.
+[ ] PWJ-GC-018 | 삭제 판단은 모든 정상 Manifest가 아니라 최신 보호 P개 Manifest reference만 기준으로 한다.
+[ ] PWJ-GC-019 | 세 번째 retirement Manifest가 invalid돼도 최신 두 정상 세대는 유지된다.
+[ ] PWJ-GC-020 | 인식 가능한 빈 Wafer directory를 보호 해제 후 정리한다.
+[ ] PWJ-GC-021 | orphan count hard cap을 사전 숫자로 정의했다.
+[ ] PWJ-GC-022 | orphan total byte hard cap을 사전 숫자로 정의했다.
+[ ] PWJ-GC-023 | bootstrap/failed/temp에도 count와 byte hard cap이 있다.
+[ ] PWJ-GC-024 | cap 도달 시 새 orphan을 만들거나 보호 파일을 overwrite하지 않는다.
+[ ] PWJ-GC-025 | cap 도달 save 실패와 운영 health warning을 확인했다.
+[ ] PWJ-GC-026 | orphan cap 도달 상태에서는 size 최종 gate를 PASS 처리하지 않는다.
+[ ] PWJ-GC-027 | GC가 최종 material-pwj directory 자체를 삭제하거나 이름 변경하지 않는다.
+[ ] PWJ-GC-028 | 정상 독립 generation 두 개 또는 공통 document independence가 없으면 일반 GC를 금지한다.
+[ ] PWJ-GC-029 | bootstrap cleanup은 State root 바로 아래 인식된 exact bootstrap path에만 한정된다.
+[ ] PWJ-GC-030 | hot GC가 전체 completed document hash scrub을 하지 않고 startup/idle scrub과 분리된다.
+[ ] PWJ-GC-031 | trusted receipt가 불명확하면 삭제하지 않고 GC를 연기한다.
+[ ] PWJ-GC-032 | candidate commit이 만들 retirement-only/uncommitted final/temp/backup을 cap projection에 포함한다.
+[ ] PWJ-GC-033 | projected post-commit file/byte/directory/peak가 cap을 넘으면 첫 write/mkdir 전에 실패한다.
+[ ] PWJ-GC-034 | O에는 retirement-only document와 uncommitted final-slot file이 포함된다.
+[ ] PWJ-GC-035 | directory count hard cap과 mkdir 전 projected-cap 검사가 있다.
+[ ] PWJ-GC-036 | barrier 진행 중 일반 GC를 금지한다.
+[ ] PWJ-GC-037 | GC/delete가 reparse point를 따라가지 않는다.
+
+
+16. 파일 수와 용량 상한
+
+사전 계산 값:
+
+Manifest slot 수 Gm:
+Document slot 수 Gd:
+보호 정상 Manifest 수 P:
+최신 보호 두 Manifest의 reachable logical document union 최대 수 Nr:
+Temp 최대 수 T:
+failed diagnostic 최대 수 F:
+orphan 최대 수/byte O:
+bootstrap 최대 수/byte B:
+기타 고정 파일 수 C:
+
+PWJ-owned 경계:
+
+- final material-pwj의 인식된 artifact
+- 인식된 material-pwj.bootstrap.* sibling
+- 사전 지정한 고정 Legacy allowance
+- shared State root의 MachineRuntime/CSV/user/unknown은 제외하고 관찰만 수행
+
+정상 owned 파일 수 상한 예:
+
+MaxOwnedFiles = Gm + Gd x Nr + T + F + O + B + C
+
+MaxOwnedBytes:
+MaxOwnedDirectories:
+MaxOwnedTransientPeakBytes:
+MaxLogicalDocuments:
+MaxDocumentBytes:
+MaxManifestBytes:
+MaxDiePerWafer/MaxWaferDieIds/MaxOutputReceiveSlots:
+모든 persisted nested List MaxItemCount와 field별 MaxUtf8Bytes:
+
+실제 장비 구조에 맞는 Nr 정의와 계산 근거를 반드시 기록한다.
+Nr은 단순 stage/slot 수가 아니라 Cassette에 실물이 남은 Wafer와
+Input/Output parent 및 기타 reference로 유지되는 dependency-only Wafer까지 포함한다.
+
+[ ] PWJ-SIZE-001 | PWJ-owned 파일 수 상한 공식과 모든 변수를 정의했다.
+[ ] PWJ-SIZE-002 | 누적 생산 Wafer 수가 상한 공식에 들어가지 않는다.
+[ ] PWJ-SIZE-003 | code-enforced MaxDocumentBytes와 단일 Wafer worst-case 측정 근거가 있다.
+[ ] PWJ-SIZE-004 | Manifest 최대 byte를 dependency-only 포함 max reachable union Nr에서 측정했다.
+[ ] PWJ-SIZE-005 | 빈 상태 PWJ-owned file count/total byte를 기록했다.
+[ ] PWJ-SIZE-006 | 1-slot 진행/완료 PWJ-owned file count/total byte를 기록했다.
+[ ] PWJ-SIZE-007 | 13-slot 무Clear 완료 PWJ-owned file count/total byte를 기록했다.
+[ ] PWJ-SIZE-008 | 25-slot 무Clear 완료 PWJ-owned file count/total byte를 기록했다.
+[ ] PWJ-SIZE-009 | Cassette를 채우는 동안 물리 Material만큼 증가할 수 있음을 구분했다.
+[ ] PWJ-SIZE-010 | max reachable union에서도 계산한 owned 절대 상한 이하이다.
+[ ] PWJ-SIZE-011 | healthy replica/fault·repair 없는 steady state에서 완료 Wafer hash/mtime/write가 유지된다.
+[ ] PWJ-SIZE-012 | active 변경 1건의 document write byte를 1/13/25-slot에서 비교했다.
+[ ] PWJ-SIZE-013 | 25-slot actual write byte가 완료 Slot 수에 비례하지 않는다.
+[ ] PWJ-SIZE-014 | Cassette turnover 포함 100 Wafer에서 PWJ-owned plateau를 확인했다.
+[ ] PWJ-SIZE-015 | Cassette turnover 포함 1,000 Wafer에서 PWJ-owned plateau를 확인했다.
+[ ] PWJ-SIZE-016 | Clear barrier와 보호 세대 해제 후 owned byte가 회수된다.
+[ ] PWJ-SIZE-017 | Temp/orphan/failed 최대 수가 상한 안이다.
+[ ] PWJ-SIZE-018 | cleanup 반복 실패 시 증가 기울기와 경고를 기록했다.
+[ ] PWJ-SIZE-019 | 기존 LOT/검사 CSV 용량을 Material State 측정과 분리했다.
+[ ] PWJ-SIZE-020 | active Wafer 진행 중 문서 증가와 생산 누적 증가를 구분했다.
+[ ] PWJ-SIZE-021 | MaxOwnedBytes 절대 상한과 변수별 byte 근거를 정의했다.
+[ ] PWJ-SIZE-022 | MaxOwnedDirectories에 빈 Wafer/bootstrap directory allowance와 hard cap을 포함했다.
+[ ] PWJ-SIZE-023 | MaxOwnedTransientPeakBytes에 projected commit/document/Manifest Temp/replace peak를 포함했다.
+[ ] PWJ-SIZE-024 | content-change primary와 independence replica write를 분리 계측했다.
+[ ] PWJ-SIZE-025 | FileStream payload/process I/O/physical disk byte를 서로 분리했다.
+[ ] PWJ-SIZE-026 | healthy replica/fault·repair 없는 동일 snapshot 100회에서 changed/write가 0이다.
+[ ] PWJ-SIZE-027 | fault-free 정상 transition에서 같은 residence당 primary/replica 각각 최대 1회를 지켰다.
+[ ] PWJ-SIZE-028 | 실제 max directory/byte/transient peak가 계산 상한 이하다.
+[ ] PWJ-SIZE-029 | failed-attempt/retry write count/byte/age가 별도 계측되고 artifact hard cap 안이다.
+[ ] PWJ-SIZE-030 | MaxLogicalDocuments/DocumentBytes/ManifestBytes를 save/load에서 코드로 강제한다.
+[ ] PWJ-SIZE-031 | Die/DieIds/OutputReceiveSlots와 모든 nested List/string field 상한을 코드로 강제한다.
+[ ] PWJ-SIZE-032 | 상한 초과 시 truncate/drop 없이 save/load fail-closed와 dirty/health를 유지한다.
+[ ] PWJ-SIZE-033 | load가 file length/count를 allocation/deserialize 전에 검사한다.
+[ ] PWJ-SIZE-034 | shared State root total byte는 관찰값이며 PWJ hard gate/삭제 근거가 아니다.
+[ ] PWJ-SIZE-035 | unknown/user/reparse artifact byte/count를 owned inventory와 분리 보고한다.
+[ ] PWJ-SIZE-036 | mkdir 전 projected directory count가 MaxOwnedDirectories 이하인지 검사한다.
+[ ] PWJ-SIZE-037 | hard code limit이 없으면 결과를 empirical bound로 낮추고 hard bound PASS를 금지한다.
+
+권장 hot-write gate:
+
+[ ] PWJ-SIZE-G01 | 두 trusted replica가 정상이고 fault/recovery/repair 없는 steady state에서 추가 write가 0건이다.
+[ ] PWJ-SIZE-G02 | 25-slot hot save document write byte가
+                    1-slot active document write + Manifest 증가분 + 사전 고정한 20% 측정 오차 안이다.
+[ ] PWJ-SIZE-G03 | 100/1,000 turnover 후 PWJ-owned byte 증가 기울기가 승인값 이하다.
+[ ] PWJ-SIZE-G04 | 실제 owned file count가 계산한 MaxOwnedFiles 이하이다.
+[ ] PWJ-SIZE-G05 | 실제 owned total byte가 계산한 MaxOwnedBytes 이하이다.
+[ ] PWJ-SIZE-G06 | 실제 owned directory count가 계산한 MaxOwnedDirectories 이하이다.
+[ ] PWJ-SIZE-G07 | 실제 owned transient peak가 계산한 MaxOwnedTransientPeakBytes 이하이다.
+[ ] PWJ-SIZE-G08 | orphan/failed/bootstrap/temp hard cap을 한 번도 초과하지 않았다.
+[ ] PWJ-SIZE-G09 | 모든 logical/nested/string/document/Manifest code limit 경계 테스트가 통과한다.
+[ ] PWJ-SIZE-G10 | unrelated shared State root 증가 때문에 PWJ 파일을 삭제하거나 gate를 오판하지 않았다.
+
+
+17. 상태 의미 동등성
+
+[ ] PWJ-EQ-001 | Version/RecipeName/LotId가 동일하다.
+[ ] PWJ-EQ-002 | SnapshotRevision이 commit 계약과 일치한다.
+[ ] PWJ-EQ-003 | CassetteId/CassetteLotId/Role/State/Level/Enabled/IsPresent/IsMapped/LastScanTime가 동일하다.
+[ ] PWJ-EQ-004 | 모든 SlotNumber/HasWafer가 동일하다.
+[ ] PWJ-EQ-005 | Slot WaferId/WaferInstanceId가 동일하다.
+[ ] PWJ-EQ-006 | MaterialSnapshot.Wafers의 모든 identity와 exact list order가 동일하다.
+[ ] PWJ-EQ-007 | 표시 WaferId 재사용 시 instance identity가 섞이지 않는다.
+[ ] PWJ-EQ-008 | Wafer CurrentLocation/State/Grade/Lot이 동일하다.
+[ ] PWJ-EQ-009 | Wafer map/align/theta/review 상태가 동일하다.
+[ ] PWJ-EQ-010 | Wafer.DieIds 순서가 동일하다.
+[ ] PWJ-EQ-011 | OutputReceiveSlots 순서와 필드가 동일하다.
+[ ] PWJ-EQ-012 | OutputReceiveSlots의 모든 Die reference가 해석된다.
+[ ] PWJ-EQ-013 | MaterialSnapshot.Dies의 모든 DieId와 exact list order가 동일하다.
+[ ] PWJ-EQ-014 | Die Input/Output parent identity가 동일하다.
+[ ] PWJ-EQ-015 | Die CurrentLocation이 동일하다.
+[ ] PWJ-EQ-016 | Picker current/reservation 정보가 동일하다.
+[ ] PWJ-EQ-017 | PickedAt/Picker 번호와 위치가 동일하다.
+[ ] PWJ-EQ-018 | Die Result/NG code가 동일하다.
+[ ] PWJ-EQ-019 | WaferOffset/BinOffset 값과 IsValid가 동일하다.
+[ ] PWJ-EQ-020 | Inspection type/result/count가 동일하다.
+[ ] PWJ-EQ-021 | Measurement 값과 순서가 동일하다.
+[ ] PWJ-EQ-022 | Alignment 값과 순서가 동일하다.
+[ ] PWJ-EQ-023 | DateTime sentinel과 UTC/local 의미가 동일하다.
+[ ] PWJ-EQ-024 | 기존 field-specific NaN/Infinity fallback 후 의미가 같고 그 외 무단 0/null 변환이 없다.
+[ ] PWJ-EQ-025 | CreatedAt/UpdatedAt이 불필요하게 재발급되지 않는다.
+[ ] PWJ-EQ-026 | 재조립 과정에서 신규 WaferInstanceId/DieId를 만들지 않는다.
+[ ] PWJ-EQ-027 | normalized semantic digest가 save 전/재로드 후 동일하다.
+[ ] PWJ-EQ-028 | JSON property 순서 차이를 기능 차이로 잘못 판정하지 않는다.
+[ ] PWJ-EQ-029 | MaterialSnapshot graph의 모든 DataMember가 recursive contract inventory에 있다.
+[ ] PWJ-EQ-030 | 허용 차이는 detail trim과 명시된 DateTime/double 정규화뿐이다.
+[ ] PWJ-EQ-031 | 신규 DataMember를 comparer/DTO에서 누락시키면 테스트가 실패한다.
+[ ] PWJ-EQ-032 | order metadata를 제거한 재조립 runtime graph가 원래 normalized list 순서와 같다.
+[ ] PWJ-EQ-033 | 신규 load의 TryPrepare/compaction 전후 digest/count/ID/order가 같고 idempotent하다.
+[ ] PWJ-EQ-034 | MaterialSnapshot.SavedAt/SaveReason이 선택 Manifest의 captured 값으로 정확히 복원된다.
+[ ] PWJ-EQ-035 | MaterialSnapshot.Cassettes와 Cassette.Slots의 exact list order가 동일하다.
+
+
+18. 기능 회귀 시나리오
+
+[ ] PWJ-REG-001 | Input cassette mapping 결과가 동일하다.
+[ ] PWJ-REG-002 | Output cassette mapping/selective mapping 결과가 동일하다.
+[ ] PWJ-REG-003 | Cassette load/unload/clear 결과가 동일하다.
+[ ] PWJ-REG-004 | Input stage wafer 이동/align/theta 결과가 동일하다.
+[ ] PWJ-REG-005 | Input die mapping/review 승인 결과가 동일하다.
+[ ] PWJ-REG-006 | Input pick target 예약/재사용/해제 결과가 동일하다.
+[ ] PWJ-REG-007 | 실제 Pick 후 위치/예약/상태가 동일하다.
+[ ] PWJ-REG-008 | Picker return/repick 결과가 동일하다.
+[ ] PWJ-REG-009 | bottom/side/general inspection 저장 결과가 동일하다.
+[ ] PWJ-REG-010 | GOOD/NG 결과와 NG code가 동일하다.
+[ ] PWJ-REG-011 | Output receive plan/slot 예약 결과가 동일하다.
+[ ] PWJ-REG-012 | Output Place의 Die/Wafer/receive slot 결과가 동일하다.
+[ ] PWJ-REG-013 | Output inspection 결과가 동일하다.
+[ ] PWJ-REG-014 | Output stage/feeder/cassette 이동 결과가 동일하다.
+[ ] PWJ-REG-015 | LOT ID 설정/유지/완료 시점이 동일하다.
+[ ] PWJ-REG-016 | LOT 완료만으로 physical output Material이 사라지지 않는다.
+[ ] PWJ-REG-017 | Manual move/delete/update의 durable 결과가 동일하다.
+[ ] PWJ-REG-018 | Data Clear flush/barrier 성공 후 재시작·단일 artifact 손상에서도 삭제 Material이 되살아나지 않는다.
+[ ] PWJ-REG-019 | 센서/축/카세트와 Material 불일치 시 기존 차단이 동일하다.
+[ ] PWJ-REG-020 | 정상 종료/재시작 후 처리 재개 결과가 동일하다.
+[ ] PWJ-REG-021 | StateChanged 기반 UI 표시가 동일하다.
+[ ] PWJ-REG-022 | 기존 결과 CSV와 검사 이력이 동일하게 생성된다.
+[ ] PWJ-REG-023 | Manual delete/explicit flush 완료 뒤 모든 Manifest slot이 post-boundary 의미다.
+
+Regression gate:
+
+[ ] PWJ-REG-G01 | PWJ-REG 항목 중 FAIL/BLOCKED가 0건이다.
+
+Auto Sequence 자체는 읽기 전용 비교와 기존 시뮬레이션으로 검증한다.
+회귀 검증을 위해 Sequence 코드를 수정하지 않는다.
+
+
+19. 장애 주입 Matrix
+
+[ ] PWJ-FAIL-001 | 첫 document Temp 생성 전 종료
+[ ] PWJ-FAIL-002 | 첫 document write 중 종료
+[ ] PWJ-FAIL-003 | N번째 document write 중 종료
+[ ] PWJ-FAIL-004 | document Flush(true) 전 종료
+[ ] PWJ-FAIL-005 | document Flush(true) 후 최종 교체 전 종료
+[ ] PWJ-FAIL-006 | document 최종 교체 직후 종료
+[ ] PWJ-FAIL-007 | 모든 document 완료 후 Manifest 작성 전 종료
+[ ] PWJ-FAIL-008 | Manifest Temp write 중 종료
+[ ] PWJ-FAIL-009 | Manifest Flush(true) 전 종료
+[ ] PWJ-FAIL-010 | Manifest Flush(true) 후 교체 전 종료
+[ ] PWJ-FAIL-011 | Manifest 교체 직후 committed revision 갱신 전 종료
+[ ] PWJ-FAIL-012 | Manifest commit 직후 GC 전 종료
+[ ] PWJ-FAIL-013 | GC 중 종료
+[ ] PWJ-FAIL-014 | disk full
+[ ] PWJ-FAIL-015 | State root access denied/read-only
+[ ] PWJ-FAIL-016 | destination file lock
+[ ] PWJ-FAIL-017 | 최신 Manifest truncation
+[ ] PWJ-FAIL-018 | 최신 Manifest JSON syntax 손상
+[ ] PWJ-FAIL-019 | 최신 document missing
+[ ] PWJ-FAIL-020 | 최신 document truncation
+[ ] PWJ-FAIL-021 | document byte length mismatch
+[ ] PWJ-FAIL-022 | document SHA-256 mismatch
+[ ] PWJ-FAIL-023 | document stable ID mismatch
+[ ] PWJ-FAIL-024 | duplicate WaferInstanceId
+[ ] PWJ-FAIL-025 | duplicate DieId
+[ ] PWJ-FAIL-026 | duplicate path/entry
+[ ] PWJ-FAIL-027 | path traversal entry
+[ ] PWJ-FAIL-028 | unknown future Manifest schema
+[ ] PWJ-FAIL-029 | unknown future document schema
+[ ] PWJ-FAIL-030 | stale writer 늦은 완료
+[ ] PWJ-FAIL-031 | save 중 신규 request 연속 유입
+[ ] PWJ-FAIL-032 | shutdown flush 중 신규 request 유입
+[ ] PWJ-FAIL-033 | Legacy migration 첫 document 중 종료
+[ ] PWJ-FAIL-034 | Legacy migration Manifest Temp 재조립/의미 비교 중 종료
+[ ] PWJ-FAIL-035 | bootstrap directory의 final material-pwj Directory.Move 전/중/직후 종료
+[ ] PWJ-FAIL-036 | cleanup 실패 반복
+[ ] PWJ-FAIL-037 | final material-pwj directory는 있으나 모든 신규 세대가 손상되고 Legacy는 정상인 상태
+[ ] PWJ-FAIL-038 | 같은 Epoch/Generation을 가진 서로 다른 Manifest 두 개
+[ ] PWJ-FAIL-039 | JSON parse는 성공하지만 Manifest 단일 payload 필드/self-hash 불일치
+[ ] PWJ-FAIL-040 | 서로 다른 Epoch의 정상 Manifest 공존
+[ ] PWJ-FAIL-041 | 높은 Generation + 낮은 SnapshotRevision
+[ ] PWJ-FAIL-042 | logical document replica A만 missing/truncate/hash 손상
+[ ] PWJ-FAIL-043 | logical document replica B만 missing/truncate/hash 손상
+[ ] PWJ-FAIL-044 | document content 변경 primary write 직후 종료
+[ ] PWJ-FAIL-045 | independence replica write/Flush/readback 중 종료
+[ ] PWJ-FAIL-046 | cleanup 실패로 orphan count/byte hard cap 도달
+[ ] PWJ-FAIL-047 | capture 직전/중/직후 신규 request race
+[ ] PWJ-FAIL-048 | 두 번째 production process가 같은 State root writer로 시작 시도
+[ ] PWJ-FAIL-049 | 다른 culture/time zone/process에서 무변경 document golden-byte 비교
+[ ] PWJ-FAIL-050 | 정상 Manifest가 하나만 남은 startup repair 성공
+[ ] PWJ-FAIL-051 | 정상 Manifest 하나 + startup repair write/commit 실패
+[ ] PWJ-FAIL-052 | replica 하나 손상 후 최소 한 정상 generation 유지 및 두 독립 generation repair
+[ ] PWJ-FAIL-053 | degraded 상태에서 GC 시도 차단
+[ ] PWJ-FAIL-054 | bootstrap Manifest를 move 전 bootstrap root와 move 후 final root에 각각 rebind
+[ ] PWJ-FAIL-055 | document readback 후 Manifest 전 kill 뒤 같은 content rewrite와 별도 retry byte 계측
+[ ] PWJ-FAIL-056 | sole valid G + self-hash-valid/document-invalid G+1에서 충돌 없는 repair Generation 선택
+[ ] PWJ-FAIL-057 | startup repair Generation checked overflow
+[ ] PWJ-FAIL-058 | startup repair document/Manifest commit 각 fault point에서 sole valid source 보존
+[ ] PWJ-FAIL-059 | repair commit 후 full rescan에서 independence 실패
+[ ] PWJ-FAIL-060 | 정상 후보 둘 이상이지만 최신 두 후보가 common document same-path 공유
+[ ] PWJ-FAIL-061 | Manifest OrderedWaferInstanceIds duplicate/missing/unknown ID
+[ ] PWJ-FAIL-062 | PreviousGlobalDieId missing predecessor 또는 duplicate successor
+[ ] PWJ-FAIL-063 | PreviousGlobalDieId multiple head/cycle/unvisited Die
+[ ] PWJ-FAIL-064 | predecessor 제거/삽입 경계에서 exact global list order round-trip
+[ ] PWJ-FAIL-065 | store 내부 junction/symlink가 root 밖 file/directory를 가리킴
+[ ] PWJ-FAIL-066 | State/bootstrap root 자체 또는 중간 component가 reparse point
+[ ] PWJ-FAIL-067 | 최신 Manifest/document sharing violation 뒤 retry 성공
+[ ] PWJ-FAIL-068 | transient access/read I/O가 bounded retry 후에도 지속
+[ ] PWJ-FAIL-069 | transient candidate 존재 중 lower fallback/repair/GC 시도 차단
+[ ] PWJ-FAIL-070 | RetirementBarrier stage 1/2/3 각각 write/Flush/replace 전후 kill
+[ ] PWJ-FAIL-071 | 미완료 RetirementBarrier startup resume 성공/실패
+[ ] PWJ-FAIL-072 | barrier 완료 후 각 Manifest/replica 하나씩 단독 손상해 pre-boundary 부활 0
+[ ] PWJ-FAIL-073 | candidate post-commit file/byte/directory/transient projected cap 초과
+[ ] PWJ-FAIL-074 | MaxLogicalDocuments/DocumentBytes/ManifestBytes/nested count/string byte 경계 ±1
+[ ] PWJ-FAIL-075 | 신규 Manifest load의 TryPrepare/compaction이 state를 변경하는 입력
+[ ] PWJ-FAIL-076 | Recovery Required가 Form1 outer catch(Exception)에 도달하는 경로
+[ ] PWJ-FAIL-077 | 영구 I/O 실패가 retry attempt/byte budget을 넘어 circuit open
+[ ] PWJ-FAIL-078 | hot GC에서 completed document open/hash count가 0인지 계측
+[ ] PWJ-FAIL-079 | unused Manifest EmptySlot과 referenced document missing을 각각 주입
+[ ] PWJ-FAIL-080 | File.Exists가 false를 반환할 수 있는 access/I/O fault에서 transient 분류 유지
+[ ] PWJ-FAIL-081 | A/B silent 손상 뒤 changed/unchanged save 6회+hot GC에서 보호 overwrite/delete 0, fallback 1개 이상, startup repair
+
+각 항목에서 기록할 값:
+
+- 종료 직전 latest valid generation
+- 목표 new generation
+- 시작 시 검색한 후보
+- 후보별 거부 이유
+- 최종 선택 generation
+- old/new/mixed 판정
+- normalized semantic digest
+- orphan/temp/failed file count
+- operator-visible error
+
+Fault gate:
+
+[ ] PWJ-FAIL-G01 | old 전체 또는 new 전체 외 결과가 0건이다.
+[ ] PWJ-FAIL-G02 | 손상 최신 세대 때문에 이전 정상 세대가 훼손되지 않았다.
+[ ] PWJ-FAIL-G03 | 모든 세대 손상 시 stale Legacy/empty state로 조용히 진행하지 않았다.
+[ ] PWJ-FAIL-G04 | 단일 replica 손상 후 fallback 하나 이상을 유지하고 정상 시작 전 독립 세대 두 개를 복구했다.
+[ ] PWJ-FAIL-G05 | barrier 성공 뒤 pre-boundary Material resurrection이 0건이다.
+[ ] PWJ-FAIL-G06 | transient-unavailable 후보가 stale fallback/repair로 승격된 사례가 0건이다.
+[ ] PWJ-FAIL-G07 | reparse fault가 store 밖 read/write/delete를 0건으로 차단했다.
+[ ] PWJ-FAIL-G08 | silent 손상 뒤 writer/GC가 보호 union을 잠식하지 않고 startup repair 전 Auto를 차단했다.
+
+
+20. 성능 검증
+
+[ ] PWJ-PERF-001 | 정확한 baseline HEAD SHA와 candidate HEAD SHA 및 빌드 옵션을 기록했다.
+[ ] PWJ-PERF-002 | 동일 PC/저장장치/Recipe/Die/속도 조건이다.
+[ ] PWJ-PERF-003 | 동일 warm-up과 측정 cycle 수를 사용했다.
+[ ] PWJ-PERF-004 | 각 조건을 3회 이상 반복했다.
+[ ] PWJ-PERF-005 | UPH 평균과 run별 원값을 기록했다.
+[ ] PWJ-PERF-006 | Cycle 평균/P50/P95/P99/Max를 기록했다.
+[ ] PWJ-PERF-007 | _stateSync hold 평균/P50/P95/P99/Max를 기록했다.
+[ ] PWJ-PERF-008 | snapshot copy 시간을 기록했다.
+[ ] PWJ-PERF-009 | partition/serialize/hash 시간을 분리 기록했다.
+[ ] PWJ-PERF-010 | document write/Flush 시간을 분리 기록했다.
+[ ] PWJ-PERF-011 | Manifest write/replace 시간을 분리 기록했다.
+[ ] PWJ-PERF-012 | GC 시간을 hot save와 분리 기록했다.
+[ ] PWJ-PERF-013 | process disk write bytes/write count를 기록했다.
+[ ] PWJ-PERF-014 | changed/reused document count를 generation별 기록했다.
+[ ] PWJ-PERF-015 | writer queue/backlog P50/P95/P99/Max를 기록했다.
+[ ] PWJ-PERF-016 | PendingDurabilityAge P50/P95/P99/Max를 기록했다.
+[ ] PWJ-PERF-017 | 로그 I/O가 성능 측정을 왜곡하지 않는다.
+[ ] PWJ-PERF-018 | 평균 개선만으로 P99 악화를 숨기지 않았다.
+[ ] PWJ-PERF-019 | raw CSV/로그와 계산 방법을 보관했다.
+[ ] PWJ-PERF-020 | baseline 대비 차이와 신뢰 가능한 반복성을 보고했다.
+[ ] PWJ-PERF-021 | FileStream payload byte, process I/O byte, physical disk byte를 분리했다.
+[ ] PWJ-PERF-022 | content-change primary와 redundancy-repair write를 분리했다.
+[ ] PWJ-PERF-023 | NotifyAndSave 반환 시간 P50/P95/P99/Max를 기록했다.
+[ ] PWJ-PERF-024 | NotifyAndSave 호출 thread synchronous file I/O가 0건이다.
+[ ] PWJ-PERF-025 | 1/13/25-slot 각각의 UPH/Cycle/I/O matrix를 기록했다.
+[ ] PWJ-PERF-026 | SaveMaterialInspectionDetail 최대 조건의 matrix를 기록했다.
+[ ] PWJ-PERF-027 | Program single-instance mutex가 두 번째 production writer를 차단함을 확인했다.
+[ ] PWJ-PERF-028 | FailedAttemptWriteCount/Bytes와 retry count/backoff/age를 정상 I/O와 분리 기록했다.
+[ ] PWJ-PERF-029 | RetirementBarrier stage별 Manifest write/Flush/latency를 normal hot save와 분리했다.
+[ ] PWJ-PERF-030 | hot GC completed-document open/read/hash count를 기록했다.
+
+권장 gate:
+
+[ ] PWJ-PERF-G01 | UPH 저하가 각 반복에서 1% 이하이다.
+[ ] PWJ-PERF-G02 | 평균 Cycle 증가가 각 반복에서 1% 이하이다.
+[ ] PWJ-PERF-G03 | Cycle P95/P99 증가가 각 반복에서 3% 이하이다.
+[ ] PWJ-PERF-G04 | _stateSync P99가 승인된 절대/상대 상한을 통과한다.
+[ ] PWJ-PERF-G05 | PendingDurabilityAge Max가 승인된 상한을 통과한다.
+[ ] PWJ-PERF-G06 | 25-slot steady-state process write bytes/save가 baseline 전체 snapshot의 20% 이하다.
+[ ] PWJ-PERF-G07 | healthy trusted replica/fault·recovery·repair 없는 steady state에서 완료 document write가 0건이다.
+[ ] PWJ-PERF-G08 | NotifyAndSave P99가 시험 전 승인한 절대/상대 상한을 통과한다.
+[ ] PWJ-PERF-G09 | NotifyAndSave 호출 thread synchronous file open/write/flush/replace가 0건이다.
+
+장비팀 승인 기준이 권장값과 다르면 측정 전에 승인값을 이 문서에 기록한다.
+
+
+21. 빌드와 정적 검증
+
+[ ] PWJ-BUILD-001 | C# 7.3에 없는 문법을 사용하지 않았다.
+[ ] PWJ-BUILD-002 | .NET Framework 4.7.2 target을 유지했다.
+[ ] PWJ-BUILD-003 | x64/AnyCPU Prefer32Bit 조건을 유지했다.
+[ ] PWJ-BUILD-004 | 신규 source의 csproj Compile Include가 정확히 한 번이다.
+[ ] PWJ-BUILD-005 | 신규 NuGet/native dependency가 없다.
+[ ] PWJ-BUILD-006 | 기존 output과 다른 격리 OutDir로 빌드했다.
+[ ] PWJ-BUILD-007 | build exit code 0, error 0이다.
+[ ] PWJ-BUILD-008 | 신규 warning 0이거나 승인된 근거가 있다.
+[ ] PWJ-BUILD-009 | git diff --check가 통과한다.
+[ ] PWJ-BUILD-010 | 텍스트 encoding/CRLF/final newline이 저장소 규칙과 일치한다.
+[ ] PWJ-BUILD-011 | unit/partition/reassembly 테스트가 통과한다.
+[ ] PWJ-BUILD-012 | generation ring 테스트가 통과한다.
+[ ] PWJ-BUILD-013 | recovery/fault 테스트가 통과한다.
+[ ] PWJ-BUILD-014 | 기존 Material snapshot validation 테스트가 통과한다.
+[ ] PWJ-BUILD-015 | 테스트 설정에 D:\CDT-320 운영 State 경로가 없다.
+[ ] PWJ-BUILD-016 | 배포 산출물에 승인되지 않은 파일이 추가되지 않았다.
+[ ] PWJ-BUILD-017 | golden canonical byte/hash를 다른 culture/time zone/process에서 검증했다.
+[ ] PWJ-BUILD-018 | recursive DataMember contract inventory 테스트가 통과한다.
+[ ] PWJ-BUILD-019 | temp-root store instance의 모든 write/delete path containment 테스트가 통과한다.
+[ ] PWJ-BUILD-020 | 4세대 이상 ring/replica 교대 테스트가 통과한다.
+[ ] PWJ-BUILD-021 | Wafers/Dies global order-link partition/reassembly/fault 테스트가 통과한다.
+[ ] PWJ-BUILD-022 | junction/symlink/reparse path containment 테스트가 통과한다.
+[ ] PWJ-BUILD-023 | RetirementBarrier full-ring/startup-resume/receipt 테스트가 통과한다.
+[ ] PWJ-BUILD-024 | logical/nested/string/document/Manifest code-limit 경계 테스트가 통과한다.
+[ ] PWJ-BUILD-025 | 신규 load prepare/compaction no-mutation/idempotence 테스트가 통과한다.
+[ ] PWJ-BUILD-026 | hot GC가 completed document를 읽지 않는 I/O 계측 테스트가 통과한다.
+
+
+22. 배포와 현장 검증
+
+[ ] PWJ-DEP-001 | 배포 전 Legacy state inventory/size/SHA-256 backup 절차가 있다.
+[ ] PWJ-DEP-002 | State root 권한과 여유 공간을 확인했다.
+[ ] PWJ-DEP-003 | 백신/동기화/백업 프로그램 간섭을 확인했다.
+[ ] PWJ-DEP-004 | 첫 migration 예상 시간과 operator 메시지를 확인했다.
+[ ] PWJ-DEP-005 | migration 실패 시 Legacy 원본이 그대로 남는다.
+[ ] PWJ-DEP-006 | 신규 format 활성화 후 구버전 실행 금지/rollback 절차가 있다.
+[ ] PWJ-DEP-007 | 첫 production Lot을 canary로 지정했다.
+[ ] PWJ-DEP-008 | canary에서 generation/document/PWJ-owned file count/byte를 감시한다.
+[ ] PWJ-DEP-009 | canary에서 save latency/backlog/PendingDurabilityAge를 감시한다.
+[ ] PWJ-DEP-010 | 승인된 절차로 강제 종료/재시작 복구를 확인했다.
+[ ] PWJ-DEP-011 | fallback generation 정리 전 관찰 기간이 있다.
+[ ] PWJ-DEP-012 | Auto/Interlock 배포 package diff 0 증거를 보관했다.
+[ ] PWJ-DEP-013 | rollback 결정 조건과 책임자를 정했다.
+[ ] PWJ-DEP-014 | 배포 후 파일 수/byte 상한 모니터링 기간을 정했다.
+[ ] PWJ-DEP-015 | cleanup 경고와 Recovery Required의 operator 대응 절차가 있다.
+[ ] PWJ-DEP-016 | production State root가 local NTFS이고 같은-volume atomic move 조건을 만족한다.
+[ ] PWJ-DEP-017 | Flush(true)만으로 미검증 전원 차단 내구성을 과장하지 않았다.
+[ ] PWJ-DEP-018 | final material-pwj directory가 있으면 Legacy 자동 fallback이 차단된다.
+[ ] PWJ-DEP-019 | shared State root 관찰값과 PWJ-owned hard-bound 값을 분리 모니터링한다.
+[ ] PWJ-DEP-020 | retry circuit open과 transient Recovery Required 운영 절차가 있다.
+
+
+23. 실장비 FIELD 항목
+
+[ ] PWJ-FIELD-001 | 실제 장비에서 Input 1-slot 전체 공정을 완료했다.
+[ ] PWJ-FIELD-002 | 실제 장비에서 13-slot 또는 승인된 부분 Cassette를 완료했다.
+[ ] PWJ-FIELD-003 | 실제 장비에서 full Cassette 조건을 완료했다.
+[ ] PWJ-FIELD-004 | 실제 장비에서 Cassette 교체 후 파일 회수를 확인했다.
+[ ] PWJ-FIELD-005 | 실제 장비에서 GOOD/NG 혼합 Place를 확인했다.
+[ ] PWJ-FIELD-006 | 실제 장비에서 picker reservation 상태 재시작을 확인했다.
+[ ] PWJ-FIELD-007 | 실제 장비에서 output receive 진행 중 재시작을 확인했다.
+[ ] PWJ-FIELD-008 | 실제 장비에서 Manual move/delete 후 재시작을 확인했다.
+[ ] PWJ-FIELD-009 | 실제 장비에서 Data Clear barrier/flush 성공 후 stale 부활이 없음을 확인했다.
+[ ] PWJ-FIELD-010 | 실제 장비에서 기존 sensor/material mismatch 차단이 유지된다.
+[ ] PWJ-FIELD-011 | 실제 장비 UPH/Cycle P95/P99 gate를 통과했다.
+[ ] PWJ-FIELD-012 | 실제 장비 disk write 감소를 계측했다.
+[ ] PWJ-FIELD-013 | 실제 장비 PendingDurabilityAge 상한을 통과했다.
+[ ] PWJ-FIELD-014 | 실제 장비 운영자가 오류/복구 메시지를 확인했다.
+[ ] PWJ-FIELD-015 | Field 미실행 항목을 코드 테스트 PASS와 구분했다.
+
+
+24. 최종 결과 표
+
+기준 HEAD:
+최종 HEAD:
+Branch:
+작업 전 status:
+작업 후 status:
+변경 파일:
+금지 경로 diff:
+Build:
+Unit/Integration:
+Fault:
+Performance:
+Field:
+Migration:
+Rollback:
+
+크기 결과:
+
+조건 | Reachable doc 수 | Owned File/Dir | Owned byte | Shared State 관찰 | Max doc | Primary/Replica/Retry | Process write | Temp/Orphan
+빈 상태 |
+1-slot 진행 |
+1-slot 완료 |
+13-slot 완료, Clear 없음 |
+25-slot 완료, Clear 없음 |
+100 Wafer turnover |
+1,000 Wafer turnover |
+Clear + fallback 해제 후 |
+
+성능 결과:
+
+항목 | Baseline | Candidate | 차이 | Gate | 상태
+UPH |
+Cycle Mean |
+Cycle P95 |
+Cycle P99 |
+_stateSync P99 |
+Snapshot Copy P99 |
+Serialize P99 |
+Disk Write P99 |
+Manifest Commit P99 |
+Pending Durability Age Max |
+Write Bytes/Save |
+NotifyAndSave P99 |
+Primary Write Bytes |
+Replica Write Bytes |
+Failed/Retry Write Bytes |
+Retirement Barrier Bytes/Latency |
+Hot GC Document Read Count |
+
+복구 결과:
+
+시험 | 직전 정상 Gen | 목표 Gen | 선택 Gen | Old/New/Mixed | 상태 | 증거
+정상 종료 |
+Document write 중 kill |
+Manifest write 중 kill |
+Manifest replace 직전 kill |
+Manifest replace 직후 kill |
+Disk full |
+Missing document |
+Hash mismatch |
+모든 세대 손상 |
+Migration 중 kill |
+
+
+25. 최종 Gate
+
+[ ] PWJ-FINAL-001 | Auto Sequence diff 0
+[ ] PWJ-FINAL-002 | Interlock diff 0
+[ ] PWJ-FINAL-003 | Motion/Vision/Unit diff 0
+[ ] PWJ-FINAL-004 | 기존 Material mutation 호출 계약 유지
+[ ] PWJ-FINAL-005 | 마지막 정상 commit과 reload 의미 동등
+[ ] PWJ-FINAL-006 | mixed generation 복구 0건
+[ ] PWJ-FINAL-007 | 최신 손상 시 이전 정상 세대 보존
+[ ] PWJ-FINAL-008 | healthy replica/fault·recovery·repair 없는 steady state 완료 Wafer document write 0건
+[ ] PWJ-FINAL-009 | hot save byte가 완료 Slot 수에 비례하지 않음
+[ ] PWJ-FINAL-010 | 100/1,000 Wafer turnover 후 PWJ-owned file count/byte plateau
+[ ] PWJ-FINAL-011 | PWJ-owned Temp/failed/orphan/directory 고정 상한 통과
+[ ] PWJ-FINAL-012 | UPH/Cycle gate 통과
+[ ] PWJ-FINAL-013 | _stateSync gate 통과
+[ ] PWJ-FINAL-014 | PendingDurabilityAge 승인
+[ ] PWJ-FINAL-015 | Legacy migration 의미 동등
+[ ] PWJ-FINAL-016 | stale Legacy 자동 부활 차단
+[ ] PWJ-FINAL-017 | rollback 절차 확보
+[ ] PWJ-FINAL-018 | 격리 build/test 통과
+[ ] PWJ-FINAL-019 | 운영 데이터 무변경
+[ ] PWJ-FINAL-020 | 다른 작업자 파일 무변경
+[ ] PWJ-FINAL-021 | 미실행 FIELD 항목 명시
+[ ] PWJ-FINAL-022 | 잔여 위험 명시
+[ ] PWJ-FINAL-023 | 사용자 요청 없는 commit 없음
+[ ] PWJ-FINAL-024 | concurrent mutation capture와 startup happens-before 일관성 gate 통과
+[ ] PWJ-FINAL-025 | 최신 두 Manifest의 공통 document physical path 독립
+[ ] PWJ-FINAL-026 | replica 각각 단독 손상 fallback 통과
+[ ] PWJ-FINAL-027 | canonical golden-byte/no-mutation 100회 통과
+[ ] PWJ-FINAL-028 | Manifest self-hash와 foreign Epoch gate 통과
+[ ] PWJ-FINAL-029 | recursive DataMember inventory gate 통과
+[ ] PWJ-FINAL-030 | MaxOwnedFiles/Bytes/Directories/TransientPeak 및 content code-limit 통과
+[ ] PWJ-FINAL-031 | Recovery Required에서 Form startup/Auto 등록 중단
+[ ] PWJ-FINAL-032 | 기능 회귀 hard gate 통과
+[ ] PWJ-FINAL-033 | startup 정상 완료 전 서로 다른 보호 Generation 두 개 확보
+[ ] PWJ-FINAL-034 | Manifest path의 bootstrap/final store-root rebind 검증 통과
+[ ] PWJ-FINAL-035 | degraded 상태 GC 차단과 redundancy repair gate 통과
+[ ] PWJ-FINAL-036 | fault-free write gate와 failed-attempt/retry 계측·hard cap 통과
+[ ] PWJ-FINAL-037 | startup repair generation/receipt/source 보존/full-rescan 계약 통과
+[ ] PWJ-FINAL-038 | RetirementBarrier full-ring/receipt/startup-resume/pre-boundary 부활 0 통과
+[ ] PWJ-FINAL-039 | TransientUnavailable retry 후 stale fallback/repair 0 통과
+[ ] PWJ-FINAL-040 | reparse point의 store 밖 read/write/delete 0 통과
+[ ] PWJ-FINAL-041 | Wafers/Dies exact global list order round-trip 통과
+[ ] PWJ-FINAL-042 | projected owned cap과 logical/nested/string byte hard limit 통과
+[ ] PWJ-FINAL-043 | 신규 load prepare/compaction no-mutation/idempotence 통과
+[ ] PWJ-FINAL-044 | hot GC completed-document read/hash 0 통과
+[ ] PWJ-FINAL-045 | retry rate/byte budget와 circuit-open gate 통과
+[ ] PWJ-FINAL-046 | silent replica 손상 후 연속 save/GC의 보호 union·fallback·startup repair gate 통과
+
+최종 판정:
+
+- 위 Gate 중 하나라도 FAIL이면 구현 완료가 아니다.
+- BLOCKED 항목이 Material correctness, atomicity, Auto 보호, file bound, UPH에 해당하면 배포 승인 불가다.
+- NOT RUN FIELD 항목은 시뮬레이션 PASS로 대체하지 않는다.
+- 모든 PASS 증거와 잔여 위험을 사용자가 검토한 뒤에만 운영 전환한다.
