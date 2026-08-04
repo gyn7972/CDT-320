@@ -415,7 +415,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     ManualActionItem.Create("READY POSITION", () => ConfirmAndRunAsync("READY POSITION", MoveReadySequenceAsync)),
                     ManualActionItem.Create("PROCESS POSITION", () => ConfirmAndRunAsync("PROCESS POSITION", MoveProcessSequenceAsync)),
                     ManualActionItem.Create("RETICLE POSITION", () => ConfirmAndRunAsync("RETICLE POSITION", MoveReticleSequenceAsync)),
-                    ManualActionItem.Create("PICK TEST", () => ConfirmAndRunAsync("PICK TEST", PickTestAsync))
+                    //ManualActionItem.Create("PICK TEST", () => ConfirmAndRunAsync("PICK TEST", PickTestAsync))
                 });
             }
             catch (Exception ex)
@@ -456,11 +456,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private async void btnReticlePosition_Click(object sender, EventArgs e)
         {
             await ConfirmAndRunAsync("RETICLE POSITION", MoveReticleSequenceAsync);
-        }
-
-        private async void btnPickTest_Click(object sender, EventArgs e)
-        {
-            await ConfirmAndRunAsync("PICK TEST", PickTestAsync);
         }
 
         private void BindTeachingActionButton(ActionButton button, string displayName)

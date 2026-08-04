@@ -23,10 +23,16 @@ namespace QMC.CDT320.Materials
         public static string BackupPath => Path.Combine(Dir, "material_state.bak");
         public static string RecoveryPath => Path.Combine(Dir, "material_state.recovery.json");
         public static string LastLoadedPath { get; private set; } = "";
+        public static long HighestObservedSnapshotRevision
+        {
+            get { return Interlocked.Read(ref _highestObservedSnapshotRevision); }
+        }
 
         private static readonly DateTime SafeEmptyDateTime =
             DateTime.SpecifyKind(new DateTime(1900, 1, 1, 0, 0, 0), DateTimeKind.Utc);
+        private const int FailedSnapshotDiagnosticRetentionCount = 3;
         private static DateTime _lastTempCleanupUtc = DateTime.MinValue;
+        private static long _highestObservedSnapshotRevision;
 
         public static bool Exists()
         {
@@ -54,20 +60,6 @@ namespace QMC.CDT320.Materials
             Stopwatch sw = Stopwatch.StartNew();
             try
             {
-                MaterialSnapshot fastSnapshot;
-                string fastReason;
-                if (TryLoadPrimarySnapshotFast(out fastSnapshot, out fastReason))
-                {
-                    LogLoadElapsed("Fast", sw.ElapsedMilliseconds, fastSnapshot);
-                    return fastSnapshot;
-                }
-
-                if (!string.IsNullOrWhiteSpace(fastReason) && File.Exists(SnapshotPath))
-                {
-                    Log.Write("Main", "SYSTEM", "MaterialSnapshotLoad",
-                        "Material snapshot fast load skipped. reason=" + fastReason + " - Check");
-                }
-
                 var candidates = LoadCandidates();
                 if (candidates.Count == 0)
                 {
@@ -285,6 +277,17 @@ namespace QMC.CDT320.Materials
                     return;
                 }
 
+                string graphReason;
+                if (!MaterialStorage.TryPrepareStateForUse(snapshot, out graphReason))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialSnapshotLoad",
+                        "Material snapshot candidate graph rejected. file=" + path +
+                        ", reason=" + graphReason + " - Failed");
+                    return;
+                }
+
+                ObserveSnapshotRevision(snapshot);
+
                 candidates.Add(new SnapshotCandidate
                 {
                     Path = path,
@@ -308,37 +311,44 @@ namespace QMC.CDT320.Materials
             if (candidates == null || candidates.Count == 0)
                 return null;
 
-            SnapshotCandidate newest = candidates
+            // Revision이 도입된 Snapshot이 하나라도 있으면 파일 시각이나 데이터 개수보다
+            // 가장 큰 Revision을 우선한다. 컴팩션된 최신본보다 큰 과거본이 복구되는 것을 막는다.
+            SnapshotCandidate highestRevision = candidates
+                .Where(c => c != null && c.Snapshot != null && c.Snapshot.SnapshotRevision > 0L)
+                .OrderByDescending(c => c.Snapshot.SnapshotRevision)
+                .ThenByDescending(GetCandidateSavedAt)
+                .ThenByDescending(c => c.LastWriteTime)
+                .FirstOrDefault();
+            if (highestRevision != null)
+                return highestRevision;
+
+            // Revision이 없는 legacy 세대에서는 데이터 개수가 아니라 저장 시각으로 순서를 판단한다.
+            // primary보다 명확히 새 SavedAt을 가진 recovery/temp는 실패한 commit의 최신 상태일 수 있다.
+            // 반대로 오래된 backup이 더 풍부하다는 이유만으로 Clear 이전 상태를 되살리지는 않는다.
+            SnapshotCandidate committedPrimary = candidates.FirstOrDefault(c =>
+                c != null &&
+                string.Equals(c.Path, SnapshotPath, StringComparison.OrdinalIgnoreCase));
+            if (committedPrimary != null)
+            {
+                DateTime primarySavedAt = GetCandidateSavedAt(committedPrimary);
+                SnapshotCandidate newerAlternate = candidates
+                    .Where(c => c != null &&
+                                !ReferenceEquals(c, committedPrimary) &&
+                                (string.Equals(c.Path, RecoveryPath, StringComparison.OrdinalIgnoreCase) ||
+                                 IsTempPath(c.Path)) &&
+                                GetCandidateSavedAt(c) > primarySavedAt &&
+                                c.LastWriteTime > committedPrimary.LastWriteTime)
+                    .OrderByDescending(GetCandidateSavedAt)
+                    .ThenByDescending(c => c.LastWriteTime)
+                    .FirstOrDefault();
+                return newerAlternate ?? committedPrimary;
+            }
+
+            // Primary가 없거나 손상되어 후보에서 제외된 경우에만 가장 최근의 정상 대체본을 쓴다.
+            return candidates
                 .OrderByDescending(GetCandidateSavedAt)
                 .ThenByDescending(c => c.LastWriteTime)
                 .First();
-
-            SnapshotCandidate richest = candidates
-                .OrderByDescending(c => c.Score)
-                .ThenByDescending(GetCandidateSavedAt)
-                .ThenByDescending(c => c.LastWriteTime)
-                .First();
-
-            bool newestLooksPartialTemp =
-                IsTempPath(newest.Path) &&
-                richest.Score > newest.Score + 1000 &&
-                !IsExplicitClearReason(newest.Snapshot != null ? newest.Snapshot.SaveReason : "");
-
-            bool newestLooksStartupReset =
-                IsStartupInitializeReason(newest.Snapshot != null ? newest.Snapshot.SaveReason : "") &&
-                richest.Score > newest.Score + 1000;
-
-            if (newestLooksPartialTemp || newestLooksStartupReset)
-            {
-                Log.Write("Main", "SYSTEM", "MaterialSnapshotLoad",
-                    "Material snapshot newest candidate ignored because richer saved data exists. newest=" + newest.Path +
-                    ", newestScore=" + newest.Score +
-                    ", selected=" + richest.Path +
-                    ", selectedScore=" + richest.Score + " - Check");
-                return richest;
-            }
-
-            return newest;
         }
 
         private static bool TryLoadFromPath(string path, out MaterialSnapshot snapshot, out string error)
@@ -367,7 +377,6 @@ namespace QMC.CDT320.Materials
                     return false;
                 }
 
-                NormalizeSnapshotStates(snapshot);
                 return true;
             }
             catch (Exception ex)
@@ -544,81 +553,6 @@ namespace QMC.CDT320.Materials
                 }
             }
 
-            NormalizeDuplicatePickerDieLocations(snapshot);
-        }
-
-        private static void NormalizeDuplicatePickerDieLocations(MaterialSnapshot snapshot)
-        {
-            try
-            {
-                if (snapshot == null || snapshot.Dies == null)
-                    return;
-
-                var pickerDies = snapshot.Dies
-                    .Where(d =>
-                        d != null &&
-                        d.CurrentLocation != null &&
-                        IsPickerLocation(d.CurrentLocation.Kind) &&
-                        d.CurrentLocation.PickerNo > 0)
-                    .GroupBy(d => d.CurrentLocation.Kind.ToString() + ":" + d.CurrentLocation.PickerNo);
-
-                foreach (var group in pickerDies)
-                {
-                    List<DieMaterial> ordered = group
-                        .OrderByDescending(GetPickerDieSortTime)
-                        .ThenByDescending(d => d != null ? d.InputSequenceNo : 0)
-                        .ToList();
-
-                    if (ordered.Count <= 1)
-                        continue;
-
-                    DieMaterial keep = ordered[0];
-                    MaterialLocationKind location = keep.CurrentLocation.Kind;
-                    int pickerNo = keep.CurrentLocation.PickerNo;
-
-                    for (int i = 1; i < ordered.Count; i++)
-                    {
-                        DieMaterial duplicate = ordered[i];
-                        if (duplicate == null)
-                            continue;
-
-                        duplicate.CurrentLocation = MaterialLocation.Unknown();
-                        duplicate.ReservedPickerLocation = MaterialLocationKind.Unknown;
-                        duplicate.ReservedPickerNo = -1;
-                        duplicate.UpdatedAt = DateTime.Now;
-
-                        Log.Write("Main", "SYSTEM", "MaterialSnapshotNormalize",
-                            "피커 위치 중복 Material 정리. 위치=" + location +
-                            ", pickerNo=" + pickerNo +
-                            ", 유지Die=" + (keep != null ? keep.DieId : "-") +
-                            ", 정리Die=" + duplicate.DieId + " - Check");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "MaterialSnapshotNormalize",
-                    "피커 위치 중복 Material 정리 실패: " + ex.Message + " - Failed");
-            }
-            finally
-            {
-            }
-        }
-
-        private static bool IsPickerLocation(MaterialLocationKind kind)
-        {
-            return kind == MaterialLocationKind.PickerFront ||
-                   kind == MaterialLocationKind.PickerRear;
-        }
-
-        private static DateTime GetPickerDieSortTime(DieMaterial die)
-        {
-            if (die == null)
-                return DateTime.MinValue;
-
-            DateTime updated = die.UpdatedAt;
-            DateTime picked = die.PickedAt;
-            return updated >= picked ? updated : picked;
         }
 
         /// <summary>
@@ -630,8 +564,18 @@ namespace QMC.CDT320.Materials
         public static MaterialSnapshot CreateSaveCopy(MaterialSnapshot snapshot)
         {
             MaterialSnapshot copy = CloneSnapshotForSave(snapshot);
+            if (copy == null)
+                return null;
+
             TrimInspectionDetailIfDisabled(copy);
             return copy;
+        }
+
+        internal static MaterialSnapshot CreateStateCopy(MaterialSnapshot snapshot)
+        {
+            // 수동 Process Test transaction rollback용. 저장 정책에 따른 Inspection trim 없이
+            // live graph를 그대로 복제해야 실패 전 상태를 정확히 복원할 수 있다.
+            return CloneSnapshotForSave(snapshot);
         }
 
         /// <summary>
@@ -700,9 +644,40 @@ namespace QMC.CDT320.Materials
             {
                 Directory.CreateDirectory(Dir);
                 MaterialSnapshot saveSnapshot = alreadyCopied ? snapshot : CloneSnapshotForSave(snapshot);
+                if (saveSnapshot == null)
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                        "Material snapshot 저장용 복사본을 만들지 못해 저장을 중단합니다. - Failed");
+                    return false;
+                }
+
                 saveSnapshot.SavedAt = DateTime.Now;
+                string rawValueReason;
+                if (!MaterialStateCompactor.TryValidateRawMaterialValues(saveSnapshot, out rawValueReason))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                        "Material snapshot 원본 값 검증에 실패해 저장을 중단합니다. reason=" +
+                        rawValueReason + " - Failed");
+                    return false;
+                }
                 NormalizeSnapshotStates(saveSnapshot);
                 NormalizeSnapshotDateTimes(saveSnapshot);
+
+                if (!MaterialSnapshotRevisionPolicy.IsTrustedLoadedRevision(saveSnapshot.SnapshotRevision))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                        "Material snapshot revision이 신뢰 범위를 벗어나 저장을 중단합니다. revision=" +
+                        saveSnapshot.SnapshotRevision + " - Failed");
+                    return false;
+                }
+
+                string integrityReason;
+                if (!MaterialStateCompactor.TryValidateForSave(saveSnapshot, out integrityReason))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                        "Material snapshot graph validation failed. reason=" + integrityReason + " - Failed");
+                    return false;
+                }
 
                 tmp = Path.Combine(Dir,
                     "material_state.json." +
@@ -731,7 +706,10 @@ namespace QMC.CDT320.Materials
 
                 bool committed = CommitSnapshot(tmp);
                 if (committed)
+                {
+                    ObserveSnapshotRevision(saveSnapshot);
                     CleanupStaleTempFiles();
+                }
                 else
                     DeleteTempFile(tmp);
 
@@ -889,14 +867,18 @@ namespace QMC.CDT320.Materials
             try
             {
                 MaterialSnapshot clone = CloneObject(source) as MaterialSnapshot;
-                return clone ?? source;
+                if (clone == null)
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                        "Material snapshot 저장용 복사 결과가 null입니다. - Failed");
+                }
+                return clone;
             }
             catch (Exception ex)
             {
                 Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
-                    "Material snapshot save clone failed: " + ex.Message +
-                    ". Runtime snapshot will be used. - Check");
-                return source;
+                    "Material snapshot 저장용 복사에 실패했습니다. error=" + ex.Message + " - Failed");
+                return null;
             }
             finally
             {
@@ -965,6 +947,15 @@ namespace QMC.CDT320.Materials
             string expectedLotId = string.IsNullOrWhiteSpace(expected.LotId) ? "" : expected.LotId.Trim();
             string loadedLotId = string.IsNullOrWhiteSpace(loaded.LotId) ? "" : loaded.LotId.Trim();
 
+            if (expected.SnapshotRevision != loaded.SnapshotRevision)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                    "Material snapshot validation failed. revision mismatch. file=" + path +
+                    ", expectedRevision=" + expected.SnapshotRevision +
+                    ", loadedRevision=" + loaded.SnapshotRevision + " - Failed");
+                return false;
+            }
+
             if (expectedWaferCount != loadedWaferCount || expectedDieCount != loadedDieCount)
             {
                 Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
@@ -986,6 +977,28 @@ namespace QMC.CDT320.Materials
             }
 
             return true;
+        }
+
+        private static void ObserveSnapshotRevision(MaterialSnapshot snapshot)
+        {
+            long revision = snapshot != null ? snapshot.SnapshotRevision : 0L;
+            if (revision <= 0L || !MaterialSnapshotRevisionPolicy.IsTrustedLoadedRevision(revision))
+                return;
+
+            while (true)
+            {
+                long current = Interlocked.Read(ref _highestObservedSnapshotRevision);
+                if (revision <= current)
+                    return;
+
+                if (Interlocked.CompareExchange(
+                        ref _highestObservedSnapshotRevision,
+                        revision,
+                        current) == current)
+                {
+                    return;
+                }
+            }
         }
 
         private static bool CommitSnapshot(string tmp)
@@ -1056,6 +1069,7 @@ namespace QMC.CDT320.Materials
                     "material_state.failed." +
                     DateTime.Now.ToString("yyyyMMddHHmmssfff") + ".json");
                 File.Copy(tmp, failedPath, true);
+                CleanupFailedSnapshotDiagnostics();
                 Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
                     "Material snapshot failed candidate copied for diagnosis. file=" + failedPath + " - Check");
             }
@@ -1086,11 +1100,40 @@ namespace QMC.CDT320.Materials
                 {
                     try { File.Delete(path); } catch { }
                 }
+                CleanupFailedSnapshotDiagnostics();
             }
             catch (Exception ex)
             {
                 Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
                     "Material snapshot temp cleanup failed: " + ex.Message + " - Check");
+            }
+            finally
+            {
+            }
+        }
+
+        private static void CleanupFailedSnapshotDiagnostics()
+        {
+            try
+            {
+                if (!Directory.Exists(Dir))
+                    return;
+
+                FileInfo[] failedFiles = Directory
+                    .GetFiles(Dir, "material_state.failed.*.json")
+                    .Select(path => new FileInfo(path))
+                    .OrderByDescending(file => file.LastWriteTimeUtc)
+                    .ThenByDescending(file => file.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                foreach (FileInfo stale in failedFiles.Skip(FailedSnapshotDiagnosticRetentionCount))
+                {
+                    try { stale.Delete(); } catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                    "Material snapshot failed diagnostic cleanup failed: " + ex.Message + " - Check");
             }
             finally
             {

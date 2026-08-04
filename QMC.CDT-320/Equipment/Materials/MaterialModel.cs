@@ -578,6 +578,9 @@ namespace QMC.CDT320.Materials
             InputStageRunReviewOrderedDieIds = new List<string>();
             InputStageRunReviewMappingRevision = "";
             OutputReceiveSourceWaferInstanceId = "";
+            // 초기 V1에는 Output receive plan 목록이 없었다. 필드 누락은 빈 계획으로
+            // 호환하되 JSON에 명시된 null은 역직렬화 후 raw 검증에서 거부한다.
+            OutputReceiveSlots = new List<OutputReceiveSlotMaterial>();
         }
     }
 
@@ -675,7 +678,12 @@ namespace QMC.CDT320.Materials
     [DataContract]
     public class MaterialSnapshot
     {
-        [DataMember] public int Version { get; set; } = 2;
+        public const int MinimumSupportedVersion = 1;
+        public const int CurrentVersion = 2;
+
+        [DataMember] public int Version { get; set; } = CurrentVersion;
+        /// <summary>저장 요청 캡처 순서를 나타내는 단조 증가 번호. 필드가 없는 기존 Snapshot은 0이다.</summary>
+        [DataMember] public long SnapshotRevision { get; set; }
         [DataMember] public DateTime SavedAt { get; set; } = DateTime.Now;
         [DataMember] public string SaveReason { get; set; } = "";
         [DataMember] public string RecipeName { get; set; } = "";

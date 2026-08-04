@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT320.Materials;
 using QMC.CDT320.Sequencing;
 using QMC.Common.IO;
 
@@ -72,7 +73,7 @@ namespace QMC.CDT320.Sim
             HookOutput();
 
             // 초기 센서 상태 주입
-            _inputCassette.CassetteExistSensor.SimulateInput(InputCassettePresent);
+            RefreshInputCassetteSensors();
             _inputCassette.ProtrusionSensor.SimulateInput(false);
             _inputCassette.WaferDetectSensor.SimulateInput(false);
             _inputFeeder.WaferClampedSensor.SimulateInput(true);
@@ -174,8 +175,22 @@ namespace QMC.CDT320.Sim
         public void SetInputCassettePresent(bool present)
         {
             InputCassettePresent = present;
-            _inputCassette.CassetteExistSensor.SimulateInput(present);
+            RefreshInputCassetteSensors();
             StateChanged?.Invoke();
+        }
+
+        /// <summary>선택된 Input cassette 규격의 두 감지 센서만 시뮬레이션 ON으로 맞춥니다.</summary>
+        public void RefreshInputCassetteSensors()
+        {
+            int cassetteSize = MaterialStateService.ResolveWaferSizeInch(
+                _inputCassette.Config != null ? _inputCassette.Config.InchSelect : 8);
+            bool is8InchPresent = InputCassettePresent && cassetteSize == 8;
+            bool is12InchPresent = InputCassettePresent && cassetteSize == 12;
+
+            _inputCassette.Wafer8CassetteCheck0.SimulateInput(is8InchPresent);
+            _inputCassette.Wafer8CassetteCheck1.SimulateInput(is8InchPresent);
+            _inputCassette.Wafer12CassetteCheck0.SimulateInput(is12InchPresent);
+            _inputCassette.Wafer12CassetteCheck1.SimulateInput(is12InchPresent);
         }
 
         /// <summary>Input 슬롯 K 의 가상 웨이퍼 유무 설정 (시뮬 UI 용).</summary>

@@ -739,7 +739,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         _InputCassetteUnit.EnsureSlotPositionBuffer();
                     }),
                     AxisDouble("SCAN/JOG VELOCITY", ParameterGridScope.Config, () => _InputCassetteUnit.Config.ScanVelocity, v => _InputCassetteUnit.Config.ScanVelocity = Math.Max(0.1, v), "/s"),
-                    ParameterGridItem.Selection("INCH SELECT", "Inch", ParameterGridScope.Config, () => _InputCassetteUnit.Config.InchSelect, v => _InputCassetteUnit.Config.InchSelect = Convert.ToInt32(v), new[]
+                    ParameterGridItem.Selection("INCH SELECT", "Inch", ParameterGridScope.Config, () => _InputCassetteUnit.Config.InchSelect, v =>
+                    {
+                        _InputCassetteUnit.Config.InchSelect = Convert.ToInt32(v);
+                        var host = FindHostForm();
+                        if (host != null && host.CassetteDriver != null)
+                            host.CassetteDriver.RefreshInputCassetteSensors();
+                    }, new[]
                     {
                         new ParameterGridOption("8", 8),
                         new ParameterGridOption("12", 12)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common;
 using QMC.CDT320.Bin;
@@ -25,6 +26,7 @@ namespace QMC.CDT320.Materials
         // serialize/validate/replace the 10MB+ state file.
         private const int MaterialSaveQuietMs = 1000;
         private const int MaterialSaveMinimumIntervalMs = 5000;
+        private const int MaterialSaveFailureRetryMs = 5000;
         private const int MaterialStateChangedQuietMs = 200;
         private const double InputStageThetaOffsetReadyEpsilon = 0.000001;
         private const double InputStageThetaMappingSnapshotToleranceDeg = 0.000001;
@@ -36,6 +38,12 @@ namespace QMC.CDT320.Materials
         private static bool _lastSaveSucceeded;
         private static bool _stateChangedQueued;
         private static DateTime _lastStateChangedAt = DateTime.MinValue;
+        // _stateSync 보호: 저장 사본을 캡처할 때 발급한 가장 큰 Revision.
+        private static long _lastIssuedSnapshotRevision;
+        // _saveIoSync 보호: 디스크에 정상 커밋한 가장 큰 Revision.
+        private static long _lastCommittedSnapshotRevision;
+        // _saveRequestSync 보호: 저장 중 들어온 새 요청과 현재 시도를 구분한다.
+        private static long _saveRequestVersion;
 
         public static MaterialSnapshot State => MaterialStorage.State;
 
@@ -49,10 +57,9 @@ namespace QMC.CDT320.Materials
             if (wafer == null)
                 return "";
 
-            string instanceId = (wafer.WaferInstanceId ?? "").Trim();
-            Guid parsed;
-            if (string.IsNullOrWhiteSpace(instanceId) ||
-                !Guid.TryParseExact(instanceId, "N", out parsed))
+            // 기존 nonblank 값은 형식과 관계없이 참조 중인 영속 identity이므로 그대로 보존한다.
+            string instanceId = wafer.WaferInstanceId ?? "";
+            if (string.IsNullOrWhiteSpace(instanceId))
             {
                 instanceId = CreateWaferInstanceId();
                 wafer.WaferInstanceId = instanceId;
@@ -387,7 +394,14 @@ namespace QMC.CDT320.Materials
                     die.WaferID_Input ?? "",
                     waferId ?? "",
                     StringComparison.OrdinalIgnoreCase);
-            if (!sameInputInstance || !string.IsNullOrWhiteSpace(die.OutputWaferInstanceId))
+            bool hasOutputParent =
+                !string.IsNullOrWhiteSpace(die.OutputWaferInstanceId) ||
+                !string.IsNullOrWhiteSpace(die.WaferID_Output);
+            bool hasActiveReservation =
+                die.ReservedPickerLocation == MaterialLocationKind.PickerFront ||
+                die.ReservedPickerLocation == MaterialLocationKind.PickerRear ||
+                die.ReservedPickerNo > 0;
+            if (!sameInputInstance || hasOutputParent || hasActiveReservation)
                 return false;
 
             MaterialLocationKind kind = die.CurrentLocation != null
@@ -1075,6 +1089,7 @@ namespace QMC.CDT320.Materials
         {
             if (levelCount < 1) levelCount = 1;
             if (levelCount > 2) levelCount = 2;
+            MaterialCompactionResult compactionResult;
 
             if (levelCount >= 2 && level2Map == null)
                 level2Map = level1Map;
@@ -1087,11 +1102,14 @@ namespace QMC.CDT320.Materials
                 string resolvedLotId = ResolveOrCreateCassetteMappingLotId(cassetteLotId, lotRoles);
                 ValidateCassetteMappingRequest(CassetteMaterialRole.Input1, true, slotCount, level1Map, level1SlotPositions);
                 ValidateCassetteMappingRequest(CassetteMaterialRole.Input2, levelCount >= 2, slotCount, level2Map, level2SlotPositions);
+                ValidateMappingIdentityRotationNoLock(CassetteMaterialRole.Input1, true, slotCount, level1Map, true);
+                ValidateMappingIdentityRotationNoLock(CassetteMaterialRole.Input2, levelCount >= 2, slotCount, level2Map, true);
 
                 UpdateCassetteMapping(CassetteMaterialRole.Input1, true, slotCount, level1Map, level1SlotPositions, resolvedLotId, tapeFrameSpecName);
                 UpdateCassetteMapping(CassetteMaterialRole.Input2, levelCount >= 2, slotCount, level2Map, level2SlotPositions, resolvedLotId, tapeFrameSpecName);
-
+                compactionResult = CompactMaterialStateNoLock();
             }
+            LogMaterialCompaction("InputCassetteMapping", compactionResult);
             NotifyAndSave("InputCassetteMapping");
         }
 
@@ -1109,6 +1127,7 @@ namespace QMC.CDT320.Materials
         {
             if (goodLevelCount < 1) goodLevelCount = 1;
             if (goodLevelCount > 2) goodLevelCount = 2;
+            MaterialCompactionResult compactionResult;
 
             lock (_stateSync)
             {
@@ -1119,12 +1138,19 @@ namespace QMC.CDT320.Materials
                 ValidateCassetteMappingRequest(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions);
                 ValidateCassetteMappingRequest(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions);
                 ValidateCassetteMappingRequest(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions);
+                ValidateMappingIdentityRotationNoLock(CassetteMaterialRole.Good1, true, slotCount, good1Map, true);
+                ValidateMappingIdentityRotationNoLock(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, true);
+                ValidateMappingIdentityRotationNoLock(CassetteMaterialRole.Ng1, true, slotCount, ngMap, true);
+                ValidateOutputMappingDetachCandidatesNoLock(CassetteMaterialRole.Good1);
+                ValidateOutputMappingDetachCandidatesNoLock(CassetteMaterialRole.Good2);
+                ValidateOutputMappingDetachCandidatesNoLock(CassetteMaterialRole.Ng1);
 
                 UpdateCassetteMapping(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions, resolvedLotId, tapeFrameSpecName);
                 UpdateCassetteMapping(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions, resolvedLotId, tapeFrameSpecName);
                 UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, resolvedLotId, tapeFrameSpecName);
-
+                compactionResult = CompactMaterialStateNoLock();
             }
+            LogMaterialCompaction("OutputCassetteMapping", compactionResult);
             NotifyAndSave("OutputCassetteMapping");
         }
 
@@ -1145,6 +1171,7 @@ namespace QMC.CDT320.Materials
         {
             if (goodLevelCount < 1) goodLevelCount = 1;
             if (goodLevelCount > 2) goodLevelCount = 2;
+            MaterialCompactionResult compactionResult;
 
             lock (_stateSync)
             {
@@ -1174,6 +1201,20 @@ namespace QMC.CDT320.Materials
                         good2Map,
                         good2SlotPositions,
                         recoverDetachedWorkingMaterial);
+                    ValidateMappingIdentityRotationNoLock(
+                        CassetteMaterialRole.Good1,
+                        true,
+                        slotCount,
+                        good1Map,
+                        true,
+                        recoverDetachedWorkingMaterial);
+                    ValidateMappingIdentityRotationNoLock(
+                        CassetteMaterialRole.Good2,
+                        goodLevelCount >= 2,
+                        slotCount,
+                        good2Map,
+                        true,
+                        recoverDetachedWorkingMaterial);
                 }
 
                 if (updateNg)
@@ -1185,7 +1226,23 @@ namespace QMC.CDT320.Materials
                         ngMap,
                         ngSlotPositions,
                         recoverDetachedWorkingMaterial);
+                    ValidateMappingIdentityRotationNoLock(
+                        CassetteMaterialRole.Ng1,
+                        true,
+                        slotCount,
+                        ngMap,
+                        true,
+                        recoverDetachedWorkingMaterial);
                 }
+
+                if (updateGood)
+                {
+                    ValidateOutputMappingDetachCandidatesNoLock(CassetteMaterialRole.Good1);
+                    if (goodLevelCount >= 2)
+                        ValidateOutputMappingDetachCandidatesNoLock(CassetteMaterialRole.Good2);
+                }
+                if (updateNg)
+                    ValidateOutputMappingDetachCandidatesNoLock(CassetteMaterialRole.Ng1);
 
                 if (recoverDetachedWorkingMaterial)
                 {
@@ -1208,8 +1265,9 @@ namespace QMC.CDT320.Materials
 
                 if (updateNg)
                     UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, resolvedLotId, tapeFrameSpecName);
-
+                compactionResult = CompactMaterialStateNoLock();
             }
+            LogMaterialCompaction("OutputCassetteMappingSelective", compactionResult);
             NotifyAndSave("OutputCassetteMappingSelective");
         }
 
@@ -1246,6 +1304,8 @@ namespace QMC.CDT320.Materials
         public static bool CreateProcessTestOutputStageWafer(QMC.CDT320.BinSide side, out string message)
         {
             message = string.Empty;
+            MaterialSnapshot rollbackState = null;
+            bool mutationStarted = false;
             try
             {
                 lock (_stateSync)
@@ -1256,57 +1316,89 @@ namespace QMC.CDT320.Materials
                     string lotId = ResolveActiveLotIdForProcessTest();
                     string outputTapeFrameSpecName = ResolveRecipeTapeFrameSpecName(0);
                     MaterialLocationKind location = ResolveOutputStageLocation(side);
+                    CassetteMaterialRole cassetteRole = side == QMC.CDT320.BinSide.Ng
+                        ? CassetteMaterialRole.Ng1
+                        : CassetteMaterialRole.Good1;
+                    ValidateProcessTestStageCassetteSlotNoLock(cassetteRole, 0, -1, true);
 
                     var existing = State.Wafers
                         .Where(w => w != null &&
                                     w.CurrentLocation != null &&
-                                    w.CurrentLocation.Kind == location &&
-                                    WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty)
+                                    w.CurrentLocation.Kind == location)
                         .ToList();
-                    foreach (WaferMaterial wafer in existing)
-                    {
-                        wafer.State = WaferMaterialState.Empty;
-                        wafer.CurrentLocation = MaterialLocation.Unknown();
-                        wafer.UpdatedAt = DateTime.Now;
-                    }
-
-                    WaferMaterial sourceWafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
-                    string sourceWaferId = sourceWafer != null ? sourceWafer.WaferId : "";
-                    WaferMaterial stageWafer = CreateProcessTestOutputStageWaferNoLock(
-                        side,
-                        lotId,
-                        timestamp,
-                        outputTapeFrameSpecName,
-                        sourceWaferId,
-                        project);
-
-                    CassetteMaterialRole cassetteRole = side == QMC.CDT320.BinSide.Ng
-                        ? CassetteMaterialRole.Ng1
-                        : CassetteMaterialRole.Good1;
-                    BindProcessTestStageWaferToCassetteSlotNoLock(
-                        cassetteRole,
-                        0,
-                        stageWafer,
+                    List<DieMaterial> existingOutputDies;
+                    string outputClearReason;
+                    if (!TryCollectOutputLocationClearDiesNoLock(
+                        existing,
                         location,
-                        WaferMaterialState.Working,
-                        lotId,
-                        outputTapeFrameSpecName);
+                        out existingOutputDies,
+                        out outputClearReason))
+                    {
+                        throw new InvalidOperationException(
+                            "공정 테스트 Output Stage Material을 안전하게 정리할 수 없습니다. " +
+                            outputClearReason);
+                    }
+                    rollbackState = CreateValidatedProcessTestRollbackStateNoLock();
+                    mutationStarted = true;
+                    try
+                    {
+                        DetachOrRemoveClearedOutputDiesNoLock(existingOutputDies);
+                        foreach (WaferMaterial wafer in existing)
+                        {
+                            ClearOutputStageWaferProcessingFieldsNoLock(wafer);
+                            wafer.State = WaferMaterialState.Empty;
+                            wafer.CurrentLocation = MaterialLocation.Unknown();
+                            wafer.UpdatedAt = DateTime.Now;
+                        }
 
-                    State.LotId = lotId;
-                    State.RecipeName = project != null ? project.FileName ?? "" : State.RecipeName;
+                        WaferMaterial sourceWafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                        string sourceWaferId = sourceWafer != null ? sourceWafer.WaferId : "";
+                        WaferMaterial stageWafer = CreateProcessTestOutputStageWaferNoLock(
+                            side,
+                            lotId,
+                            timestamp,
+                            outputTapeFrameSpecName,
+                            sourceWaferId,
+                            project);
 
-                    NotifyAndSave("CreateProcessTestOutputStageWafer");
-                    TryFlushPendingSave("CreateProcessTestOutputStageWafer");
+                        BindProcessTestStageWaferToCassetteSlotNoLock(
+                            cassetteRole,
+                            0,
+                            stageWafer,
+                            location,
+                            WaferMaterialState.Working,
+                            lotId,
+                            outputTapeFrameSpecName);
 
-                    message = "Output Stage 공정 테스트 Wafer Data 생성 완료. side=" + side +
-                              ", wafer=" + (stageWafer != null ? stageWafer.WaferId : "") +
-                              ", target=" + (stageWafer != null ? stageWafer.OutputReceiveTotalCount : 0) +
-                              ", lot=" + lotId;
-                    return true;
+                        State.LotId = lotId;
+                        State.RecipeName = project != null ? project.FileName ?? "" : State.RecipeName;
+
+                        MaterialCompactionResult compactionResult = CompactMaterialStateNoLock();
+                        LogMaterialCompaction("CreateProcessTestOutputStageWafer", compactionResult);
+                        NotifyAndSave("CreateProcessTestOutputStageWafer");
+                        if (!TryFlushPendingSave("CreateProcessTestOutputStageWafer"))
+                            throw new IOException("공정 테스트 Output Stage Material 저장을 확인하지 못했습니다.");
+                        mutationStarted = false;
+
+                        message = "Output Stage 공정 테스트 Wafer Data 생성 완료. side=" + side +
+                                  ", wafer=" + (stageWafer != null ? stageWafer.WaferId : "") +
+                                  ", target=" + (stageWafer != null ? stageWafer.OutputReceiveTotalCount : 0) +
+                                  ", lot=" + lotId;
+                        return true;
+                    }
+                    catch
+                    {
+                        if (mutationStarted && rollbackState != null)
+                            TryRestoreProcessTestRollback(rollbackState, "CreateProcessTestOutputStageWaferRollback");
+                        mutationStarted = false;
+                        throw;
+                    }
                 }
             }
             catch (Exception ex)
             {
+                if (mutationStarted && rollbackState != null)
+                    TryRestoreProcessTestRollback(rollbackState, "CreateProcessTestOutputStageWaferRollback");
                 message = "Output Stage 공정 테스트 Wafer Data 생성 실패: " + ex.Message;
                 Log.Write("Main", "SYSTEM", "MaterialStateService", message + " - Failed");
                 return false;
@@ -1331,6 +1423,8 @@ namespace QMC.CDT320.Materials
             out string message)
         {
             message = string.Empty;
+            MaterialSnapshot rollbackState = null;
+            bool mutationStarted = false;
             try
             {
                 lock (_stateSync)
@@ -1366,14 +1460,6 @@ namespace QMC.CDT320.Materials
                         ? BuildProcessTestSlotPositions(outputSlotCount, i => outputCassette.CalculateBinCassetteSlotTargetPosition(QMC.CDT320.TargetCassette.Ng, i), "Ng")
                         : null;
 
-                    ClearActiveProcessLocationsNoLock();
-
-                    UpdateCassetteMapping(CassetteMaterialRole.Input1, true, inputSlotCount, BuildProcessTestSlotMap(inputSlotCount, 2), input1Positions, lotId, inputTapeFrameSpecName, false);
-                    UpdateCassetteMapping(CassetteMaterialRole.Input2, useInput2, inputSlotCount, useInput2 ? BuildProcessTestSlotMap(inputSlotCount, 1) : null, input2Positions, lotId, inputTapeFrameSpecName, false);
-                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), good1Positions, lotId, outputTapeFrameSpecName, false);
-                    UpdateCassetteMapping(CassetteMaterialRole.Good2, useGood2, outputSlotCount, useGood2 ? BuildProcessTestSlotMap(outputSlotCount, 1) : null, good2Positions, lotId, outputTapeFrameSpecName, false);
-                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), ngPositions, lotId, outputTapeFrameSpecName, false);
-
                     DieMap inputMap = LoadRecipeInputDieMapForProcessTest(project);
                     if (!IsUsableSourceMap(inputMap))
                         inputMap = CreateFallbackInputDieMapForProcessTest(project, inputTapeFrameSpecName);
@@ -1386,6 +1472,57 @@ namespace QMC.CDT320.Materials
                     RecenterInputDieMapForProcessTest(inputMap, inputStage);
                     PickupSequenceGenerator.ApplySequenceNumbers(inputMap, ResolveInputPickup(project));
                     inputMap = DieMapGenerator.Normalize(inputMap);
+                    var inputMapValidationWafer = new WaferMaterial
+                    {
+                        WaferId = "PROCESS-TEST-INPUT-VALIDATION",
+                        WaferInstanceId = CreateWaferInstanceId()
+                    };
+                    string inputMapIdentityReason;
+                    if (!TryAssignPhysicalDieIds(inputMap, inputMapValidationWafer, out inputMapIdentityReason))
+                    {
+                        message = "테스트 입력 DieMap 원본 좌표가 올바르지 않습니다. " + inputMapIdentityReason;
+                        return false;
+                    }
+
+                    IReadOnlyList<bool> input1Map = BuildProcessTestSlotMap(inputSlotCount, 2);
+                    IReadOnlyList<bool> input2Map = useInput2 ? BuildProcessTestSlotMap(inputSlotCount, 1) : null;
+                    IReadOnlyList<bool> good1Map = BuildProcessTestSlotMap(outputSlotCount, 2);
+                    IReadOnlyList<bool> good2Map = useGood2 ? BuildProcessTestSlotMap(outputSlotCount, 1) : null;
+                    IReadOnlyList<bool> ngMap = BuildProcessTestSlotMap(outputSlotCount, 2);
+
+                    ResolveOrCreateCassetteMappingLotId(
+                        lotId,
+                        CassetteMaterialRole.Input1,
+                        CassetteMaterialRole.Input2,
+                        CassetteMaterialRole.Good1,
+                        CassetteMaterialRole.Good2,
+                        CassetteMaterialRole.Ng1);
+
+                    // 모든 역할의 identity 회전을 먼저 검증한다. 공정 테스트가 의도적으로
+                    // 초기화할 Stage Material만 사전검증에서 제외하고, 실제 mapping 전에 함께 지운다.
+                    ValidateMappingIdentityRotationNoLock(CassetteMaterialRole.Input1, true, inputSlotCount, input1Map, false, false, true);
+                    ValidateMappingIdentityRotationNoLock(CassetteMaterialRole.Input2, useInput2, inputSlotCount, input2Map, false, false, true);
+                    ValidateMappingIdentityRotationNoLock(CassetteMaterialRole.Good1, true, outputSlotCount, good1Map, false, false, true);
+                    ValidateMappingIdentityRotationNoLock(CassetteMaterialRole.Good2, useGood2, outputSlotCount, good2Map, false, false, true);
+                    ValidateMappingIdentityRotationNoLock(CassetteMaterialRole.Ng1, true, outputSlotCount, ngMap, false, false, true);
+                    ValidateOutputMappingDetachCandidatesNoLock(CassetteMaterialRole.Good1, true);
+                    ValidateOutputMappingDetachCandidatesNoLock(CassetteMaterialRole.Good2, true);
+                    ValidateOutputMappingDetachCandidatesNoLock(CassetteMaterialRole.Ng1, true);
+                    ValidateProcessTestStageCassetteSlotNoLock(CassetteMaterialRole.Input1, 0, inputSlotCount);
+                    ValidateProcessTestStageCassetteSlotNoLock(CassetteMaterialRole.Good1, 0, outputSlotCount);
+                    ValidateProcessTestStageCassetteSlotNoLock(CassetteMaterialRole.Ng1, 0, outputSlotCount);
+
+                    rollbackState = CreateValidatedProcessTestRollbackStateNoLock();
+                    mutationStarted = true;
+                    try
+                    {
+                        ClearActiveProcessLocationsNoLock();
+
+                    UpdateCassetteMapping(CassetteMaterialRole.Input1, true, inputSlotCount, input1Map, input1Positions, lotId, inputTapeFrameSpecName, false);
+                    UpdateCassetteMapping(CassetteMaterialRole.Input2, useInput2, inputSlotCount, input2Map, input2Positions, lotId, inputTapeFrameSpecName, false);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, outputSlotCount, good1Map, good1Positions, lotId, outputTapeFrameSpecName, false);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good2, useGood2, outputSlotCount, good2Map, good2Positions, lotId, outputTapeFrameSpecName, false);
+                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, outputSlotCount, ngMap, ngPositions, lotId, outputTapeFrameSpecName, false);
 
                     WaferMaterial inputStageWafer = GetOrCreateWafer("TEST-IN-STAGE-" + timestamp);
                     inputStageWafer.CassetteLotId = lotId;
@@ -1468,21 +1605,35 @@ namespace QMC.CDT320.Materials
                     State.LotId = lotId;
                     State.RecipeName = project != null ? project.FileName ?? "" : State.RecipeName;
 
+                    MaterialCompactionResult compactionResult = CompactMaterialStateNoLock();
+                    LogMaterialCompaction("CreateProcessTestDataSet", compactionResult);
                     NotifyAndSave("CreateProcessTestDataSet");
-                    TryFlushPendingSave("CreateProcessTestDataSet");
+                    if (!TryFlushPendingSave("CreateProcessTestDataSet"))
+                        throw new IOException("공정 테스트 Material 저장을 확인하지 못했습니다.");
+                    mutationStarted = false;
 
-                    message = "공정 테스트 Data 생성 완료. InputStage die=" + inputTargetCount +
-                              ", GoodStage target=" + (goodStageWafer != null ? goodStageWafer.OutputReceiveTotalCount : 0) +
-                              ", NgStage target=" + (ngStageWafer != null ? ngStageWafer.OutputReceiveTotalCount : 0) +
-                              ", lot=" + lotId +
-                              ", 카세트 포지션=" + (input1Positions != null && good1Positions != null && ngPositions != null
-                                  ? "저장됨"
-                                  : "미저장(카세트 티칭/유닛 확인 필요)");
-                    return true;
+                        message = "공정 테스트 Data 생성 완료. InputStage die=" + inputTargetCount +
+                                  ", GoodStage target=" + (goodStageWafer != null ? goodStageWafer.OutputReceiveTotalCount : 0) +
+                                  ", NgStage target=" + (ngStageWafer != null ? ngStageWafer.OutputReceiveTotalCount : 0) +
+                                  ", lot=" + lotId +
+                                  ", 카세트 포지션=" + (input1Positions != null && good1Positions != null && ngPositions != null
+                                      ? "저장됨"
+                                      : "미저장(카세트 티칭/유닛 확인 필요)");
+                        return true;
+                    }
+                    catch
+                    {
+                        if (mutationStarted && rollbackState != null)
+                            TryRestoreProcessTestRollback(rollbackState, "CreateProcessTestDataSetRollback");
+                        mutationStarted = false;
+                        throw;
+                    }
                 }
             }
             catch (Exception ex)
             {
+                if (mutationStarted && rollbackState != null)
+                    TryRestoreProcessTestRollback(rollbackState, "CreateProcessTestDataSetRollback");
                 message = "공정 테스트 Data 생성 실패: " + ex.Message;
                 Log.Write("Main", "SYSTEM", "MaterialStateService", message + " - Failed");
                 return false;
@@ -1490,6 +1641,62 @@ namespace QMC.CDT320.Materials
             finally
             {
             }
+        }
+
+        private static bool TryRestoreProcessTestRollback(MaterialSnapshot rollbackState, string reason)
+        {
+            if (rollbackState == null)
+                return false;
+
+            try
+            {
+                lock (_stateSync)
+                {
+                    MaterialStorage.ReplaceState(rollbackState);
+                    InputStageHybridResultSession.Clear();
+                    _outputReceiveOrderCache.Clear();
+                }
+
+                NotifyAndSave(reason);
+                bool saved = TryFlushPendingSave(reason);
+                Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    "MaterialStateService",
+                    "Process Test Material rollback restored. reason=" + (reason ?? "") +
+                    ", saved=" + saved + (saved ? " - Ok" : " - Failed"));
+                return saved;
+            }
+            catch (Exception ex)
+            {
+                Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    "MaterialStateService",
+                    "Process Test Material rollback failed. reason=" + (reason ?? "") +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static MaterialSnapshot CreateValidatedProcessTestRollbackStateNoLock()
+        {
+            MaterialSnapshot rollbackState = MaterialSnapshotStore.CreateStateCopy(State);
+            if (rollbackState == null)
+                throw new InvalidOperationException("공정 테스트 rollback snapshot을 만들 수 없습니다.");
+
+            string validationReason;
+            if (!MaterialStorage.TryPrepareStateForUse(rollbackState, out validationReason))
+            {
+                throw new InvalidOperationException(
+                    "현재 Material 상태가 올바르지 않아 공정 테스트를 시작할 수 없습니다. " +
+                    validationReason);
+            }
+
+            return rollbackState;
         }
 
         private static string ResolveActiveLotIdForProcessTest()
@@ -2338,21 +2545,108 @@ namespace QMC.CDT320.Materials
                 return ClearStageMaterialData(kind);
             }
 
-            var wafers = State.Wafers
-                .Where(w => w.CurrentLocation != null &&
-                            w.CurrentLocation.Kind == kind &&
-                            WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty)
-                .ToList();
-            if (wafers.Count == 0)
-                return false;
-
-            foreach (var wafer in wafers)
+            MaterialCompactionResult compactionResult;
+            int removedDieCount;
+            lock (_stateSync)
             {
-                wafer.State = WaferMaterialState.Empty;
-                wafer.CurrentLocation = MaterialLocation.Unknown();
-                wafer.UpdatedAt = DateTime.Now;
+                var wafers = State.Wafers
+                    .Where(w => w.CurrentLocation != null &&
+                                w.CurrentLocation.Kind == kind)
+                    .ToList();
+                if (wafers.Count == 0)
+                    return false;
+
+                bool outputSide = kind == MaterialLocationKind.OutputFeeder ||
+                                  kind == MaterialLocationKind.OutputCassette;
+                bool inputFeeder = kind == MaterialLocationKind.InputFeeder;
+                List<DieMaterial> outputDies = null;
+                List<DieMaterial> inputDies = null;
+                List<DieMaterial> inputHistoryDies = null;
+                bool preserveInputHistory = false;
+                if (outputSide)
+                {
+                    string outputClearReason;
+                    bool canClear = kind == MaterialLocationKind.OutputCassette
+                        ? TryCollectOutputCassetteClearDiesNoLock(
+                            wafers,
+                            out outputDies,
+                            out outputClearReason)
+                        : TryCollectOutputLocationClearDiesNoLock(
+                            wafers,
+                            kind,
+                            out outputDies,
+                            out outputClearReason);
+                    if (!canClear)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "위치 Clear가 Material 참조 무결성 때문에 차단되었습니다. location=" + kind +
+                            ", detail=" + outputClearReason + " - Blocked");
+                        return false;
+                    }
+                }
+                else if (inputFeeder)
+                {
+                    string inputClearReason;
+                    if (!TryCollectInputLocationClearDiesNoLock(
+                        wafers,
+                        kind,
+                        out inputDies,
+                        out inputClearReason))
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "위치 Clear가 Material 참조 무결성 때문에 차단되었습니다. location=" + kind +
+                            ", detail=" + inputClearReason + " - Blocked");
+                        return false;
+                    }
+                    if (!TryCollectInputHistoryForClearNoLock(
+                        wafers,
+                        out inputHistoryDies,
+                        out preserveInputHistory,
+                        out inputClearReason))
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "위치 Clear history 확인에 실패했습니다. location=" + kind +
+                            ", detail=" + inputClearReason + " - Blocked");
+                        return false;
+                    }
+                }
+
+                if (outputSide)
+                {
+                    removedDieCount = DetachOrRemoveClearedOutputDiesNoLock(outputDies);
+                }
+                else if (inputFeeder && preserveInputHistory)
+                {
+                    DemotePreservedInputHistoryLocationsNoLock(inputHistoryDies, kind);
+                    removedDieCount = 0;
+                }
+                else
+                {
+                    removedDieCount = inputFeeder
+                        ? RemoveDieMaterialsNoLock(inputDies)
+                        : RemoveDiesAtClearedLocationNoLock(wafers, kind);
+                }
+
+                foreach (var wafer in wafers)
+                {
+                    if (outputSide)
+                        ClearOutputStageWaferProcessingFieldsNoLock(wafer);
+                    else if (inputFeeder && !preserveInputHistory)
+                        ClearInputStageWaferProcessingFieldsNoLock(wafer);
+                    wafer.State = WaferMaterialState.Empty;
+                    wafer.CurrentLocation = MaterialLocation.Unknown();
+                    wafer.UpdatedAt = DateTime.Now;
+                }
+                compactionResult = CompactMaterialStateNoLock();
             }
 
+            LogMaterialCompaction("ClearWaferAtLocation:" + kind, compactionResult);
+            if (removedDieCount > 0)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "위치 Clear와 연결된 Die Material을 정리했습니다. location=" + kind +
+                    ", removedDies=" + removedDieCount + " - Ok");
+            }
             NotifyAndSave("ClearWaferAtLocation");
             return true;
         }
@@ -2366,118 +2660,83 @@ namespace QMC.CDT320.Materials
         {
             int clearedWaferCount = 0;
             int removedDieCount = 0;
+            MaterialCompactionResult compactionResult = null;
 
             lock (_stateSync)
             {
-                var directStageWafers = State.Wafers
-                    .Where(w =>
-                        w != null &&
-                        w.CurrentLocation != null &&
-                        w.CurrentLocation.Kind == kind)
-                    .ToList();
-
-                var relatedWaferIds = new HashSet<string>(
-                    directStageWafers
-                        .Select(w => w.WaferId)
-                        .Where(id => !string.IsNullOrWhiteSpace(id)),
-                    StringComparer.OrdinalIgnoreCase);
-                var relatedWaferInstanceIds = new HashSet<string>(
-                    directStageWafers
-                        .Select(EnsureWaferInstanceIdNoLock)
-                        .Where(id => !string.IsNullOrWhiteSpace(id)),
-                    StringComparer.OrdinalIgnoreCase);
-
-                // 이전 코드로 Wafer만 Unknown 처리된 경우에도 Stage에 고립된 Die의
-                // Wafer ID를 역추적하여 같은 DATA CLEAR 요청으로 복구할 수 있게 한다.
-                foreach (DieMaterial die in State.Dies)
+                List<WaferMaterial> affectedWafers;
+                string affectedWaferReason;
+                if (!TryCollectStageClearAffectedWafersNoLock(
+                    kind,
+                    out affectedWafers,
+                    out affectedWaferReason))
                 {
-                    if (die == null ||
-                        die.CurrentLocation == null ||
-                        die.CurrentLocation.Kind != kind)
-                    {
-                        continue;
-                    }
-
-                    string relatedWaferId = kind == MaterialLocationKind.InputStage
-                        ? die.WaferID_Input
-                        : die.WaferID_Output;
-                    if (!string.IsNullOrWhiteSpace(relatedWaferId))
-                        relatedWaferIds.Add(relatedWaferId);
-
-                    string relatedWaferInstanceId = kind == MaterialLocationKind.InputStage
-                        ? die.InputWaferInstanceId
-                        : die.OutputWaferInstanceId;
-                    if (!string.IsNullOrWhiteSpace(relatedWaferInstanceId))
-                        relatedWaferInstanceIds.Add(relatedWaferInstanceId);
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Stage Material Clear 대상 확인에 실패했습니다. location=" + kind +
+                        ", detail=" + affectedWaferReason + " - Blocked");
+                    return false;
                 }
 
-                var affectedWafers = State.Wafers
-                    .Where(w =>
-                        w != null &&
-                        ((w.CurrentLocation != null && w.CurrentLocation.Kind == kind) ||
-                         relatedWaferInstanceIds.Contains(EnsureWaferInstanceIdNoLock(w)) ||
-                         (!string.IsNullOrWhiteSpace(w.WaferId) &&
-                          relatedWaferIds.Contains(w.WaferId) &&
-                          State.Wafers.Count(candidate =>
-                              candidate != null &&
-                              string.Equals(
-                                  candidate.WaferId,
-                                  w.WaferId,
-                                  StringComparison.OrdinalIgnoreCase)) == 1)))
-                    .ToList();
-
-                var removedDieIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (DieMaterial die in State.Dies)
+                List<DieMaterial> clearDies;
+                string clearReason;
+                bool canClear = kind == MaterialLocationKind.InputStage
+                    ? TryCollectInputLocationClearDiesNoLock(
+                        affectedWafers,
+                        kind,
+                        out clearDies,
+                        out clearReason)
+                    : TryCollectOutputLocationClearDiesNoLock(
+                        affectedWafers,
+                        kind,
+                        out clearDies,
+                        out clearReason);
+                if (!canClear)
                 {
-                    if (die == null)
-                        continue;
-
-                    MaterialLocationKind dieLocation = die.CurrentLocation != null
-                        ? die.CurrentLocation.Kind
-                        : MaterialLocationKind.Unknown;
-                    bool remove = dieLocation == kind;
-
-                    // Input Mapping의 비대상 Die는 위치가 Unknown으로 저장된다.
-                    // Stage Wafer와 같은 입력 Wafer에 속한 Unknown Die도 Map 잔재이므로 함께 지운다.
-                    if (!remove &&
-                        kind == MaterialLocationKind.InputStage &&
-                        dieLocation == MaterialLocationKind.Unknown &&
-                        ((!string.IsNullOrWhiteSpace(die.InputWaferInstanceId) &&
-                          relatedWaferInstanceIds.Contains(die.InputWaferInstanceId)) ||
-                         (string.IsNullOrWhiteSpace(die.InputWaferInstanceId) &&
-                          !string.IsNullOrWhiteSpace(die.WaferID_Input) &&
-                          relatedWaferIds.Contains(die.WaferID_Input))))
-                    {
-                        remove = true;
-                    }
-
-                    if (remove && !string.IsNullOrWhiteSpace(die.DieId))
-                        removedDieIds.Add(die.DieId);
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Stage Material Clear가 참조 무결성 때문에 차단되었습니다. location=" + kind +
+                        ", detail=" + clearReason + " - Blocked");
+                    return false;
                 }
 
-                if (removedDieIds.Count > 0)
+                List<DieMaterial> inputHistoryDies = null;
+                bool preserveInputHistory = false;
+                if (kind == MaterialLocationKind.InputStage &&
+                    !TryCollectInputHistoryForClearNoLock(
+                        affectedWafers,
+                        out inputHistoryDies,
+                        out preserveInputHistory,
+                        out clearReason))
                 {
-                    removedDieCount = State.Dies.RemoveAll(d =>
-                        d != null &&
-                        !string.IsNullOrWhiteSpace(d.DieId) &&
-                        removedDieIds.Contains(d.DieId));
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Stage Material history 확인에 실패했습니다. location=" + kind +
+                        ", detail=" + clearReason + " - Blocked");
+                    return false;
+                }
 
-                    // Wafer의 DieIds 포인터도 함께 정리해야 재시작 후 삭제된 Die가
-                    // Mapping/Output 수령 데이터로 다시 살아나지 않는다.
-                    foreach (WaferMaterial wafer in State.Wafers)
-                    {
-                        if (wafer != null && wafer.DieIds != null)
-                            wafer.DieIds.RemoveAll(id => !string.IsNullOrWhiteSpace(id) && removedDieIds.Contains(id));
-                    }
+                if (kind == MaterialLocationKind.InputStage && preserveInputHistory)
+                {
+                    DemotePreservedInputHistoryLocationsNoLock(inputHistoryDies, kind);
+                    removedDieCount = 0;
+                }
+                else
+                {
+                    removedDieCount = kind == MaterialLocationKind.InputStage
+                        ? RemoveDieMaterialsNoLock(clearDies)
+                        : DetachOrRemoveClearedOutputDiesNoLock(clearDies);
                 }
 
                 foreach (WaferMaterial wafer in affectedWafers)
                 {
                     if (kind == MaterialLocationKind.InputStage)
                     {
-                        ClearInputStageWaferProcessingFieldsNoLock(wafer);
-                        wafer.InputStageProcessingGeneration = wafer.InputStageProcessingGeneration + 1;
-                        wafer.WaferInstanceId = CreateWaferInstanceId();
+                        if (!preserveInputHistory)
+                        {
+                            ClearInputStageWaferProcessingFieldsNoLock(wafer);
+                            wafer.InputStageProcessingGeneration = wafer.InputStageProcessingGeneration + 1;
+                        }
+                        // Picker/Output에 이미 이동한 Die나 Output source pointer가 이 physical wafer를
+                        // 계속 참조할 수 있으므로 Stage Clear 시 identity를 회전시키지 않는다.
+                        // 새 wafer Mapping의 비보존 경계에서만 중앙 reset helper가 새 identity를 발급한다.
                     }
                     else
                     {
@@ -2501,12 +2760,16 @@ namespace QMC.CDT320.Materials
                         : QMC.CDT320.BinSide.Good;
                     _outputReceiveOrderCache.Remove(side);
                 }
+
+                if (clearedWaferCount > 0 || removedDieCount > 0)
+                    compactionResult = CompactMaterialStateNoLock();
             }
 
             if (clearedWaferCount == 0 && removedDieCount == 0)
                 return false;
 
             string saveReason = "ClearStageMaterialData:" + kind;
+            LogMaterialCompaction(saveReason, compactionResult);
             NotifyAndSave(saveReason);
             Log.Write(
                 "Main",
@@ -2515,6 +2778,108 @@ namespace QMC.CDT320.Materials
                 "Stage Material 데이터를 전체 초기화했습니다. location=" + kind +
                 ", wafers=" + clearedWaferCount +
                 ", removedDies=" + removedDieCount + " - Ok");
+            return true;
+        }
+
+        private static bool TryCollectStageClearAffectedWafersNoLock(
+            MaterialLocationKind kind,
+            out List<WaferMaterial> affectedWafers,
+            out string reason)
+        {
+            affectedWafers = new List<WaferMaterial>();
+            reason = "";
+            if (State == null || State.Wafers == null || State.Dies == null)
+                return true;
+
+            var affected = new HashSet<WaferMaterial>(State.Wafers.Where(wafer =>
+                wafer != null &&
+                wafer.CurrentLocation != null &&
+                wafer.CurrentLocation.Kind == kind));
+
+            // Stage→Feeder 이송은 Wafer 위치를 먼저 바꾸고 Die의 Stage 태그를 유지할 수 있다.
+            // 따라서 Stage-tagged Die의 parent를 무조건 Clear 대상으로 역추적하지 않는다.
+            // 구버전에서 Wafer만 Unknown이 된 orphan parent만 복구 대상으로 포함한다.
+            foreach (DieMaterial die in State.Dies)
+            {
+                if (die == null ||
+                    die.CurrentLocation == null ||
+                    die.CurrentLocation.Kind != kind)
+                {
+                    continue;
+                }
+
+                string parentInstanceId = kind == MaterialLocationKind.InputStage
+                    ? (die.InputWaferInstanceId ?? "").Trim()
+                    : (die.OutputWaferInstanceId ?? "").Trim();
+                string parentDisplayId = kind == MaterialLocationKind.InputStage
+                    ? (die.WaferID_Input ?? "").Trim()
+                    : (die.WaferID_Output ?? "").Trim();
+
+                List<WaferMaterial> candidates;
+                if (!string.IsNullOrWhiteSpace(parentInstanceId))
+                {
+                    candidates = State.Wafers.Where(wafer =>
+                            wafer != null &&
+                            string.Equals(
+                                (wafer.WaferInstanceId ?? "").Trim(),
+                                parentInstanceId,
+                                StringComparison.OrdinalIgnoreCase))
+                        .Take(2)
+                        .ToList();
+                }
+                else if (!string.IsNullOrWhiteSpace(parentDisplayId))
+                {
+                    candidates = State.Wafers.Where(wafer =>
+                            wafer != null &&
+                            string.Equals(
+                                (wafer.WaferId ?? "").Trim(),
+                                parentDisplayId,
+                                StringComparison.OrdinalIgnoreCase))
+                        .Take(2)
+                        .ToList();
+                }
+                else
+                {
+                    continue;
+                }
+
+                if (candidates.Count > 1)
+                {
+                    reason = "Stage-tagged Die parent를 하나로 확인할 수 없습니다. die=" +
+                             (die.DieId ?? "") +
+                             ", instance=" + parentInstanceId +
+                             ", wafer=" + parentDisplayId;
+                    affectedWafers.Clear();
+                    return false;
+                }
+                if (candidates.Count == 0)
+                    continue;
+
+                WaferMaterial parent = candidates[0];
+                if (!string.IsNullOrWhiteSpace(parentInstanceId) &&
+                    !string.IsNullOrWhiteSpace(parentDisplayId) &&
+                    !string.Equals(
+                        parent.WaferId ?? "",
+                        parentDisplayId,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    reason = "Stage-tagged Die의 instance/display parent가 일치하지 않습니다. die=" +
+                             (die.DieId ?? "") +
+                             ", instance=" + parentInstanceId +
+                             ", pointerWafer=" + parentDisplayId +
+                             ", actualWafer=" + (parent.WaferId ?? "");
+                    affectedWafers.Clear();
+                    return false;
+                }
+
+                MaterialLocationKind parentLocation = parent.CurrentLocation != null
+                    ? parent.CurrentLocation.Kind
+                    : MaterialLocationKind.Unknown;
+                if (parentLocation == MaterialLocationKind.Unknown)
+                    affected.Add(parent);
+            }
+
+            affectedWafers = affected.ToList();
             return true;
         }
 
@@ -2544,58 +2909,704 @@ namespace QMC.CDT320.Materials
             wafer.OutputGrade = DieResult.Unknown;
         }
 
-        public static bool ClearInputCassetteSlotData(CassetteMaterialRole cassetteRole, int slotNumber)
+        private static int RemoveDiesAtClearedLocationNoLock(
+            ICollection<WaferMaterial> wafers,
+            MaterialLocationKind locationKind)
         {
-            var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
-            if (cassette == null)
-                return false;
+            if (wafers == null || wafers.Count == 0 || State.Dies == null)
+                return 0;
 
-            cassette.EnsureSlots();
-            if (slotNumber < 0 || slotNumber >= cassette.Slots.Count)
-                return false;
+            bool inputSide = locationKind == MaterialLocationKind.InputCassette ||
+                             locationKind == MaterialLocationKind.InputFeeder ||
+                             locationKind == MaterialLocationKind.InputStage;
+            var waferInstanceIds = new HashSet<string>(
+                wafers
+                    .Where(w => w != null && !string.IsNullOrWhiteSpace(w.WaferInstanceId))
+                    .Select(w => w.WaferInstanceId.Trim()),
+                StringComparer.OrdinalIgnoreCase);
+            var waferDisplayIds = new HashSet<string>(
+                wafers
+                    .Where(w => w != null && !string.IsNullOrWhiteSpace(w.WaferId))
+                    .Select(w => w.WaferId.Trim()),
+                StringComparer.OrdinalIgnoreCase);
+            var uniqueDisplayIds = new HashSet<string>(
+                State.Wafers
+                    .Where(w => w != null && !string.IsNullOrWhiteSpace(w.WaferId))
+                    .GroupBy(w => w.WaferId.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .Where(group => group.Count() == 1)
+                    .Select(group => group.Key),
+                StringComparer.OrdinalIgnoreCase);
+            var removeDies = new HashSet<DieMaterial>();
 
-            var slot = cassette.Slots[slotNumber];
-            WaferMaterial slotWafer = null;
-            if (slot != null && slot.HasWafer)
+            foreach (DieMaterial die in State.Dies)
             {
-                string slotReason;
-                slotWafer = ResolveCassetteSlotWaferNoLock(slot, out slotReason);
-                if (slotWafer == null)
+                if (die == null)
+                    continue;
+
+                MaterialLocationKind dieLocation = die.CurrentLocation != null
+                    ? die.CurrentLocation.Kind
+                    : MaterialLocationKind.Unknown;
+                bool locationMatches = dieLocation == locationKind ||
+                                       (locationKind == MaterialLocationKind.InputStage &&
+                                        dieLocation == MaterialLocationKind.Unknown);
+                if (!locationMatches)
+                    continue;
+
+                string parentInstanceId = inputSide
+                    ? (die.InputWaferInstanceId ?? "").Trim()
+                    : (die.OutputWaferInstanceId ?? "").Trim();
+                string parentDisplayId = inputSide
+                    ? (die.WaferID_Input ?? "").Trim()
+                    : (die.WaferID_Output ?? "").Trim();
+                bool related = !string.IsNullOrWhiteSpace(parentInstanceId)
+                    ? waferInstanceIds.Contains(parentInstanceId)
+                    : !string.IsNullOrWhiteSpace(parentDisplayId) &&
+                      uniqueDisplayIds.Contains(parentDisplayId) &&
+                      waferDisplayIds.Contains(parentDisplayId);
+                if (related)
+                    removeDies.Add(die);
+            }
+
+            if (removeDies.Count == 0)
+                return 0;
+
+            return RemoveDieMaterialsNoLock(removeDies);
+        }
+
+        private static int RemoveDieMaterialsNoLock(ICollection<DieMaterial> removeDies)
+        {
+            if (removeDies == null || removeDies.Count == 0 || State.Dies == null)
+                return 0;
+
+            var removeSet = new HashSet<DieMaterial>(removeDies.Where(d => d != null));
+            if (removeSet.Count == 0)
+                return 0;
+
+            int removed = State.Dies.RemoveAll(die => die != null && removeSet.Contains(die));
+            var remainingDieIds = new HashSet<string>(
+                State.Dies
+                    .Where(d => d != null && !string.IsNullOrWhiteSpace(d.DieId))
+                    .Select(d => d.DieId.Trim()),
+                StringComparer.OrdinalIgnoreCase);
+            var removedDieIds = new HashSet<string>(
+                removeSet
+                    .Where(d => d != null && !string.IsNullOrWhiteSpace(d.DieId))
+                    .Select(d => d.DieId.Trim())
+                    .Where(id => !remainingDieIds.Contains(id)),
+                StringComparer.OrdinalIgnoreCase);
+            if (removedDieIds.Count > 0)
+            {
+                foreach (WaferMaterial wafer in State.Wafers)
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Input cassette slot clear blocked: " + slotReason +
-                        ", cassette=" + cassetteRole +
-                        ", slot=" + (slotNumber + 1) + " - Blocked");
+                    if (wafer != null && wafer.DieIds != null)
+                    {
+                        wafer.DieIds.RemoveAll(id =>
+                            !string.IsNullOrWhiteSpace(id) && removedDieIds.Contains(id.Trim()));
+                    }
+                }
+            }
+
+            return removed;
+        }
+
+        private static int DetachOrRemoveClearedOutputDiesNoLock(
+            ICollection<DieMaterial> outputDies)
+        {
+            List<DieMaterial> preserveDies;
+            List<DieMaterial> removeDies;
+            string reason;
+            if (!TryClassifyOutputDiesForDetachNoLock(
+                outputDies,
+                out preserveDies,
+                out removeDies,
+                out reason))
+            {
+                throw new InvalidOperationException(reason);
+            }
+
+            foreach (DieMaterial die in preserveDies)
+            {
+                // Source Input wafer가 아직 작업 집합이면 Review/진행 복구에 Die 자체가 필요하다.
+                // Output cassette parent만 끊어 cleared output wafer가 graph에 남지 않게 한다.
+                die.WaferID_Output = "";
+                die.OutputWaferInstanceId = "";
+                die.Output_BinCode = 0;
+                die.Bin_IndexX = -1;
+                die.Bin_IndexY = -1;
+                die.BinOffset = new VisionOffset();
+                die.CurrentLocation = MaterialLocation.Unknown();
+                die.UpdatedAt = DateTime.Now;
+            }
+
+            return RemoveDieMaterialsNoLock(removeDies);
+        }
+
+        private static bool TryClassifyOutputDiesForDetachNoLock(
+            ICollection<DieMaterial> outputDies,
+            out List<DieMaterial> preserveDies,
+            out List<DieMaterial> removeDies,
+            out string reason)
+        {
+            preserveDies = new List<DieMaterial>();
+            removeDies = new List<DieMaterial>();
+            reason = "";
+            if (outputDies == null || outputDies.Count == 0)
+                return true;
+
+            foreach (DieMaterial die in outputDies.Where(d => d != null).Distinct())
+            {
+                string inputInstance = (die.InputWaferInstanceId ?? "").Trim();
+                if (!string.IsNullOrWhiteSpace(inputInstance))
+                {
+                    List<WaferMaterial> inputCandidates = State.Wafers.Where(w =>
+                            w != null &&
+                            string.Equals(
+                                (w.WaferInstanceId ?? "").Trim(),
+                                inputInstance,
+                                StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    int candidateCount = inputCandidates.Count;
+                    if (candidateCount != 1)
+                    {
+                        reason = "Output clear Die의 Input parent를 하나로 확인할 수 없습니다. die=" +
+                                 (die.DieId ?? "") +
+                                 ", instance=" + inputInstance +
+                                 ", candidates=" + candidateCount;
+                        preserveDies.Clear();
+                        removeDies.Clear();
+                        return false;
+                    }
+                    if (!string.IsNullOrWhiteSpace(die.WaferID_Input) &&
+                        !string.Equals(
+                            inputCandidates[0].WaferId ?? "",
+                            die.WaferID_Input,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        reason = "Output clear Die의 Input instance/display parent가 일치하지 않습니다. die=" +
+                                 (die.DieId ?? "") +
+                                 ", instance=" + inputInstance +
+                                 ", pointerWafer=" + (die.WaferID_Input ?? "") +
+                                 ", actualWafer=" + (inputCandidates[0].WaferId ?? "");
+                        preserveDies.Clear();
+                        removeDies.Clear();
+                        return false;
+                    }
+                    preserveDies.Add(die);
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(die.WaferID_Input))
+                {
+                    int candidateCount = State.Wafers.Count(w =>
+                            w != null &&
+                            string.Equals(
+                                w.WaferId ?? "",
+                                die.WaferID_Input,
+                                StringComparison.OrdinalIgnoreCase));
+                    if (candidateCount > 1)
+                    {
+                        reason = "Output clear Die의 legacy Input parent가 중복되었습니다. die=" +
+                                 (die.DieId ?? "") +
+                                 ", wafer=" + (die.WaferID_Input ?? "") +
+                                 ", candidates=" + candidateCount;
+                        preserveDies.Clear();
+                        removeDies.Clear();
+                        return false;
+                    }
+                    if (candidateCount == 1)
+                    {
+                        preserveDies.Add(die);
+                        continue;
+                    }
+                }
+
+                removeDies.Add(die);
+            }
+            return true;
+        }
+
+        private static bool TryCollectOutputParentDiesNoLock(
+            ICollection<WaferMaterial> targetWafers,
+            out List<DieMaterial> relatedDies,
+            out string reason)
+        {
+            relatedDies = new List<DieMaterial>();
+            reason = "";
+            if (targetWafers == null || State == null || State.Wafers == null || State.Dies == null)
+                return true;
+
+            List<WaferMaterial> targets = targetWafers.Where(wafer => wafer != null).Distinct().ToList();
+            if (targets.Count == 0)
+                return true;
+
+            var targetSet = new HashSet<WaferMaterial>(targets);
+            var targetInstanceIds = new HashSet<string>(
+                targets
+                    .Select(EnsureWaferInstanceIdNoLock)
+                    .Where(id => !string.IsNullOrWhiteSpace(id)),
+                StringComparer.OrdinalIgnoreCase);
+            var targetDisplayIds = new HashSet<string>(
+                targets
+                    .Select(wafer => (wafer.WaferId ?? "").Trim())
+                    .Where(id => !string.IsNullOrWhiteSpace(id)),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (string targetInstanceId in targetInstanceIds)
+            {
+                int candidateCount = State.Wafers.Count(wafer =>
+                    wafer != null &&
+                    string.Equals(
+                        (wafer.WaferInstanceId ?? "").Trim(),
+                        targetInstanceId,
+                        StringComparison.OrdinalIgnoreCase));
+                if (candidateCount != 1)
+                {
+                    reason = "Output parent instance를 하나로 확인할 수 없습니다. instance=" +
+                             targetInstanceId + ", candidates=" + candidateCount;
                     return false;
                 }
             }
-            string slotInstanceId = slotWafer != null
-                ? EnsureWaferInstanceIdNoLock(slotWafer)
-                : "";
-            var targetWafers = State.Wafers.Where(w =>
-                w != null &&
-                ((!string.IsNullOrWhiteSpace(slotInstanceId) &&
-                  string.Equals(
-                      EnsureWaferInstanceIdNoLock(w),
-                      slotInstanceId,
-                      StringComparison.OrdinalIgnoreCase)) ||
-                 IsWaferAtCassetteSlot(w, cassetteRole, slotNumber)))
-                .ToList();
 
-            foreach (var wafer in targetWafers)
+            foreach (DieMaterial die in State.Dies)
             {
-                wafer.State = WaferMaterialState.Empty;
-                wafer.CurrentLocation = MaterialLocation.Unknown();
-                // To do: 슬롯 자재를 비울 때 CassetteLotId도 함께 지워야 한다.
-                // 이 값을 남기면 다음 mapping의 ResolveOrCreateCassetteLotId가
-                // State.LotId와 다른 잔존 LotId를 후보로 잡아 "LOT ID 후보가 서로 달라..." 예외로 등록 실패한다.
-                wafer.CassetteLotId = "";
-                wafer.UpdatedAt = DateTime.Now;
+                if (die == null)
+                    continue;
+
+                string outputInstance = (die.OutputWaferInstanceId ?? "").Trim();
+                string outputDisplay = (die.WaferID_Output ?? "").Trim();
+                if (!string.IsNullOrWhiteSpace(outputInstance))
+                {
+                    if (!targetInstanceIds.Contains(outputInstance))
+                        continue;
+
+                    WaferMaterial parent = targets.FirstOrDefault(wafer =>
+                        string.Equals(
+                            (wafer.WaferInstanceId ?? "").Trim(),
+                            outputInstance,
+                            StringComparison.OrdinalIgnoreCase));
+                    if (parent == null ||
+                        (!string.IsNullOrWhiteSpace(outputDisplay) &&
+                         !string.Equals(
+                             outputDisplay,
+                             parent.WaferId ?? "",
+                             StringComparison.OrdinalIgnoreCase)))
+                    {
+                        reason = "Die의 Output instance/display parent가 일치하지 않습니다. die=" +
+                                 (die.DieId ?? "") + ", instance=" + outputInstance +
+                                 ", display=" + outputDisplay;
+                        relatedDies.Clear();
+                        return false;
+                    }
+
+                    relatedDies.Add(die);
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(outputDisplay) || !targetDisplayIds.Contains(outputDisplay))
+                    continue;
+
+                List<WaferMaterial> displayCandidates = State.Wafers.Where(wafer =>
+                        wafer != null &&
+                        string.Equals(
+                            wafer.WaferId ?? "",
+                            outputDisplay,
+                            StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                if (displayCandidates.Count != 1 || !targetSet.Contains(displayCandidates[0]))
+                {
+                    reason = "Legacy Output parent를 하나로 확인할 수 없습니다. die=" +
+                             (die.DieId ?? "") + ", wafer=" + outputDisplay +
+                             ", candidates=" + displayCandidates.Count;
+                    relatedDies.Clear();
+                    return false;
+                }
+
+                relatedDies.Add(die);
             }
 
-            slot.WaferId = "";
-            slot.WaferInstanceId = "";
-            slot.HasWafer = false;
+            relatedDies = relatedDies.Distinct().ToList();
+            return true;
+        }
+
+        private static bool TryCollectInputParentDiesNoLock(
+            ICollection<WaferMaterial> targetWafers,
+            out List<DieMaterial> relatedDies,
+            out string reason)
+        {
+            relatedDies = new List<DieMaterial>();
+            reason = "";
+            if (targetWafers == null || State == null || State.Wafers == null || State.Dies == null)
+                return true;
+
+            List<WaferMaterial> targets = targetWafers.Where(wafer => wafer != null).Distinct().ToList();
+            if (targets.Count == 0)
+                return true;
+
+            var targetSet = new HashSet<WaferMaterial>(targets);
+            var targetInstanceIds = new HashSet<string>(
+                targets
+                    .Select(EnsureWaferInstanceIdNoLock)
+                    .Where(id => !string.IsNullOrWhiteSpace(id)),
+                StringComparer.OrdinalIgnoreCase);
+            var targetDisplayIds = new HashSet<string>(
+                targets
+                    .Select(wafer => (wafer.WaferId ?? "").Trim())
+                    .Where(id => !string.IsNullOrWhiteSpace(id)),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (string targetInstanceId in targetInstanceIds)
+            {
+                int candidateCount = State.Wafers.Count(wafer =>
+                    wafer != null &&
+                    string.Equals(
+                        (wafer.WaferInstanceId ?? "").Trim(),
+                        targetInstanceId,
+                        StringComparison.OrdinalIgnoreCase));
+                if (candidateCount != 1)
+                {
+                    reason = "Input parent instance를 하나로 확인할 수 없습니다. instance=" +
+                             targetInstanceId + ", candidates=" + candidateCount;
+                    return false;
+                }
+            }
+
+            foreach (DieMaterial die in State.Dies)
+            {
+                if (die == null)
+                    continue;
+
+                string inputInstance = (die.InputWaferInstanceId ?? "").Trim();
+                string inputDisplay = (die.WaferID_Input ?? "").Trim();
+                if (!string.IsNullOrWhiteSpace(inputInstance))
+                {
+                    if (!targetInstanceIds.Contains(inputInstance))
+                        continue;
+
+                    WaferMaterial parent = targets.FirstOrDefault(wafer =>
+                        string.Equals(
+                            (wafer.WaferInstanceId ?? "").Trim(),
+                            inputInstance,
+                            StringComparison.OrdinalIgnoreCase));
+                    if (parent == null ||
+                        (!string.IsNullOrWhiteSpace(inputDisplay) &&
+                         !string.Equals(
+                             inputDisplay,
+                             parent.WaferId ?? "",
+                             StringComparison.OrdinalIgnoreCase)))
+                    {
+                        reason = "Die의 Input instance/display parent가 일치하지 않습니다. die=" +
+                                 (die.DieId ?? "") + ", instance=" + inputInstance +
+                                 ", display=" + inputDisplay;
+                        relatedDies.Clear();
+                        return false;
+                    }
+
+                    relatedDies.Add(die);
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(inputDisplay) || !targetDisplayIds.Contains(inputDisplay))
+                    continue;
+
+                List<WaferMaterial> displayCandidates = State.Wafers.Where(wafer =>
+                        wafer != null &&
+                        string.Equals(
+                            wafer.WaferId ?? "",
+                            inputDisplay,
+                            StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                if (displayCandidates.Count != 1 || !targetSet.Contains(displayCandidates[0]))
+                {
+                    reason = "Legacy Input parent를 하나로 확인할 수 없습니다. die=" +
+                             (die.DieId ?? "") + ", wafer=" + inputDisplay +
+                             ", candidates=" + displayCandidates.Count;
+                    relatedDies.Clear();
+                    return false;
+                }
+
+                relatedDies.Add(die);
+            }
+
+            relatedDies = relatedDies.Distinct().ToList();
+            return true;
+        }
+
+        private static bool TryCollectInputLocationClearDiesNoLock(
+            ICollection<WaferMaterial> targetWafers,
+            MaterialLocationKind expectedLocation,
+            out List<DieMaterial> removeDies,
+            out string reason)
+        {
+            List<DieMaterial> relatedDies;
+            if (!TryCollectInputParentDiesNoLock(targetWafers, out relatedDies, out reason))
+            {
+                removeDies = new List<DieMaterial>();
+                return false;
+            }
+
+            var relatedSet = new HashSet<DieMaterial>(relatedDies.Where(die => die != null));
+            foreach (DieMaterial die in State.Dies)
+            {
+                if (die == null)
+                    continue;
+
+                MaterialLocationKind locationKind = die.CurrentLocation != null
+                    ? die.CurrentLocation.Kind
+                    : MaterialLocationKind.Unknown;
+                if (locationKind == expectedLocation && !relatedSet.Contains(die))
+                {
+                    reason = "입력 위치의 Die parent를 대상 Wafer로 확인할 수 없습니다. die=" +
+                             (die.DieId ?? "") + ", location=" + expectedLocation;
+                    removeDies = new List<DieMaterial>();
+                    return false;
+                }
+            }
+
+            removeDies = new List<DieMaterial>();
+            foreach (DieMaterial die in relatedDies)
+            {
+                MaterialLocationKind locationKind = die.CurrentLocation != null
+                    ? die.CurrentLocation.Kind
+                    : MaterialLocationKind.Unknown;
+                bool transitionalInputStage =
+                    expectedLocation == MaterialLocationKind.InputFeeder &&
+                    locationKind == MaterialLocationKind.InputStage;
+                bool removeAtLocation = locationKind == expectedLocation ||
+                                        locationKind == MaterialLocationKind.Unknown ||
+                                        transitionalInputStage;
+
+                bool hasOutputParent =
+                    !string.IsNullOrWhiteSpace(die.OutputWaferInstanceId) ||
+                    !string.IsNullOrWhiteSpace(die.WaferID_Output);
+                bool hasActiveReservation =
+                    die.ReservedPickerLocation == MaterialLocationKind.PickerFront ||
+                    die.ReservedPickerLocation == MaterialLocationKind.PickerRear ||
+                    die.ReservedPickerNo > 0;
+                if (hasActiveReservation)
+                {
+                    reason = "입력 Clear 대상 Die가 Output parent/Picker 예약을 유지하고 있습니다. die=" +
+                             (die.DieId ?? "") + ", location=" + locationKind +
+                             ", outputWafer=" + (die.WaferID_Output ?? "") +
+                             ", reserved=" + die.ReservedPickerLocation + "/" + die.ReservedPickerNo;
+                    removeDies.Clear();
+                    return false;
+                }
+
+                if (hasOutputParent)
+                    continue;
+                if (!removeAtLocation)
+                {
+                    reason = "입력 Clear 대상 Wafer의 input-only Die가 다른 활성 위치에 있습니다. die=" +
+                             (die.DieId ?? "") + ", expected=" + expectedLocation +
+                             ", location=" + locationKind;
+                    removeDies.Clear();
+                    return false;
+                }
+
+                removeDies.Add(die);
+            }
+
+            return true;
+        }
+
+        private static bool TryCollectInputHistoryForClearNoLock(
+            ICollection<WaferMaterial> targetWafers,
+            out List<DieMaterial> historyDies,
+            out bool preserveHistory,
+            out string reason)
+        {
+            if (!TryCollectInputParentDiesNoLock(targetWafers, out historyDies, out reason))
+            {
+                preserveHistory = false;
+                return false;
+            }
+
+            preserveHistory = historyDies.Any(die =>
+                die != null &&
+                (!string.IsNullOrWhiteSpace(die.OutputWaferInstanceId) ||
+                 !string.IsNullOrWhiteSpace(die.WaferID_Output)));
+            return true;
+        }
+
+        private static void DemotePreservedInputHistoryLocationsNoLock(
+            ICollection<DieMaterial> historyDies,
+            MaterialLocationKind clearedLocation)
+        {
+            if (historyDies == null)
+                return;
+
+            DateTime updatedAt = DateTime.Now;
+            foreach (DieMaterial die in historyDies.Where(item => item != null).Distinct())
+            {
+                MaterialLocationKind locationKind = die.CurrentLocation != null
+                    ? die.CurrentLocation.Kind
+                    : MaterialLocationKind.Unknown;
+                bool clearedPhysicalLocation = locationKind == clearedLocation ||
+                    (clearedLocation == MaterialLocationKind.InputFeeder &&
+                     locationKind == MaterialLocationKind.InputStage);
+                if (!clearedPhysicalLocation)
+                    continue;
+
+                die.CurrentLocation = MaterialLocation.Unknown();
+                die.UpdatedAt = updatedAt;
+            }
+        }
+
+        private static bool TryCollectOutputLocationClearDiesNoLock(
+            ICollection<WaferMaterial> targetWafers,
+            MaterialLocationKind expectedLocation,
+            out List<DieMaterial> relatedDies,
+            out string reason)
+        {
+            if (!TryCollectOutputParentDiesNoLock(targetWafers, out relatedDies, out reason))
+                return false;
+
+            var relatedSet = new HashSet<DieMaterial>(relatedDies.Where(die => die != null));
+            foreach (DieMaterial die in State.Dies)
+            {
+                if (die == null)
+                    continue;
+
+                MaterialLocationKind locationKind = die.CurrentLocation != null
+                    ? die.CurrentLocation.Kind
+                    : MaterialLocationKind.Unknown;
+                if (locationKind == expectedLocation && !relatedSet.Contains(die))
+                {
+                    reason = "출력 위치의 Die parent를 대상 Wafer로 확인할 수 없습니다. die=" +
+                             (die.DieId ?? "") + ", location=" + expectedLocation;
+                    relatedDies.Clear();
+                    return false;
+                }
+            }
+
+            foreach (DieMaterial die in relatedDies)
+            {
+                MaterialLocationKind locationKind = die.CurrentLocation != null
+                    ? die.CurrentLocation.Kind
+                    : MaterialLocationKind.Unknown;
+                bool hasActiveReservation =
+                    die.ReservedPickerLocation == MaterialLocationKind.PickerFront ||
+                    die.ReservedPickerLocation == MaterialLocationKind.PickerRear ||
+                    die.ReservedPickerNo > 0;
+                if ((locationKind != MaterialLocationKind.Unknown && locationKind != expectedLocation) ||
+                    hasActiveReservation)
+                {
+                    reason = "출력 Clear 대상 Die가 다른 활성 위치/예약에 있습니다. die=" +
+                             (die.DieId ?? "") + ", expected=" + expectedLocation +
+                             ", location=" + locationKind +
+                             ", reserved=" + die.ReservedPickerLocation + "/" + die.ReservedPickerNo;
+                    relatedDies.Clear();
+                    return false;
+                }
+            }
+
+            List<DieMaterial> preserveDies;
+            List<DieMaterial> removeDies;
+            return TryClassifyOutputDiesForDetachNoLock(
+                relatedDies,
+                out preserveDies,
+                out removeDies,
+                out reason);
+        }
+
+        public static bool ClearInputCassetteSlotData(CassetteMaterialRole cassetteRole, int slotNumber)
+        {
+            MaterialCompactionResult compactionResult;
+            lock (_stateSync)
+            {
+                var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
+                if (cassette == null)
+                    return false;
+
+                string preflightReason;
+                if (!TryValidateCassetteRoleForClearNoLock(cassetteRole, out preflightReason))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Input cassette slot clear blocked: " + preflightReason + " - Blocked");
+                    return false;
+                }
+
+                cassette.EnsureSlots();
+                if (slotNumber < 0 || slotNumber >= cassette.Slots.Count)
+                    return false;
+
+                var slot = cassette.Slots[slotNumber];
+                WaferMaterial slotWafer = null;
+                if (slot != null && slot.HasWafer)
+                {
+                    string slotReason;
+                    slotWafer = ResolveCassetteSlotWaferNoLock(slot, out slotReason);
+                    if (slotWafer == null)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Input cassette slot clear blocked: " + slotReason +
+                            ", cassette=" + cassetteRole +
+                            ", slot=" + (slotNumber + 1) + " - Blocked");
+                        return false;
+                    }
+                }
+                string slotInstanceId = slotWafer != null
+                    ? EnsureWaferInstanceIdNoLock(slotWafer)
+                    : "";
+                var targetWafers = State.Wafers.Where(w =>
+                    w != null &&
+                    ((!string.IsNullOrWhiteSpace(slotInstanceId) &&
+                      string.Equals(
+                          EnsureWaferInstanceIdNoLock(w),
+                          slotInstanceId,
+                          StringComparison.OrdinalIgnoreCase)) ||
+                     IsWaferAtCassetteSlot(w, cassetteRole, slotNumber)))
+                    .ToList();
+
+                List<DieMaterial> inputOnlyDies;
+                string inputDieReason;
+                if (!TryCollectInputLocationClearDiesNoLock(
+                    targetWafers,
+                    MaterialLocationKind.InputCassette,
+                    out inputOnlyDies,
+                    out inputDieReason))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Input cassette slot clear blocked: " + inputDieReason + " - Blocked");
+                    return false;
+                }
+                List<DieMaterial> inputHistoryDies;
+                bool preserveInputHistory;
+                if (!TryCollectInputHistoryForClearNoLock(
+                    targetWafers,
+                    out inputHistoryDies,
+                    out preserveInputHistory,
+                    out inputDieReason))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Input cassette slot clear blocked: " + inputDieReason + " - Blocked");
+                    return false;
+                }
+
+                if (preserveInputHistory)
+                    DemotePreservedInputHistoryLocationsNoLock(
+                        inputHistoryDies,
+                        MaterialLocationKind.InputCassette);
+                else
+                    RemoveDieMaterialsNoLock(inputHistoryDies);
+
+                foreach (var wafer in targetWafers)
+                {
+                    wafer.State = WaferMaterialState.Empty;
+                    wafer.CurrentLocation = MaterialLocation.Unknown();
+                    // To do: 슬롯 자재를 비울 때 CassetteLotId도 함께 지워야 한다.
+                    // 이 값을 남기면 다음 mapping의 ResolveOrCreateCassetteLotId가
+                    // State.LotId와 다른 잔존 LotId를 후보로 잡아 "LOT ID 후보가 서로 달라..." 예외로 등록 실패한다.
+                    wafer.CassetteLotId = "";
+                    wafer.UpdatedAt = DateTime.Now;
+                }
+
+                slot.WaferId = "";
+                slot.WaferInstanceId = "";
+                slot.HasWafer = false;
+                compactionResult = CompactMaterialStateNoLock();
+            }
+            LogMaterialCompaction("ClearInputCassetteSlotData", compactionResult);
             NotifyAndSave("ClearInputCassetteSlotData");
             return true;
         }
@@ -2603,12 +3614,27 @@ namespace QMC.CDT320.Materials
         public static bool ClearInputCassetteAllSlotData()
         {
             bool processed = false;
-            ClearInputCassetteAllSlotData(CassetteMaterialRole.Input1, ref processed);
-            ClearInputCassetteAllSlotData(CassetteMaterialRole.Input2, ref processed);
+            MaterialCompactionResult compactionResult;
+            lock (_stateSync)
+            {
+                string preflightReason;
+                if (!TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Input1, out preflightReason) ||
+                    !TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Input2, out preflightReason))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Input cassette all clear blocked: " + preflightReason + " - Blocked");
+                    return false;
+                }
 
-            if (!processed)
-                return false;
+                ClearInputCassetteAllSlotData(CassetteMaterialRole.Input1, ref processed);
+                ClearInputCassetteAllSlotData(CassetteMaterialRole.Input2, ref processed);
 
+                if (!processed)
+                    return false;
+
+                compactionResult = CompactMaterialStateNoLock();
+            }
+            LogMaterialCompaction("ClearInputCassetteAllSlotData", compactionResult);
             NotifyAndSave("ClearInputCassetteAllSlotData");
             return true;
         }
@@ -2639,8 +3665,26 @@ namespace QMC.CDT320.Materials
                   slotWaferInstanceIds.Contains(EnsureWaferInstanceIdNoLock(w))) ||
                  (w.CurrentLocation != null &&
                    w.CurrentLocation.Kind == MaterialLocationKind.InputCassette &&
-                  w.CurrentLocation.CassetteRole == cassetteRole)))
+                   w.CurrentLocation.CassetteRole == cassetteRole)))
                 .ToList();
+
+            List<DieMaterial> inputHistoryDies;
+            bool preserveInputHistory;
+            string inputReason;
+            if (!TryCollectInputHistoryForClearNoLock(
+                targetWafers,
+                out inputHistoryDies,
+                out preserveInputHistory,
+                out inputReason))
+            {
+                throw new InvalidOperationException(inputReason);
+            }
+            if (preserveInputHistory)
+                DemotePreservedInputHistoryLocationsNoLock(
+                    inputHistoryDies,
+                    MaterialLocationKind.InputCassette);
+            else
+                RemoveDieMaterialsNoLock(inputHistoryDies);
 
             foreach (var wafer in targetWafers)
             {
@@ -2684,52 +3728,81 @@ namespace QMC.CDT320.Materials
                 cassetteRole != CassetteMaterialRole.Ng1)
                 return false;
 
-            var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
-            if (cassette == null)
-                return false;
-
-            cassette.EnsureSlots();
-            if (slotNumber < 0 || slotNumber >= cassette.Slots.Count)
-                return false;
-
-            var slot = cassette.Slots[slotNumber];
-            WaferMaterial slotWafer = null;
-            if (slot != null && slot.HasWafer)
+            MaterialCompactionResult compactionResult;
+            lock (_stateSync)
             {
-                string slotReason;
-                slotWafer = ResolveCassetteSlotWaferNoLock(slot, out slotReason);
-                if (slotWafer == null)
+                var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
+                if (cassette == null)
+                    return false;
+
+                string preflightReason;
+                if (!TryValidateCassetteRoleForClearNoLock(cassetteRole, out preflightReason))
                 {
                     Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Output cassette slot clear blocked: " + slotReason +
-                        ", cassette=" + cassetteRole +
-                        ", slot=" + (slotNumber + 1) + " - Blocked");
+                        "Output cassette slot clear blocked: " + preflightReason + " - Blocked");
                     return false;
                 }
-            }
-            string slotInstanceId = slotWafer != null
-                ? EnsureWaferInstanceIdNoLock(slotWafer)
-                : "";
-            var targetWafers = State.Wafers.Where(w =>
-                w != null &&
-                ((!string.IsNullOrWhiteSpace(slotInstanceId) &&
-                  string.Equals(
-                      EnsureWaferInstanceIdNoLock(w),
-                      slotInstanceId,
-                      StringComparison.OrdinalIgnoreCase)) ||
-                 IsWaferAtCassetteSlot(w, cassetteRole, slotNumber)))
-                .ToList();
 
-            foreach (var wafer in targetWafers)
-            {
-                wafer.State = WaferMaterialState.Empty;
-                wafer.CurrentLocation = MaterialLocation.Unknown();
-                wafer.UpdatedAt = DateTime.Now;
-            }
+                cassette.EnsureSlots();
+                if (slotNumber < 0 || slotNumber >= cassette.Slots.Count)
+                    return false;
 
-            slot.WaferId = "";
-            slot.WaferInstanceId = "";
-            slot.HasWafer = false;
+                var slot = cassette.Slots[slotNumber];
+                WaferMaterial slotWafer = null;
+                if (slot != null && slot.HasWafer)
+                {
+                    string slotReason;
+                    slotWafer = ResolveCassetteSlotWaferNoLock(slot, out slotReason);
+                    if (slotWafer == null)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Output cassette slot clear blocked: " + slotReason +
+                            ", cassette=" + cassetteRole +
+                            ", slot=" + (slotNumber + 1) + " - Blocked");
+                        return false;
+                    }
+                }
+                string slotInstanceId = slotWafer != null
+                    ? EnsureWaferInstanceIdNoLock(slotWafer)
+                    : "";
+                var targetWafers = State.Wafers.Where(w =>
+                    w != null &&
+                    ((!string.IsNullOrWhiteSpace(slotInstanceId) &&
+                      string.Equals(
+                          EnsureWaferInstanceIdNoLock(w),
+                          slotInstanceId,
+                          StringComparison.OrdinalIgnoreCase)) ||
+                     IsWaferAtCassetteSlot(w, cassetteRole, slotNumber)))
+                    .ToList();
+
+                List<DieMaterial> relatedDies;
+                string dieReason;
+                if (!TryCollectOutputCassetteClearDiesNoLock(
+                    targetWafers,
+                    out relatedDies,
+                    out dieReason))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Output cassette slot clear blocked: " + dieReason + " - Blocked");
+                    return false;
+                }
+
+                foreach (var wafer in targetWafers)
+                {
+                    ClearOutputStageWaferProcessingFieldsNoLock(wafer);
+                    wafer.State = WaferMaterialState.Empty;
+                    wafer.CurrentLocation = MaterialLocation.Unknown();
+                    wafer.CassetteLotId = "";
+                    wafer.UpdatedAt = DateTime.Now;
+                }
+
+                DetachOrRemoveClearedOutputDiesNoLock(relatedDies);
+                slot.WaferId = "";
+                slot.WaferInstanceId = "";
+                slot.HasWafer = false;
+                compactionResult = CompactMaterialStateNoLock();
+            }
+            LogMaterialCompaction("ClearOutputCassetteSlotData", compactionResult);
             NotifyAndSave("ClearOutputCassetteSlotData");
             return true;
         }
@@ -2737,13 +3810,29 @@ namespace QMC.CDT320.Materials
         public static bool ClearOutputCassetteAllSlotData()
         {
             bool processed = false;
-            ClearOutputCassetteAllSlotData(CassetteMaterialRole.Good1, ref processed);
-            ClearOutputCassetteAllSlotData(CassetteMaterialRole.Good2, ref processed);
-            ClearOutputCassetteAllSlotData(CassetteMaterialRole.Ng1, ref processed);
+            MaterialCompactionResult compactionResult;
+            lock (_stateSync)
+            {
+                string preflightReason;
+                if (!TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Good1, out preflightReason) ||
+                    !TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Good2, out preflightReason) ||
+                    !TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Ng1, out preflightReason))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Output cassette all clear blocked: " + preflightReason + " - Blocked");
+                    return false;
+                }
 
-            if (!processed)
-                return false;
+                ClearOutputCassetteAllSlotData(CassetteMaterialRole.Good1, ref processed);
+                ClearOutputCassetteAllSlotData(CassetteMaterialRole.Good2, ref processed);
+                ClearOutputCassetteAllSlotData(CassetteMaterialRole.Ng1, ref processed);
 
+                if (!processed)
+                    return false;
+
+                compactionResult = CompactMaterialStateNoLock();
+            }
+            LogMaterialCompaction("ClearOutputCassetteAllSlotData", compactionResult);
             NotifyAndSave("ClearOutputCassetteAllSlotData");
             return true;
         }
@@ -2757,15 +3846,30 @@ namespace QMC.CDT320.Materials
         {
             try
             {
+                bool processed = false;
+                MaterialCompactionResult compactionResult;
                 lock (_stateSync)
                 {
-                    bool processed = false;
+                    string preflightReason;
                     if (side == QMC.CDT320.BinSide.Ng)
                     {
+                        if (!TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Ng1, out preflightReason))
+                        {
+                            Log.Write("Main", "SYSTEM", "MaterialStateService",
+                                "Output cassette side clear blocked: " + preflightReason + " - Blocked");
+                            return false;
+                        }
                         ClearOutputCassetteAllSlotData(CassetteMaterialRole.Ng1, ref processed);
                     }
                     else
                     {
+                        if (!TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Good1, out preflightReason) ||
+                            !TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Good2, out preflightReason))
+                        {
+                            Log.Write("Main", "SYSTEM", "MaterialStateService",
+                                "Output cassette side clear blocked: " + preflightReason + " - Blocked");
+                            return false;
+                        }
                         ClearOutputCassetteAllSlotData(CassetteMaterialRole.Good1, ref processed);
                         ClearOutputCassetteAllSlotData(CassetteMaterialRole.Good2, ref processed);
                     }
@@ -2773,12 +3877,15 @@ namespace QMC.CDT320.Materials
                     if (!processed)
                         return false;
 
-                    Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "출력 카세트 " + side + " 측 Material 데이터를 초기화했습니다. " +
-                        "반대편 데이터는 유지됩니다. - Ok");
-                    NotifyAndSave("ClearOutputCassetteSideData:" + side);
-                    return true;
+                    compactionResult = CompactMaterialStateNoLock();
                 }
+
+                LogMaterialCompaction("ClearOutputCassetteSideData:" + side, compactionResult);
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "출력 카세트 " + side + " 측 Material 데이터를 초기화했습니다. " +
+                    "반대편 데이터는 유지됩니다. - Ok");
+                NotifyAndSave("ClearOutputCassetteSideData:" + side);
+                return true;
             }
             catch (Exception ex)
             {
@@ -2816,17 +3923,30 @@ namespace QMC.CDT320.Materials
                 ((slotWaferInstanceIds.Count > 0 &&
                   slotWaferInstanceIds.Contains(EnsureWaferInstanceIdNoLock(w))) ||
                  (w.CurrentLocation != null &&
-                   w.CurrentLocation.Kind == MaterialLocationKind.OutputCassette &&
-                  w.CurrentLocation.CassetteRole == cassetteRole)))
+                    w.CurrentLocation.Kind == MaterialLocationKind.OutputCassette &&
+                   w.CurrentLocation.CassetteRole == cassetteRole)))
                 .ToList();
+
+            List<DieMaterial> relatedDies;
+            string dieReason;
+            if (!TryCollectOutputCassetteClearDiesNoLock(
+                targetWafers,
+                out relatedDies,
+                out dieReason))
+            {
+                throw new InvalidOperationException(dieReason);
+            }
 
             foreach (var wafer in targetWafers)
             {
+                ClearOutputStageWaferProcessingFieldsNoLock(wafer);
                 wafer.State = WaferMaterialState.Empty;
                 wafer.CurrentLocation = MaterialLocation.Unknown();
                 wafer.CassetteLotId = "";
                 wafer.UpdatedAt = DateTime.Now;
             }
+
+            DetachOrRemoveClearedOutputDiesNoLock(relatedDies);
 
             foreach (var slot in cassette.Slots)
             {
@@ -2846,6 +3966,225 @@ namespace QMC.CDT320.Materials
             // Side/전체 Clear 직후에는 빈 논리 상태로 내려 잔존 Material 판정을 막는다.
             cassette.IsPresent = false;
             cassette.CassetteLotId = "";
+        }
+
+        private static List<WaferMaterial> GetCassetteClearTargetWafersNoLock(
+            CassetteMaterialRole cassetteRole)
+        {
+            var targets = new HashSet<WaferMaterial>();
+            CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c => c != null && c.Role == cassetteRole);
+            if (cassette != null && cassette.Slots != null)
+            {
+                foreach (CassetteSlotMaterial slot in cassette.Slots)
+                {
+                    if (slot == null || !slot.HasWafer)
+                        continue;
+
+                    string resolveReason;
+                    WaferMaterial slotWafer = ResolveCassetteSlotWaferForValidationNoLock(slot, out resolveReason);
+                    if (slotWafer != null)
+                        targets.Add(slotWafer);
+                }
+            }
+
+            MaterialLocationKind expectedKind = IsOutputCassetteRole(cassetteRole)
+                ? MaterialLocationKind.OutputCassette
+                : MaterialLocationKind.InputCassette;
+            foreach (WaferMaterial wafer in State.Wafers)
+            {
+                if (wafer != null &&
+                    wafer.CurrentLocation != null &&
+                    wafer.CurrentLocation.Kind == expectedKind &&
+                    wafer.CurrentLocation.CassetteRole == cassetteRole)
+                {
+                    targets.Add(wafer);
+                }
+            }
+
+            return targets.ToList();
+        }
+
+        private static bool TryCollectOutputCassetteClearDiesNoLock(
+            ICollection<WaferMaterial> targetWafers,
+            out List<DieMaterial> relatedDies,
+            out string reason)
+        {
+            if (!TryCollectOutputParentDiesNoLock(targetWafers, out relatedDies, out reason))
+                return false;
+
+            List<WaferMaterial> targets = targetWafers != null
+                ? targetWafers.Where(wafer => wafer != null).Distinct().ToList()
+                : new List<WaferMaterial>();
+            var relatedSet = new HashSet<DieMaterial>(relatedDies.Where(die => die != null));
+            foreach (DieMaterial die in State.Dies)
+            {
+                if (die == null)
+                    continue;
+
+                MaterialLocation location = die.CurrentLocation;
+                MaterialLocationKind locationKind = location != null
+                    ? location.Kind
+                    : MaterialLocationKind.Unknown;
+                bool atExpectedCassette = locationKind == MaterialLocationKind.OutputCassette &&
+                    targets.Any(wafer =>
+                        wafer.CurrentLocation != null &&
+                        wafer.CurrentLocation.Kind == MaterialLocationKind.OutputCassette &&
+                        wafer.CurrentLocation.CassetteRole == location.CassetteRole &&
+                        wafer.CurrentLocation.SlotNumber == location.SlotNumber);
+                if (atExpectedCassette && !relatedSet.Contains(die))
+                {
+                    reason = "출력 Cassette 위치의 Die parent를 대상 Wafer로 확인할 수 없습니다. die=" +
+                             (die.DieId ?? "") + ", location=" + location;
+                    relatedDies.Clear();
+                    return false;
+                }
+            }
+
+            foreach (DieMaterial die in relatedDies)
+            {
+                MaterialLocation location = die.CurrentLocation;
+                MaterialLocationKind locationKind = location != null
+                    ? location.Kind
+                    : MaterialLocationKind.Unknown;
+                bool atExpectedCassette = locationKind == MaterialLocationKind.OutputCassette &&
+                    targets.Any(wafer =>
+                        wafer.CurrentLocation != null &&
+                        wafer.CurrentLocation.Kind == MaterialLocationKind.OutputCassette &&
+                        wafer.CurrentLocation.CassetteRole == location.CassetteRole &&
+                        wafer.CurrentLocation.SlotNumber == location.SlotNumber);
+                bool hasActiveReservation =
+                    die.ReservedPickerLocation == MaterialLocationKind.PickerFront ||
+                    die.ReservedPickerLocation == MaterialLocationKind.PickerRear ||
+                    die.ReservedPickerNo > 0;
+                if ((locationKind != MaterialLocationKind.Unknown && !atExpectedCassette) ||
+                    hasActiveReservation)
+                {
+                    reason = "출력 Cassette Clear 대상 Die가 다른 활성 위치/예약에 있습니다. die=" +
+                             (die.DieId ?? "") + ", location=" + locationKind +
+                             ", reserved=" + die.ReservedPickerLocation + "/" + die.ReservedPickerNo;
+                    relatedDies.Clear();
+                    return false;
+                }
+            }
+
+            List<DieMaterial> preserveDies;
+            List<DieMaterial> removeDies;
+            return TryClassifyOutputDiesForDetachNoLock(
+                relatedDies,
+                out preserveDies,
+                out removeDies,
+                out reason);
+        }
+
+        private static bool TryValidateCassetteRoleForClearNoLock(
+            CassetteMaterialRole cassetteRole,
+            out string reason)
+        {
+            reason = "";
+            CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c => c != null && c.Role == cassetteRole);
+            if (cassette == null)
+                return true;
+
+            if (cassette.Slots == null || cassette.SlotCount < 0 || cassette.Slots.Count != cassette.SlotCount)
+            {
+                reason = "Cassette Slot 목록과 SlotCount가 일치하지 않습니다. cassette=" + cassetteRole +
+                         ", slotCount=" + cassette.SlotCount +
+                         ", items=" + (cassette.Slots != null ? cassette.Slots.Count : -1);
+                return false;
+            }
+
+            for (int slotIndex = 0; slotIndex < cassette.Slots.Count; slotIndex++)
+            {
+                CassetteSlotMaterial slot = cassette.Slots[slotIndex];
+                if (slot == null)
+                {
+                    reason = "Cassette Slot 데이터가 없습니다. cassette=" + cassetteRole;
+                    return false;
+                }
+                if (slot.SlotNumber != slotIndex)
+                {
+                    reason = "Cassette Slot 번호가 목록 위치와 일치하지 않습니다. cassette=" + cassetteRole +
+                             ", index=" + (slotIndex + 1) +
+                             ", slotNumber=" + (slot.SlotNumber + 1);
+                    return false;
+                }
+
+                bool hasPointer = !string.IsNullOrWhiteSpace(slot.WaferId) ||
+                                  !string.IsNullOrWhiteSpace(slot.WaferInstanceId);
+                if (!hasPointer)
+                {
+                    if (slot.HasWafer)
+                    {
+                        reason = "점유 Slot에 Material pointer가 없습니다. cassette=" + cassetteRole +
+                                 ", slot=" + (slot.SlotNumber + 1);
+                        return false;
+                    }
+                    continue;
+                }
+                if (string.IsNullOrWhiteSpace(slot.WaferId))
+                {
+                    reason = "Slot Material 표시 ID가 없습니다. cassette=" + cassetteRole +
+                             ", slot=" + (slot.SlotNumber + 1);
+                    return false;
+                }
+
+                string resolveReason = "";
+                WaferMaterial wafer = ResolveCassetteSlotWaferForValidationNoLock(slot, out resolveReason);
+                if (wafer == null)
+                {
+                    reason = "Slot Material pointer를 확인할 수 없습니다. cassette=" + cassetteRole +
+                             ", slot=" + (slot.SlotNumber + 1) +
+                             ", detail=" + resolveReason;
+                    return false;
+                }
+                if (!IsWaferAtCassetteSlot(wafer, cassetteRole, slot.SlotNumber))
+                {
+                    reason = "Slot pointer와 Wafer 위치가 일치하지 않습니다. cassette=" + cassetteRole +
+                             ", slot=" + (slot.SlotNumber + 1) +
+                             ", wafer=" + (wafer.WaferId ?? "") +
+                             ", location=" + wafer.CurrentLocation;
+                    return false;
+                }
+                WaferMaterialState waferState = WaferMaterialStateText.Normalize(wafer.State);
+                if (slot.HasWafer == (waferState == WaferMaterialState.Empty))
+                {
+                    reason = "Slot 점유 플래그와 Wafer 상태가 일치하지 않습니다. cassette=" + cassetteRole +
+                             ", slot=" + (slot.SlotNumber + 1) +
+                             ", wafer=" + (wafer.WaferId ?? "") +
+                             ", state=" + waferState;
+                    return false;
+                }
+            }
+
+            if (IsOutputCassetteRole(cassetteRole))
+            {
+                List<DieMaterial> relatedDies;
+                string dieReason;
+                if (!TryCollectOutputCassetteClearDiesNoLock(
+                    GetCassetteClearTargetWafersNoLock(cassetteRole),
+                    out relatedDies,
+                    out dieReason))
+                {
+                    reason = dieReason;
+                    return false;
+                }
+            }
+            else
+            {
+                List<DieMaterial> inputOnlyDies;
+                string inputReason;
+                if (!TryCollectInputLocationClearDiesNoLock(
+                    GetCassetteClearTargetWafersNoLock(cassetteRole),
+                    MaterialLocationKind.InputCassette,
+                    out inputOnlyDies,
+                    out inputReason))
+                {
+                    reason = inputReason;
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public static void MoveWaferToInputFeeder(WaferMaterial wafer)
@@ -3339,6 +4678,7 @@ namespace QMC.CDT320.Materials
                 WaferMaterialState afterState = WaferMaterialState.Empty;
                 WaferMaterialState displacedBeforeState = WaferMaterialState.Empty;
                 WaferMaterialState displacedAfterState = WaferMaterialState.Empty;
+                MaterialCompactionResult compactionResult = null;
 
                 lock (_stateSync)
                 {
@@ -3411,14 +4751,18 @@ namespace QMC.CDT320.Materials
                     // 현재 기준: 점유 자재를 Source 위치로 교환(swap)한다. 어느 Material 데이터도 삭제하지 않는다.
                     // To do: [DATA ONLY 교환] 점유 Destination은 거부 대신 Source 위치와 교환한다.
                     WaferMaterial displaced = null;
+                    WaferMaterial destinationEmptyMarker = null;
+                    List<DieMaterial> destinationMarkerOutputDies = null;
                     if (destination.IsCassette &&
-                        (destinationSlot.HasWafer || !string.IsNullOrWhiteSpace(destinationSlot.WaferId)))
+                        (destinationSlot.HasWafer ||
+                         !string.IsNullOrWhiteSpace(destinationSlot.WaferId) ||
+                         !string.IsNullOrWhiteSpace(destinationSlot.WaferInstanceId)))
                     {
                         string destinationSlotReason;
-                        displaced = ResolveCassetteSlotWaferNoLock(
+                        WaferMaterial destinationMaterial = ResolveCassetteSlotWaferNoLock(
                             destinationSlot,
                             out destinationSlotReason);
-                        if (displaced == null)
+                        if (destinationMaterial == null)
                         {
                             return FailDataOnly(
                                 operation,
@@ -3429,10 +4773,80 @@ namespace QMC.CDT320.Materials
                                 destinationSlotReason,
                                 userName);
                         }
+
+                        if (!destinationSlot.HasWafer)
+                        {
+                            if (!IsStateOnlyEmptyCassetteMaterialNoLock(
+                                destinationMaterial,
+                                destination.CassetteRole,
+                                destination.SlotIndex))
+                            {
+                                return FailDataOnly(
+                                    operation,
+                                    source,
+                                    destination,
+                                    "DATA-ONLY-DEST-EMPTY-POINTER",
+                                    "Destination의 비점유 pointer가 합법적인 EMPTY Material이 아닙니다.",
+                                    userName);
+                            }
+
+                            destinationEmptyMarker = destinationMaterial;
+                            if (IsOutputCassetteRole(destination.CassetteRole))
+                            {
+                                string markerClearReason;
+                                if (!TryCollectOutputCassetteClearDiesNoLock(
+                                    new List<WaferMaterial> { destinationEmptyMarker },
+                                    out destinationMarkerOutputDies,
+                                    out markerClearReason))
+                                {
+                                    return FailDataOnly(
+                                        operation,
+                                        source,
+                                        destination,
+                                        "DATA-ONLY-DEST-EMPTY-BLOCKED",
+                                        markerClearReason,
+                                        userName);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            displaced = destinationMaterial;
+                        }
                     }
 
-                    if (displaced == null)
+                    if (displaced == null && destinationEmptyMarker == null)
                         displaced = FindOtherWaferAtLocation(wafer, destination.ToMaterialLocation());
+
+                    List<DieMaterial> movingDies;
+                    string dieMoveReason;
+                    if (!TryCollectDataOnlyMoveDiesNoLock(wafer, source, out movingDies, out dieMoveReason))
+                    {
+                        return FailDataOnly(
+                            operation,
+                            source,
+                            destination,
+                            "DATA-ONLY-SOURCE-DIE-BLOCKED",
+                            dieMoveReason,
+                            userName);
+                    }
+
+                    List<DieMaterial> displacedDies = new List<DieMaterial>();
+                    if (displaced != null &&
+                        !TryCollectDataOnlyMoveDiesNoLock(
+                            displaced,
+                            destination,
+                            out displacedDies,
+                            out dieMoveReason))
+                    {
+                        return FailDataOnly(
+                            operation,
+                            source,
+                            destination,
+                            "DATA-ONLY-DEST-DIE-BLOCKED",
+                            dieMoveReason,
+                            userName);
+                    }
 
                     // 원자 반영: 양쪽 pointer 제거 → Source 자재를 Destination에, 점유 자재를 Source 위치에 등록.
                     MaterialLocation beforeLocation = wafer.CurrentLocation;
@@ -3444,10 +4858,26 @@ namespace QMC.CDT320.Materials
                     RemoveWaferFromCassetteSlot(wafer);
                     if (displaced != null)
                         RemoveWaferFromCassetteSlot(displaced);
+                    if (destinationEmptyMarker != null)
+                    {
+                        RemoveWaferFromCassetteSlot(destinationEmptyMarker);
+                        if (destinationMarkerOutputDies != null)
+                        {
+                            DetachOrRemoveClearedOutputDiesNoLock(destinationMarkerOutputDies);
+                            ClearOutputStageWaferProcessingFieldsNoLock(destinationEmptyMarker);
+                        }
+                        destinationEmptyMarker.State = WaferMaterialState.Empty;
+                        destinationEmptyMarker.CurrentLocation = MaterialLocation.Unknown();
+                        destinationEmptyMarker.UpdatedAt = DateTime.Now;
+                    }
 
                     ApplyDataOnlyPlacementNoLock(wafer, destination);
+                    SynchronizeDataOnlyDieLocationsNoLock(movingDies, destination);
                     if (displaced != null)
+                    {
                         ApplyDataOnlyPlacementNoLock(displaced, source);
+                        SynchronizeDataOnlyDieLocationsNoLock(displacedDies, source);
+                    }
                     afterState = WaferMaterialStateText.Normalize(wafer.State);
                     displacedAfterState = displaced != null
                         ? WaferMaterialStateText.Normalize(displaced.State)
@@ -3479,11 +4909,30 @@ namespace QMC.CDT320.Materials
                             "user=" + (userName ?? ""),
                             "noMotion=true");
                     }
+
+                    compactionResult = CompactMaterialStateNoLock();
                 }
 
                 // 이동 결과를 즉시 Snapshot에 저장한다(백그라운드 스로틀 대기 없이 동기 flush).
+                LogMaterialCompaction("DataOnlyManualMove", compactionResult);
                 NotifyAndSave("DataOnlyManualMove");
                 result.PersistenceSucceeded = TryFlushPendingSave("DataOnlyManualMove");
+                if (!result.PersistenceSucceeded)
+                {
+                    result.Success = false;
+                    result.FailureCode = "DATA-ONLY-MOVE-SAVE-FAIL";
+                    result.FailureMessage =
+                        "Material 위치는 메모리에서 변경되었지만 Snapshot 저장을 확인하지 못했습니다.";
+                    Log.Write(
+                        "Main",
+                        string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName,
+                        "DataOnlyMaterial",
+                        "[DATA ONLY] Material 데이터 이동 후 저장 확인 실패(장비 무동작). material=" +
+                        result.MaterialId + ", source=" + result.SourceText +
+                        ", destination=" + result.DestinationText + " - Failed");
+                    return result;
+                }
+
                 result.Success = true;
 
                 Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "DataOnlyMaterial",
@@ -3526,6 +4975,12 @@ namespace QMC.CDT320.Materials
                     SourceText = location.DisplayText,
                     DestinationText = ""
                 };
+                MaterialCompactionResult compactionResult;
+                int removedDieCount;
+                List<DieMaterial> relatedOutputDies = null;
+                List<DieMaterial> relatedInputDies = null;
+                List<DieMaterial> inputHistoryDies = null;
+                bool preserveInputHistory = false;
 
                 lock (_stateSync)
                 {
@@ -3544,6 +4999,116 @@ namespace QMC.CDT320.Materials
                     }
 
                     MaterialLocation beforeLocation = wafer.CurrentLocation;
+                    bool outputLocation = location.Kind == MaterialLocationKind.OutputStageGood ||
+                                          location.Kind == MaterialLocationKind.OutputStageNg ||
+                                          location.Kind == MaterialLocationKind.OutputFeeder ||
+                                          location.Kind == MaterialLocationKind.OutputCassette;
+                    if (outputLocation)
+                    {
+                        string outputClearReason;
+                        bool canClearOutput = location.Kind == MaterialLocationKind.OutputCassette
+                            ? TryCollectOutputCassetteClearDiesNoLock(
+                                new List<WaferMaterial> { wafer },
+                                out relatedOutputDies,
+                                out outputClearReason)
+                            : TryCollectOutputLocationClearDiesNoLock(
+                                new List<WaferMaterial> { wafer },
+                                location.Kind,
+                                out relatedOutputDies,
+                                out outputClearReason);
+                        if (!canClearOutput)
+                        {
+                            return FailDataOnly(
+                                operation,
+                                location,
+                                null,
+                                "DATA-ONLY-OUTPUT-DIE-BLOCKED",
+                                outputClearReason,
+                                userName);
+                        }
+                    }
+                    else if (location.Kind == MaterialLocationKind.InputStage ||
+                             location.Kind == MaterialLocationKind.InputFeeder)
+                    {
+                        string inputClearReason;
+                        if (!TryCollectInputLocationClearDiesNoLock(
+                            new List<WaferMaterial> { wafer },
+                            location.Kind,
+                            out relatedInputDies,
+                            out inputClearReason))
+                        {
+                            return FailDataOnly(
+                                operation,
+                                location,
+                                null,
+                                "DATA-ONLY-INPUT-DIE-BLOCKED",
+                                inputClearReason,
+                                userName);
+                        }
+                        if (!TryCollectInputHistoryForClearNoLock(
+                            new List<WaferMaterial> { wafer },
+                            out inputHistoryDies,
+                            out preserveInputHistory,
+                            out inputClearReason))
+                        {
+                            return FailDataOnly(
+                                operation,
+                                location,
+                                null,
+                                "DATA-ONLY-INPUT-HISTORY-BLOCKED",
+                                inputClearReason,
+                                userName);
+                        }
+                    }
+
+                    if (outputLocation)
+                    {
+                        removedDieCount = DetachOrRemoveClearedOutputDiesNoLock(relatedOutputDies);
+                    }
+                    else if (relatedInputDies != null)
+                    {
+                        if (preserveInputHistory)
+                        {
+                            DemotePreservedInputHistoryLocationsNoLock(inputHistoryDies, location.Kind);
+                            removedDieCount = 0;
+                        }
+                        else
+                        {
+                            removedDieCount = RemoveDieMaterialsNoLock(relatedInputDies);
+                        }
+                    }
+                    else
+                    {
+                        removedDieCount = location.IsCassette
+                            ? 0
+                            : RemoveDiesAtClearedLocationNoLock(
+                                new List<WaferMaterial> { wafer },
+                                location.Kind);
+                    }
+
+                    if ((location.Kind == MaterialLocationKind.InputStage ||
+                         location.Kind == MaterialLocationKind.InputFeeder) &&
+                        !preserveInputHistory)
+                    {
+                        ClearInputStageWaferProcessingFieldsNoLock(wafer);
+                        wafer.InputStageProcessingGeneration = wafer.InputStageProcessingGeneration + 1;
+                        InputStageHybridResultSession.Clear();
+                    }
+                    else if (location.Kind == MaterialLocationKind.OutputStageGood ||
+                             location.Kind == MaterialLocationKind.OutputStageNg ||
+                             location.Kind == MaterialLocationKind.OutputFeeder ||
+                             location.Kind == MaterialLocationKind.OutputCassette)
+                    {
+                        ClearOutputStageWaferProcessingFieldsNoLock(wafer);
+                        if (location.Kind == MaterialLocationKind.OutputStageGood ||
+                            location.Kind == MaterialLocationKind.OutputStageNg)
+                        {
+                            QMC.CDT320.BinSide side = location.Kind == MaterialLocationKind.OutputStageNg
+                                ? QMC.CDT320.BinSide.Ng
+                                : QMC.CDT320.BinSide.Good;
+                            _outputReceiveOrderCache.Remove(side);
+                        }
+                    }
 
                     // 기존 중앙 삭제 계약(Clear*)과 동일: 위치 pointer 제거 + 논리 삭제(State=Empty, Location=Unknown).
                     // 잔존 CassetteLotId가 다음 mapping 등록을 막지 않도록 함께 비운다.
@@ -3564,10 +5129,30 @@ namespace QMC.CDT320.Materials
                         "to=" + wafer.CurrentLocation,
                         "user=" + (userName ?? ""),
                         "noMotion=true");
+                    compactionResult = CompactMaterialStateNoLock();
                 }
 
+                LogMaterialCompaction("DataOnlyManualDelete", compactionResult);
+                if (removedDieCount > 0)
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "DATA ONLY 삭제 위치의 Die Material을 정리했습니다. location=" + location.Kind +
+                        ", removedDies=" + removedDieCount + " - Ok");
+                }
                 NotifyAndSave("DataOnlyManualDelete");
                 result.PersistenceSucceeded = TryFlushPendingSave("DataOnlyManualDelete");
+                if (!result.PersistenceSucceeded)
+                {
+                    result.Success = false;
+                    result.FailureCode = "DATA-ONLY-DELETE-SAVE-FAIL";
+                    result.FailureMessage =
+                        "Material 데이터는 메모리에서 변경되었지만 Snapshot 저장을 확인하지 못했습니다. " +
+                        "재기동 전에 저장 상태를 확인하십시오.";
+                    Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "DataOnlyMaterial",
+                        "[DATA ONLY] Material 데이터 삭제 후 Snapshot 저장 확인 실패. material=" +
+                        result.MaterialId + ", location=" + result.SourceText + " - Failed");
+                    return result;
+                }
                 result.Success = true;
 
                 Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "DataOnlyMaterial",
@@ -3583,6 +5168,141 @@ namespace QMC.CDT320.Materials
             }
             finally
             {
+            }
+        }
+
+        private static bool TryCollectDataOnlyMoveDiesNoLock(
+            WaferMaterial wafer,
+            DataOnlyLocation source,
+            out List<DieMaterial> moveDies,
+            out string reason)
+        {
+            moveDies = new List<DieMaterial>();
+            reason = "";
+            if (wafer == null || source == null || State == null || State.Dies == null)
+                return true;
+
+            bool outputSystem = ManualMaterialPositionService.IsOutputSystemKind(source.Kind);
+            List<DieMaterial> relatedDies;
+            bool collected = outputSystem
+                ? TryCollectOutputParentDiesNoLock(
+                    new List<WaferMaterial> { wafer },
+                    out relatedDies,
+                    out reason)
+                : TryCollectInputParentDiesNoLock(
+                    new List<WaferMaterial> { wafer },
+                    out relatedDies,
+                    out reason);
+            if (!collected)
+                return false;
+
+            foreach (DieMaterial die in relatedDies)
+            {
+                bool hasActiveReservation =
+                    die.ReservedPickerLocation == MaterialLocationKind.PickerFront ||
+                    die.ReservedPickerLocation == MaterialLocationKind.PickerRear ||
+                    die.ReservedPickerNo > 0;
+                bool hasOutputParent =
+                    !string.IsNullOrWhiteSpace(die.OutputWaferInstanceId) ||
+                    !string.IsNullOrWhiteSpace(die.WaferID_Output);
+                bool atSource = IsDataOnlyDieAtLocationNoLock(die, source);
+                bool atTransitionalFeederSource = IsDataOnlyTransitionalFeederDieNoLock(
+                    die,
+                    wafer,
+                    source);
+                bool atMovableSource = atSource || atTransitionalFeederSource;
+
+                if (!outputSystem && hasOutputParent)
+                {
+                    if (hasActiveReservation || atMovableSource)
+                    {
+                        reason = "Input Material 이동 대상 Die가 Output parent/Picker 예약을 유지하고 있습니다. die=" +
+                                 (die.DieId ?? "") + ", location=" +
+                                 (die.CurrentLocation != null ? die.CurrentLocation.ToString() : "Unknown");
+                        moveDies.Clear();
+                        return false;
+                    }
+                    continue;
+                }
+
+                if (hasActiveReservation)
+                {
+                    reason = "DATA ONLY 이동 대상 Die에 Picker 예약이 있습니다. die=" +
+                             (die.DieId ?? "") + ", reserved=" +
+                             die.ReservedPickerLocation + "/" + die.ReservedPickerNo;
+                    moveDies.Clear();
+                    return false;
+                }
+
+                MaterialLocationKind locationKind = die.CurrentLocation != null
+                    ? die.CurrentLocation.Kind
+                    : MaterialLocationKind.Unknown;
+                if (locationKind == MaterialLocationKind.Unknown)
+                    continue;
+
+                if (!atMovableSource)
+                {
+                    reason = "DATA ONLY 이동 대상 Wafer와 Die의 현재 위치가 일치하지 않습니다. wafer=" +
+                             (wafer.WaferId ?? "") + ", die=" + (die.DieId ?? "") +
+                             ", waferLocation=" + source.DisplayText +
+                             ", dieLocation=" + (die.CurrentLocation != null ? die.CurrentLocation.ToString() : "Unknown");
+                    moveDies.Clear();
+                    return false;
+                }
+
+                moveDies.Add(die);
+            }
+
+            return true;
+        }
+
+        private static bool IsDataOnlyTransitionalFeederDieNoLock(
+            DieMaterial die,
+            WaferMaterial wafer,
+            DataOnlyLocation source)
+        {
+            if (die == null || die.CurrentLocation == null || wafer == null || source == null)
+                return false;
+
+            if (source.Kind == MaterialLocationKind.InputFeeder)
+                return die.CurrentLocation.Kind == MaterialLocationKind.InputStage;
+            if (source.Kind != MaterialLocationKind.OutputFeeder)
+                return false;
+
+            MaterialLocationKind expectedStage =
+                wafer.OutputGrade == DieResult.NG || wafer.OutputCassetteRole == CassetteMaterialRole.Ng1
+                    ? MaterialLocationKind.OutputStageNg
+                    : MaterialLocationKind.OutputStageGood;
+            return die.CurrentLocation.Kind == expectedStage;
+        }
+
+        private static bool IsDataOnlyDieAtLocationNoLock(
+            DieMaterial die,
+            DataOnlyLocation location)
+        {
+            if (die == null || die.CurrentLocation == null || location == null)
+                return false;
+            if (die.CurrentLocation.Kind != location.Kind)
+                return false;
+            if (!location.IsCassette)
+                return true;
+
+            return die.CurrentLocation.CassetteRole == location.CassetteRole &&
+                   die.CurrentLocation.SlotNumber == location.SlotIndex;
+        }
+
+        private static void SynchronizeDataOnlyDieLocationsNoLock(
+            ICollection<DieMaterial> moveDies,
+            DataOnlyLocation destination)
+        {
+            if (moveDies == null || destination == null)
+                return;
+
+            DateTime updatedAt = DateTime.Now;
+            foreach (DieMaterial die in moveDies.Where(item => item != null).Distinct())
+            {
+                die.CurrentLocation = destination.ToMaterialLocation();
+                die.UpdatedAt = updatedAt;
             }
         }
 
@@ -4895,55 +6615,92 @@ namespace QMC.CDT320.Materials
 
         private static void ClearActiveProcessLocationsNoLock()
         {
-            var activeKinds = new[]
-            {
-                MaterialLocationKind.InputStage,
-                MaterialLocationKind.OutputStageGood,
-                MaterialLocationKind.OutputStageNg
-            };
-
-            List<WaferMaterial> activeWafers = State.Wafers
-                .Where(w => w != null &&
-                            w.CurrentLocation != null &&
-                            activeKinds.Contains(w.CurrentLocation.Kind))
+            List<WaferMaterial> inputWafers = State.Wafers
+                .Where(wafer => wafer != null &&
+                                wafer.CurrentLocation != null &&
+                                wafer.CurrentLocation.Kind == MaterialLocationKind.InputStage)
                 .ToList();
-            var activeWaferIds = activeWafers
-                .Select(w => w.WaferId)
-                .Where(id => !string.IsNullOrWhiteSpace(id))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
+            List<WaferMaterial> goodWafers = State.Wafers
+                .Where(wafer => wafer != null &&
+                                wafer.CurrentLocation != null &&
+                                wafer.CurrentLocation.Kind == MaterialLocationKind.OutputStageGood)
                 .ToList();
-            var activeWaferInstanceIds = new HashSet<string>(
-                activeWafers
-                    .Select(EnsureWaferInstanceIdNoLock)
-                    .Where(id => !string.IsNullOrWhiteSpace(id)),
-                StringComparer.OrdinalIgnoreCase);
+            List<WaferMaterial> ngWafers = State.Wafers
+                .Where(wafer => wafer != null &&
+                                wafer.CurrentLocation != null &&
+                                wafer.CurrentLocation.Kind == MaterialLocationKind.OutputStageNg)
+                .ToList();
 
-            if (activeWaferIds.Count > 0)
+            string reason;
+            List<DieMaterial> inputRelatedDies;
+            List<DieMaterial> inputRemoveDies;
+            if (!TryCollectInputParentDiesNoLock(inputWafers, out inputRelatedDies, out reason) ||
+                !TryCollectInputLocationClearDiesNoLock(
+                    inputWafers,
+                    MaterialLocationKind.InputStage,
+                    out inputRemoveDies,
+                    out reason))
             {
-                State.Dies.RemoveAll(d =>
-                    d != null &&
-                    ((!string.IsNullOrWhiteSpace(d.InputWaferInstanceId) &&
-                      activeWaferInstanceIds.Contains(d.InputWaferInstanceId)) ||
-                     (!string.IsNullOrWhiteSpace(d.OutputWaferInstanceId) &&
-                      activeWaferInstanceIds.Contains(d.OutputWaferInstanceId)) ||
-                     (string.IsNullOrWhiteSpace(d.InputWaferInstanceId) &&
-                      string.IsNullOrWhiteSpace(d.OutputWaferInstanceId) &&
-                      ((!string.IsNullOrWhiteSpace(d.WaferID_Input) && activeWaferIds.Contains(d.WaferID_Input)) ||
-                       (!string.IsNullOrWhiteSpace(d.WaferID_Output) && activeWaferIds.Contains(d.WaferID_Output))))));
+                throw new InvalidOperationException(
+                    "공정 테스트 Input Stage Material을 안전하게 정리할 수 없습니다. " + reason);
+            }
+            if (inputRelatedDies.Count != inputRemoveDies.Count)
+            {
+                DieMaterial activeDie = inputRelatedDies.FirstOrDefault(die => !inputRemoveDies.Contains(die));
+                throw new InvalidOperationException(
+                    "공정 테스트 Input Stage와 연결된 Die가 다른 물리 위치에 있습니다. die=" +
+                    (activeDie != null ? activeDie.DieId : "") + ", location=" +
+                    (activeDie != null && activeDie.CurrentLocation != null
+                        ? activeDie.CurrentLocation.Kind.ToString()
+                        : "Unknown"));
             }
 
-            foreach (WaferMaterial wafer in State.Wafers)
+            List<DieMaterial> goodDies;
+            if (!TryCollectOutputLocationClearDiesNoLock(
+                goodWafers,
+                MaterialLocationKind.OutputStageGood,
+                out goodDies,
+                out reason))
             {
-                if (wafer == null || wafer.CurrentLocation == null)
-                    continue;
+                throw new InvalidOperationException(
+                    "공정 테스트 GOOD Stage Material을 안전하게 정리할 수 없습니다. " + reason);
+            }
 
-                if (!activeKinds.Contains(wafer.CurrentLocation.Kind))
-                    continue;
+            List<DieMaterial> ngDies;
+            if (!TryCollectOutputLocationClearDiesNoLock(
+                ngWafers,
+                MaterialLocationKind.OutputStageNg,
+                out ngDies,
+                out reason))
+            {
+                throw new InvalidOperationException(
+                    "공정 테스트 NG Stage Material을 안전하게 정리할 수 없습니다. " + reason);
+            }
 
+            // 모든 Stage의 사전검증이 끝난 뒤에만 실제 상태를 바꾼다.
+            RemoveDieMaterialsNoLock(inputRemoveDies);
+            DetachOrRemoveClearedOutputDiesNoLock(goodDies);
+            DetachOrRemoveClearedOutputDiesNoLock(ngDies);
+
+            foreach (WaferMaterial wafer in inputWafers)
+            {
+                ClearInputStageWaferProcessingFieldsNoLock(wafer);
+                wafer.InputStageProcessingGeneration = wafer.InputStageProcessingGeneration + 1;
                 wafer.CurrentLocation = MaterialLocation.Unknown();
                 wafer.State = WaferMaterialState.Empty;
                 wafer.UpdatedAt = DateTime.Now;
             }
+            foreach (WaferMaterial wafer in goodWafers.Concat(ngWafers))
+            {
+                ClearOutputStageWaferProcessingFieldsNoLock(wafer);
+                wafer.CurrentLocation = MaterialLocation.Unknown();
+                wafer.State = WaferMaterialState.Empty;
+                wafer.UpdatedAt = DateTime.Now;
+            }
+
+            InputStageHybridResultSession.Clear();
+            _outputReceiveOrderCache.Remove(QMC.CDT320.BinSide.Good);
+            _outputReceiveOrderCache.Remove(QMC.CDT320.BinSide.Ng);
         }
 
         private static bool IsUsableSourceMap(DieMap map)
@@ -5281,6 +7038,71 @@ namespace QMC.CDT320.Materials
             return targetCount;
         }
 
+        private static void ValidateProcessTestStageCassetteSlotNoLock(
+            CassetteMaterialRole cassetteRole,
+            int slotNumber,
+            int plannedSlotCount = -1,
+            bool requireUnoccupied = false)
+        {
+            if (slotNumber < 0)
+                throw new InvalidOperationException("공정 테스트 Cassette slot 번호가 올바르지 않습니다.");
+
+            CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c => c != null && c.Role == cassetteRole);
+            if (cassette == null)
+            {
+                if (plannedSlotCount > slotNumber)
+                    return;
+                throw new InvalidOperationException(
+                    "공정 테스트 Cassette Material이 없습니다. role=" + cassetteRole);
+            }
+
+            cassette.EnsureSlots();
+            if (slotNumber >= cassette.Slots.Count || cassette.Slots[slotNumber] == null)
+            {
+                throw new InvalidOperationException(
+                    "공정 테스트 Cassette slot 데이터가 올바르지 않습니다. role=" + cassetteRole +
+                    ", slot=" + (slotNumber + 1) + ", slotCount=" + cassette.Slots.Count);
+            }
+
+            if (!requireUnoccupied)
+                return;
+
+            CassetteSlotMaterial slot = cassette.Slots[slotNumber];
+            bool hasPointer = !string.IsNullOrWhiteSpace(slot.WaferId) ||
+                              !string.IsNullOrWhiteSpace(slot.WaferInstanceId);
+            if (slot.HasWafer)
+            {
+                throw new InvalidOperationException(
+                    "공정 테스트 source slot에 기존 physical Material이 있습니다. role=" + cassetteRole +
+                    ", slot=" + (slotNumber + 1));
+            }
+            if (!hasPointer)
+                return;
+
+            string resolveReason;
+            WaferMaterial marker = ResolveCassetteSlotWaferNoLock(slot, out resolveReason);
+            if (marker == null ||
+                !IsStateOnlyEmptyCassetteMaterialNoLock(marker, cassetteRole, slotNumber))
+            {
+                throw new InvalidOperationException(
+                    "공정 테스트 source slot의 비점유 pointer가 올바르지 않습니다. role=" + cassetteRole +
+                    ", slot=" + (slotNumber + 1) + ", detail=" + resolveReason);
+            }
+            if (IsOutputCassetteRole(cassetteRole))
+            {
+                List<DieMaterial> markerDies;
+                string clearReason;
+                if (!TryCollectOutputCassetteClearDiesNoLock(
+                    new List<WaferMaterial> { marker },
+                    out markerDies,
+                    out clearReason))
+                {
+                    throw new InvalidOperationException(
+                        "공정 테스트 source slot의 EMPTY Material을 안전하게 분리할 수 없습니다. " + clearReason);
+                }
+            }
+        }
+
         private static void BindProcessTestStageWaferToCassetteSlotNoLock(
             CassetteMaterialRole cassetteRole,
             int slotNumber,
@@ -5294,25 +7116,37 @@ namespace QMC.CDT320.Materials
             try
             {
                 if (wafer == null)
-                    return;
+                    throw new InvalidOperationException("공정 테스트 Stage Wafer Material이 없습니다.");
 
                 CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
                 if (cassette == null)
-                    return;
+                    throw new InvalidOperationException("공정 테스트 Cassette Material이 없습니다. role=" + cassetteRole);
 
                 cassette.EnsureSlots();
                 if (slotNumber < 0 || slotNumber >= cassette.Slots.Count)
-                    return;
+                    throw new InvalidOperationException(
+                        "공정 테스트 Cassette slot 범위를 벗어났습니다. role=" + cassetteRole +
+                        ", slot=" + (slotNumber + 1));
 
                 CassetteSlotMaterial slot = cassette.Slots[slotNumber];
-                string previousWaferId = slot != null ? slot.WaferId : "";
-                if (!string.IsNullOrWhiteSpace(previousWaferId) &&
-                    !string.Equals(previousWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                if (slot == null)
+                    throw new InvalidOperationException("공정 테스트 Cassette slot 데이터가 없습니다.");
+
+                bool hasPreviousPointer = !string.IsNullOrWhiteSpace(slot.WaferId) ||
+                                          !string.IsNullOrWhiteSpace(slot.WaferInstanceId);
+                if (hasPreviousPointer)
                 {
-                    WaferMaterial previous = State.Wafers.FirstOrDefault(w =>
-                        string.Equals(w.WaferId, previousWaferId, StringComparison.OrdinalIgnoreCase));
-                    if (previous != null)
+                    string previousReason;
+                    WaferMaterial previous = ResolveCassetteSlotWaferNoLock(slot, out previousReason);
+                    if (previous == null)
                     {
+                        throw new InvalidOperationException(
+                            "공정 테스트 기존 slot Material pointer가 올바르지 않습니다. " + previousReason);
+                    }
+                    if (!ReferenceEquals(previous, wafer))
+                    {
+                        if (IsOutputCassetteRole(cassetteRole))
+                            DetachOutputWaferMaterialForReplacementNoLock(previous);
                         previous.CurrentLocation = MaterialLocation.Unknown();
                         previous.State = WaferMaterialState.Empty;
                         previous.UpdatedAt = DateTime.Now;
@@ -5381,6 +7215,7 @@ namespace QMC.CDT320.Materials
                     "공정 테스트 Stage/Cassette slot 동기화 실패: role=" + cassetteRole +
                     ", slot=" + (slotNumber + 1).ToString("00") +
                     ", error=" + ex.Message + " - Failed");
+                throw;
             }
             finally
             {
@@ -9156,23 +10991,51 @@ namespace QMC.CDT320.Materials
             try
             {
                 bool shouldSave;
+                long requestVersion;
                 lock (_saveRequestSync)
                 {
-                    shouldSave = _saveRequested || _saveWorkerRunning || !_lastSaveSucceeded || _lastSaveCompletedUtc == DateTime.MinValue;
-                    _saveRequested = false;
+                    long lastIssuedRevision = Interlocked.Read(ref _lastIssuedSnapshotRevision);
+                    long lastCommittedRevision = Interlocked.Read(ref _lastCommittedSnapshotRevision);
+                    bool latestRevisionIsDurable =
+                        lastIssuedRevision > 0L && lastCommittedRevision >= lastIssuedRevision;
+                    shouldSave = _saveRequested ||
+                                 _saveWorkerRunning ||
+                                 !_lastSaveSucceeded ||
+                                 !latestRevisionIsDurable ||
+                                 _lastSaveCompletedUtc == DateTime.MinValue;
                     _pendingSaveReason = reason ?? "";
+                    requestVersion = _saveRequestVersion;
                 }
 
                 RequestStateChanged();
                 if (!shouldSave)
                 {
+                    lock (_saveRequestSync)
+                    {
+                        if (_saveRequestVersion == requestVersion)
+                        {
+                            _saveRequested = false;
+                            _pendingSaveReason = "";
+                        }
+                    }
                     Log.Write("Main", "SYSTEM", "MaterialStateSave",
                         "Material state flush skipped because latest snapshot is already saved. reason=" +
                         (reason ?? "") + " - Ok");
                     return true;
                 }
 
-                return SaveCurrentSnapshot(reason);
+                bool saved = SaveCurrentSnapshot(reason);
+                lock (_saveRequestSync)
+                {
+                    if (saved && _saveRequestVersion == requestVersion)
+                    {
+                        _saveRequested = false;
+                        _pendingSaveReason = "";
+                    }
+                }
+                if (!saved)
+                    RequestBackgroundSave(reason);
+                return saved;
             }
             catch (Exception ex)
             {
@@ -9192,6 +11055,9 @@ namespace QMC.CDT320.Materials
                 {
                     _pendingSaveReason = reason ?? "";
                     _saveRequested = true;
+                    _saveRequestVersion = _saveRequestVersion == long.MaxValue
+                        ? 1L
+                        : _saveRequestVersion + 1L;
 
                     if (_saveWorkerRunning)
                         return;
@@ -9219,6 +11085,7 @@ namespace QMC.CDT320.Materials
 
                     string reason;
                     int waitMs;
+                    long requestVersion;
                     lock (_saveRequestSync)
                     {
                         if (!_saveRequested)
@@ -9228,12 +11095,8 @@ namespace QMC.CDT320.Materials
                         }
 
                         reason = _pendingSaveReason;
+                        requestVersion = _saveRequestVersion;
                         waitMs = ResolveBackgroundSaveWaitMs(reason);
-                        if (waitMs <= 0)
-                        {
-                            _saveRequested = false;
-                            _pendingSaveReason = "";
-                        }
                     }
 
                     if (waitMs > 0)
@@ -9242,7 +11105,24 @@ namespace QMC.CDT320.Materials
                         continue;
                     }
 
-                    SaveCurrentSnapshot(reason);
+                    bool saved = SaveCurrentSnapshot(reason);
+                    lock (_saveRequestSync)
+                    {
+                        if (saved && _saveRequestVersion == requestVersion)
+                        {
+                            _saveRequested = false;
+                            _pendingSaveReason = "";
+                        }
+                        else if (!saved)
+                        {
+                            // 일시적인 파일 잠금/IO 실패에서도 dirty 요청을 잃지 않는다.
+                            _saveRequested = true;
+                            if (string.IsNullOrWhiteSpace(_pendingSaveReason))
+                                _pendingSaveReason = reason ?? "";
+                        }
+                    }
+                    if (!saved)
+                        await Task.Delay(MaterialSaveFailureRetryMs).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -9305,9 +11185,117 @@ namespace QMC.CDT320.Materials
             return false;
         }
 
+        private static long IssueNextSnapshotRevisionNoLock()
+        {
+            long stateRevision = State != null ? State.SnapshotRevision : 0L;
+            long storeRevision = MaterialSnapshotStore.HighestObservedSnapshotRevision;
+            _lastIssuedSnapshotRevision = MaterialSnapshotRevisionPolicy.IssueNext(
+                stateRevision,
+                storeRevision,
+                _lastIssuedSnapshotRevision);
+            return _lastIssuedSnapshotRevision;
+        }
+
+        private static void EnsureSnapshotMaterialIdentityNoLock()
+        {
+            if (State == null)
+                return;
+
+            if (State.Wafers != null)
+            {
+                foreach (WaferMaterial wafer in State.Wafers)
+                {
+                    if (wafer != null)
+                        EnsureWaferInstanceIdNoLock(wafer);
+                }
+            }
+
+            if (State.Cassettes == null)
+                return;
+
+            foreach (CassetteMaterial cassette in State.Cassettes)
+            {
+                if (cassette == null)
+                    continue;
+
+                cassette.EnsureSlots();
+                foreach (CassetteSlotMaterial slot in cassette.Slots)
+                {
+                    if (slot == null ||
+                        !string.IsNullOrWhiteSpace(slot.WaferInstanceId) ||
+                        string.IsNullOrWhiteSpace(slot.WaferId))
+                    {
+                        continue;
+                    }
+
+                    if (slot.HasWafer)
+                    {
+                        string resolveReason;
+                        ResolveCassetteSlotWaferNoLock(slot, out resolveReason);
+                        continue;
+                    }
+
+                    List<WaferMaterial> legacyCandidates = State.Wafers
+                        .Where(w =>
+                            w != null &&
+                            string.Equals(
+                                w.WaferId ?? "",
+                                slot.WaferId ?? "",
+                                StringComparison.OrdinalIgnoreCase))
+                        .Take(2)
+                        .ToList();
+                    if (legacyCandidates.Count == 1)
+                        slot.WaferInstanceId = EnsureWaferInstanceIdNoLock(legacyCandidates[0]);
+                }
+            }
+        }
+
+        private static MaterialCompactionResult CompactMaterialStateNoLock()
+        {
+            EnsureSnapshotMaterialIdentityNoLock();
+            IEnumerable<string> activeInputMapRoots = null;
+            WaferMaterial activeInputWafer = State != null && State.Wafers != null
+                ? State.Wafers.FirstOrDefault(wafer =>
+                    wafer != null &&
+                    wafer.CurrentLocation != null &&
+                    wafer.CurrentLocation.Kind == MaterialLocationKind.InputStage)
+                : null;
+            DieMap activeInputMap = LotStorage.ActiveInputDieMap;
+            if (activeInputWafer != null && activeInputMap != null && activeInputMap.Entries != null)
+            {
+                // ActiveInputDieMap은 Input Stage wafer가 실제로 존재하는 동안만 외부 root다.
+                // Stage clear 뒤 남은 파생 캐시가 과거 Die를 영구 보존하지 않도록 물리 위치로 범위를 제한한다.
+                activeInputMapRoots = activeInputMap.Entries
+                    .Where(entry => entry != null && !string.IsNullOrWhiteSpace(entry.DieUid))
+                    .Select(entry => entry.DieUid.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            return MaterialStateCompactor.Compact(State, activeInputMapRoots);
+        }
+
+        private static void LogMaterialCompaction(string reason, MaterialCompactionResult result)
+        {
+            if (result == null || (!result.Changed && result.WarningCount == 0))
+                return;
+
+            Log.Write(
+                "Main",
+                "SYSTEM",
+                "MaterialStateCompact",
+                "Material 현재 작업 집합을 정리했습니다. reason=" + (reason ?? "") +
+                ", wafers=" + result.BeforeWaferCount + "->" + result.AfterWaferCount +
+                ", dies=" + result.BeforeDieCount + "->" + result.AfterDieCount +
+                ", warnings=" + result.WarningCount +
+                (result.WarningCount > 0 ? ", firstWarning=" + result.FirstWarning + " - Check" : " - Ok"));
+        }
+
         private static bool SaveCurrentSnapshot(string reason)
         {
             bool saved = false;
+            bool supersededByNewerCommit = false;
+            bool latestRevisionIsDurable = false;
             try
             {
                 // [정정 2026-07-27] 저장용 사본을 _stateSync 락 안에서 만든다.
@@ -9319,45 +11307,81 @@ namespace QMC.CDT320.Materials
                 {
                     State.SaveReason = reason ?? "";
                     State.SavedAt = DateTime.Now;
+                    EnsureSnapshotMaterialIdentityNoLock();
+                    State.SnapshotRevision = IssueNextSnapshotRevisionNoLock();
+                    lock (_saveRequestSync)
+                    {
+                        // 새 Revision을 발급한 순간부터 해당 Revision의 커밋이 확인될 때까지
+                        // "최신 상태 저장 완료"로 판단하면 안 된다.
+                        _lastSaveSucceeded = false;
+                    }
                     NormalizeSnapshotHeader(State);
                     saveCopy = MaterialSnapshotStore.CreateSaveCopy(State);
                 }
 
+                if (saveCopy == null)
+                    throw new InvalidOperationException("Material snapshot 저장용 복사본을 만들지 못했습니다.");
+
                 lock (_saveIoSync)
                 {
-                    saved = MaterialSnapshotStore.Save(saveCopy, true);
-                }
-
-                if (saved)
-                {
-                    lock (_saveRequestSync)
+                    if (MaterialSnapshotRevisionPolicy.IsSuperseded(
+                        saveCopy.SnapshotRevision,
+                        _lastCommittedSnapshotRevision))
                     {
-                        _lastSaveCompletedUtc = DateTime.UtcNow;
-                        _lastSaveSucceeded = true;
+                        supersededByNewerCommit = true;
+                        saved = true;
                     }
-                }
-                else
-                {
-                    lock (_saveRequestSync)
+                    else
                     {
-                        _lastSaveSucceeded = false;
+                        saved = MaterialSnapshotStore.Save(saveCopy, true);
+                        if (saved)
+                            _lastCommittedSnapshotRevision = saveCopy.SnapshotRevision;
                     }
                 }
 
-                if (!saved)
+                if (supersededByNewerCommit)
                 {
-                    int waferCount = State.Wafers != null ? State.Wafers.Count : 0;
-                    int dieCount = State.Dies != null ? State.Dies.Count : 0;
-                    int cassetteCount = State.Cassettes != null ? State.Cassettes.Count : 0;
                     Log.Write("Main", "SYSTEM", "MaterialStateSave",
-                        "Material state save failed. reason=" + State.SaveReason +
+                        "더 최신 Material snapshot이 이미 저장되어 이전 저장 요청을 건너뜁니다. revision=" +
+                        saveCopy.SnapshotRevision +
+                        ", committedRevision=" + _lastCommittedSnapshotRevision + " - Ok");
+                }
+
+                long latestIssuedRevision;
+                long committedRevision;
+                lock (_stateSync)
+                {
+                    latestIssuedRevision = _lastIssuedSnapshotRevision;
+                    committedRevision = Interlocked.Read(ref _lastCommittedSnapshotRevision);
+                    latestRevisionIsDurable =
+                        latestIssuedRevision > 0L && committedRevision >= latestIssuedRevision;
+
+                    lock (_saveRequestSync)
+                    {
+                        if (latestRevisionIsDurable)
+                            _lastSaveCompletedUtc = DateTime.UtcNow;
+                        _lastSaveSucceeded = latestRevisionIsDurable;
+                    }
+                }
+
+                if (!latestRevisionIsDurable)
+                {
+                    int waferCount = saveCopy.Wafers != null ? saveCopy.Wafers.Count : 0;
+                    int dieCount = saveCopy.Dies != null ? saveCopy.Dies.Count : 0;
+                    int cassetteCount = saveCopy.Cassettes != null ? saveCopy.Cassettes.Count : 0;
+                    Log.Write("Main", "SYSTEM", "MaterialStateSave",
+                        "최신 Material snapshot이 아직 디스크에 반영되지 않았습니다. reason=" +
+                        (saveCopy.SaveReason ?? "") +
+                        ", savedRevision=" + saveCopy.SnapshotRevision +
+                        ", latestIssuedRevision=" + latestIssuedRevision +
+                        ", committedRevision=" + committedRevision +
                         ", cassettes=" + cassetteCount +
                         ", wafers=" + waferCount +
                         ", dies=" + dieCount +
                         ", file=" + MaterialSnapshotStore.SnapshotPath + " - Failed");
                 }
 
-                return saved;
+                return latestRevisionIsDurable;
             }
             catch (Exception ex)
             {
@@ -9457,13 +11481,29 @@ namespace QMC.CDT320.Materials
             CassetteSlotMaterial slot,
             out string reason)
         {
+            return ResolveCassetteSlotWaferCoreNoLock(slot, true, true, out reason);
+        }
+
+        private static WaferMaterial ResolveCassetteSlotWaferForValidationNoLock(
+            CassetteSlotMaterial slot,
+            out string reason)
+        {
+            return ResolveCassetteSlotWaferCoreNoLock(slot, false, false, out reason);
+        }
+
+        private static WaferMaterial ResolveCassetteSlotWaferCoreNoLock(
+            CassetteSlotMaterial slot,
+            bool repairLegacyInstancePointer,
+            bool requireOccupied,
+            out string reason)
+        {
             reason = "";
             if (slot == null)
             {
                 reason = "slot 데이터가 없습니다.";
                 return null;
             }
-            if (!slot.HasWafer || string.IsNullOrWhiteSpace(slot.WaferId))
+            if ((requireOccupied && !slot.HasWafer) || string.IsNullOrWhiteSpace(slot.WaferId))
             {
                 reason = "slot이 비어 있습니다.";
                 return null;
@@ -9472,18 +11512,23 @@ namespace QMC.CDT320.Materials
             string slotInstanceId = (slot.WaferInstanceId ?? "").Trim();
             if (!string.IsNullOrWhiteSpace(slotInstanceId))
             {
-                WaferMaterial instanceWafer = State.Wafers.FirstOrDefault(w =>
-                    w != null &&
-                    string.Equals(
-                        w.WaferInstanceId ?? "",
-                        slotInstanceId,
-                        StringComparison.OrdinalIgnoreCase));
-                if (instanceWafer == null)
+                List<WaferMaterial> instanceCandidates = State.Wafers
+                    .Where(w =>
+                        w != null &&
+                        string.Equals(
+                            w.WaferInstanceId ?? "",
+                            slotInstanceId,
+                            StringComparison.OrdinalIgnoreCase))
+                    .Take(2)
+                    .ToList();
+                if (instanceCandidates.Count != 1)
                 {
-                    reason = "slot의 WaferInstanceId를 가리키는 Material이 없습니다. instance=" +
-                             slotInstanceId + ", waferId=" + slot.WaferId;
+                    reason = "slot의 WaferInstanceId 대상 Material 수가 1개가 아닙니다. instance=" +
+                             slotInstanceId + ", waferId=" + slot.WaferId +
+                             ", candidates=" + instanceCandidates.Count;
                     return null;
                 }
+                WaferMaterial instanceWafer = instanceCandidates[0];
                 if (!string.Equals(
                     instanceWafer.WaferId ?? "",
                     slot.WaferId ?? "",
@@ -9513,7 +11558,8 @@ namespace QMC.CDT320.Materials
             }
 
             WaferMaterial legacyWafer = legacyCandidates[0];
-            slot.WaferInstanceId = EnsureWaferInstanceIdNoLock(legacyWafer);
+            if (repairLegacyInstancePointer)
+                slot.WaferInstanceId = EnsureWaferInstanceIdNoLock(legacyWafer);
             return legacyWafer;
         }
 
@@ -9653,12 +11699,27 @@ namespace QMC.CDT320.Materials
                         throw new InvalidOperationException("기존 cassette slot 데이터가 없습니다. cassette=" + role + ", slot=" + (i + 1));
 
                     bool hasWaferId = !string.IsNullOrWhiteSpace(slot.WaferId);
-                    if (slot.HasWafer != hasWaferId)
+                    bool hasWaferInstanceId = !string.IsNullOrWhiteSpace(slot.WaferInstanceId);
+                    bool isStateOnlyEmptyPointer = false;
+                    if (!slot.HasWafer && hasWaferId && hasWaferInstanceId)
                     {
-                        throw new InvalidOperationException("기존 cassette slot 점유 상태와 Wafer ID가 불일치합니다. cassette=" + role +
+                        string emptyPointerReason;
+                        WaferMaterial emptyPointerWafer = ResolveCassetteSlotWaferForValidationNoLock(
+                            slot,
+                            out emptyPointerReason);
+                        isStateOnlyEmptyPointer = emptyPointerWafer != null &&
+                            WaferMaterialStateText.Normalize(emptyPointerWafer.State) == WaferMaterialState.Empty &&
+                            IsWaferAtCassetteSlot(emptyPointerWafer, role, i);
+                    }
+
+                    if ((!slot.HasWafer && (hasWaferId || hasWaferInstanceId) && !isStateOnlyEmptyPointer) ||
+                        (slot.HasWafer && (!hasWaferId || !hasWaferInstanceId)))
+                    {
+                        throw new InvalidOperationException("기존 cassette slot 점유 상태와 Material pointer가 불일치합니다. cassette=" + role +
                                                             ", slot=" + (i + 1) +
                                                             ", hasWafer=" + slot.HasWafer +
-                                                            ", waferId=" + slot.WaferId);
+                                                            ", waferId=" + slot.WaferId +
+                                                            ", instance=" + slot.WaferInstanceId);
                     }
 
                     if (!slot.HasWafer)
@@ -9826,6 +11887,162 @@ namespace QMC.CDT320.Materials
             return generatedLotId;
         }
 
+        private static List<WaferMaterial> GetCassetteSlotCountReductionTargetsNoLock(
+            CassetteMaterialRole role,
+            int newSlotCount)
+        {
+            if (newSlotCount < 0)
+                throw new ArgumentOutOfRangeException(nameof(newSlotCount));
+
+            var targets = new HashSet<WaferMaterial>();
+            CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c => c != null && c.Role == role);
+            if (cassette != null && cassette.Slots != null)
+            {
+                for (int slotIndex = newSlotCount; slotIndex < cassette.Slots.Count; slotIndex++)
+                {
+                    CassetteSlotMaterial slot = cassette.Slots[slotIndex];
+                    if (slot == null)
+                        continue;
+
+                    bool hasPointer = !string.IsNullOrWhiteSpace(slot.WaferId) ||
+                                      !string.IsNullOrWhiteSpace(slot.WaferInstanceId);
+                    if (!hasPointer)
+                        continue;
+
+                    string resolveReason;
+                    WaferMaterial wafer = ResolveCassetteSlotWaferForValidationNoLock(slot, out resolveReason);
+                    if (wafer == null)
+                    {
+                        throw new InvalidOperationException(
+                            "축소 대상 Cassette Slot Material pointer를 확인할 수 없습니다. cassette=" +
+                            role + ", slot=" + (slotIndex + 1) + ", detail=" + resolveReason);
+                    }
+                    targets.Add(wafer);
+                }
+            }
+
+            MaterialLocationKind expectedKind = IsOutputCassetteRole(role)
+                ? MaterialLocationKind.OutputCassette
+                : MaterialLocationKind.InputCassette;
+            foreach (WaferMaterial wafer in State.Wafers)
+            {
+                if (wafer != null &&
+                    wafer.CurrentLocation != null &&
+                    wafer.CurrentLocation.Kind == expectedKind &&
+                    wafer.CurrentLocation.CassetteRole == role &&
+                    wafer.CurrentLocation.SlotNumber >= newSlotCount)
+                {
+                    targets.Add(wafer);
+                }
+            }
+
+            return targets.ToList();
+        }
+
+        private static void ValidateCassetteSlotCountReductionNoLock(
+            CassetteMaterialRole role,
+            int newSlotCount)
+        {
+            List<WaferMaterial> targets = GetCassetteSlotCountReductionTargetsNoLock(role, newSlotCount);
+            if (targets.Count == 0)
+                return;
+
+            string roleReason;
+            if (!TryValidateCassetteRoleForClearNoLock(role, out roleReason))
+            {
+                throw new InvalidOperationException(
+                    "Cassette Slot 축소 전 Material 검증에 실패했습니다. cassette=" +
+                    role + ", detail=" + roleReason);
+            }
+
+            string dieReason;
+            if (IsOutputCassetteRole(role))
+            {
+                List<DieMaterial> outputDies;
+                if (!TryCollectOutputCassetteClearDiesNoLock(targets, out outputDies, out dieReason))
+                {
+                    throw new InvalidOperationException(
+                        "Cassette Slot 축소 대상 Output Material을 안전하게 정리할 수 없습니다. cassette=" +
+                        role + ", detail=" + dieReason);
+                }
+                return;
+            }
+
+            List<DieMaterial> inputOnlyDies;
+            if (!TryCollectInputLocationClearDiesNoLock(
+                targets,
+                MaterialLocationKind.InputCassette,
+                out inputOnlyDies,
+                out dieReason))
+            {
+                throw new InvalidOperationException(
+                    "Cassette Slot 축소 대상 Input Material을 안전하게 정리할 수 없습니다. cassette=" +
+                    role + ", detail=" + dieReason);
+            }
+        }
+
+        private static void ApplyCassetteSlotCountReductionNoLock(
+            CassetteMaterialRole role,
+            int newSlotCount)
+        {
+            List<WaferMaterial> targets = GetCassetteSlotCountReductionTargetsNoLock(role, newSlotCount);
+            if (targets.Count == 0)
+                return;
+
+            ValidateCassetteSlotCountReductionNoLock(role, newSlotCount);
+            if (IsOutputCassetteRole(role))
+            {
+                List<DieMaterial> outputDies;
+                string outputReason;
+                if (!TryCollectOutputCassetteClearDiesNoLock(targets, out outputDies, out outputReason))
+                    throw new InvalidOperationException(outputReason);
+                DetachOrRemoveClearedOutputDiesNoLock(outputDies);
+                foreach (WaferMaterial wafer in targets)
+                    ClearOutputStageWaferProcessingFieldsNoLock(wafer);
+            }
+            else
+            {
+                List<DieMaterial> historyDies;
+                bool preserveHistory;
+                string inputReason;
+                if (!TryCollectInputHistoryForClearNoLock(
+                    targets,
+                    out historyDies,
+                    out preserveHistory,
+                    out inputReason))
+                {
+                    throw new InvalidOperationException(inputReason);
+                }
+
+                if (preserveHistory)
+                    DemotePreservedInputHistoryLocationsNoLock(historyDies, MaterialLocationKind.InputCassette);
+                else
+                    RemoveDieMaterialsNoLock(historyDies);
+            }
+
+            DateTime updatedAt = DateTime.Now;
+            foreach (WaferMaterial wafer in targets)
+            {
+                wafer.State = WaferMaterialState.Empty;
+                wafer.CurrentLocation = MaterialLocation.Unknown();
+                wafer.CassetteLotId = "";
+                wafer.UpdatedAt = updatedAt;
+            }
+
+            CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c => c != null && c.Role == role);
+            if (cassette == null || cassette.Slots == null)
+                return;
+            for (int slotIndex = newSlotCount; slotIndex < cassette.Slots.Count; slotIndex++)
+            {
+                CassetteSlotMaterial slot = cassette.Slots[slotIndex];
+                if (slot == null)
+                    continue;
+                slot.WaferId = "";
+                slot.WaferInstanceId = "";
+                slot.HasWafer = false;
+            }
+        }
+
         private static void UpdateCassetteMapping(
             CassetteMaterialRole role,
             bool enabled,
@@ -9836,6 +12053,16 @@ namespace QMC.CDT320.Materials
             string tapeFrameSpecName,
             bool preserveExistingMaterial = true)
         {
+            ValidateOutputMappingDetachCandidatesNoLock(role);
+            ValidateMappingIdentityRotationNoLock(
+                role,
+                enabled,
+                slotCount,
+                map,
+                preserveExistingMaterial);
+
+            ApplyCassetteSlotCountReductionNoLock(role, slotCount);
+
             var cassette = EnsureCassette(role, slotCount);
             string resolvedLotId = ResolveOrCreateCassetteMappingLotId(cassetteLotId, role);
             cassette.IsEnabled = enabled;
@@ -9866,6 +12093,8 @@ namespace QMC.CDT320.Materials
                     }
                     else
                     {
+                        if (IsOutputCassetteRole(role))
+                            DetachOutputWaferMaterialForReplacementNoLock(removedWafer);
                         removedWafer.CurrentLocation = MaterialLocation.Unknown();
                         removedWafer.State = WaferMaterialState.Empty;
                         removedWafer.UpdatedAt = DateTime.Now;
@@ -9890,13 +12119,14 @@ namespace QMC.CDT320.Materials
 
                 CassetteSlotMaterial slot = cassette.Slots[i];
                 string slotResolveReason = "";
-                WaferMaterial wafer = slot != null && slot.HasWafer && !string.IsNullOrWhiteSpace(slot.WaferId)
+                bool slotHasPointer = slot != null &&
+                                      (!string.IsNullOrWhiteSpace(slot.WaferId) ||
+                                       !string.IsNullOrWhiteSpace(slot.WaferInstanceId));
+                WaferMaterial wafer = slotHasPointer
                     ? ResolveCassetteSlotWaferNoLock(slot, out slotResolveReason)
                     : null;
                 if (preserveExistingMaterial &&
-                    slot != null &&
-                    slot.HasWafer &&
-                    !string.IsNullOrWhiteSpace(slot.WaferId) &&
+                    slotHasPointer &&
                     wafer == null)
                 {
                     throw new InvalidOperationException(
@@ -9905,10 +12135,12 @@ namespace QMC.CDT320.Materials
                         ", wafer=" + slot.WaferId +
                         ", reason=" + slotResolveReason);
                 }
+                bool stateOnlyEmptyMarker = IsStateOnlyEmptyCassetteMaterialNoLock(wafer, role, i);
                 bool preserveExisting = preserveExistingMaterial &&
                                         wafer != null &&
                                         IsWaferAtCassetteSlot(wafer, role, i) &&
-                                        WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Empty &&
+                                        (WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Empty ||
+                                         stateOnlyEmptyMarker) &&
                                         !IsFinishedOutputBinWafer(role, wafer);
 
                 if (IsFinishedOutputBinWafer(role, wafer))
@@ -9934,13 +12166,60 @@ namespace QMC.CDT320.Materials
                                 staleWafer,
                                 "ProcessTestMapping.ReplaceExistingWafer");
                         }
+                        else if (IsOutputCassetteRole(role))
+                        {
+                            DetachOutputWaferMaterialForReplacementNoLock(staleWafer);
+                        }
 
                         staleWafer.CurrentLocation = MaterialLocation.Unknown();
                         staleWafer.State = WaferMaterialState.Empty;
                         staleWafer.UpdatedAt = DateTime.Now;
                     }
 
-                    wafer = State.Wafers.FirstOrDefault(w => string.Equals(w.WaferId, waferId, StringComparison.OrdinalIgnoreCase));
+                    List<WaferMaterial> reusableCandidates = State.Wafers
+                        .Where(w =>
+                            w != null &&
+                            string.Equals(w.WaferId, waferId, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    var rotatableCandidates = new List<WaferMaterial>();
+                    foreach (WaferMaterial candidate in reusableCandidates)
+                    {
+                        if (IsOutputCassetteRole(role) &&
+                            IsStateOnlyEmptyCassetteMaterialNoLock(candidate, role, i))
+                            continue;
+
+                        string identityBlockReason;
+                        if (TryGetWaferIdentityRotationBlockerNoLock(candidate, out identityBlockReason))
+                        {
+                            string preserveReason;
+                            if ((role == CassetteMaterialRole.Input1 || role == CassetteMaterialRole.Input2) &&
+                                CanPreserveInputWaferGenerationForMappingNoLock(candidate, out preserveReason))
+                            {
+                                // Output 제품/receive 계획이 아직 이전 Input instance를 참조한다.
+                                // 과거 세대는 그대로 두고 아래에서 같은 표시 ID의 새 세대를 만든다.
+                                continue;
+                            }
+
+                            throw new InvalidOperationException(
+                                "새 physical wafer Mapping이 이전 Material identity 참조와 충돌합니다. role=" +
+                                role + ", slot=" + (i + 1) +
+                                ", wafer=" + waferId +
+                                ", detail=" + identityBlockReason);
+                        }
+
+                        rotatableCandidates.Add(candidate);
+                    }
+
+                    if (rotatableCandidates.Count > 1)
+                    {
+                        throw new InvalidOperationException(
+                            "새 physical wafer Mapping에 재사용 가능한 이전 세대가 둘 이상입니다. role=" +
+                            role + ", slot=" + (i + 1) +
+                            ", wafer=" + waferId +
+                            ", candidates=" + rotatableCandidates.Count);
+                    }
+
+                    wafer = rotatableCandidates.FirstOrDefault();
                     if (wafer == null)
                     {
                         wafer = new WaferMaterial
@@ -9950,6 +12229,9 @@ namespace QMC.CDT320.Materials
                         };
                         State.Wafers.Add(wafer);
                     }
+
+                    if (IsOutputCassetteRole(role) && wafer != null)
+                        DetachOutputWaferMaterialForReplacementNoLock(wafer);
 
                     // Slot 고정 WaferId 재사용 시 새 physical wafer가 이전 Align/Mapping/Review 승인을
                     // 상속하지 않도록 비보존 매핑 경로에서는 항상 처리 상태를 초기화한다.
@@ -9972,6 +12254,8 @@ namespace QMC.CDT320.Materials
                 else
                 {
                     wafer.CurrentCassetteSlotPosition = ResolveSlotPosition(slotPositions, i);
+                    if (stateOnlyEmptyMarker)
+                        wafer.State = WaferMaterialState.Ready;
                 }
                 wafer.CassetteLotId = resolvedLotId;
                 if (IsOutputCassetteRole(role))
@@ -9986,6 +12270,489 @@ namespace QMC.CDT320.Materials
                 slot.WaferInstanceId = EnsureWaferInstanceIdNoLock(wafer);
                 slot.HasWafer = true;
             }
+        }
+
+        private static void ValidateMappingIdentityRotationNoLock(
+            CassetteMaterialRole role,
+            bool enabled,
+            int slotCount,
+            IReadOnlyList<bool> map,
+            bool preserveExistingMaterial,
+            bool ignoreDetachedWorkingMaterial = false,
+            bool ignoreProcessTestStageMaterial = false)
+        {
+            ValidateCassetteSlotCountReductionNoLock(role, slotCount);
+            if (!enabled || map == null)
+                return;
+
+            CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c => c != null && c.Role == role);
+            for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+            {
+                if (slotIndex >= map.Count || !map[slotIndex])
+                    continue;
+
+                CassetteSlotMaterial slot = cassette != null && cassette.Slots != null && slotIndex < cassette.Slots.Count
+                    ? cassette.Slots[slotIndex]
+                    : null;
+                string resolveReason = "";
+                bool slotHasPointer = slot != null &&
+                                      (!string.IsNullOrWhiteSpace(slot.WaferId) ||
+                                       !string.IsNullOrWhiteSpace(slot.WaferInstanceId));
+                WaferMaterial currentWafer = slotHasPointer
+                    ? ResolveCassetteSlotWaferForValidationNoLock(slot, out resolveReason)
+                    : null;
+                if (slotHasPointer && currentWafer == null)
+                {
+                    throw new InvalidOperationException(
+                        "Cassette Mapping의 기존 slot Material pointer가 올바르지 않습니다. role=" +
+                        role + ", slot=" + (slotIndex + 1) +
+                        ", reason=" + resolveReason);
+                }
+                bool stateOnlyEmptyMarker = IsStateOnlyEmptyCassetteMaterialNoLock(
+                    currentWafer,
+                    role,
+                    slotIndex);
+                bool preserveExisting = preserveExistingMaterial &&
+                                        currentWafer != null &&
+                                        IsWaferAtCassetteSlot(currentWafer, role, slotIndex) &&
+                                        (WaferMaterialStateText.Normalize(currentWafer.State) != WaferMaterialState.Empty ||
+                                         stateOnlyEmptyMarker) &&
+                                        !IsFinishedOutputBinWafer(role, currentWafer);
+                if (preserveExisting || IsFinishedOutputBinWafer(role, currentWafer))
+                    continue;
+
+                string waferId = BuildGeneratedWaferId(role, slotIndex);
+                List<WaferMaterial> rotationCandidates = State.Wafers.Where(wafer =>
+                        wafer != null &&
+                        (string.Equals(wafer.WaferId, waferId, StringComparison.OrdinalIgnoreCase) ||
+                         IsWaferAtCassetteSlot(wafer, role, slotIndex)))
+                    .ToList();
+                if (currentWafer != null && !rotationCandidates.Contains(currentWafer))
+                    rotationCandidates.Add(currentWafer);
+
+                int rotatableCandidateCount = 0;
+                foreach (WaferMaterial candidate in rotationCandidates.Distinct())
+                {
+                    if (IsOutputCassetteRole(role) &&
+                        IsStateOnlyEmptyCassetteMaterialNoLock(candidate, role, slotIndex))
+                        continue;
+
+                    if (ignoreProcessTestStageMaterial &&
+                        candidate.CurrentLocation != null &&
+                        (candidate.CurrentLocation.Kind == MaterialLocationKind.InputStage ||
+                         candidate.CurrentLocation.Kind == MaterialLocationKind.OutputStageGood ||
+                         candidate.CurrentLocation.Kind == MaterialLocationKind.OutputStageNg))
+                    {
+                        continue;
+                    }
+
+                    if (ignoreDetachedWorkingMaterial &&
+                        IsDetachedWorkingOutputMaterial(candidate, role))
+                    {
+                        continue;
+                    }
+
+                    string identityBlockReason;
+                    if (TryGetWaferIdentityRotationBlockerNoLock(candidate, out identityBlockReason))
+                    {
+                        string preserveReason;
+                        if ((role == CassetteMaterialRole.Input1 || role == CassetteMaterialRole.Input2) &&
+                            CanPreserveInputWaferGenerationForMappingNoLock(candidate, out preserveReason))
+                        {
+                            continue;
+                        }
+
+                        throw new InvalidOperationException(
+                            "새 physical wafer Mapping이 이전 Material identity 참조와 충돌합니다. role=" +
+                            role + ", slot=" + (slotIndex + 1) +
+                            ", wafer=" + waferId +
+                                 ", detail=" + identityBlockReason);
+                    }
+
+                    rotatableCandidateCount++;
+                }
+
+                if (rotatableCandidateCount > 1)
+                {
+                    throw new InvalidOperationException(
+                        "새 physical wafer Mapping에 재사용 가능한 이전 세대가 둘 이상입니다. role=" +
+                        role + ", slot=" + (slotIndex + 1) +
+                        ", wafer=" + waferId +
+                        ", candidates=" + rotatableCandidateCount);
+                }
+            }
+        }
+
+        private static bool IsStateOnlyEmptyCassetteMaterialNoLock(
+            WaferMaterial wafer,
+            CassetteMaterialRole role,
+            int slotNumber)
+        {
+            if (wafer == null ||
+                WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Empty ||
+                !IsWaferAtCassetteSlot(wafer, role, slotNumber))
+            {
+                return false;
+            }
+
+            CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c => c != null && c.Role == role);
+            CassetteSlotMaterial slot = cassette != null && cassette.Slots != null &&
+                                          slotNumber >= 0 && slotNumber < cassette.Slots.Count
+                ? cassette.Slots[slotNumber]
+                : null;
+            if (slot == null || slot.HasWafer)
+                return false;
+
+            string waferInstanceId = (wafer.WaferInstanceId ?? "").Trim();
+            return !string.IsNullOrWhiteSpace(waferInstanceId) &&
+                   string.Equals(slot.WaferInstanceId ?? "", waferInstanceId, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(slot.WaferId ?? "", wafer.WaferId ?? "", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// identity 회전 후에도 남게 될 Picker/Output 참조가 있는지 확인한다.
+        /// </summary>
+        private static bool TryGetWaferIdentityRotationBlockerNoLock(
+            WaferMaterial wafer,
+            out string reason)
+        {
+            reason = "";
+            if (wafer == null)
+                return false;
+
+            string instanceId = (wafer.WaferInstanceId ?? "").Trim();
+            string displayId = (wafer.WaferId ?? "").Trim();
+            bool displayIdIsUnique = !string.IsNullOrWhiteSpace(displayId) &&
+                State.Wafers.Count(candidate =>
+                    candidate != null &&
+                    string.Equals(candidate.WaferId ?? "", displayId, StringComparison.OrdinalIgnoreCase)) == 1;
+
+            foreach (DieMaterial die in State.Dies)
+            {
+                if (die == null)
+                    continue;
+
+                bool sameInput = !string.IsNullOrWhiteSpace(die.InputWaferInstanceId)
+                    ? !string.IsNullOrWhiteSpace(instanceId) &&
+                      string.Equals(
+                          (die.InputWaferInstanceId ?? "").Trim(),
+                          instanceId,
+                          StringComparison.OrdinalIgnoreCase)
+                    : displayIdIsUnique &&
+                      string.Equals(die.WaferID_Input ?? "", displayId, StringComparison.OrdinalIgnoreCase);
+                bool sameOutput = !string.IsNullOrWhiteSpace(die.OutputWaferInstanceId)
+                    ? !string.IsNullOrWhiteSpace(instanceId) &&
+                      string.Equals(
+                          (die.OutputWaferInstanceId ?? "").Trim(),
+                          instanceId,
+                          StringComparison.OrdinalIgnoreCase)
+                    : displayIdIsUnique &&
+                      !string.IsNullOrWhiteSpace(die.WaferID_Output) &&
+                      string.Equals(die.WaferID_Output, displayId, StringComparison.OrdinalIgnoreCase);
+
+                if (sameOutput ||
+                    (sameInput && !IsInputOnlyDieForWaferInstanceNoLock(die, displayId, instanceId)))
+                {
+                    reason = "이전 instance를 참조하는 활성 Die가 있습니다. die=" +
+                             (die.DieId ?? "") +
+                             ", location=" +
+                             (die.CurrentLocation != null ? die.CurrentLocation.Kind.ToString() : "Unknown");
+                    return true;
+                }
+            }
+
+            foreach (WaferMaterial outputWafer in State.Wafers)
+            {
+                if (outputWafer == null || ReferenceEquals(outputWafer, wafer))
+                    continue;
+
+                bool sameSource = !string.IsNullOrWhiteSpace(outputWafer.OutputReceiveSourceWaferInstanceId)
+                    ? !string.IsNullOrWhiteSpace(instanceId) &&
+                      string.Equals(
+                          (outputWafer.OutputReceiveSourceWaferInstanceId ?? "").Trim(),
+                          instanceId,
+                          StringComparison.OrdinalIgnoreCase)
+                    : displayIdIsUnique &&
+                      !string.IsNullOrWhiteSpace(outputWafer.OutputReceiveSourceWaferId) &&
+                      string.Equals(
+                          outputWafer.OutputReceiveSourceWaferId,
+                          displayId,
+                          StringComparison.OrdinalIgnoreCase);
+                if (sameSource)
+                {
+                    reason = "Output receive source가 이전 instance를 참조합니다. outputWafer=" +
+                             (outputWafer.WaferId ?? "");
+                    return true;
+                }
+            }
+
+            if (wafer.OutputReceiveTotalCount > 0 ||
+                !string.IsNullOrWhiteSpace(wafer.OutputReceiveSourceWaferInstanceId) ||
+                !string.IsNullOrWhiteSpace(wafer.OutputReceiveSourceWaferId) ||
+                (wafer.OutputReceiveSlots != null && wafer.OutputReceiveSlots.Count > 0))
+            {
+                reason = "이전 Output receive 계획이 남아 있습니다.";
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool CanPreserveInputWaferGenerationForMappingNoLock(
+            WaferMaterial wafer,
+            out string reason)
+        {
+            reason = "";
+            if (wafer == null)
+            {
+                reason = "이전 Input wafer가 없습니다.";
+                return false;
+            }
+            if (State == null || State.Wafers == null || State.Dies == null)
+            {
+                reason = "Material 상태 목록이 없습니다.";
+                return false;
+            }
+
+            MaterialLocationKind waferLocation = wafer.CurrentLocation != null
+                ? wafer.CurrentLocation.Kind
+                : MaterialLocationKind.Unknown;
+            if (WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Empty ||
+                waferLocation != MaterialLocationKind.Unknown)
+            {
+                reason = "이전 Input wafer가 Empty/Unknown 보존 세대가 아닙니다.";
+                return false;
+            }
+
+            string instanceId = (wafer.WaferInstanceId ?? "").Trim();
+            string displayId = (wafer.WaferId ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(instanceId) || string.IsNullOrWhiteSpace(displayId))
+            {
+                reason = "이전 Input wafer의 물리 identity가 없습니다.";
+                return false;
+            }
+            if (State.Wafers.Count(candidate =>
+                    candidate != null &&
+                    string.Equals(
+                        (candidate.WaferInstanceId ?? "").Trim(),
+                        instanceId,
+                        StringComparison.OrdinalIgnoreCase)) != 1)
+            {
+                reason = "이전 Input wafer instance가 State에서 유일하지 않습니다.";
+                return false;
+            }
+
+            if (State.Cassettes != null)
+            {
+                foreach (CassetteMaterial cassette in State.Cassettes)
+                {
+                    if (cassette == null || cassette.Slots == null)
+                        continue;
+
+                    foreach (CassetteSlotMaterial slot in cassette.Slots)
+                    {
+                        if (slot == null)
+                            continue;
+
+                        if (!string.IsNullOrWhiteSpace(slot.WaferInstanceId) &&
+                            string.Equals(
+                                (slot.WaferInstanceId ?? "").Trim(),
+                                instanceId,
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            reason = "이전 Input wafer가 아직 Cassette slot에 연결되어 있습니다.";
+                            return false;
+                        }
+                        if (string.IsNullOrWhiteSpace(slot.WaferInstanceId) &&
+                            !string.IsNullOrWhiteSpace(slot.WaferId) &&
+                            string.Equals(
+                                (slot.WaferId ?? "").Trim(),
+                                displayId,
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            reason = "이전 Input wafer를 가리킬 수 있는 legacy slot pointer가 남아 있습니다.";
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            bool hasDurableOutputReference = false;
+            foreach (DieMaterial die in State.Dies)
+            {
+                if (die == null)
+                    continue;
+
+                bool sameInput = !string.IsNullOrWhiteSpace(die.InputWaferInstanceId) &&
+                                 string.Equals(
+                                     (die.InputWaferInstanceId ?? "").Trim(),
+                                     instanceId,
+                                     StringComparison.OrdinalIgnoreCase);
+                bool legacyInput = string.IsNullOrWhiteSpace(die.InputWaferInstanceId) &&
+                                   !string.IsNullOrWhiteSpace(die.WaferID_Input) &&
+                                   string.Equals(
+                                       (die.WaferID_Input ?? "").Trim(),
+                                       displayId,
+                                       StringComparison.OrdinalIgnoreCase);
+                bool sameOutput = !string.IsNullOrWhiteSpace(die.OutputWaferInstanceId) &&
+                                  string.Equals(
+                                      (die.OutputWaferInstanceId ?? "").Trim(),
+                                      instanceId,
+                                      StringComparison.OrdinalIgnoreCase);
+                bool legacyOutput = string.IsNullOrWhiteSpace(die.OutputWaferInstanceId) &&
+                                    !string.IsNullOrWhiteSpace(die.WaferID_Output) &&
+                                    string.Equals(
+                                        (die.WaferID_Output ?? "").Trim(),
+                                        displayId,
+                                        StringComparison.OrdinalIgnoreCase);
+                if (legacyInput)
+                {
+                    reason = "이전 Input wafer를 가리키는 legacy Die pointer가 남아 있습니다. die=" +
+                             (die.DieId ?? "");
+                    return false;
+                }
+                if (sameOutput || legacyOutput)
+                {
+                    reason = "보존 후보 Input wafer가 Die의 Output parent로도 참조됩니다. die=" +
+                             (die.DieId ?? "");
+                    return false;
+                }
+                if (!sameInput)
+                    continue;
+
+                if (!string.IsNullOrWhiteSpace(die.WaferID_Input) &&
+                    !string.Equals(
+                        (die.WaferID_Input ?? "").Trim(),
+                        displayId,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    reason = "이전 Input Die의 instance/display parent가 일치하지 않습니다. die=" +
+                             (die.DieId ?? "");
+                    return false;
+                }
+
+                MaterialLocationKind dieLocation = die.CurrentLocation != null
+                    ? die.CurrentLocation.Kind
+                    : MaterialLocationKind.Unknown;
+                bool allowedOutputHistoryLocation =
+                    dieLocation == MaterialLocationKind.Unknown ||
+                    dieLocation == MaterialLocationKind.OutputStageGood ||
+                    dieLocation == MaterialLocationKind.OutputStageNg ||
+                    dieLocation == MaterialLocationKind.OutputFeeder ||
+                    dieLocation == MaterialLocationKind.OutputCassette;
+                bool activeInputOrPicker = !allowedOutputHistoryLocation ||
+                    die.ReservedPickerLocation == MaterialLocationKind.PickerFront ||
+                    die.ReservedPickerLocation == MaterialLocationKind.PickerRear ||
+                    die.ReservedPickerNo > 0;
+                if (activeInputOrPicker)
+                {
+                    reason = "이전 Input Die가 활성 Input/Picker 위치 또는 예약에 있습니다. die=" +
+                             (die.DieId ?? "") + ", location=" + dieLocation;
+                    return false;
+                }
+
+                string outputInstanceId = (die.OutputWaferInstanceId ?? "").Trim();
+                if (string.IsNullOrWhiteSpace(outputInstanceId))
+                {
+                    if (!string.IsNullOrWhiteSpace(die.WaferID_Output))
+                    {
+                        reason = "이전 Input Die에 legacy Output parent pointer가 남아 있습니다. die=" +
+                                 (die.DieId ?? "");
+                        return false;
+                    }
+                    if (dieLocation != MaterialLocationKind.Unknown)
+                    {
+                        reason = "Output parent가 없는 이전 Input Die가 활성 위치에 있습니다. die=" +
+                                 (die.DieId ?? "") + ", location=" + dieLocation;
+                        return false;
+                    }
+
+                    // Input clear가 완료된 세대의 passive review/map 항목이다. 새 세대는
+                    // WaferInstanceId 기반으로 분리되므로 이전 세대와 함께 보존해도 충돌하지 않는다.
+                    continue;
+                }
+
+                List<WaferMaterial> outputParents = State.Wafers.Where(candidate =>
+                        candidate != null &&
+                        string.Equals(
+                            (candidate.WaferInstanceId ?? "").Trim(),
+                            outputInstanceId,
+                            StringComparison.OrdinalIgnoreCase))
+                    .Take(2)
+                    .ToList();
+                if (outputParents.Count != 1 || ReferenceEquals(outputParents[0], wafer))
+                {
+                    reason = "이전 Input Die의 Output parent를 하나로 확인할 수 없습니다. die=" +
+                             (die.DieId ?? "") +
+                             ", outputInstance=" + outputInstanceId;
+                    return false;
+                }
+                if (!string.IsNullOrWhiteSpace(die.WaferID_Output) &&
+                    !string.Equals(
+                        (die.WaferID_Output ?? "").Trim(),
+                        outputParents[0].WaferId ?? "",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    reason = "이전 Input Die의 Output instance/display parent가 일치하지 않습니다. die=" +
+                             (die.DieId ?? "");
+                    return false;
+                }
+
+                hasDurableOutputReference = true;
+            }
+
+            foreach (WaferMaterial outputWafer in State.Wafers)
+            {
+                if (outputWafer == null || ReferenceEquals(outputWafer, wafer))
+                    continue;
+
+                bool sameSource = !string.IsNullOrWhiteSpace(outputWafer.OutputReceiveSourceWaferInstanceId) &&
+                                  string.Equals(
+                                      (outputWafer.OutputReceiveSourceWaferInstanceId ?? "").Trim(),
+                                      instanceId,
+                                      StringComparison.OrdinalIgnoreCase);
+                bool legacySource = string.IsNullOrWhiteSpace(outputWafer.OutputReceiveSourceWaferInstanceId) &&
+                                    !string.IsNullOrWhiteSpace(outputWafer.OutputReceiveSourceWaferId) &&
+                                    string.Equals(
+                                        (outputWafer.OutputReceiveSourceWaferId ?? "").Trim(),
+                                        displayId,
+                                        StringComparison.OrdinalIgnoreCase);
+                if (legacySource)
+                {
+                    reason = "이전 Input wafer를 가리키는 legacy Output receive source가 남아 있습니다.";
+                    return false;
+                }
+                if (!sameSource)
+                    continue;
+
+                if (!string.IsNullOrWhiteSpace(outputWafer.OutputReceiveSourceWaferId) &&
+                    !string.Equals(
+                        (outputWafer.OutputReceiveSourceWaferId ?? "").Trim(),
+                        displayId,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    reason = "Output receive source의 instance/display parent가 일치하지 않습니다.";
+                    return false;
+                }
+                hasDurableOutputReference = true;
+            }
+
+            if (wafer.OutputReceiveTotalCount > 0 ||
+                !string.IsNullOrWhiteSpace(wafer.OutputReceiveSourceWaferInstanceId) ||
+                !string.IsNullOrWhiteSpace(wafer.OutputReceiveSourceWaferId) ||
+                (wafer.OutputReceiveSlots != null && wafer.OutputReceiveSlots.Count > 0))
+            {
+                reason = "이전 Input wafer 자체에 Output receive 계획이 남아 있습니다.";
+                return false;
+            }
+
+            if (!hasDurableOutputReference)
+            {
+                reason = "새 세대로 분리 보존할 Output 참조가 없습니다.";
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -10099,6 +12866,135 @@ namespace QMC.CDT320.Materials
                    role == CassetteMaterialRole.Ng1;
         }
 
+        private static void ValidateOutputMappingDetachCandidatesNoLock(
+            CassetteMaterialRole role,
+            bool ignoreProcessTestStageMaterial = false)
+        {
+            if (!IsOutputCassetteRole(role) || State == null || State.Wafers == null)
+                return;
+
+            List<WaferMaterial> candidates = State.Wafers
+                .Where(wafer =>
+                {
+                    if (wafer == null)
+                        return false;
+
+                    if (ignoreProcessTestStageMaterial &&
+                        wafer.CurrentLocation != null &&
+                        (wafer.CurrentLocation.Kind == MaterialLocationKind.InputStage ||
+                         wafer.CurrentLocation.Kind == MaterialLocationKind.OutputStageGood ||
+                         wafer.CurrentLocation.Kind == MaterialLocationKind.OutputStageNg))
+                    {
+                        return false;
+                    }
+
+                    WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
+                    bool atRoleCassette = wafer.CurrentLocation != null &&
+                                          wafer.CurrentLocation.Kind == MaterialLocationKind.OutputCassette &&
+                                          wafer.CurrentLocation.CassetteRole == role;
+                    bool belongsToRole = wafer.SourceCassetteRole == role ||
+                                         (!string.IsNullOrWhiteSpace(wafer.OutputCassetteId) &&
+                                          wafer.OutputCassetteRole == role);
+                    return atRoleCassette ||
+                           IsDetachedWorkingOutputMaterial(wafer, role) ||
+                           ((state == WaferMaterialState.Empty || state == WaferMaterialState.Finish) &&
+                            belongsToRole);
+                })
+                .Distinct()
+                .ToList();
+            if (candidates.Count == 0 || State.Dies == null)
+                return;
+
+            List<DieMaterial> relatedDies;
+            string collectReason;
+            if (!TryCollectOutputParentDiesNoLock(candidates, out relatedDies, out collectReason))
+            {
+                throw new InvalidOperationException(
+                    "Output cassette Mapping 교체 대상의 Output parent를 안전하게 확인할 수 없습니다. cassette=" +
+                    role + ", detail=" + collectReason);
+            }
+            foreach (DieMaterial die in relatedDies)
+            {
+                MaterialLocationKind locationKind = die != null && die.CurrentLocation != null
+                    ? die.CurrentLocation.Kind
+                    : MaterialLocationKind.Unknown;
+                bool hasActiveReservation = die != null &&
+                    (die.ReservedPickerLocation == MaterialLocationKind.PickerFront ||
+                     die.ReservedPickerLocation == MaterialLocationKind.PickerRear ||
+                     die.ReservedPickerNo > 0);
+                if ((locationKind != MaterialLocationKind.Unknown &&
+                     locationKind != MaterialLocationKind.OutputCassette) ||
+                    hasActiveReservation)
+                {
+                    throw new InvalidOperationException(
+                        "Output cassette Mapping 교체 대상 Die가 다른 활성 위치/예약에 있습니다. cassette=" +
+                        role + ", die=" + (die != null ? die.DieId : "") +
+                        ", location=" + locationKind +
+                        ", reserved=" + (die != null ? die.ReservedPickerLocation + "/" + die.ReservedPickerNo : ""));
+                }
+            }
+            List<DieMaterial> preserveDies;
+            List<DieMaterial> removeDies;
+            string reason;
+            if (!TryClassifyOutputDiesForDetachNoLock(
+                relatedDies,
+                out preserveDies,
+                out removeDies,
+                out reason))
+            {
+                throw new InvalidOperationException(
+                    "Output cassette Mapping 교체 대상 Material을 안전하게 분리할 수 없습니다. cassette=" +
+                    role + ", detail=" + reason);
+            }
+        }
+
+        private static void DetachOutputWaferMaterialForReplacementNoLock(WaferMaterial wafer)
+        {
+            if (wafer == null || State == null || State.Dies == null)
+                return;
+
+            List<DieMaterial> relatedDies;
+            string reason;
+            if (!TryCollectOutputParentDiesNoLock(
+                new List<WaferMaterial> { wafer },
+                out relatedDies,
+                out reason))
+            {
+                throw new InvalidOperationException(
+                    "Output Material replacement parent를 안전하게 확인할 수 없습니다. wafer=" +
+                    (wafer.WaferId ?? "") + ", detail=" + reason);
+            }
+            DetachOrRemoveClearedOutputDiesNoLock(relatedDies);
+            ClearOutputStageWaferProcessingFieldsNoLock(wafer);
+        }
+
+        private static bool IsDieOutputParentForWaferNoLock(
+            DieMaterial die,
+            WaferMaterial wafer)
+        {
+            if (die == null || wafer == null)
+                return false;
+
+            string outputInstance = (die.OutputWaferInstanceId ?? "").Trim();
+            string waferInstance = (wafer.WaferInstanceId ?? "").Trim();
+            if (!string.IsNullOrWhiteSpace(outputInstance))
+            {
+                return !string.IsNullOrWhiteSpace(waferInstance) &&
+                       string.Equals(outputInstance, waferInstance, StringComparison.OrdinalIgnoreCase);
+            }
+
+            string outputDisplay = (die.WaferID_Output ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(outputDisplay) ||
+                !string.Equals(outputDisplay, wafer.WaferId ?? "", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return State.Wafers.Count(candidate =>
+                candidate != null &&
+                string.Equals(candidate.WaferId ?? "", outputDisplay, StringComparison.OrdinalIgnoreCase)) == 1;
+        }
+
         private static bool IsDetachedWorkingOutputMaterial(
             WaferMaterial wafer,
             CassetteMaterialRole role)
@@ -10126,8 +13022,10 @@ namespace QMC.CDT320.Materials
             {
                 string waferId = wafer.WaferId ?? string.Empty;
                 int sourceSlot = wafer.SourceSlotNumber;
-                int removedDieCount = State.Dies.RemoveAll(d =>
-                    IsDieRelatedToWaferInstanceNoLock(d, wafer));
+                List<DieMaterial> relatedDies = State.Dies
+                    .Where(d => IsDieOutputParentForWaferNoLock(d, wafer))
+                    .ToList();
+                int removedDieCount = DetachOrRemoveClearedOutputDiesNoLock(relatedDies);
 
                 RemoveWaferFromCassetteSlot(wafer);
                 State.Wafers.Remove(wafer);
@@ -10149,9 +13047,10 @@ namespace QMC.CDT320.Materials
             if (wafer == null || string.IsNullOrWhiteSpace(wafer.WaferId))
                 return;
 
-            string waferId = wafer.WaferId;
-            State.Dies.RemoveAll(d =>
-                IsDieRelatedToWaferInstanceNoLock(d, wafer));
+            List<DieMaterial> relatedDies = State.Dies
+                .Where(d => IsDieOutputParentForWaferNoLock(d, wafer))
+                .ToList();
+            DetachOrRemoveClearedOutputDiesNoLock(relatedDies);
             State.Wafers.Remove(wafer);
         }
 
@@ -10260,7 +13159,8 @@ namespace QMC.CDT320.Materials
                 if (slot == null || string.IsNullOrWhiteSpace(slot.WaferId))
                     continue;
 
-                var wafer = State.Wafers.FirstOrDefault(w => w.WaferId == slot.WaferId);
+                string resolveReason;
+                var wafer = ResolveCassetteSlotWaferNoLock(slot, out resolveReason);
                 if (wafer != null && !string.IsNullOrWhiteSpace(wafer.TapeFrameSpecName))
                     return wafer.TapeFrameSpecName;
             }
