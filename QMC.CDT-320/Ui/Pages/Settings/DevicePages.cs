@@ -32,6 +32,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             lblHeader.Text = Lang.T("set.barcode");
             lblHeader.Tag = "i18n:set.barcode";
+            lblInputTrigger.Text = "NLV-5201 TRIGGER (blank=Z/Y)";
+            lblOutputTrigger.Text = "NLV-5201 TRIGGER (blank=Z/Y)";
         }
 
         private void ApplyCompactLayout()
@@ -104,6 +106,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             if (_loadingSettings)
                 return false;
+
+            string triggerError;
+            if (!QMC.CDT320.VisionComm.Nlv5201BarcodeReader.TryValidateTriggerCommand(
+                    txtInputTrigger.Text,
+                    out triggerError))
+            {
+                SetResult("INPUT WAFER Trigger 설정 오류: " + triggerError, false);
+                return false;
+            }
+            if (!QMC.CDT320.VisionComm.Nlv5201BarcodeReader.TryValidateTriggerCommand(
+                    txtOutputTrigger.Text,
+                    out triggerError))
+            {
+                SetResult("OUTPUT BIN Trigger 설정 오류: " + triggerError, false);
+                return false;
+            }
 
             IBarcodeReader previousInputReader = ResolveReader(true);
             IBarcodeReader previousOutputReader = ResolveReader(false);

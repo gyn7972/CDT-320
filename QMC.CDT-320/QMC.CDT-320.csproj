@@ -335,6 +335,8 @@
       <DependentUpon>ModuleSubsetPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Equipment\Vision\BarcodeSerialAdapter.cs" />
+    <Compile Include="Equipment\Vision\Nlv5201BarcodeReader.cs" />
+    <Compile Include="Equipment\Vision\Nlv5201Protocol.cs" />
     <Compile Include="Equipment\UnitCommon\OperationPanelUnit.cs" />
     <Compile Include="Equipment\UnitCommon\ResourceSensorsUnit.cs" />
     <Compile Include="Equipment\SlotMapper.cs" />
@@ -1477,6 +1479,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\AxisSetupPage.resx">
       <DependentUpon>AxisSetupPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\DevicePages.resx">
+      <DependentUpon>DevicePages.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\GeneralPage.resx">
       <DependentUpon>GeneralPage.cs</DependentUpon>

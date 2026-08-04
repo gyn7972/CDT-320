@@ -91,9 +91,9 @@ namespace QMC.CDT320
         [DataMember] public int    OutputBarcodeRetryCount { get; set; } = 3;
         [DataMember] public double InputBarcodeRetryStepMm { get; set; } = 1.000;
         [DataMember] public double OutputBarcodeRetryStepMm { get; set; } = 1.000;
-        /// <summary>빈 문자열이면 명령을 송신하지 않고 리더 수신만 대기합니다.</summary>
+        /// <summary>NLV-5201 판독 시작 명령. 빈 문자열이면 기본 Z 명령을 사용합니다.</summary>
         [DataMember] public string InputBarcodeTriggerCommand { get; set; } = "";
-        /// <summary>빈 문자열이면 명령을 송신하지 않고 리더 수신만 대기합니다.</summary>
+        /// <summary>NLV-5201 판독 시작 명령. 빈 문자열이면 기본 Z 명령을 사용합니다.</summary>
         [DataMember] public string OutputBarcodeTriggerCommand { get; set; } = "";
 
         // ── Simulator link — auto connect ──

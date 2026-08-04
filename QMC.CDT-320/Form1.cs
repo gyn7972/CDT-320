@@ -597,6 +597,78 @@ namespace QMC.CDT_320
             }
         }
 
+        private void AutoConnectBarcodeReaders()
+        {
+            if (Machine == null)
+                return;
+
+            // USE는 공정 적용 여부이며, 설정 화면 시험을 위해 두 채널의 COM Port는 시작 시 모두 엽니다.
+            // 포트 Open만 수행하고 NLV-5201 판독 명령은 ReadAsync에서만 송신합니다.
+            TryOpenBarcodeReaderAtStartup(Machine.WaferBarcodeReader);
+            TryOpenBarcodeReaderAtStartup(Machine.BinBarcodeReader);
+        }
+
+        private static void TryOpenBarcodeReaderAtStartup(IBarcodeReader reader)
+        {
+            if (reader == null)
+                return;
+
+            try
+            {
+                if (reader.TryOpen())
+                    return;
+
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "SYS",
+                    "BARCODE-AUTO-CONNECT",
+                    reader.ReaderName + " 시작 자동 연결에 실패했습니다. 프로그램 기동은 계속합니다.");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "SYS",
+                    "BARCODE-AUTO-CONNECT",
+                    reader.ReaderName + " 시작 자동 연결 예외: " + ex.Message);
+            }
+        }
+
+        private void CloseBarcodeReadersOnShutdown()
+        {
+            if (Machine == null)
+                return;
+
+            IBarcodeReader inputReader = Machine.WaferBarcodeReader;
+            IBarcodeReader outputReader = Machine.BinBarcodeReader;
+            CloseBarcodeReaderOnShutdown(inputReader);
+            if (!ReferenceEquals(outputReader, inputReader))
+                CloseBarcodeReaderOnShutdown(outputReader);
+        }
+
+        private static void CloseBarcodeReaderOnShutdown(IBarcodeReader reader)
+        {
+            if (reader == null)
+                return;
+
+            try
+            {
+                IDisposable disposable = reader as IDisposable;
+                if (disposable != null)
+                    disposable.Dispose();
+                else
+                    reader.Close();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "SYS",
+                    "BARCODE-CLOSE",
+                    reader.ReaderName + " 종료 연결 해제 예외: " + ex.Message);
+            }
+        }
+
         /// <summary>시뮬레이션 카세트 드라이버입니다.</summary>
         internal QMC.CDT320.Sim.SimCassetteDriver CassetteDriver { get; private set; }
         /// <summary>SECS/HSMS Host 통신 객체입니다.</summary>
@@ -836,6 +908,7 @@ namespace QMC.CDT_320
 
             Machine    = new CDT320_Machine();
             LoadMachineSettings();
+            AutoConnectBarcodeReaders();
             // [주소 불일치 감시 2026-07-28] Setup 파일이 카탈로그 주소를 덮어쓴 채 조용히 운전되던 문제
             // (GoodBinRing/NgBinRing Bit 뒤바뀜)를 기동 시 로그로 드러낸다. 값은 고치지 않고 경고만 남긴다.
             QMC.CDT320.Ajin.AjinFactory.VerifyCatalogAddresses("Startup");
@@ -3694,6 +3767,7 @@ namespace QMC.CDT_320
             try { Bridge?.Dispose(); } catch { }
             try { QMC.CDT320.VisionComm.VisionReconnectWatchdog.Stop(); } catch { }
             try { QMC.CDT320.VisionComm.VisionHub.DisconnectAll(); } catch { }
+            CloseBarcodeReadersOnShutdown();
             try { QMC.CDT320.Ajin.AjinSystem.Close(); } catch { }
             try { QMC.Common.Logging.EventLogger.FlushPending(1000); } catch { }
             if (Controller != null)

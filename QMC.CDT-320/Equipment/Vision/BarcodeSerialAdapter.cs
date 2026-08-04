@@ -1,46 +1,40 @@
 ﻿using System;
 using System.IO.Ports;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using QMC.Common.Logging;
 
 namespace QMC.CDT320.VisionComm
 {
     /// <summary>
-    /// Wafer/Bin 바코드 리더용 Serial Port 어댑터입니다.
-    /// TriggerCommand가 비어 있으면 별도 명령 없이 리더가 송신하는 값을 대기합니다.
+    /// 바코드 리더 프로토콜이 사용하는 Serial Port 바이트 입출력 어댑터입니다.
+    /// 장비별 명령 프레임과 응답 해석은 처리하지 않습니다.
     /// </summary>
-    public sealed class BarcodeSerialAdapter : IBarcodeReader, IDisposable
+    public sealed class BarcodeSerialAdapter : IBarcodeSerialTransport
     {
         private readonly object _portSync = new object();
-        private readonly SemaphoreSlim _readGate = new SemaphoreSlim(1, 1);
         private readonly string _readerName;
         private readonly string _portName;
         private readonly int _baudRate;
-        private readonly string _triggerCommand;
         private SerialPort _port;
 
         public BarcodeSerialAdapter(string portName, int baudRate = 9600)
-            : this("BARCODE", portName, baudRate, "READ?")
+            : this("BARCODE", portName, baudRate)
         {
         }
 
         public BarcodeSerialAdapter(
             string readerName,
             string portName,
-            int baudRate,
-            string triggerCommand)
+            int baudRate)
         {
             _readerName = string.IsNullOrWhiteSpace(readerName) ? "BARCODE" : readerName.Trim();
             _portName = string.IsNullOrWhiteSpace(portName) ? "" : portName.Trim();
             _baudRate = baudRate > 0 ? baudRate : 9600;
-            _triggerCommand = triggerCommand ?? "";
         }
 
         public string ReaderName => _readerName;
 
-        public bool IsConnected
+        public bool IsOpen
         {
             get
             {
@@ -48,9 +42,6 @@ namespace QMC.CDT320.VisionComm
                     return _port != null && _port.IsOpen;
             }
         }
-
-        /// <summary>마지막 정상 읽기 결과입니다. 실패 시에는 기존 값을 덮어쓰지 않습니다.</summary>
-        public string LastReadId { get; private set; } = "";
 
         public bool TryOpen()
         {
@@ -91,72 +82,41 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
-        public Task<string> ReadAsync(int timeoutMs = 3000)
+        public void DiscardInputBuffer()
         {
-            int safeTimeoutMs = Math.Max(100, timeoutMs);
-            return Task.Run(() =>
+            lock (_portSync)
             {
-                _readGate.Wait();
-                try
-                {
-                    lock (_portSync)
-                    {
-                        if ((_port == null || !_port.IsOpen) && !TryOpen())
-                            return "";
-
-                        _port.ReadTimeout = safeTimeoutMs;
-                        if (!string.IsNullOrWhiteSpace(_triggerCommand))
-                            _port.WriteLine(_triggerCommand.Trim());
-
-                        string id = ReadPayloadNoLock();
-                        if (string.IsNullOrWhiteSpace(id) ||
-                            string.Equals(id, "WAFER-NULL-ID", StringComparison.OrdinalIgnoreCase))
-                        {
-                            return "";
-                        }
-
-                        LastReadId = id;
-                        return id;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    EventLogger.Write(
-                        EventKind.Warning,
-                        "SYS",
-                        "BARCODE",
-                        ReaderName + " " + _portName + " READ timeout/err: " + ex.Message);
-                    return "";
-                }
-                finally
-                {
-                    _readGate.Release();
-                }
-            });
+                EnsureOpenNoLock();
+                _port.DiscardInBuffer();
+            }
         }
 
-        private string ReadPayloadNoLock()
+        public void Write(byte[] packet)
         {
-            var payload = new StringBuilder();
-            while (true)
+            if (packet == null || packet.Length == 0)
+                throw new ArgumentException("송신 패킷이 비어 있습니다.", nameof(packet));
+
+            lock (_portSync)
             {
-                int value = _port.ReadChar();
-                if (value < 0)
-                    return "";
-
-                char ch = (char)value;
-                if (ch == '\x02')
-                    continue;
-                if (ch == '\x03' || ch == '\r' || ch == '\n')
-                {
-                    if (payload.Length == 0)
-                        continue;
-                    break;
-                }
-                payload.Append(ch);
+                EnsureOpenNoLock();
+                _port.Write(packet, 0, packet.Length);
             }
+        }
 
-            return NormalizePayload(payload.ToString());
+        public int ReadByte(int timeoutMs)
+        {
+            lock (_portSync)
+            {
+                EnsureOpenNoLock();
+                _port.ReadTimeout = Math.Max(100, timeoutMs);
+                return _port.ReadByte();
+            }
+        }
+
+        private void EnsureOpenNoLock()
+        {
+            if (_port == null || !_port.IsOpen)
+                throw new InvalidOperationException(ReaderName + " 시리얼 포트가 열려 있지 않습니다.");
         }
 
         public static string NormalizePayload(string value)
@@ -196,7 +156,19 @@ namespace QMC.CDT320.VisionComm
         public void Dispose()
         {
             Close();
-            _readGate.Dispose();
         }
+    }
+
+    /// <summary>
+    /// 장비 프로토콜과 SerialPort 구현을 분리하기 위한 바이트 입출력 계약입니다.
+    /// </summary>
+    public interface IBarcodeSerialTransport : IDisposable
+    {
+        bool IsOpen { get; }
+        bool TryOpen();
+        void Close();
+        void DiscardInputBuffer();
+        void Write(byte[] packet);
+        int ReadByte(int timeoutMs);
     }
 }
