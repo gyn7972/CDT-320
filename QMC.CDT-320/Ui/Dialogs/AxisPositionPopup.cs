@@ -29,6 +29,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             _monitor = monitor;
 
             InitializeComponent();
+            // To do: [앱 아이콘] 포지션 팝업 작업표시줄/타이틀바 아이콘 (2026-08-05 지시).
+            QMC.CDT_320.Ui.AppIcons.ApplyEmbeddedIcon(this, "axis-position.ico");
             EnableDoubleBuffer(listViewAxis);
             BuildAxisList();
             RefreshPositions();

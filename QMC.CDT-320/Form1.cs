@@ -717,6 +717,8 @@ namespace QMC.CDT_320
         public Form1()
         {
             InitializeComponent();
+            // To do: [앱 아이콘] 메인 창 타이틀바/작업표시줄 아이콘 - exe에 박힌 로고 적용 (2026-08-05 지시).
+            QMC.CDT_320.Ui.AppIcons.ApplyMainIcon(this);
             UiDoubleBuffer.Enable(this);
             WireShellNavigationEvents();
         }
