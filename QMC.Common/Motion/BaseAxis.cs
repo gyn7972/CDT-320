@@ -54,6 +54,39 @@ namespace QMC.Common.Motion
             return new ForceMoveScope();
         }
 
+        // To do: [원점복귀 리밋 이탈] 홈 초기화의 하드리밋 이탈 구간에서만 소프트리밋 목표 검사를 면제한다.
+        // 기존 조건: 실보드 경로에는 홈 예외가 없어, 리밋 이탈 목표가 소프트리밋 밖이면 그 이동이 거부되고
+        //            AX-SOFT-LIMIT-N 알람이 떴다. 시뮬 경로에는 _currentMode != MotionMode.Homing 예외가 있다.
+        // 현재 기준: 초기화 리밋 이탈 스코프 안에서만 면제한다. 일반 운전 이동에는 영향이 없다.
+        private static readonly AsyncLocal<int> InitializeLimitBackoffDepth = new AsyncLocal<int>();
+
+        /// <summary>홈 초기화의 하드리밋 이탈 구간인지 여부. 소프트리밋 목표 검사 면제 판정에 사용한다.</summary>
+        public static bool IsInitializeLimitBackoffActive
+        {
+            get { return InitializeLimitBackoffDepth.Value > 0; }
+        }
+
+        public static IDisposable BeginInitializeLimitBackoffScope()
+        {
+            InitializeLimitBackoffDepth.Value = InitializeLimitBackoffDepth.Value + 1;
+            return new InitializeLimitBackoffScope();
+        }
+
+        private sealed class InitializeLimitBackoffScope : IDisposable
+        {
+            private bool _disposed;
+
+            public void Dispose()
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                int depth = InitializeLimitBackoffDepth.Value - 1;
+                InitializeLimitBackoffDepth.Value = depth > 0 ? depth : 0;
+            }
+        }
+
         // 명시 모션 프로파일 스코프(2026-07-26, Config 임시 치환 대체):
         // 기존 조건: 명시 가감속을 전달할 방법이 없어 Config.DefaultVelocity=0/Acceleration/
         //   Deceleration을 이동 구간 동안 임시 치환했다 — 공유 Config를 다른 스레드(팔로잉 속도
@@ -299,6 +332,7 @@ namespace QMC.Common.Motion
         /// <summary>서보를 활성화(ON)합니다.</summary>
         public virtual void ServoOn()
         {
+            //알람이 발생해도.. 서보 온은 걍 되야 하잖아? 
             if (IsAlarm) return;
             IsServoOn = true;
         }

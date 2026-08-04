@@ -238,22 +238,25 @@ namespace QMC.CDT320.Initialization
             AddActionOnlyStep(plan, 170, "InputFeederLift", "InputFeederLift",
                 AxisInitializeActionCommand.CylinderBwd,
                 "InputFeeder Lift moves Down only when empty and already unclamped.");
+
             AddFeederSafeInterlocks(plan, 170, "InputFeederLift", true);
+
             AddAxisHomeDoneInterlocks(plan, 170, "InputFeederLift", "FrontPickerY", "RearPickerY");
 
             AddKnownSingleStep(plan, axisByName, used, 180, "InputFeeder", AxisInitializeRunMode.Serial,
                 "InputVisionX MEL safety retreat and InputFeederY home after Lift Down.",
                 "InputFeederY", "FeederY");
+
             AddFeederSafeInterlocks(plan, 180, "InputFeeder", true);
+
             AddAxisHomeDoneInterlocks(plan, 180, "InputFeeder",
                 "FrontPickerY", "RearPickerY",
                 "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3",
                 "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
+
             AddStepInterlock(plan, 180, "InputFeeder", AxisInitializeInterlockTarget.Cylinder,
                 "InputFeederLift", AxisInitializeInterlockState.Bwd,
                 "InputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
-
-
         }
 
         private static void AddInputStageAndCassetteSteps(
@@ -1330,11 +1333,14 @@ namespace QMC.CDT320.Initialization
         /// </summary>
         public async Task<AxisInitializeResult> ExecuteAsync(
             IList<AxisInitializeStep> steps,
-            bool requireCompleteDefaultSequence)
+            bool requireCompleteDefaultSequence,
+            CancellationToken cancellationToken)
         {
             bool runStarted = false;
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (steps == null || steps.Count == 0)
                 {
                     const string message = "초기화 Step 정보가 없습니다.";
@@ -1370,7 +1376,16 @@ namespace QMC.CDT320.Initialization
 
                 return await ExecuteSequenceFlowAsync(
                     enabledSteps,
-                    requireCompleteDefaultSequence).ConfigureAwait(false);
+                    requireCompleteDefaultSequence,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                const string message =
+                    "Alarm/정지 요청으로 전체 축 초기화 실행을 취소했습니다.";
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
+                    message + " - Cancelled");
+                return AxisInitializeResult.Failure(-4, null, string.Empty, message);
             }
             catch (Exception ex)
             {
@@ -1445,10 +1460,13 @@ namespace QMC.CDT320.Initialization
         /// </summary>
         private async Task<AxisInitializeResult> ExecuteSequenceFlowAsync(
             IList<AxisInitializeStep> enabledSteps,
-            bool requireCompleteDefaultSequence)
+            bool requireCompleteDefaultSequence,
+            CancellationToken cancellationToken)
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 Dictionary<int, AxisInitializeStep> stepByNumber;
                 string indexReason;
                 if (!TryCreateStepIndex(enabledSteps, out stepByNumber, out indexReason))
@@ -1462,26 +1480,37 @@ namespace QMC.CDT320.Initialization
                     if (requireCompleteDefaultSequence)
                         return FailPreparation(null, layoutReason);
 
-                    return await ExecuteSelectedStepsSerialAsync(enabledSteps).ConfigureAwait(false);
+                    return await ExecuteSelectedStepsSerialAsync(
+                        enabledSteps,
+                        cancellationToken).ConfigureAwait(false);
                 }
 
                 // 공통 안전 확보 구간: 순서를 코드에서 직접 확인할 수 있도록 명시합니다.
                 AxisInitializeResult preResult = await ExecuteSerialStepsAsync(
                     CommonStepOrder,
-                    stepByNumber)
+                    stepByNumber,
+                    cancellationToken)
                     .ConfigureAwait(false);
                 if (!preResult.Succeeded)
                     return preResult;
 
                 AxisInitializeResult parallelResult = await ExecuteParallelLanesAsync(
-                    stepByNumber).ConfigureAwait(false);
+                    stepByNumber,
+                    cancellationToken).ConfigureAwait(false);
                 if (!parallelResult.Succeeded)
                     return parallelResult;
 
                 // SharedRail은 양쪽 Lane이 모두 끝난 뒤 340 → 350 → 360 → 370 순서로 실행합니다.
                 return await ExecuteSerialStepsAsync(
                     SharedRailStepOrder,
-                    stepByNumber).ConfigureAwait(false);
+                    stepByNumber,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                const string message =
+                    "Alarm/정지 요청으로 초기화 Step 흐름을 취소했습니다.";
+                return AxisInitializeResult.Failure(-4, null, string.Empty, message);
             }
             catch (Exception ex)
             {
@@ -1605,15 +1634,18 @@ namespace QMC.CDT320.Initialization
         /// </summary>
         private async Task<AxisInitializeResult> ExecuteSerialStepsAsync(
             IEnumerable<int> stepOrder,
-            IDictionary<int, AxisInitializeStep> stepByNumber)
+            IDictionary<int, AxisInitializeStep> stepByNumber,
+            CancellationToken cancellationToken)
         {
             foreach (int stepNo in stepOrder ?? new int[0])
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 AxisInitializeResult result = await ExecuteStepByNumberAsync(
                     stepNo,
                     stepByNumber,
                     null,
-                    string.Empty).ConfigureAwait(false);
+                    string.Empty,
+                    cancellationToken).ConfigureAwait(false);
                 if (!result.Succeeded)
                     return result;
             }
@@ -1625,7 +1657,8 @@ namespace QMC.CDT320.Initialization
         /// 단일축·그룹·Monitor Step 실행은 병렬 Lane을 만들지 않고 StepNo 순으로 처리합니다.
         /// </summary>
         private async Task<AxisInitializeResult> ExecuteSelectedStepsSerialAsync(
-            IEnumerable<AxisInitializeStep> steps)
+            IEnumerable<AxisInitializeStep> steps,
+            CancellationToken cancellationToken)
         {
             Dictionary<int, AxisInitializeStep> stepByNumber;
             string reason;
@@ -1634,11 +1667,13 @@ namespace QMC.CDT320.Initialization
 
             foreach (AxisInitializeStep step in stepByNumber.Values.OrderBy(x => x.StepNo))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 AxisInitializeResult result = await ExecuteStepByNumberAsync(
                     step.StepNo,
                     stepByNumber,
                     null,
-                    string.Empty).ConfigureAwait(false);
+                    string.Empty,
+                    cancellationToken).ConfigureAwait(false);
                 if (!result.Succeeded)
                     return result;
             }
@@ -1677,12 +1712,15 @@ namespace QMC.CDT320.Initialization
         /// 각 Lane 내부는 직렬이며 한쪽 실패 시 공유 취소 후 전체 축 정지를 요청합니다.
         /// </summary>
         private async Task<AxisInitializeResult> ExecuteParallelLanesAsync(
-            IDictionary<int, AxisInitializeStep> stepByNumber)
+            IDictionary<int, AxisInitializeStep> stepByNumber,
+            CancellationToken cancellationToken)
         {
             ParallelLaneExecutionState executionState = null;
             var stopwatch = Stopwatch.StartNew();
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 List<AxisInitializeStep> inputLaneSteps = InputLaneStepOrder
                     .Select(x => stepByNumber[x])
                     .ToList();
@@ -1739,7 +1777,7 @@ namespace QMC.CDT320.Initialization
                         preflightReason);
                 }
 
-                executionState = new ParallelLaneExecutionState();
+                executionState = new ParallelLaneExecutionState(cancellationToken);
                 QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
                     "Input/Output initialize lanes start concurrently. inputSteps=" +
                     string.Join(",", inputLaneSteps.Select(x => x.StepNo + ":" + x.GroupName).ToArray()) +
@@ -1776,19 +1814,21 @@ namespace QMC.CDT320.Initialization
 
                 AxisInitializeResult failedResult = results.FirstOrDefault(x => x != null && !x.Succeeded);
                 if (failedResult != null)
-                {
-                    const string message = "병렬 초기화 Lane이 실패했지만 상세 실패 정보가 없습니다.";
-                    return AxisInitializeResult.Failure(
-                        failedResult.ResultCode,
-                        null,
-                        string.Empty,
-                        message);
-                }
+                    return failedResult;
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
                     "Input/Output initialize lanes completed concurrently. elapsedMs=" +
                     stopwatch.ElapsedMilliseconds + " - Ok");
                 return AxisInitializeResult.Success();
+            }
+            catch (OperationCanceledException)
+            {
+                if (executionState != null)
+                    executionState.Cancel();
+
+                const string message =
+                    "Alarm/정지 요청으로 Input/Output 병렬 초기화를 취소했습니다.";
+                return AxisInitializeResult.Failure(-4, null, string.Empty, message);
             }
             catch (Exception ex)
             {
@@ -1869,9 +1909,9 @@ namespace QMC.CDT320.Initialization
                     currentStep = orderedSteps[i];
                     if (executionState != null && executionState.Token.IsCancellationRequested)
                     {
-                        string message = "반대 Lane 실패로 병렬 초기화가 중단되었습니다. lane=" + laneName;
+                        string message = "Alarm/정지 또는 반대 Lane 실패로 병렬 초기화가 취소되었습니다. lane=" + laneName;
                         MarkLaneStepsCancelled(orderedSteps, i, message);
-                        return AxisInitializeResult.Failure(-1, currentStep, laneName, message);
+                        return AxisInitializeResult.Failure(-4, currentStep, laneName, message);
                     }
 
                     AxisInitializeResult stepResult = await ExecuteStepByNumberAsync(
@@ -1882,12 +1922,16 @@ namespace QMC.CDT320.Initialization
                         executionState != null
                             ? executionState.Token
                             : CancellationToken.None).ConfigureAwait(false);
-                    if (stepResult.Succeeded &&
-                        executionState != null &&
+                    // AlarmManager가 먼저 활성화되고 linked CTS 취소가 뒤따르는 짧은 구간에도
+                    // -4 취소를 일반 Lane 실패 알람으로 다시 발생시키지 않습니다.
+                    if (stepResult != null && stepResult.ResultCode == -4 && executionState != null)
+                        executionState.Cancel();
+
+                    if (executionState != null &&
                         executionState.Token.IsCancellationRequested)
                     {
                         string reinitializeMessage =
-                            "반대 Lane 실패 중 동작이 정지되었으므로 재초기화가 필요합니다. lane=" + laneName;
+                            "Alarm/정지 또는 반대 Lane 실패 중 동작이 정지되었으므로 재초기화가 필요합니다. lane=" + laneName;
                         _executor.RaiseStepProgress(
                             currentStep,
                             AxisInitializeStepStatus.ReinitializeRequired,
@@ -1896,7 +1940,7 @@ namespace QMC.CDT320.Initialization
                             "반대 Lane 실패로 병렬 초기화가 중단되었습니다. lane=" + laneName;
                         MarkLaneStepsCancelled(orderedSteps, i + 1, cancelledMessage);
                         return AxisInitializeResult.Failure(
-                            -1,
+                            -4,
                             currentStep,
                             laneName,
                             reinitializeMessage);
@@ -1923,6 +1967,11 @@ namespace QMC.CDT320.Initialization
                 QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeLane",
                     "Initialize parallel lane completed. lane=" + laneName + " - Ok");
                 return AxisInitializeResult.Success();
+            }
+            catch (OperationCanceledException)
+            {
+                const string message = "Alarm/정지 요청으로 병렬 초기화 Lane을 취소했습니다.";
+                return AxisInitializeResult.Failure(-4, currentStep, laneName, message);
             }
             catch (Exception ex)
             {
@@ -2058,9 +2107,16 @@ namespace QMC.CDT320.Initialization
         private sealed class ParallelLaneExecutionState : IDisposable
         {
             private readonly object _failureLock = new object();
-            private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
+            private readonly CancellationTokenSource _cancellation;
             private AxisInitializeResult _failure;
             private int _axisStopRequested;
+
+            public ParallelLaneExecutionState(CancellationToken externalCancellationToken)
+            {
+                _cancellation = externalCancellationToken.CanBeCanceled
+                    ? CancellationTokenSource.CreateLinkedTokenSource(externalCancellationToken)
+                    : new CancellationTokenSource();
+            }
 
             public CancellationToken Token
             {

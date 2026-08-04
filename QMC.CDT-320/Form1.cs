@@ -230,6 +230,12 @@ namespace QMC.CDT_320
 
         internal bool LoadMachineRecipe(string recipeName)
         {
+            return LoadMachineRecipe(recipeName, false);
+        }
+
+        // To do: [시작 레시피 자동 로드] startupAutoLoad는 기동 자동 적용 전용 - 알람 게이트만 면제된다.
+        internal bool LoadMachineRecipe(string recipeName, bool startupAutoLoad)
+        {
             IDisposable recipeApplyLease = null;
             try
             {
@@ -244,6 +250,7 @@ namespace QMC.CDT_320
                 string recipeChangeReason;
                 if (!Controller.TryBeginRecipeApplyOperation(
                         normalizedRecipeName,
+                        startupAutoLoad,
                         out materialRecipeRestore,
                         out recipeApplyLease,
                         out recipeChangeReason))
@@ -1135,12 +1142,17 @@ namespace QMC.CDT_320
             #region 11. 마지막 Recipe 및 Material 기본 상태 적용
 
             // 활성 Recipe 이름은 LoadMachineRecipe가 성공한 경우에만 설정된다.
+            // To do: [시작 레시피 자동 로드] 무조건 마지막 레시피를 적용하고, 실패하면 실제 알람으로 알린다.
+            // 기존 조건: 기동 자동 적용이 알람 게이트에 걸려 조용히 실패했고(EventLogger 기록만),
+            //            사용자는 레시피 없는 상태로 시작해 수동으로 열어야 했다(2026-08-05).
+            // 현재 기준: startupAutoLoad=true로 알람 게이트만 면제해 적용을 시도하고,
+            //            마커 없음/적용 실패 모두 AlarmManager 실제 알람으로 사용자에게 알린다.
             try
             {
                 var last = QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
                 if (last != null)
                 {
-                    if (LoadMachineRecipe(last.FileName))
+                    if (LoadMachineRecipe(last.FileName, true))
                     {
                         _currentRecipe = last;
                         Controller.ApplyRecipeMode(last);
@@ -1161,7 +1173,23 @@ namespace QMC.CDT_320
                             "RECIPE-STARTUP-BLOCK",
                             "저장된 마지막 Recipe를 적용하지 못했습니다. 장비 내부 Material Recipe와 일치하는 Recipe를 확인하여 적용하십시오. " +
                             "lastProject=" + last.FileName);
+                        QMC.Common.Alarms.AlarmManager.Raise(
+                            QMC.Common.Alarms.AlarmSeverity.Error,
+                            "RECIPE-STARTUP-BLOCK",
+                            "Form1",
+                            "기동 시 마지막 Recipe(" + last.FileName + ") 적용에 실패했습니다. " +
+                            "[레시피 → 프로젝트]에서 Recipe를 열어 적용한 뒤 운전을 시작하십시오.");
                     }
+                }
+                else
+                {
+                    // 기존 조건: 마커가 없으면 아무 기록 없이 지나갔다 — 레시피 없는 상태를 사용자가 알 수 없었다.
+                    QMC.Common.Alarms.AlarmManager.Raise(
+                        QMC.Common.Alarms.AlarmSeverity.Error,
+                        "RECIPE-STARTUP-MISSING",
+                        "Form1",
+                        "기동 시 불러올 마지막 Recipe가 없습니다. " +
+                        "[레시피 → 프로젝트]에서 Recipe를 열어 적용한 뒤 운전을 시작하십시오.");
                 }
             }
             catch { /* Optional startup failure ignored. */ }

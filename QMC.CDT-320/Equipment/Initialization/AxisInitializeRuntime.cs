@@ -25,6 +25,13 @@ namespace QMC.CDT320.Initialization
         private const double FeederVisionLimitBackoffDistanceMm = 5.0;
         private const int FeederVisionServoSettleMs = 500;
 
+        // To do: [원점복귀 리밋 탐색] 탐색 타임아웃을 리터럴에서 상수로 분리하고 상향한다.
+        // 기존 조건: 호출부에 30000(30초) 리터럴. OutputVisionX는 스트로크가 1084mm(-50.76~1033.62)라
+        //            Jog Fine 속도로 리밋까지 탐색하면 30초 안에 도달하지 못해 타임아웃이 났다.
+        // 현재 기준: 120초. 속도도 Coarse로 올려 실제 소요 시간을 함께 줄인다.
+        private const int FeederVisionLimitSearchTimeoutMs = 120000;
+        private const int HomePreparationFeedbackPollMs = 20;
+
         private readonly CDT320_Machine _machine;
         private readonly AxisInterferenceMap _axisInterferenceMap;
         private readonly Func<IEnumerable<BaseAxis>> _enumerateAxes;
@@ -37,8 +44,10 @@ namespace QMC.CDT320.Initialization
         {
             public BaseAxis TargetAxis { get; set; }
             public BaseAxis PairedAxis { get; set; }
+            public bool TargetRestoreServoOn { get; set; }
             public bool RestoreServoOn { get; set; }
             public bool RestoreHomeDone { get; set; }
+            public bool ServoOffIssued { get; set; }
             public bool Restored { get; set; }
         }
 
@@ -70,6 +79,24 @@ namespace QMC.CDT320.Initialization
         public void EndRun()
         {
             _runState.End();
+        }
+
+        private static void ThrowIfInitializeCancelledOrAlarm(
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (AlarmManager.HasActive)
+            {
+                throw new OperationCanceledException(
+                    "활성 Alarm으로 초기화 신규 명령이 차단되었습니다.",
+                    cancellationToken);
+            }
+        }
+
+        private static bool IsInitializeCancelledOrAlarm(
+            CancellationToken cancellationToken)
+        {
+            return cancellationToken.IsCancellationRequested || AlarmManager.HasActive;
         }
 
         public List<BaseAxis> ResolveAxesByNames(IEnumerable<string> axisNames)
@@ -290,8 +317,11 @@ namespace QMC.CDT320.Initialization
             return HasEnabledInitializeActions(step);
         }
 
-        public Task<int> PrepareStepAsync(AxisInitializeStep step)
+        public Task<int> PrepareStepAsync(
+            AxisInitializeStep step,
+            CancellationToken cancellationToken)
         {
+            ThrowIfInitializeCancelledOrAlarm(cancellationToken);
             // 현재 활성 초기화 경로의 Prepare 단계는 의도적으로 no-op입니다.
             // 과거 MachineController의 도달 불가능한 Prepare 코드를 이 경계에서 다시 활성화하지 않습니다.
             return Task.FromResult(0);
@@ -330,9 +360,14 @@ namespace QMC.CDT320.Initialization
         public Task<int> ExecuteActionsAsync(
             AxisInitializeStep step,
             IList<AxisInitializeAction> actions,
-            string phase)
+            string phase,
+            CancellationToken cancellationToken)
         {
-            return ExecuteInitializeActionsAsync(step, actions, phase);
+            return ExecuteInitializeActionsAsync(
+                step,
+                actions,
+                phase,
+                cancellationToken);
         }
 
         public bool IsPickerYPairStep(AxisInitializeStep step)
@@ -343,9 +378,13 @@ namespace QMC.CDT320.Initialization
 
         public Task<int> ExecutePickerYPairAsync(
             AxisInitializeStep step,
-            IList<BaseAxis> axes)
+            IList<BaseAxis> axes,
+            CancellationToken cancellationToken)
         {
-            return ExecutePickerYPairInitializeAsync(step, axes);
+            return ExecutePickerYPairInitializeAsync(
+                step,
+                axes,
+                cancellationToken);
         }
 
         private bool HasEnabledInitializeActions(AxisInitializeStep step)
@@ -848,15 +887,18 @@ namespace QMC.CDT320.Initialization
         private async Task<int> ExecuteInitializeActionsAsync(
             AxisInitializeStep step,
             IList<AxisInitializeAction> actions,
-            string phase)
+            string phase,
+            CancellationToken cancellationToken)
         {
             try
             {
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 if (actions == null || actions.Count == 0)
                     return 0;
 
                 foreach (var action in actions)
                 {
+                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                     if (action == null || !action.Enabled)
                         continue;
 
@@ -867,7 +909,11 @@ namespace QMC.CDT320.Initialization
                         ", target=" + action.TargetType + ":" + action.Name +
                         ", command=" + action.Command + " - Start");
 
-                    int result = await ExecuteInitializeActionAsync(step, action, phase).ConfigureAwait(false);
+                    int result = await ExecuteInitializeActionAsync(
+                        step,
+                        action,
+                        phase,
+                        cancellationToken).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
@@ -880,6 +926,10 @@ namespace QMC.CDT320.Initialization
                 }
 
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -895,25 +945,39 @@ namespace QMC.CDT320.Initialization
         private async Task<int> ExecuteInitializeActionAsync(
             AxisInitializeStep step,
             AxisInitializeAction action,
-            string phase)
+            string phase,
+            CancellationToken cancellationToken)
         {
             try
             {
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 string targetType = action.TargetType ?? "";
                 string command = action.Command ?? "";
 
                 if (string.Equals(targetType, AxisInitializeInterlockTarget.Cylinder, StringComparison.OrdinalIgnoreCase))
-                    return await ExecuteInitializeCylinderActionAsync(action).ConfigureAwait(false);
+                    return await ExecuteInitializeCylinderActionAsync(
+                        action,
+                        cancellationToken).ConfigureAwait(false);
 
                 if (string.Equals(targetType, AxisInitializeInterlockTarget.Axis, StringComparison.OrdinalIgnoreCase) &&
                     string.Equals(command, AxisInitializeActionCommand.AxisTeachingMove, StringComparison.OrdinalIgnoreCase))
-                    return await ExecuteInitializeAxisTeachingActionAsync(step, action).ConfigureAwait(false);
+                    return await ExecuteInitializeAxisTeachingActionAsync(
+                        step,
+                        action,
+                        cancellationToken).ConfigureAwait(false);
 
                 if (string.Equals(command, AxisInitializeActionCommand.CustomHook, StringComparison.OrdinalIgnoreCase))
-                    return await ExecuteCustomInitializeActionAsync(action, phase).ConfigureAwait(false);
+                    return await ExecuteCustomInitializeActionAsync(
+                        action,
+                        phase,
+                        cancellationToken).ConfigureAwait(false);
 
                 return FailInitializePreparation("지원하지 않는 초기화 Action입니다. target=" +
                     targetType + ":" + action.Name + ", command=" + command);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -925,10 +989,12 @@ namespace QMC.CDT320.Initialization
 
         private async Task<int> ExecuteInitializeAxisTeachingActionAsync(
             AxisInitializeStep step,
-            AxisInitializeAction action)
+            AxisInitializeAction action,
+            CancellationToken cancellationToken)
         {
             try
             {
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 if (action == null)
                     return FailInitializePreparation("축 티칭 이동 Action 정보가 없습니다.");
 
@@ -999,7 +1065,8 @@ namespace QMC.CDT320.Initialization
                     axis,
                     targetPosition,
                     targetName,
-                    explicitVelocity).ConfigureAwait(false);
+                    explicitVelocity,
+                    cancellationToken).ConfigureAwait(false);
 
                 if (result != 0)
                     return result;
@@ -1008,6 +1075,10 @@ namespace QMC.CDT320.Initialization
                     "Initialize axis teaching action completed. axis=" + axis.Name +
                     ", position=" + targetName + " - Ok");
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1020,10 +1091,12 @@ namespace QMC.CDT320.Initialization
             BaseAxis axis,
             double targetPosition,
             string targetName,
-            double explicitVelocity = 0.0)
+            double explicitVelocity = 0.0,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             try
             {
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 if (axis == null)
                     return 0;
 
@@ -1039,6 +1112,7 @@ namespace QMC.CDT320.Initialization
                     targetPosition,
                     targetName))
                 {
+                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                     int result = await SharedRailXMotionRuntime.MoveAxisAsync(
                         axis,
                         targetPosition,
@@ -1054,6 +1128,10 @@ namespace QMC.CDT320.Initialization
                 }
 
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1072,10 +1150,13 @@ namespace QMC.CDT320.Initialization
                     : 5.0);
         }
 
-        private async Task<int> ExecuteInitializeCylinderActionAsync(AxisInitializeAction action)
+        private async Task<int> ExecuteInitializeCylinderActionAsync(
+            AxisInitializeAction action,
+            CancellationToken cancellationToken)
         {
             try
             {
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 // 전체 초기화 switch가 연결한 실제 Unit 실린더를 우선 사용합니다.
                 BaseCylinder cylinder = action.RuntimeCylinder ?? FindCylinderByName(action.Name);
                 if (cylinder == null)
@@ -1087,6 +1168,7 @@ namespace QMC.CDT320.Initialization
                     bool ok;
                     using (MotionGuardRuntime.BeginCylinderInitializeMove(cylinder, true, command))
                     {
+                        ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                         ok = await cylinder.MoveFwdAsync().ConfigureAwait(false);
                     }
                     return ok ? 0 : FailInitializePreparation("실린더 전진 실패. cylinder=" + cylinder.Name);
@@ -1097,6 +1179,7 @@ namespace QMC.CDT320.Initialization
                     bool ok;
                     using (MotionGuardRuntime.BeginCylinderInitializeMove(cylinder, false, command))
                     {
+                        ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                         ok = await cylinder.MoveBwdAsync().ConfigureAwait(false);
                     }
                     return ok ? 0 : FailInitializePreparation("실린더 후진 실패. cylinder=" + cylinder.Name);
@@ -1104,6 +1187,10 @@ namespace QMC.CDT320.Initialization
 
                 return FailInitializePreparation("지원하지 않는 실린더 Action입니다. cylinder=" +
                     cylinder.Name + ", command=" + command);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1350,10 +1437,12 @@ namespace QMC.CDT320.Initialization
 
         private async Task<int> ExecuteCustomInitializeActionAsync(
             AxisInitializeAction action,
-            string phase)
+            string phase,
+            CancellationToken cancellationToken)
         {
             try
             {
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 if (action == null)
                     return FailInitializePreparation("Custom 초기화 Action 정보가 없습니다.");
 
@@ -1361,10 +1450,16 @@ namespace QMC.CDT320.Initialization
                     action.Name,
                     AxisInitializeActionName.PrepareOutputStageNgClamp,
                     StringComparison.OrdinalIgnoreCase))
-                    return await PrepareOutputStageNgClampForInitializeAsync(action).ConfigureAwait(false);
+                    return await PrepareOutputStageNgClampForInitializeAsync(
+                        action,
+                        cancellationToken).ConfigureAwait(false);
 
                 return FailInitializePreparation("지원하지 않는 Custom 초기화 Action입니다. action=" +
                     action.Name + ", phase=" + phase);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1537,10 +1632,13 @@ namespace QMC.CDT320.Initialization
             }
         }
 
-        private async Task<int> PrepareOutputStageNgClampForInitializeAsync(AxisInitializeAction action)
+        private async Task<int> PrepareOutputStageNgClampForInitializeAsync(
+            AxisInitializeAction action,
+            CancellationToken cancellationToken)
         {
             try
             {
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 OutputStageUnit outputStage = _machine != null ? _machine.OutputStageUnit : null;
                 if (outputStage == null)
                     return FailInitializePreparation("NG Clamp 초기화 준비 실패: OutputStageUnit을 찾을 수 없습니다.");
@@ -1573,7 +1671,9 @@ namespace QMC.CDT320.Initialization
                         : outputStage.NgBinGuideClampCylinder
                 };
 
-                int result = await ExecuteInitializeCylinderActionAsync(releaseAction).ConfigureAwait(false);
+                int result = await ExecuteInitializeCylinderActionAsync(
+                    releaseAction,
+                    cancellationToken).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -1590,6 +1690,10 @@ namespace QMC.CDT320.Initialization
                     ", storedWafer=" + (storedMaterial != null ? storedMaterial.WaferId : "-") +
                     ", ringDetected=" + ringDetected + " - Ok");
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1623,12 +1727,185 @@ namespace QMC.CDT320.Initialization
             }
         }
 
-        public async Task<int> ExecuteSingleAxisHomeAsync(BaseAxis axis)
+        private static bool IsEjectPinZHomePreparationAxis(BaseAxis axis)
+        {
+            return axis != null &&
+                   string.Equals(axis.Name, "EjectPinZ", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryReadHomePreparationActual(
+            AjinAxis axis,
+            out double actualPosition,
+            out string reason)
+        {
+            actualPosition = 0.0;
+            reason = string.Empty;
+            if (axis == null)
+            {
+                reason = "axis=null";
+                return false;
+            }
+
+            if (axis.Config != null && axis.Config.IsSimulationMode)
+            {
+                actualPosition = axis.CommandPosition;
+                return true;
+            }
+
+            bool sensorPel;
+            bool sensorMel;
+            int errorCode;
+            if (!axis.TryReadInitializeHardwareFeedback(
+                out actualPosition,
+                out sensorPel,
+                out sensorMel,
+                out errorCode))
+            {
+                reason = "axis=" + axis.Name + ", readError=" + errorCode;
+                return false;
+            }
+
+            reason = "axis=" + axis.Name +
+                ", pel=" + sensorPel +
+                ", mel=" + sensorMel;
+            return true;
+        }
+
+        private async Task<string> MonitorHomePreparationSettleAsync(
+            AjinAxis axis,
+            double startActual,
+            int waitMs,
+            CancellationToken cancellationToken)
+        {
+            if (axis == null)
+            {
+                await Task.Delay(waitMs, cancellationToken).ConfigureAwait(false);
+                return string.Empty;
+            }
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            while (true)
+            {
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
+                axis.UpdateStatus();
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
+
+                double currentActual;
+                string feedbackReason;
+                if (!TryReadHomePreparationActual(axis, out currentActual, out feedbackReason))
+                {
+                    return "EjectPinZ HOME 준비 중 실제 엔코더 읽기에 실패했습니다. " +
+                        feedbackReason;
+                }
+
+                double delta = currentActual - startActual;
+                if (Math.Abs(delta) > tolerance)
+                {
+                    bool brake = axis.Setup != null && axis.Setup.Brake;
+                    return "EjectPinZ HOME 준비 중 Servo OFF 무명령 위치 변위를 감지했습니다. " +
+                        "axis=" + axis.Name +
+                        ", startActual=" + startActual.ToString(
+                            "0.###",
+                            System.Globalization.CultureInfo.InvariantCulture) +
+                        ", currentActual=" + currentActual.ToString(
+                            "0.###",
+                            System.Globalization.CultureInfo.InvariantCulture) +
+                        ", delta=" + delta.ToString(
+                            "0.###",
+                            System.Globalization.CultureInfo.InvariantCulture) +
+                        ", allowed=" + tolerance.ToString(
+                            "0.###",
+                            System.Globalization.CultureInfo.InvariantCulture) +
+                        ", brake=" + brake;
+                }
+
+                int remainingMs = waitMs - (int)stopwatch.ElapsedMilliseconds;
+                if (remainingMs <= 0)
+                    return string.Empty;
+
+                await Task.Delay(
+                    Math.Min(HomePreparationFeedbackPollMs, remainingMs),
+                    cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        private static async Task<string> TryHoldUnsafeHomePreparationAxisAsync(
+            BaseAxis axis,
+            bool allowDuringActiveAlarm)
+        {
+            if (axis == null)
+                return "servoHold=failed(axis null)";
+
+            try
+            {
+                if (AlarmManager.HasActive && !allowDuringActiveAlarm)
+                    return "servoHold=blocked(active alarm)";
+
+                AjinAxis ajinAxis = axis as AjinAxis;
+                if (ajinAxis != null && allowDuringActiveAlarm)
+                    ajinAxis.ServoOnForInitializeSafetyHold();
+                else
+                    axis.ServoOn();
+                await Task.Delay(100).ConfigureAwait(false);
+                axis.UpdateStatus();
+                return "servoHold=" + (axis.IsServoOn ? "ON" : "FAILED");
+            }
+            catch (Exception ex)
+            {
+                return "servoHold=exception(" + ex.Message + ")";
+            }
+        }
+
+        private static async Task<string> TryHoldCancelledPickerYPairAsync(
+            PickerYHomeServoRestoreState restoreState)
+        {
+            if (restoreState == null || !restoreState.ServoOffIssued)
+                return string.Empty;
+
+            var holdStates = new List<string>();
+            if (restoreState.TargetRestoreServoOn &&
+                restoreState.TargetAxis != null &&
+                !restoreState.TargetAxis.IsServoOn)
+            {
+                holdStates.Add(
+                    restoreState.TargetAxis.Name + ":" +
+                    await TryHoldUnsafeHomePreparationAxisAsync(
+                        restoreState.TargetAxis,
+                        true).ConfigureAwait(false));
+            }
+
+            if (restoreState.RestoreServoOn &&
+                restoreState.PairedAxis != null &&
+                !restoreState.PairedAxis.IsServoOn)
+            {
+                holdStates.Add(
+                    restoreState.PairedAxis.Name + ":" +
+                    await TryHoldUnsafeHomePreparationAxisAsync(
+                        restoreState.PairedAxis,
+                        true).ConfigureAwait(false));
+            }
+
+            return string.Join(", ", holdStates.ToArray());
+        }
+
+        public async Task<int> ExecuteSingleAxisHomeAsync(
+            BaseAxis axis,
+            CancellationToken cancellationToken)
         {
             bool pickerYHomeGateEntered = false;
             PickerYHomeServoRestoreState pickerYServoState = null;
+            AjinAxis homePreparationAxis = null;
+            bool homePreparationActive = false;
+            bool servoOffIssuedByThisCall = false;
+            bool servoWasOnBeforePreparation = false;
+            bool servoHoldAttempted = false;
+            double homePreparationStartActual = 0.0;
             try
             {
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 if (axis == null)
                 {
                     const string message = "초기화할 축 정보가 없습니다.";
@@ -1647,12 +1924,14 @@ namespace QMC.CDT320.Initialization
                 }
 
                 bool isPickerYHome = IsPickerYHomeAxis(axis);
+                bool isEjectPinZHome = IsEjectPinZHomePreparationAxis(axis);
                 if (isPickerYHome)
                 {
-                    await _pickerYHomeGate.WaitAsync().ConfigureAwait(false);
+                    await _pickerYHomeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
                     pickerYHomeGateEntered = true;
                 }
 
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
                     "Axis initialize requested. axis=" + axis.Name + " - Start");
 
@@ -1675,27 +1954,101 @@ namespace QMC.CDT320.Initialization
                 if (stopResult != 0)
                     return stopResult;
 
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
+
+                if (isEjectPinZHome)
+                {
+                    // Brake가 없는 EjectPinZ는 Servo OFF 시 실제 하강하므로 공용 HOME 준비의
+                    // ServoOff -> ResetAlarm -> ServoOn 순서를 사용하지 않습니다.
+                    // 현재 Servo가 이미 ON이고 Alarm이 없을 때만 기존 MotionGuard HOME으로 진입합니다.
+                    axis.UpdateStatus();
+                    if (!axis.IsServoOn || axis.IsAlarm)
+                    {
+                        return FailInitializePreparation(
+                            "EjectPinZ HOME 시작 차단: Servo ON 및 Axis Alarm OFF 상태가 필요합니다. " +
+                            "servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                            ", alarm=" + axis.IsAlarm +
+                            ", alarmCode=" + axis.AlarmCode +
+                            ", actual=" + axis.ActualPosition.ToString(
+                                "0.###",
+                                System.Globalization.CultureInfo.InvariantCulture) +
+                            ". 자동 AlarmReset/ServoOn은 수행하지 않습니다.");
+                    }
+
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "EjectPinZ HOME preparation keeps Servo ON and skips ServoOff/ResetAlarm/ServoOn. " +
+                        "servo=ON, alarm=False, actual=" + axis.ActualPosition.ToString(
+                            "0.###",
+                            System.Globalization.CultureInfo.InvariantCulture) + " - Ok");
+                }
+
                 if (isPickerYHome)
                 {
-                    int pickerYPrepareResult = PreparePickerYHomeServoPair(axis, out pickerYServoState);
+                    int pickerYPrepareResult = PreparePickerYHomeServoPair(
+                        axis,
+                        cancellationToken,
+                        out pickerYServoState);
                     if (pickerYPrepareResult != 0)
+                    {
+                        string pickerYHoldState = await TryHoldCancelledPickerYPairAsync(
+                            pickerYServoState).ConfigureAwait(false);
+                        if (!string.IsNullOrWhiteSpace(pickerYHoldState))
+                        {
+                            QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                                "PickerY HOME 준비 실패 후 기존 Servo ON 상태 복원을 시도했습니다. " +
+                                pickerYHoldState + " - SafetyHold");
+                        }
                         return pickerYPrepareResult;
+                    }
                 }
-                else
+                else if (!isEjectPinZHome)
                 {
                     int servoOffSettleMs = IsPickerZHomeAxis(axis) ? 1000 : 500;
+                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
+                    servoWasOnBeforePreparation = axis.IsServoOn;
+                    // ServoOff 내부에서 예외가 발생해도 이 호출이 OFF를 시도했다는 사실을 잃지 않습니다.
+                    servoOffIssuedByThisCall = true;
                     axis.ServoOff();
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
                         "Axis Servo OFF settle before HOME. axis=" + axis.Name +
                         ", waitMs=" + servoOffSettleMs + " - Start");
-                    await Task.Delay(servoOffSettleMs).ConfigureAwait(false);
+                    string settleFailure = await MonitorHomePreparationSettleAsync(
+                        homePreparationAxis,
+                        homePreparationStartActual,
+                        servoOffSettleMs,
+                        cancellationToken).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(settleFailure))
+                    {
+                        servoHoldAttempted = true;
+                        string holdState = await TryHoldUnsafeHomePreparationAxisAsync(
+                            axis,
+                            true).ConfigureAwait(false);
+                        return FailInitializePreparation(settleFailure + ", " + holdState);
+                    }
                 }
 
-                axis.ResetAlarm();
-                Thread.Sleep(500);
+                if (!isEjectPinZHome)
+                {
+                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
+                    axis.ResetAlarm();
+                    string resetSettleFailure = await MonitorHomePreparationSettleAsync(
+                        homePreparationAxis,
+                        homePreparationStartActual,
+                        500,
+                        cancellationToken).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(resetSettleFailure))
+                    {
+                        servoHoldAttempted = true;
+                        string holdState = await TryHoldUnsafeHomePreparationAxisAsync(
+                            axis,
+                            true).ConfigureAwait(false);
+                        return FailInitializePreparation(resetSettleFailure + ", " + holdState);
+                    }
 
-                axis.ServoOn();
-                Thread.Sleep(500);
+                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
+                    axis.ServoOn();
+                    await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+                }
 
                 if (!axis.IsServoOn)
                 {
@@ -1716,6 +2069,7 @@ namespace QMC.CDT320.Initialization
                         pickerYServoState.PairedAxis.Name);
                 }
 
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 int homeResult = await axis.HomeSearchAsync().ConfigureAwait(false);
                 if (homeResult != 0)
                 {
@@ -1751,9 +2105,11 @@ namespace QMC.CDT320.Initialization
 
                 if (pickerYServoState != null)
                 {
+                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                     int pickerYRestoreResult = RestorePairedPickerYServoAfterHome(
                         pickerYServoState,
-                        true);
+                        true,
+                        cancellationToken);
                     if (pickerYRestoreResult != 0)
                         return pickerYRestoreResult;
                 }
@@ -1765,8 +2121,77 @@ namespace QMC.CDT320.Initialization
                 _runState.MarkAxisHomed(axis);
                 return 0;
             }
+            catch (OperationCanceledException)
+            {
+                string holdState = string.Empty;
+                if (servoOffIssuedByThisCall &&
+                    !servoHoldAttempted &&
+                    axis != null &&
+                    !axis.IsServoOn &&
+                    (servoWasOnBeforePreparation ||
+                     (axis.Setup != null && !axis.Setup.Brake)))
+                {
+                    servoHoldAttempted = true;
+                    holdState = await TryHoldUnsafeHomePreparationAxisAsync(
+                        axis,
+                        true).ConfigureAwait(false);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "HOME 준비 취소 중 Servo OFF 축의 비상 위치 유지를 시도했습니다. axis=" +
+                        axis.Name + ", " +
+                        holdState + " - SafetyHold");
+                }
+
+                string pickerYHoldState = await TryHoldCancelledPickerYPairAsync(
+                    pickerYServoState).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(pickerYHoldState))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "PickerY HOME 준비 취소 중 기존 Servo ON 상태 복원을 시도했습니다. " +
+                        pickerYHoldState + " - SafetyHold");
+                }
+
+                string message = "Alarm/정지 요청으로 축 초기화를 취소했습니다. axis=" +
+                    (axis != null ? axis.Name : "-") +
+                    ". 예정된 Servo ON/HOME 신규 명령은 발행하지 않습니다." +
+                    (string.IsNullOrWhiteSpace(holdState)
+                        ? string.Empty
+                        : " emergency " + holdState + ".") +
+                    (string.IsNullOrWhiteSpace(pickerYHoldState)
+                        ? string.Empty
+                        : " PickerY emergency " + pickerYHoldState + ".");
+                SetLastFailureMessage(message);
+                QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                    message + " - Cancelled");
+                return -4;
+            }
             catch (Exception ex)
             {
+                if (servoOffIssuedByThisCall &&
+                    !servoHoldAttempted &&
+                    axis != null &&
+                    !axis.IsServoOn &&
+                    (servoWasOnBeforePreparation ||
+                     (axis.Setup != null && !axis.Setup.Brake)))
+                {
+                    servoHoldAttempted = true;
+                    string holdState = await TryHoldUnsafeHomePreparationAxisAsync(
+                        axis,
+                        true).ConfigureAwait(false);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "HOME 준비 예외 중 Servo OFF 축의 비상 위치 유지를 시도했습니다. axis=" +
+                        axis.Name + ", " +
+                        holdState + " - SafetyHold");
+                }
+
+                string pickerYHoldState = await TryHoldCancelledPickerYPairAsync(
+                    pickerYServoState).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(pickerYHoldState))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "PickerY HOME 준비 예외 중 기존 Servo ON 상태 복원을 시도했습니다. " +
+                        pickerYHoldState + " - SafetyHold");
+                }
+
                 string message = "축 초기화 실패: " + (axis != null ? axis.Name : "-") + " / " + ex.Message;
                 SetLastFailureMessage(message);
                 QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
@@ -1777,8 +2202,15 @@ namespace QMC.CDT320.Initialization
             }
             finally
             {
-                if (pickerYServoState != null && !pickerYServoState.Restored)
-                    RestorePairedPickerYServoAfterHome(pickerYServoState, false);
+                if (homePreparationActive && homePreparationAxis != null)
+                    homePreparationAxis.EndInitializeHomePreparation();
+
+                if (pickerYServoState != null && !pickerYServoState.Restored &&
+                    !IsInitializeCancelledOrAlarm(cancellationToken))
+                    RestorePairedPickerYServoAfterHome(
+                        pickerYServoState,
+                        false,
+                        cancellationToken);
 
                 if (pickerYHomeGateEntered)
                     _pickerYHomeGate.Release();
@@ -1800,10 +2232,12 @@ namespace QMC.CDT320.Initialization
             AjinAxis ajinVisionX = visionX as AjinAxis;
             int searchDirection = inputSide ? -1 : 1;
             bool limitSearchActive = false;
+            bool visionServoOffIssued = false;
+            bool visionServoWasOn = false;
 
             try
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
 
                 BaseAxis expectedFeederY = inputSide
                     ? (_machine.InputFeederUnit != null ? _machine.InputFeederUnit.FeederY : null)
@@ -1887,30 +2321,45 @@ namespace QMC.CDT320.Initialization
                     }
                 }
 
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 visionX.Stop();
+                visionServoWasOn = visionX.IsServoOn;
+                visionServoOffIssued = true;
                 visionX.ServoOff();
                 await Task.Delay(FeederVisionServoSettleMs, cancellationToken).ConfigureAwait(false);
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 visionX.ResetAlarm();
                 await Task.Delay(FeederVisionServoSettleMs, cancellationToken).ConfigureAwait(false);
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 visionX.ServoOn();
                 await Task.Delay(FeederVisionServoSettleMs, cancellationToken).ConfigureAwait(false);
 
-                double velocity = visionX.Config != null && visionX.Config.JogFineVelocity > 0.0
+                // To do: [원점복귀 리밋 탐색] 탐색은 Coarse, 이탈은 Fine으로 분리한다.
+                // 기존 조건: 탐색·이탈 모두 JogFineVelocity(폴백 1.0mm/s)를 사용했다.
+                //            → OutputVisionX처럼 스트로크가 긴 축(1084mm)은 리밋 도달 전에 타임아웃이 났다.
+                // 현재 기준: 긴 거리를 달리는 탐색만 Coarse로 올린다. 이탈은 5mm 단거리이고 리밋 근처라
+                //            저속이 안전하므로 Fine을 유지한다(사용자 지시 2026-08-05).
+                double fineVelocity = visionX.Config != null && visionX.Config.JogFineVelocity > 0.0
                     ? visionX.Config.JogFineVelocity
                     : 1.0;
+                double searchVelocity = visionX.Config != null && visionX.Config.JogCoarseVelocity > 0.0
+                    ? visionX.Config.JogCoarseVelocity
+                    : fineVelocity;
+                double backoffVelocity = fineVelocity;
                 if (ajinVisionX != null)
                 {
+                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                     // Dog ON은 Limit까지 실제 탐색하고, Dog OFF는 현재 Limit ON만 무이동 재확인합니다.
                     int searchResult = await ajinVisionX.SearchHardwareLimitForInitializeAsync(
                         searchDirection,
-                        velocity,
-                        30000,
+                        searchVelocity,
+                        FeederVisionLimitSearchTimeoutMs,
                         cancellationToken,
                         dogOn).ConfigureAwait(false);
                     if (searchResult == 0)
                         limitSearchActive = true;
 
-                    cancellationToken.ThrowIfCancellationRequested();
+                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                     if (searchResult != 0)
                         return FailInitializePreparation(BuildAxisMotionFailureMessage(
                             visionX,
@@ -1922,9 +2371,9 @@ namespace QMC.CDT320.Initialization
                         int backoffResult = await ajinVisionX.BackOffHardwareLimitForInitializeAsync(
                             searchDirection,
                             FeederVisionLimitBackoffDistanceMm,
-                            velocity,
+                            backoffVelocity,
                             cancellationToken).ConfigureAwait(false);
-                        cancellationToken.ThrowIfCancellationRequested();
+                        ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                         if (backoffResult != 0)
                             return FailInitializePreparation(BuildAxisMotionFailureMessage(
                                 visionX,
@@ -1948,18 +2397,20 @@ namespace QMC.CDT320.Initialization
                 }
 
                 // 반대 Lane이 실패했다면 StopAll 이후 Feeder HOME을 새로 시작하지 않습니다.
-                cancellationToken.ThrowIfCancellationRequested();
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 int homeResult;
                 // 이 Scope는 정확한 FeederY AxisHome의 Camera 위치 조건만 잠시 대체합니다.
                 using (MotionGuardRuntime.BeginFeederHomeVisionRetreat(feederY, visionX, inputSide))
                 {
-                    homeResult = await ExecuteSingleAxisHomeAsync(feederY).ConfigureAwait(false);
+                    homeResult = await ExecuteSingleAxisHomeAsync(
+                        feederY,
+                        cancellationToken).ConfigureAwait(false);
                 }
                 if (homeResult != 0)
                     return homeResult;
 
                 // HOME 중 반대 Lane이 실패했으면 후속 5mm 이탈을 새로 시작하지 않습니다.
-                cancellationToken.ThrowIfCancellationRequested();
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 if (!TryRefreshFeederAvoidDog(inputSide, out dogOn, out reason))
                     return FailInitializePreparation(reason);
                 if (!dogOn)
@@ -1971,12 +2422,13 @@ namespace QMC.CDT320.Initialization
 
                 if (limitSearchActive)
                 {
+                    // 이탈은 5mm 단거리이고 리밋 근처이므로 Fine 속도를 유지한다(위 탐색 구간과 동일 규칙).
                     int backoffResult = await ajinVisionX.BackOffHardwareLimitForInitializeAsync(
                         searchDirection,
                         FeederVisionLimitBackoffDistanceMm,
-                        velocity,
+                        backoffVelocity,
                         cancellationToken).ConfigureAwait(false);
-                    cancellationToken.ThrowIfCancellationRequested();
+                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                     if (backoffResult != 0)
                         return FailInitializePreparation(BuildAxisMotionFailureMessage(
                             visionX,
@@ -1997,10 +2449,30 @@ namespace QMC.CDT320.Initialization
             }
             catch (OperationCanceledException)
             {
+                if (visionServoOffIssued && visionServoWasOn &&
+                    visionX != null && !visionX.IsServoOn)
+                {
+                    string holdState = await TryHoldUnsafeHomePreparationAxisAsync(
+                        visionX,
+                        true).ConfigureAwait(false);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "VisionXFeederHomeRetreat",
+                        "취소 중 이 초기화가 OFF시킨 VisionX Servo 위치 유지를 시도했습니다. axis=" +
+                        visionX.Name + ", " + holdState + " - SafetyHold");
+                }
                 throw;
             }
             catch (Exception ex)
             {
+                if (visionServoOffIssued && visionServoWasOn &&
+                    visionX != null && !visionX.IsServoOn)
+                {
+                    string holdState = await TryHoldUnsafeHomePreparationAxisAsync(
+                        visionX,
+                        true).ConfigureAwait(false);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "VisionXFeederHomeRetreat",
+                        "예외 중 이 초기화가 OFF시킨 VisionX Servo 위치 유지를 시도했습니다. axis=" +
+                        visionX.Name + ", " + holdState + " - SafetyHold");
+                }
                 return FailInitializePreparation(
                     (inputSide ? "Input" : "Output") +
                     " Feeder/Vision 초기화 예외. error=" + ex.Message);
@@ -2032,8 +2504,10 @@ namespace QMC.CDT320.Initialization
 
                 foreach (BaseAxis axis in axes)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    int result = await ExecuteSingleAxisHomeAsync(axis).ConfigureAwait(false);
+                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
+                    int result = await ExecuteSingleAxisHomeAsync(
+                        axis,
+                        cancellationToken).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
@@ -2062,12 +2536,14 @@ namespace QMC.CDT320.Initialization
 
         public async Task<int> ExecuteParallelHomeAsync(
             AxisInitializeStep step,
-            IList<BaseAxis> axes)
+            IList<BaseAxis> axes,
+            CancellationToken cancellationToken)
         {
             try
             {
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 Task<int>[] tasks = axes
-                    .Select(axis => ExecuteSingleAxisHomeAsync(axis))
+                    .Select(axis => ExecuteSingleAxisHomeAsync(axis, cancellationToken))
                     .ToArray();
                 int[] results = await Task.WhenAll(tasks).ConfigureAwait(false);
                 for (int i = 0; i < results.Length; i++)
@@ -2077,6 +2553,10 @@ namespace QMC.CDT320.Initialization
                 }
 
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -2106,8 +2586,10 @@ namespace QMC.CDT320.Initialization
             return axes.Any(axis => !(axis is AjinAxis));
         }
 
-        public async Task<int> MoveFrontPickerYToAvoidAfterHomeAsync()
+        public async Task<int> MoveFrontPickerYToAvoidAfterHomeAsync(
+            CancellationToken cancellationToken = default(CancellationToken))
         {
+            ThrowIfInitializeCancelledOrAlarm(cancellationToken);
             if (_machine.PickerFrontUnit == null ||
                 _machine.PickerFrontUnit.PickerY == null ||
                 _machine.PickerFrontUnit.Recipe == null ||
@@ -2118,11 +2600,14 @@ namespace QMC.CDT320.Initialization
                 _machine.PickerFrontUnit.PickerY,
                 _machine.PickerFrontUnit.Recipe.PickerY.AvoidPosition,
                 "FrontPickerY.Avoid",
-                0.0).ConfigureAwait(false);
+                0.0,
+                cancellationToken).ConfigureAwait(false);
         }
 
-        public async Task<int> MoveRearPickerYToAvoidAfterHomeAsync()
+        public async Task<int> MoveRearPickerYToAvoidAfterHomeAsync(
+            CancellationToken cancellationToken = default(CancellationToken))
         {
+            ThrowIfInitializeCancelledOrAlarm(cancellationToken);
             if (_machine.PickerRearUnit == null ||
                 _machine.PickerRearUnit.PickerY == null ||
                 _machine.PickerRearUnit.Recipe == null ||
@@ -2133,7 +2618,8 @@ namespace QMC.CDT320.Initialization
                 _machine.PickerRearUnit.PickerY,
                 _machine.PickerRearUnit.Recipe.PickerY.AvoidPosition,
                 "RearPickerY.Avoid",
-                0.0).ConfigureAwait(false);
+                0.0,
+                cancellationToken).ConfigureAwait(false);
         }
 
         // 시뮬레이션 PickerYPair 초기화: 실장비 페어 경로와 동일한 서보 준비/HOME 순서를 따르되,
@@ -2142,13 +2628,18 @@ namespace QMC.CDT320.Initialization
         // "홈 대상 축 Servo ON"만 요구하므로, 두 축을 ServoOn 한 뒤 Front -> Rear 순차 HOME 하면 실장비와 유사하게 완료된다.
         private async Task<int> ExecutePickerYPairSimulationInitializeAsync(
             AxisInitializeStep step,
-            IList<BaseAxis> axes)
+            IList<BaseAxis> axes,
+            CancellationToken cancellationToken)
         {
             BaseAxis frontY = null;
             BaseAxis rearY = null;
             IDisposable pairInitializeScope = null;
+            bool pairServoOffIssued = false;
+            bool frontServoWasOn = false;
+            bool rearServoWasOn = false;
             try
             {
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 // 대상 확정: SimAxis라 AjinAxis 타입은 요구하지 않되, 장비의 Front/Rear PickerY와 동일 참조인지는 검증한다.
                 frontY = axes.FirstOrDefault(axis =>
                     axis != null && string.Equals(axis.Name, "FrontPickerY", StringComparison.OrdinalIgnoreCase));
@@ -2189,15 +2680,22 @@ namespace QMC.CDT320.Initialization
                 // 서보 준비: 실장비 페어 경로(Stop -> ServoOff -> ResetAlarm -> ServoOn)와 동일 순서.
                 frontY.Stop();
                 rearY.Stop();
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
+                frontServoWasOn = frontY.IsServoOn;
+                rearServoWasOn = rearY.IsServoOn;
+                pairServoOffIssued = true;
                 frontY.ServoOff();
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 rearY.ServoOff();
-                await Task.Delay(500).ConfigureAwait(false);
+                await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 frontY.ResetAlarm();
                 rearY.ResetAlarm();
-                await Task.Delay(500).ConfigureAwait(false);
+                await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 frontY.ServoOn();
                 rearY.ServoOn();
-                await Task.Delay(500).ConfigureAwait(false);
+                await Task.Delay(500, cancellationToken).ConfigureAwait(false);
                 frontY.UpdateStatus();
                 rearY.UpdateStatus();
                 if (!frontY.IsServoOn || !rearY.IsServoOn)
@@ -2206,6 +2704,7 @@ namespace QMC.CDT320.Initialization
                         ", rearServo=" + rearY.IsServoOn);
 
                 // HOME: 실장비와 동일하게 Front -> Rear 순차. 시뮬 HomeSearchAsync가 MotionGuard(Home)를 통과한 뒤 IsHomeDone을 세운다.
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 int frontHomeResult = await frontY.HomeSearchAsync().ConfigureAwait(false);
                 frontY.UpdateStatus();
                 if (frontHomeResult != 0 || !frontY.IsHomeDone || frontY.IsAlarm)
@@ -2217,6 +2716,7 @@ namespace QMC.CDT320.Initialization
                         ", home=" + frontY.IsHomeDone + ", alarm=" + frontY.IsAlarm);
                 }
 
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 int rearHomeResult = await rearY.HomeSearchAsync().ConfigureAwait(false);
                 rearY.UpdateStatus();
                 if (rearHomeResult != 0 || !rearY.IsHomeDone || rearY.IsAlarm)
@@ -2228,7 +2728,8 @@ namespace QMC.CDT320.Initialization
                         ", home=" + rearY.IsHomeDone + ", alarm=" + rearY.IsAlarm);
                 }
 
-                int frontAvoidResult = await MoveFrontPickerYToAvoidAfterHomeAsync().ConfigureAwait(false);
+                int frontAvoidResult = await MoveFrontPickerYToAvoidAfterHomeAsync(
+                    cancellationToken).ConfigureAwait(false);
                 frontY.UpdateStatus();
                 if (frontAvoidResult != 0 ||
                     !_machine.PickerFrontUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
@@ -2240,7 +2741,8 @@ namespace QMC.CDT320.Initialization
                         ", actual=" + frontY.ActualPosition.ToString("0.###"));
                 }
 
-                int rearAvoidResult = await MoveRearPickerYToAvoidAfterHomeAsync().ConfigureAwait(false);
+                int rearAvoidResult = await MoveRearPickerYToAvoidAfterHomeAsync(
+                    cancellationToken).ConfigureAwait(false);
                 rearY.UpdateStatus();
                 if (rearAvoidResult != 0 ||
                     !_machine.PickerRearUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
@@ -2260,10 +2762,28 @@ namespace QMC.CDT320.Initialization
                     (step != null ? step.StepNo : 0) + " - Ok");
                 return 0;
             }
+            catch (OperationCanceledException)
+            {
+                if (pairServoOffIssued)
+                {
+                    if (frontServoWasOn && frontY != null && !frontY.IsServoOn)
+                        await TryHoldUnsafeHomePreparationAxisAsync(frontY, true).ConfigureAwait(false);
+                    if (rearServoWasOn && rearY != null && !rearY.IsServoOn)
+                        await TryHoldUnsafeHomePreparationAxisAsync(rearY, true).ConfigureAwait(false);
+                }
+                throw;
+            }
             catch (Exception ex)
             {
                 if (frontY != null) { try { frontY.Stop(); } catch { } }
                 if (rearY != null) { try { rearY.Stop(); } catch { } }
+                if (pairServoOffIssued)
+                {
+                    if (frontServoWasOn && frontY != null && !frontY.IsServoOn)
+                        await TryHoldUnsafeHomePreparationAxisAsync(frontY, true).ConfigureAwait(false);
+                    if (rearServoWasOn && rearY != null && !rearY.IsServoOn)
+                        await TryHoldUnsafeHomePreparationAxisAsync(rearY, true).ConfigureAwait(false);
+                }
                 string message = "PickerYPair 시뮬레이션 초기화 예외: " + ex.Message;
                 SetLastFailureMessage(message);
                 AlarmManager.Raise(
@@ -2282,14 +2802,19 @@ namespace QMC.CDT320.Initialization
 
         private async Task<int> ExecutePickerYPairInitializeAsync(
             AxisInitializeStep step,
-            IList<BaseAxis> axes)
+            IList<BaseAxis> axes,
+            CancellationToken cancellationToken)
         {
             AjinAxis frontY = null;
             AjinAxis rearY = null;
             CancellationTokenSource limitSearchCancellation = null;
             IDisposable pairInitializeScope = null;
+            bool pairServoOffIssued = false;
+            bool frontServoWasOn = false;
+            bool rearServoWasOn = false;
             try
             {
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 if (axes == null || axes.Count != 2)
                     return FailInitializePreparation(
                         "PickerYPair 초기화에는 FrontPickerY와 RearPickerY 두 축만 필요합니다.");
@@ -2297,7 +2822,10 @@ namespace QMC.CDT320.Initialization
                 // 시뮬레이션 축(SimAxis)은 Ajin 하드리밋 동시 탐색 경로를 사용할 수 없다.
                 // 실보드가 아니면 실장비와 동일한 HOME 완료/좌표 결과가 되도록 개별 축 초기화 경로로 Front -> Rear를 순차 HOME 처리한다.
                 if (IsPickerYPairSimulationInitialize(axes))
-                    return await ExecutePickerYPairSimulationInitializeAsync(step, axes).ConfigureAwait(false);
+                    return await ExecutePickerYPairSimulationInitializeAsync(
+                        step,
+                        axes,
+                        cancellationToken).ConfigureAwait(false);
 
                 frontY = axes.OfType<AjinAxis>().FirstOrDefault(axis =>
                     string.Equals(axis.Name, "FrontPickerY", StringComparison.OrdinalIgnoreCase));
@@ -2336,15 +2864,22 @@ namespace QMC.CDT320.Initialization
 
                 frontY.Stop();
                 rearY.Stop();
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
+                frontServoWasOn = frontY.IsServoOn;
+                rearServoWasOn = rearY.IsServoOn;
+                pairServoOffIssued = true;
                 frontY.ServoOff();
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 rearY.ServoOff();
-                await Task.Delay(500).ConfigureAwait(false);
+                await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 frontY.ResetAlarm();
                 rearY.ResetAlarm();
-                await Task.Delay(500).ConfigureAwait(false);
+                await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 frontY.ServoOn();
                 rearY.ServoOn();
-                await Task.Delay(500).ConfigureAwait(false);
+                await Task.Delay(500, cancellationToken).ConfigureAwait(false);
                 frontY.UpdateStatus();
                 rearY.UpdateStatus();
                 bool frontAlarmReady = !frontY.IsAlarm ||
@@ -2366,7 +2901,9 @@ namespace QMC.CDT320.Initialization
 
                 double frontVelocity = Math.Max(0.000001, frontY.Config.JogFineVelocity);
                 double rearVelocity = Math.Max(0.000001, rearY.Config.JogFineVelocity);
-                limitSearchCancellation = new CancellationTokenSource();
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
+                limitSearchCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken);
                 int[] searchResults;
                 Task<int> frontSearch = frontY.SearchHardwareLimitForInitializeAsync(
                     -1,
@@ -2426,6 +2963,7 @@ namespace QMC.CDT320.Initialization
                             "PickerYPair HOME MotionGuard 사전 검증 실패. " + pairHomeReason);
                     }
 
+                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                     int frontHomeResult = await frontY.HomeSearchAsync().ConfigureAwait(false);
                     frontY.UpdateStatus();
                     if (frontHomeResult != 0 || !frontY.IsHomeDone || frontY.IsAlarm)
@@ -2438,6 +2976,7 @@ namespace QMC.CDT320.Initialization
                             ", alarm=" + frontY.IsAlarm);
                     }
 
+                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                     int rearHomeResult = await rearY.HomeSearchAsync().ConfigureAwait(false);
                     rearY.UpdateStatus();
                     if (rearHomeResult != 0 || !rearY.IsHomeDone || rearY.IsAlarm)
@@ -2463,7 +3002,8 @@ namespace QMC.CDT320.Initialization
                         ", rearAlarm=" + rearY.IsAlarm);
                 }
 
-                int frontAvoidResult = await MoveFrontPickerYToAvoidAfterHomeAsync().ConfigureAwait(false);
+                int frontAvoidResult = await MoveFrontPickerYToAvoidAfterHomeAsync(
+                    cancellationToken).ConfigureAwait(false);
                 frontY.UpdateStatus();
                 if (frontAvoidResult != 0 ||
                     !_machine.PickerFrontUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
@@ -2474,7 +3014,8 @@ namespace QMC.CDT320.Initialization
                         ", actual=" + frontY.ActualPosition.ToString("0.###"));
                 }
 
-                int rearAvoidResult = await MoveRearPickerYToAvoidAfterHomeAsync().ConfigureAwait(false);
+                int rearAvoidResult = await MoveRearPickerYToAvoidAfterHomeAsync(
+                    cancellationToken).ConfigureAwait(false);
                 rearY.UpdateStatus();
                 if (rearAvoidResult != 0 ||
                     !_machine.PickerRearUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
@@ -2492,9 +3033,28 @@ namespace QMC.CDT320.Initialization
                     (step != null ? step.StepNo : 0) + " - Ok");
                 return 0;
             }
+            catch (OperationCanceledException)
+            {
+                StopPickerYPairInitialize(frontY, rearY);
+                if (pairServoOffIssued)
+                {
+                    if (frontServoWasOn && frontY != null && !frontY.IsServoOn)
+                        await TryHoldUnsafeHomePreparationAxisAsync(frontY, true).ConfigureAwait(false);
+                    if (rearServoWasOn && rearY != null && !rearY.IsServoOn)
+                        await TryHoldUnsafeHomePreparationAxisAsync(rearY, true).ConfigureAwait(false);
+                }
+                throw;
+            }
             catch (Exception ex)
             {
                 StopPickerYPairInitialize(frontY, rearY);
+                if (pairServoOffIssued)
+                {
+                    if (frontServoWasOn && frontY != null && !frontY.IsServoOn)
+                        await TryHoldUnsafeHomePreparationAxisAsync(frontY, true).ConfigureAwait(false);
+                    if (rearServoWasOn && rearY != null && !rearY.IsServoOn)
+                        await TryHoldUnsafeHomePreparationAxisAsync(rearY, true).ConfigureAwait(false);
+                }
                 string message = "PickerYPair 초기화 예외: " + ex.Message;
                 SetLastFailureMessage(message);
                 AlarmManager.Raise(
@@ -2602,6 +3162,7 @@ namespace QMC.CDT320.Initialization
 
         private int PreparePickerYHomeServoPair(
             BaseAxis targetAxis,
+            CancellationToken cancellationToken,
             out PickerYHomeServoRestoreState restoreState)
         {
             restoreState = null;
@@ -2631,18 +3192,23 @@ namespace QMC.CDT320.Initialization
                 {
                     TargetAxis = targetAxis,
                     PairedAxis = pairedAxis,
+                    TargetRestoreServoOn = targetAxis.IsServoOn,
                     RestoreServoOn = pairedAxis.IsServoOn,
                     RestoreHomeDone = pairedAxis.IsHomeDone,
+                    ServoOffIssued = false,
                     Restored = false
                 };
 
                 frontY.Stop();
                 rearY.Stop();
-                Thread.Sleep(100);
+                WaitForInitializePreparationOrCancel(100, cancellationToken);
 
+                restoreState.ServoOffIssued = true;
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 frontY.ServoOff();
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 rearY.ServoOff();
-                Thread.Sleep(500);
+                WaitForInitializePreparationOrCancel(500, cancellationToken);
 
                 try { frontY.UpdateStatus(); } catch { }
                 try { rearY.UpdateStatus(); } catch { }
@@ -2672,6 +3238,10 @@ namespace QMC.CDT320.Initialization
                     " - Ok");
                 return 0;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 return FailInitializePreparation(
@@ -2681,9 +3251,32 @@ namespace QMC.CDT320.Initialization
             }
         }
 
+        private static void WaitForInitializePreparationOrCancel(
+            int waitMs,
+            CancellationToken cancellationToken)
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            while (stopwatch.ElapsedMilliseconds < waitMs)
+            {
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
+                int remainingMs = waitMs - (int)stopwatch.ElapsedMilliseconds;
+                if (remainingMs <= 0)
+                    break;
+
+                if (cancellationToken.WaitHandle.WaitOne(
+                    Math.Min(HomePreparationFeedbackPollMs, remainingMs)))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+            }
+
+            ThrowIfInitializeCancelledOrAlarm(cancellationToken);
+        }
+
         private int RestorePairedPickerYServoAfterHome(
             PickerYHomeServoRestoreState restoreState,
-            bool reportFailure)
+            bool reportFailure,
+            CancellationToken cancellationToken)
         {
             try
             {
@@ -2714,6 +3307,7 @@ namespace QMC.CDT320.Initialization
                         ", alarmCode=" + pairedAxis.AlarmCode,
                         reportFailure);
 
+                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
                 pairedAxis.ServoOn();
                 Thread.Sleep(500);
                 try { pairedAxis.UpdateStatus(); } catch { }

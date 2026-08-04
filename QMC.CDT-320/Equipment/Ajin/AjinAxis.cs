@@ -18,11 +18,13 @@ namespace QMC.CDT320.Ajin
         private static readonly bool ForceTestBoard = false;
         private static readonly bool BlockSetupWriteToBoard = true;
         private const double ForcedTestBoardVelocity = 20.0;
+        private const double SharedRailXInitializeSoftLimitOverrunMm = 5.0;
 
         private readonly object _sync = new object();
         private static int _sharedRailXHomeSearchCount;
         private int _motionDirection;
         private bool _isHomeSearching;
+        private int _initializeHomePreparationActive;
         private int _motionStopSerial;
         // 이 축의 위치 오버라이드(리다이렉트) 성공 횟수. MoveAbsoluteAsync가 자신의 이동 중
         // 오버라이드가 있었는지 판정해 마지막 Command↔Target 확인(-5)을 건너뛰는 데 쓴다.
@@ -87,6 +89,13 @@ namespace QMC.CDT320.Ajin
             bool allowMotion = true)
         {
             int searchDirection = direction < 0 ? -1 : 1;
+            bool useBoundedSoftLimitBypass = IsFeederVisionRetreatAxis() &&
+                Setup != null && Setup.SoftLimitEnabled;
+            double softLimitSearchBoundary = useBoundedSoftLimitBypass
+                ? (searchDirection < 0
+                    ? Setup.SoftLimitMinus - SharedRailXInitializeSoftLimitOverrunMm
+                    : Setup.SoftLimitPlus + SharedRailXInitializeSoftLimitOverrunMm)
+                : 0.0;
             bool completed = false;
             try
             {
@@ -221,6 +230,25 @@ namespace QMC.CDT320.Ajin
                         return 0;
                     }
 
+                    // Input/Output Vision X 초기화에서만 목표 방향 SoftLimit 통과를 허용합니다.
+                    // 목표 하드리밋 센서가 고장 나도 5 mm를 넘어서 계속 이동하지 않도록 제한합니다.
+                    double actualPosition = base.ActualPosition;
+                    if (useBoundedSoftLimitBypass &&
+                        ((searchDirection < 0 && actualPosition < softLimitSearchBoundary) ||
+                         (searchDirection > 0 && actualPosition > softLimitSearchBoundary)))
+                    {
+                        Stop();
+                        return FailMotion(
+                            -15,
+                            "INITIALIZE LIMIT SEARCH",
+                            "목표 하드리밋을 SoftLimit 초과 허용 범위 안에서 감지하지 못했습니다. " +
+                            "direction=" + searchDirection +
+                            ", position=" + actualPosition.ToString("0.###") +
+                            ", boundary=" + softLimitSearchBoundary.ToString("0.###"),
+                            0.0,
+                            false);
+                    }
+
                     await Task.Delay(1, cancellationToken).ConfigureAwait(false);
                 }
 
@@ -300,24 +328,29 @@ namespace QMC.CDT320.Ajin
                 }
 
                 int result;
-                if (UseSimulation)
+                // To do: [원점복귀 리밋 이탈] 이탈 이동 구간에만 소프트리밋 목표 검사 면제 스코프를 씌운다.
+                // 기존 조건: 스코프 없이 이동해 이탈 목표가 소프트리밋 밖이면 AX-SOFT-LIMIT-N으로 거부됐다.
+                using (BaseAxis.BeginInitializeLimitBackoffScope())
                 {
-                    result = await MoveJogStepAsync(
-                        -searchDirection,
-                        JogSpeedType.Custom,
-                        safeDistance,
-                        velocity).ConfigureAwait(false);
-                }
-                else
-                {
-                    // 좌표 기반 SharedRail 재배치만 건너뛰고, MoveJogStep 내부의 일반 MotionGuard는 그대로 확인합니다.
-                    using (SharedRailXMotionRuntime.EnterInternalDispatch())
+                    if (UseSimulation)
                     {
                         result = await MoveJogStepAsync(
                             -searchDirection,
                             JogSpeedType.Custom,
                             safeDistance,
                             velocity).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        // 좌표 기반 SharedRail 재배치만 건너뛰고, MoveJogStep 내부의 일반 MotionGuard는 그대로 확인합니다.
+                        using (SharedRailXMotionRuntime.EnterInternalDispatch())
+                        {
+                            result = await MoveJogStepAsync(
+                                -searchDirection,
+                                JogSpeedType.Custom,
+                                safeDistance,
+                                velocity).ConfigureAwait(false);
+                        }
                     }
                 }
 
@@ -357,8 +390,18 @@ namespace QMC.CDT320.Ajin
                     ? Config.InPositionTolerance
                     : 0.01;
                 bool limitReleased = searchDirection < 0 ? !endMel : !endPel;
+
+                // To do: [원점복귀 리밋 이탈] 판정 기준을 "이탈 확인"으로 되돌린다.
+                // 기존 조건: Math.Abs(actualDelta - expectedDelta) > tolerance  (tolerance = InPositionTolerance 0.01)
+                //            && returnedInsideSoftLimit
+                //            → 5mm 상대이동에 In-Position용 0.01mm 정밀도를 요구해, 감속·서보 잔차 0.055mm에도
+                //              실패했다(2026-08-05 actualDelta=4.945). 소프트리밋 안쪽 복귀 요구도 홈 완료 위치가
+                //              소프트리밋 밖인 축에서는 영구 실패였다.
+                // 현재 기준: 이 단계의 목적은 하드리밋에서 빠져나왔는지 확인하는 것이다.
+                //            리밋 해제 + 이탈 방향으로 실제 이동했는지만 본다(이동량 정밀도는 요구하지 않는다).
+                bool movedAwayFromLimit = -searchDirection > 0 ? actualDelta > 0.0 : actualDelta < 0.0;
                 if (!limitReleased || IsMoving || !IsInPosition || !IsServoOn || IsAlarm ||
-                    Math.Abs(actualDelta - expectedDelta) > tolerance)
+                    !movedAwayFromLimit)
                 {
                     return FailMotion(
                         -14,
@@ -370,7 +413,10 @@ namespace QMC.CDT320.Ajin
                         ", moving=" + IsMoving +
                         ", inPosition=" + IsInPosition +
                         ", servo=" + IsServoOn +
-                        ", alarm=" + IsAlarm,
+                        ", alarm=" + IsAlarm +
+                        ", movedAwayFromLimit=" + movedAwayFromLimit +
+                        ", startActual=" + startActual.ToString("0.###") +
+                        ", endActual=" + endActual.ToString("0.###"),
                         0.0,
                         false);
                 }
@@ -455,6 +501,16 @@ namespace QMC.CDT320.Ajin
             return errorCode == 0;
         }
 
+        internal void BeginInitializeHomePreparation()
+        {
+            Interlocked.Exchange(ref _initializeHomePreparationActive, 1);
+        }
+
+        internal void EndInitializeHomePreparation()
+        {
+            Interlocked.Exchange(ref _initializeHomePreparationActive, 0);
+        }
+
         private bool IsTargetHardwareLimitActive(int direction)
         {
             return direction < 0 ? Sensor_MEL : Sensor_PEL;
@@ -492,6 +548,12 @@ namespace QMC.CDT320.Ajin
                    string.Equals(Name, "RearPickerX", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(Name, "OutputVisionX", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(Name, "OutVisionX", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsFeederVisionRetreatAxis()
+        {
+            return string.Equals(Name, "InputVisionX", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(Name, "OutputVisionX", StringComparison.OrdinalIgnoreCase);
         }
 
         private bool BeginSharedRailXHomeLimitSuppress()
@@ -1474,6 +1536,21 @@ namespace QMC.CDT320.Ajin
 
         public override void ServoOn()
         {
+            ServoOnCore(false);
+        }
+
+        // Alarm EStop 직전에 초기화가 직접 Servo OFF한 Brake 없는 축의 낙하 방지에만 사용합니다.
+        // HOME/이동을 재개하지 않고 Amp ON으로 현재 위치 유지력만 복구합니다.
+        internal void ServoOnForInitializeSafetyHold()
+        {
+            ServoOnCore(true);
+        }
+
+        private void ServoOnCore(bool allowActiveAlarmSafetyHold)
+        {
+            if (!allowActiveAlarmSafetyHold && AlarmManager.HasActive)
+                return;
+
             if (UseSimulation)
             {
                 base.ServoOn();
@@ -1486,7 +1563,12 @@ namespace QMC.CDT320.Ajin
             if (IsAlarm && !IsRecoverableLimitAlarmActive()) return;
             int ret;
             lock (_sync)
+            {
+                // 호출부의 사전 검사 직후 Alarm이 발생하는 경합에서도 일반 Servo ON은 발행하지 않습니다.
+                if (!allowActiveAlarmSafetyHold && AlarmManager.HasActive)
+                    return;
                 ret = AXM.SetAmpEnabled(AxisNo, true);
+            }
             if (ret == 0)
                 IsServoOn = true;
         }
@@ -1924,6 +2006,14 @@ namespace QMC.CDT320.Ajin
             bool sharedRailXHomeLimitSuppress = false;
             try
             {
+                if (AlarmManager.HasActive)
+                    return FailMotion(
+                        -4,
+                        "HOME",
+                        "Active equipment alarm blocked a new HOME command.",
+                        AxisHomeTarget(),
+                        true);
+
                 if (UseSimulation)
                 {
                     sharedRailXHomeLimitSuppress = BeginSharedRailXHomeLimitSuppress();
@@ -1931,6 +2021,14 @@ namespace QMC.CDT320.Ajin
                     string simulationInterlockReason;
                     if (!MotionGuardRuntime.VerifyAxisHome(this, out simulationInterlockReason))
                         return FailMotion(-11, "HOME", simulationInterlockReason, AxisHomeTarget(), true);
+
+                    if (AlarmManager.HasActive)
+                        return FailMotion(
+                            -4,
+                            "HOME",
+                            "Active equipment alarm blocked a new simulated HOME command.",
+                            AxisHomeTarget(),
+                            true);
 
                     return await base.HomeSearchAsync();
                 }
@@ -1960,8 +2058,22 @@ namespace QMC.CDT320.Ajin
                 int motionStopSerial = Volatile.Read(ref _motionStopSerial);
 
                 int ret;
+                bool homeBlockedByAlarm;
                 lock (_sync)
-                    ret = AXM.SetHomeStart(AxisNo);
+                {
+                    homeBlockedByAlarm = AlarmManager.HasActive;
+                    ret = homeBlockedByAlarm ? -4 : AXM.SetHomeStart(AxisNo);
+                }
+                if (homeBlockedByAlarm)
+                {
+                    IsMoving = false;
+                    return FailMotion(
+                        -4,
+                        "HOME",
+                        "Active equipment alarm blocked AXM.SetHomeStart.",
+                        AxisHomeTarget(),
+                        true);
+                }
                 if (ret != 0)
                 {
                     IsMoving = false;
@@ -2601,15 +2713,25 @@ namespace QMC.CDT320.Ajin
             IsInPosition = inp;
 
             bool limitAlarmSuppressed = _isHomeSearching || IsSharedRailXHomeLimitSuppressed();
+            // Servo OFF/Reset/Servo ON으로 이어지는 HOME 준비 구간은 아직 _isHomeSearching이 아닙니다.
+            // 이 구간에는 SoftLimit만 보류하고, 물리 PEL/MEL과 Amp Fault 판정은 그대로 유지합니다.
+            bool softLimitAlarmSuppressed = limitAlarmSuppressed ||
+                Volatile.Read(ref _initializeHomePreparationActive) != 0;
             bool wasAlarm = IsAlarm;
             double softLimitTolerance = ResolveSoftLimitStatusTolerance();
-            bool rawSoftLimitPositive = !limitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
+            int hardwareLimitSearchDirection = Volatile.Read(ref _hardwareLimitSearchDirection);
+            bool expectedInitializeSoftLimitPositive =
+                IsFeederVisionRetreatAxis() && hardwareLimitSearchDirection > 0;
+            bool expectedInitializeSoftLimitNegative =
+                IsFeederVisionRetreatAxis() && hardwareLimitSearchDirection < 0;
+            bool rawSoftLimitPositive = !softLimitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
+                !expectedInitializeSoftLimitPositive &&
                 ((ActualPosition >= Setup.SoftLimitPlus - softLimitTolerance && statusMotionDirection > 0) ||
                  ActualPosition > Setup.SoftLimitPlus + softLimitTolerance);
-            bool rawSoftLimitNegative = !limitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
+            bool rawSoftLimitNegative = !softLimitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
+                !expectedInitializeSoftLimitNegative &&
                 ((ActualPosition <= Setup.SoftLimitMinus + softLimitTolerance && statusMotionDirection < 0) ||
                  ActualPosition < Setup.SoftLimitMinus - softLimitTolerance);
-            int hardwareLimitSearchDirection = Volatile.Read(ref _hardwareLimitSearchDirection);
             bool expectedInitializeLimitPositive = hardwareLimitSearchDirection > 0 && pel;
             bool expectedInitializeLimitNegative = hardwareLimitSearchDirection < 0 && mel;
             bool rawHardLimitPositive = !limitAlarmSuppressed && pel && !expectedInitializeLimitPositive;
@@ -2956,13 +3078,54 @@ namespace QMC.CDT320.Ajin
                 if (Setup == null || !Setup.SoftLimitEnabled)
                     return 0;
 
+                // To do: [원점복귀 리밋 이탈] 홈 초기화의 하드리밋 이탈 구간에서는 소프트리밋 목표 검사를 면제한다.
+                // 기존 조건: 실보드에는 홈 예외가 없어, 리밋 이탈 목표가 소프트리밋 밖이면 이동이 거부되고
+                //            AX-SOFT-LIMIT-N이 떴다. 리밋 센서가 이미 해제된 뒤라 IsLimitRecoveryTarget도 false였다.
+                // 현재 기준: InitializeLimitBackoff 스코프 안에서만 통과시킨다(일반 운전 이동에는 영향 없음).
+                if (BaseAxis.IsInitializeLimitBackoffActive)
+                {
+                    if (targetPos > Setup.SoftLimitPlus || targetPos < Setup.SoftLimitMinus)
+                    {
+                        QMC.Common.Log.Write("Motion", "SYSTEM", "AX-SOFT-LIMIT-HOME-BYPASS",
+                            Name + " 원점복귀 리밋 이탈 구간이라 소프트리밋 목표 검사를 면제합니다. " +
+                            "actual=" + ActualPosition.ToString("0.###") +
+                            ", target=" + targetPos.ToString("0.###") +
+                            ", minus=" + Setup.SoftLimitMinus.ToString("0.###") +
+                            ", plus=" + Setup.SoftLimitPlus.ToString("0.###") +
+                            ", axisNo=" + AxisNo + " - Check");
+                    }
+
+                    return 0;
+                }
+
+                // To do: [소프트리미트 복구] 이미 리미트 밖에 있을 때, 리미트 쪽으로 가까워지는 이동은 허용한다.
+                // 기존 조건: 목표값이 리미트 밖이면 무조건 거부했다(이동 방향을 보지 않음).
+                //            → 홈 시퀀스가 MEL/PEL을 친 뒤 반대방향 5mm로 빠져나오는데, 그 지점이
+                //              소프트 리미트 밖이면 그 이동 자체가 거부돼 축이 리미트 밖에 갇혔다.
+                //              (InputVisionX: 백오프 목표 -1.944 vs SoftLimitMinus -1.2)
+                //              IsLimitRecoveryTarget은 리미트 센서가 ON일 때만 참이라, 센서를 벗어난
+                //              뒤에는 복구 우회도 걸리지 않아 자물쇠가 완성됐다.
+                // 현재 기준: 현재 위치가 이미 그 방향으로 리미트를 넘어서 있고, 목표가 현재보다
+                //            리미트에 가까우면(위반이 줄어들면) 통과시킨다. 더 바깥으로 나가는 이동은 그대로 거부한다.
                 if (targetPos > Setup.SoftLimitPlus)
                 {
+                    if (ActualPosition > Setup.SoftLimitPlus && targetPos < ActualPosition)
+                    {
+                        LogSoftLimitRecoveryAllowed("positive", targetPos, Setup.SoftLimitPlus);
+                        return 0;
+                    }
+
                     return FailSoftLimit(10, "positive", targetPos, Setup.SoftLimitPlus);
                 }
 
                 if (targetPos < Setup.SoftLimitMinus)
                 {
+                    if (ActualPosition < Setup.SoftLimitMinus && targetPos > ActualPosition)
+                    {
+                        LogSoftLimitRecoveryAllowed("negative", targetPos, Setup.SoftLimitMinus);
+                        return 0;
+                    }
+
                     return FailSoftLimit(11, "negative", targetPos, Setup.SoftLimitMinus);
                 }
 
@@ -3001,6 +3164,29 @@ namespace QMC.CDT320.Ajin
                     alarmCode == 10 ? "AX-SOFT-LIMIT-P" : "AX-SOFT-LIMIT-N",
                     Name,
                     message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        // To do: [소프트리미트 복구] 위반 완화 이동을 통과시킨 사실과 수치를 남긴다(무단 완화가 아님을 추적 가능하게).
+        private void LogSoftLimitRecoveryAllowed(string side, double targetPos, double limit)
+        {
+            try
+            {
+                QMC.Common.Log.Write("Motion", "SYSTEM", "AX-SOFT-LIMIT-RECOVER",
+                    Name + " 소프트리미트 밖에서 리미트 쪽으로 복귀하는 이동이라 통과시킵니다. " +
+                    "side=" + side +
+                    ", actual=" + ActualPosition.ToString("0.###") +
+                    ", target=" + targetPos.ToString("0.###") +
+                    ", limit=" + limit.ToString("0.###") +
+                    ", violationBefore=" + Math.Abs(ActualPosition - limit).ToString("0.###") +
+                    ", violationAfter=" + Math.Abs(targetPos - limit).ToString("0.###") +
+                    ", axisNo=" + AxisNo + " - Check");
             }
             catch
             {

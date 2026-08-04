@@ -115,6 +115,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     action.Description);
                 DataGridViewRow row = grid.Rows[rowIndex];
                 row.Tag = step.StepNo;
+                // 진행 메시지가 비었을 때 되살릴 원본 설명을 셀 Tag에 보관한다(아래 ApplyProgressToRows 참조).
+                row.Cells[colDescription.Index].Tag = action.Description ?? string.Empty;
                 ApplyStatusStyle(row, status);
                 ApplyRouteCheckStyle(row, routeStep);
             }
@@ -140,6 +142,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 step.Comment);
             DataGridViewRow row = grid.Rows[rowIndex];
             row.Tag = step.StepNo;
+            // 진행 메시지가 비었을 때 되살릴 원본 설명을 셀 Tag에 보관한다(아래 ApplyProgressToRows 참조).
+            row.Cells[colDescription.Index].Tag = step.Comment ?? string.Empty;
             ApplyStatusStyle(row, status);
             ApplyRouteCheckStyle(row, routeStep);
         }
@@ -469,8 +473,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string status = NormalizeStatus(progress.Status);
                 row.Cells[colStatus.Index].Value = status;
                 ApplyStatusStyle(row, status);
-                if (!string.IsNullOrWhiteSpace(progress.Message))
-                    row.Cells[colDescription.Index].Value = progress.Message;
+
+                // To do: [초기화 모니터] Status와 Description을 항상 같은 시점 값으로 표시한다.
+                // 기존 조건: Message가 비어 있으면 Description을 갱신하지 않아 이전 회차 문구가 남았다.
+                //            → Status는 갱신되고 Description만 옛 값이라 "Done + 중단 메시지" 같은
+                //              모순된 조합이 화면에 남았다(2026-08-05).
+                // 현재 기준: 메시지가 있으면 그 메시지를, 비어 있으면 행 생성 시 보관한 원본 설명(셀 Tag)을
+                //            표시한다 — 이전 회차 런타임 문구는 남지 않고, 기본 설명은 지워지지 않는다.
+                row.Cells[colDescription.Index].Value = !string.IsNullOrWhiteSpace(progress.Message)
+                    ? progress.Message
+                    : Convert.ToString(row.Cells[colDescription.Index].Tag);
             }
         }
 

@@ -197,6 +197,17 @@ namespace QMC.CDT320.Interlocks
 
                 double tolerance = ResolveAxisPositionTolerance(stage.ExpanderZ);
                 double actual = stage.ExpanderZ.ActualPosition;
+
+                // To do: [ExpanderZ 인터락] "0 이하 또는 Avoid"는 안전으로 본다.
+                // 기존 조건: Load/Unload와의 거리만 비교했다.
+                //            → Load/Unload가 미티칭(0.000)이면 actual=0.000과 항상 일치해 atLoad가 참이 되고,
+                //              InputStage X/Y/T와 InputVisionX가 영구히 차단됐다(자기 잠금).
+                // 현재 기준: 같은 파일의 VerifyEjectPinZAtZeroOrAvoid와 동일한 기준을 먼저 적용한다.
+                //            0 이하이거나 Avoid 위치이면 안전이므로 Load/Unload 비교로 넘어가지 않는다.
+                if (actual <= 0.0 + tolerance ||
+                    System.Math.Abs(actual - pos.AvoidPosition) <= tolerance)
+                    return true;
+
                 bool atLoad = System.Math.Abs(actual - pos.LoadPosition) <= tolerance;
                 bool atUnload = System.Math.Abs(actual - pos.UnloadPosition) <= tolerance;
                 if (!atLoad && !atUnload)
@@ -206,8 +217,11 @@ namespace QMC.CDT320.Interlocks
                     movingName,
                     movingName + " 이동 불가: ExpanderZ가 Load/Unload 높이에 있어 X/Y/T 이동할 수 없습니다. " +
                     "먼저 ExpanderZ를 Avoid 위치로 이동하세요. actual=" + actual.ToString("F3") +
+                    ", zero=0.000" +
+                    ", avoid=" + pos.AvoidPosition.ToString("F3") +
                     ", load=" + pos.LoadPosition.ToString("F3") +
-                    ", unload=" + pos.UnloadPosition.ToString("F3"),
+                    ", unload=" + pos.UnloadPosition.ToString("F3") +
+                    ", tolerance=" + tolerance.ToString("F3"),
                     out reason);
             }
             catch (System.Exception ex)
