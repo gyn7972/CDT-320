@@ -389,7 +389,7 @@ namespace QMC.CDT320
         {
             int safePortNumber = Math.Max(1, portNumber);
             int safeBaudRate = baudRate > 0 ? baudRate : 9600;
-            return new VisionComm.BarcodeSerialAdapter(
+            return new VisionComm.Nlv5201BarcodeReader(
                 readerName,
                 "COM" + safePortNumber,
                 safeBaudRate,
