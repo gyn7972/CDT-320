@@ -80,6 +80,8 @@ namespace QMC.CDT320
             new AxisInitializeProgressStore();
         private readonly SemaphoreSlim _axisInitializeOperationGate =
             new SemaphoreSlim(1, 1);
+        private readonly object _axisInitializeCancellationLock = new object();
+        private CancellationTokenSource _axisInitializeCts;
         private readonly SemaphoreSlim _alarmSequenceStopGate =
             new SemaphoreSlim(1, 1);
         private readonly object _machineRuntimeStateSaveLock = new object();
@@ -474,7 +476,8 @@ namespace QMC.CDT320
             // 전체 초기화 순서는 Sequence가, 선택된 한 Step의 실제 HOME은 Executor가 담당합니다.
             _axisInitializeSequence = new AxisInitializeSequence(
                 _axisInitializeExecutor,
-                _axisInitializeRuntime);
+                _axisInitializeRuntime,
+                _machine);
             _axisInitializeExecutor.StepProgressChanged += OnAxisInitializeExecutorStepProgressChanged;
             MotionGuardRuntime.ContextProvider = () =>
                 new MotionGuardContext(_machine, EnumerateAxes(), QMC.CDT320.Ajin.CylinderManager.Items.Values);
@@ -538,6 +541,27 @@ namespace QMC.CDT320
             out IDisposable lease,
             out string reason)
         {
+            return TryBeginRecipeApplyOperation(
+                recipeName,
+                false,
+                out materialRecipeRestore,
+                out lease,
+                out reason);
+        }
+
+        // To do: [시작 레시피 자동 로드] 기동 자동 적용은 알람 게이트만 면제한다.
+        // 기존 조건: 시작 시 ApplyStartupMachineRuntimeState가 INIT-RESTORE-NO-STATE 등 알람을 먼저 올리고,
+        //            직후의 마지막 레시피 자동 적용이 "Alarm 상태에서는 Recipe 적용 불가" 게이트에 걸려
+        //            매 기동마다 조용히 실패했다(2026-08-05 로그: RECIPE-CHANGE-BLOCK → RECIPE-STARTUP-BLOCK 반복).
+        // 현재 기준: startupAutoLoad일 때만 알람 게이트를 건너뛴다. 동작 중 차단·자재/레시피 정합 등
+        //            나머지 게이트는 전부 그대로 검사한다.
+        public bool TryBeginRecipeApplyOperation(
+            string recipeName,
+            bool startupAutoLoad,
+            out bool materialRecipeRestore,
+            out IDisposable lease,
+            out string reason)
+        {
             materialRecipeRestore = false;
             lease = null;
             reason = string.Empty;
@@ -564,6 +588,7 @@ namespace QMC.CDT320
             if (!TryValidateRecipeChangeCore(
                     recipeName,
                     true,
+                    startupAutoLoad,
                     out materialRecipeRestore,
                     out reason))
             {
@@ -578,6 +603,21 @@ namespace QMC.CDT320
         private bool TryValidateRecipeChangeCore(
             string recipeName,
             bool recipeApplyLeaseHeld,
+            out bool materialRecipeRestore,
+            out string reason)
+        {
+            return TryValidateRecipeChangeCore(
+                recipeName,
+                recipeApplyLeaseHeld,
+                false,
+                out materialRecipeRestore,
+                out reason);
+        }
+
+        private bool TryValidateRecipeChangeCore(
+            string recipeName,
+            bool recipeApplyLeaseHeld,
+            bool startupAutoLoad,
             out bool materialRecipeRestore,
             out string reason)
         {
@@ -617,10 +657,23 @@ namespace QMC.CDT320
 
             if (_status == EquipmentStatus.Alarm || AlarmManager.HasActive)
             {
-                reason =
-                    "Alarm 상태에서는 Recipe를 저장하거나 적용할 수 없습니다. " +
-                    "알람 원인을 조치하고 RESET 완료 후 다시 실행하십시오.";
-                return false;
+                // 현재 기준: 기동 자동 적용은 이 게이트만 면제한다 — 시작 절차가 스스로 올린 알람
+                //            (INIT-RESTORE-NO-STATE 등) 때문에 마지막 레시피 적용이 막히는 자기 잠금 방지.
+                //            레시피 적용은 데이터 반영이라 모션이 없고, 동작 중 차단은 아래 게이트가 계속 담당한다.
+                if (startupAutoLoad)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RecipeStartupAutoLoad",
+                        "기동 자동 적용이므로 알람 게이트를 면제합니다. status=" + _status +
+                        ", hasActiveAlarm=" + AlarmManager.HasActive +
+                        ", requested=" + nextRecipeName + " - Check");
+                }
+                else
+                {
+                    reason =
+                        "Alarm 상태에서는 Recipe를 저장하거나 적용할 수 없습니다. " +
+                        "알람 원인을 조치하고 RESET 완료 후 다시 실행하십시오.";
+                    return false;
+                }
             }
 
             // 동일 이름 Recipe도 디스크의 Teaching/Offset 값이 변경됐을 수 있다.
@@ -1586,6 +1639,14 @@ namespace QMC.CDT320
         {
             try
             {
+                // 활성 Alarm 중 완료 콜백이 늦게 도착해도 초기화 완료 상태를 저장하지 않습니다.
+                if (initialized &&
+                    (_status == EquipmentStatus.Alarm || AlarmManager.HasActive))
+                {
+                    initialized = false;
+                    reason = (reason ?? string.Empty) + ":BlockedByAlarm";
+                }
+
                 bool changed = _isMachineInitialized != initialized;
                 _isMachineInitialized = initialized;
                 if (initialized)
@@ -3566,22 +3627,33 @@ namespace QMC.CDT320
         }
 
         /// <summary>Output 3 카세트 매핑 (UI 버튼).</summary>
-        public async Task<bool> ScanOutputCassettesAsync()
+        public async Task<bool> ScanOutputCassettesAsync(
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             try
             {
+                CancellationToken effectiveToken = cancellationToken.CanBeCanceled
+                    ? cancellationToken
+                    : (_cycleCts != null ? _cycleCts.Token : CancellationToken.None);
                 var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
                     this,
                     _seqContext != null ? _seqContext.Bus : new QMC.CDT320.Sequencing.SequenceSignalBus());
                 var sequence = new QMC.CDT320.Sequencing.OutputSequence(ctx);
                 int result = await sequence.ExecuteCassetteMappingAsync(
-                    _cycleCts != null ? _cycleCts.Token : CancellationToken.None,
+                    effectiveToken,
                     false,
                     0,
                     QMC.CDT320.Sequencing.SequenceStartMode.Resume).ConfigureAwait(false);
                 bool ok = result == 0;
                 if (ok) Log("[FEEDER] Output 3 cassette scan complete.");
                 return ok;
+            }
+            catch (OperationCanceledException)
+            {
+                Log("[FEEDER] OutputScan canceled.");
+                if (cancellationToken.CanBeCanceled)
+                    throw;
+                return false;
             }
             catch (Exception ex)
             {
@@ -4025,8 +4097,47 @@ namespace QMC.CDT320
 
         private bool TryEnterAxisInitializeOperation(string source)
         {
+            if (_status == EquipmentStatus.Alarm || AlarmManager.HasActive)
+            {
+                LastActionFailureMessage =
+                    "Alarm 상태에서는 축 초기화를 새로 시작할 수 없습니다. 알람을 조치하고 RESET 후 다시 실행하세요.";
+                QMC.Common.Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    source,
+                    LastActionFailureMessage + " - Blocked");
+                return false;
+            }
+
             if (_axisInitializeOperationGate.Wait(0))
+            {
+                var cts = new CancellationTokenSource();
+                lock (_axisInitializeCancellationLock)
+                    _axisInitializeCts = cts;
+
+                // Gate 획득과 CTS 등록 사이에 Alarm이 발생한 경우에도 초기화 명령을 시작하지 않습니다.
+                if (_status == EquipmentStatus.Alarm || AlarmManager.HasActive)
+                {
+                    TryCancelAlarmOperationToken(cts, "AxisInitialize", "ENTER-RACE");
+                    lock (_axisInitializeCancellationLock)
+                    {
+                        if (object.ReferenceEquals(_axisInitializeCts, cts))
+                            _axisInitializeCts = null;
+                    }
+                    cts.Dispose();
+                    _axisInitializeOperationGate.Release();
+                    LastActionFailureMessage =
+                        "축 초기화 진입 중 Alarm이 발생하여 초기화를 시작하지 않았습니다.";
+                    QMC.Common.Log.Write(
+                        "Main",
+                        "SYSTEM",
+                        source,
+                        LastActionFailureMessage + " - Blocked");
+                    return false;
+                }
+
                 return true;
+            }
 
             const string blockedMessage =
                 "다른 축 초기화 작업이 이미 실행 중입니다. 현재 작업이 끝난 뒤 다시 시도하세요.";
@@ -4042,6 +4153,16 @@ namespace QMC.CDT320
         {
             try
             {
+                CancellationTokenSource cts;
+                lock (_axisInitializeCancellationLock)
+                {
+                    cts = _axisInitializeCts;
+                    _axisInitializeCts = null;
+                }
+
+                if (cts != null)
+                    cts.Dispose();
+
                 _axisInitializeOperationGate.Release();
             }
             catch (Exception ex)
@@ -4056,6 +4177,41 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private CancellationToken GetAxisInitializeOperationToken()
+        {
+            lock (_axisInitializeCancellationLock)
+            {
+                CancellationTokenSource cts = _axisInitializeCts;
+                return cts != null ? cts.Token : CancellationToken.None;
+            }
+        }
+
+        private CancellationTokenSource GetAxisInitializeOperationCancellationSource()
+        {
+            lock (_axisInitializeCancellationLock)
+                return _axisInitializeCts;
+        }
+
+        private bool IsAxisInitializeCancellationRequested(CancellationToken cancellationToken)
+        {
+            return cancellationToken.IsCancellationRequested ||
+                   _status == EquipmentStatus.Alarm ||
+                   AlarmManager.HasActive;
+        }
+
+        private int FailCancelledAxisInitialize(string source)
+        {
+            LastActionFailureMessage =
+                "Alarm/정지 요청으로 축 초기화가 취소되었습니다. 신규 Servo ON/HOME 명령을 차단했습니다.";
+            QMC.Common.Log.Write(
+                "Main",
+                "SYSTEM",
+                source,
+                LastActionFailureMessage + " - Cancelled");
+            SetMachineInitialized(false, source + "Cancelled", false);
+            return -4;
         }
 
 
@@ -4135,10 +4291,15 @@ namespace QMC.CDT320
 
                 SetMachineInitialized(false, "InitializeAxisStart:" + axis.Name, false);
                 SetStatus(EquipmentStatus.Initializing);
+                CancellationToken initializeToken = GetAxisInitializeOperationToken();
+                if (IsAxisInitializeCancellationRequested(initializeToken))
+                    return FailCancelledAxisInitialize("InitializeAxis");
+
                 AxisInitializeResult executeResult =
                     await _axisInitializeExecutor.ExecuteSingleAxisHomeAsync(
                         planStep,
-                        axis).ConfigureAwait(false);
+                        axis,
+                        initializeToken).ConfigureAwait(false);
                 if (executeResult == null || !executeResult.Succeeded)
                 {
                     if (executeResult != null &&
@@ -4156,6 +4317,9 @@ namespace QMC.CDT320
                     SetStatus(EquipmentStatus.Alarm);
                     return executeResult != null ? executeResult.ResultCode : -1;
                 }
+
+                if (IsAxisInitializeCancellationRequested(initializeToken))
+                    return FailCancelledAxisInitialize("InitializeAxisComplete");
 
                 TryRecoverMachineInitializedFromAxisState("InitializeAxis:" + axis.Name);
                 SaveMachineRuntimeState("InitializeAxis:" + axis.Name);
@@ -4179,70 +4343,6 @@ namespace QMC.CDT320
             }
         }
 
-        public async Task<int> InitializeAxisGroupAsync(string groupName)
-        {
-            bool initializeOperationEntered = false;
-            try
-            {
-                initializeOperationEntered =
-                    TryEnterAxisInitializeOperation("InitializeAxisGroup");
-                if (!initializeOperationEntered)
-                    return -1;
-
-                LastActionFailureMessage = "";
-                if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
-                {
-                    LastActionFailureMessage = "Sequence 실행 중에는 축 그룹 초기화를 수행할 수 없습니다.";
-                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisGroup",
-                        "Axis group initialize failed: sequence is running. group=" + groupName + " - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-GROUP-RUNNING", "MachineController", LastActionFailureMessage);
-                    return -1;
-                }
-
-                var plan = AxisInitializePlanStore.LoadOrCreateDefault(EnumerateAxes());
-                var steps = ResolveInitializeStepsByGroup(plan, groupName);
-                if (steps.Count == 0)
-                {
-                    LastActionFailureMessage = "초기화할 축 그룹을 찾을 수 없습니다. group=" + groupName;
-                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisGroup",
-                        "Axis group initialize failed: initialize step group is empty. group=" + groupName + " - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-GROUP-EMPTY", "MachineController", LastActionFailureMessage);
-                    return -1;
-                }
-
-                SetMachineInitialized(false, "InitializeGroupStart:" + groupName, false);
-                SetStatus(EquipmentStatus.Initializing);
-                int initResult = await ExecuteInitializeStepsAsync(steps).ConfigureAwait(false);
-                if (initResult != 0)
-                {
-                    SetMachineInitialized(false, "InitializeGroupFailed:" + groupName, true);
-                    SetStatus(EquipmentStatus.Alarm);
-                    return initResult;
-                }
-
-                TryRecoverMachineInitializedFromAxisState("InitializeAxisGroup:" + groupName);
-                SaveMachineRuntimeState("InitializeAxisGroup:" + groupName);
-                SetStatus(EquipmentStatus.Idle);
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                LastActionFailureMessage = "축 그룹 초기화 실패: " + ex.Message;
-                QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisGroup",
-                    "Axis group initialize failed. group=" + groupName + ", error=" + ex.Message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Error, "INIT-GROUP-EX", "MachineController", LastActionFailureMessage);
-                SetMachineInitialized(false, "InitializeGroupException", true);
-                SetStatus(EquipmentStatus.Alarm);
-                return -1;
-            }
-            finally
-            {
-                if (initializeOperationEntered)
-                    ExitAxisInitializeOperation("InitializeAxisGroup");
-            }
-        }
-
-
         // 여기 사용함
         public async Task<int> InitializeAllAxesAsync(bool markMachineReady)
         {
@@ -4254,7 +4354,9 @@ namespace QMC.CDT320
                 if (!initializeOperationEntered)
                     return -1;
 
-                return await InitializeAllAxesCoreAsync(markMachineReady).ConfigureAwait(false);
+                return await InitializeAllAxesCoreAsync(
+                    markMachineReady,
+                    GetAxisInitializeOperationToken()).ConfigureAwait(false);
             }
             finally
             {
@@ -4263,7 +4365,9 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task<int> InitializeAllAxesCoreAsync(bool markMachineReady)
+        private async Task<int> InitializeAllAxesCoreAsync(
+            bool markMachineReady,
+            CancellationToken cancellationToken)
         {
             try
             {
@@ -4291,10 +4395,9 @@ namespace QMC.CDT320
                 var steps = ResolveEnabledInitializeSteps(plan);
                 if (steps.Count == 0)
                 {
-                    LastActionFailureMessage = "초기화 Plan Step 정보가 없습니다. file=" + AxisInitializePlanStore.PlanPath;
+                    LastActionFailureMessage = "내장 초기화 Plan에 실행 가능한 Step이 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAllAxes",
-                        "All axes initialize failed: initialize plan has no enabled step. file=" +
-                        AxisInitializePlanStore.PlanPath + " - Failed");
+                        "All axes initialize failed: built-in initialize plan has no enabled step. - Failed");
                     AlarmManager.Raise(AlarmSeverity.Error, "INIT-PLAN-EMPTY", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
@@ -4315,15 +4418,24 @@ namespace QMC.CDT320
 
                 SetMachineInitialized(false, "InitializeAllAxesStart", false);
                 SetStatus(EquipmentStatus.Initializing);
-                Log("[INIT] Axis initialize plan start. file=" + AxisInitializePlanStore.PlanPath);
+                Log("[INIT] Built-in axis initialize plan start.");
 
-                int initResult = await ExecuteInitializeStepsAsync(steps).ConfigureAwait(false);
+                if (IsAxisInitializeCancellationRequested(cancellationToken))
+                    return FailCancelledAxisInitialize("InitializeAllAxesStart");
+
+                int initResult = await ExecuteInitializeStepsAsync(
+                    steps,
+                    true,
+                    cancellationToken).ConfigureAwait(false);
                 if (initResult != 0)
                 {
                     SetMachineInitialized(false, "InitializeAllAxesFailed", true);
                     SetStatus(EquipmentStatus.Alarm);
                     return initResult;
                 }
+
+                if (IsAxisInitializeCancellationRequested(cancellationToken))
+                    return FailCancelledAxisInitialize("InitializeAllAxesComplete");
 
                 string completionReason;
                 if (!VerifyInitializeCompletionSafety(out completionReason))
@@ -4484,7 +4596,6 @@ namespace QMC.CDT320
         public async Task<int> InitializePlanStepAsync(int stepNo)
         {
             bool initializeOperationEntered = false;
-            bool initializeRunStarted = false;
             try
             {
                 initializeOperationEntered =
@@ -4512,38 +4623,22 @@ namespace QMC.CDT320
                     return -1;
                 }
 
-                AxisInitializeResult axisRegistrationResult =
-                    _axisInitializeExecutor.VerifyDeclaredStepAxes(steps);
-                if (!axisRegistrationResult.Succeeded)
-                {
-                    LastActionFailureMessage = axisRegistrationResult.ErrorMessage;
-                    return axisRegistrationResult.ResultCode;
-                }
-
                 SetMachineInitialized(false, "InitializePlanStepStart:" + stepNo, false);
                 SetStatus(EquipmentStatus.Initializing);
 
-                _axisInitializeExecutor.BeginRun(steps);
-                initializeRunStarted = true;
+                // Monitor의 개별 Step도 전체 초기화와 같은 switch/Unit 객체 바인딩을 사용합니다.
+                // Executor를 직접 호출하면 AxisNames 문자열 경로로 돌아가므로 Sequence를 단일 진입점으로 둡니다.
+                CancellationToken initializeToken = GetAxisInitializeOperationToken();
+                if (IsAxisInitializeCancellationRequested(initializeToken))
+                    return FailCancelledAxisInitialize("InitializePlanStepStart");
 
-                int result;
-                if (steps.Count == 1)
-                {
-                    result = await ExecuteInitializeSingleStepAsync(steps[0]).ConfigureAwait(false);
-                }
-                else
-                {
-                    result = 0;
-                    foreach (AxisInitializeStep step in steps.OrderBy(x => x.GroupName))
-                    {
-                        int stepResult = await ExecuteInitializeSingleStepAsync(step).ConfigureAwait(false);
-                        if (stepResult != 0)
-                        {
-                            result = stepResult;
-                            break;
-                        }
-                    }
-                }
+                int result = await ExecuteInitializeStepsAsync(
+                    steps,
+                    false,
+                    initializeToken).ConfigureAwait(false);
+
+                if (result == 0 && IsAxisInitializeCancellationRequested(initializeToken))
+                    return FailCancelledAxisInitialize("InitializePlanStepComplete");
 
                 SaveMachineRuntimeState("InitializePlanStep:" + stepNo);
                 SetStatus(result == 0 ? EquipmentStatus.Idle : EquipmentStatus.Alarm);
@@ -4558,8 +4653,6 @@ namespace QMC.CDT320
             }
             finally
             {
-                if (initializeRunStarted)
-                    _axisInitializeExecutor.EndRun();
                 if (initializeOperationEntered)
                     ExitAxisInitializeOperation("InitializePlanStep");
             }
@@ -5199,11 +5292,17 @@ namespace QMC.CDT320
                 "StageY.Avoid").ConfigureAwait(false);
         }
 
-        private async Task<int> ExecuteInitializeStepsAsync(IList<AxisInitializeStep> steps)
+        private async Task<int> ExecuteInitializeStepsAsync(
+            IList<AxisInitializeStep> steps,
+            bool requireCompleteDefaultSequence,
+            CancellationToken cancellationToken)
         {
             try
             {
-                AxisInitializeResult result = await _axisInitializeSequence.ExecuteAsync(steps).ConfigureAwait(false);
+                AxisInitializeResult result = await _axisInitializeSequence.ExecuteAsync(
+                    steps,
+                    requireCompleteDefaultSequence,
+                    cancellationToken).ConfigureAwait(false);
                 if (result == null)
                 {
                     LastActionFailureMessage = "초기화 Executor가 결과를 반환하지 않았습니다.";
@@ -5357,8 +5456,15 @@ namespace QMC.CDT320
             if (string.Equals(status, AxisInitializeStepStatus.Complete, StringComparison.OrdinalIgnoreCase))
                 return true;
 
-            if (string.Equals(status, AxisInitializeStepStatus.ReinitializeRequired, StringComparison.OrdinalIgnoreCase))
-                return true;
+            // To do: [초기화 모니터] 중단(ReinitializeRequired) 스텝을 재판정으로 되살리지 않는다.
+            // 기존 조건: ReinitializeRequired도 재판정 대상이라 true를 반환했다.
+            //            → 재판정은 축의 Alarm/Servo/IsHomeDone만 보는데, IsHomeDone은 이전 세션에서
+            //              한 번 홈을 잡았고 서보가 유지되면 계속 참이다. 그래서 "반대 Lane 실패로 중단"된
+            //              스텝이 화면을 열 때마다 Complete로 승격되고 메시지는 ""로 지워졌다.
+            //              (2026-08-05: Status=Done인데 Description은 중단 메시지인 모순 표시)
+            // 현재 기준: 한 번 중단으로 마킹된 스텝은 실제로 다시 실행되어 진행 보고가 올 때까지 그 상태를 유지한다.
+            // if (string.Equals(status, AxisInitializeStepStatus.ReinitializeRequired, StringComparison.OrdinalIgnoreCase))
+            //     return true;
 
             return machineInitialized &&
                 (string.IsNullOrWhiteSpace(status) ||
@@ -6616,10 +6722,17 @@ namespace QMC.CDT320
                 }
 
                 SetMachineInitialized(false, "InitStart", false);
+                CancellationToken initializeToken = GetAxisInitializeOperationToken();
+                if (IsAxisInitializeCancellationRequested(initializeToken))
+                    return FailCancelledAxisInitialize("InitAsyncStart");
+
                 int axisInitResult =
-                    await InitializeAllAxesCoreAsync(false).ConfigureAwait(false);
+                    await InitializeAllAxesCoreAsync(false, initializeToken).ConfigureAwait(false);
                 if (axisInitResult != 0)
                     return axisInitResult;
+
+                if (IsAxisInitializeCancellationRequested(initializeToken))
+                    return FailCancelledAxisInitialize("InitAsyncAxesComplete");
 
                 CycleDone = 0; CycleTotal = 0; GoodCount = 0; NgCount = 0;
 
@@ -6643,7 +6756,7 @@ namespace QMC.CDT320
                             this,
                             new QMC.CDT320.Sequencing.SequenceSignalBus());
                         var sequence = new QMC.CDT320.Sequencing.InputSequence(ctx);
-                        int mapResult = await sequence.ExecuteMappingAsync(CancellationToken.None);
+                        int mapResult = await sequence.ExecuteMappingAsync(initializeToken);
                         if (mapResult == 0)
                         {
                             int n = 0;
@@ -6664,9 +6777,15 @@ namespace QMC.CDT320
                     // slot map은 25 슬롯 기준으로 초기화되어 StoreFullWafer에서 정상 기록되어야 합니다.
                     try
                     {
+                        if (IsAxisInitializeCancellationRequested(initializeToken))
+                            return FailCancelledAxisInitialize("InitAsyncBeforeOutputMapping");
+
                         Log("[INIT] OutputCassette auto mapping start...");
-                        bool oOk = await ScanOutputCassettesAsync();
+                        bool oOk = await ScanOutputCassettesAsync(initializeToken);
                         Log("[INIT] OutputCassette 매핑 " + (oOk ? "OK" : "FAILED"));
+
+                        if (IsAxisInitializeCancellationRequested(initializeToken))
+                            return FailCancelledAxisInitialize("InitAsyncAfterOutputMapping");
                     }
                     catch (Exception ex)
                     {
@@ -6676,6 +6795,9 @@ namespace QMC.CDT320
 
                 // Input/Output die map 생성. 이미 존재하면 skip.
                 try { EnsureDieMaps(); } catch (Exception dmEx) { Log("[INIT] DieMap create warning: " + dmEx.Message); }
+
+                if (IsAxisInitializeCancellationRequested(initializeToken))
+                    return FailCancelledAxisInitialize("InitAsyncComplete");
 
                 Log("[INIT] Complete. Ready.");
                 SetMachineInitialized(true, "InitComplete", true);
@@ -9093,6 +9215,7 @@ namespace QMC.CDT320
             var autoCts = _autoCts;
             var coordinatorTask = _coordinatorTask;
             var cycleCts = _cycleCts;
+            var initializeCts = GetAxisInitializeOperationCancellationSource();
 
             QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
                 "Immediate operation cancellation start. code=" + alarmCode +
@@ -9101,6 +9224,9 @@ namespace QMC.CDT320
                 ", coordinator=" + (coordinator != null) +
                 ", " + BuildAlarmControlledOperationState() + " - Start");
 
+            // 알람 E-Stop 직후 HOME 준비 대기에서 ServoOn/HomeSearch가 새로 시작되지 않도록
+            // 다른 운전 취소보다 먼저 초기화 CTS를 끊습니다.
+            TryCancelAlarmOperationToken(initializeCts, "AxisInitialize", alarmCode);
             OnStopRequested();
             CancelInputStageRunReviewAction();
             CancelManualOperation();
@@ -10580,6 +10706,10 @@ namespace QMC.CDT320
 
         private void SetStatus(EquipmentStatus s)
         {
+            // Alarm record가 살아 있는 동안 늦게 끝난 READY/초기화 Task가 상태를 덮지 못하게 합니다.
+            if (s != EquipmentStatus.Alarm && AlarmManager.HasActive)
+                s = EquipmentStatus.Alarm;
+
             if (_status == s) return;
             EquipmentStatus old = _status;
             _status = s;

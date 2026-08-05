@@ -13595,9 +13595,49 @@ namespace QMC.CDT320.Materials
             return cassette;
         }
 
-        private static string BuildGeneratedWaferId(CassetteMaterialRole role, int slotNumber)
+        /// <summary>
+        /// 바코드가 없는 운용에서 카세트 맵핑 시 부여하는 임의 WaferId를 만든다.
+        /// 형식: {ROLE}-S{슬롯2자리}-{MMddHHmmss} (예: INPUT1-S01-0805143022)
+        /// 기존에는 role+slot만 사용해 재맵핑마다 동일 ID가 생성되어 서로 다른 웨이퍼를
+        /// 구분할 수 없었다. 생성 시각(월일시분초)을 붙여 맵핑마다 다른 ID가 되게 한다.
+        /// 연도는 제외한다(길이 절약, 사용자 확정). 구분자는 '-'만 사용해 파일명 안전을 유지한다.
+        /// Input/Output(GOOD/NG) 카세트 공용이다.
+        /// </summary>
+        internal static string BuildGeneratedWaferId(CassetteMaterialRole role, int slotNumber)
         {
-            return role.ToString().ToUpperInvariant() + "-S" + (slotNumber + 1).ToString("00");
+            string prefix = role.ToString().ToUpperInvariant() + "-S" + (slotNumber + 1).ToString("00");
+            string stamp = DateTime.Now.ToString("MMddHHmmss", CultureInfo.InvariantCulture);
+            string candidate = prefix + "-" + stamp;
+
+            // 같은 슬롯을 같은 초에 다시 맵핑하는 극단 케이스만 순번으로 회피한다.
+            // (동일 맵핑 내 다른 슬롯은 슬롯 번호가 이미 ID에 있어 충돌하지 않는다.)
+            if (!ExistsWaferIdNoLock(candidate))
+                return candidate;
+
+            for (int seq = 2; seq <= 99; seq++)
+            {
+                string retry = candidate + "-" + seq.ToString(CultureInfo.InvariantCulture);
+                if (!ExistsWaferIdNoLock(retry))
+                    return retry;
+            }
+
+            return candidate;
+        }
+
+        private static bool ExistsWaferIdNoLock(string waferId)
+        {
+            try
+            {
+                if (State == null || State.Wafers == null)
+                    return false;
+
+                return State.Wafers.Any(w =>
+                    w != null && string.Equals(w.WaferId, waferId, StringComparison.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

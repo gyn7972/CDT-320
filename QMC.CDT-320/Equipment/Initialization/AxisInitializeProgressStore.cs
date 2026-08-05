@@ -47,9 +47,6 @@ namespace QMC.CDT320.Initialization
                 progress = null;
                 return false;
             }
-            finally
-            {
-            }
         }
 
         public void Set(AxisInitializeStepProgress progress)
@@ -66,9 +63,6 @@ namespace QMC.CDT320.Initialization
                 }
             }
             catch
-            {
-            }
-            finally
             {
             }
         }
@@ -89,9 +83,6 @@ namespace QMC.CDT320.Initialization
             {
                 return new List<AxisInitializeStepProgress>();
             }
-            finally
-            {
-            }
         }
 
         public void Clear()
@@ -104,9 +95,6 @@ namespace QMC.CDT320.Initialization
                 }
             }
             catch
-            {
-            }
-            finally
             {
             }
         }

@@ -67,7 +67,9 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterActionButton(BtnInputCst,   "work.inputCst",   op, OpenInputCstStatus);
             RegisterActionButton(BtnOutputCst,  "work.outputCst",  op, OpenOutputCstStatus);
 
-            RegisterModeButton(BtnColletMode,      "work.colletMode",      en, () => new ColletChangeDialog());
+            // 콜렛 교체는 교체 작업 중 다른 화면(JOG/위치 확인 등)을 함께 봐야 하므로 모달리스로 띄운다.
+            RegisterModelessModeButton(BtnColletMode, "work.colletMode", en,
+                owner => ModelessDialogHost.Show("dlg.colletChange", owner, () => new ColletChangeDialog()));
             RegisterModeButton(BtnNeedleMode,      "work.needleMode",      mt, () => new NeedleChangeDialog());
             RegisterModeButton(BtnSelfCheckMode,   "work.selfCheckMode",   en, () => new SelfInspectionDialog());
             RegisterModeButton(BtnAutoPosMode,     "work.autoPosMode",     mt, () => new AutoPositionDialog());
@@ -161,6 +163,36 @@ namespace QMC.CDT_320.Ui.Tabs
             }
             finally
             {
+            }
+        }
+
+        /// <summary>
+        /// 모달리스 모드 창을 여는 사이드바 버튼을 등록한다.
+        /// 모달(ShowDialog)과 달리 창을 띄운 뒤에도 다른 UI를 조작할 수 있어야 하는 모드에 쓴다.
+        /// 창 인스턴스 관리(중복 방지/소유자 지정)는 ModelessDialogHost가 담당하므로 여기서 Dispose하지 않는다.
+        /// </summary>
+        private void RegisterModelessModeButton(SidebarButton button, string i18nKey, UserLevel minLevel, Action<Form> showAction)
+        {
+            try
+            {
+                RegisterSidebarButton(button, i18nKey, minLevel, () => new QMC.CDT_320.Ui.Pages.PlaceholderPage(i18nKey, true));
+                button.Click += (s, e) =>
+                {
+                    try
+                    {
+                        showAction(FindForm());
+                    }
+                    catch (Exception ex)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "RegisterModelessModeButton",
+                            "Work modeless mode dialog open failed: " + ex.Message + " - Failed");
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "RegisterModelessModeButton",
+                    "Work modeless mode button bind failed: " + ex.Message + " - Failed");
             }
         }
 

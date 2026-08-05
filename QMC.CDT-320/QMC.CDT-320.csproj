@@ -12,6 +12,8 @@
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
+    <!-- To do: [앱 아이콘] exe 파일 아이콘 등록 - QMC.Common/Resources의 로고 ico 사용 (2026-08-05 지시). -->
+    <ApplicationIcon>..\QMC.Common\Resources\Logo.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -80,6 +82,7 @@
   <ItemGroup>
     <!-- Equipment / Core -->
     <Compile Include="Equipment\AppSettings.cs" />
+    <Compile Include="Equipment\BarcodeDisabledNoticeService.cs" />
     <Compile Include="Equipment\BarcodeOperatorPromptService.cs" />
     <Compile Include="Equipment\LogRetentionService.cs" />
     <Compile Include="Equipment\Alarms\AlarmResponsePolicy.cs" />
@@ -178,6 +181,7 @@
     <Compile Include="Equipment\Vision\VisionCommLog.cs" />
     <Compile Include="Equipment\Vision\VisionViewerRegistry.cs" />
     <Compile Include="Equipment\Vision\VisionReconnectWatchdog.cs" />
+    <Compile Include="Ui\AppIcons.cs" />
     <Compile Include="Ui\Dialogs\EnumPickerDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -819,6 +823,12 @@
     </Compile>
     <Compile Include="Ui\Dialogs\ColletCalibrationDialog.Designer.cs">
       <DependentUpon>ColletCalibrationDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ColletChangeDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ColletChangeDialog.Designer.cs">
+      <DependentUpon>ColletChangeDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\ColletCleaningControlDialog.cs">
       <SubType>Form</SubType>
@@ -1581,5 +1591,16 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup />
+  <!-- To do: [앱 아이콘] 조그/포지션 팝업 작업표시줄 아이콘 - 배포 폴더 파일 의존 없이 exe에 임베드한다 (2026-08-05 지시). -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\QMC.Common\Resources\axis-jog.ico">
+      <Link>Resources\axis-jog.ico</Link>
+      <LogicalName>QMC.CDT_320.Resources.axis-jog.ico</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\QMC.Common\Resources\axis-position.ico">
+      <Link>Resources\axis-position.ico</Link>
+      <LogicalName>QMC.CDT_320.Resources.axis-position.ico</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

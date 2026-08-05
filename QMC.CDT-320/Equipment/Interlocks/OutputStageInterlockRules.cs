@@ -290,16 +290,19 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
 
-            if (!VerifyGoodStageZUpwardAbsoluteGuard(request, "OutputGoodStageZ", out reason))
-                return false;
-
             switch (request.MoveKind)
             {
                 // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
+                    if (!VerifyGoodStageZUpwardAbsoluteGuard(request, "OutputGoodStageZ", out reason))
+                        return false;
+
                     return CanAutoOutputGoodStageZ(request, out reason);
                 // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    if (!VerifyGoodStageZUpwardAbsoluteGuard(request, "OutputGoodStageZ", out reason))
+                        return false;
+
                     return CanManualOutputGoodStageZ(request, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
@@ -1213,11 +1216,31 @@ namespace QMC.CDT320.Interlocks
             if (request.TargetValue > goodZ.ActualPosition &&
                 !outputStage.IsNgStageInAvoidPosition())
             {
+                BaseAxis ngY = outputStage.NgStage != null
+                    ? outputStage.NgStage.StageY
+                    : null;
+                var recipeNgY = outputStage.Recipe != null
+                    ? outputStage.Recipe.NGStageY
+                    : null;
+                string ngYActual = ngY != null
+                    ? ngY.ActualPosition.ToString("0.###")
+                    : "unavailable";
+                string ngYAvoidTarget = recipeNgY != null
+                    ? recipeNgY.AvoidPosition.ToString("0.###")
+                    : "unavailable";
+                string ngYTolerance = ngY != null
+                    ? (ngY.Config != null
+                        ? ngY.Config.InPositionTolerance.ToString("0.###")
+                        : "0.05(default)")
+                    : "unavailable";
                 return MotionGuardRuleHelpers.Block(
                     movingName,
                     movingName + " 상승 이동 불가: OutputNGStageY가 정확한 Avoid 위치여야 합니다. " +
-                    "current=" + goodZ.ActualPosition.ToString("0.###") +
-                    ", target=" + request.TargetValue.ToString("0.###"),
+                    "goodZActual=" + goodZ.ActualPosition.ToString("0.###") +
+                    ", goodZTarget=" + request.TargetValue.ToString("0.###") +
+                    ", ngYActual=" + ngYActual +
+                    ", ngYAvoidTarget=" + ngYAvoidTarget +
+                    ", ngYTolerance=" + ngYTolerance,
                     out reason);
             }
 

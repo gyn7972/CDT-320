@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common.Alarms;
 using QMC.Common.Motion;
@@ -43,7 +44,23 @@ namespace QMC.CDT320.Initialization
 
         public Task<AxisInitializeResult> ExecuteStepAsync(AxisInitializeStep step)
         {
-            return ExecuteStepAsync(step, null, string.Empty);
+            List<BaseAxis> axes;
+            List<string> missingAxisNames;
+            if (!_runtime.TryResolveAxesByNames(
+                step != null ? step.AxisNames : null,
+                out axes,
+                out missingAxisNames))
+            {
+                string message = "초기화 Step에 등록되지 않은 축이 포함되어 있습니다. missing=" +
+                    string.Join(",", missingAxisNames.ToArray());
+                return Task.FromResult(AxisInitializeResult.Failure(
+                    -1,
+                    step,
+                    string.Empty,
+                    message));
+            }
+
+            return ExecuteStepAsync(step, axes, null, string.Empty, CancellationToken.None);
         }
 
         public AxisInitializeResult VerifySingleAxisStep(
@@ -78,11 +95,13 @@ namespace QMC.CDT320.Initialization
 
         public async Task<AxisInitializeResult> ExecuteSingleAxisHomeAsync(
             AxisInitializeStep step,
-            BaseAxis axis)
+            BaseAxis axis,
+            CancellationToken cancellationToken)
         {
             bool runStarted = false;
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 _runtime.BeginRun();
                 runStarted = true;
 
@@ -92,7 +111,9 @@ namespace QMC.CDT320.Initialization
                     return AxisInitializeResult.Failure(-1, step, string.Empty, invalidMessage);
                 }
 
-                int result = await _runtime.ExecuteSingleAxisHomeAsync(axis).ConfigureAwait(false);
+                int result = await _runtime.ExecuteSingleAxisHomeAsync(
+                    axis,
+                    cancellationToken).ConfigureAwait(false);
                 if (result == 0)
                     return AxisInitializeResult.Success();
 
@@ -109,6 +130,12 @@ namespace QMC.CDT320.Initialization
                     step,
                     string.Empty,
                     failureMessage);
+            }
+            catch (OperationCanceledException)
+            {
+                string message = "Alarm/정지 요청으로 개별축 HOME을 취소했습니다. axis=" +
+                    (axis != null ? axis.Name : "-");
+                return AxisInitializeResult.Failure(-4, step, string.Empty, message);
             }
             catch (Exception ex)
             {
@@ -135,81 +162,28 @@ namespace QMC.CDT320.Initialization
             }
         }
 
-        public AxisInitializeResult VerifyDeclaredStepAxes(
-            IEnumerable<AxisInitializeStep> steps)
-        {
-            foreach (AxisInitializeStep step in steps ?? new AxisInitializeStep[0])
-            {
-                List<BaseAxis> axes;
-                List<string> missingAxisNames;
-                if (_runtime.TryResolveAxesByNames(
-                    step != null ? step.AxisNames : null,
-                    out axes,
-                    out missingAxisNames))
-                {
-                    continue;
-                }
-
-                string message =
-                    "초기화 Plan에 등록되지 않은 축이 포함되어 있어 실행을 시작할 수 없습니다. step=" +
-                    (step != null ? step.StepNo : 0) +
-                    ", group=" + (step != null ? step.GroupName : "") +
-                    ", missing=" + string.Join(",", missingAxisNames.ToArray());
-                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
-                    message + " - Failed");
-                AlarmManager.Raise(
-                    AlarmSeverity.Error,
-                    "INIT-PLAN-AXIS-NOTFOUND",
-                    "MachineController",
-                    message);
-                return AxisInitializeResult.Failure(
-                    -1,
-                    step,
-                    string.Empty,
-                    message);
-            }
-
-            return AxisInitializeResult.Success();
-        }
-
         /// <summary>
         /// AxisInitializeSequence가 선택한 한 Step을 기존 안전 순서로 실행합니다.
         /// 병렬 Lane에서는 반대 Lane 축 이름만 동시 이동 허용 목록으로 전달됩니다.
         /// </summary>
         internal async Task<AxisInitializeResult> ExecuteStepAsync(
             AxisInitializeStep step,
-            ISet<string> allowedConcurrentAxisNames,
-            string laneName)
+            IList<BaseAxis> axes,
+            ISet<BaseAxis> allowedConcurrentAxes,
+            string laneName,
+            CancellationToken cancellationToken)
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (step == null || !step.Enabled)
                     return AxisInitializeResult.Success();
 
-                List<BaseAxis> axes;
-                List<string> missingAxisNames;
-                if (!_runtime.TryResolveAxesByNames(
-                    step.AxisNames,
-                    out axes,
-                    out missingAxisNames))
-                {
-                    string missingMessage =
-                        "초기화 Step에 등록되지 않은 축이 포함되어 있습니다. step=" +
-                        step.StepNo + ", group=" + step.GroupName +
-                        ", missing=" + string.Join(",", missingAxisNames.ToArray());
-                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeStep",
-                        missingMessage + " - Failed");
-                    AlarmManager.Raise(
-                        AlarmSeverity.Error,
-                        "INIT-STEP-AXIS-NOTFOUND",
-                        "MachineController",
-                        missingMessage);
-                    return AxisInitializeResult.Failure(
-                        -1,
-                        step,
-                        laneName,
-                        missingMessage);
-                }
+                axes = (axes ?? new BaseAxis[0])
+                    .Where(x => x != null)
+                    .Distinct()
+                    .ToList();
 
                 bool hasActions = _runtime.HasEnabledActions(step);
                 if (axes.Count == 0 && !hasActions)
@@ -237,7 +211,10 @@ namespace QMC.CDT320.Initialization
                     ", axes=" + string.Join(",", axes.Select(x => x.Name).ToArray()) + " - Start");
                 RaiseStepProgress(step, AxisInitializeStepStatus.Running, "");
 
-                int prepareResult = await _runtime.PrepareStepAsync(step).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                int prepareResult = await _runtime.PrepareStepAsync(
+                    step,
+                    cancellationToken).ConfigureAwait(false);
                 if (prepareResult != 0)
                 {
                     AxisInitializeResult failure = CreateStepFailure(
@@ -251,7 +228,7 @@ namespace QMC.CDT320.Initialization
                 string interlockReason;
                 if (!_runtime.VerifyStep(
                     step,
-                    allowedConcurrentAxisNames,
+                    allowedConcurrentAxes,
                     out interlockReason))
                 {
                     AxisInitializeResult failure = AxisInitializeResult.Failure(
@@ -263,6 +240,7 @@ namespace QMC.CDT320.Initialization
                     return failure;
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
                 int stopInterlockGroupResult =
                     await _runtime.StopInterlockGroupAsync(step).ConfigureAwait(false);
                 if (stopInterlockGroupResult != 0)
@@ -275,10 +253,12 @@ namespace QMC.CDT320.Initialization
                     return failure;
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
                 int preActionResult = await _runtime.ExecuteActionsAsync(
                     step,
                     step.PreActions,
-                    "PreActions").ConfigureAwait(false);
+                    "PreActions",
+                    cancellationToken).ConfigureAwait(false);
                 if (preActionResult != 0)
                 {
                     AxisInitializeResult failure = CreateStepFailure(
@@ -292,17 +272,25 @@ namespace QMC.CDT320.Initialization
                 int result = 0;
                 if (axes.Count > 0)
                 {
-                    if (_runtime.IsPickerYPairStep(step))
+                    if (step.RuntimePickerYPairHome || _runtime.IsPickerYPairStep(step))
                     {
                         result = await _runtime.ExecutePickerYPairAsync(
                             step,
-                            axes).ConfigureAwait(false);
+                            axes,
+                            cancellationToken).ConfigureAwait(false);
                     }
                     else
                     {
-                        result = AxisInitializeRunMode.IsParallel(step.RunMode)
-                            ? await _runtime.ExecuteParallelHomeAsync(step, axes).ConfigureAwait(false)
-                            : await _runtime.ExecuteSerialHomeAsync(step, axes).ConfigureAwait(false);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        result = step.RuntimeParallelHome || AxisInitializeRunMode.IsParallel(step.RunMode)
+                            ? await _runtime.ExecuteParallelHomeAsync(
+                                step,
+                                axes,
+                                cancellationToken).ConfigureAwait(false)
+                            : await _runtime.ExecuteSerialHomeAsync(
+                                step,
+                                axes,
+                                cancellationToken).ConfigureAwait(false);
                     }
                 }
 
@@ -316,10 +304,12 @@ namespace QMC.CDT320.Initialization
                     return failure;
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
                 int postActionResult = await _runtime.ExecuteActionsAsync(
                     step,
                     step.PostActions,
-                    "PostActions").ConfigureAwait(false);
+                    "PostActions",
+                    cancellationToken).ConfigureAwait(false);
                 if (postActionResult != 0)
                 {
                     AxisInitializeResult failure = CreateStepFailure(
@@ -330,20 +320,19 @@ namespace QMC.CDT320.Initialization
                     return failure;
                 }
 
-                // 제거 요망 함수.
-                // 개별 축에서 문제된다고 판단. AxisInitializenPlan에 이동 함수 만들어서 사용.
-                //int completeResult = await CompleteInitializeStepAsync(step).ConfigureAwait(false);
-                //if (completeResult != 0)
-                //{
-                //    RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Failed, LastActionFailureMessage);
-                //    return completeResult;
-                //}
-
                 QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeStep",
                     "Axis initialize step completed. step=" + step.StepNo +
                     ", group=" + step.GroupName + " - Ok");
                 RaiseStepProgress(step, AxisInitializeStepStatus.Complete, "");
                 return AxisInitializeResult.Success();
+            }
+            catch (OperationCanceledException)
+            {
+                string message = "Alarm/정지 또는 반대 Lane 실패로 초기화 Step이 취소되었습니다. step=" +
+                    (step != null ? step.StepNo : 0) +
+                    ", lane=" + (string.IsNullOrWhiteSpace(laneName) ? "-" : laneName);
+                RaiseStepProgress(step, AxisInitializeStepStatus.ReinitializeRequired, message);
+                return AxisInitializeResult.Failure(-4, step, laneName, message);
             }
             catch (Exception ex)
             {

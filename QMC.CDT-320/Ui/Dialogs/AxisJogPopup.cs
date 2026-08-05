@@ -36,6 +36,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _unitJogControllers = EnumerateUnitJogControllers(machine).ToList();
 
                 InitializeComponent();
+                // To do: [앱 아이콘] 조그 팝업 작업표시줄/타이틀바 아이콘 (2026-08-05 지시).
+                QMC.CDT_320.Ui.AppIcons.ApplyEmbeddedIcon(this, "axis-jog.ico");
                 BindAxes();
                 WireEvents();
                 BindSelectedAxis();

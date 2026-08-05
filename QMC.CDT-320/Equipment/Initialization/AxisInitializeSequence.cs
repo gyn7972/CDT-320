@@ -5,7 +5,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common.Alarms;
+using QMC.Common.IO;
 using QMC.Common.Motion;
+using QMC.CDT320.Ajin;
 using static QMC.CDT320.Initialization.AxisInitializePlanStore;
 
 namespace QMC.CDT320.Initialization
@@ -17,7 +19,35 @@ namespace QMC.CDT320.Initialization
     /// </summary>
     internal sealed class AxisInitializeSequence
     {
-        private const int CurrentDefaultVersion = 17;
+        private const int CurrentDefaultVersion = 19;
+
+        // 전체 초기화 실행 순서의 단일 정본입니다.
+        // Step을 추가하거나 순서를 바꿀 때는 이 네 구간만 먼저 검토합니다.
+        private static readonly int[] CommonStepOrder =
+        {
+            10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150
+        };
+
+        private static readonly int[] InputLaneStepOrder =
+        {
+            170, 180, 190, 200, 210, 230
+        };
+
+        private static readonly int[] OutputLaneStepOrder =
+        {
+            240, 250, 260, 270, 290, 300, 310, 320, 330
+        };
+
+        private static readonly int[] SharedRailStepOrder =
+        {
+            340, 350, 360, 370
+        };
+
+        private static readonly int[] DefaultStepOrder = CommonStepOrder
+            .Concat(InputLaneStepOrder)
+            .Concat(OutputLaneStepOrder)
+            .Concat(SharedRailStepOrder)
+            .ToArray();
 
         #region 기본 초기화 Step 순서 정의
 
@@ -65,9 +95,6 @@ namespace QMC.CDT320.Initialization
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
                     "Axis initialize default plan create failed: " + ex.Message + " - Failed");
-            }
-            finally
-            {
             }
 
             ApplyCommonSafetyInterlocks(plan);
@@ -211,18 +238,25 @@ namespace QMC.CDT320.Initialization
             AddActionOnlyStep(plan, 170, "InputFeederLift", "InputFeederLift",
                 AxisInitializeActionCommand.CylinderBwd,
                 "InputFeeder Lift moves Down only when empty and already unclamped.");
+
             AddFeederSafeInterlocks(plan, 170, "InputFeederLift", true);
+
             AddAxisHomeDoneInterlocks(plan, 170, "InputFeederLift", "FrontPickerY", "RearPickerY");
 
             AddKnownSingleStep(plan, axisByName, used, 180, "InputFeeder", AxisInitializeRunMode.Serial,
-                "InputFeederY home after Lift Down.", "InputFeederY", "FeederY");
+                "InputVisionX MEL safety retreat and InputFeederY home after Lift Down.",
+                "InputFeederY", "FeederY");
+
             AddFeederSafeInterlocks(plan, 180, "InputFeeder", true);
-            AddAxisHomeDoneInterlocks(plan, 180, "InputFeeder", "FrontPickerY", "RearPickerY");
+
+            AddAxisHomeDoneInterlocks(plan, 180, "InputFeeder",
+                "FrontPickerY", "RearPickerY",
+                "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3",
+                "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
+
             AddStepInterlock(plan, 180, "InputFeeder", AxisInitializeInterlockTarget.Cylinder,
                 "InputFeederLift", AxisInitializeInterlockState.Bwd,
                 "InputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
-
-
         }
 
         private static void AddInputStageAndCassetteSteps(
@@ -310,14 +344,13 @@ namespace QMC.CDT320.Initialization
                 "Good Bin Guide를 Down 상태로 만든 후 다시 실행하십시오.");
 
             AddKnownStep(plan, axisByName, used, 260, "OutputFeeder", AxisInitializeRunMode.Serial,
-                "OutputFeederY home after Lift Down and Good Guide Down.", "OutputFeederY");
+                "OutputVisionX PEL safety retreat and OutputFeederY home after Lift Down and Good Guide Down.",
+                "OutputFeederY");
             AddFeederSafeInterlocks(plan, 260, "OutputFeeder", false);
             AddAxisHomeDoneInterlocks(plan, 260, "OutputFeeder",
-                "FrontPickerY", "RearPickerY", "OutputGoodStageZ");
-            // 기존 조건(사용자 승인으로 비활성): OutputFeeder HOME 전에 Lift Up(Fwd)을 요구했다.
-            // AddStepInterlock(plan, 260, "OutputFeeder", AxisInitializeInterlockTarget.Cylinder,
-            //     "OutputFeederLift", AxisInitializeInterlockState.Fwd,
-            //     "OutputFeeder Lift를 Up 상태로 만든 후 다시 실행하십시오.");
+                "FrontPickerY", "RearPickerY", "OutputGoodStageZ",
+                "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3",
+                "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
             AddStepInterlock(plan, 260, "OutputFeeder", AxisInitializeInterlockTarget.Cylinder,
                 "OutputFeederLift", AxisInitializeInterlockState.Bwd,
                 "OutputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
@@ -485,24 +518,32 @@ namespace QMC.CDT320.Initialization
         private static void AssignDefaultParallelLanes(
             AxisInitializePlan plan)
         {
-            AssignParallelLane(plan, AxisInitializeParallelLane.Input,
-                "InputFeederLift",
-                "InputFeeder",
-                "InputStageY",
-                "InputStageYAvoid",
-                "InputStageT",
-                "InputCassette");
+            if (plan == null || plan.Steps == null)
+                return;
 
-            AssignParallelLane(plan, AxisInitializeParallelLane.Output,
-                "OutputGoodBinGuideDown",
-                "OutputFeeder",
-                "OutputStageZAvoid",
-                "OutputFeederLiftDown",
-                "OutputNGStageY",
-                "OutputNGStageYAvoid",
-                "OutputGoodStageY",
-                "OutputGoodStageYAvoid",
-                "OutputCassette");
+            foreach (AxisInitializeStep step in plan.Steps.Where(x => x != null))
+            {
+                if (InputLaneStepOrder.Contains(step.StepNo))
+                    step.ParallelLane = AxisInitializeParallelLane.Input;
+                else if (OutputLaneStepOrder.Contains(step.StepNo))
+                    step.ParallelLane = AxisInitializeParallelLane.Output;
+                else
+                    step.ParallelLane = AxisInitializeParallelLane.None;
+            }
+        }
+
+        internal static string ResolveDefaultRoutePhase(int stepNo)
+        {
+            if (CommonStepOrder.Contains(stepNo))
+                return AxisInitializeRoutePhase.CommonPreLane;
+            if (InputLaneStepOrder.Contains(stepNo))
+                return AxisInitializeRoutePhase.InputLane;
+            if (OutputLaneStepOrder.Contains(stepNo))
+                return AxisInitializeRoutePhase.OutputLane;
+            if (SharedRailStepOrder.Contains(stepNo))
+                return AxisInitializeRoutePhase.SharedRailPostLane;
+
+            return AxisInitializeRoutePhase.SerialFallback;
         }
 
         #endregion
@@ -510,14 +551,720 @@ namespace QMC.CDT320.Initialization
         private readonly AxisInitializeExecutor _executor;
         private readonly AxisInitializeRuntime _runtime;
         private readonly AxisInitializeRoutePlanner _routePlanner;
+        private readonly CDT320_Machine _machine;
 
         public AxisInitializeSequence(
             AxisInitializeExecutor executor,
-            AxisInitializeRuntime runtime)
+            AxisInitializeRuntime runtime,
+            CDT320_Machine machine)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
             _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
+            _machine = machine ?? throw new ArgumentNullException(nameof(machine));
             _routePlanner = new AxisInitializeRoutePlanner(_runtime);
+        }
+
+        /// <summary>
+        /// Step 번호를 기준으로 실제 Unit의 축·실린더·DI를 연결합니다.
+        /// 문자열 이름은 Monitor와 로그에만 사용하고 실제 장치 선택은 이 switch가 담당합니다.
+        /// </summary>
+        private AxisInitializeResult BindRuntimeTargets(IList<AxisInitializeStep> steps)
+        {
+            try
+            {
+                List<BaseAxis> knownAxes = GetKnownAxes();
+                List<BaseCylinder> knownCylinders = GetKnownCylinders();
+
+                foreach (AxisInitializeStep step in steps ?? new AxisInitializeStep[0])
+                {
+                    if (step == null || !step.Enabled)
+                        continue;
+
+                    step.RuntimeAxes = new List<BaseAxis>();
+                    step.RuntimeInterlockAxes = new List<BaseAxis>();
+                    step.RuntimeParallelHome = false;
+                    step.RuntimePickerYPairHome = false;
+
+                    string bindReason;
+                    switch (step.StepNo)
+                    {
+                        // 10~30: 수직축을 먼저 연결하여 Picker와 Needle의 상하 간섭 공간을 확보합니다.
+                        case 10:
+                            BindAxes(step, true,
+                                _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerZ0 : null,
+                                _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerZ1 : null,
+                                _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerZ2 : null,
+                                _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerZ3 : null);
+                            break;
+
+                        case 20:
+                            BindAxes(step, true,
+                                _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerZ0 : null,
+                                _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerZ1 : null,
+                                _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerZ2 : null,
+                                _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerZ3 : null);
+                            break;
+
+                        case 30:
+                            BindAxes(step, true,
+                                _machine.InputStageUnit != null ? _machine.InputStageUnit.NeedleZ : null,
+                                _machine.InputStageUnit != null ? _machine.InputStageUnit.EjectPinZ : null);
+                            break;
+
+                        // 40~80: Reticle과 Output NG Clamp의 선행 실린더 동작입니다.
+                        case 40:
+                            BindCylinderAction(step,
+                                _machine.VisionUnit != null ? _machine.VisionUnit.ReticleRearSideSlide : null);
+                            break;
+
+                        case 50:
+                            BindCylinderAction(step,
+                                _machine.VisionUnit != null ? _machine.VisionUnit.ReticleFrontSideSlide : null);
+                            break;
+
+                        case 60:
+                            BindCylinderAction(step,
+                                _machine.VisionUnit != null ? _machine.VisionUnit.ReticleLift : null);
+                            break;
+
+                        case 70:
+                            BindCylinderAction(step,
+                                _machine.OutputStageUnit != null
+                                    ? _machine.OutputStageUnit.NgBinGuideClampCylinder
+                                    : null);
+                            break;
+
+                        case 80:
+                            BindCylinderAction(step,
+                                _machine.OutputStageUnit != null
+                                    ? _machine.OutputStageUnit.NgBinGuideClampLiftCylinder
+                                    : null);
+                            break;
+
+                        // 90~120: Stage Z와 Picker T축을 실제 Unit 축에 연결합니다.
+                        case 90:
+                            BindAxes(step, false,
+                                _machine.OutputStageUnit != null && _machine.OutputStageUnit.GoodStage != null
+                                    ? _machine.OutputStageUnit.GoodStage.StageZ
+                                    : null);
+                            break;
+
+                        case 100:
+                            BindAxes(step, false,
+                                _machine.InputStageUnit != null ? _machine.InputStageUnit.ExpanderZ : null);
+                            break;
+
+                        case 110:
+                            BindAxes(step, true,
+                                _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerT0 : null,
+                                _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerT1 : null,
+                                _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerT2 : null,
+                                _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerT3 : null,
+                                _machine.VisionUnit != null ? _machine.VisionUnit.FrontSideVisionY : null);
+                            break;
+
+                        case 120:
+                            BindAxes(step, true,
+                                _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerT0 : null,
+                                _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerT1 : null,
+                                _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerT2 : null,
+                                _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerT3 : null,
+                                _machine.VisionUnit != null ? _machine.VisionUnit.RearSideVisionY : null);
+                            break;
+
+                        // 150: Front/Rear PickerY는 일반 병렬 HOME이 아니라 전용 Pair 절차로 실행합니다.
+                        case 150:
+                            BindAxes(step, false,
+                                _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerY : null,
+                                _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerY : null);
+                            step.RuntimePickerYPairHome = true;
+                            break;
+
+                        // 170~230: Input Lane의 Lift → Feeder → Stage → Cassette 순서입니다.
+                        case 170:
+                            BindCylinderAction(step,
+                                _machine.InputFeederUnit != null
+                                    ? _machine.InputFeederUnit.InputFeederLift
+                                    : null);
+                            break;
+
+                        case 180:
+                            BindAxes(step, false,
+                                _machine.InputFeederUnit != null ? _machine.InputFeederUnit.FeederY : null);
+                            break;
+
+                        case 190:
+                            BindAxes(step, true,
+                                _machine.InputStageUnit != null ? _machine.InputStageUnit.StageY : null,
+                                _machine.InputStageUnit != null ? _machine.InputStageUnit.NeedleBlockX : null);
+                            break;
+
+                        case 200:
+                            BindInputStageYAvoidAction(step);
+                            break;
+
+                        case 210:
+                            BindAxes(step, false,
+                                _machine.InputStageUnit != null ? _machine.InputStageUnit.StageT : null);
+                            break;
+
+                        case 230:
+                            BindAxes(step, false,
+                                _machine.InputCassetteUnit != null ? _machine.InputCassetteUnit.InputLifterZ : null);
+                            break;
+
+                        // 240~330: Output Lane의 Guide/Lift → Feeder → Stage → Cassette 순서입니다.
+                        case 240:
+                            BindCylinderAction(step,
+                                _machine.OutputStageUnit != null
+                                    ? _machine.OutputStageUnit.GoodBinGuideLiftCylinder
+                                    : null);
+                            break;
+
+                        case 250:
+                            BindCylinderAction(step,
+                                _machine.OutputFeederUnit != null
+                                    ? _machine.OutputFeederUnit.FeederUpDownCyl
+                                    : null);
+                            break;
+
+                        case 260:
+                            BindAxes(step, false,
+                                _machine.OutputFeederUnit != null ? _machine.OutputFeederUnit.FeederY : null);
+                            break;
+
+                        case 270:
+                            BindOutputGoodStageZAvoidAction(step);
+                            break;
+
+                        case 290:
+                            BindAxes(step, false,
+                                _machine.OutputStageUnit != null && _machine.OutputStageUnit.NgStage != null
+                                    ? _machine.OutputStageUnit.NgStage.StageY
+                                    : null);
+                            break;
+
+                        case 300:
+                            BindOutputNgStageYAvoidAction(step);
+                            break;
+
+                        case 310:
+                            BindAxes(step, false,
+                                _machine.OutputStageUnit != null && _machine.OutputStageUnit.GoodStage != null
+                                    ? _machine.OutputStageUnit.GoodStage.StageY
+                                    : null);
+                            break;
+
+                        case 320:
+                            BindOutputGoodStageYAvoidAction(step);
+                            break;
+
+                        case 330:
+                            BindAxes(step, false,
+                                _machine.OutputCassetteUnit != null ? _machine.OutputCassetteUnit.OutputLifterZ : null);
+                            break;
+
+                        // 340~370: 양쪽 Lane 완료 후 SharedRail X축을 정해진 순서로 HOME 합니다.
+                        case 340:
+                            BindAxes(step, false,
+                                _machine.InputStageUnit != null ? _machine.InputStageUnit.CameraX : null);
+                            break;
+
+                        case 350:
+                            BindAxes(step, false,
+                                _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerX : null);
+                            break;
+
+                        case 360:
+                            BindAxes(step, false,
+                                _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerX : null);
+                            break;
+
+                        case 370:
+                            BindAxes(step, false,
+                                _machine.OutputStageUnit != null ? _machine.OutputStageUnit.OutputCameraX : null);
+                            break;
+
+                        default:
+                            bindReason = "지원하지 않는 전체 초기화 Step입니다. step=" + step.StepNo +
+                                ", group=" + step.GroupName;
+                            return AxisInitializeResult.Failure(-1, step, string.Empty, bindReason);
+                    }
+
+                    // Unit 연결 개수와 Action 목표가 완전한지 먼저 확인한 뒤 인터락 대상을 연결합니다.
+                    if (!ValidateBoundStep(step, out bindReason))
+                        return AxisInitializeResult.Failure(-1, step, string.Empty, bindReason);
+
+                    if (!BindInterlockTargets(step, knownAxes, knownCylinders, out bindReason))
+                        return AxisInitializeResult.Failure(-1, step, string.Empty, bindReason);
+
+                    List<BaseAxis> interlockFallbackAxes = GetRuntimeStepAxes(step);
+                    List<BaseAxis> resolvedInterlockAxes;
+                    if (!_runtime.TryResolveInterlockAxes(
+                        step,
+                        interlockFallbackAxes,
+                        out resolvedInterlockAxes,
+                        out bindReason))
+                    {
+                        return AxisInitializeResult.Failure(
+                            -1,
+                            step,
+                            string.Empty,
+                            bindReason);
+                    }
+                    step.RuntimeInterlockAxes = resolvedInterlockAxes;
+                }
+
+                return AxisInitializeResult.Success();
+            }
+            catch (Exception ex)
+            {
+                string message = "전체 초기화 실제 장치 연결 중 예외가 발생했습니다. error=" + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "AxisInitializeBinding",
+                    message + " - Failed");
+                return AxisInitializeResult.Failure(-1, null, string.Empty, message);
+            }
+        }
+
+        /// <summary>
+        /// 한 Step에서 실제 HOME할 축과 Step 내부 동시 HOME 여부를 기록합니다.
+        /// </summary>
+        private static void BindAxes(
+            AxisInitializeStep step,
+            bool parallelHome,
+            params BaseAxis[] axes)
+        {
+            step.RuntimeAxes = (axes ?? new BaseAxis[0]).Where(x => x != null).ToList();
+            step.RuntimeParallelHome = parallelHome;
+        }
+
+        /// <summary>
+        /// HOME 축과 Pre/Post Action 이동축을 합쳐 간섭 그룹 정지와 Lane 중복 검사에 사용합니다.
+        /// </summary>
+        private static List<BaseAxis> GetRuntimeStepAxes(AxisInitializeStep step)
+        {
+            var axes = new List<BaseAxis>();
+            if (step == null)
+                return axes;
+
+            foreach (BaseAxis axis in step.RuntimeAxes ?? new List<BaseAxis>())
+            {
+                if (axis != null && !axes.Contains(axis))
+                    axes.Add(axis);
+            }
+
+            IEnumerable<AxisInitializeAction> actions =
+                (step.PreActions ?? new List<AxisInitializeAction>())
+                .Concat(step.PostActions ?? new List<AxisInitializeAction>());
+            foreach (AxisInitializeAction action in actions)
+            {
+                if (action != null && action.Enabled &&
+                    action.RuntimeAxis != null && !axes.Contains(action.RuntimeAxis))
+                {
+                    axes.Add(action.RuntimeAxis);
+                }
+            }
+
+            return axes;
+        }
+
+        private static AxisInitializeAction GetSingleEnabledPreAction(AxisInitializeStep step)
+        {
+            return step != null && step.PreActions != null
+                ? step.PreActions.FirstOrDefault(x => x != null && x.Enabled)
+                : null;
+        }
+
+        private static void BindCylinderAction(AxisInitializeStep step, BaseCylinder cylinder)
+        {
+            AxisInitializeAction action = GetSingleEnabledPreAction(step);
+            if (action != null)
+                action.RuntimeCylinder = cylinder;
+        }
+
+        private static void BindAxisAction(
+            AxisInitializeStep step,
+            BaseAxis axis,
+            double targetPosition,
+            string targetName)
+        {
+            AxisInitializeAction action = GetSingleEnabledPreAction(step);
+            if (action == null)
+                return;
+
+            action.RuntimeAxis = axis;
+            action.RuntimeTargetPosition = targetPosition;
+            action.HasRuntimeTargetPosition = true;
+            action.RuntimeTargetName = targetName ?? string.Empty;
+        }
+
+        private void BindInputStageYAvoidAction(AxisInitializeStep step)
+        {
+            BaseAxis axis = _machine.InputStageUnit != null ? _machine.InputStageUnit.StageY : null;
+            double target = _machine.InputStageUnit != null &&
+                            _machine.InputStageUnit.Recipe != null &&
+                            _machine.InputStageUnit.Recipe.WaferY != null
+                ? _machine.InputStageUnit.Recipe.WaferY.AvoidPosition
+                : double.NaN;
+            BindAxisAction(step, axis, target, "InputStageY.Avoid");
+        }
+
+        private void BindOutputGoodStageZAvoidAction(AxisInitializeStep step)
+        {
+            BaseAxis axis = _machine.OutputStageUnit != null && _machine.OutputStageUnit.GoodStage != null
+                ? _machine.OutputStageUnit.GoodStage.StageZ
+                : null;
+            double target = _machine.OutputStageUnit != null &&
+                            _machine.OutputStageUnit.Recipe != null &&
+                            _machine.OutputStageUnit.Recipe.GoodStageZ != null
+                ? _machine.OutputStageUnit.Recipe.GoodStageZ.AvoidPosition
+                : double.NaN;
+            BindAxisAction(step, axis, target, "OutputGoodStageZ.Avoid");
+        }
+
+        private void BindOutputNgStageYAvoidAction(AxisInitializeStep step)
+        {
+            BaseAxis axis = _machine.OutputStageUnit != null && _machine.OutputStageUnit.NgStage != null
+                ? _machine.OutputStageUnit.NgStage.StageY
+                : null;
+            double target = _machine.OutputStageUnit != null &&
+                            _machine.OutputStageUnit.Recipe != null &&
+                            _machine.OutputStageUnit.Recipe.NGStageY != null
+                ? _machine.OutputStageUnit.Recipe.NGStageY.AvoidPosition
+                : double.NaN;
+            BindAxisAction(step, axis, target, "OutputNGStageY.Avoid");
+        }
+
+        private void BindOutputGoodStageYAvoidAction(AxisInitializeStep step)
+        {
+            BaseAxis axis = _machine.OutputStageUnit != null && _machine.OutputStageUnit.GoodStage != null
+                ? _machine.OutputStageUnit.GoodStage.StageY
+                : null;
+            double target = _machine.OutputStageUnit != null &&
+                            _machine.OutputStageUnit.Recipe != null &&
+                            _machine.OutputStageUnit.Recipe.GoodStageY != null
+                ? _machine.OutputStageUnit.Recipe.GoodStageY.AvoidPosition
+                : double.NaN;
+            BindAxisAction(step, axis, target, "OutputGoodStageY.Avoid");
+        }
+
+        /// <summary>
+        /// Step별 필수 축 수와 Action의 실제 장치 연결 상태를 모션 시작 전에 확인합니다.
+        /// </summary>
+        private static bool ValidateBoundStep(AxisInitializeStep step, out string reason)
+        {
+            reason = string.Empty;
+            if (step == null)
+            {
+                reason = "초기화 Step 정보가 없습니다.";
+                return false;
+            }
+
+            int expectedHomeAxisCount;
+            switch (step.StepNo)
+            {
+                case 10:
+                case 20:
+                    expectedHomeAxisCount = 4;
+                    break;
+
+                case 30:
+                case 150:
+                case 190:
+                    expectedHomeAxisCount = 2;
+                    break;
+
+                case 110:
+                case 120:
+                    expectedHomeAxisCount = 5;
+                    break;
+
+                case 90:
+                case 100:
+                case 180:
+                case 210:
+                case 230:
+                case 260:
+                case 290:
+                case 310:
+                case 330:
+                case 340:
+                case 350:
+                case 360:
+                case 370:
+                    expectedHomeAxisCount = 1;
+                    break;
+
+                default:
+                    expectedHomeAxisCount = 0;
+                    break;
+            }
+
+            int boundHomeAxisCount = step.RuntimeAxes != null
+                ? step.RuntimeAxes.Where(x => x != null).Distinct().Count()
+                : 0;
+            if (expectedHomeAxisCount > 0 && boundHomeAxisCount != expectedHomeAxisCount)
+            {
+                reason = "초기화 Step의 실제 Unit 축 구성이 완전하지 않습니다. step=" +
+                    step.StepNo + ", group=" + step.GroupName +
+                    ", expected=" + expectedHomeAxisCount +
+                    ", boundDistinct=" + boundHomeAxisCount;
+                return false;
+            }
+
+            IEnumerable<AxisInitializeAction> actions =
+                (step.PreActions ?? new List<AxisInitializeAction>())
+                .Concat(step.PostActions ?? new List<AxisInitializeAction>())
+                .Where(x => x != null && x.Enabled);
+            foreach (AxisInitializeAction action in actions)
+            {
+                if (string.Equals(action.Command, AxisInitializeActionCommand.AxisTeachingMove,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    if (action.RuntimeAxis == null || !action.HasRuntimeTargetPosition ||
+                        double.IsNaN(action.RuntimeTargetPosition) ||
+                        double.IsInfinity(action.RuntimeTargetPosition))
+                    {
+                        reason = "초기화 티칭 이동의 실제 축/목표값을 찾을 수 없습니다. step=" +
+                            step.StepNo + ", group=" + step.GroupName;
+                        return false;
+                    }
+                }
+                else if (string.Equals(action.Command, AxisInitializeActionCommand.CylinderFwd,
+                             StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(action.Command, AxisInitializeActionCommand.CylinderBwd,
+                             StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(action.Command, AxisInitializeActionCommand.CustomHook,
+                             StringComparison.OrdinalIgnoreCase))
+                {
+                    if (action.RuntimeCylinder == null)
+                    {
+                        reason = "초기화 Action의 실제 Unit 실린더를 찾을 수 없습니다. step=" +
+                            step.StepNo + ", group=" + step.GroupName;
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Plan의 표시 이름을 실제 Unit 축·실린더·DI 객체에 연결합니다.
+        /// 실장비에서 찾지 못한 장치는 실행 전에 실패 처리합니다.
+        /// </summary>
+        private bool BindInterlockTargets(
+            AxisInitializeStep step,
+            IList<BaseAxis> knownAxes,
+            IList<BaseCylinder> knownCylinders,
+            out string reason)
+        {
+            reason = string.Empty;
+            foreach (AxisInitializeInterlockRule rule in
+                step != null && step.Interlocks != null
+                    ? step.Interlocks
+                    : new List<AxisInitializeInterlockRule>())
+            {
+                if (rule == null || !rule.Enabled)
+                    continue;
+
+                rule.RuntimeTargetBindingApplied = true;
+
+                if (string.Equals(rule.TargetType, AxisInitializeInterlockTarget.Axis,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    rule.RuntimeAxis = FindKnownAxis(rule.Name, knownAxes);
+                    if (rule.RuntimeAxis == null)
+                    {
+                        reason = BuildBindingFailure(step, rule);
+                        return false;
+                    }
+                }
+                else if (string.Equals(rule.TargetType, AxisInitializeInterlockTarget.Cylinder,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    rule.RuntimeCylinder = FindKnownCylinder(rule.Name, knownCylinders);
+                    if (rule.RuntimeCylinder == null)
+                    {
+                        reason = BuildBindingFailure(step, rule);
+                        return false;
+                    }
+                }
+                else if (string.Equals(rule.TargetType, AxisInitializeInterlockTarget.DigitalInput,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    rule.RuntimeDigitalInput = ResolveSafetyInput(rule.Name);
+                    // 순수 Simulation/BypassHardware에서는 물리 DI가 없어도 기존 정책상 허용됩니다.
+                    // 실장비 모드는 InterlockService가 null을 실패 처리하며 이름 기반 신규 DI는 만들지 않습니다.
+                }
+            }
+
+            return true;
+        }
+
+        private static string BuildBindingFailure(
+            AxisInitializeStep step,
+            AxisInitializeInterlockRule rule)
+        {
+            return "초기화 인터락의 실제 Unit 장치를 찾을 수 없습니다. step=" +
+                (step != null ? step.StepNo : 0) + ", group=" +
+                (step != null ? step.GroupName : "-") + ", target=" +
+                (rule != null ? rule.TargetType + ":" + rule.Name : "-");
+        }
+
+        private static BaseAxis FindKnownAxis(string requestedName, IEnumerable<BaseAxis> axes)
+        {
+            if (string.IsNullOrWhiteSpace(requestedName))
+                return null;
+
+            string canonicalName = AjinAxisDefaults.ResolveName(requestedName.Trim());
+            return (axes ?? Enumerable.Empty<BaseAxis>()).FirstOrDefault(axis =>
+                axis != null &&
+                (string.Equals(axis.Name, requestedName.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(AjinAxisDefaults.ResolveName(axis.Name), canonicalName,
+                     StringComparison.OrdinalIgnoreCase)));
+        }
+
+        private static BaseCylinder FindKnownCylinder(
+            string requestedName,
+            IEnumerable<BaseCylinder> cylinders)
+        {
+            if (string.IsNullOrWhiteSpace(requestedName))
+                return null;
+
+            return (cylinders ?? Enumerable.Empty<BaseCylinder>()).FirstOrDefault(cylinder =>
+                cylinder != null &&
+                string.Equals(cylinder.Name, requestedName.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+
+        private BaseDigitalInput ResolveSafetyInput(string inputName)
+        {
+            if (_machine.OpPanelUnit != null)
+            {
+                if (string.Equals(inputName, AxisInitializeSafetyInput.ElecEmgOn,
+                    StringComparison.OrdinalIgnoreCase))
+                    return _machine.OpPanelUnit.EmgFront;
+                if (string.Equals(inputName, AxisInitializeSafetyInput.OpEmgOn,
+                    StringComparison.OrdinalIgnoreCase))
+                    return _machine.OpPanelUnit.OpEmgOn;
+                if (string.Equals(inputName, AxisInitializeSafetyInput.RearEmgOn,
+                    StringComparison.OrdinalIgnoreCase))
+                    return _machine.OpPanelUnit.EmgRear;
+                if (string.Equals(inputName, AxisInitializeSafetyInput.RightEmgOn,
+                    StringComparison.OrdinalIgnoreCase))
+                    return _machine.OpPanelUnit.EmgLeft;
+            }
+
+            if (string.Equals(inputName, AxisInitializeSafetyInput.WaferFeederAvoidPositionCheck,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                return _machine.InputFeederUnit != null
+                    ? _machine.InputFeederUnit.WaferFeederAvoidPositionCheckSensor
+                    : null;
+            }
+
+            if (string.Equals(inputName, AxisInitializeSafetyInput.BinFeederAvoidPositionCheck,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                return _machine.OutputFeederUnit != null
+                    ? _machine.OutputFeederUnit.BinFeederAvoidPositionCheckSensor
+                    : null;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 초기화 Plan에서 참조할 수 있는 실제 장비 축 목록입니다.
+        /// </summary>
+        private List<BaseAxis> GetKnownAxes()
+        {
+            var axes = new List<BaseAxis>();
+            AddAxes(axes,
+                _machine.InputCassetteUnit != null ? _machine.InputCassetteUnit.InputLifterZ : null,
+                _machine.InputFeederUnit != null ? _machine.InputFeederUnit.FeederY : null,
+                _machine.InputStageUnit != null ? _machine.InputStageUnit.StageY : null,
+                _machine.InputStageUnit != null ? _machine.InputStageUnit.StageT : null,
+                _machine.InputStageUnit != null ? _machine.InputStageUnit.ExpanderZ : null,
+                _machine.InputStageUnit != null ? _machine.InputStageUnit.CameraX : null,
+                _machine.InputStageUnit != null ? _machine.InputStageUnit.NeedleBlockX : null,
+                _machine.InputStageUnit != null ? _machine.InputStageUnit.NeedleZ : null,
+                _machine.InputStageUnit != null ? _machine.InputStageUnit.EjectPinZ : null);
+
+            if (_machine.PickerFrontUnit != null)
+            {
+                AddAxes(axes,
+                    _machine.PickerFrontUnit.PickerX, _machine.PickerFrontUnit.PickerY,
+                    _machine.PickerFrontUnit.PickerT0, _machine.PickerFrontUnit.PickerZ0,
+                    _machine.PickerFrontUnit.PickerT1, _machine.PickerFrontUnit.PickerZ1,
+                    _machine.PickerFrontUnit.PickerT2, _machine.PickerFrontUnit.PickerZ2,
+                    _machine.PickerFrontUnit.PickerT3, _machine.PickerFrontUnit.PickerZ3);
+            }
+
+            if (_machine.PickerRearUnit != null)
+            {
+                AddAxes(axes,
+                    _machine.PickerRearUnit.PickerX, _machine.PickerRearUnit.PickerY,
+                    _machine.PickerRearUnit.PickerT0, _machine.PickerRearUnit.PickerZ0,
+                    _machine.PickerRearUnit.PickerT1, _machine.PickerRearUnit.PickerZ1,
+                    _machine.PickerRearUnit.PickerT2, _machine.PickerRearUnit.PickerZ2,
+                    _machine.PickerRearUnit.PickerT3, _machine.PickerRearUnit.PickerZ3);
+            }
+
+            AddAxes(axes,
+                _machine.VisionUnit != null ? _machine.VisionUnit.FrontSideVisionY : null,
+                _machine.VisionUnit != null ? _machine.VisionUnit.RearSideVisionY : null,
+                _machine.OutputStageUnit != null && _machine.OutputStageUnit.GoodStage != null
+                    ? _machine.OutputStageUnit.GoodStage.StageY : null,
+                _machine.OutputStageUnit != null && _machine.OutputStageUnit.GoodStage != null
+                    ? _machine.OutputStageUnit.GoodStage.StageZ : null,
+                _machine.OutputStageUnit != null && _machine.OutputStageUnit.NgStage != null
+                    ? _machine.OutputStageUnit.NgStage.StageY : null,
+                _machine.OutputStageUnit != null ? _machine.OutputStageUnit.OutputCameraX : null,
+                _machine.OutputFeederUnit != null ? _machine.OutputFeederUnit.FeederY : null,
+                _machine.OutputCassetteUnit != null ? _machine.OutputCassetteUnit.OutputLifterZ : null);
+
+            return axes.Where(x => x != null).Distinct().ToList();
+        }
+
+        /// <summary>
+        /// 초기화 Action과 인터락에서 참조할 수 있는 실제 실린더 목록입니다.
+        /// </summary>
+        private List<BaseCylinder> GetKnownCylinders()
+        {
+            var cylinders = new List<BaseCylinder>();
+            AddCylinders(cylinders,
+                _machine.VisionUnit != null ? _machine.VisionUnit.ReticleRearSideSlide : null,
+                _machine.VisionUnit != null ? _machine.VisionUnit.ReticleFrontSideSlide : null,
+                _machine.VisionUnit != null ? _machine.VisionUnit.ReticleLift : null,
+                _machine.InputFeederUnit != null ? _machine.InputFeederUnit.InputFeederLift : null,
+                _machine.InputFeederUnit != null ? _machine.InputFeederUnit.InputFeederClamp : null,
+                _machine.OutputFeederUnit != null ? _machine.OutputFeederUnit.FeederUpDownCyl : null,
+                _machine.OutputFeederUnit != null ? _machine.OutputFeederUnit.FeederClampCyl : null,
+                _machine.OutputStageUnit != null ? _machine.OutputStageUnit.NgBinGuideClampCylinder : null,
+                _machine.OutputStageUnit != null ? _machine.OutputStageUnit.NgBinGuideClampLiftCylinder : null,
+                _machine.OutputStageUnit != null ? _machine.OutputStageUnit.GoodBinGuideLiftCylinder : null);
+            return cylinders.Where(x => x != null).Distinct().ToList();
+        }
+
+        private static void AddAxes(ICollection<BaseAxis> target, params BaseAxis[] axes)
+        {
+            foreach (BaseAxis axis in axes ?? new BaseAxis[0])
+            {
+                if (axis != null)
+                    target.Add(axis);
+            }
+        }
+
+        private static void AddCylinders(
+            ICollection<BaseCylinder> target,
+            params BaseCylinder[] cylinders)
+        {
+            foreach (BaseCylinder cylinder in cylinders ?? new BaseCylinder[0])
+            {
+                if (cylinder != null)
+                    target.Add(cylinder);
+            }
         }
 
         /// <summary>
@@ -526,18 +1273,74 @@ namespace QMC.CDT320.Initialization
         /// </summary>
         internal AxisInitializeRouteResult PreviewRoute(IList<AxisInitializeStep> steps)
         {
-            return _routePlanner.Build(steps);
+            // Preview도 실제 실행과 같은 Unit 객체 바인딩을 사용합니다.
+            AxisInitializeResult bindingResult = BindRuntimeTargets(steps);
+            if (bindingResult != null && !bindingResult.Succeeded)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "AxisInitializeBinding",
+                    "Axis initialize preview binding failed. " +
+                    bindingResult.ErrorMessage + " - Failed");
+            }
+
+            Dictionary<int, AxisInitializeStep> stepByNumber;
+            string layoutReason;
+            bool useDefaultSequenceFlow =
+                TryCreateStepIndex(steps, out stepByNumber, out layoutReason) &&
+                TryValidateDefaultSequence(stepByNumber, out layoutReason);
+            AxisInitializeRouteResult route = _routePlanner.Build(
+                steps,
+                useDefaultSequenceFlow);
+            if (route == null)
+                return route;
+
+            bool bindingFailed = bindingResult != null && !bindingResult.Succeeded;
+            bool layoutFailed = !useDefaultSequenceFlow;
+            if (!bindingFailed && !layoutFailed)
+                return route;
+
+            // 전체 Plan의 장치 연결 또는 구성이 잘못되면 Monitor도 실행 가능으로 표시하지 않습니다.
+            foreach (AxisInitializeRouteStep routeStep in route.Steps)
+            {
+                if (routeStep == null || string.Equals(
+                    routeStep.State,
+                    AxisInitializeRouteState.Disabled,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                bool failedStep = bindingFailed &&
+                    (bindingResult.FailedStepNo == 0 ||
+                    (routeStep.StepNo == bindingResult.FailedStepNo &&
+                     string.Equals(
+                          routeStep.GroupName,
+                          bindingResult.FailedGroup,
+                          StringComparison.OrdinalIgnoreCase)));
+                routeStep.State = AxisInitializeRouteState.RequiresRecheck;
+                routeStep.Reason = bindingFailed
+                    ? (failedStep
+                        ? bindingResult.ErrorMessage
+                        : "초기화 장치 연결 실패를 먼저 해결해야 합니다.")
+                    : layoutReason;
+            }
+
+            return route;
         }
 
         /// <summary>
         /// 전체 초기화 Plan을 실행합니다.
         /// 이 메서드가 전체 초기화 순서의 단일 진입점이며 Executor에는 전체 Plan 순서를 두지 않습니다.
         /// </summary>
-        public async Task<AxisInitializeResult> ExecuteAsync(IList<AxisInitializeStep> steps)
+        public async Task<AxisInitializeResult> ExecuteAsync(
+            IList<AxisInitializeStep> steps,
+            bool requireCompleteDefaultSequence,
+            CancellationToken cancellationToken)
         {
             bool runStarted = false;
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (steps == null || steps.Count == 0)
                 {
                     const string message = "초기화 Step 정보가 없습니다.";
@@ -551,10 +1354,18 @@ namespace QMC.CDT320.Initialization
                     .OrderBy(x => x.StepNo)
                     .ToList();
 
-                AxisInitializeResult axisRegistrationResult =
-                    _executor.VerifyDeclaredStepAxes(enabledSteps);
-                if (!axisRegistrationResult.Succeeded)
-                    return axisRegistrationResult;
+                AxisInitializeResult bindingResult = BindRuntimeTargets(enabledSteps);
+                if (!bindingResult.Succeeded)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "AxisInitializeBinding",
+                        bindingResult.ErrorMessage + " - Failed");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "INIT-STEP-BINDING",
+                        "MachineController",
+                        bindingResult.ErrorMessage);
+                    return bindingResult;
+                }
 
                 // 실제 Step 실행 전 현재 상태를 기록합니다.
                 // 미리보기와 무관하게 각 Step 직전 실행용 인터락을 다시 검사합니다.
@@ -563,7 +1374,18 @@ namespace QMC.CDT320.Initialization
                 _executor.BeginRun(enabledSteps);
                 runStarted = true;
 
-                return await ExecuteSequenceFlowAsync(enabledSteps).ConfigureAwait(false);
+                return await ExecuteSequenceFlowAsync(
+                    enabledSteps,
+                    requireCompleteDefaultSequence,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                const string message =
+                    "Alarm/정지 요청으로 전체 축 초기화 실행을 취소했습니다.";
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
+                    message + " - Cancelled");
+                return AxisInitializeResult.Failure(-4, null, string.Empty, message);
             }
             catch (Exception ex)
             {
@@ -588,7 +1410,14 @@ namespace QMC.CDT320.Initialization
         {
             try
             {
-                AxisInitializeRouteResult preview = PreviewRoute(steps);
+                Dictionary<int, AxisInitializeStep> stepByNumber;
+                string layoutReason;
+                bool useDefaultSequenceFlow =
+                    TryCreateStepIndex(steps, out stepByNumber, out layoutReason) &&
+                    TryValidateDefaultSequence(stepByNumber, out layoutReason);
+                AxisInitializeRouteResult preview = _routePlanner.Build(
+                    steps,
+                    useDefaultSequenceFlow);
                 if (preview == null)
                     return;
 
@@ -623,9 +1452,6 @@ namespace QMC.CDT320.Initialization
                 QMC.Common.Log.Write("Main", "SYSTEM", "AxisInitializeRoutePreview",
                     "Axis initialize route preview failed. error=" + ex.Message + " - Continue");
             }
-            finally
-            {
-            }
         }
 
         /// <summary>
@@ -633,81 +1459,58 @@ namespace QMC.CDT320.Initialization
         /// 1) 공통 선행 구간, 2) Input/Output 병렬 Lane, 3) SharedRail 후행 구간 순서를 유지합니다.
         /// </summary>
         private async Task<AxisInitializeResult> ExecuteSequenceFlowAsync(
-            IList<AxisInitializeStep> enabledSteps)
+            IList<AxisInitializeStep> enabledSteps,
+            bool requireCompleteDefaultSequence,
+            CancellationToken cancellationToken)
         {
             try
             {
-                var inputLaneSteps = enabledSteps
-                    .Where(x => x != null && AxisInitializeParallelLane.Is(
-                        x.ParallelLane,
-                        AxisInitializeParallelLane.Input))
-                    .OrderBy(x => x.StepNo)
-                    .ThenBy(x => x.GroupName)
-                    .ToList();
-                var outputLaneSteps = enabledSteps
-                    .Where(x => x != null && AxisInitializeParallelLane.Is(
-                        x.ParallelLane,
-                        AxisInitializeParallelLane.Output))
-                    .OrderBy(x => x.StepNo)
-                    .ThenBy(x => x.GroupName)
-                    .ToList();
+                cancellationToken.ThrowIfCancellationRequested();
 
-                // Lane 메타데이터가 완전하지 않으면 기존 정책대로 전체 Step을 직렬 실행합니다.
-                if (inputLaneSteps.Count == 0 || outputLaneSteps.Count == 0)
+                Dictionary<int, AxisInitializeStep> stepByNumber;
+                string indexReason;
+                if (!TryCreateStepIndex(enabledSteps, out stepByNumber, out indexReason))
+                    return FailPreparation(null, indexReason);
+
+                // 전체 초기화는 필수 32개 Step 중 하나라도 없으면 일부 HOME만 실행하지 않고 중단합니다.
+                // 그룹/선택 초기화만 전달된 Step은 StepNo 순서로 직렬 실행합니다.
+                string layoutReason;
+                if (!TryValidateDefaultSequence(stepByNumber, out layoutReason))
                 {
-                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
-                        "Initialize parallel lane metadata is incomplete. Serial fallback selected. inputSteps=" +
-                        inputLaneSteps.Count + ", outputSteps=" + outputLaneSteps.Count + " - Ok");
-                    return await ExecuteStepBatchesSerialAsync(
+                    if (requireCompleteDefaultSequence)
+                        return FailPreparation(null, layoutReason);
+
+                    return await ExecuteSelectedStepsSerialAsync(
                         enabledSteps,
-                        "SerialFallback").ConfigureAwait(false);
+                        cancellationToken).ConfigureAwait(false);
                 }
 
-                int firstLaneStepNo = Math.Min(
-                    inputLaneSteps.Min(x => x.StepNo),
-                    outputLaneSteps.Min(x => x.StepNo));
-                int lastLaneStepNo = Math.Max(
-                    inputLaneSteps.Max(x => x.StepNo),
-                    outputLaneSteps.Max(x => x.StepNo));
-                var unlabeledStepsInsideLaneBarrier = enabledSteps
-                    .Where(x => x != null &&
-                        x.StepNo >= firstLaneStepNo &&
-                        x.StepNo <= lastLaneStepNo &&
-                        !AxisInitializeParallelLane.Is(x.ParallelLane, AxisInitializeParallelLane.Input) &&
-                        !AxisInitializeParallelLane.Is(x.ParallelLane, AxisInitializeParallelLane.Output))
-                    .ToList();
-                if (unlabeledStepsInsideLaneBarrier.Count > 0)
-                {
-                    string message = "병렬 초기화 Lane 구간 안에 Lane이 지정되지 않은 Step이 있습니다. steps=" +
-                        string.Join(",", unlabeledStepsInsideLaneBarrier.Select(x =>
-                            x.StepNo + ":" + x.GroupName).ToArray());
-                    return FailPreparation(unlabeledStepsInsideLaneBarrier[0], message);
-                }
-
-                var preLaneSteps = enabledSteps
-                    .Where(x => x != null && x.StepNo < firstLaneStepNo)
-                    .ToList();
-                var postLaneSteps = enabledSteps
-                    .Where(x => x != null && x.StepNo > lastLaneStepNo)
-                    .ToList();
-
-                // 공통 선행 Step이 모두 완료된 뒤에만 두 Lane을 시작합니다.
-                AxisInitializeResult preResult = await ExecuteStepBatchesSerialAsync(
-                    preLaneSteps,
-                    "CommonPreLane").ConfigureAwait(false);
+                // 공통 안전 확보 구간: 순서를 코드에서 직접 확인할 수 있도록 명시합니다.
+                AxisInitializeResult preResult = await ExecuteSerialStepsAsync(
+                    CommonStepOrder,
+                    stepByNumber,
+                    cancellationToken)
+                    .ConfigureAwait(false);
                 if (!preResult.Succeeded)
                     return preResult;
 
                 AxisInitializeResult parallelResult = await ExecuteParallelLanesAsync(
-                    inputLaneSteps,
-                    outputLaneSteps).ConfigureAwait(false);
+                    stepByNumber,
+                    cancellationToken).ConfigureAwait(false);
                 if (!parallelResult.Succeeded)
                     return parallelResult;
 
-                // SharedRail Step은 두 Lane이 모두 끝난 다음 기존 StepNo 순서로 직렬 실행합니다.
-                return await ExecuteStepBatchesSerialAsync(
-                    postLaneSteps,
-                    "SharedRailPostLane").ConfigureAwait(false);
+                // SharedRail은 양쪽 Lane이 모두 끝난 뒤 340 → 350 → 360 → 370 순서로 실행합니다.
+                return await ExecuteSerialStepsAsync(
+                    SharedRailStepOrder,
+                    stepByNumber,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                const string message =
+                    "Alarm/정지 요청으로 초기화 Step 흐름을 취소했습니다.";
+                return AxisInitializeResult.Failure(-4, null, string.Empty, message);
             }
             catch (Exception ex)
             {
@@ -723,91 +1526,230 @@ namespace QMC.CDT320.Initialization
             }
         }
 
-        private async Task<AxisInitializeResult> ExecuteStepBatchesSerialAsync(
-            IList<AxisInitializeStep> steps,
-            string phase)
+        /// <summary>
+        /// 활성 Step을 StepNo로 찾기 쉽게 만들고 중복 StepNo를 첫 모션 전에 차단합니다.
+        /// </summary>
+        private static bool TryCreateStepIndex(
+            IEnumerable<AxisInitializeStep> steps,
+            out Dictionary<int, AxisInitializeStep> stepByNumber,
+            out string reason)
         {
-            try
+            stepByNumber = new Dictionary<int, AxisInitializeStep>();
+            reason = string.Empty;
+            foreach (AxisInitializeStep step in steps ?? Enumerable.Empty<AxisInitializeStep>())
             {
-                if (steps == null || steps.Count == 0)
-                    return AxisInitializeResult.Success();
+                if (step == null || !step.Enabled)
+                    continue;
 
-                foreach (var batch in steps
-                    .Where(x => x != null && x.Enabled)
-                    .OrderBy(x => x.StepNo)
-                    .GroupBy(x => x.StepNo))
+                if (stepByNumber.ContainsKey(step.StepNo))
                 {
-                    var batchSteps = batch.OrderBy(x => x.GroupName).ToList();
-                    if (batchSteps.Count == 1)
-                    {
-                        AxisInitializeResult singleResult = await _executor.ExecuteStepAsync(
-                            batchSteps[0],
-                            null,
-                            string.Empty).ConfigureAwait(false);
-                        if (!singleResult.Succeeded)
-                            return singleResult;
-                        continue;
-                    }
-
-                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
-                        "Axis initialize same-step serial batch start. phase=" + phase +
-                        ", step=" + batch.Key +
-                        ", groups=" + string.Join(",", batchSteps.Select(x => x.GroupName).ToArray()) + " - Start");
-                    foreach (AxisInitializeStep batchStep in batchSteps)
-                    {
-                        AxisInitializeResult serialResult = await _executor.ExecuteStepAsync(
-                            batchStep,
-                            null,
-                            string.Empty).ConfigureAwait(false);
-                        if (!serialResult.Succeeded)
-                            return serialResult;
-                    }
-
-                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
-                        "Axis initialize same-step serial batch completed. phase=" + phase +
-                        ", step=" + batch.Key + " - Ok");
+                    reason = "초기화 StepNo가 중복되었습니다. step=" + step.StepNo;
+                    return false;
                 }
 
-                return AxisInitializeResult.Success();
+                stepByNumber.Add(step.StepNo, step);
             }
-            catch (Exception ex)
-            {
-                string message = "직렬 초기화 구간 실행 실패: phase=" + phase +
-                    ", error=" + ex.Message;
-                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
-                    message + " - Failed");
-                return AxisInitializeResult.Failure(-1, null, string.Empty, message);
-            }
+
+            return true;
         }
 
+        /// <summary>
+        /// 전체 초기화는 정본 32 Step과 Lane 구성이 정확히 일치할 때만 실행합니다.
+        /// 일부 Step만 전달되는 단일/그룹 초기화는 이 검증 실패 후 직렬 경로로 분기합니다.
+        /// </summary>
+        private static bool TryValidateDefaultSequence(
+            IDictionary<int, AxisInitializeStep> stepByNumber,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (stepByNumber == null)
+            {
+                reason = "전체 초기화 Step 구성이 없습니다.";
+                return false;
+            }
+
+            int[] missingSteps = DefaultStepOrder
+                .Where(x => !stepByNumber.ContainsKey(x))
+                .ToArray();
+            int[] extraSteps = stepByNumber.Keys
+                .Where(x => !DefaultStepOrder.Contains(x))
+                .OrderBy(x => x)
+                .ToArray();
+            if (stepByNumber.Count != DefaultStepOrder.Length ||
+                missingSteps.Length > 0 || extraSteps.Length > 0)
+            {
+                reason = "전체 초기화 필수 Step 구성이 완전하지 않습니다. missing=" +
+                    (missingSteps.Length > 0
+                        ? string.Join(",", missingSteps.Select(x => x.ToString()).ToArray())
+                        : "-") +
+                    ", extra=" +
+                    (extraSteps.Length > 0
+                        ? string.Join(",", extraSteps.Select(x => x.ToString()).ToArray())
+                        : "-");
+                return false;
+            }
+
+            foreach (int stepNo in InputLaneStepOrder)
+            {
+                if (AxisInitializeParallelLane.Is(
+                    stepByNumber[stepNo].ParallelLane,
+                    AxisInitializeParallelLane.Input))
+                {
+                    continue;
+                }
+
+                reason = "Input 초기화 Step의 Lane 지정이 올바르지 않습니다. step=" + stepNo;
+                return false;
+            }
+
+            foreach (int stepNo in OutputLaneStepOrder)
+            {
+                if (AxisInitializeParallelLane.Is(
+                    stepByNumber[stepNo].ParallelLane,
+                    AxisInitializeParallelLane.Output))
+                {
+                    continue;
+                }
+
+                reason = "Output 초기화 Step의 Lane 지정이 올바르지 않습니다. step=" + stepNo;
+                return false;
+            }
+
+            foreach (int stepNo in CommonStepOrder.Concat(SharedRailStepOrder))
+            {
+                if (string.IsNullOrWhiteSpace(stepByNumber[stepNo].ParallelLane))
+                    continue;
+
+                reason = "직렬 초기화 Step에 병렬 Lane이 지정되었습니다. step=" + stepNo +
+                    ", lane=" + stepByNumber[stepNo].ParallelLane;
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 전달받은 Step 순서를 그대로 하나씩 완료 확인하며 실행합니다.
+        /// Common과 SharedRail이 이 공통 직렬 실행기를 사용합니다.
+        /// </summary>
+        private async Task<AxisInitializeResult> ExecuteSerialStepsAsync(
+            IEnumerable<int> stepOrder,
+            IDictionary<int, AxisInitializeStep> stepByNumber,
+            CancellationToken cancellationToken)
+        {
+            foreach (int stepNo in stepOrder ?? new int[0])
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                AxisInitializeResult result = await ExecuteStepByNumberAsync(
+                    stepNo,
+                    stepByNumber,
+                    null,
+                    string.Empty,
+                    cancellationToken).ConfigureAwait(false);
+                if (!result.Succeeded)
+                    return result;
+            }
+
+            return AxisInitializeResult.Success();
+        }
+
+        /// <summary>
+        /// 단일축·그룹·Monitor Step 실행은 병렬 Lane을 만들지 않고 StepNo 순으로 처리합니다.
+        /// </summary>
+        private async Task<AxisInitializeResult> ExecuteSelectedStepsSerialAsync(
+            IEnumerable<AxisInitializeStep> steps,
+            CancellationToken cancellationToken)
+        {
+            Dictionary<int, AxisInitializeStep> stepByNumber;
+            string reason;
+            if (!TryCreateStepIndex(steps, out stepByNumber, out reason))
+                return FailPreparation(null, reason);
+
+            foreach (AxisInitializeStep step in stepByNumber.Values.OrderBy(x => x.StepNo))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                AxisInitializeResult result = await ExecuteStepByNumberAsync(
+                    step.StepNo,
+                    stepByNumber,
+                    null,
+                    string.Empty,
+                    cancellationToken).ConfigureAwait(false);
+                if (!result.Succeeded)
+                    return result;
+            }
+
+            return AxisInitializeResult.Success();
+        }
+
+        /// <summary>
+        /// 실제 Step 실행 진입점입니다. 지원 Step 여부와 실제 Unit 연결은 BindRuntimeTargets에서 확인합니다.
+        /// </summary>
+        private Task<AxisInitializeResult> ExecuteStepByNumberAsync(
+            int stepNo,
+            IDictionary<int, AxisInitializeStep> stepByNumber,
+            ISet<BaseAxis> allowedConcurrentAxes,
+            string laneName,
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            AxisInitializeStep step;
+            if (stepByNumber == null || !stepByNumber.TryGetValue(stepNo, out step))
+            {
+                return Task.FromResult(FailPreparation(
+                    null,
+                    "초기화 Step을 찾을 수 없습니다. step=" + stepNo));
+            }
+
+            return _executor.ExecuteStepAsync(
+                step,
+                step.RuntimeAxes,
+                allowedConcurrentAxes,
+                laneName,
+                cancellationToken);
+        }
+
+        /// <summary>
+        /// Input과 Output Lane만 동시에 실행합니다.
+        /// 각 Lane 내부는 직렬이며 한쪽 실패 시 공유 취소 후 전체 축 정지를 요청합니다.
+        /// </summary>
         private async Task<AxisInitializeResult> ExecuteParallelLanesAsync(
-            IList<AxisInitializeStep> inputLaneSteps,
-            IList<AxisInitializeStep> outputLaneSteps)
+            IDictionary<int, AxisInitializeStep> stepByNumber,
+            CancellationToken cancellationToken)
         {
             ParallelLaneExecutionState executionState = null;
             var stopwatch = Stopwatch.StartNew();
             try
             {
-                HashSet<string> inputLaneAxisNames = _runtime.ResolveLaneAxisNames(inputLaneSteps);
-                HashSet<string> outputLaneAxisNames = _runtime.ResolveLaneAxisNames(outputLaneSteps);
-                var overlappingAxes = inputLaneAxisNames
-                    .Intersect(outputLaneAxisNames, StringComparer.OrdinalIgnoreCase)
+                cancellationToken.ThrowIfCancellationRequested();
+
+                List<AxisInitializeStep> inputLaneSteps = InputLaneStepOrder
+                    .Select(x => stepByNumber[x])
+                    .ToList();
+                List<AxisInitializeStep> outputLaneSteps = OutputLaneStepOrder
+                    .Select(x => stepByNumber[x])
+                    .ToList();
+
+                HashSet<BaseAxis> inputLaneAxes = CollectRuntimeAxes(inputLaneSteps);
+                HashSet<BaseAxis> outputLaneAxes = CollectRuntimeAxes(outputLaneSteps);
+
+                // Step 180/260 안에서 Vision X를 잠시 퇴피하므로 병렬 Lane의 허용 축에도 포함합니다.
+                // HOME 대상 목록에는 넣지 않아 정식 SharedRail HOME(340~370) 순서는 그대로 유지합니다.
+                if (_machine.InputStageUnit != null && _machine.InputStageUnit.CameraX != null)
+                    inputLaneAxes.Add(_machine.InputStageUnit.CameraX);
+                if (_machine.OutputStageUnit != null && _machine.OutputStageUnit.OutputCameraX != null)
+                    outputLaneAxes.Add(_machine.OutputStageUnit.OutputCameraX);
+
+                var overlappingAxes = inputLaneAxes
+                    .Intersect(outputLaneAxes)
                     .ToList();
                 if (overlappingAxes.Count > 0)
                 {
                     string message = "Input/Output 병렬 초기화 Lane에 중복 축이 있습니다. axes=" +
-                        string.Join(",", overlappingAxes.ToArray());
+                        string.Join(",", overlappingAxes.Select(x => x.Name).ToArray());
                     return FailPreparation(null, message);
                 }
 
-                AxisInitializeStep firstInputStep = inputLaneSteps
-                    .OrderBy(x => x.StepNo)
-                    .ThenBy(x => x.GroupName)
-                    .FirstOrDefault();
-                AxisInitializeStep firstOutputStep = outputLaneSteps
-                    .OrderBy(x => x.StepNo)
-                    .ThenBy(x => x.GroupName)
-                    .FirstOrDefault();
+                AxisInitializeStep firstInputStep = stepByNumber[InputLaneStepOrder[0]];
+                AxisInitializeStep firstOutputStep = stepByNumber[OutputLaneStepOrder[0]];
                 string preflightReason;
                 if (!_runtime.VerifyStep(firstInputStep, out preflightReason))
                 {
@@ -835,24 +1777,26 @@ namespace QMC.CDT320.Initialization
                         preflightReason);
                 }
 
-                executionState = new ParallelLaneExecutionState();
+                executionState = new ParallelLaneExecutionState(cancellationToken);
                 QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
                     "Input/Output initialize lanes start concurrently. inputSteps=" +
                     string.Join(",", inputLaneSteps.Select(x => x.StepNo + ":" + x.GroupName).ToArray()) +
                     ", outputSteps=" +
                     string.Join(",", outputLaneSteps.Select(x => x.StepNo + ":" + x.GroupName).ToArray()) +
-                    ", inputAxes=" + string.Join(",", inputLaneAxisNames.ToArray()) +
-                    ", outputAxes=" + string.Join(",", outputLaneAxisNames.ToArray()) + " - Start");
+                    ", inputAxes=" + string.Join(",", inputLaneAxes.Select(x => x.Name).ToArray()) +
+                    ", outputAxes=" + string.Join(",", outputLaneAxes.Select(x => x.Name).ToArray()) + " - Start");
 
                 Task<AxisInitializeResult> inputTask = Task.Run(() => ExecuteLaneAsync(
                     AxisInitializeParallelLane.Input,
-                    inputLaneSteps,
-                    outputLaneAxisNames,
+                    InputLaneStepOrder,
+                    stepByNumber,
+                    outputLaneAxes,
                     executionState));
                 Task<AxisInitializeResult> outputTask = Task.Run(() => ExecuteLaneAsync(
                     AxisInitializeParallelLane.Output,
-                    outputLaneSteps,
-                    inputLaneAxisNames,
+                    OutputLaneStepOrder,
+                    stepByNumber,
+                    inputLaneAxes,
                     executionState));
                 AxisInitializeResult[] results = await Task.WhenAll(inputTask, outputTask).ConfigureAwait(false);
 
@@ -870,19 +1814,21 @@ namespace QMC.CDT320.Initialization
 
                 AxisInitializeResult failedResult = results.FirstOrDefault(x => x != null && !x.Succeeded);
                 if (failedResult != null)
-                {
-                    const string message = "병렬 초기화 Lane이 실패했지만 상세 실패 정보가 없습니다.";
-                    return AxisInitializeResult.Failure(
-                        failedResult.ResultCode,
-                        null,
-                        string.Empty,
-                        message);
-                }
+                    return failedResult;
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
                     "Input/Output initialize lanes completed concurrently. elapsedMs=" +
                     stopwatch.ElapsedMilliseconds + " - Ok");
                 return AxisInitializeResult.Success();
+            }
+            catch (OperationCanceledException)
+            {
+                if (executionState != null)
+                    executionState.Cancel();
+
+                const string message =
+                    "Alarm/정지 요청으로 Input/Output 병렬 초기화를 취소했습니다.";
+                return AxisInitializeResult.Failure(-4, null, string.Empty, message);
             }
             catch (Exception ex)
             {
@@ -911,40 +1857,81 @@ namespace QMC.CDT320.Initialization
             }
         }
 
+        /// <summary>
+        /// Lane이 HOME하거나 Action으로 움직일 모든 실제 축을 모아 양쪽 Lane 중복을 검사합니다.
+        /// </summary>
+        private static HashSet<BaseAxis> CollectRuntimeAxes(
+            IEnumerable<AxisInitializeStep> steps)
+        {
+            var axes = new HashSet<BaseAxis>();
+            foreach (AxisInitializeStep step in steps ?? Enumerable.Empty<AxisInitializeStep>())
+            {
+                foreach (BaseAxis axis in step != null && step.RuntimeAxes != null
+                    ? step.RuntimeAxes
+                    : new List<BaseAxis>())
+                {
+                    if (axis != null)
+                        axes.Add(axis);
+                }
+
+                IEnumerable<AxisInitializeAction> actions = step != null
+                    ? (step.PreActions ?? new List<AxisInitializeAction>())
+                        .Concat(step.PostActions ?? new List<AxisInitializeAction>())
+                    : new List<AxisInitializeAction>();
+                foreach (AxisInitializeAction action in actions)
+                {
+                    if (action != null && action.Enabled && action.RuntimeAxis != null)
+                        axes.Add(action.RuntimeAxis);
+                }
+            }
+
+            return axes;
+        }
+
+        /// <summary>
+        /// 한 Lane의 Step을 순서대로 실행하며 반대 Lane 취소 신호를 Step 전후에 확인합니다.
+        /// </summary>
         private async Task<AxisInitializeResult> ExecuteLaneAsync(
             string laneName,
-            IList<AxisInitializeStep> laneSteps,
-            ISet<string> allowedConcurrentAxisNames,
+            IList<int> stepNumbers,
+            IDictionary<int, AxisInitializeStep> stepByNumber,
+            ISet<BaseAxis> allowedConcurrentAxes,
             ParallelLaneExecutionState executionState)
         {
             AxisInitializeStep currentStep = null;
             try
             {
-                var orderedSteps = (laneSteps ?? new AxisInitializeStep[0])
-                    .Where(x => x != null && x.Enabled)
-                    .OrderBy(x => x.StepNo)
-                    .ThenBy(x => x.GroupName)
+                var orderedSteps = (stepNumbers ?? new int[0])
+                    .Select(x => stepByNumber[x])
                     .ToList();
                 for (int i = 0; i < orderedSteps.Count; i++)
                 {
                     currentStep = orderedSteps[i];
                     if (executionState != null && executionState.Token.IsCancellationRequested)
                     {
-                        string message = "반대 Lane 실패로 병렬 초기화가 중단되었습니다. lane=" + laneName;
+                        string message = "Alarm/정지 또는 반대 Lane 실패로 병렬 초기화가 취소되었습니다. lane=" + laneName;
                         MarkLaneStepsCancelled(orderedSteps, i, message);
-                        return AxisInitializeResult.Failure(-1, currentStep, laneName, message);
+                        return AxisInitializeResult.Failure(-4, currentStep, laneName, message);
                     }
 
-                    AxisInitializeResult stepResult = await _executor.ExecuteStepAsync(
-                        currentStep,
-                        allowedConcurrentAxisNames,
-                        laneName).ConfigureAwait(false);
-                    if (stepResult.Succeeded &&
-                        executionState != null &&
+                    AxisInitializeResult stepResult = await ExecuteStepByNumberAsync(
+                        currentStep.StepNo,
+                        stepByNumber,
+                        allowedConcurrentAxes,
+                        laneName,
+                        executionState != null
+                            ? executionState.Token
+                            : CancellationToken.None).ConfigureAwait(false);
+                    // AlarmManager가 먼저 활성화되고 linked CTS 취소가 뒤따르는 짧은 구간에도
+                    // -4 취소를 일반 Lane 실패 알람으로 다시 발생시키지 않습니다.
+                    if (stepResult != null && stepResult.ResultCode == -4 && executionState != null)
+                        executionState.Cancel();
+
+                    if (executionState != null &&
                         executionState.Token.IsCancellationRequested)
                     {
                         string reinitializeMessage =
-                            "반대 Lane 실패 중 동작이 정지되었으므로 재초기화가 필요합니다. lane=" + laneName;
+                            "Alarm/정지 또는 반대 Lane 실패 중 동작이 정지되었으므로 재초기화가 필요합니다. lane=" + laneName;
                         _executor.RaiseStepProgress(
                             currentStep,
                             AxisInitializeStepStatus.ReinitializeRequired,
@@ -953,7 +1940,7 @@ namespace QMC.CDT320.Initialization
                             "반대 Lane 실패로 병렬 초기화가 중단되었습니다. lane=" + laneName;
                         MarkLaneStepsCancelled(orderedSteps, i + 1, cancelledMessage);
                         return AxisInitializeResult.Failure(
-                            -1,
+                            -4,
                             currentStep,
                             laneName,
                             reinitializeMessage);
@@ -981,6 +1968,11 @@ namespace QMC.CDT320.Initialization
                     "Initialize parallel lane completed. lane=" + laneName + " - Ok");
                 return AxisInitializeResult.Success();
             }
+            catch (OperationCanceledException)
+            {
+                const string message = "Alarm/정지 요청으로 병렬 초기화 Lane을 취소했습니다.";
+                return AxisInitializeResult.Failure(-4, currentStep, laneName, message);
+            }
             catch (Exception ex)
             {
                 string failureMessage = "병렬 초기화 Lane 예외. lane=" + laneName +
@@ -999,6 +1991,9 @@ namespace QMC.CDT320.Initialization
             }
         }
 
+        /// <summary>
+        /// 병렬 Lane의 첫 실패만 보존하고 취소·전체 축 정지·알람을 한 번만 처리합니다.
+        /// </summary>
         private async Task ReportParallelLaneFailureAsync(
             ParallelLaneExecutionState executionState,
             AxisInitializeResult failure)
@@ -1106,12 +2101,22 @@ namespace QMC.CDT320.Initialization
             }
         }
 
+        /// <summary>
+        /// 두 Lane이 공유하는 취소 토큰, 최초 실패 정보, 전체 축 정지 요청 상태입니다.
+        /// </summary>
         private sealed class ParallelLaneExecutionState : IDisposable
         {
             private readonly object _failureLock = new object();
-            private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
+            private readonly CancellationTokenSource _cancellation;
             private AxisInitializeResult _failure;
             private int _axisStopRequested;
+
+            public ParallelLaneExecutionState(CancellationToken externalCancellationToken)
+            {
+                _cancellation = externalCancellationToken.CanBeCanceled
+                    ? CancellationTokenSource.CreateLinkedTokenSource(externalCancellationToken)
+                    : new CancellationTokenSource();
+            }
 
             public CancellationToken Token
             {

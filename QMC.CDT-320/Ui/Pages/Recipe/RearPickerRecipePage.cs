@@ -359,6 +359,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             AddVisionPickerOffsetItems(optionItems, "OUTPUT VISION", () => ResolveLiveVisionOffsets(false), PickerAxis.PickerX, PickerAxis.PickerY, visionOffsetGroup);
 
             AddAfProcessZItems(optionItems);
+            AddColletExchangeItems(optionItems);
 
             optionParameterGrid.SetItems(optionItems);
 
@@ -376,6 +377,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         // AF 기반 Pick/Place 공정 Z 파라미터: Bottom to Pick/Place 변환값, 갱신 안전 한계, 헤드·콜렛별 Pick Overdrive.
         // PickPosition은 콜렛 AF(콜렛 캘)와 생산 런타임 다이 AF가, PlacePosition은 다이 AF가 산식으로 자동 갱신한다(승인 2026-07-29).
+        // 콜렛 교체 위치(PickerX)는 Config 스코프다 — 레시피를 바꿔도 같은 위치를 쓴다.
+        // 교체 시 Y/T/Z는 항상 Avoid로 후퇴하므로 X만 티칭한다.
+        private void AddColletExchangeItems(List<ParameterGridItem> items)
+        {
+            const string groupKey = "M_COLLET_EXCHANGE";
+            items.Add(ParameterGridItem.Header("COLLET EXCHANGE POSITION", groupKey));
+            items.Add(InGroup(Describe(AxisDouble("EXCHANGE INPUT SIDE X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Config,
+                () => unit.Config.ColletExchangeInputX,
+                v => unit.Config.ColletExchangeInputX = v),
+                "콜렛 교체 시 공용 X레일에서 Input 방향 끝으로 빼는 PickerX 위치입니다. Y/T/Z는 Avoid로 후퇴합니다."), groupKey));
+            items.Add(InGroup(Describe(AxisDouble("EXCHANGE OUTPUT SIDE X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Config,
+                () => unit.Config.ColletExchangeOutputX,
+                v => unit.Config.ColletExchangeOutputX = v),
+                "콜렛 교체 시 공용 X레일에서 Output 방향 끝으로 빼는 PickerX 위치입니다. Y/T/Z는 Avoid로 후퇴합니다."), groupKey));
+        }
+
         private void AddAfProcessZItems(List<ParameterGridItem> items)
         {
             const string groupKey = "L_AF_PROCESS_Z";

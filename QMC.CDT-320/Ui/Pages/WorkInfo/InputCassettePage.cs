@@ -2333,11 +2333,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             for (int i = 0; i < slotCount; i++)
             {
                 bool fallbackHasWafer = fallbackMap != null && i < fallbackMap.Count && fallbackMap[i];
+                // 웨이퍼 상태(READY 등)는 Material Data가 있을 때만 부여한다.
+                // 센서 웨이퍼맵(fallbackMap)은 "슬롯을 표시할지" 판단(IsKnown)에만 쓰고 상태로 승격하지 않는다.
+                // 맵핑 전/Material Data 삭제 후에는 준비된 자재가 없으므로 EMPTY로 보여야 한다.
+                // (이전에는 센서만으로 READY로 칠해, DATA ALL CLEAR 후 IsMapped=false 조기 반환과 겹쳐
+                //  "상태 READY + 웨이퍼 ID 공백"으로 표시됐다.)
                 items[i] = new CassetteSlotDisplayItem
                 {
                     IsKnown = mapped || fallbackHasWafer,
-                    HasWafer = fallbackHasWafer,
-                    State = fallbackHasWafer ? WaferMaterialState.Ready : WaferMaterialState.Empty
+                    HasWafer = false,
+                    State = WaferMaterialState.Empty
                 };
             }
 
@@ -2439,7 +2444,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 var wafer = ResolveCassetteSlotWafer(snapshot, role, slotIndex, slot);
                 waferId = wafer != null ? wafer.WaferId : (slot.WaferId ?? "");
-                state = wafer != null ? WaferMaterialStateText.Normalize(wafer.State) : (slot.HasWafer ? WaferMaterialState.Ready : WaferMaterialState.Empty);
+                // Material Data(wafer)가 없으면 상태는 EMPTY다. slot.HasWafer만으로 READY로 보이면
+                // Data 삭제 후에도 준비된 것처럼 표시된다(물리 존재는 SLOT 항목의 HAS WAFER로 별도 표시).
+                state = wafer != null ? WaferMaterialStateText.Normalize(wafer.State) : WaferMaterialState.Empty;
                 hasWafer = (slot.HasWafer || IsWaferInInputTransferLocation(wafer)) && state != WaferMaterialState.Empty;
                 return cassette != null && cassette.IsMapped;
             }

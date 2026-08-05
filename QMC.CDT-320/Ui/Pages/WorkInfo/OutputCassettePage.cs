@@ -87,6 +87,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             materialDetailView.ClearAllDataRequested += MaterialDetailView_ClearAllDataRequested;
         }
 
+        // 자체 안내창을 이미 띄운 사전 차단(guard)이나 사용자 취소에서는 공통 실패 팝업을 띄우지 않는다.
+        // (중복 팝업, 그리고 "취소"인데 "실패"로 보이는 오해를 막는다.)
+        private bool _suppressSequenceFailurePopup;
+
+        private void SuppressSequenceFailurePopup()
+        {
+            _suppressSequenceFailurePopup = true;
+        }
+
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
         {
             IDisposable actionScope = null;
@@ -108,6 +117,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 SetActionButtonsEnabled(false);
                 actionScope = host.Controller.BeginManualActionScope(ManualMotionScopeKind.ProcessSequence, "OutputCassettePage:" + actionName);
                 SequenceFailureStore.Clear();
+                _suppressSequenceFailurePopup = false;
                 bool ok = await action(host);
                 if (!ok)
                 {
@@ -140,7 +150,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
             }
 
-            if (showFailure)
+            if (showFailure && !_suppressSequenceFailurePopup)
             {
                 QMC.Common.MessageDialog.Show(
                     this,
@@ -292,6 +302,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 "해당 Bin을 기존 카세트로 먼저 Unload한 뒤 다시 시도하세요.\r\n" +
                 "wafer=" + stageWafer.WaferId,
                 "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            // 사유를 이미 안내했으므로 공통 실패 팝업은 생략한다.
+            SuppressSequenceFailurePopup();
             return false;
         }
 
@@ -449,9 +461,34 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (cassette == null || cassette.Config == null || cassette.Config.UseNgCassette)
                 return true;
 
+            const string reason = "NG 카세트 미사용 설정입니다. 레시피 CONFIG의 USE NG CASSETTE를 켠 후 실행하세요.";
             EventLogger.Write(EventKind.Alarm, "QMC", "OUTPUT-CST-NG-DISABLED",
-                actionName + " 차단: NG 카세트 미사용 설정입니다. 레시피 CONFIG의 USE NG CASSETTE를 켠 후 실행하세요.");
+                actionName + " 차단: " + reason);
+            // 사전 차단 사유를 실패 저장소에도 남겨 공통 실패 팝업이 "로그를 확인하세요"가 아니라
+            // 실제 원인을 그대로 보여주게 한다(RunSequenceAction의 BuildManualFailureMessage가 소비).
+            RecordManualBlockFailure("OUTPUT-CST-NG-DISABLED", actionName, reason);
             return false;
+        }
+
+        /// <summary>
+        /// 시퀀스 진입 전에 화면에서 막은(guard) 사유를 공통 실패 팝업에 노출하기 위해 기록한다.
+        /// SequenceFailureStore에 남기지 않으면 팝업이 폴백 문구만 표시해 원인을 알 수 없다.
+        /// </summary>
+        private static void RecordManualBlockFailure(string alarmCode, string actionName, string reason)
+        {
+            try
+            {
+                SequenceFailureStore.Record(
+                    "OutputCassettePage",
+                    "ManualBlocked",
+                    actionName ?? string.Empty,
+                    alarmCode,
+                    "OutputCassettePage",
+                    reason);
+            }
+            catch
+            {
+            }
         }
 
         private async Task<bool> MapAsync(Form1 host, TargetCassette target)
@@ -496,6 +533,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 QMC.Common.MessageDialog.Show(this,
                     "자동 운전 중에는 카세트를 교체할 수 없습니다.\r\n정지 후 다시 시도하세요.",
                     "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                // 사유를 이미 안내했으므로 공통 실패 팝업은 생략한다.
+                SuppressSequenceFailurePopup();
                 return false;
             }
             if (!CanPrepareOutputCassetteExchange(side))
@@ -507,7 +546,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 "① 피더가 Bin을 물고 있으면 카세트로 먼저 반납\r\n" +
                 "② 피더 언클램프/리프트 다운 후 Avoid 복귀\r\n" +
                 "③ 카세트 리프터를 로딩 위치로 이동\r\n\r\n진행할까요?"))
+            {
+                // 사용자 취소는 실패가 아니므로 실패 팝업을 띄우지 않는다.
+                SuppressSequenceFailurePopup();
                 return false;
+            }
 
             QMC.Common.Log.Write("Main", "SYSTEM", "OutputCassetteExchange",
                 sideLabel + " 카세트 교체 준비를 시작합니다. - Start");
@@ -1508,7 +1551,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     : null;
                 WaferMaterial wafer = ResolveCassetteSlotWafer(snapshot, role, i, slot);
                 WaferMaterialState state = wafer != null ? WaferMaterialStateText.Normalize(wafer.State) : WaferMaterialState.Empty;
-                bool hasWafer = ((slot != null && slot.HasWafer) || IsWaferInOutputTransferLocation(wafer) || fallbackHasWafer) &&
+                // 웨이퍼 상태(READY 등)는 Material Data가 있을 때만 부여한다.
+                // 센서 웨이퍼맵(fallbackMap)은 슬롯 표시 여부(IsKnown)에만 쓰고 상태로 승격하지 않는다 —
+                // 맵핑 전/Data 삭제 후에는 준비된 자재가 없으므로 EMPTY로 보여야 한다(Input 카세트와 동일 규칙).
+                bool hasWafer = ((slot != null && slot.HasWafer) || IsWaferInOutputTransferLocation(wafer)) &&
                                 state != WaferMaterialState.Empty;
 
                 items.Add(new CassetteSlotDisplayItem
@@ -1516,7 +1562,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     IsKnown = cassette != null || fallbackMap != null,
                     HasWafer = hasWafer,
                     WaferId = hasWafer && wafer != null ? wafer.WaferId : "",
-                    State = hasWafer ? (wafer != null ? state : WaferMaterialState.Ready) : WaferMaterialState.Empty
+                    State = hasWafer ? state : WaferMaterialState.Empty
                 });
             }
 
@@ -1650,9 +1696,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             };
         }
 
+        // 생성 규칙을 이 화면에서 복제하지 않고 MaterialStateService의 공용 규칙을 그대로 쓴다.
+        // (규칙이 두 곳으로 갈리면 맵핑 경로와 UI 생성 경로의 WaferId 형식이 달라진다.)
         private static string BuildGeneratedOutputWaferId(CassetteMaterialRole role, int slot)
         {
-            return role.ToString().ToUpperInvariant() + "-S" + (slot + 1).ToString("00");
+            return MaterialStateService.BuildGeneratedWaferId(role, slot);
         }
 
         private static string ResolveCassetteLotId(CassetteMaterialRole role)

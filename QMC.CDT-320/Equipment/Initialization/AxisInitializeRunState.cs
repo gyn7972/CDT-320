@@ -65,9 +65,6 @@ namespace QMC.CDT320.Initialization
             {
                 return false;
             }
-            finally
-            {
-            }
         }
 
         public void MarkAxisHomed(BaseAxis axis)
@@ -84,9 +81,6 @@ namespace QMC.CDT320.Initialization
                 }
             }
             catch
-            {
-            }
-            finally
             {
             }
         }

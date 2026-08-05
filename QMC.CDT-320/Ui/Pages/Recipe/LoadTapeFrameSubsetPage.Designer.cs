@@ -89,10 +89,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpLoad.Controls.Add(this._cbRole, 1, 0);
             this.tlpLoad.Controls.Add(this.lblAlignPts, 0, 1);
             this.tlpLoad.Controls.Add(this._nAlignPts, 1, 1);
-            this.tlpLoad.Controls.Add(this.lblAutoBarcode, 0, 2);
-            this.tlpLoad.Controls.Add(this._cbAutoBarcode, 1, 2);
-            this.tlpLoad.Controls.Add(this.lblAutoAlign, 0, 3);
-            this.tlpLoad.Controls.Add(this._cbAutoAlign, 1, 3);
+            // 바코드 사용 설정은 설정(Settings) → 바코드 화면에서만 관리한다. 레시피 항목은 제거.
+            this.tlpLoad.Controls.Add(this.lblAutoAlign, 0, 2);
+            this.tlpLoad.Controls.Add(this._cbAutoAlign, 1, 2);
             this.tlpLoad.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tlpLoad.Location = new System.Drawing.Point(6, 20);
             this.tlpLoad.Margin = new System.Windows.Forms.Padding(0);

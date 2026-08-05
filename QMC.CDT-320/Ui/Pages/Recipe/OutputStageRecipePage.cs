@@ -337,6 +337,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     () => unit.Config.ResultRoutingMode,
                     v => SetOutputStageResultRoutingMode(unit, v)));
 
+                // 바코드 설정은 설정(Settings) → 바코드 화면 한 곳에서만 관리한다(레시피 쪽에 두지 않는다).
+
                 optionParameterGrid.SetItems(items);
 
                 waitParameterGrid.SetItems(new ParameterGridItem[0]);

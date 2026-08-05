@@ -29,5 +29,7 @@ using System.Runtime.InteropServices;
 //      빌드 번호
 //      수정 버전
 //
+// AssemblyVersion: 참조/호환성 기준이므로 고정한다(릴리스마다 올리지 않는다).
+// AssemblyFileVersion: 화면 상단에 표시되는 릴리스 표기다. 릴리스할 때 이 줄만 올린다(사용자 확정 2026-08-05).
 [assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("0.1.0.0")]
