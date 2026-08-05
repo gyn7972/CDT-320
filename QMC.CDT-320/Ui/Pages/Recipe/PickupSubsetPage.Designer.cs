@@ -153,7 +153,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblPreviewCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblPreviewCaption.ForeColor = System.Drawing.Color.FromArgb(0x88, 0x88, 0x88);
             this.lblPreviewCaption.Name = "lblPreviewCaption";
-            this.lblPreviewCaption.Text = "Pickup path preview  (S = start, E = end)";
+            // 실제 웨이퍼 맵이 아니라 7x7 도식이다. 원형 웨이퍼는 빈 셀을 건너뛰므로 실제 경로 모양은 다르다.
+            this.lblPreviewCaption.Text =
+                "Pickup path preview  (S = start, E = end)   *7x7 샘플 도식 - 실제 웨이퍼 맵 아님";
             this.lblPreviewCaption.TextAlign = ContentAlignment.MiddleLeft;
             //
             // previewPanel

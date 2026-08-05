@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Barcode;
 using QMC.CDT320.Materials;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -194,6 +196,11 @@ namespace QMC.CDT320.Sequencing
             }
             catch (OperationCanceledException)
             {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                // CYCLE STOP 정지는 제어 흐름이므로 고장으로 바꾸지 않고 상위 정지 처리로 전달한다.
                 throw;
             }
             catch (Exception ex)
@@ -890,6 +897,27 @@ namespace QMC.CDT320.Sequencing
                     if (response == null || response.Decision == BarcodeRecoveryDecision.Cancelled)
                     {
                         ct.ThrowIfCancellationRequested();
+
+                        // CYCLE STOP으로 복구 Dialog가 닫힌 경우는 고장이 아니라 협조 정지다.
+                        // Dialog 진입 전 이미 VisionX Avoid를 보장했으므로 안전 위치를 재확인한 뒤
+                        // 경계 정지 경로로 합류시킨다. 복귀에 실패하면 그때는 복구 필요 상태로 알린다.
+                        if (Context != null && Context.IsCycleStopRequested)
+                        {
+                            string cycleStopAvoidFailure = await TryRestoreOutputVisionAvoidBestEffortAsync(
+                                "barcode cycle stop").ConfigureAwait(false);
+                            if (!string.IsNullOrWhiteSpace(cycleStopAvoidFailure))
+                            {
+                                return Fail(
+                                    "OUT-BARCODE-CANCEL-RECOVERY",
+                                    Name,
+                                    "Output Bin barcode CYCLE STOP 후 OutputCameraX Avoid 복귀에 실패했습니다. " +
+                                    "RecoveryRequired. " + cycleStopAvoidFailure);
+                            }
+
+                            Context.StopIfCycleStopRequested(
+                                "OutputFeederLoadToStageSequence.BarcodeRecoveryPrompt");
+                        }
+
                         return await FailBarcodeWithAvoidRecoveryAsync(
                             "OUT-BARCODE-RECOVERY-CANCELLED",
                             "Output Bin barcode 판독 복구 Dialog를 완료하지 못했습니다. " +
@@ -911,6 +939,11 @@ namespace QMC.CDT320.Sequencing
                         "Output Bin barcode 취소 후 OutputCameraX Avoid 복귀에 실패했습니다. " +
                         "RecoveryRequired. " + avoidFailure);
                 }
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                // CYCLE STOP 정지는 제어 흐름이므로 고장으로 바꾸지 않고 상위 정지 처리로 전달한다.
                 throw;
             }
             catch (Exception ex)
@@ -959,8 +992,84 @@ namespace QMC.CDT320.Sequencing
                 return false;
 
             item.UpdateStatus();
-            return item.IsServoOn && !item.IsAlarm && !item.IsMoving && item.IsInPosition &&
+
+            // ============================================================================
+            // [INP 요구 제거 2026-08-05] OUT-BARCODE-VISION-AVOID 결정적 교착 수정.
+            //
+            // 기존 조건: ... && item.IsInPosition && Stage.IsStageAxisAtPosition(axis, target)
+            //
+            // IsInPosition 의 의미가 시뮬과 실보드에서 다르다.
+            //   · 실보드(AjinAxis)  : AXM.GetInPositionValue / uMechSig 0x20 → 드라이브 INP 하드웨어 신호.
+            //                        위치 편차가 INP 윈도우 안이면 상시 true. 이동 이력과 무관하다.
+            //   · 노트북 시뮬(BaseAxis): WaitUntilMoveDone 완료 시에만 true 가 되고
+            //                        Stop() 에서 false 로 지워진다. 초기값 false.
+            //                        ★한 번도 이동 명령을 안 받은 축은 위치가 맞아도 영구 false★
+            //
+            // 그래서 시뮬에서 아래 교착이 100% 재현됐다(2026-08-05 22:06:30 실측):
+            //   1) 바코드 리더(COM6) 부재 → 수동 입력 → OutputVisionX 이동이 발생하지 않음 → INP=false
+            //   2) 이 판정이 INP 때문에 false → MoveVisionXToAvoidAndVerifyAsync 호출
+            //   3) MoveStageAxis 는 IsAxisAtTarget(위치만 비교)로 이미 목표라 판단해 이동 생략, return 0
+            //   4) 재판정 → INP 여전히 false → 알람. RUN 을 다시 눌러도 동일하게 실패.
+            //   → 이동을 생략하는 기준(위치)과 도달을 인정하는 기준(INP)이 어긋난 것이 근본 원인이다.
+            //
+            // 현재 기준: 도달 판정은 위치 기준으로 통일한다.
+            //   IsAtTargetPosition 이 이미 !IsMoving && !IsAlarm && IsServoOn 과
+            //   ActualPosition/CommandPosition 양쪽 톨러런스를 모두 확인하므로 안전 강도는 유지된다.
+            //   실보드에서는 정지·정착 상태면 INP 도 true 이므로 동작 변화가 없다.
+            //
+            // INP 는 버리지 않고 관측만 한다 — 실보드에서 위치는 맞는데 INP 가 false 라면
+            // 드라이브 INP 설정(InPositionEnable/Level)이 빠졌다는 신호이므로 로그로 남긴다.
+            // ============================================================================
+            bool arrived = item.IsServoOn && !item.IsAlarm && !item.IsMoving &&
                 Stage.IsStageAxisAtPosition(axis, target);
+
+            if (arrived && !item.IsInPosition)
+                LogAxisArrivedWithoutInPosition(item, axis.ToString(), target);
+
+            return arrived;
+        }
+
+        /// <summary>
+        /// [INP 요구 제거 2026-08-05] 위치는 도달했으나 INP 신호가 false 인 경우를 기록한다.
+        /// 시뮬에서는 정상(이동 이력 없음)이고, 실보드에서 반복되면 드라이브 INP 설정 확인이 필요하다.
+        /// 축마다 1회만 남겨 로그가 밀리지 않게 한다.
+        /// </summary>
+        private static readonly HashSet<string> InPositionMissingLogged =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        internal static void LogAxisArrivedWithoutInPosition(BaseAxis item, string axisLabel, double target)
+        {
+            try
+            {
+                if (item == null)
+                    return;
+
+                bool simulated = item.Config != null && item.Config.IsSimulationMode;
+                string key = (item.Name ?? axisLabel) + "|" + (simulated ? "sim" : "real");
+                lock (InPositionMissingLogged)
+                {
+                    if (!InPositionMissingLogged.Add(key))
+                        return;
+                }
+
+                QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "AXIS-INP-MISSING",
+                    "축이 목표 위치에 도달했지만 INP 신호가 false 입니다(위치 기준으로 도달 인정). axis=" + axisLabel +
+                    ", name=" + item.Name +
+                    ", actual=" + item.ActualPosition +
+                    ", command=" + item.CommandPosition +
+                    ", target=" + target +
+                    ", simulation=" + simulated +
+                    (simulated
+                        ? ". 시뮬은 이동 이력이 없으면 INP 가 false 라 정상입니다."
+                        : ". ★실보드입니다 — 드라이브 INP 설정(InPositionEnable/Level)을 확인하세요.★") +
+                    " - Check");
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> ApplyBarcodeAndFinishAsync(
@@ -1116,7 +1225,14 @@ namespace QMC.CDT320.Sequencing
                 RetryCount = retryCount,
                 RetryStepMm = retryStepMm
             };
-            return await BarcodeOperatorPromptService.RequestAsync(request, ct).ConfigureAwait(false);
+            // 복구 Dialog는 작업자 응답이 없으면 무기한 대기한다. 경계 폴링으로는 깨울 수 없으므로
+            // CYCLE STOP 토큰을 함께 관찰시켜 정지 요청 시 Cancelled로 즉시 닫히게 한다.
+            using (CancellationTokenSource stoppable = Context.CreateCycleStopLinkedSource(ct))
+            {
+                return await BarcodeOperatorPromptService
+                    .RequestAsync(request, stoppable.Token)
+                    .ConfigureAwait(false);
+            }
         }
 
         private static void ApplyRecoveryRetryParameters(

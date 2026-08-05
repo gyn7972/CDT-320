@@ -52,7 +52,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             InitializeComponent();
             CalibrationDialogButtonStyle.ApplyFooterButtons(
-                new[] { _btnCheck, _btnUseCurrent, _btnMoveTouch, _btnAvoid, _btnReload, _btnClose },
+                new[] { _btnCheck, _btnUseCurrent, _btnMoveTouch, _btnSeqStop, _btnAvoid, _btnReload, _btnClose },
                 new[] { _btnStart },
                 new[] { _btnSave });
             CalibrationDialogGridBehavior.Apply(_settingsGrid, _resultGrid, _teachingGrid);
@@ -79,6 +79,27 @@ namespace QMC.CDT_320.Ui.Dialogs
             await RunCalibrationAsync().ConfigureAwait(true);
         }
 
+        // 실행 중 정지 요청: 취소되면 시퀀스의 취소 경로가 NeedleZ/EjectPinZ를 정지시킨다.
+        private void btnSeqStop_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CancellationTokenSource cts = _runCts;
+                if (cts == null)
+                {
+                    _status.Text = "실행 중인 Needle Calibration 시퀀스가 없습니다.";
+                    return;
+                }
+
+                cts.Cancel();
+                _status.Text = "Needle Calibration 정지 요청을 보냈습니다. 축 정지 로그를 확인하세요.";
+            }
+            catch (Exception ex)
+            {
+                _status.Text = "정지 요청 실패: " + ex.Message;
+            }
+        }
+
         private async void btnAvoid_Click(object sender, EventArgs e)
         {
             await MoveZAvoidAsync().ConfigureAwait(true);
@@ -102,6 +123,62 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void btnClose_Click(object sender, EventArgs e)
         {
             Close();
+        }
+
+        // 실행 중 X/Alt+F4로 창이 닫혀 시퀀스가 화면 없이 계속 도는 것을 막는다.
+        // 단 사용자가 직접 닫을 때(UserClosing)만 붙잡는다 — 앱/Windows/소유자(Form1) 종료 경로에서
+        // e.Cancel을 세우면 Form1 종료가 취소되어 프로그램을 끌 수 없게 된다.
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            try
+            {
+                if (_busy)
+                {
+                    if (e.CloseReason != CloseReason.UserClosing)
+                    {
+                        RequestRunCancelForClose("Needle Calibration 창 종료(" + e.CloseReason + ")");
+                        base.OnFormClosing(e);
+                        return;
+                    }
+
+                    DialogResult result = QMC.Common.MessageDialog.Show(this,
+                        "Needle Calibration이 실행 중입니다. 정지 요청 후 창을 닫을까요?",
+                        "NEEDLE CAL",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning);
+                    if (result == DialogResult.Yes)
+                        RequestRunCancelForClose("Needle Calibration 창 닫기");
+
+                    e.Cancel = true;
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (e.CloseReason == CloseReason.UserClosing)
+                    e.Cancel = true;
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "UI", "NEEDLE-CAL-CLOSE",
+                    "Needle Calibration 창 종료 확인 중 예외가 발생했습니다. error=" + ex.Message);
+                if (e.Cancel)
+                    return;
+            }
+
+            base.OnFormClosing(e);
+        }
+
+        private void RequestRunCancelForClose(string reason)
+        {
+            try
+            {
+                CancellationTokenSource cts = _runCts;
+                if (cts != null)
+                    cts.Cancel();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "UI", "NEEDLE-CAL-CLOSE-CANCEL",
+                    reason + " 중 정지 요청 실패: " + ex.Message);
+            }
         }
 
         protected override void OnShown(EventArgs e)
@@ -866,6 +943,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             _btnUseCurrent.Enabled = enabled;
             _btnMoveTouch.Enabled = enabled;
             _btnStart.Enabled = enabled;
+            // SEQ STOP은 실행 중에만 누를 수 있어야 한다(다른 버튼과 반대).
+            _btnSeqStop.Enabled = !enabled;
             _btnAvoid.Enabled = enabled;
             _btnReload.Enabled = enabled;
             _btnSaveParameters.Enabled = enabled;

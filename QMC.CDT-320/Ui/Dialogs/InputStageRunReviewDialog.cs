@@ -10,6 +10,7 @@ using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
 using QMC.CDT320.VisionComm;
 using QMC.CDT_320.Equipment.Vision;
+using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
@@ -49,6 +50,9 @@ namespace QMC.CDT_320.Ui.Dialogs
         private ComboBox _cmbJogMode;
         private ComboBox _cmbJogStep;
         private bool _waferVisionControlActive;
+        // Wafer Vision 명령 채널 연결 상태. Live/Grab은 이 값이 true일 때만 실제로 동작하므로
+        // 버튼 활성 조건에 포함한다(미연결에서 눌리면 거짓 Live 상태가 남는다).
+        private bool _waferVisionLinkConnected;
         private bool _waferVisionMoveBusy;
         private string _waferVisionHost = "127.0.0.1";
         private int _waferVisionPort;
@@ -265,14 +269,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 UpdateActionAvailability();
                 return false;
             }
-            lblWaferVisionState.Text = _waferVisionControlActive
-                ? "비전 안전 영역 사용 중 - Live/Grab/측정 가능"
-                : (_readOnlyPreview
-                    ? "읽기 전용 - 영상 확인/측정만 가능"
-                    : "영상 확인/측정 가능 - Live/Grab은 비전 사용 시작 후 가능");
-            lblWaferVisionState.ForeColor = _waferVisionControlActive
-                ? Color.SeaGreen
-                : Color.DimGray;
+            ApplyWaferVisionStateLabel();
             btnWaferVisionControl.Text = _waferVisionControlActive
                 ? "비전 사용 종료"
                 : "비전 사용 시작";
@@ -375,8 +372,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             _mappingRevision = mappingRevision ?? string.Empty;
             lblWaferValue.Text = string.IsNullOrWhiteSpace(waferId) ? "-" : waferId;
             lblRecipeValue.Text = string.IsNullOrWhiteSpace(recipeName) ? "-" : recipeName;
-            lblVisionValue.Text = visionConnected ? "CONNECTED" : "DISCONNECTED";
-            lblVisionValue.ForeColor = visionConnected ? Color.LightGreen : Color.LightSalmon;
+            // 연결 상태를 필드로 보관해 Live/Grab 버튼 활성 조건에 반영한다(표시만 하고 버리면
+            // 미연결 상태에서 Grab/Live가 눌려 거짓 Live 상태가 된다).
+            _waferVisionLinkConnected = visionConnected;
+            ApplyVisionConnectionLabel(visionConnected);
+            // 개창 시 비전 패널 라벨도 실제 상태로 갱신한다(Designer 초기 문자열이 남지 않도록).
+            ApplyWaferVisionStateLabel();
             _alignComplete = alignComplete;
             _mappingComplete = mappingComplete;
             _reviewValid = false;
@@ -387,6 +388,89 @@ namespace QMC.CDT_320.Ui.Dialogs
             lblMappingRevisionValue.Text = string.IsNullOrWhiteSpace(mappingRevision) ? "-" : mappingRevision;
             lblReviewValue.Text = string.IsNullOrWhiteSpace(reviewState) ? "REVIEW REQUIRED" : reviewState;
             UpdateActionAvailability();
+
+            // 창 진입/상태 전환 시점을 남긴다(어떤 웨이퍼를 어떤 상태로 검토했는지 추적).
+            LogReviewAction("STATE",
+                "Review 상태 반영: recipe=" + (recipeName ?? "-") +
+                ", vision=" + (visionConnected ? "CONNECTED" : "DISCONNECTED") +
+                ", align=" + alignComplete +
+                ", mapping=" + mappingComplete +
+                ", revision=" + (mappingRevision ?? "-") +
+                ", review=" + (reviewState ?? "-"));
+        }
+
+        /// <summary>
+        /// Wafer Vision 연결 상태를 창이 열려 있는 동안에도 갱신한다.
+        /// (예전에는 개창 시 스냅샷만 표시해, 이후 끊겨도 CONNECTED로 남고 Live/Grab이 계속 활성이었다.)
+        /// </summary>
+        public void SetWaferVisionConnectionState(bool connected)
+        {
+            if (IsDisposed)
+                return;
+
+            if (InvokeRequired)
+            {
+                try { BeginInvoke(new Action<bool>(SetWaferVisionConnectionState), connected); }
+                catch { }
+                return;
+            }
+
+            if (_waferVisionLinkConnected == connected)
+                return;
+
+            _waferVisionLinkConnected = connected;
+            ApplyVisionConnectionLabel(connected);
+            ApplyWaferVisionStateLabel();
+            UpdateActionAvailability();
+            LogReviewAction("VISION-LINK", "Wafer Vision 연결 상태 변경: " +
+                (connected ? "CONNECTED" : "DISCONNECTED"));
+        }
+
+        private void ApplyVisionConnectionLabel(bool connected)
+        {
+            lblVisionValue.Text = connected ? "CONNECTED" : "DISCONNECTED";
+            lblVisionValue.ForeColor = connected ? Color.LightGreen : Color.LightSalmon;
+        }
+
+        /// <summary>
+        /// 비전 패널 상태 라벨을 "안전 스코프 보유 여부 × 실제 연결 여부"로 구성한다.
+        /// Designer 초기 문자열("영상 수신 대기 (측정 가능)")이 그대로 남거나,
+        /// 미연결인데 "Live/Grab/측정 가능"으로 표시되던 문제를 함께 없앤다.
+        /// </summary>
+        private void ApplyWaferVisionStateLabel()
+        {
+            if (lblWaferVisionState == null || lblWaferVisionState.IsDisposed)
+                return;
+
+            string text;
+            Color color;
+            if (_readOnlyPreview)
+            {
+                text = _waferVisionLinkConnected
+                    ? "읽기 전용 - 영상 확인/측정만 가능"
+                    : "읽기 전용 - 비전 미연결(영상 없음)";
+                color = Color.DimGray;
+            }
+            else if (!_waferVisionLinkConnected)
+            {
+                text = _waferVisionControlActive
+                    ? "안전 영역 사용 중 - 비전 미연결로 Live/Grab/측정 불가"
+                    : "비전 미연결 - 영상/측정 불가(설정에서 비전 연결 확인)";
+                color = Color.Firebrick;
+            }
+            else if (_waferVisionControlActive)
+            {
+                text = "비전 안전 영역 사용 중 - Live/Grab/측정 가능";
+                color = Color.SeaGreen;
+            }
+            else
+            {
+                text = "영상 확인/측정 가능 - Live/Grab은 비전 사용 시작 후 가능";
+                color = Color.DimGray;
+            }
+
+            lblWaferVisionState.Text = text;
+            lblWaferVisionState.ForeColor = color;
         }
 
         public void SetReviewValid(bool valid, string reviewState)
@@ -492,6 +576,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             _submittedDialogResult = DialogResult.None;
             _busy = false;
             DialogResult = DialogResult.None;
+            // 시퀀스가 결정을 거부하고 되돌린 경우다(알람/Stop 요청 등). 원인 추적을 위해 남긴다.
+            LogReviewBlocked("DECISION-RESTORED",
+                "시퀀스가 결정을 거부해 화면을 원복했습니다. reason=" +
+                (string.IsNullOrWhiteSpace(status) ? "-" : status));
             SetStatus(string.IsNullOrWhiteSpace(status)
                 ? "요청 처리에 실패했습니다. 상태를 확인한 뒤 다시 시도하세요."
                 : status);
@@ -1086,6 +1174,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             }
 
+            // 맵 더블클릭은 버튼과 동일하게 실제 축을 움직이는 경로다. 반드시 이력을 남긴다.
+            LogReviewAction("MOVE-DIE",
+                "선택 Die 이동 요청(맵 더블클릭): pos=(" +
+                (entry != null ? entry.PosX.ToString("F4") : "-") + "," +
+                (entry != null ? entry.PosY.ToString("F4") : "-") + ")" +
+                ", mappingComplete=" + _mappingComplete);
             RaiseSimpleEvent(SelectedDieMoveRequested);
         }
 
@@ -1152,6 +1246,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             }
 
+            LogReviewAction("START-DIE",
+                "시작 Die 지정: " + DescribeEntryForLog(_selectedDie));
             _startDie = _selectedDie;
             _pickupOrderApplied = false;
             if (!chkUseSelectedStart.Checked)
@@ -1213,6 +1309,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                         StartDie,
                         new List<DieMapEntry>(_previewOrder).AsReadOnly()));
                 _pickupOrderApplied = true;
+                PickupSubset appliedOptions = BuildPickupOptions();
+                LogReviewAction("PICKUP-ORDER",
+                    "픽업 순서 적용: target=" + _previewOrder.Count +
+                    ", corner=" + appliedOptions.StartCorner +
+                    ", direction=" + appliedOptions.Direction +
+                    ", pattern=" + appliedOptions.Pattern +
+                    ", useSelectedStart=" + chkUseSelectedStart.Checked);
                 SetStatus(_previewOrder.Count > 0
                     ? "픽업 경로 Draft를 적용했습니다. Pickable Target=" + _previewOrder.Count
                     : "Pickable Target이 0개인 빈 픽업 경로 Draft를 적용했습니다.");
@@ -1246,6 +1349,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                     : rbDieStateSkip.Checked
                         ? InputStageReviewDieState.Skip
                         : InputStageReviewDieState.Wait;
+
+            // Die 상태 변경은 픽업 대상 집합을 바꾸는 조작이므로 대상 UID까지 남긴다.
+            LogReviewAction("DIE-STATE",
+                "Die 상태 변경: state=" + state +
+                ", count=" + entries.Count +
+                ", uids=" + BuildEntryUidListForLog(entries));
 
             foreach (DieMapEntry entry in entries)
                 ApplyDraftDieState(entry, state);
@@ -1319,6 +1428,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (IsStepJogMode)
             {
                 // Step 모드는 버튼 유지와 무관한 one-shot 이동이므로 activeJogButton을 잡지 않는다.
+                LogReviewAction("JOG-STEP",
+                    "Step Jog 요청: axis=" + button.Tag +
+                    ", dir=" + direction +
+                    ", speed=" + DescribeJogSpeedForLog() +
+                    ", step=" + SelectedJogStepDistance.ToString("0.###"));
                 if (handler != null)
                     handler(this, new InputStageReviewJogEventArgs(
                         (InputStageReviewJogAxis)button.Tag,
@@ -1330,6 +1444,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             }
 
+            LogReviewAction("JOG-START",
+                "연속 Jog 시작: axis=" + button.Tag +
+                ", dir=" + direction +
+                ", speed=" + DescribeJogSpeedForLog());
             _activeJogButton = button;
             UpdateActionAvailability();
             if (handler != null)
@@ -1349,6 +1467,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             _activeJogButton = null;
             UpdateActionAvailability();
+            LogReviewAction("JOG-STOP", "연속 Jog 정지 요청(버튼 놓음)");
             RaiseSimpleEvent(JogStopRequested);
             SetStatus("Jog 정지를 요청했습니다.");
         }
@@ -1360,6 +1479,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _activeJogButton = null;
                 UpdateActionAvailability();
+                // 마우스 캡처 상실은 안전 정지 경로이므로 원인 추적을 위해 남긴다(빈도 낮음).
+                LogReviewAction("JOG-STOP-CAPTURE", "연속 Jog 정지 요청(마우스 캡처 상실)");
                 RaiseSimpleEvent(JogStopRequested);
             }
         }
@@ -1368,6 +1489,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _activeJogButton = null;
             UpdateActionAvailability();
+            LogReviewAction("ACTION-STOP", "Review 수동 동작 정지 요청(STOP 버튼)");
             RaiseSimpleEvent(ReviewActionStopRequested);
             SetStatus("Review 수동 동작 정지를 요청했습니다.");
         }
@@ -1376,27 +1498,36 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (_selectedDie == null)
             {
+                LogReviewBlocked("MOVE-DIE-BLOCKED", "선택 Die 이동 거부: 선택된 Die 없음");
                 SetStatus("이동할 Die를 먼저 선택하세요.");
                 return;
             }
+            LogReviewAction("MOVE-DIE",
+                "선택 Die 이동 요청(버튼): pos=(" +
+                _selectedDie.PosX.ToString("F4") + "," + _selectedDie.PosY.ToString("F4") + ")");
             RaiseSimpleEvent(SelectedDieMoveRequested);
         }
 
         private void BtnRetryAlign_Click(object sender, EventArgs e)
         {
-            SubmitAutoReviewDecision(AlignRetryRequested, DialogResult.Retry);
+            SubmitAutoReviewDecision(AlignRetryRequested, DialogResult.Retry, "RETRY ALIGN(RetryAlign)");
         }
 
         private void BtnRetryMapping_Click(object sender, EventArgs e)
         {
-            SubmitAutoReviewDecision(MappingRetryRequested, DialogResult.Retry);
+            SubmitAutoReviewDecision(MappingRetryRequested, DialogResult.Retry, "RUN DIE MAPPING(RetryMapping)");
         }
         private void BtnMappingSetup_Click(object sender, EventArgs e)
         {
+            LogReviewAction("MAPPING-SETUP", "MAPPING SETUP 요청");
             RaiseSimpleEvent(MappingSetupRequested);
         }
 
-        private void BtnVisionTest_Click(object sender, EventArgs e) { RaiseSimpleEvent(VisionTestRequested); }
+        private void BtnVisionTest_Click(object sender, EventArgs e)
+        {
+            LogReviewAction("VISION-TEST", "VISION TEST 창 요청");
+            RaiseSimpleEvent(VisionTestRequested);
+        }
         private void BtnWaferVisionControl_Click(object sender, EventArgs e)
         {
             if (_readOnlyPreview)
@@ -1405,47 +1536,167 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             }
 
-            EventHandler handler = _waferVisionControlActive
+            bool stopping = _waferVisionControlActive;
+            EventHandler handler = stopping
                 ? WaferVisionControlStopRequested
                 : WaferVisionControlStartRequested;
             if (handler == null)
             {
+                LogReviewBlocked("VISION-SCOPE-NO-HANDLER",
+                    "비전 안전 제어 요청 거부: 구독자 없음. stopping=" + stopping);
                 SetStatus("Wafer Vision 안전 제어 연결이 없습니다.");
                 return;
             }
+            LogReviewAction("VISION-SCOPE",
+                stopping ? "비전 사용 종료 요청" : "비전 사용 시작 요청");
             handler(this, EventArgs.Empty);
         }
-        private void BtnThetaCorrection_Click(object sender, EventArgs e) { RaiseSimpleEvent(ThetaCorrectionRequested); }
-        private void BtnDieDetection_Click(object sender, EventArgs e) { RaiseSimpleEvent(DieDetectionRequested); }
-        private void BtnOffsetApply_Click(object sender, EventArgs e) { RaiseSimpleEvent(OffsetApplyRequested); }
+        private void BtnThetaCorrection_Click(object sender, EventArgs e)
+        {
+            // T 보정은 영구 저장 + Die Mapping 무효화를 유발하므로 반드시 이력을 남긴다.
+            LogReviewAction("THETA-CORRECTION", "T CORRECTION 요청(영구 저장/Mapping 무효화 유발)");
+            RaiseSimpleEvent(ThetaCorrectionRequested);
+        }
+
+        private void BtnDieDetection_Click(object sender, EventArgs e)
+        {
+            LogReviewAction("DIE-DETECTION", "DIE DETECTION 요청");
+            RaiseSimpleEvent(DieDetectionRequested);
+        }
+
+        private void BtnOffsetApply_Click(object sender, EventArgs e)
+        {
+            LogReviewAction("OFFSET-APPLY", "APPLY OFFSET 요청(Draft 전체 좌표 평행이동)");
+            RaiseSimpleEvent(OffsetApplyRequested);
+        }
+
         private void BtnStartRun_Click(object sender, EventArgs e)
         {
-            SubmitAutoReviewDecision(StartRunRequested, DialogResult.OK);
+            SubmitAutoReviewDecision(StartRunRequested, DialogResult.OK, "CONFIRM/CONTINUE AUTO(ConfirmAndContinue)");
         }
 
         private void BtnAbortAuto_Click(object sender, EventArgs e)
         {
-            SubmitAutoReviewDecision(AbortAutoRequested, DialogResult.Cancel);
+            SubmitAutoReviewDecision(AbortAutoRequested, DialogResult.Cancel, "CANCEL/RETRY T ALIGN(RetryAlign)");
         }
 
         private void BtnBuzzerStop_Click(object sender, EventArgs e)
         {
+            LogReviewAction("BUZZER-STOP", "부저 정지 요청");
             RaiseSimpleEvent(BuzzerStopRequested);
             SetStatus("부저 정지를 요청했습니다. 확인 또는 취소를 선택하세요.");
         }
 
-        private void SubmitAutoReviewDecision(EventHandler handler, DialogResult result)
+        // ── Review 조작 이력 ────────────────────────────────────────────────────
+        // 이 창은 운전자가 Die 상태/픽업 순서/좌표를 덮어쓰고 Auto 진행을 확정하는 화면이므로
+        // 모든 조작을 이벤트 로그로 남긴다(누가 어떤 Die를 어떻게 바꿨는지 추적).
+        // EventLogger.Write는 큐 적재 후 백그라운드 기록이라 UI 스레드를 붙잡지 않는다.
+        // 고빈도 경로(200ms 축 위치 타이머, 프레임 수신, MouseCaptureChanged)에는 넣지 않는다.
+
+        /// <summary>정상 조작 이력.</summary>
+        private void LogReviewAction(string code, string detail)
+        {
+            WriteReviewLog(EventKind.Event, code, detail);
+        }
+
+        /// <summary>거부/차단된 조작(가드에 걸린 경우) 이력.</summary>
+        private void LogReviewBlocked(string code, string detail)
+        {
+            WriteReviewLog(EventKind.Warning, code, detail);
+        }
+
+        private void WriteReviewLog(EventKind kind, string code, string detail)
+        {
+            try
+            {
+                EventLogger.Write(kind, "UI", "IN-REVIEW-" + code, "InputStageRunReview",
+                    (detail ?? string.Empty) + BuildReviewLogContext());
+            }
+            catch
+            {
+                // 이력 기록 실패가 조작을 막아서는 안 된다.
+            }
+        }
+
+        /// <summary>모든 Review 이력에 공통으로 붙는 문맥(웨이퍼/모드/선택 상태).</summary>
+        private string BuildReviewLogContext()
+        {
+            try
+            {
+                return " [wafer=" + (_waferId ?? "-") +
+                       ", mode=" + _mode +
+                       (_readOnlyPreview ? ", readOnly" : string.Empty) +
+                       (_autoReviewMode ? ", autoReview" : string.Empty) +
+                       (_busy ? ", busy" : string.Empty) +
+                       (_decisionSubmitted ? ", decided" : string.Empty) +
+                       (_waferVisionControlActive ? ", visionScope" : string.Empty) +
+                       ", selected=" + DescribeEntryForLog(_selectedDie) +
+                       ", selectedCount=" + _selectedDies.Count +
+                       ", start=" + DescribeEntryForLog(_startDie) +
+                       ", pickupApplied=" + _pickupOrderApplied + "]";
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private static string DescribeEntryForLog(DieMapEntry entry)
+        {
+            if (entry == null)
+                return "-";
+
+            return (entry.DieUid ?? "-") +
+                   "(map=" + entry.DieMapX + "," + entry.DieMapY +
+                   " seq=" + entry.SequenceNo + ")";
+        }
+
+        /// <summary>조그 속도 표기. 콤보가 비어 있으면 실제 적용값(Fine)이 드러나도록 남긴다.</summary>
+        private string DescribeJogSpeedForLog()
+        {
+            string text = cmbJogSpeed != null ? cmbJogSpeed.Text : null;
+            return string.IsNullOrWhiteSpace(text) ? "(미선택→Fine)" : text;
+        }
+
+        /// <summary>변경 대상 Die UID 목록. 대량 선택 시 로그가 비대해지지 않도록 앞 20개만 남긴다.</summary>
+        private static string BuildEntryUidListForLog(IList<DieMapEntry> entries)
+        {
+            if (entries == null || entries.Count == 0)
+                return "-";
+
+            const int MaxLogged = 20;
+            var builder = new StringBuilder();
+            int count = Math.Min(MaxLogged, entries.Count);
+            for (int i = 0; i < count; i++)
+            {
+                if (i > 0)
+                    builder.Append('|');
+                DieMapEntry entry = entries[i];
+                builder.Append(entry != null ? (entry.DieUid ?? "-") : "-");
+            }
+
+            if (entries.Count > count)
+                builder.Append("|...+").Append(entries.Count - count);
+
+            return builder.ToString();
+        }
+
+        private void SubmitAutoReviewDecision(EventHandler handler, DialogResult result, string decisionName)
         {
             if (_decisionSubmitted)
                 return;
             if (_waferVisionControlActive)
             {
+                LogReviewBlocked("DECISION-BLOCKED",
+                    "결정 거부: 비전 사용 중. decision=" + decisionName);
                 SetStatus("비전 사용을 먼저 종료한 뒤 Auto 진행 여부를 선택하세요.");
                 return;
             }
 
             if (handler == null)
             {
+                LogReviewBlocked("DECISION-NO-HANDLER",
+                    "결정 거부: 장비 연결(구독자) 없음. decision=" + decisionName);
                 SetStatus("사용자 확인 요청을 처리할 장비 연결이 없습니다.");
                 return;
             }
@@ -1455,6 +1706,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _decisionSubmitted = true;
                 _submittedDialogResult = result;
                 _busy = true;
+                LogReviewAction("DECISION", "운전자 결정 제출: " + decisionName +
+                    ", targetCount=" + _previewOrder.Count);
                 SetStatus(result == DialogResult.OK
                     ? "확인 요청을 처리하고 있습니다. Sequence 완료 응답을 기다립니다."
                     : "재실행/취소 요청을 처리하고 있습니다. Sequence 완료 응답을 기다립니다.");
@@ -1466,6 +1719,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _decisionSubmitted = false;
                 _submittedDialogResult = DialogResult.None;
                 _busy = false;
+                LogReviewBlocked("DECISION-EX",
+                    "결정 처리 예외: decision=" + decisionName + ", error=" + ex.Message);
                 SetStatus("사용자 확인 처리에 실패했습니다. " + ex.Message);
                 UpdateActionAvailability();
             }
@@ -1501,7 +1756,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnDieDetection.Enabled = actionEnabled && _alignComplete && _mappingComplete;
             btnOffsetApply.Enabled = actionEnabled && _mappingComplete;
             btnVisionTest.Enabled = actionEnabled;
+            // 미연결 상태에서는 Live/Grab이 no-op이면서 버튼만 눌린 상태로 남으므로 명령 자체를 잠근다.
             bool waferVisionCommandEnabled = _waferVisionControlActive &&
+                                              _waferVisionLinkConnected &&
                                               !_readOnlyPreview &&
                                               !_decisionSubmitted &&
                                               !_waferVisionMoveBusy;
@@ -1555,12 +1812,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_activeJogButton != null)
             {
                 _activeJogButton = null;
+                LogReviewAction("JOG-STOP-CLOSE", "창 닫힘으로 연속 Jog 정지 요청");
                 RaiseSimpleEvent(JogStopRequested);
             }
             // Form.Close()는 CloseReason.UserClosing으로 보고되므로
             // Sequence 종료 요청은 사용자 차단 로직보다 먼저 통과시킨다.
             if (_sequenceCloseRequested)
             {
+                LogReviewAction("CLOSE", "시퀀스 요청으로 Review 창 종료. reason=" + e.CloseReason);
                 StopWaferVision();
                 DisposeEncoderRefreshTimer();
                 return;
@@ -1569,6 +1828,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_autoReviewMode && !_decisionSubmitted && e.CloseReason == CloseReason.UserClosing)
             {
                 e.Cancel = true;
+                LogReviewBlocked("CLOSE-BLOCKED",
+                    "Auto 대기 중 사용자 창 닫기 차단(결정 미제출)");
                 SetStatus("Auto 대기 중에는 창을 직접 닫을 수 없습니다. 확인 또는 취소/T ALIGN 재시작을 선택하세요.");
                 return;
             }
@@ -1576,9 +1837,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_busy && e.CloseReason == CloseReason.UserClosing)
             {
                 e.Cancel = true;
+                LogReviewBlocked("CLOSE-BLOCKED", "동작 진행 중 사용자 창 닫기 차단");
                 SetStatus("동작 진행 중에는 화면을 닫을 수 없습니다. 먼저 STOP 또는 작업 완료를 확인하세요.");
                 return;
             }
+
+            LogReviewAction("CLOSE", "Review 창 종료. reason=" + e.CloseReason);
 
             DisposeEncoderRefreshTimer();
             StopWaferVision();

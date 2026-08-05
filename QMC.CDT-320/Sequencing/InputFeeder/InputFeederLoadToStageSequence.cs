@@ -756,8 +756,35 @@ namespace QMC.CDT320.Sequencing
                 return false;
 
             item.UpdateStatus();
-            return item.IsServoOn && !item.IsAlarm && !item.IsMoving && item.IsInPosition &&
+
+            // ============================================================================
+            // [INP 요구 제거 2026-08-05] Output 측 OUT-BARCODE-VISION-AVOID 와 동일한 결함.
+            //
+            // 기존 조건: ... && item.IsInPosition && IsStageAxisInPosition(item, target)
+            //
+            // IsInPosition 의 의미가 시뮬과 실보드에서 다르다.
+            //   · 실보드(AjinAxis)  : 드라이브 INP 하드웨어 신호(AXM.GetInPositionValue / uMechSig 0x20).
+            //                        정지·정착 상태면 상시 true. 이동 이력과 무관하다.
+            //   · 노트북 시뮬(BaseAxis): 이동 완료 시에만 true, Stop() 에서 false, 초기값 false.
+            //                        ★한 번도 이동 명령을 안 받은 축은 위치가 맞아도 영구 false★
+            //
+            // 바코드 리더 부재/수동 입력으로 InputCameraX 가 이동하지 않으면 INP=false 이고,
+            // MoveStageAxis 는 이미 목표라 이동을 생략(return 0)하므로 INP 가 세워질 기회가 없다.
+            // → IN-BARCODE-VISION-AVOID 가 RUN 을 다시 눌러도 계속 발생한다.
+            //
+            // 현재 기준: 도달 판정은 위치 기준으로 통일한다(IsAtTargetPosition 이 servo/alarm/moving 과
+            //           Actual/Command 양쪽 톨러런스를 이미 확인하므로 안전 강도는 유지된다).
+            //           실보드에서는 INP 도 true 이므로 동작 변화가 없다.
+            //           INP=false 인데 위치는 맞는 경우는 AXIS-INP-MISSING 로그로만 남긴다.
+            // ============================================================================
+            bool arrived = item.IsServoOn && !item.IsAlarm && !item.IsMoving &&
                 IsStageAxisInPosition(item, target);
+
+            if (arrived && !item.IsInPosition)
+                OutputFeederLoadToStageSequence.LogAxisArrivedWithoutInPosition(
+                    item, axis.ToString(), target);
+
+            return arrived;
         }
 
         private async Task<int> ApplyInputBarcodeAndFinishAsync(
@@ -1383,14 +1410,20 @@ namespace QMC.CDT320.Sequencing
                 ? item.Config.InPositionTolerance
                 : 0.05;
 
+            // [진단 보강 2026-08-05] inpos/command/sim 추가 — 판정에 쓰는 값은 전부 메시지에 남긴다.
+            // (Output 측 OUT-BARCODE-VISION-AVOID 가 INP 때문에 실패했는데 메시지에 INP 가 없어
+            //  "전부 정상인데 실패"로 읽혔다. 같은 일이 Input 에서 반복되지 않게 한다.)
             return "axis=" + axis +
                    ", name=" + item.Name +
                    ", servo=" + (item.IsServoOn ? "ON" : "OFF") +
                    ", alarm=" + (item.IsAlarm ? "ON" : "OFF") +
                    ", moving=" + (item.IsMoving ? "Y" : "N") +
+                   ", inpos=" + (item.IsInPosition ? "Y" : "N") +
                    ", actual=" + item.ActualPosition +
+                   ", command=" + item.CommandPosition +
                    ", target=" + target +
                    ", tolerance=" + tolerance +
+                   ", sim=" + (item.Config != null && item.Config.IsSimulationMode) +
                    FormatAxisLastMotionFailure(item) +
                    FormatStageLastMoveFailure(stage);
         }

@@ -383,9 +383,13 @@ namespace QMC.CDT320.Sequencing.Calibration
                 result = await MovePickerAxisAndVerifyAsync(
                     GetPickerZAxis(_colletIndex),
                     _targetPickerZ,
+                    // [안전이동 적용 2026-08-06] Bottom 카메라 초점 높이로 가는 위치 이동이다.
+                    // Collet 1:1 캘의 측정은 Bottom 비전이 담당하고 Z 탐색 스트로크가 없으므로
+                    // 이 파일의 Z/Y 이동은 전부 안전이동 대상이다(T축은 결정에 따라 현재 유지).
                     "Collet Calibration Bottom Z",
                     ct,
                     BottomFinderTargetName,
+                    true,
                     true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -1283,6 +1287,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Collet Calibration 큰 XY 보정 전 PickerY Avoid",
                     ct,
                     "ColletCalibration;PickerZone=Avoid",
+                    true,
                     true).ConfigureAwait(false);
                 if (result == 0)
                 {
@@ -1326,6 +1331,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Collet Calibration XY 이동 전 Z Avoid",
                     ct,
                     BottomFinderTargetName,
+                    true,
                     true).ConfigureAwait(false);
                 if (result == 0)
                     ApplyPickerAxisPositionForSimulation(zAxis, avoidZ);
@@ -1365,6 +1371,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Collet Calibration XY 이동 후 Z 검사 위치",
                     ct,
                     BottomFinderTargetName,
+                    true,
                     true).ConfigureAwait(false);
                 if (result == 0)
                     ApplyPickerAxisPositionForSimulation(zAxis, _targetPickerZ);
@@ -1441,6 +1448,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Collet Calibration AutoFocus Best Z",
                     ct,
                     BottomFinderTargetName,
+                    true,
                     true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -1832,6 +1840,28 @@ namespace QMC.CDT320.Sequencing.Calibration
                         _calibrationSide + ", colletNo=" + _colletNo);
                 EnsurePickerWorkAreaReserved(PickerWorkZone.Bottom, "ColletCalibration");
 
+                // 회전 중심이 현재 위치에서 FineAlign 허용 이동량을 넘으면 이상치로 판정한다.
+                // (이 이동은 Z 하강 상태에서 수행되므로 MotionGuard가 어차피 차단한다 —
+                //  레시피에 이상 COC 값이 먼저 저장되는 것을 막기 위해 저장 전에 확인한다.)
+                BaseAxis cocXAxis = GetPickerAxis(PickerAxis.PickerX);
+                BaseAxis cocYAxis = GetPickerAxis(PickerAxis.PickerY);
+                if (cocXAxis != null && cocYAxis != null &&
+                    !IsFineAlignXyMove(
+                        cocXAxis.ActualPosition,
+                        cocYAxis.ActualPosition,
+                        coc.RotationCenterMachineX,
+                        coc.RotationCenterMachineY))
+                {
+                    return Fail("COLLET-CAL-COC-CENTER-RANGE", Name,
+                        "COC 회전 중심이 현재 위치에서 FineAlign 허용 범위를 초과해 이상치로 판정했습니다(레시피 미저장). side=" +
+                        _calibrationSide + ", colletNo=" + _colletNo +
+                        ", center=(" + coc.RotationCenterMachineX.ToString("F6") + "," +
+                        coc.RotationCenterMachineY.ToString("F6") + ")" +
+                        ", actual=(" + cocXAxis.ActualPosition.ToString("F6") + "," +
+                        cocYAxis.ActualPosition.ToString("F6") + ")" +
+                        ", fineAlignMaxMm=" + (_settings != null ? _settings.FineAlignMaxXyMoveMm.ToString("F6") : "0.200000"));
+                }
+
                 result = SaveAndApplyRotationCenter(coc.RotationCenterMachineX, coc.RotationCenterMachineY);
                 if (result != 0)
                     return result;
@@ -1898,6 +1928,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                         "Side AF 후 Bottom Z 복귀",
                         ct,
                         BottomFinderTargetName,
+                        true,
                         true).ConfigureAwait(false);
                     if (result != 0)
                         return result;
@@ -1924,6 +1955,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", center=(" + coc.RotationCenterMachineX.ToString("F6") + "," +
                     coc.RotationCenterMachineY.ToString("F6") + ")" +
                     ", " + sideFocusLog + " - Ok");
+                // 의도된 잔류: 완료 후 픽커를 Bottom 측정 위치(Z 하강)에 그대로 둔다.
+                // 기준콜렛 검증(IsReferenceColletCalibrationReady)이 최종 OK 위치=티칭 일치를 요구하기 때문이다.
+                WriteLog("ColletCalibrationSequence",
+                    Name + " 완료 후 픽커를 Bottom 측정 위치(Z 하강)에 의도적으로 잔류시킵니다. " +
+                    "후속 수동 조작 전 Z Avoid 복귀를 먼저 수행하세요. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo + " - Check");
                 return 0;
             }
             catch (OperationCanceledException)
@@ -2287,6 +2324,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 "Side AF PickerZ 위치",
                 ct,
                 "ColletCalibration;PickerZone=Bottom",
+                true,
                 true).ConfigureAwait(false);
             if (result != 0)
                 return result;

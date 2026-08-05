@@ -148,6 +148,8 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             catch (Exception ex)
             {
+                // 취소/정지 경로와 동일하게, 예외 종료에서도 그때까지 수행된 클리닝 이력은 남긴다.
+                SaveHistory();
                 return Fail("COLLET-CLEAN-RUN-EX",
                     "콜렛 클리닝 실행 중 예외가 발생했습니다. error=" + ex.Message);
             }

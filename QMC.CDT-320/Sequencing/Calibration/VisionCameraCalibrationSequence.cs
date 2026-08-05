@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
@@ -301,7 +302,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 CalibrationData.BottomReticle = measurement;
                 CalibrationData.Valid = false;
-                PersistMeasuredCalibrationData("Bottom 카메라 Reticle Mark 측정값");
+                PersistMeasuredCalibrationData(VisionCameraCalibrationTarget.Bottom, "Bottom 카메라 Reticle Mark 측정값");
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-BOTTOM",
                     "Bottom 카메라 Reticle Mark 측정 완료. " +
                     "x=" + measurement.PixelX.ToString("F3") +
@@ -338,7 +339,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 CalibrationData.InputReticle = measurement;
                 CalibrationData.Valid = false;
-                PersistMeasuredCalibrationData("Input 카메라 Reticle Mark 측정값");
+                PersistMeasuredCalibrationData(VisionCameraCalibrationTarget.Input, "Input 카메라 Reticle Mark 측정값");
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-INPUT",
                     "Input 카메라 Reticle Mark 측정 완료. x=" + measurement.PixelX.ToString("F3") +
                     ", y=" + measurement.PixelY.ToString("F3") +
@@ -427,7 +428,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 CalibrationData.OutputReticle = measurement;
                 CalibrationData.Valid = false;
-                PersistMeasuredCalibrationData("Output 카메라 Reticle Mark 측정값");
+                PersistMeasuredCalibrationData(VisionCameraCalibrationTarget.Output, "Output 카메라 Reticle Mark 측정값");
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-OUTPUT",
                     "Output 카메라 Reticle Mark 측정 완료. x=" + measurement.PixelX.ToString("F3") +
                     ", y=" + measurement.PixelY.ToString("F3") +
@@ -541,6 +542,13 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 if (!CalibrationData.Valid)
                     return Fail("VISION-CAMERA-CAL-SAVE-NOT-VALID", "VisionUnit", "Vision Camera Calibration 저장 불가: 계산 완료된 유효 데이터가 없습니다.");
+
+                // 시뮬레이션/bypass 측정이 섞인 계산 결과는 실 캘리브레이션/픽커 오프셋으로 적용하지 않는다.
+                string simulatedCameras;
+                if (HasSimulatedMeasurementInSession(out simulatedCameras))
+                    return Fail("VISION-CAMERA-CAL-SAVE-SIM", "VisionUnit",
+                        "Vision Camera Calibration 저장 불가: 이번 측정에 시뮬레이션/bypass 결과(" + simulatedCameras +
+                        ")가 포함되어 있습니다. 실 Vision 연결 상태에서 다시 측정하세요.");
 
                 string offsetSummary;
                 PickerVisionOffsetCalibrationService.TryApplyAvailableOffsets(_machine, GetUserName(), out offsetSummary);
@@ -1166,16 +1174,25 @@ namespace QMC.CDT320.Sequencing.Calibration
             try
             {
                 VisionReticleMeasurement lastMeasurement = null;
-                //for (int attempt = 1; attempt <= ReticleFindRetryCount; attempt++)
+                for (int attempt = 1; attempt <= ReticleFindRetryCount; attempt++)
                 {
                     ct.ThrowIfCancellationRequested();
+                    _visionNotConnectedAborted = false;
                     lastMeasurement = await FindReticleAsync(target, ct).ConfigureAwait(false);
                     if (lastMeasurement != null && lastMeasurement.Valid && IsValidReticleMeasurement(lastMeasurement))
                         return lastMeasurement;
 
+                    // Vision 미연결은 재시도해도 회복되지 않는다. 시도마다 Fail(알람)이 반복되므로 즉시 중단한다.
+                    if (_visionNotConnectedAborted)
+                        break;
+
                     EventLogger.Write(EventKind.Warning, "CAL", "VISION-CAMERA-CAL-RETICLE-RETRY",
-                        ResolveCameraName(target) + " ReticleFinder 결과가 NG입니다. retry=" + "0" + "/" + ReticleFindRetryCount);
+                        ResolveCameraName(target) + " ReticleFinder 결과가 NG입니다. retry=" + attempt + "/" + ReticleFindRetryCount);
                 }
+
+                // 리트라이 소진: 비유한값(NaN/Infinity) 측정이 Valid=true로 저장 경로에 흘러가지 않도록 무효화한다.
+                if (lastMeasurement != null && !IsValidReticleMeasurement(lastMeasurement))
+                    lastMeasurement.Valid = false;
 
                 return lastMeasurement;
             }
@@ -1202,6 +1219,21 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (match == null || !match.Success)
                 return null;
 
+            // 비유한값(NaN/Infinity)은 카메라 스케일을 변형하기 전에 차단한다.
+            // ApplyImageSize의 가드(<=0 검사)는 NaN을 통과시키고, 대상은 영속화되는 live 객체이므로
+            // 여기서 막지 않으면 ImageWidthPixel/ImageCenterPixel이 NaN으로 저장돼 영구 손상이 된다.
+            if (!IsFiniteMatchResult(match))
+            {
+                EventLogger.Write(EventKind.Warning, "CAL", "VISION-CAMERA-CAL-RETICLE-NONFINITE",
+                    ResolveCameraName(target) + " ReticleFinder 결과에 비유한값이 있어 측정을 버립니다. " +
+                    "x=" + match.X + ", y=" + match.Y + ", angle=" + match.AngleDeg + ", score=" + match.Score +
+                    ", imageSize=" + match.ImageWidthPixel + "x" + match.ImageHeightPixel);
+                return null;
+            }
+
+            // 시뮬/bypass 여부는 "이번 측정 결과"로 판정해 메모리에만 기록한다(영속화된 Raw로 판정하지 않는다).
+            SetMeasurementSimulated(target, IsSimulatedMatchResult(match));
+
             VisionReticleMeasurement measurement = new VisionReticleMeasurement();
             measurement.Valid = true;
             measurement.CameraName = ResolveCameraName(target);
@@ -1218,6 +1250,60 @@ namespace QMC.CDT320.Sequencing.Calibration
             measurement.Raw = match.RawError ?? string.Empty;
             FillAxisPositions(target, measurement);
             return measurement;
+        }
+
+        // Vision 미연결로 측정 요청이 중단됐는지(리트라이 즉시 중단용).
+        private bool _visionNotConnectedAborted;
+
+        // 이번 세션에서 해당 카메라 측정이 시뮬/bypass 결과였는지(메모리 전용, 영속화 안 함).
+        private bool _bottomMeasurementSimulated;
+        private bool _inputMeasurementSimulated;
+        private bool _outputMeasurementSimulated;
+
+        private void SetMeasurementSimulated(VisionCameraCalibrationTarget target, bool simulated)
+        {
+            if (target == VisionCameraCalibrationTarget.Bottom)
+                _bottomMeasurementSimulated = simulated;
+            else if (target == VisionCameraCalibrationTarget.Input)
+                _inputMeasurementSimulated = simulated;
+            else
+                _outputMeasurementSimulated = simulated;
+        }
+
+        private bool IsMeasurementSimulated(VisionCameraCalibrationTarget target)
+        {
+            if (target == VisionCameraCalibrationTarget.Bottom)
+                return _bottomMeasurementSimulated;
+            if (target == VisionCameraCalibrationTarget.Input)
+                return _inputMeasurementSimulated;
+            return _outputMeasurementSimulated;
+        }
+
+        /// <summary>이번 측정 결과가 시뮬/bypass로 생성된 값인지 판정한다(실측이 아니면 실 캘리브레이션에 저장하지 않는다).</summary>
+        private static bool IsSimulatedMatchResult(MatchResultDto match)
+        {
+            if (match == null)
+                return false;
+
+            string raw = match.RawError ?? string.Empty;
+            return raw.StartsWith("SIM:", StringComparison.OrdinalIgnoreCase) ||
+                   raw.StartsWith("SIMULATION:", StringComparison.OrdinalIgnoreCase) ||
+                   raw.StartsWith("BYPASS:", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsFiniteMatchResult(MatchResultDto match)
+        {
+            if (match == null)
+                return false;
+
+            if (!IsFinite(match.X) || !IsFinite(match.Y) || !IsFinite(match.AngleDeg) || !IsFinite(match.Score))
+                return false;
+
+            if (match.HasImageSize &&
+                (!IsFinite(match.ImageWidthPixel) || !IsFinite(match.ImageHeightPixel)))
+                return false;
+
+            return true;
         }
 
         private bool IsValidReticleMeasurement(VisionReticleMeasurement measurement)
@@ -1295,6 +1381,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 };
             }
 
+            // 미연결은 재시도 대상이 아니다 — 호출부(FindReticleWithRetryAsync)가 즉시 중단하도록 표시한다.
+            _visionNotConnectedAborted = true;
             Fail("VISION-CAMERA-CAL-VISION-NOT-CONNECTED", cameraName, cameraName + " Vision이 연결되지 않아 ReticleFinder를 실행할 수 없습니다.");
             return null;
         }
@@ -1632,10 +1720,20 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
-        private void PersistMeasuredCalibrationData(string label)
+        private void PersistMeasuredCalibrationData(VisionCameraCalibrationTarget target, string label)
         {
             try
             {
+                // 시뮬레이션/bypass 측정은 실 캘리브레이션 파일을 덮어쓰지 않도록 저장을 생략한다.
+                // 판정은 "이번에 측정한 그 카메라"만 본다 — 다른 카메라의 옛 값 때문에 정상 측정 저장이 막히면 안 된다.
+                if (IsMeasurementSimulated(target))
+                {
+                    EventLogger.Write(EventKind.Warning, "CAL", "VISION-CAMERA-CAL-MEASURE-SIM-SKIP",
+                        label + " 저장 생략: " + ResolveCameraName(target) +
+                        " 측정이 시뮬레이션/bypass 결과입니다. 실 Vision 연결 상태에서 다시 측정하세요.");
+                    return;
+                }
+
                 TouchCalibrationData();
                 if (SaveMachineSettings())
                     EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MEASURE-SAVE", label + "을 VisionUnit Config에 저장했습니다.");
@@ -1649,6 +1747,21 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+        }
+
+        /// <summary>이번 세션 측정 중 시뮬/bypass 결과가 섞여 있는지(계산·저장 차단용). 영속화된 값이 아니라 메모리 플래그로 판정한다.</summary>
+        private bool HasSimulatedMeasurementInSession(out string cameraNames)
+        {
+            List<string> simulated = new List<string>();
+            if (_bottomMeasurementSimulated)
+                simulated.Add("Bottom");
+            if (_inputMeasurementSimulated)
+                simulated.Add("Input");
+            if (_outputMeasurementSimulated)
+                simulated.Add("Output");
+
+            cameraNames = string.Join(",", simulated.ToArray());
+            return simulated.Count > 0;
         }
 
         private bool SaveMachineSettings()

@@ -77,51 +77,105 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             CurrentStep = ColletCleaningStep.CheckUnit;
 
-            while (true)
+            try
             {
-                ct.ThrowIfCancellationRequested();
-                Context.StopIfCycleStopRequested(Name + ":" + CurrentStep);
-
-                int result;
-                switch (CurrentStep)
+                while (true)
                 {
-                    case ColletCleaningStep.CheckUnit:
-                        result = CheckUnit();
-                        break;
-                    case ColletCleaningStep.CheckSafety:
-                        result = await CheckSafetyAsync(ct).ConfigureAwait(false);
-                        break;
-                    case ColletCleaningStep.ReserveArea:
-                        result = await ReserveAreaAsync(ct).ConfigureAwait(false);
-                        break;
-                    case ColletCleaningStep.CleanAllSelectedCollets:
-                        result = await CleanAllSelectedColletsAsync(ct).ConfigureAwait(false);
-                        break;
-                    case ColletCleaningStep.MoveToInspectionZone:
-                        result = await MoveToInspectionZoneAsync(ct).ConfigureAwait(false);
-                        break;
-                    case ColletCleaningStep.InspectAllSelectedCollets:
-                        result = await InspectAllSelectedColletsAsync(ct).ConfigureAwait(false);
-                        break;
-                    case ColletCleaningStep.EvaluateAndRetry:
-                        result = EvaluateAndRetry();
-                        break;
-                    case ColletCleaningStep.MoveAvoid:
-                        result = await MoveAvoidAsync(ct).ConfigureAwait(false);
-                        break;
-                    case ColletCleaningStep.Complete:
-                        return 0;
-                    default:
-                        return Fail("COLLET-CLEAN-STEP", Name,
-                            "콜렛 클리닝 처리할 수 없는 Step입니다. step=" + CurrentStep);
-                }
+                    ct.ThrowIfCancellationRequested();
+                    Context.StopIfCycleStopRequested(Name + ":" + CurrentStep);
 
-                if (result != 0)
-                {
-                    CurrentStep = ColletCleaningStep.Error;
-                    return result;
+                    int result;
+                    switch (CurrentStep)
+                    {
+                        case ColletCleaningStep.CheckUnit:
+                            result = CheckUnit();
+                            break;
+                        case ColletCleaningStep.CheckSafety:
+                            result = await CheckSafetyAsync(ct).ConfigureAwait(false);
+                            break;
+                        case ColletCleaningStep.ReserveArea:
+                            result = await ReserveAreaAsync(ct).ConfigureAwait(false);
+                            break;
+                        case ColletCleaningStep.CleanAllSelectedCollets:
+                            result = await CleanAllSelectedColletsAsync(ct).ConfigureAwait(false);
+                            break;
+                        case ColletCleaningStep.MoveToInspectionZone:
+                            result = await MoveToInspectionZoneAsync(ct).ConfigureAwait(false);
+                            break;
+                        case ColletCleaningStep.InspectAllSelectedCollets:
+                            result = await InspectAllSelectedColletsAsync(ct).ConfigureAwait(false);
+                            break;
+                        case ColletCleaningStep.EvaluateAndRetry:
+                            result = EvaluateAndRetry();
+                            break;
+                        case ColletCleaningStep.MoveAvoid:
+                            result = await MoveAvoidAsync(ct).ConfigureAwait(false);
+                            break;
+                        case ColletCleaningStep.Complete:
+                            return 0;
+                        default:
+                            return Fail("COLLET-CLEAN-STEP", Name,
+                                "콜렛 클리닝 처리할 수 없는 Step입니다. step=" + CurrentStep);
+                    }
+
+                    if (result != 0)
+                    {
+                        CurrentStep = ColletCleaningStep.Error;
+                        return result;
+                    }
                 }
             }
+            catch (OperationCanceledException)
+            {
+                StopAllPickerZAxesOnInterrupt("취소 요청");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                StopAllPickerZAxesOnInterrupt("시퀀스 정지 요청");
+                throw;
+            }
+            finally
+            {
+                // 실패/취소/예외 경로에서도 존 점유와 lease가 남지 않도록 무조건 해제한다.
+                // 성공 경로(MoveAvoidAsync)에서 이미 해제한 경우 중복 호출은 안전하다(null 확인).
+                ReleasePickerWorkArea();
+                ReleaseAllLeases();
+            }
+        }
+
+        /// <summary>
+        /// 취소/정지 시 콜렛이 NG Bin에 눌린 채 방치되지 않도록 해당 Side의 PickerZ 전체를 정지하고
+        /// 하강 잔류 가능성을 명시 경고로 남긴다.
+        /// </summary>
+        private void StopAllPickerZAxesOnInterrupt(string reason)
+        {
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            foreach (PickerAxis zAxis in zAxes)
+            {
+                try
+                {
+                    BaseAxis axis = GetPickerAxis(zAxis);
+                    if (axis == null)
+                        continue;
+
+                    axis.UpdateStatus();
+                    axis.StopJog();
+                    axis.Stop();
+                    axis.UpdateStatus();
+                }
+                catch (Exception ex)
+                {
+                    WriteLog(Name,
+                        "콜렛 클리닝 중단 - PickerZ 정지 예외. axis=" + zAxis +
+                        ", error=" + ex.Message + " - Check");
+                }
+            }
+
+            EventLogger.Write(EventKind.Warning, "CAL", "COLLET-CLEAN-INTERRUPTED",
+                "콜렛 클리닝이 중단되었습니다(" + reason + "). side=" + Side +
+                ", step=" + CurrentStep +
+                ". 콜렛이 NG Bin 위 하강 위치에 남아 있을 수 있으니 PickerZ Avoid 복귀 후 작업하세요.");
         }
 
         // ---------------------------------------------------------------- CheckUnit
@@ -182,6 +236,19 @@ namespace QMC.CDT320.Sequencing.Calibration
                     WriteLog(Name, SkipReason + " - Skip");
                     CurrentStep = ColletCleaningStep.Complete;
                     return 0;
+                }
+
+                // 콜렛에 Die가 남아 있으면 누름 가압으로 Die 파쇄/필름 손상이 나므로 시작 전에 차단한다.
+                // 자동 트리거 경로는 픽커 공핍이 보장되지만 수동 실행은 이 게이트가 유일한 방어다.
+                foreach (ColletCleaningItem item in _items)
+                {
+                    DieMaterial dieOnCollet = MaterialStateService.GetDieAtPicker(PickerLocationKind, item.ColletNo);
+                    if (dieOnCollet != null)
+                        return Fail("COLLET-CLEAN-DIE-ON-PICKER", Name,
+                            "콜렛에 Die가 남아 있어 클리닝을 실행할 수 없습니다. side=" + _cleaningSide +
+                            ", colletNo=" + item.ColletNo +
+                            ", die=" + (dieOnCollet.DieId ?? "-") +
+                            ". Die를 배출/제거한 뒤 다시 실행하세요.");
                 }
 
                 OutputStageUnit stage = Context.Machine.OutputStageUnit;
@@ -1069,9 +1136,11 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", avoidZ=" + zAvoid.ToString("F6"));
             }
 
+            // [안전이동 적용 2026-08-06] 촬영 자세 확보용 Z 하강이며 탐색(측정) 스트로크가 아니다.
+            // 사용자 확정 규칙(2026-08-06): 측정 Z 스트로크만 화면 파라미터 속도, 나머지는 전부 안전이동.
             result = await MovePickerAxisAndVerifyAsync(
                 zAxis, inspectionZ,
-                "콜렛 검사 PickerZ 하강", ct, CleaningTargetName, true).ConfigureAwait(false);
+                "콜렛 검사 PickerZ 하강", ct, CleaningTargetName, true, true).ConfigureAwait(false);
             if (result != 0)
                 return result;
 

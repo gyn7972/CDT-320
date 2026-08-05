@@ -822,18 +822,37 @@ namespace QMC.CDT320.Interlocks
             if (!movingTowardPicker)
                 return true;
 
-            if (!VerifyPickerZAtOrAboveZeroForZoneStageZMove(machine, true, zone, movingName, out reason))
+            if (!VerifyPickerZAtOrAboveZeroForZoneStageZMove(machine, true, zone, movingName, true, out reason))
                 return false;
 
-            return VerifyPickerZAtOrAboveZeroForZoneStageZMove(machine, false, zone, movingName, out reason);
+            return VerifyPickerZAtOrAboveZeroForZoneStageZMove(machine, false, zone, movingName, true, out reason);
+        }
+
+        // 인터락 항목: StageY 수동 이동 전 해당 존 PickerZ가 0 이상 또는 Avoid인지 확인한다.
+        // 캘리브레이션 실패/취소로 픽커가 하강 잔류한 상태에서 운전자가 Stage를 팁 아래로 조그하는 것을 막는다.
+        // 자동(연속 Place)에는 적용하지 않는다 — 생산은 StageY 이동과 PickerZ 하강/후퇴를 의도적으로 동시에 수행한다.
+        // 존 판단 불가(UnknownUnsafe) 상태는 차단하지 않는다: 이 규칙의 목적은 "해당 존에 있는 픽커의 하강 잔류 팁 보호"이고,
+        // 존을 몰라서 막으면 PickerZ가 전부 Avoid인 경우나 반대편(무관한) 픽커 때문에도 StageY 조그가 막힌다.
+        public static bool VerifyPickerZSafeForZoneStageYMove(
+            CDT320_Machine machine,
+            PickerWorkZone zone,
+            string movingName,
+            out string reason)
+        {
+            if (!VerifyPickerZAtOrAboveZeroForZoneStageZMove(machine, true, zone, movingName, false, out reason))
+                return false;
+
+            return VerifyPickerZAtOrAboveZeroForZoneStageZMove(machine, false, zone, movingName, false, out reason);
         }
 
         // 인터락 항목: 지정 Front/Rear Picker가 해당 존에 있을 때 PickerZ 안전 위치를 확인한다.
+        // blockOnUnknownUnsafe=false면 존 판단 불가 상태를 차단하지 않고 통과시킨다(StageY 전용 완화).
         private static bool VerifyPickerZAtOrAboveZeroForZoneStageZMove(
             CDT320_Machine machine,
             bool isFront,
             PickerWorkZone zone,
             string movingName,
+            bool blockOnUnknownUnsafe,
             out string reason)
         {
             reason = string.Empty;
@@ -848,6 +867,9 @@ namespace QMC.CDT320.Interlocks
             string pickerName = isFront ? "FrontPicker" : "RearPicker";
             if (state.UnknownUnsafe && !state.IsRequestedZoneActive)
             {
+                if (!blockOnUnknownUnsafe)
+                    return true;
+
                 return MotionGuardRuleHelpers.Block(
                     movingName,
                     movingName + " 이동 불가: " + pickerName + " 존을 판단할 수 없고 PickerY가 안전 위치가 아닙니다. " + state.Describe(),

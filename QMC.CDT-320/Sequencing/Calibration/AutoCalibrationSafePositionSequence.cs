@@ -71,6 +71,89 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ", safeMoveApplied=" + safeMoveApplied +
                 ", explicitVelocityNotDefaultScaled=True");
         }
+
+        // ============================================================================
+        // [안전이동 누락 감시 2026-08-06]  ★실장비 미검증 — 실장비에서 테스트 필요★
+        //
+        // 배경(사용자 지시 2026-08-06):
+        //   CALIBRATION 화면의 "안전위치(Avoid) 이동 속도 %" 는 화면 문구대로
+        //   "모든 캘리브레이션 공통" 이어야 한다. 즉 캘 동작 중 이동은 전부
+        //   축 Default × SafeMovePercent 로 감속돼야 하고,
+        //   ★예외는 각 캘의 "측정 Z 스트로크" 하나뿐★ 이다(X/Y는 전부 안전이동).
+        //
+        // 실제 상태(2026-08-06 로컬 코드 전수 조사):
+        //   화면의 캘 11개 중 안전이동이 온전히 적용된 것은 2개뿐이었다.
+        //     적용 : VisionCamera, NeedlePin
+        //     부분 : ColletCalibration (픽커 이동 14개 중 2개)
+        //     미적용: PickUpZ(0/10), PlaceZ(0/10), VisionFocus(0/6),
+        //             ColletRotationCenter(0/1), ColletCleaning(0/5), NeedleZ(0)
+        //
+        // 근본 원인:
+        //   useSafeMoveMotion 기본값이 false 인 "옵트인" 설계다. 호출부가 기억해서
+        //   명시해야 하고, 잊으면 조용히 측정 속도로 나간다 — 알람도 로그도 없었다.
+        //   그래서 ColletCleaning:196 / ColletCalibration:355 처럼
+        //   "적용된다"는 주석과 실제 코드가 어긋난 곳까지 생겼다.
+        //
+        // 이 함수의 역할:
+        //   캘 컨텍스트에서 안전이동이 아닌 이동이 나갈 때마다 흔적을 남긴다.
+        //   호출부를 하나씩 채우는 작업(누락 보정)의 검증 수단이며,
+        //   앞으로 새 캘/새 이동이 추가되면서 같은 누락이 재발하는 것도 드러낸다.
+        //
+        // 로그가 밀리지 않도록 (owner, axis) 조합별 1회만 남긴다.
+        // 측정 Z 스트로크는 정상적으로 측정 속도를 쓰므로 호출부에서 이 함수를 부르지 않는다.
+        //
+        // 실장비 확인: 각 캘을 1회씩 실행한 뒤 아래로 검색한다.
+        //   findstr /C:"CAL-SAFEMOVE-MISS" D:\CDT-320\Log\Main_*.log
+        //   한 줄도 없으면 측정 Z 외 모든 캘 이동이 안전이동으로 나간 것이다.
+        // ============================================================================
+        private static readonly object SafeMoveMissSync = new object();
+        private static readonly System.Collections.Generic.HashSet<string> SafeMoveMissLogged =
+            new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        public static void LogSafeMoveMiss(
+            string owner,
+            string axisLabel,
+            string description,
+            double safeMovePercent,
+            double velocity)
+        {
+            try
+            {
+                string key = (owner ?? "-") + "|" + (axisLabel ?? "-");
+                lock (SafeMoveMissSync)
+                {
+                    if (!SafeMoveMissLogged.Add(key))
+                        return;
+                }
+
+                QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Calibration", "CAL-SAFEMOVE-MISS",
+                    "캘리브레이션 이동인데 안전이동(%)이 적용되지 않았습니다. owner=" + (owner ?? "-") +
+                    ", axis=" + (axisLabel ?? "-") +
+                    ", target=" + (description ?? "-") +
+                    ", velocity=" + velocity.ToString("F6") +
+                    ", safeMovePercent=" + safeMovePercent.ToString("F3") +
+                    (safeMovePercent <= 0.0
+                        ? ". SafeMovePercent 를 읽지 못했습니다(설정 확인 필요)."
+                        : ". 측정 Z 스트로크가 아니라면 useSafeMoveMotion 누락입니다.") +
+                    " - Check");
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// [안전이동 누락 감시 2026-08-06] 누락 집계를 초기화한다(캘 시작 시 호출).
+        /// 실행마다 새로 판정해야 이전 실행의 1회-로그 억제가 다음 실행을 가리지 않는다.
+        /// </summary>
+        public static void ResetSafeMoveMissLog()
+        {
+            lock (SafeMoveMissSync)
+                SafeMoveMissLogged.Clear();
+        }
     }
 
     internal enum AutoCalibrationSafePositionStep

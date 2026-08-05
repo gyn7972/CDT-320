@@ -472,12 +472,36 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             ct.ThrowIfCancellationRequested();
             _context.StopIfCycleStopRequested("NeedleCalibration.MoveTouchTeaching");
+            // [안전이동 적용 2026-08-06] NeedleX/StageY 는 X/Y 이동이므로 전부 안전이동이다.
+            // 기존 조건: _settings.Motion(측정 모션)을 그대로 넘겼다.
+            // NeedleX 축 Config 를 기준으로 % 를 산출한다(두 축을 함께 움직이는 복합 이동이라
+            // 대표 축 하나로 감속 배율을 정한다 — 더 느린 쪽으로 맞추는 것이 안전 방향).
+            double touchVelocity = _settings.Motion.MoveVelocity;
+            double touchAcceleration = _settings.Motion.MoveAcceleration;
+            double touchDeceleration = _settings.Motion.MoveDeceleration;
+            double touchSafePercent = CalibrationSafeMoveMotion.ResolvePercent(
+                _context != null ? _context.Machine : null);
+            if (CalibrationSafeMoveMotion.TryResolveAxisMotion(
+                    _stage.NeedleBlockX, touchSafePercent,
+                    ref touchVelocity, ref touchAcceleration, ref touchDeceleration))
+            {
+                CalibrationSafeMoveMotion.LogAxisSafeMove(
+                    "NeedleCalibrationSequence", "NeedleX/StageY touch teaching 이동",
+                    touchSafePercent, true, touchVelocity, touchAcceleration, touchDeceleration);
+            }
+            else
+            {
+                CalibrationSafeMoveMotion.LogSafeMoveMiss(
+                    "NeedleCalibrationSequence", "NeedleX/StageY",
+                    "touch teaching 이동", touchSafePercent, touchVelocity);
+            }
+
             int result = await _stage.MoveNeedleWorkPointSafelyAsync(
                 _settings.TouchNeedleXPosition,
                 _settings.TouchStageYPosition,
-                _settings.Motion.MoveVelocity,
-                _settings.Motion.MoveAcceleration,
-                _settings.Motion.MoveDeceleration,
+                touchVelocity,
+                touchAcceleration,
+                touchDeceleration,
                 _settings.Motion.MoveTimeoutMs,
                 "NeedleCalibrationSequence.MoveNeedleXToTouchTeachingPosition").ConfigureAwait(false);
             if (result != 0)
@@ -518,7 +542,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 _stage.Recipe.NeedleZ.AvoidPosition,
                 "NeedleZ avoid",
                 false,
-                ct).ConfigureAwait(false);
+                ct,
+                false).ConfigureAwait(false);
             if (result != 0) return result;
 
             return await MoveAxisForceAndVerifyAsync(
@@ -527,7 +552,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 _stage.Recipe.EjectPinZ.AvoidPosition,
                 "EjectPinZ avoid",
                 false,
-                ct).ConfigureAwait(false);
+                ct,
+                false).ConfigureAwait(false);
         }
 
         private async Task<int> MoveNeedleCapTeachingAndSearchAsync(
@@ -542,7 +568,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 _settings.NeedleCapTeachingPosition,
                 "NeedleCap teaching position",
                 false,
-                ct).ConfigureAwait(false);
+                ct,
+                false).ConfigureAwait(false);
             if (result != 0) return result;
 
             NeedleSearchResult search = await SearchAxisByStepAsync(
@@ -566,7 +593,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 _settings.NeedlePinTeachingPosition,
                 "NeedlePin teaching position",
                 false,
-                ct).ConfigureAwait(false);
+                ct,
+                false).ConfigureAwait(false);
         }
 
         private async Task<int> MoveNeedleCapNearTouchPositionAsync(CancellationToken ct)
@@ -578,7 +606,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 target,
                 "NeedleCap near touch position",
                 true,
-                ct).ConfigureAwait(false);
+                ct,
+                false).ConfigureAwait(false);
         }
 
         private async Task<NeedleSearchResult> SearchAxisByStepAsync(
@@ -634,7 +663,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 moved = Math.Min(safeMax, moved + safeStep);
                 double target = start + (approachSign * moved);
-                int result = await MoveAxisForceAndVerifyAsync(stageAxis, axis, target, label, true, ct).ConfigureAwait(false);
+                // [측정 스트로크] Touch Sensor 접촉을 찾는 스텝 접근 — 여기만 측정 모션(_settings.Motion)을 쓴다.
+                int result = await MoveAxisForceAndVerifyAsync(stageAxis, axis, target, label, true, ct, true).ConfigureAwait(false);
                 if (result != 0)
                     return BuildSearchFail(result);
 
@@ -680,7 +710,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             axis.UpdateStatus();
             double target = axis.ActualPosition - (approachSign * Math.Abs(distanceMm));
-            int result = await MoveAxisForceAndVerifyAsync(stageAxis, axis, target, label, true, ct).ConfigureAwait(false);
+            // 탐색 후 후퇴(BackOff) — 측정이 아니므로 안전이동.
+            int result = await MoveAxisForceAndVerifyAsync(stageAxis, axis, target, label, true, ct, false).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -694,13 +725,30 @@ namespace QMC.CDT320.Sequencing.Calibration
             return 0;
         }
 
+        // ============================================================================
+        // [안전이동 적용 2026-08-06]  ★실장비 미검증 — 실장비에서 테스트 필요★
+        //
+        // 사용자 확정 규칙(2026-08-06):
+        //   캘 이동은 전부 안전이동(축 Default × SafeMovePercent)이고,
+        //   예외는 "실제 측정 스트로크" 하나뿐이다.
+        //
+        // NEEDLE Z CAL 의 모든 축 이동이 이 메서드 하나를 통과하는데,
+        // 기존에는 전부 _settings.Motion.MoveVelocity(측정 모션)로 나갔다.
+        // SafeMovePercent 참조가 이 파일에 0건이었다 — 화면의 % 가 전혀 적용되지 않았다.
+        //
+        // 측정 스트로크는 SearchAxisByStepAsync 의 스텝 접근(1um/10um)뿐이므로
+        // 그 호출부만 measurementMotion=true 이고 나머지(Avoid/티칭위치/근접/백오프)는 안전이동이다.
+        //
+        // measurementMotion 에 기본값을 주지 않아, 새 호출부가 생기면 역할을 명시하도록 강제한다.
+        // ============================================================================
         private async Task<int> MoveAxisForceAndVerifyAsync(
             WaferStageAxis stageAxis,
             BaseAxis axis,
             double target,
             string label,
             bool forceMove,
-            CancellationToken ct)
+            CancellationToken ct,
+            bool measurementMotion)
         {
             if (axis == null)
                 return Fail("NEEDLE-CAL-MOVE-AXIS", "NeedleCalibrationSequence", label + " axis is null.");
@@ -714,12 +762,34 @@ namespace QMC.CDT320.Sequencing.Calibration
                     label + " 이동 인터락 차단. target=" + target.ToString("F6") + ". " + reason);
             }
 
+            double moveVelocity = _settings.Motion.MoveVelocity;
+            double moveAcceleration = _settings.Motion.MoveAcceleration;
+            double moveDeceleration = _settings.Motion.MoveDeceleration;
+            if (!measurementMotion)
+            {
+                double safePercent = CalibrationSafeMoveMotion.ResolvePercent(
+                    _context != null ? _context.Machine : null);
+                bool safeApplied = CalibrationSafeMoveMotion.TryResolveAxisMotion(
+                    axis, safePercent, ref moveVelocity, ref moveAcceleration, ref moveDeceleration);
+                if (safeApplied)
+                {
+                    CalibrationSafeMoveMotion.LogAxisSafeMove(
+                        "NeedleCalibrationSequence", label, safePercent, true,
+                        moveVelocity, moveAcceleration, moveDeceleration);
+                }
+                else
+                {
+                    CalibrationSafeMoveMotion.LogSafeMoveMiss(
+                        "NeedleCalibrationSequence", axis.Name, label, safePercent, moveVelocity);
+                }
+            }
+
             int result = await SharedRailXMotionRuntime.MoveAxisAsync(
                 axis,
                 target,
-                _settings.Motion.MoveVelocity,
-                _settings.Motion.MoveAcceleration,
-                _settings.Motion.MoveDeceleration,
+                moveVelocity,
+                moveAcceleration,
+                moveDeceleration,
                 forceMove).ConfigureAwait(false);
             if (result != 0 || axis.IsAlarm)
             {

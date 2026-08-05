@@ -7251,6 +7251,9 @@ namespace QMC.CDT320
                 if (sequenceStartResult != 0)
                     return sequenceStartResult;
 
+                // 콜렛 클리닝 "Auto 시작" 트리거 리셋은 StartSequenceCoreAsync 안에서 수행한다
+                // (StartSequenceAsync 등 다른 Auto 진입점도 함께 커버하고, 코디네이터 기동 전에 처리하기 위해).
+
                 return 0;
             }
             catch (OperationCanceledException)
@@ -8445,6 +8448,9 @@ namespace QMC.CDT320
                 int good = side == BinSide.Good ? 1 : 0;
                 int ng = side == BinSide.Ng ? 1 : 0;
                 Stats.OnCycleCompleted(1, good, ng, cycleMs);
+
+                // 콜렛 클리닝 "공정 n개마다" 트리거 계수(Die 단위 설정일 때만 누적).
+                QMC.CDT320.Sequencing.Calibration.ColletCleaningTriggerService.NotifyDiePlaced();
             }
             catch (Exception ex)
             {
@@ -8878,6 +8884,12 @@ namespace QMC.CDT320
 
                 if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
                     LogMachineAxisSnapshot("AutoStartBeforeCoordinatorRun");
+
+                // 콜렛 클리닝 "Auto 시작" 트리거를 이번 런에서 1회 발동 가능하게 리셋한다.
+                // 코디네이터를 띄우기 전에 수행해야 InputSequence가 먼저 트리거를 소비하고 뒤늦게 리셋되어
+                // 한 런에서 두 번 발동하는 경합이 생기지 않는다. Auto 진입은 모두 이 지점을 지난다.
+                if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                    QMC.CDT320.Sequencing.Calibration.ColletCleaningTriggerService.NotifyAutoRunStarted();
 
                 var coordinator = _coordinator;
                 var cts = _autoCts;

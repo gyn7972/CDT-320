@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
+using QMC.CDT320.DieMaps;
 using QMC.CDT320.Recipes;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
@@ -68,44 +69,74 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
 
         // 현재 선택된 라디오(코너/방향/패턴)로부터 n×n 샘플 그리드의 픽업 순서를 계산한다. Point(X=열, Y=행).
+        //
+        // 순서 계산은 생산과 동일한 PickupSequenceGenerator에 위임한다.
+        // (예전에는 이 페이지가 같은 규칙을 따로 구현했다. 꽉 찬 격자에서는 결과가 같지만
+        //  규칙이 두 곳에 있어 한쪽만 바뀌면 미리보기와 실제 픽업 순서가 조용히 어긋난다.)
         private List<Point> BuildPreviewOrder(int n)
         {
             var order = new List<Point>();
             if (n < 1)
                 return order;
 
-            bool startTop = _rbTL.Checked || _rbTR.Checked;
-            bool startLeft = _rbTL.Checked || _rbBL.Checked;
-            bool horizontal = !_rbVert.Checked;   // 기본 수평
-            bool zigzag = _rbZigZag.Checked;
-
-            var rowSeq = new int[n];
-            var colSeq = new int[n];
-            for (int i = 0; i < n; i++)
+            try
             {
-                rowSeq[i] = startTop ? i : (n - 1 - i);
-                colSeq[i] = startLeft ? i : (n - 1 - i);
-            }
-
-            if (horizontal)
-            {
-                for (int ri = 0; ri < n; ri++)
-                    for (int ci = 0; ci < n; ci++)
+                DieMap sample = BuildPreviewSampleMap(n);
+                List<DieMapEntry> ordered = PickupSequenceGenerator.Build(sample, BuildPickupSubsetFromVisible());
+                if (ordered != null)
+                {
+                    foreach (DieMapEntry entry in ordered)
                     {
-                        int c = (zigzag && (ri % 2 == 1)) ? colSeq[n - 1 - ci] : colSeq[ci];
-                        order.Add(new Point(c, rowSeq[ri]));
+                        if (entry != null)
+                            order.Add(new Point(entry.DieMapX, entry.DieMapY));
                     }
+                }
             }
-            else
+            catch
             {
-                for (int ci = 0; ci < n; ci++)
-                    for (int ri = 0; ri < n; ri++)
-                    {
-                        int r = (zigzag && (ci % 2 == 1)) ? rowSeq[n - 1 - ri] : rowSeq[ri];
-                        order.Add(new Point(colSeq[ci], r));
-                    }
+                // 미리보기 실패가 페이지를 막지 않도록 빈 경로로 둔다.
+                order.Clear();
             }
+
             return order;
+        }
+
+        /// <summary>미리보기용 n×n 꽉 찬 샘플 맵. 실제 웨이퍼 맵이 아니라 경로 모양 확인용 도식이다.</summary>
+        private static DieMap BuildPreviewSampleMap(int n)
+        {
+            var map = new DieMap { DieMapX = n, DieMapY = n };
+            for (int y = 0; y < n; y++)
+            {
+                for (int x = 0; x < n; x++)
+                {
+                    map.Entries.Add(new DieMapEntry
+                    {
+                        DieMapX = x,
+                        DieMapY = y,
+                        IsTarget = true
+                    });
+                }
+            }
+
+            return map;
+        }
+
+        /// <summary>화면 라디오 상태를 PickupSubset으로 만든다(저장 대상과 동일한 해석).</summary>
+        private PickupSubset BuildPickupSubsetFromVisible()
+        {
+            var subset = new PickupSubset();
+            if (_rbTL.Checked)
+                subset.StartCorner = PickupStartCorner.TopLeft;
+            else if (_rbBL.Checked)
+                subset.StartCorner = PickupStartCorner.BottomLeft;
+            else if (_rbBR.Checked)
+                subset.StartCorner = PickupStartCorner.BottomRight;
+            else
+                subset.StartCorner = PickupStartCorner.TopRight;
+
+            subset.Direction = _rbVert.Checked ? PickupDirection.Vertical : PickupDirection.Horizontal;
+            subset.Pattern = _rbStraight.Checked ? PickupPattern.Straight : PickupPattern.ZigZag;
+            return subset;
         }
 
         // 픽업 경로 미리보기: 샘플 그리드 위에 실제 순서대로 선을 그리고 시작(S)/끝(E)을 표시한다.

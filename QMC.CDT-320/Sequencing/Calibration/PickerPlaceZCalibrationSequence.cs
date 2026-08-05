@@ -187,7 +187,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                         _scanStartPosition,
                         "PlaceZ Calibration Scan Start",
                         ct,
-                        SearchTargetName).ConfigureAwait(false);
+                        SearchTargetName,
+                        false,
+                        true).ConfigureAwait(false);
                     if (result != 0) return result;
                 }
 
@@ -226,7 +228,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                         GetPickerTeachingPosition(_pickerZAxis, "AvoidPosition"),
                         "PlaceZ Calibration 완료 후 PickerZ Avoid",
                         ct,
-                        "AvoidPosition").ConfigureAwait(false);
+                        "AvoidPosition",
+                        false,
+                        true).ConfigureAwait(false);
                     if (result != 0) return result;
                 }
 
@@ -270,8 +274,47 @@ namespace QMC.CDT320.Sequencing.Calibration
                     catch { }
                 }
 
+                WarnIfPickerZLeftDown();
                 ReleasePickerWorkArea();
                 ReleaseArea();
+            }
+        }
+
+        /// <summary>
+        /// 작업영역/lease를 해제하기 전에 PickerZ가 하강 위치에 남아 있으면 운전자에게 명시적으로 알린다.
+        /// 자동 StageY 인터락은 연속 Place 때문에 PickerZ 하강을 차단할 수 없으므로(생산이 동시 이동을 사용),
+        /// 하강 잔류 상태를 조용히 넘기지 않는 것이 유일한 방어다. 수동 StageY 이동은 인터락이 차단한다.
+        /// </summary>
+        private void WarnIfPickerZLeftDown()
+        {
+            try
+            {
+                BaseAxis axis = GetPickerAxis(_pickerZAxis);
+                if (axis == null)
+                    return;
+
+                axis.UpdateStatus();
+                double avoid = GetPickerTeachingPosition(_pickerZAxis, "AvoidPosition");
+                // IsAtTargetPosition은 AjinAxis에서 보드 Command 기준으로 오버라이드되어 있어
+                // (보드 미오픈 시 상시 false, 실제 하강 잔류를 놓칠 수도 있음) 실측 위치로 직접 판정한다.
+                double tolerance = ResolveAxisPositionTolerance(axis);
+                if (!axis.IsMoving && Math.Abs(axis.ActualPosition - avoid) <= tolerance)
+                    return;
+
+                EventLogger.Write(EventKind.Warning, "CAL", "PLACE-Z-CAL-PICKER-Z-DOWN",
+                    "PlaceZ Calibration 종료 시 PickerZ가 Avoid 위치가 아닙니다. " +
+                    "Output Stage를 움직이기 전에 PickerZ를 Avoid로 복귀시키세요. " +
+                    "side=" + Side +
+                    ", outputSide=" + _targetOutputSide +
+                    ", pickerNo=" + _pickerNo +
+                    ", axis=" + _pickerZAxis +
+                    ", actual=" + axis.ActualPosition.ToString("F6") +
+                    ", avoid=" + avoid.ToString("F6"));
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PlaceZCalibration",
+                    "PlaceZ Calibration 종료 시 PickerZ 잔류 확인 예외. error=" + ex.Message + " - Check");
             }
         }
 
@@ -522,7 +565,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                         _scanStartPosition,
                         "PlaceZ Calibration Scan Start",
                         ct,
-                        SearchTargetName).ConfigureAwait(false);
+                        SearchTargetName,
+                        false,
+                        true).ConfigureAwait(false);
                     if (result != 0) return result;
 
                     Result.Success = true;
@@ -567,7 +612,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                         GetPickerTeachingPosition(_pickerZAxis, "AvoidPosition"),
                         "PlaceZ Calibration PickerZ Avoid",
                         ct,
-                        "AvoidPosition").ConfigureAwait(false);
+                        "AvoidPosition",
+                        false,
+                        true).ConfigureAwait(false);
                     if (result != 0) return result;
 
                     Result.Success = true;
@@ -670,6 +717,15 @@ namespace QMC.CDT320.Sequencing.Calibration
                 _scanStartPosition = _settings.StartZMm;
                 _searchDirection = downSign;
                 _searchLimitPosition = _scanStartPosition + (downSign * Math.Abs(_settings.SearchMaxDistanceMm));
+
+                // 스캔 시작 Z가 기존 PlacePosition보다 깊으면 검색이 시작되기 전에 일반 속도로 표면을 누르게 된다.
+                // 설정 오입력(부호/자릿수 실수) 방어 — 축을 움직이기 전에 차단한다.
+                // (현재 위치 반복 테스트 경로는 이후 TryConfigureCurrentPoseScanStart가 시작점을 실측 Z로 덮어쓴다.)
+                if (downSign * (_scanStartPosition - _oldPlacePosition) > 0.0)
+                    return Fail("PLACE-Z-CAL-START-Z", Name,
+                        "스캔 시작 Z(StartZMm)가 기존 PlacePosition보다 깊어 시작할 수 없습니다. 설정을 확인하세요. " +
+                        "startZ=" + _scanStartPosition.ToString("F6") +
+                        ", oldPlace=" + _oldPlacePosition.ToString("F6"));
 
                 Result.OldPlacePosition = _oldPlacePosition;
                 Result.ScanStartPosition = _scanStartPosition;
@@ -933,6 +989,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 description + " Picker Output Place Cal X",
                 ct,
                 SearchTargetName,
+                true,
                 true).ConfigureAwait(false);
             if (result != 0)
                 return result;
@@ -943,6 +1000,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 description + " Picker Output Place Cal Y",
                 ct,
                 SearchTargetName,
+                true,
                 true).ConfigureAwait(false);
             if (result != 0)
                 return result;
@@ -1226,7 +1284,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                     simulatedFlow,
                     "PlaceZ Calibration " + passName + " simulated Flow Z-only",
                     ct,
-                    SearchTargetName).ConfigureAwait(false);
+                    SearchTargetName,
+                    false,
+                    true).ConfigureAwait(false);
                 simWatch.Stop();
                 if (moveResult != 0)
                 {
@@ -1359,6 +1419,19 @@ namespace QMC.CDT320.Sequencing.Calibration
                         ? await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 정지 후 이동 대기").ConfigureAwait(false)
                         : await moveTask.ConfigureAwait(false);
                     axis.UpdateStatus();
+
+                    // 정지 명령 후에도 축이 여전히 이동 중이면 현재 위치를 측정값으로 신뢰할 수 없다.
+                    // (정지 실패/지연 상태에서 채택된 깊은 값이 PlacePosition으로 저장되는 것을 차단)
+                    if (stopCommanded && axis.IsMoving)
+                    {
+                        StopPickerZAxis(attemptName + " 정지 실패 재정지");
+                        result.ResultCode = Fail("PLACE-Z-CAL-STOP-FAILED", Name,
+                            "PlaceZ Calibration 정지 명령 후에도 PickerZ가 이동 중이라 측정을 무효화합니다. pass=" + attemptName +
+                            ", side=" + Side +
+                            ", pickerNo=" + _pickerNo +
+                            ", actual=" + axis.ActualPosition.ToString("F6"));
+                        return result;
+                    }
 
                     if (!firstFlowOn && ReadPickerFlowState(_pickerNo))
                     {
@@ -1570,7 +1643,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                 backOffTarget,
                 "PlaceZ Calibration Z-only BackOff before " + resetReason + " #" + repeatIndex,
                 ct,
-                SearchTargetName).ConfigureAwait(false);
+                SearchTargetName,
+                false,
+                true).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -1763,145 +1838,16 @@ namespace QMC.CDT320.Sequencing.Calibration
             return string.Join(",", parts);
         }
 
+        // 레거시 Flow 검색(FlowStableMs 경과 후 정지 방식) 본문은 제거했다 — 신 경로
+        // SearchFlowPositionWithResetAsync(즉시 정지 + BackOff/Blow 재시도)가 완전히 대체하며 호출부도 없었다.
+        // 과거 가드가 반전되어 _settings==null일 때 본문이 _settings를 역참조하는 함정만 남아 있었다.
         private async Task<int> SearchFlowPositionAsync(CancellationToken ct)
         {
-            if (_settings != null)
-                return await SearchFlowPositionWithResetAsync(ct).ConfigureAwait(false);
+            if (_settings == null)
+                return Fail("PLACE-Z-CAL-NO-SETTINGS", Name,
+                    "PlaceZ Calibration 설정이 없어 Flow 검색을 실행할 수 없습니다.");
 
-            BaseAxis axis = GetPickerAxis(_pickerZAxis);
-            if (axis == null)
-                return Fail("PLACE-Z-CAL-Z-AXIS", Name, "PickerZ axis is null. axis=" + _pickerZAxis);
-
-            if (IsPickerSimulationOrDryRun())
-            {
-                _detectedFlowPosition = _oldPlacePosition;
-                _savedPlacePosition = _detectedFlowPosition + _settings.ContactOffsetMm;
-                _detectElapsedMs = 0;
-                Result.DetectedFlowPosition = _detectedFlowPosition;
-                Result.SavedPlacePosition = _savedPlacePosition;
-                Result.DetectElapsedMs = _detectElapsedMs;
-                return 0;
-            }
-
-            if (_settings.FailIfFlowAlreadyOn && ReadPickerFlowState(_pickerNo))
-                return Fail("PLACE-Z-CAL-FLOW-ALREADY-ON", Name,
-                    "PlaceZ Calibration 시작 전 Flow가 이미 ON입니다. Vacuum sensor 상태 또는 Picker 위치를 확인하세요. " +
-                    "side=" + Side + ", pickerNo=" + _pickerNo);
-
-            Stopwatch watch = Stopwatch.StartNew();
-            DateTime? stableSinceUtc = null;
-            bool detected = false;
-
-            string interlockReason;
-            if (!MotionGuardRuntime.VerifyAxisTeachingMove(axis, _searchLimitPosition, SearchTargetName, out interlockReason))
-            {
-                return Fail("PLACE-Z-CAL-SEARCH-INTERLOCK", Name,
-                    "PlaceZ Calibration 검색 이동 인터락 차단. " +
-                    "side=" + Side +
-                    ", pickerNo=" + _pickerNo +
-                    ", target=" + _searchLimitPosition.ToString("F6") +
-                    ". " + interlockReason);
-            }
-
-            Task<int> moveTask = MovePickerAxisCommandWithMotionAsync(
-                _pickerZAxis,
-                _searchLimitPosition,
-                _settings.Motion.MoveVelocity,
-                _settings.Motion.MoveAcceleration,
-                _settings.Motion.MoveDeceleration,
-                SearchTargetName);
-
-            try
-            {
-                while (!moveTask.IsCompleted)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    if (Context != null)
-                        Context.StopIfCycleStopRequested(Name + ".SearchFlow");
-
-                    if (ReadPickerFlowState(_pickerNo))
-                    {
-                        if (!stableSinceUtc.HasValue)
-                            stableSinceUtc = DateTime.UtcNow;
-
-                        if ((DateTime.UtcNow - stableSinceUtc.Value).TotalMilliseconds >= _settings.FlowStableMs)
-                        {
-                            StopPickerZAxis();
-                            detected = true;
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        stableSinceUtc = null;
-                    }
-
-                    if (watch.ElapsedMilliseconds > _settings.Motion.MoveTimeoutMs)
-                    {
-                        StopPickerZAxis();
-                        break;
-                    }
-
-                    await Task.Delay(_settings.FlowPollIntervalMs, ct).ConfigureAwait(false);
-                }
-
-                int moveResult = await moveTask.ConfigureAwait(false);
-                axis.UpdateStatus();
-
-                if (!detected)
-                {
-                    if (ReadPickerFlowState(_pickerNo))
-                    {
-                        detected = true;
-                    }
-                    else if (moveResult != 0)
-                    {
-                        return Fail("PLACE-Z-CAL-Z-MOVE", Name,
-                            "PlaceZ Calibration 검색 이동 실패. result=" + moveResult +
-                            ", " + BuildPickerAxisState(_pickerZAxis, _searchLimitPosition));
-                    }
-                }
-
-                if (!detected)
-                {
-                    return Fail("PLACE-Z-CAL-FLOW-NOT-DETECTED", Name,
-                        "PlaceZ Calibration Flow 감지 실패. 최대 하강 위치까지 Flow가 ON되지 않았습니다. " +
-                        "side=" + Side +
-                        ", pickerNo=" + _pickerNo +
-                        ", start=" + _scanStartPosition.ToString("F6") +
-                        ", limit=" + _searchLimitPosition.ToString("F6") +
-                        ", actual=" + axis.ActualPosition.ToString("F6") +
-                        ", timeoutMs=" + _settings.Motion.MoveTimeoutMs);
-                }
-
-                _detectedFlowPosition = axis.ActualPosition;
-                _savedPlacePosition = _detectedFlowPosition + _settings.ContactOffsetMm;
-                _detectElapsedMs = (int)Math.Min(int.MaxValue, watch.ElapsedMilliseconds);
-                Result.DetectedFlowPosition = _detectedFlowPosition;
-                Result.SavedPlacePosition = _savedPlacePosition;
-                Result.DetectElapsedMs = _detectElapsedMs;
-                return 0;
-            }
-            catch (OperationCanceledException)
-            {
-                StopPickerZAxis();
-                throw;
-            }
-            catch (SequenceStopException)
-            {
-                StopPickerZAxis();
-                throw;
-            }
-            catch (Exception ex)
-            {
-                StopPickerZAxis();
-                return Fail("PLACE-Z-CAL-SEARCH-EX", Name,
-                    "PlaceZ Calibration Flow 검색 예외 발생. error=" + ex.Message);
-            }
-            finally
-            {
-                watch.Stop();
-            }
+            return await SearchFlowPositionWithResetAsync(ct).ConfigureAwait(false);
         }
 
         private int SaveCalibrationResult()
@@ -1989,6 +1935,16 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (axis != null)
                     axis.UpdateStatus();
 
+                // 타임아웃이면 축이 아직 이동 중일 수 있다 — 재정지 후 한 번 더 기다린다.
+                if (axis != null && axis.IsMoving)
+                {
+                    StopPickerZAxis(reason + " - 타임아웃 재정지");
+                    completed = await Task.WhenAny(moveTask, Task.Delay(2000)).ConfigureAwait(false);
+                    if (completed == moveTask)
+                        return await moveTask.ConfigureAwait(false);
+                    axis.UpdateStatus();
+                }
+
                 WriteLog("PlaceZCalibration",
                     "PlaceZ Calibration 정지 명령 후 이동 Task 완료 대기 시간이 초과되었습니다. " +
                     "side=" + Side +
@@ -1997,6 +1953,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", reason=" + reason +
                     ", " + BuildPickerAxisState(_pickerZAxis, axis != null ? axis.ActualPosition : 0.0) +
                     " - Check");
+                // 여기서 0을 반환해도 호출부가 축 IsMoving을 재확인해 이동 잔존 시 측정을 무효화한다.
                 return 0;
             }
             catch (OperationCanceledException)

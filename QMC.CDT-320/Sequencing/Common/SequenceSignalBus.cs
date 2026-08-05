@@ -44,6 +44,36 @@ namespace QMC.CDT320.Sequencing
             SequenceTrace.SignalWaitEnd(signalName, 0, "state=Set");
         }
 
+        /// <summary>
+        /// 지정한 신호를 기다리되 CYCLE STOP 요청에도 깨어납니다.
+        /// 운영자 확인·핸드셰이크처럼 중단해도 안전한 대기에만 사용하고, 모션 완료 대기에는 사용하지 않습니다.
+        /// </summary>
+        /// <returns>신호를 받으면 <c>true</c>, CYCLE STOP으로 깨어나면 <c>false</c></returns>
+        public async Task<bool> WaitAsync(string signalName, CancellationToken ct, CancellationToken cycleStopToken)
+        {
+            if (string.IsNullOrWhiteSpace(signalName))
+                throw new ArgumentException("신호 이름이 필요합니다.", nameof(signalName));
+
+            SequenceTrace.SignalWaitStart(signalName);
+            var task = GetSignal(signalName).Task;
+            using (var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, cycleStopToken))
+            {
+                var cancelTask = Task.Delay(Timeout.Infinite, linked.Token);
+                var completed = await Task.WhenAny(task, cancelTask).ConfigureAwait(false);
+                if (completed == cancelTask)
+                {
+                    // 알람/하드 취소는 기존과 동일하게 예외로 전파하고, CYCLE STOP은 호출부가 판단하도록 false로 알린다.
+                    ct.ThrowIfCancellationRequested();
+                    SequenceTrace.SignalWaitEnd(signalName, -1, "status=CycleStopped");
+                    return false;
+                }
+            }
+
+            await task.ConfigureAwait(false);
+            SequenceTrace.SignalWaitEnd(signalName, 0, "state=Set");
+            return true;
+        }
+
         /// <summary>지정한 신호를 초기화하여 다음 핸드오프를 다시 기다릴 수 있게 합니다.</summary>
         public void Reset(string signalName)
         {

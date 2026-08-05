@@ -607,6 +607,12 @@ namespace QMC.CDT320.Sequencing
                     if (SequenceStopException.IsSequenceStop(completed.Exception ?? ex))
                     {
                         string reason = SequenceStopException.ResolveReason(completed.Exception ?? ex);
+
+                        // 한 유닛이 정상 정지(작업 완료/소진)를 선언해도 형제 유닛은 그 사실을 모른다.
+                        // CycleStop 플래그를 여기서 켜야 형제 유닛이 각자 안전 경계에서 스스로 정지하고,
+                        // abortOnTimeout=false 대기가 무한 대기로 남지 않는다.
+                        _ctx.RequestCycleStop();
+
                         _ctx.LogPublic("[SEQ] Cycle Stop 경계에서 유닛 시퀀스가 정상 정지되었습니다. " + reason);
                         await AwaitPendingAfterCycleStopAsync(pending, false).ConfigureAwait(false);
                         throw new SequenceStopException(reason);

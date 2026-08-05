@@ -30,6 +30,7 @@
         private CalibrationDialogButton _btnUseCurrent;
         private CalibrationDialogButton _btnMoveTouch;
         private CalibrationDialogButton _btnStart;
+        private CalibrationDialogButton _btnSeqStop;
         private CalibrationDialogButton _btnAvoid;
         private CalibrationDialogButton _btnReload;
         private CalibrationDialogButton _btnSave;
@@ -71,6 +72,7 @@
             this._btnUseCurrent = new CalibrationDialogButton();
             this._btnMoveTouch = new CalibrationDialogButton();
             this._btnStart = new CalibrationDialogButton();
+            this._btnSeqStop = new CalibrationDialogButton();
             this._btnAvoid = new CalibrationDialogButton();
             this._btnReload = new CalibrationDialogButton();
             this._btnSave = new CalibrationDialogButton();
@@ -353,23 +355,25 @@
             //
             // buttonPanel
             //
-            this.buttonPanel.ColumnCount = 8;
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.buttonPanel.ColumnCount = 9;
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.12F));
             this.buttonPanel.Controls.Add(this._btnCheck, 0, 0);
             this.buttonPanel.Controls.Add(this._btnUseCurrent, 1, 0);
             this.buttonPanel.Controls.Add(this._btnMoveTouch, 2, 0);
             this.buttonPanel.Controls.Add(this._btnStart, 3, 0);
-            this.buttonPanel.Controls.Add(this._btnAvoid, 4, 0);
-            this.buttonPanel.Controls.Add(this._btnReload, 5, 0);
-            this.buttonPanel.Controls.Add(this._btnSave, 6, 0);
-            this.buttonPanel.Controls.Add(this._btnClose, 7, 0);
+            this.buttonPanel.Controls.Add(this._btnSeqStop, 4, 0);
+            this.buttonPanel.Controls.Add(this._btnAvoid, 5, 0);
+            this.buttonPanel.Controls.Add(this._btnReload, 6, 0);
+            this.buttonPanel.Controls.Add(this._btnSave, 7, 0);
+            this.buttonPanel.Controls.Add(this._btnClose, 8, 0);
             this.buttonPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonPanel.Location = new System.Drawing.Point(8, 664);
             this.buttonPanel.Margin = new System.Windows.Forms.Padding(8);
@@ -402,6 +406,12 @@
             this._btnStart.Role = CalibrationDialogButtonRole.Primary;
             this._btnStart.Text = "START CAL";
             this._btnStart.Click += new System.EventHandler(this.btnStart_Click);
+            this._btnSeqStop.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._btnSeqStop.Enabled = false;
+            this._btnSeqStop.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
+            this._btnSeqStop.Name = "_btnSeqStop";
+            this._btnSeqStop.Text = "SEQ STOP";
+            this._btnSeqStop.Click += new System.EventHandler(this.btnSeqStop_Click);
             this._btnAvoid.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnAvoid.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this._btnAvoid.Name = "_btnAvoid";

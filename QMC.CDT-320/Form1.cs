@@ -696,6 +696,9 @@ namespace QMC.CDT_320
         private BaseAxis _inputStageRunReviewJogAxis;
         private bool _inputStageRunReviewJogStartPending;
         private bool _inputStageRunReviewOffsetPending;
+        // Die 검출이 실제 비전 측정이 아니라 UseVision=false 시뮬레이션 경로로 만들어졌는지.
+        // 운전자에게 "실제 검출이 아님"을 알리고, 시뮬 offset이 실측처럼 취급되지 않게 하려고 둔다.
+        private bool _inputStageRunReviewDieDetectionSimulated;
         private double _inputStageRunReviewPendingOffsetX;
         private double _inputStageRunReviewPendingOffsetY;
         private string _inputStageRunReviewPendingOffsetWaferId = string.Empty;
@@ -2560,6 +2563,7 @@ namespace QMC.CDT_320
             double detectedOffsetX = 0.0;
             double detectedOffsetY = 0.0;
             bool detectionSucceeded = false;
+            _inputStageRunReviewDieDetectionSimulated = false;
 
             await RunInputStageReviewOneShotAsync(
                 dialog,
@@ -2633,11 +2637,27 @@ namespace QMC.CDT_320
                     detectedOffsetX = offsetX;
                     detectedOffsetY = offsetY;
                     detectionSucceeded = true;
+                    // 시뮬레이션 경로(UseVision=false)는 offset이 항상 0이므로 실제 검출과 구분해 표시한다.
+                    if (_inputStageRunReviewDieDetectionSimulated)
+                        return "[비전 미사용 - 시뮬레이션] 실제 Die 검출을 수행하지 않았습니다. " +
+                               "공칭 좌표로 이동만 했고 Offset은 0입니다. 설정에서 비전 사용을 켠 뒤 다시 실행하세요. X=" +
+                               offsetX.ToString("F6") + ", Y=" + offsetY.ToString("F6");
+
                     return "Die 검출 완료. Offset 적용 버튼으로 Draft Map에 반영하세요. X=" +
                            offsetX.ToString("F6") + ", Y=" + offsetY.ToString("F6");
                 }).ConfigureAwait(true);
 
-            if (detectionSucceeded && dialog != null && !dialog.IsDisposed)
+            // 시뮬레이션 경로의 offset은 항상 0이며 실측이 아니므로 pending으로 등록하지 않는다.
+            // (등록하면 APPLY OFFSET이 "적용 성공"으로 보고되어 실제 보정을 한 것처럼 오인된다.)
+            if (detectionSucceeded && _inputStageRunReviewDieDetectionSimulated)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning, "UI", "IN-REVIEW-DIE-DETECT-SIM",
+                    "InputStageRunReview",
+                    "비전 미사용(시뮬레이션) Die 검출이므로 Offset을 적용 대상으로 등록하지 않았습니다. " +
+                    "die=" + (detectedDieUid ?? "-"));
+            }
+            else if (detectionSucceeded && dialog != null && !dialog.IsDisposed)
             {
                 _inputStageRunReviewOffsetPending = true;
                 _inputStageRunReviewPendingOffsetX = detectedOffsetX;
@@ -2653,6 +2673,27 @@ namespace QMC.CDT_320
             }
         }
 
+        /// <summary>
+        /// Review 화면의 Wafer 영상/명령 기능(Live·Grab·측정)이 실제로 동작 가능한 상태인지 판정한다.
+        /// 명령 채널(VisionHub.Wafer)이 없으면 CAM_SWITCH/EXPOSE가 no-op이 되어 화면만 "사용 중"으로 보인다.
+        /// </summary>
+        private static bool IsWaferVisionLinkReady()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings != null && !settings.UseVision)
+                    return false;
+
+                QMC.CDT320.VisionComm.VisionTcpClient client = QMC.CDT320.VisionComm.VisionHub.Wafer;
+                return client != null && client.IsConnected;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private async System.Threading.Tasks.Task<VisionAlignResult> RequestInputStageRunReviewDieVisionAsync(
             InputStageUnit stage,
             DieMapEntry entry,
@@ -2663,14 +2704,30 @@ namespace QMC.CDT_320
             bool connected = QMC.CDT320.VisionComm.VisionHub.Wafer != null &&
                              QMC.CDT320.VisionComm.VisionHub.Wafer.IsConnected;
             AppSettings settings = AppSettingsStore.Current;
-            if (!connected || (settings != null && !settings.UseVision))
+            bool visionDisabled = settings != null && !settings.UseVision;
+
+            // 비전을 쓰지 않도록 설정된 경우(의도된 시뮬레이션)에만 공칭 좌표 fallback을 허용한다.
+            // 이때 offset은 항상 0이 되므로 "실제 검출"이 아님을 호출부가 반드시 표시해야 한다.
+            if (visionDisabled)
             {
+                _inputStageRunReviewDieDetectionSimulated = true;
                 return new VisionAlignResult
                 {
                     DeltaX = entry.PosX - currentX,
                     DeltaY = currentY - entry.PosY,
                     DeltaTheta = 0.0
                 };
+            }
+
+            // 비전을 쓰는 설정인데 연결이 없으면 가짜 성공을 만들지 않고 실패로 처리한다.
+            // (예전에는 여기서도 공칭 좌표 fallback을 반환해 "검출 완료 X=0 Y=0"으로 보고했다.)
+            if (!connected)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning, "UI", "IN-REVIEW-DIE-DETECT-NO-VISION",
+                    "InputStageRunReview",
+                    "Die 검출 불가: Wafer Vision이 연결되지 않았습니다. UseVision=true인데 연결이 없어 검출을 실패로 처리합니다.");
+                return null;
             }
 
             QMC.CDT320.VisionComm.MatchResultDto match = await QMC.CDT320.VisionComm.AutoVisionRequestService.MatchAsync(
@@ -2911,19 +2968,34 @@ namespace QMC.CDT_320
 
                 _inputStageRunReviewEmbeddedVisionScope = scope;
                 scope = null;
-                if (!dialog.SetWaferVisionControlActive(
-                    true,
-                    "Wafer Vision 안전 영역을 확보했습니다. 상단 Live/Grab/측정 기능을 사용할 수 있습니다."))
+
+                // 이 버튼은 영상뿐 아니라 "맵 더블클릭 Die 이동"을 위한 모션 안전 Scope 확보 용도로도 쓰인다.
+                // 따라서 비전 미연결이어도 차단하지 않되, Live/Grab/측정이 불가하다는 사실을 문구로 분명히 알린다.
+                // (예전에는 미연결에도 "Live/Grab/측정 기능을 사용할 수 있습니다"로 표시해 연결된 것으로 오인됐다.)
+                bool visionLinkReady = IsWaferVisionLinkReady();
+                string scopeStatus = visionLinkReady
+                    ? "Wafer Vision 안전 영역을 확보했습니다. 상단 Live/Grab/측정 기능을 사용할 수 있습니다."
+                    : "안전 영역만 확보했습니다. Wafer Vision이 연결되지 않아 Live/Grab/측정은 동작하지 않습니다(좌표 이동만 가능).";
+                if (!dialog.SetWaferVisionControlActive(true, scopeStatus))
                 {
                     throw new InvalidOperationException("내장 Wafer Vision Viewer 구성에 실패했습니다.");
                 }
-                dialog.SetBusy(true,
-                    "Wafer Vision 사용 중입니다. 종료 또는 STOP 후 다른 Review 동작을 실행하세요.");
+                dialog.SetBusy(true, visionLinkReady
+                    ? "Wafer Vision 사용 중입니다. 종료 또는 STOP 후 다른 Review 동작을 실행하세요."
+                    : "안전 영역 사용 중입니다(영상 불가). 종료 또는 STOP 후 다른 Review 동작을 실행하세요.");
                 QMC.Common.Log.Write(
                     "Main",
                     UserSession.Name,
                     "InputStageRunReviewVision",
-                    "내장 Wafer Vision 안전 Scope를 시작했습니다. - Start");
+                    "내장 Wafer Vision 안전 Scope를 시작했습니다. visionLink=" +
+                    (visionLinkReady ? "READY" : "NOT-READY") + " - Start");
+                if (!visionLinkReady)
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Warning, "UI", "IN-REVIEW-VISION-SCOPE-NO-LINK",
+                        "InputStageRunReview",
+                        "Wafer Vision 미연결 상태로 안전 Scope만 확보했습니다. Live/Grab/측정은 동작하지 않습니다.");
+                }
             }
             catch (OperationCanceledException)
             {
@@ -3030,6 +3102,20 @@ namespace QMC.CDT_320
                 (dialog != null && dialog.IsWaferVisionControlActive))
             {
                 dialog.SetBusy(true, "내장 Wafer Vision을 먼저 종료한 뒤 Vision Test를 실행하세요.");
+                return;
+            }
+
+            // 미연결 상태로 Vision Test 창을 열면 안전 Scope와 lease만 점유한 채
+            // Review의 JOG/ACTION 전체가 창을 닫을 때까지 봉쇄된다. 진입 전에 막는다.
+            if (!IsWaferVisionLinkReady())
+            {
+                if (dialog != null)
+                    dialog.SetBusy(false,
+                        "Wafer Vision이 연결되지 않아 Vision Test를 실행할 수 없습니다. 설정에서 비전 연결/사용을 확인하세요.");
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning, "UI", "IN-REVIEW-VISION-TEST-NO-LINK",
+                    "InputStageRunReview",
+                    "Vision Test 진입 거부: Wafer Vision 미연결(불필요한 Scope/lease 점유 방지).");
                 return;
             }
 
@@ -3190,6 +3276,30 @@ namespace QMC.CDT_320
             // (이전에는 Barcode Name 라벨을 "VIS O/X"로 덮어써서 진행 웨이퍼 바코드명을 볼 수 없었다.)
             // 상단 VISION 점등을 실제 연결 상태에 동기화(끊기면 소등).
             if (dotVision != null) dotVision.IsOn = connected;
+
+            // Review 창이 열려 있으면 Wafer 채널 연결 상태를 전달한다.
+            // (창은 개창 시 스냅샷만 갖고 있어서, 이후 끊기거나 재연결되어도 반영되지 않았다.)
+            NotifyInputStageRunReviewVisionLink();
+        }
+
+        /// <summary>열려 있는 Review 창에 Wafer Vision 연결 상태를 전달한다.</summary>
+        private void NotifyInputStageRunReviewVisionLink()
+        {
+            try
+            {
+                InputStageRunReviewDialog dialog = _inputStageRunReviewDialog;
+                if (dialog == null || dialog.IsDisposed)
+                    return;
+
+                dialog.SetWaferVisionConnectionState(IsWaferVisionLinkReady());
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning, "UI", "IN-REVIEW-VISION-LINK",
+                    "InputStageRunReview",
+                    "Review 창에 Wafer Vision 연결 상태 전달 실패: " + ex.Message);
+            }
         }
 
         /// <summary>현재 활성 레시피 명칭을 Vision Main 채널로 재전송. 재연결 성공 시 + Vision 의 RECIPEREQ 요청 시 호출된다.</summary>

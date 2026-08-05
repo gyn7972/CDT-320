@@ -359,6 +359,66 @@ namespace QMC.CDT_320.Ui.Dialogs
             Close();
         }
 
+        // 실행 중 X/Alt+F4로 창이 닫혀 시퀀스가 화면 없이 계속 도는 것을 막는다.
+        // 단 사용자가 직접 닫을 때(UserClosing)만 붙잡는다 — 앱/Windows/소유자(Form1) 종료 경로에서
+        // e.Cancel을 세우면 Form1 종료가 취소되어 프로그램을 끌 수 없게 된다(소유 폼에는 FormOwnerClosing으로 전달됨).
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            try
+            {
+                if (_busy)
+                {
+                    if (e.CloseReason != CloseReason.UserClosing)
+                    {
+                        RequestRunCancelForClose("Collet Calibration 창 종료(" + e.CloseReason + ")");
+                        base.OnFormClosing(e);
+                        return;
+                    }
+
+                    DialogResult result = QMC.Common.MessageDialog.Show(this,
+                        "Collet Calibration이 실행 중입니다. 정지 요청 후 창을 닫을까요?",
+                        "COLLET CAL",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning);
+                    if (result == DialogResult.Yes)
+                    {
+                        RequestRunCancelForClose("Collet Calibration 창 닫기");
+                        lblStatus.Text = "정지 처리 중입니다. 완료 후 창을 닫으세요.";
+                    }
+
+                    e.Cancel = true;
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                // 종료 경로에서는 예외가 나도 창을 붙잡지 않는다(프로그램 종료 차단 방지).
+                if (e.CloseReason == CloseReason.UserClosing)
+                    e.Cancel = true;
+                EventLogger.Write(EventKind.Alarm, "UI", "COLLET-CAL-CLOSE",
+                    "Collet Calibration 창 종료 확인 중 예외가 발생했습니다. error=" + ex.Message);
+                if (e.Cancel)
+                    return;
+            }
+
+            base.OnFormClosing(e);
+        }
+
+        private void RequestRunCancelForClose(string reason)
+        {
+            try
+            {
+                CancellationTokenSource cts = _runCts;
+                if (cts != null)
+                    cts.Cancel();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "COLLET-CAL-CLOSE-CANCEL",
+                    reason + " 중 정지 요청 실패: " + ex.Message);
+            }
+        }
+
         private async Task RunCalibrationAsync()
         {
             if (_busy)
@@ -1933,7 +1993,15 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (_busy)
                 return;
+
+            // 현재 축 위치로 티칭을 덮어쓰는 조작이므로 다른 수동/자동 동작과 동일하게 실행 조건을 확인한다.
+            string gateReason;
             if (!CanRunManualCalibration(out gateReason))
+            {
+                lblStatus.Text = gateReason;
+                QMC.Common.MessageDialog.Show(this, gateReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
             try
             {
@@ -2202,6 +2270,15 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (_busy)
                 return;
+
+            // T 좌표계(HomeOffset+엔코더 0점)를 바꾸는 조작이므로 다른 수동/자동 동작과 동일하게 실행 조건을 확인한다.
+            string gateReason;
+            if (!CanRunManualCalibration(out gateReason))
+            {
+                lblStatus.Text = gateReason;
+                QMC.Common.MessageDialog.Show(this, gateReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
             try
             {

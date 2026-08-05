@@ -57,7 +57,39 @@ namespace QMC.CDT320.Sequencing
 
             while (controller.IsInputStageRunReviewManualActive)
             {
-                UserConfirmResult reviewResult = await stage.WaitForUserConfirmAsync(ct).ConfigureAwait(false);
+                UserConfirmResult reviewResult;
+                try
+                {
+                    // 사용자 확인 대기는 작업자 입력이 없으면 무기한이다. 경계 폴링으로는 깨울 수 없으므로
+                    // CYCLE STOP 토큰을 함께 관찰시켜 정지 요청 시 대기가 즉시 풀리게 한다.
+                    using (CancellationTokenSource stoppable = Context.CreateCycleStopLinkedSource(ct))
+                    {
+                        reviewResult = await stage
+                            .WaitForUserConfirmAsync(stoppable.Token)
+                            .ConfigureAwait(false);
+                    }
+                }
+                catch (System.OperationCanceledException) when (!ct.IsCancellationRequested &&
+                                                                Context.IsCycleStopRequested)
+                {
+                    // 알람/하드 취소가 아니라 CYCLE STOP으로 깨어난 경우다.
+                    // Review 세션과 수동 동작을 정리한 뒤 STOP 선택과 동일한 안전 정지 경로로 합류한다.
+                    string stopResetReason;
+                    MaterialStateService.SetInputStageRunReviewApproval(
+                        reviewWafer,
+                        false,
+                        0,
+                        out stopResetReason);
+                    controller.CancelInputStageRunReviewAction();
+                    controller.TryExitInputStageRunReviewManual(Context, false, out sessionReason);
+                    WriteLog("InputStageRunReview",
+                        "CYCLE STOP 요청으로 사용자 확인 대기를 종료했습니다. wafer=" +
+                        (reviewWafer.WaferId ?? "") + ", slot=" + _autoSlotIndex + " - Stop");
+                    Context.StopIfCycleStopRequested("InputSequence.InputStageRunReviewConfirm");
+                    throw new SequenceStopException(
+                        "InputStage Review 사용자 확인 대기 중 CYCLE STOP 요청으로 안전 정지합니다.");
+                }
+
                 InputStageRunReviewDecision decision = reviewResult != null && reviewResult.IsConfirmed
                     ? InputStageRunReviewDecision.ConfirmAndContinue
                     : (reviewResult != null ? reviewResult.Decision : InputStageRunReviewDecision.RetryAlign);

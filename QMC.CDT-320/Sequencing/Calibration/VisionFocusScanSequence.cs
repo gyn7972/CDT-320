@@ -182,7 +182,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (prepareResult != 0)
                     return prepareResult;
 
-                int result = await MoveScanAxisAndVerifyAsync(_request.DefaultPosition, ct).ConfigureAwait(false);
+                // [측정/준비 분리 2026-08-06] Default 위치로만 가는 단독 이동 — 측정이 아니므로 안전이동.
+                int result = await MoveScanAxisAndVerifyAsync(_request.DefaultPosition, ct, false).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -653,11 +654,17 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (stage.CameraX.IsAtTargetPosition(target, 0.0))
                     return 0;
 
+                // [안전이동 적용 2026-08-06] Avoid 이동이므로 축 Default × SafeMovePercent 로 감속한다.
+                // 기존 조건: 로그와 명령 모두 _request.MoveVelocity(스캔 파라미터)를 썼다.
+                double avoidVelocity, avoidAcceleration, avoidDeceleration;
+                ResolveStagingMotion(stage.CameraX, "InputVisionX Avoid 이동",
+                    out avoidVelocity, out avoidAcceleration, out avoidDeceleration);
+
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalStartSafe",
                     "Vision Focus Cal InputVisionX Avoid 이동. target=" + target.ToString("F6") +
-                    ", velocity=" + _request.MoveVelocity.ToString("F6") +
-                    ", acceleration=" + _request.MoveAcceleration.ToString("F6") +
-                    ", deceleration=" + _request.MoveDeceleration.ToString("F6") +
+                    ", velocity=" + avoidVelocity.ToString("F6") +
+                    ", acceleration=" + avoidAcceleration.ToString("F6") +
+                    ", deceleration=" + avoidDeceleration.ToString("F6") +
                     ", timeoutMs=" + ResolveMotionTimeoutMs() +
                     ", speedScalePercent=" + MotionSpeedScale.ScalePercent.ToString("F3") +
                     ", effectiveScaleFactor=" + MotionSpeedScale.EffectiveScaleFactor.ToString("F6"));
@@ -665,9 +672,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                 int result = await stage.MoveInputStageAxisCommandWithMotion(
                     WaferStageAxis.VisionX,
                     target,
-                    _request.MoveVelocity,
-                    _request.MoveAcceleration,
-                    _request.MoveDeceleration).ConfigureAwait(false);
+                    avoidVelocity,
+                    avoidAcceleration,
+                    avoidDeceleration).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-MOVE", "InputStageUnit", "InputCamera Avoid \uC774\uB3D9 \uBA85\uB839 \uC2E4\uD328. result=" + result + ", target=" + target.ToString("F3"));
 
@@ -710,20 +717,26 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (stage.OutputCameraX.IsAtTargetPosition(target, 0.0))
                     return 0;
 
+                // [안전이동 적용 2026-08-06] Avoid 이동이므로 축 Default × SafeMovePercent 로 감속한다.
+                // 기존 조건: 로그와 명령 모두 _request.MoveVelocity(스캔 파라미터)를 썼다.
+                double avoidVelocity, avoidAcceleration, avoidDeceleration;
+                ResolveStagingMotion(stage.OutputCameraX, "OutputVisionX Avoid 이동",
+                    out avoidVelocity, out avoidAcceleration, out avoidDeceleration);
+
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalStartSafe",
                     "Vision Focus Cal OutputVisionX Avoid 이동. actual=" + stage.OutputCameraX.ActualPosition.ToString("F6") +
-                    ", velocity=" + _request.MoveVelocity.ToString("F6") +
-                    ", acceleration=" + _request.MoveAcceleration.ToString("F6") +
-                    ", deceleration=" + _request.MoveDeceleration.ToString("F6") +
+                    ", velocity=" + avoidVelocity.ToString("F6") +
+                    ", acceleration=" + avoidAcceleration.ToString("F6") +
+                    ", deceleration=" + avoidDeceleration.ToString("F6") +
                     ", timeoutMs=" + ResolveMotionTimeoutMs() +
                     ", speedScalePercent=" + MotionSpeedScale.ScalePercent.ToString("F3") +
                     ", effectiveScaleFactor=" + MotionSpeedScale.EffectiveScaleFactor.ToString("F6"));
 
                 int result = await stage.MoveVisionXToAvoidAndVerifyAsync(
                     ResolveMotionTimeoutMs(),
-                    _request.MoveVelocity,
-                    _request.MoveAcceleration,
-                    _request.MoveDeceleration,
+                    avoidVelocity,
+                    avoidAcceleration,
+                    avoidDeceleration,
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-FOCUS-CAL-OUTPUT-CAMERA-MOVE", "OutputStageUnit", "OutputCamera Avoid 이동 실패. result=" + result);
@@ -1125,16 +1138,16 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             int result = await MoveFrontPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ0, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ1, result=" + result);
+                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ0, result=" + result);
             result = await MoveFrontPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ1, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ2, result=" + result);
+                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ1, result=" + result);
             result = await MoveFrontPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ2, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ3, result=" + result);
+                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ2, result=" + result);
             result = await MoveFrontPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ3, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ4, result=" + result);
+                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ3, result=" + result);
             return 0;
         }
 
@@ -1142,16 +1155,16 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             int result = await MoveRearPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ0, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ2, result=" + result);
+                return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ0, result=" + result);
             result = await MoveRearPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ1, positionName, ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ1, result=" + result);
             result = await MoveRearPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ2, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ3, result=" + result);
+                return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ2, result=" + result);
             result = await MoveRearPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ3, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ4, result=" + result);
+                return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ3, result=" + result);
             return 0;
         }
 
@@ -1199,12 +1212,18 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return 0;
             }
 
+            // [안전이동 적용 2026-08-06] 준비 이동이므로 축 Default × SafeMovePercent 로 감속한다.
+            // 기존 조건: _request.MoveVelocity(스캔 파라미터)를 그대로 넘겼다 — 준비 이동이 스캔 속도로 돌았다.
+            double stagingVelocity, stagingAcceleration, stagingDeceleration;
+            ResolveStagingMotion(item, "FrontPicker " + axis + " 준비 이동",
+                out stagingVelocity, out stagingAcceleration, out stagingDeceleration);
+
             int result = await _machine.PickerFrontUnit.MovePickerAxisCommandWithMotion(
                 axis,
                 target,
-                _request.MoveVelocity,
-                _request.MoveAcceleration,
-                _request.MoveDeceleration,
+                stagingVelocity,
+                stagingAcceleration,
+                stagingDeceleration,
                 targetName,
                 true).ConfigureAwait(false);
             if (result != 0)
@@ -1233,12 +1252,18 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return 0;
             }
 
+            // [안전이동 적용 2026-08-06] 준비 이동이므로 축 Default × SafeMovePercent 로 감속한다.
+            // 기존 조건: _request.MoveVelocity(스캔 파라미터)를 그대로 넘겼다 — 준비 이동이 스캔 속도로 돌았다.
+            double stagingVelocity, stagingAcceleration, stagingDeceleration;
+            ResolveStagingMotion(item, "RearPicker " + axis + " 준비 이동",
+                out stagingVelocity, out stagingAcceleration, out stagingDeceleration);
+
             int result = await _machine.PickerRearUnit.MovePickerAxisCommandWithMotion(
                 axis,
                 target,
-                _request.MoveVelocity,
-                _request.MoveAcceleration,
-                _request.MoveDeceleration,
+                stagingVelocity,
+                stagingAcceleration,
+                stagingDeceleration,
                 targetName,
                 true).ConfigureAwait(false);
             if (result != 0)
@@ -1300,6 +1325,64 @@ namespace QMC.CDT320.Sequencing.Calibration
             return axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
                 ? axis.Config.InPositionTolerance
                 : 0.05;
+        }
+
+        // ============================================================================
+        // [안전이동 적용 2026-08-06]  ★실장비 미검증 — 실장비에서 테스트 필요★
+        //
+        // 사용자 지시(2026-08-06):
+        //   "동작시에 Z축 공정을 하기 위한 위치로 이동할때는 기존 Cal 이동 속도로 동작해야하고
+        //    실제 Z축 동작만 파라미터에 있는 공정 속도로 동작해야돼."
+        //   "캘의 측정 이동 = 각 화면의 파라미터 속도가 적용되는 것 = Z축만이야.
+        //    캘할때 X, Y 이동은 전부 안전 위치 이동이라고 보면돼."
+        //   → 확정: 캘 이동은 전부 안전이동(축 Default × SafeMovePercent),
+        //           예외는 "실제 측정 Z 스트로크" 하나뿐(2단 구조).
+        //
+        // 기존 문제:
+        //   VisionFocusScanSequence 는 PickerSequenceBase 를 상속하지 않는 독립 클래스라
+        //   useSafeMoveMotion 경로도, CalibrationSafeMoveMotion 헬퍼도 쓰지 않았다.
+        //   그래서 자체 구현한 MoveFront/RearPickerAxisAndVerifyAsync 가
+        //   준비 이동(픽커 X/Y/Z/T 전부)에까지 _request.MoveVelocity(스캔용, 기본 30)를 넘겼다.
+        //   → Bottom 위치로 진입하는 모든 이동이 스캔 속도로 돌고 있었다(안전이동 0/6).
+        //
+        // 이 함수:
+        //   준비 이동용 모션을 돌려준다. SafeMovePercent 가 유효하면 축 Default × % 로 감속하고,
+        //   읽지 못하면 기존 스캔 파라미터로 폴백한다(fail-safe — 동작은 하되 로그로 드러낸다).
+        //   측정 스트로크는 이 함수를 쓰지 않고 _request.MoveVelocity 를 그대로 사용한다.
+        // ============================================================================
+        private bool ResolveStagingMotion(
+            BaseAxis axis,
+            string description,
+            out double velocity,
+            out double acceleration,
+            out double deceleration)
+        {
+            velocity = _request.MoveVelocity;
+            acceleration = _request.MoveAcceleration;
+            deceleration = _request.MoveDeceleration;
+
+            double safePercent = CalibrationSafeMoveMotion.ResolvePercent(_machine);
+            bool applied = CalibrationSafeMoveMotion.TryResolveAxisMotion(
+                axis, safePercent, ref velocity, ref acceleration, ref deceleration);
+
+            if (applied)
+            {
+                CalibrationSafeMoveMotion.LogAxisSafeMove(
+                    "VisionFocusScanSequence", description, safePercent, true,
+                    velocity, acceleration, deceleration);
+            }
+            else
+            {
+                // 준비 이동인데 안전이동이 안 걸린 경우 — 축 Config 누락이거나 SafeMovePercent 미설정.
+                CalibrationSafeMoveMotion.LogSafeMoveMiss(
+                    "VisionFocusScanSequence",
+                    axis != null ? axis.Name : "-",
+                    description,
+                    safePercent,
+                    velocity);
+            }
+
+            return applied;
         }
 
         private static bool IsAxisIdleAtExactPosition(BaseAxis axis, double target)
@@ -1847,7 +1930,9 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             try
             {
-                int result = await MoveScanAxisAndVerifyAsync(position, ct).ConfigureAwait(false);
+                // [측정/준비 분리 2026-08-06] ★실제 스캔 스트로크★ — 화면 파라미터(MoveVelocity) 속도를 쓴다.
+                // 이 한 곳만 측정 속도이고, 나머지 캘 이동은 전부 안전이동(%)이다.
+                int result = await MoveScanAxisAndVerifyAsync(position, ct, true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -2015,7 +2100,8 @@ namespace QMC.CDT320.Sequencing.Calibration
             try
             {
                 ct.ThrowIfCancellationRequested();
-                int result = await MoveScanAxisAndVerifyAsync(_request.DefaultPosition, ct).ConfigureAwait(false);
+                // [측정/준비 분리 2026-08-06] 스캔 후 Default 복귀 — 측정이 아니므로 안전이동.
+                int result = await MoveScanAxisAndVerifyAsync(_request.DefaultPosition, ct, false).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -2035,15 +2121,27 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
-        private async Task<int> MoveScanAxisAndVerifyAsync(double position, CancellationToken ct)
+        // ============================================================================
+        // [측정/준비 분리 2026-08-06]  ★실장비 미검증 — 실장비에서 테스트 필요★
+        //
+        // 이 헬퍼는 호출부 3곳이 역할이 다른데 전부 같은 속도(_request.MoveVelocity)를 썼다.
+        //   · MoveAndMeasureStep (:1932)  → 실제 스캔 스트로크   → 측정 속도(화면 파라미터)
+        //   · ReturnDefaultStep  (:2100)  → 스캔 후 Default 복귀 → 안전이동
+        //   · MoveDefaultOnly    (:185)   → Default 위치 단독 이동 → 안전이동
+        //
+        // 사용자 확정 규칙(2026-08-06): 측정 Z 스트로크만 화면 파라미터 속도, 나머지는 전부 안전이동.
+        // 그래서 scanMotion 인자로 역할을 명시하게 한다. 기본값을 주지 않아
+        // 새 호출부가 생기면 컴파일 단계에서 역할을 판단하도록 강제한다(누락 방지).
+        // ============================================================================
+        private async Task<int> MoveScanAxisAndVerifyAsync(double position, CancellationToken ct, bool scanMotion)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
                 if (IsBottomFocusKind())
-                    return await MovePickerZAndVerifyAsync(position, ct).ConfigureAwait(false);
+                    return await MovePickerZAndVerifyAsync(position, ct, scanMotion).ConfigureAwait(false);
 
-                return await MoveSideVisionYAndVerifyAsync(position, ct).ConfigureAwait(false);
+                return await MoveSideVisionYAndVerifyAsync(position, ct, scanMotion).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -2059,7 +2157,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
-        private async Task<int> MovePickerZAndVerifyAsync(double position, CancellationToken ct)
+        private async Task<int> MovePickerZAndVerifyAsync(double position, CancellationToken ct, bool scanMotion)
         {
             PickerAxis axis = ResolvePickerZAxis();
             int result;
@@ -2074,12 +2172,20 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return 0;
                 }
 
+                // [측정/준비 분리 2026-08-06] 스캔 스트로크만 측정 속도, 그 외(Default 복귀 등)는 안전이동.
+                double zVelocity = _request.MoveVelocity;
+                double zAcceleration = _request.MoveAcceleration;
+                double zDeceleration = _request.MoveDeceleration;
+                if (!scanMotion)
+                    ResolveStagingMotion(pickerZ, "FrontPicker " + axis + " Default 복귀",
+                        out zVelocity, out zAcceleration, out zDeceleration);
+
                 result = await _machine.PickerFrontUnit.MovePickerAxisCommandWithMotion(
                     axis,
                     position,
-                    _request.MoveVelocity,
-                    _request.MoveAcceleration,
-                    _request.MoveDeceleration,
+                    zVelocity,
+                    zAcceleration,
+                    zDeceleration,
                     ResolveBottomMotionCommandTag(),
                     true).ConfigureAwait(false);
                 if (result != 0)
@@ -2102,12 +2208,20 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return 0;
                 }
 
+                // [측정/준비 분리 2026-08-06] 스캔 스트로크만 측정 속도, 그 외(Default 복귀 등)는 안전이동.
+                double zVelocity = _request.MoveVelocity;
+                double zAcceleration = _request.MoveAcceleration;
+                double zDeceleration = _request.MoveDeceleration;
+                if (!scanMotion)
+                    ResolveStagingMotion(pickerZ, "RearPicker " + axis + " Default 복귀",
+                        out zVelocity, out zAcceleration, out zDeceleration);
+
                 result = await _machine.PickerRearUnit.MovePickerAxisCommandWithMotion(
                     axis,
                     position,
-                    _request.MoveVelocity,
-                    _request.MoveAcceleration,
-                    _request.MoveDeceleration,
+                    zVelocity,
+                    zAcceleration,
+                    zDeceleration,
                     ResolveBottomMotionCommandTag(),
                     true).ConfigureAwait(false);
                 if (result != 0)
@@ -2124,7 +2238,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             return 0;
         }
 
-        private async Task<int> MoveSideVisionYAndVerifyAsync(double position, CancellationToken ct)
+        private async Task<int> MoveSideVisionYAndVerifyAsync(double position, CancellationToken ct, bool scanMotion)
         {
             VisionAxis axis = ResolveSideVisionAxis();
             BaseAxis visionAxis = _machine.VisionUnit.ResolveVisionAxis(axis);
@@ -2135,21 +2249,29 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return 0;
             }
 
+            // [측정/준비 분리 2026-08-06] 스캔 스트로크만 측정 속도, 그 외(Default 복귀 등)는 안전이동.
+            double yVelocity = _request.MoveVelocity;
+            double yAcceleration = _request.MoveAcceleration;
+            double yDeceleration = _request.MoveDeceleration;
+            if (!scanMotion)
+                ResolveStagingMotion(visionAxis, "SideVision " + axis + " Default 복귀",
+                    out yVelocity, out yAcceleration, out yDeceleration);
+
             int result = await _machine.VisionUnit.MoveVisionAxisCommandWithMotion(
                 axis,
                 position,
-                _request.MoveVelocity,
-                _request.MoveAcceleration,
-                _request.MoveDeceleration,
+                yVelocity,
+                yAcceleration,
+                yDeceleration,
                 "VisionFocusCal;Side",
                 true).ConfigureAwait(false);
             if (result != 0)
                 return Fail("VISION-FOCUS-CAL-SIDE-Y-MOVE", "VisionFocusScanSequence",
                     "Focus 스캔 SideVisionY 이동 명령 실패. axis=" + axis +
                     ", position=" + position +
-                    ", velocity=" + _request.MoveVelocity +
-                    ", acc=" + _request.MoveAcceleration +
-                    ", dec=" + _request.MoveDeceleration +
+                    ", velocity=" + yVelocity +
+                    ", acc=" + yAcceleration +
+                    ", dec=" + yDeceleration +
                     ", result=" + result);
 
             int wait = await WaitAxisMoveDoneInPositionAsync(visionAxis, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);

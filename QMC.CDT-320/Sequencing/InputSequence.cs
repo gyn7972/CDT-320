@@ -212,6 +212,7 @@ namespace QMC.CDT320.Sequencing
                         if (stageWafer != null && Mode == SequenceRunMode.Auto)
                         {
                             ColletCleaningTriggerService.NotifyWaferExchanged();
+                            ColletCleaningTriggerService.NotifyWaferProcessed();
                             int cleaningResult = await ColletCleaningTriggerService
                                 .RunIfTriggeredAsync(Context, ct)
                                 .ConfigureAwait(false);

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.VisionComm;
+using QMC.Common.Alarms;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 
@@ -144,7 +145,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                     Result.NeedleXToVisionXOffset.ToString("F6") +
                     ", needleYToVisionY=" + Result.NeedleYToVisionYOffset.ToString("F6") +
                     ", visionOffsetX=" + Result.VisionOffsetX.ToString("F6") +
-                    ", visionOffsetY=" + Result.VisionOffsetY.ToString("F6"));
+                    ", visionOffsetY=" + Result.VisionOffsetY.ToString("F6") +
+                    // 의도된 잔류: NeedleZ/EjectPinZ는 측정 위치(NeedlePinCalPosition)에 그대로 남는다.
+                    // 복귀는 다이얼로그 READY 버튼(MoveInputStageToProcessAsync)이 담당한다.
+                    ". NeedleZ/EjectPinZ는 측정 위치에 잔류합니다 - READY로 복귀하세요.");
                 return 0;
             }
             catch (OperationCanceledException)
@@ -658,6 +662,8 @@ namespace QMC.CDT320.Sequencing.Calibration
             Result.Success = false;
             Result.Message = message;
             EventLogger.Write(EventKind.Alarm, "CAL", "NEEDLE-PIN-CAL", message);
+            // 형제 시퀀스(NeedleCalibrationSequence.Fail)와 동일한 알람 계약: 타워램프/알람 팝업까지 올린다.
+            AlarmManager.Raise(AlarmSeverity.Error, "NEEDLE-PIN-CAL", "NeedlePinCalibration", message);
             return -1;
         }
     }

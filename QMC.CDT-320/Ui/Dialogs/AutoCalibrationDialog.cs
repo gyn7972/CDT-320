@@ -104,6 +104,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!_busy)
                     return;
 
+                // 사용자가 직접 닫을 때(UserClosing)만 창을 붙잡는다.
+                // 앱/Windows/소유자(Form1) 종료 경로에서 e.Cancel을 세우면 Form1 종료가 취소되어
+                // 프로그램을 끌 수 없게 된다(소유 폼에는 FormOwnerClosing으로 전달됨).
+                if (e.CloseReason != CloseReason.UserClosing)
+                {
+                    RequestStop("Auto Calibration 창 종료(" + e.CloseReason + ")");
+                    return;
+                }
+
                 DialogResult result = QMC.Common.MessageDialog.Show(this,
                     "Auto Calibration이 실행 중입니다. 정지 요청 후 창을 닫을까요?",
                     "AUTO CALIBRATION",
@@ -121,7 +130,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                e.Cancel = true;
+                if (e.CloseReason == CloseReason.UserClosing)
+                    e.Cancel = true;
                 EventLogger.Write(EventKind.Alarm, "UI", "AUTO-CAL-CLOSE",
                     "Auto Calibration 창 종료 확인 중 예외가 발생했습니다. error=" + ex.Message);
             }

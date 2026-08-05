@@ -3118,6 +3118,22 @@ namespace QMC.CDT320.Sequencing
                     ", speedScalePercent=" + MotionSpeedScale.ScalePercent.ToString("F3") +
                     ", effectiveScaleFactor=" + MotionSpeedScale.EffectiveScaleFactor.ToString("F6") +
                     ", explicitVelocityNotDefaultScaled=True - Check");
+
+                // [안전이동 누락 감시 2026-08-06] 캘 컨텍스트에서 안전이동이 적용되지 않은 이동을 드러낸다.
+                // 사용자 확정 규칙: 캘 이동은 전부 안전이동(%)이고, 예외는 각 캘의 "측정 Z 스트로크"뿐이다.
+                // 그래서 측정 Z가 아닌데 여기 걸리면 useSafeMoveMotion 누락이다.
+                // 측정 Z 스트로크는 IsCalibrationMeasurementAxis 로 각 캘이 선언해 감시에서 제외한다.
+                // (기본 구현은 false — 선언하지 않은 캘은 전부 감시 대상이 되어 누락이 드러난다.)
+                if (!safeMoveApplied && !IsCalibrationMeasurementAxis(axis))
+                {
+                    QMC.CDT320.Sequencing.Calibration.CalibrationSafeMoveMotion.LogSafeMoveMiss(
+                        Name,
+                        axis.ToString(),
+                        targetName ?? target.ToString("F3"),
+                        safePercent,
+                        velocity);
+                }
+
                 if (Side == PickerSequenceSide.Front)
                     return FrontPicker.MovePickerAxisCommandWithMotion(
                         axis,
@@ -3142,6 +3158,26 @@ namespace QMC.CDT320.Sequencing
             if (Side == PickerSequenceSide.Front)
                 return FrontPicker.MovePickerAxisCommand(axis, target, fine, targetName, forceMove);
             return RearPicker.MovePickerAxisCommand(axis, target, fine, targetName, forceMove);
+        }
+
+        // ============================================================================
+        // [측정축 선언 2026-08-06] 사용자 확정 규칙(2026-08-06):
+        //   "캘의 측정 이동 = 각 화면의 파라미터 속도가 적용되는 것 = Z축만이다.
+        //    캘할 때 X, Y 이동은 전부 안전위치 이동이라고 보면 된다."
+        //
+        // 따라서 캘 컨텍스트의 이동은 전부 안전이동(축 Default × SafeMovePercent)이 원칙이고,
+        // 예외는 각 캘이 실제로 "측정하는" Z축 스트로크뿐이다.
+        //
+        // 주의: 축 이름에 Z가 들어간다고 측정축인 것이 아니다.
+        //       예) PICKUP Z CAL 의 WaferExpandingZ 는 웨이퍼 확장 스테이지 Z 로 측정축이 아니다.
+        //       그래서 이름 규칙으로 자동 판정하지 않고, 각 캘이 명시적으로 override 해 선언한다.
+        //
+        // 기본값 false = "측정축 없음". 선언하지 않은 캘은 모든 이동이 감시(CAL-SAFEMOVE-MISS)
+        // 대상이 되므로 누락이 조용히 넘어가지 않는다(fail-loud).
+        // ============================================================================
+        protected virtual bool IsCalibrationMeasurementAxis(PickerAxis axis)
+        {
+            return false;
         }
 
         // 캘리브레이션 안전이동(Avoid) 전용 퍼센트를 장비 설정에서 라이브로 읽는다. 계산은 각 축 Config.Default × (%/100).

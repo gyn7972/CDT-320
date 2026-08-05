@@ -115,6 +115,11 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyOutputTransportClear(machine, "OutputGoodStageY", out reason))
                 return false;
 
+            // 자동 GoodStageY에는 PickerZ 하강 조건을 걸지 않는다.
+            // 연속 Place(PickerPlaceSequence.ContiPlace)가 StageY 이동과 PickerZ 하강/후퇴를 의도적으로
+            // 동시에 수행하므로(NearAvoid 경유), 여기서 차단하면 정상 생산이 매 다이마다 멈춘다.
+            // 하강 잔류 픽커 보호는 수동 이동 경로(CanManualOutputGoodStageY)에서만 적용한다.
+
             return VerifyOutputStageNotBusy(stage, "OutputGoodStageY", out reason);
         }
 
@@ -458,6 +463,9 @@ namespace QMC.CDT320.Interlocks
                     "OutputNGStageY 이동 불가: NG StageY 이동 전 GoodStageZ가 반드시 Avoid 위치여야 합니다.",
                     out reason);
 
+            // 자동 NGStageY에도 PickerZ 하강 조건을 걸지 않는다(위 CanAutoOutputGoodStageY와 동일 이유:
+            // 연속 Place가 StageY 이동과 PickerZ 하강/후퇴를 동시에 수행한다).
+
             return VerifyOutputStageNotBusy(stage, "OutputNGStageY", out reason);
         }
 
@@ -779,6 +787,11 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageY", out reason))
                     return false;
 
+                // 인터락 조건: Output 존 PickerZ가 하강 상태면 GoodStageY 수동 이동을 차단한다(하강 잔류 픽커 팁 보호).
+                if (!PickerZoneInterlockRules.VerifyPickerZSafeForZoneStageYMove(
+                    machine, PickerWorkZone.Output, "OutputGoodStageY", out reason))
+                    return false;
+
                 return true;
             }
             catch (System.Exception ex)
@@ -891,6 +904,11 @@ namespace QMC.CDT320.Interlocks
 
                 // 인터락 조건: OutputFeeder 과부하가 감지되면 NGStageY 수동 이동을 차단한다.
                 if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputNGStageY", out reason))
+                    return false;
+
+                // 인터락 조건: Output 존 PickerZ가 하강 상태면 NGStageY 수동 이동을 차단한다(하강 잔류 픽커 팁 보호).
+                if (!PickerZoneInterlockRules.VerifyPickerZSafeForZoneStageYMove(
+                    machine, PickerWorkZone.Output, "OutputNGStageY", out reason))
                     return false;
 
                 return true;

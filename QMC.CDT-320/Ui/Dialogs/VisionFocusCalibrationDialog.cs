@@ -437,6 +437,25 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (record == null)
                 return;
 
+            // BEST 위치 직접 수정은 실측 없이 캘리브레이션 값을 바꾸는 조작이며 즉시 저장된다.
+            // NeedlePinCalibrationDialog의 결과값 수동 수정과 동일하게 Admin 권한 + 명시적 확인을 요구한다.
+            if (!UserSession.Has(UserLevel.Admin))
+            {
+                lblStatus.Text = "Admin 권한에서만 BEST 위치를 수동 수정할 수 있습니다.";
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "SIDE VISION FOCUS CAL",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (QMC.Common.MessageDialog.Show(
+                    this,
+                    "BEST 위치를 수동으로 덮어씁니다.\r\n" +
+                    "실제 측정 없이 캘리브레이션 값을 바꾸는 조작이며 즉시 저장됩니다.\r\n\r\n진행할까요?",
+                    "SIDE VISION FOCUS CAL",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning) != DialogResult.Yes)
+                return;
+
             _busy = true;
             try
             {
@@ -642,6 +661,65 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void btnClose_Click(object sender, EventArgs e)
         {
             Close();
+        }
+
+        // 실행 중 X/Alt+F4로 창이 닫혀 시퀀스가 화면 없이 계속 도는 것을 막는다.
+        // 단 사용자가 직접 닫을 때(UserClosing)만 붙잡는다 — 앱/Windows/소유자(Form1) 종료 경로에서
+        // e.Cancel을 세우면 Form1 종료가 취소되어 프로그램을 끌 수 없게 된다.
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            try
+            {
+                if (_busy)
+                {
+                    if (e.CloseReason != CloseReason.UserClosing)
+                    {
+                        RequestRunCancelForClose("Vision Focus Calibration 창 종료(" + e.CloseReason + ")");
+                        base.OnFormClosing(e);
+                        return;
+                    }
+
+                    DialogResult result = QMC.Common.MessageDialog.Show(this,
+                        "Vision Focus Calibration이 실행 중입니다. 정지 요청 후 창을 닫을까요?",
+                        "VISION FOCUS CAL",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning);
+                    if (result == DialogResult.Yes)
+                    {
+                        RequestRunCancelForClose("Vision Focus Calibration 창 닫기");
+                        lblStatus.Text = "정지 처리 중입니다. 완료 후 창을 닫으세요.";
+                    }
+
+                    e.Cancel = true;
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (e.CloseReason == CloseReason.UserClosing)
+                    e.Cancel = true;
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "UI", "VISION-FOCUS-CAL-CLOSE",
+                    "Vision Focus Calibration 창 종료 확인 중 예외가 발생했습니다. error=" + ex.Message);
+                if (e.Cancel)
+                    return;
+            }
+
+            base.OnFormClosing(e);
+        }
+
+        private void RequestRunCancelForClose(string reason)
+        {
+            try
+            {
+                CancellationTokenSource cts = _runCts;
+                if (cts != null)
+                    cts.Cancel();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "UI", "VISION-FOCUS-CAL-CLOSE-CANCEL",
+                    reason + " 중 정지 요청 실패: " + ex.Message);
+            }
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)

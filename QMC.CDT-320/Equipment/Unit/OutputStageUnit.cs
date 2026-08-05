@@ -2909,14 +2909,22 @@ namespace QMC.CDT320
                     ? item.Config.InPositionTolerance
                     : 0.001;
 
+                // [진단 보강 2026-08-05] inpos/command/sim 을 추가한다.
+                // 기존 조건: servo/alarm/moving/actual/target/tolerance 만 찍었다.
+                //           OUT-BARCODE-VISION-AVOID 는 INP 때문에 실패했는데 INP 가 메시지에 없어서
+                //           "전부 정상인데 실패"로 읽혔고 원인 파악에 시간이 걸렸다.
+                //           판정에 쓰는 값은 전부 메시지에 남긴다.
                 return axis +
                        "[name=" + item.Name +
                        ", servo=" + (item.IsServoOn ? "ON" : "OFF") +
                        ", alarm=" + (item.IsAlarm ? "ON" : "OFF") +
                        ", moving=" + (item.IsMoving ? "Y" : "N") +
+                       ", inpos=" + (item.IsInPosition ? "Y" : "N") +
                        ", actual=" + item.ActualPosition +
+                       ", command=" + item.CommandPosition +
                        ", target=" + target +
                        ", tolerance=" + tolerance +
+                       ", sim=" + (item.Config != null && item.Config.IsSimulationMode) +
                        "]";
             }
             catch (Exception ex)

@@ -1597,6 +1597,10 @@
       <Link>Resources\axis-position.ico</Link>
       <LogicalName>QMC.CDT_320.Resources.axis-position.ico</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="..\QMC.Common\Resources\Logo.ico">
+      <Link>Resources\Logo.ico</Link>
+      <LogicalName>QMC.CDT_320.Resources.Logo.ico</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

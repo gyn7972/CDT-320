@@ -59,6 +59,55 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
+        // 공정 수 계수는 Place 완료마다 호출되므로 설정/상태 파일에 접근하지 않는다(택트 영향).
+        // 메모리에만 누적하고, 트리거 판정 시점(RunIfTriggeredAsync)에서 설정 단위에 맞는 쪽만 상태에 반영한다.
+        // 판정은 어차피 "웨이퍼 로딩 완료 후 첫 Pick 전" 창에서만 가능하므로 반영 시점이 늦어도 기능 손실이 없다.
+        private static int _pendingDieCount;
+        private static int _pendingWaferCount;
+
+        /// <summary>Die 1개 Place 완료를 계수한다(공정 수 단위가 Die일 때 판정 시점에 반영된다).</summary>
+        public static void NotifyDiePlaced()
+        {
+            Interlocked.Increment(ref _pendingDieCount);
+        }
+
+        /// <summary>Wafer 1장 공정 진입을 계수한다(공정 수 단위가 Wafer일 때 판정 시점에 반영된다).</summary>
+        public static void NotifyWaferProcessed()
+        {
+            Interlocked.Increment(ref _pendingWaferCount);
+        }
+
+        /// <summary>
+        /// 메모리에 누적된 공정 수를 설정 단위에 맞는 쪽만 상태에 반영한다(판정 직전 1회).
+        /// 두 카운터는 반영 여부와 무관하게 비운다(사용하지 않는 단위의 누적치가 남아 있지 않도록).
+        /// </summary>
+        private static void ApplyPendingProcessCounts(ColletCleaningSettings settings, ColletCleaningTriggerState state)
+        {
+            // 설정/상태를 못 읽으면 누적치를 비우지 않는다(다음 기회에 반영되도록 보존).
+            if (settings == null || state == null)
+                return;
+
+            int dieDelta = Interlocked.Exchange(ref _pendingDieCount, 0);
+            int waferDelta = Interlocked.Exchange(ref _pendingWaferCount, 0);
+
+            try
+            {
+                int delta = settings.ProcessCountUnit == ColletCleaningProcessCountUnit.Wafer
+                    ? waferDelta
+                    : dieDelta;
+                if (delta <= 0)
+                    return;
+
+                state.ProcessCount = state.ProcessCount + delta;
+                ColletCleaningTriggerStateStore.Save();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CLEAN-TRIGGER",
+                    "콜렛 클리닝 공정 계수 반영 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+        }
+
         /// <summary>Auto 운전 시작 시 호출한다. Auto 시작 트리거 처리 여부를 리셋한다.</summary>
         public static void NotifyAutoRunStarted()
         {
@@ -91,10 +140,15 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return 0;
 
                 ColletCleaningSettings settings = ResolveSettings();
+                ColletCleaningTriggerState state = ColletCleaningTriggerStateStore.Current;
+
+                // Place 완료마다 메모리에 모아둔 공정 수를 여기서 한 번에 상태로 반영한다.
+                // (선택 콜렛이 없어 아래에서 조기 반환하는 경우에도 누적치가 무한히 남지 않도록 먼저 처리한다.)
+                ApplyPendingProcessCounts(settings, state);
+
                 if (settings == null || !settings.HasAnySelection())
                     return 0;
 
-                ColletCleaningTriggerState state = ColletCleaningTriggerStateStore.Current;
                 string reason;
                 if (!TryResolveTriggerReason(settings, state, out reason))
                     return 0;

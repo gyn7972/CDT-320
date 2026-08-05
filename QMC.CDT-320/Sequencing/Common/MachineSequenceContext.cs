@@ -62,6 +62,7 @@ namespace QMC.CDT320.Sequencing
         internal OutputPostPlaceInspectionQueue OutputPostPlaceInspections { get; private set; }
         internal WaferCompletionRunCoordinator WaferCompletion { get; private set; }
         private int _cycleStopRequested;
+        private CancellationTokenSource _cycleStopCts = new CancellationTokenSource();
 
         /// <summary>현재 자동 시퀀스가 사이클 경계에서 정지해야 하는지 여부입니다.</summary>
         public bool IsCycleStopRequested
@@ -69,11 +70,28 @@ namespace QMC.CDT320.Sequencing
             get { return Volatile.Read(ref _cycleStopRequested) != 0; }
         }
 
+        /// <summary>
+        /// CYCLE STOP 요청 시 취소되는 토큰입니다.
+        /// 경계 폴링(<see cref="StopIfCycleStopRequested(string)"/>)만으로는 이미 await에 진입한 대기를 깨울 수 없으므로,
+        /// 운영자 확인창·핸드셰이크처럼 중단해도 안전한 대기에만 이 토큰을 함께 관찰시킵니다.
+        /// 모션 완료 대기와 인터락 확인에는 사용하지 않습니다(진행 중 이동을 중간에 버리지 않기 위함).
+        /// </summary>
+        public CancellationToken CycleStopToken
+        {
+            get { return Volatile.Read(ref _cycleStopCts).Token; }
+        }
+
         /// <summary>CYCLE STOP 요청을 초기화합니다.</summary>
         public void ResetCycleStopRequest()
         {
             Interlocked.Exchange(ref _cycleStopRequested, 0);
             Bus.Reset("CycleStopRequested");
+
+            // 다음 Auto 실행이 이전 정지 요청을 물려받지 않도록 새 토큰으로 교체한다.
+            // 이전 CTS는 Dispose하지 않는다. 직전 실행의 잔여 Task가 CycleStopToken을 읽는 순간
+            // ObjectDisposedException이 발생해 정상 종료가 고장으로 바뀔 수 있기 때문이다.
+            // 링크되지 않은 단순 root CTS이고 WaitHandle을 쓰지 않으므로 GC 회수로 충분하다.
+            Interlocked.Exchange(ref _cycleStopCts, new CancellationTokenSource());
         }
 
         /// <summary>현재 진행 중인 큰 작업이 끝나는 지점에서 자동 시퀀스를 정지하도록 요청합니다.</summary>
@@ -81,6 +99,25 @@ namespace QMC.CDT320.Sequencing
         {
             Interlocked.Exchange(ref _cycleStopRequested, 1);
             Bus.Set("CycleStopRequested");
+
+            // 경계 폴링은 다음 Step으로 넘어갈 때만 동작한다. 운영자 확인창처럼 이미 대기 중인 지점은
+            // 토큰을 취소해야 깨어나므로 여기서 함께 취소한다. 깨어난 대기는 경계 정지 경로로 합류한다.
+            try
+            {
+                Volatile.Read(ref _cycleStopCts).Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        /// <summary>
+        /// 전달받은 취소 토큰과 <see cref="CycleStopToken"/>을 함께 관찰하는 링크 토큰을 만듭니다.
+        /// 반환된 객체는 반드시 <c>using</c>으로 해제합니다.
+        /// </summary>
+        public CancellationTokenSource CreateCycleStopLinkedSource(CancellationToken ct)
+        {
+            return CancellationTokenSource.CreateLinkedTokenSource(ct, CycleStopToken);
         }
 
         /// <summary>CYCLE STOP 요청이 있으면 지정한 경계에서 시퀀스를 정지합니다.</summary>

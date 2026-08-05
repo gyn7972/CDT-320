@@ -2321,6 +2321,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         wafer.DieIds.Clear();
                 }
 
+                // 이 편집은 Review 승인(HasInputStageRunReviewApproval)을 무효화하지 않는다.
+                // 승인 목록 "밖"의 die가 WAIT Target이 되면 생산 진입이 fail-closed로 막히지만,
+                // 승인 목록 "안"의 die를 비대상/Good/NG로 바꾸면 그 die가 조용히 픽업 순서에서 빠진다.
+                // 승인을 강제로 지우면 부분 픽업된 웨이퍼는 재승인이 거부되어 갇힐 수 있으므로
+                // (CommitInputStageRunReview가 예약/Pick 완료 die 포함을 거부) 여기서는 경고만 남긴다.
+                int approvalAffectingChanges = 0;
+                bool waferHasReviewApproval = wafer != null && wafer.HasInputStageRunReviewApproval;
+
                 foreach (DieMapEntry entry in map.Entries)
                 {
                     if (entry == null)
@@ -2330,6 +2338,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     int mapY = ResolveEntryMapY(entry);
 
                     DieMaterial die = MaterialStateService.GetOrCreateDieMaterial(entry.DieUid);
+                    if (waferHasReviewApproval &&
+                        (die.IsInputTarget != entry.IsTarget ||
+                         die.Result != (entry.IsTarget ? entry.Result : DieResult.Unknown)))
+                    {
+                        approvalAffectingChanges++;
+                    }
                     if (wafer != null)
                     {
                         die.WaferID_Input = wafer.WaferId;
@@ -2374,6 +2388,21 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     die.WaferOffset.R = 0.0;
                     die.WaferOffset.IsValid = true;
                     die.UpdatedAt = DateTime.Now;
+                }
+
+                if (approvalAffectingChanges > 0)
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Warning, "UI", "IN-MAP-EDIT-REVIEW-APPROVED",
+                        "InputStageMapTransfer",
+                        "Review 승인이 있는 웨이퍼의 Die 대상/판정을 수동 편집했습니다. " +
+                        "승인된 픽업 순서와 대상 집합이 달라졌을 수 있으니 Auto 재개 전 Review를 다시 확인하세요. " +
+                        "wafer=" + (wafer != null ? (wafer.WaferId ?? "-") : "-") +
+                        ", changedDies=" + approvalAffectingChanges +
+                        ", approvedOrderCount=" +
+                        (wafer != null && wafer.InputStageRunReviewOrderedDieIds != null
+                            ? wafer.InputStageRunReviewOrderedDieIds.Count
+                            : 0));
                 }
 
                 MaterialStateService.NotifyAndSave(string.IsNullOrWhiteSpace(saveReason)

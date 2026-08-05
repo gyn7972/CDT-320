@@ -1502,11 +1502,14 @@ namespace QMC.CDT320.Sequencing
                 // [NG 스킵 2026-07-27] NG 미사용 장비에 NG 카세트 교체를 요구하지 않는다.
                 if (IsNgCassetteUsed())
                     OutputCassetteOperatorMessageHelper.RequestReplacement(Context, BinSide.Ng, "NG 출력 카세트", reason);
-                Log.Write("Main", "SYSTEM", "OutputSequence", reason + " - Failed");
 
-                // Picker가 보유 Die를 가진 상태에서도 sibling 종료가 전파되도록 정상 SequenceStop이 아니라
-                // 명시적 unit failure로 처리한다. Coordinator가 CycleStop 경계 후 timeout abort까지 담당한다.
-                return Fail("OUT-STAGE-SUPPLY-UNAVAILABLE", "OutputSequence", reason);
+                // 출력 카세트 소진은 고장이 아니라 정상 작업 완료다.
+                // Fail()로 올리면 Coordinator가 "유닛 알람" 경로로 들어가 5초 뒤 형제 유닛을 강제 취소하고,
+                // 그 시점에 언로딩(Stage->Feeder->Cassette) 중이던 Input이 모션 도중에 끊긴다.
+                // 입력 카세트 소진(InputSequence.StopAutoSequenceIfInputCassetteComplete)과 동일하게
+                // 정상 정지로 처리하여 형제 유닛이 각자 안전 경계까지 마친 뒤 멈추게 한다.
+                // 형제 유닛으로의 정지 전파는 Coordinator의 SequenceStop 분기가 담당한다.
+                return StopAutoSequence(reason);
             }
             catch (SequenceStopException)
             {

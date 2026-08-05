@@ -8,6 +8,7 @@ using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
 using QMC.CDT320.Recipes;
 using QMC.CDT320.VisionComm;
+using QMC.Common.Logging;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
@@ -2090,7 +2091,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static DieMap ApplyInputPickupSequence(DieMap map)
+        private DieMap ApplyInputPickupSequence(DieMap map)
         {
             try
             {
@@ -2110,7 +2111,39 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static PickupSubset ResolveInputPickupSubset()
+        /// <summary>
+        /// 매핑이 사용한 픽업 옵션이 런타임 적용값(Controller.PickupOptions = 활성 레시피 적용 결과)과
+        /// 다르면 경고를 남긴다. 값 자체는 바꾸지 않는다 — 원인(마커/활성 레시피 불일치)을 드러내는 것이 목적이다.
+        /// </summary>
+        private void WarnIfInputPickupSubsetDiffersFromRuntime(PickupSubset resolved)
+        {
+            try
+            {
+                if (resolved == null || Context == null || Context.Controller == null)
+                    return;
+
+                PickupSubset runtime = Context.Controller.PickupOptions;
+                if (runtime == null)
+                    return;
+
+                if (runtime.StartCorner == resolved.StartCorner &&
+                    runtime.Direction == resolved.Direction &&
+                    runtime.Pattern == resolved.Pattern)
+                    return;
+
+                EventLogger.Write(EventKind.Warning, "SYS", "INPUT-PICKUP-SUBSET-MISMATCH", Name,
+                    "Die Mapping이 사용한 픽업 옵션이 런타임 적용값과 다릅니다. " +
+                    "마커(last project)와 활성 레시피가 어긋났을 수 있습니다. " +
+                    "mapping=(" + resolved.StartCorner + "," + resolved.Direction + "," + resolved.Pattern + ")" +
+                    ", runtime=(" + runtime.StartCorner + "," + runtime.Direction + "," + runtime.Pattern + ")");
+            }
+            catch
+            {
+                // 진단 목적이므로 실패해도 매핑을 막지 않는다.
+            }
+        }
+
+        private PickupSubset ResolveInputPickupSubset()
         {
             try
             {
@@ -2118,11 +2151,15 @@ namespace QMC.CDT320.Sequencing
                 if (project == null)
                     return new PickupSubset();
 
-                if (project.InputPickup != null)
-                    return project.InputPickup;
-                if (project.Pickup != null)
-                    return project.Pickup;
-                return new PickupSubset();
+                PickupSubset resolved = project.InputPickup ?? project.Pickup ?? new PickupSubset();
+
+                // 이 시퀀스는 last-project 마커(LoadLastOrDefault)를, Review 창은 활성 레시피를 읽는다.
+                // 정상 흐름(ApplyMachineRecipe → SaveLastProjectName)에서는 일치하지만 어긋날 수 있어
+                // 런타임 적용값과 대조해 경고만 남긴다. 반환값은 바꾸지 않는다
+                // (여기서 소스를 바꾸면 실장비 픽업 순서가 달라질 수 있고, 생산 순서는 어차피
+                //  Review 승인 OrderedDieIds가 지배하므로 이 불일치는 Review 전 표시에만 영향한다).
+                WarnIfInputPickupSubsetDiffersFromRuntime(resolved);
+                return resolved;
             }
             catch
             {
