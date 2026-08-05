@@ -295,7 +295,13 @@ namespace QMC.CDT320.Recipes
             catch { }
         }
 
-        /// <summary>마지막 로드된 프로젝트 파일명 (확장자 제외). 없으면 null.</summary>
+        // 파싱 가능성 검증 캐시 (파일명 + mtime → 결과) — 손상 파일 fail-closed 의미를 유지하면서
+        // 검증 파싱을 mtime당 1회로 제한한다.
+        private static string _validCacheFile;
+        private static DateTime _validCacheWriteUtc;
+        private static bool _validCacheResult;
+
+        /// <summary>마지막 로드된 프로젝트 파일명 (확장자 제외). 없거나 손상이면 null (fail-closed).</summary>
         public static string GetLastProjectName()
         {
             try
@@ -303,8 +309,27 @@ namespace QMC.CDT320.Recipes
                 if (!File.Exists(LastProjectMarkerPath)) return null;
                 var name = File.ReadAllText(LastProjectMarkerPath, Encoding.UTF8).Trim();
                 if (string.IsNullOrEmpty(name)) return null;
-                if (Load(name) == null) return null;   // 파일 사라졌으면 null
-                return name;
+                var path = ResolveProjectPath(name);
+                if (!File.Exists(path)) return null;   // 파일 사라졌으면 null
+
+                // [핫패스 2026-08-05 / 리뷰 반영] 기존 의미(손상 파일 → null → START 마커 게이트
+                // fail-closed)를 유지하되, 검증 파싱은 mtime이 바뀔 때 1회만 수행한다.
+                DateTime writeUtc = File.GetLastWriteTimeUtc(path);
+                lock (_lastCacheSync)
+                {
+                    if (string.Equals(_validCacheFile, name, StringComparison.OrdinalIgnoreCase) &&
+                        _validCacheWriteUtc == writeUtc)
+                        return _validCacheResult ? name : null;
+                }
+
+                bool parsable = Load(name) != null;
+                lock (_lastCacheSync)
+                {
+                    _validCacheFile = name;
+                    _validCacheWriteUtc = writeUtc;
+                    _validCacheResult = parsable;
+                }
+                return parsable ? name : null;
             }
             catch { return null; }
         }
@@ -313,10 +338,82 @@ namespace QMC.CDT320.Recipes
         public static RecipeProject LoadLastOrDefault()
         {
             var name = GetLastProjectName();
-            if (name != null) return Load(name);
+            if (name != null)
+            {
+                var project = Load(name);
+                if (project != null) return project;
+                // 손상된 마지막 프로젝트 → 기존 의미대로 첫 프로젝트 fallback을 유지한다.
+                // (GetLastProjectName이 File.Exists만 확인하도록 바뀌어 파싱 실패가 여기로 넘어온다)
+            }
             var list = List();
             if (list.Count == 0) return null;
             return Load(list[0]);
+        }
+
+        private static string ResolveProjectPath(string fileName)
+        {
+            if (!fileName.EndsWith(".Project", StringComparison.OrdinalIgnoreCase))
+                fileName += ".Project";
+            return Path.Combine(Dir, fileName);
+        }
+
+        // [핫패스 캐시 2026-08-05] 20Hz Material 픽업 게이트가 매 호출 프로젝트 JSON을
+        // 역직렬화(실측 ~0.7ms/호출, 전역 락 보유 중 디스크 I/O)하던 것을 파일
+        // LastWriteTimeUtc 기반으로 캐시한다. 편집/저장 시 파일 mtime이 바뀌므로 자동 무효화.
+        private static readonly object _lastCacheSync = new object();
+        private static string _lastCacheFile;
+        private static DateTime _lastCacheWriteUtc;
+        private static RecipeProject _lastCacheProject;
+
+        /// <summary>
+        /// LoadLastOrDefault의 핫패스 캐시 버전 — 프로젝트 파일이 변경되지 않는 한 같은 인스턴스를
+        /// 반환한다. **반환 객체는 읽기 전용으로만 사용할 것(변형 금지)** — 변형하면 캐시가 오염된다.
+        /// Material 픽업 게이트 등 고빈도 조회 전용. 편집/저장 경로는 LoadLastOrDefault를 사용한다.
+        /// </summary>
+        public static RecipeProject LoadLastOrDefaultCached()
+        {
+            try
+            {
+                var name = GetLastProjectName();
+                string fileName;
+                if (name != null)
+                {
+                    fileName = name;
+                }
+                else
+                {
+                    var list = List();
+                    if (list.Count == 0) return null;
+                    fileName = list[0];
+                }
+
+                var path = ResolveProjectPath(fileName);
+                if (!File.Exists(path)) return null;
+                DateTime writeUtc = File.GetLastWriteTimeUtc(path);
+
+                lock (_lastCacheSync)
+                {
+                    if (_lastCacheProject != null &&
+                        string.Equals(_lastCacheFile, fileName, StringComparison.OrdinalIgnoreCase) &&
+                        _lastCacheWriteUtc == writeUtc)
+                        return _lastCacheProject;
+                }
+
+                var project = Load(fileName);
+                if (project == null)
+                    return LoadLastOrDefault();   // 손상 파일 → 비캐시 fallback 경로 (기존 의미 보존)
+                lock (_lastCacheSync)
+                {
+                    _lastCacheFile = fileName;
+                    _lastCacheWriteUtc = writeUtc;
+                    _lastCacheProject = project;
+                }
+                return project;
+            }
+            catch
+            {
+                return LoadLastOrDefault();
+            }
         }
     }
 

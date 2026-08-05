@@ -901,7 +901,17 @@ namespace QMC.CDT320.Materials
                     .ToArray());
         }
 
+        // [방어 강화 2026-08-05] 기존 CloneObject는 (a) 배열에서 Activator.CreateInstance 예외,
+        // (b) Dictionary를 "예외 없이 빈 사전"으로 복제(무성 데이터 소실), (c) 순환 참조 시
+        // StackOverflow, (d) 같은 인스턴스가 그래프에 2회 나타나면 물리 복제 — 네 가지 함정이 있었다.
+        // visited 맵(참조 동일성)으로 순환/공유 참조를 보존하고, 배열/사전을 정확히 복제한다.
+        // ReferenceEqualityComparer는 DateTime 정규화(NormalizeSnapshotObjectGraphDateTimes)와 공용이다.
         private static object CloneObject(object value)
+        {
+            return CloneObject(value, new Dictionary<object, object>(ReferenceEqualityComparer.Instance));
+        }
+
+        private static object CloneObject(object value, Dictionary<object, object> visited)
         {
             if (value == null)
                 return null;
@@ -910,20 +920,50 @@ namespace QMC.CDT320.Materials
             if (type.IsPrimitive || type.IsEnum || type == typeof(string) || type == typeof(decimal) || type == typeof(DateTime))
                 return value;
 
+            object existingClone;
+            if (visited.TryGetValue(value, out existingClone))
+                return existingClone;
+
+            Array sourceArray = value as Array;
+            if (sourceArray != null)
+            {
+                if (sourceArray.Rank != 1)
+                    throw new NotSupportedException(
+                        "Material snapshot 그래프에 다차원 배열은 지원하지 않습니다. type=" + type.FullName);
+
+                Array clonedArray = Array.CreateInstance(type.GetElementType(), sourceArray.Length);
+                visited[value] = clonedArray;
+                for (int i = 0; i < sourceArray.Length; i++)
+                    clonedArray.SetValue(CloneObject(sourceArray.GetValue(i), visited), i);
+                return clonedArray;
+            }
+
+            IDictionary sourceDictionary = value as IDictionary;
+            if (sourceDictionary != null)
+            {
+                IDictionary clonedDictionary = (IDictionary)Activator.CreateInstance(type);
+                visited[value] = clonedDictionary;
+                foreach (DictionaryEntry entry in sourceDictionary)
+                    clonedDictionary[CloneObject(entry.Key, visited)] = CloneObject(entry.Value, visited);
+                return clonedDictionary;
+            }
+
             IList sourceList = value as IList;
             if (sourceList != null)
             {
                 IList clonedList = (IList)Activator.CreateInstance(type);
+                visited[value] = clonedList;
                 foreach (object item in sourceList)
-                    clonedList.Add(CloneObject(item));
+                    clonedList.Add(CloneObject(item, visited));
                 return clonedList;
             }
 
             object clone = Activator.CreateInstance(type);
+            visited[value] = clone;
             foreach (PropertyInfo property in GetSnapshotProperties(type))
             {
                 object propertyValue = property.GetValue(value, null);
-                property.SetValue(clone, CloneObject(propertyValue), null);
+                property.SetValue(clone, CloneObject(propertyValue, visited), null);
             }
 
             return clone;
