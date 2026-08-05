@@ -323,6 +323,31 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
+                // ============================================================
+                // [GoodStageZ 왕복 제거 2026-08-06]  ★자동 운전 무영향 — 옵션 기본 false★
+                //
+                // 실측(2026-08-06 05:15 PlaceZ 캘, OUT-STAGE-MOVE-TRACE):
+                //   GoodBinZ  32.953 -> 0.000   dist=32.953   (Y 이동 전 Z Avoid)
+                //   GoodBinY 288.193 -> 287.944 dist=0.249    (Y 는 0.25mm)
+                //   GoodBinZ   0.000 -> 32.953  dist=32.953   (다시 Process)
+                //   → 픽커 4대 반복. Y 0.05~0.25mm 를 위해 Z 를 32.953mm 왕복했다.
+                //
+                // 기존 인터락 규칙(OutputStageInterlockRules.VerifyGoodStageYMechanicalClear:1441):
+                //   Y 목표가 Avoid/Load/Unload/Home 이면 Z Avoid 필수,
+                //   그 외 목표면 Z 가 Avoid "또는 Process" 여도 Y 이동이 허용된다.
+                //   캘 타겟(287.944)은 그 외에 해당하므로 Z 를 내릴 필요가 없다.
+                //
+                // 이 시퀀스는 생산(OutputSequence / OutputFeederLoadToStage)과 공용이므로
+                // ★옵션이 켜진 호출부(PlaceZ 캘)에서만★ 생략한다. 옵션이 꺼진 자동 운전은 기존 그대로다.
+                // 옵션이 켜져 있어도 인터락이 Avoid 를 요구하면 생략하지 않는다(이중 안전).
+                // ============================================================
+                if (Options.SkipTargetStageZAvoidBeforeYWhenInterlockAllows &&
+                    CanSkipTargetStageZAvoidBeforeY())
+                {
+                    CurrentStep = OutputStageMoveProcessStep.MoveTargetStageYToProcess;
+                    return 0;
+                }
+
                 int result = await MoveAxisAndVerifyAsync(
                     ResolveZAxis(Options.Side),
                     ResolveSideZTarget(Options.Side, "Avoid"),
@@ -344,6 +369,51 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        /// <summary>
+        /// [GoodStageZ 왕복 제거 2026-08-06] "Y 이동 전 Z Avoid" 를 건너뛰어도 되는지 판정한다.
+        ///
+        /// 판정은 새로 만들지 않고 인터락 규칙 함수를 그대로 호출한다
+        /// (OutputStageInterlockRules.VerifyGoodStageYMechanicalClear:1441 과 동일 기준).
+        /// 시퀀스가 자체 판정을 중복 구현하면 인터락과 어긋날 수 있어 금지한다.
+        ///
+        /// Good side 전용이다. NG side 의 Z Avoid 요구는 별도 규칙(NGStageY 이동 전 GoodStageZ Avoid)
+        /// 이므로 여기서 완화하지 않는다.
+        /// </summary>
+        private bool CanSkipTargetStageZAvoidBeforeY()
+        {
+            try
+            {
+                if (Stage == null || Options.Side != BinSide.Good)
+                    return false;
+
+                double targetY = ResolveSideTarget(Options.Side, "Process");
+
+                bool requiresAvoid = QMC.CDT320.Interlocks.OutputStageInterlockRules
+                    .IsGoodStageYTargetRequiringGoodZAvoid(Stage, targetY);
+                bool zAllowed = Stage.IsGoodStageZInAvoidOrProcessPosition();
+                bool canSkip = !requiresAvoid && zAllowed;
+
+                QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Calibration", "OUT-STAGE-Z-AVOID-SKIP",
+                    Name + " Y 이동 전 Z Avoid 판정. side=" + Options.Side +
+                    ", targetY=" + targetY.ToString("F3") +
+                    ", requiresAvoid=" + requiresAvoid +
+                    ", zAvoidOrProcess=" + zAllowed +
+                    ", canSkip=" + canSkip +
+                    ", " + BuildAxisState(ResolveZAxis(Options.Side), ResolveSideZTarget(Options.Side, "Avoid")) +
+                    (canSkip ? " - 생략" : " - 수행"));
+
+                return canSkip;
+            }
+            catch
+            {
+                // 판정 실패 시에는 기존 동작(Z Avoid 수행)으로 폴백한다.
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private int CheckTargetStageZAvoidBeforeY()
         {
             try
@@ -356,6 +426,15 @@ namespace QMC.CDT320.Sequencing
 
                 BinStageAxis axis = ResolveZAxis(Options.Side);
                 double target = ResolveSideZTarget(Options.Side, "Avoid");
+
+                // [GoodStageZ 왕복 제거 2026-08-06] 이동을 생략했으면 Avoid 도달 검증도 건너뛴다.
+                // (검증만 남기면 생략한 순간 반드시 실패한다)
+                if (Options.SkipTargetStageZAvoidBeforeYWhenInterlockAllows &&
+                    CanSkipTargetStageZAvoidBeforeY())
+                {
+                    CurrentStep = OutputStageMoveProcessStep.MoveTargetStageYToProcess;
+                    return 0;
+                }
 
                 if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
                     return Fail("OUT-STAGE-TARGET-Z-AVOID-CHECK", Stage.Name,

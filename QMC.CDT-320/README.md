@@ -29,7 +29,6 @@ QMC.CDT-320/
   - **Job**: JobOrder + JobQueue (Pending + History)
   - **Interlock**: 15 종 (5 standard + 5 extended + 5 stage8)
   - **Vision Alignment**: 3-point AlignmentSolver + CoordinateMap
-  - **Pick Retry**: DoOneDieAsync 내부 3회 재시도
   - **Recipe Subset** (Die/Frame/Load/Unload/Module)
   - **SECS/GEM**: SecsHost (line + HSMS dual mode), 13 표준 메시지
   - **Lot 추적**: LotStorage + ActiveLotPage
@@ -70,11 +69,6 @@ $MSB = "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Curre
 - `git diff --check`
 - `tools/audit_threading.pl`, `tools/audit_memory.pl`
 - 외부 Vision이 준비된 환경에서는 Handler TCP 연결·명령·프레임 왕복 확인
-
-자동 사이클 실 동작 (Stage 24):
-```bash
-QMC.CDT-320.exe --auto-cycle 10  # Init → CycleRun(10) → 종료. Lot JSON 자동 저장.
-```
 
 ## 라이선스
 

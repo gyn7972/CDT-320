@@ -46,10 +46,34 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return false;
 
             double factor = Math.Min(safeMovePercent, CalibrationData.MaxSafeMovePercent) / 100.0;
-            // [정정 2026-07-26] 스케일 적용값 × 퍼센트 — 원본 유출 차단.
-            velocity = axis.Config.GetDefaultVel() * factor;
-            acceleration = axis.Config.GetDefaultAcc() * factor;
-            deceleration = axis.Config.GetDefaultDec() * factor;
+
+            // ================================================================
+            // [Manual 스코프 분리 2026-08-06] 사용자 확정: 캘 안전이동은 SafeMovePercent 하나로만 정한다.
+            //
+            // 기존 조건: GetDefaultVel/Acc/Dec (= MotionSpeedScale 적용값) x 퍼센트.
+            //   주석 "[정정 2026-07-26] 스케일 적용값 x 퍼센트 - 원본 유출 차단" 에 따른 것이었다.
+            //   그런데 캘은 Manual Sequence 스코프 안에서 돌아
+            //   EffectiveScaleFactor 가 전역 ScalePercent 가 아니라 ManualSequencePercent 를 쓴다
+            //   (MotionSpeedScale:130 - Ready > Manual > 전역 순).
+            //   현장 settings.json 의 ManualSequenceScalePercent = 50 이므로 실제로는
+            //     2000(FrontPickerX DEFAULT VEL) x 0.50 x 0.10 = 100 mm/s
+            //   가 되어, 화면에 10% 를 넣어도 실질 5% 로 동작했다.
+            //   화면(DEFAULT SPEED SCALE % = 100)만 보면 200 을 기대하게 되어 값이 어긋났다.
+            //
+            // 현재 기준: 원본 DefaultVelocity x SafeMovePercent 만 적용한다.
+            //   → 2000 x 0.10 = 200 mm/s. 화면 값과 실제가 1:1로 맞는다.
+            //   숨은 배율이 사라져 % 하나로 캘 속도를 예측할 수 있다.
+            //
+            // 안전성: 명시 속도는 하위에서 재스케일되지 않고 그대로 보드에 전달된다
+            //   (AjinAxis:1803 "스케일 완료된 최종값 그대로 보드에 전달").
+            //   따라서 여기 값이 곧 실제 축 속도다.
+            //
+            // ★주의★ 이 변경으로 캘 이동이 기존보다 2배 빨라진다(Manual 50% 가 빠지므로).
+            //   더 느리게 쓰시려면 CALIBRATION 화면의 안전위치 이동 속도 % 를 낮추면 된다.
+            // ================================================================
+            velocity = axis.Config.GetRawDefaultVelocity() * factor;
+            acceleration = axis.Config.GetRawAcceleration() * factor;
+            deceleration = axis.Config.GetRawDeceleration() * factor;
             return true;
         }
 
@@ -70,6 +94,123 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ", safeMovePercent=" + safeMovePercent.ToString("F3") +
                 ", safeMoveApplied=" + safeMoveApplied +
                 ", explicitVelocityNotDefaultScaled=True");
+        }
+
+        // ============================================================================
+        // [캘 속도 전수 추적 2026-08-06]  사용자 지시: "분석 안되면 로그 전부 남겨. 캘쪽에 전부 남겨."
+        //
+        // 배경 — 실제 적용 속도가 화면 표시와 다른 이유를 추적하는 데 시간이 걸렸다.
+        //   CONFIGURATION > SPEED 탭   : FrontPickerX DEFAULT VEL = 2000
+        //   CALIBRATION 화면 안전이동 % : 10
+        //   기대값 200 mm/s 인데 실측 100 mm/s 였다.
+        //
+        //   원인: 이중 스케일이다.
+        //     최종속도 = DefaultVelocity x EffectiveScaleFactor x (SafeMovePercent / 100)
+        //              = 2000 x 0.5 x 0.10 = 100
+        //     EffectiveScaleFactor 0.5 는 캘이 Manual Sequence 스코프 안에서 돌아
+        //     ManualSequencePercent(=50) 가 추가로 곱해진 값이다.
+        //     (MotionSpeedScale.EffectiveScaleFactor:130 — Ready > Manual > 전역 순 우선)
+        //     GetDefaultVel() 이 이미 스케일을 적용하므로 "스케일 적용값 x 퍼센트" 가 된다.
+        //     이는 원본 속도 유출을 막기 위한 의도된 설계다(PickerSequenceBase:3097 주석).
+        //
+        // 이 함수는 그 유도 과정을 한 줄에 전부 남긴다. 다음부터는 로그만 보면
+        // 어느 단계에서 몇 배가 곱해졌는지 즉시 확인된다.
+        //
+        // 실장비 확인:
+        //   findstr /C:"CAL-SPEED-TRACE" D:\CDT-320\Log\Calibration_*.log
+        // ============================================================================
+        public static void LogSpeedTrace(
+            string owner,
+            string axisLabel,
+            string description,
+            BaseAxis axis,
+            double safeMovePercent,
+            bool safeMoveApplied,
+            double finalVelocity,
+            double finalAcceleration,
+            double finalDeceleration,
+            double target)
+        {
+            try
+            {
+                double rawVel = axis != null && axis.Config != null ? axis.Config.GetRawDefaultVelocity() : 0.0;
+                double scaledVel = axis != null && axis.Config != null ? axis.Config.GetDefaultVel() : 0.0;
+                double actual = axis != null ? axis.ActualPosition : 0.0;
+                double distance = Math.Abs(target - actual);
+                double expectedMs = finalVelocity > 0.0 ? (distance / finalVelocity) * 1000.0 : -1.0;
+
+                QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Calibration", "CAL-SPEED-TRACE",
+                    (owner ?? "-") + " 캘 이동 속도 유도. axis=" + (axisLabel ?? "-") +
+                    ", target=" + (description ?? "-") +
+                    " | rawDefaultVel=" + rawVel.ToString("F3") +
+                    ", scaledDefaultVel=" + scaledVel.ToString("F3") +
+                    ", speedScalePercent=" + MotionSpeedScale.ScalePercent.ToString("F3") +
+                    ", effectiveScaleFactor=" + MotionSpeedScale.EffectiveScaleFactor.ToString("F6") +
+                    ", manualSeqScale=" + MotionSpeedScale.IsManualSequenceScaleActive +
+                    ", readySeqScale=" + MotionSpeedScale.IsReadySequenceScaleActive +
+                    ", safeMovePercent=" + safeMovePercent.ToString("F3") +
+                    ", safeMoveApplied=" + safeMoveApplied +
+                    " | finalVel=" + finalVelocity.ToString("F3") +
+                    ", finalAcc=" + finalAcceleration.ToString("F3") +
+                    ", finalDec=" + finalDeceleration.ToString("F3") +
+                    " | actual=" + actual.ToString("F3") +
+                    ", targetPos=" + target.ToString("F3") +
+                    ", distance=" + distance.ToString("F3") +
+                    ", expectedMs=" + expectedMs.ToString("F0") +
+                    " - Check");
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// [캘 속도 전수 추적 2026-08-06] 이동 완료 후 실제 소요시간과 도달 위치를 남긴다.
+        /// 2026-08-06 03:22 VISION-FOCUS-CAL-REAR-AXIS-FINAL 처럼
+        /// "축이 아직 움직이는데 위치 확인이 먼저 실행된" 조기 반환을 잡기 위한 것이다.
+        /// (그 건은 430mm 이동에 4.3초가 필요한데 3.19초 만에 반환되어 316mm 지점에서 실패했다.)
+        /// expectedMs 대비 elapsedMs 가 짧으면서 위치가 안 맞으면 조기 반환이다.
+        /// </summary>
+        public static void LogMoveCompletion(
+            string owner,
+            string axisLabel,
+            string description,
+            BaseAxis axis,
+            double target,
+            double expectedMs,
+            long elapsedMs,
+            int result)
+        {
+            try
+            {
+                double actual = axis != null ? axis.ActualPosition : 0.0;
+                double remain = Math.Abs(target - actual);
+                bool suspectEarly = expectedMs > 0.0 && elapsedMs < expectedMs * 0.9 && remain > 0.05;
+
+                QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Calibration", "CAL-MOVE-DONE",
+                    (owner ?? "-") + " 캘 이동 완료. axis=" + (axisLabel ?? "-") +
+                    ", target=" + (description ?? "-") +
+                    ", result=" + result +
+                    ", targetPos=" + target.ToString("F3") +
+                    ", actual=" + actual.ToString("F3") +
+                    ", remain=" + remain.ToString("F3") +
+                    ", expectedMs=" + expectedMs.ToString("F0") +
+                    ", elapsedMs=" + elapsedMs +
+                    ", moving=" + (axis != null && axis.IsMoving) +
+                    ", inpos=" + (axis != null && axis.IsInPosition) +
+                    (suspectEarly
+                        ? " - ★조기 반환 의심: 예상 시간보다 빨리 끝났는데 목표에 미달★"
+                        : " - Ok"));
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         // ============================================================================

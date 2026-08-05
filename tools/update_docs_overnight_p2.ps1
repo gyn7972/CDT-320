@@ -35,7 +35,7 @@ $plan = @(
         @{ kind="box"; name="g31"; x=2100000; y=2200000; w=1700000; h=700000; fill="ED7D31"; color="FFFFFF"; text="Stage 31`nVision Insp"; bold=$true }
         @{ kind="box"; name="g32"; x=3900000; y=2200000; w=1700000; h=700000; fill="70AD47"; color="FFFFFF"; text="Stage 32`n설비 단위"; bold=$true }
         @{ kind="box"; name="next"; x=5700000; y=2200000; w=1700000; h=700000; fill="A5A5A5"; color="FFFFFF"; text="Stage 33+`n실보드 양산"; bold=$true }
-        @{ kind="box"; name="ver"; x=300000; y=3300000; w=7100000; h=900000; fill="F2F2F2"; color="333333"; text="검증: tools/verify_all.pl (118 항목, 117 PASS, 0 FAIL)`n런타임: --auto-cycle 24 다이 (3 wafer 처리) — Good 22, NG 2, Lot JSON 저장 OK`n6 Unit 모두 협조 동작 (InputLoader → InputStage → TPU → Vision → OutputStage → OutputUnloader)"; textSize=1100; bold=$true }
+        @{ kind="box"; name="ver"; x=300000; y=3300000; w=7100000; h=900000; fill="F2F2F2"; color="333333"; text="검증: tools/verify_all.pl (118 항목, 117 PASS, 0 FAIL)`n6 Unit 모두 협조 동작 (InputLoader → InputStage → TPU → Vision → OutputStage → OutputUnloader)"; textSize=1100; bold=$true }
     ) }
 
     @{ kind="section"; title="§2. Stage 28~32 요약"; subtitle="Per-Stage Detail" }

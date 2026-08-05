@@ -1,4 +1,4 @@
-#!perl
+﻿#!perl
 # verify_handler_features.pl — 320 Handler 의 310 이식 기능 자동 검증.
 # 정적 grep + 빌드 산출물 확인.
 
@@ -130,12 +130,6 @@ my $f2 = greps($cm, qr/class\s+CoordinateMap/) &&
          greps($mc, qr/AlignWaferAsync/);
 row("STATIC", "Vision Alignment — Solver + CoordinateMap + AlignWaferAsync",
     $f2?"PASS":"FAIL", $as);
-
-# G1. PickRetry
-my $g1 = greps($mc, qr/MaxRetries/) &&
-         greps($mc, qr/while\s*\(\s*attempt\s*<\s*MaxRetries/) &&
-         greps($mc, qr/RetryCount/);
-row("STATIC", "PickRetry — DoOneDieAsync 내부 재시도 루프", $g1?"PASS":"FAIL", $mc);
 
 # I1. DieMapSaver
 my $dms = "$HND_ROOT/Equipment/DieMaps/DieMapSaver.cs";

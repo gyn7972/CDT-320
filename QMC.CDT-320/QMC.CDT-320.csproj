@@ -101,7 +101,6 @@
     <Compile Include="Equipment\Calibration\ColletCleaningTriggerState.cs" />
     <Compile Include="Equipment\Calibration\VisionFocusCalibrationData.cs" />
     <Compile Include="Equipment\CDT320Machine.cs" />
-    <Compile Include="Equipment\CycleMode.cs" />
     <Compile Include="Equipment\Diagnostics\PickerMoveTimeFileLogger.cs" />
     <Compile Include="Equipment\EquipmentStatus.cs" />
     <Compile Include="Equipment\MachineReadyProgress.cs" />
@@ -121,6 +120,12 @@
     <Compile Include="Equipment\Unit\InputStageUnit.cs" />
     <Compile Include="Equipment\IStageInterfaces.cs" />
     <Compile Include="Equipment\MachineController.cs" />
+    <Compile Include="Equipment\MachineController.Initialization.cs" />
+    <Compile Include="Equipment\MachineController.Manual.cs" />
+    <Compile Include="Equipment\MachineController.Recipe.cs" />
+    <Compile Include="Equipment\MachineController.RuntimeState.cs" />
+    <Compile Include="Equipment\MachineController.SequenceControl.cs" />
+    <Compile Include="Equipment\MachineController.Statistics.cs" />
     <Compile Include="Equipment\Stats\ProductionStatsSnapshot.cs" />
     <Compile Include="Equipment\Stats\ProductionStatsEngine.cs" />
     <Compile Include="Equipment\Motion\SharedRailX\SharedRailXAxis.cs" />
@@ -1344,6 +1349,10 @@
       <SubType>UserControl</SubType>
     </Compile>
     <!-- Form1 + Program -->
+    <Compile Include="Form1.InputStageRunReview.cs">
+      <DependentUpon>Form1.cs</DependentUpon>
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>

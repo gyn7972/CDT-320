@@ -178,10 +178,28 @@ namespace QMC.CDT320.Sequencing.Calibration
                         true).ConfigureAwait(false);
                     if (result != 0) return result;
 
-                    result = await MoveNeedleZToAvoidWithNeedleVacuumOffAsync(
-                        "PickUpZ Calibration 완료 후 NeedleZ Avoid",
-                        ct).ConfigureAwait(false);
-                    if (result != 0) return result;
+                    // [NeedleZ 왕복 제거 2026-08-06] 배치에서 다음 대상이 남아 있으면 NeedleZ 를 올리지 않는다.
+                    // 다음 대상의 MoveInputStageToCalibrationProcessAsync 가 작업영역 판정으로
+                    // 필요할 때만 올리고, 필요 없으면 내린 채로 NeedleX/StageY 를 옮긴다.
+                    // (축 순서는 InputStageUnit.TryResolveNeedleWorkPointMoveOrder 가 보장)
+                    // ★마지막 대상에서는 플래그가 false 이므로 그대로 Avoid 로 복귀한다.★
+                    if (Options != null && Options.KeepNeedleZAtWorkForNextTarget)
+                    {
+                        WriteLog("PickUpZCalibration",
+                            Name + " 완료 후 NeedleZ Avoid 생략: 배치에 다음 대상이 남아 있습니다. " +
+                            "needleZActual=" + (Context != null && Context.Machine != null &&
+                                                Context.Machine.InputStageUnit != null &&
+                                                Context.Machine.InputStageUnit.NeedleZ != null
+                                ? Context.Machine.InputStageUnit.NeedleZ.ActualPosition.ToString("F3")
+                                : "-") + " - Ok");
+                    }
+                    else
+                    {
+                        result = await MoveNeedleZToAvoidWithNeedleVacuumOffAsync(
+                            "PickUpZ Calibration 완료 후 NeedleZ Avoid",
+                            ct).ConfigureAwait(false);
+                        if (result != 0) return result;
+                    }
                 }
 
                 CurrentStep = PickUpZCalibrationStep.Complete;
@@ -592,14 +610,73 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             stage.Recipe.EnsurePositionObjects();
 
-            int result = await MoveInputStageAxisWithCalibrationMotionAsync(
-                stage,
-                WaferStageAxis.NeedleZ,
-                stage.Recipe.NeedleZ.AvoidPosition,
-                description + " NeedleZ Avoid",
-                ct).ConfigureAwait(false);
-            if (result != 0)
-                return result;
+            // ================================================================
+            // [NeedleZ 왕복 제거 2026-08-06]  ★실장비 미검증 — 실장비에서 테스트 필요★
+            //
+            // 사용자 지적(2026-08-06): "픽업Z축 캘 시컨스에서 니들Z축이 계속 내려갔다가 올라온다.
+            //   픽커4 -> 3 -> 2 이렇게 변경될때. 연속으로 진행될때는 안하게 해줘."
+            //
+            // 기존 조건: 타겟마다 무조건 NeedleZ 를 Avoid 로 올렸다.
+            //   그래서 픽커당 [①Avoid(올림) → ⑤PickReady(내림) → ⑥Avoid(올림)] 3회가 반복됐다.
+            //
+            // 기존 인터락 규칙(새로 만들지 않고 그대로 활용):
+            //   InputStageInterlockRules:1509  현재 NeedleX/StageY 가 작업영역 "밖" 일 때만
+            //                                  NeedleZ 를 Home(0)/Avoid 로 강제한다.
+            //   InputStageInterlockRules:1527  목표가 작업영역 "안" 이면 NeedleZ 를 보지 않고 통과한다.
+            //   → 작업영역 안에서 안으로 움직이는 한 NeedleZ 를 올릴 필요가 없다.
+            //
+            // 축 순서도 기존 로직이 담당한다:
+            //   InputStageUnit.TryResolveNeedleWorkPointMoveOrder(:730) 가
+            //   NeedleZ 가 작업 높이일 때 중간 경유점((targetX,currentY) / (currentX,targetY))이
+            //   작업원 안인지 검사해 X 먼저인지 Y 먼저인지 고르고, 둘 다 불가하면 거부한다.
+            //   MoveNeedleWorkPointSafelyAsync(:900) 가 이 리졸버를 호출하므로
+            //   여기서 순서를 따로 만들지 않는다.
+            //
+            // 현재 기준: 현재/목표가 모두 작업영역 안이면 NeedleZ Avoid 를 생략한다.
+            //   하나라도 밖이면 기존대로 올린다(인터락 요구사항).
+            // ================================================================
+            double currentNeedleX = stage.NeedleBlockX != null
+                ? stage.NeedleBlockX.ActualPosition
+                : stage.ResolveNeedleWorkAreaCenterX();
+            double currentStageY = stage.StageY != null
+                ? stage.StageY.ActualPosition
+                : stage.ResolveNeedleWorkAreaCenterY();
+
+            string currentAreaReason;
+            bool currentInArea = stage.IsNeedleWorkPointInArea(currentNeedleX, currentStageY, out currentAreaReason);
+            string targetAreaReason;
+            bool targetInArea = stage.IsNeedleWorkPointInArea(
+                _calibrationTarget.NeedleX, _calibrationTarget.StageY, out targetAreaReason);
+
+            int result;
+            if (currentInArea && targetInArea)
+            {
+                WriteLog("PickUpZCalibration",
+                    Name + " NeedleZ Avoid 생략: 현재/목표 NeedleX·StageY가 모두 작업영역 안입니다. " +
+                    "currentNeedleX=" + currentNeedleX.ToString("F3") +
+                    ", currentStageY=" + currentStageY.ToString("F3") +
+                    ", targetNeedleX=" + _calibrationTarget.NeedleX.ToString("F3") +
+                    ", targetStageY=" + _calibrationTarget.StageY.ToString("F3") +
+                    ", needleZActual=" + (stage.NeedleZ != null ? stage.NeedleZ.ActualPosition.ToString("F3") : "-") +
+                    " - Ok");
+            }
+            else
+            {
+                WriteLog("PickUpZCalibration",
+                    Name + " NeedleZ Avoid 수행: 작업영역을 벗어나는 이동입니다. " +
+                    "currentInArea=" + currentInArea + "(" + currentAreaReason + ")" +
+                    ", targetInArea=" + targetInArea + "(" + targetAreaReason + ")" +
+                    " - Check");
+
+                result = await MoveInputStageAxisWithCalibrationMotionAsync(
+                    stage,
+                    WaferStageAxis.NeedleZ,
+                    stage.Recipe.NeedleZ.AvoidPosition,
+                    description + " NeedleZ Avoid",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+            }
 
             result = await MoveInputStageAxisWithCalibrationMotionAsync(
                 stage,

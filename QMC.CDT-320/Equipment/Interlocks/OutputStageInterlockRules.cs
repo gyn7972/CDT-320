@@ -1525,7 +1525,15 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 기준: GoodStageY 목표가 GoodStageZ Avoid를 요구하는 위치인지 판단한다.
-        private static bool IsGoodStageYTargetRequiringGoodZAvoid(OutputStageUnit outputStage, double target)
+        /// <summary>
+        /// GoodStageY 목표가 Avoid/Load/Unload 인지 판정한다(= GoodStageZ Avoid 를 강제해야 하는 목표).
+        /// 그 외 목표(캘리브레이션 계산 좌표 등)는 GoodStageZ 가 Avoid 또는 Process 면 이동이 허용된다
+        /// (VerifyGoodStageYMechanicalClear:1441 참조).
+        ///
+        /// [공개 전환 2026-08-06] PlaceZ 캘이 같은 판정을 재사용하도록 internal 로 연다.
+        /// 시퀀스가 자체 판정을 중복 구현하면 인터락 규칙과 어긋날 수 있으므로 이 함수 하나만 쓴다.
+        /// </summary>
+        internal static bool IsGoodStageYTargetRequiringGoodZAvoid(OutputStageUnit outputStage, double target)
         {
             if (outputStage == null || outputStage.Recipe == null || outputStage.Recipe.GoodStageY == null)
                 return true;

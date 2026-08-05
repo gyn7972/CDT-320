@@ -34,7 +34,7 @@ namespace QMC.CDT320
             MainVacuum1Check.IsOn && MainVacuum2Check.IsOn &&
             MainVacuum3Check.IsOn && MainVacuum4Check.IsOn;
 
-        /// <summary>Resource 전체 정상 — InitAsync 전 사전 검사.</summary>
+        /// <summary>Resource 전체 정상 — 장비 초기화 전 사전 검사.</summary>
         public bool AllOk => AllCdaOk && AllVacuumOk;
     }
 }

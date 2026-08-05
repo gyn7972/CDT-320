@@ -51,7 +51,7 @@ $plan = @(
         @{ kind="box"; name="g7"; x=6200000; y=2700000; w=2700000; h=900000; fill="70AD47"; color="FFFFFF"; text="Stage 27 (현재)`nFeeder 시퀀스 통합"; bold=$true }
         @{ kind="box"; name="g8"; x=9100000; y=2700000; w=2700000; h=900000; fill="BFBFBF"; color="333333"; text="Stage 28+ (예정)`n실보드 튜닝 + 양산"; bold=$true }
         @{ kind="text"; name="dn"; x=400000; y=3900000; w=11400000; h=300000; text="↓"; size=2400; color="555555"; align="ctr" }
-        @{ kind="box"; name="ver"; x=400000; y=4400000; w=11400000; h=900000; fill="F0F0F0"; color="000000"; text="검증: tools/verify_all.pl (118 항목, 117 PASS, 0 FAIL)`n런타임: --auto-cycle 16 다이 — Stage 27 통합 호출 경로 활성 확인"; textSize=1300; bold=$true }
+        @{ kind="box"; name="ver"; x=400000; y=4400000; w=11400000; h=900000; fill="F0F0F0"; color="000000"; text="검증: tools/verify_all.pl (118 항목, 117 PASS, 0 FAIL)"; textSize=1300; bold=$true }
     ) }
 
     # ── §2 단계별 상세
@@ -97,7 +97,6 @@ $plan = @(
          @("21", "BinCodeMap NG → bin → color", "BinCodeMap.ConvertToBinCode + Color 매핑",        "100%")
          @("22", "JobOrder + JobQueue",         "Pending + History 큐 관리",                       "100%")
          @("23", "25 Interlock 등록",            "5 std + 5 ext + 5 stage8 + 10 추가",              "100%")
-         @("24", "--auto-cycle CLI",             "Init + CycleRun + Lot JSON + 자동 종료",         "100%")
          @("25", "ExtendedInterlocks3",          "5 추가: Door/WaferZ/Vacuum/BinLid/ServoOff",      "100%")
          @("26", "UI Polish + LotPort",          "i18n 버그 fix + 사이드바 통합 + Lot Port 5 항목", "100%")
          @("27", "Feeder 시퀀스 (현재)",         "OutputUnloader 통합 + 2 FeederPage 라이브 + Sim", "100%")

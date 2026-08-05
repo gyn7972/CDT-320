@@ -134,64 +134,6 @@ namespace QMC.CDT_320.Ui.Util
             }
         }
 
-        /// <summary>
-        /// Stage 60 R12 ??root ??紐⑤뱺 Button/ActionButton/SidebarButton ??PerformClick() ?몄텧.
-        /// audit ?쇰줈 遺李⑸맂 placeholder ?몃뱾?ш? ?묐룞??UI-CLICK-STUB 濡쒓렇 ?ㅼ닔 諛쒖깮.
-        /// ???섎뒗 (?덉쇅 throw) 而⑦듃濡ㅼ? EventLog ??UI-CLICK-FAIL 湲곕줉.
-        /// 諛섑솚: (?쒕룄 ?? ?깃났 ?? ?ㅽ뙣 ??
-        /// </summary>
-        public static (int tried, int success, int failed) PerformClickAll(Control root)
-        {
-            if (root == null) return (0, 0, 0);
-            int tried = 0, success = 0, failed = 0;
-            foreach (var c in EnumerateClickable(root))
-            {
-                tried++;
-                try
-                {
-                    if (c is Button btn) btn.PerformClick();
-                    else
-                    {
-                        // ActionButton / SidebarButton ? Button 誘몄긽??(Control 吏곸젒 ?곸냽)
-                        // 吏곸젒 OnClick ?몃━嫄???Control.OnClick(EventArgs) 媛 protected ??reflection
-                        var mi = typeof(Control).GetMethod("OnClick",
-                            BindingFlags.NonPublic | BindingFlags.Instance);
-                        if (mi != null)
-                        {
-                            mi.Invoke(c, new object[] { EventArgs.Empty });
-                        }
-                        else
-                        {
-                            failed++;
-                            EventLogger.Write(EventKind.Event, UserSession.Name,
-                                "UI-CLICK-FAIL", "OnClick reflection ?ㅽ뙣: " + c.GetType().Name);
-                            continue;
-                        }
-                    }
-                    success++;
-                }
-                catch (Exception ex)
-                {
-                    failed++;
-                    string label = c?.Text ?? c?.GetType().Name ?? "<null>";
-                    try
-                    {
-                        EventLogger.Write(EventKind.Event, UserSession.Name,
-                            "UI-CLICK-FAIL", "Click ?덉쇅: " + label + " ??" + ex.GetType().Name + ": " + (ex.Message ?? "(no msg)"));
-                    }
-                    catch { }
-                }
-            }
-            try
-            {
-                EventLogger.Write(EventKind.Event, UserSession.Name,
-                    "UI-CLICK-TEST", root.GetType().Name +
-                    ": tried=" + tried + " success=" + success + " failed=" + failed);
-            }
-            catch { }
-            return (tried, success, failed);
-        }
-
         // ??????????????????????????????????????????
         //  Placeholder ?쇰뱶諛?        // ??????????????????????????????????????????
         private static void StubFeedback(Control c)

@@ -60,17 +60,8 @@
   VisionInspectionResultFileWriter, VisionInspectionProtocol, 생산통계(BeginAutoProductionStats),
   화면 표시(StatePage / WorkMainPage / LiveLotMapView / InputStageMapTransferPage)
 
-죽어있는 경로:
-- Equipment\Lots\Lot.cs, Equipment\Lots\LotStorage.cs
-- LotStorage.OpenLot 호출부는 MachineController.cs:9077, :9085 두 곳뿐이고
-  둘 다 legacy CycleRunAsync(MachineController.cs:9019) 내부다.
-  CycleRunAsync 의 유일한 호출부는 Form1.cs:986 이며 커맨드라인 자동테스트 스위치
-  (Program.AutoCycleCount > 0 || Program.AutoInitOnly) 로만 진입한다.
-  MachineController.cs:8930-8935 주석이 "삭제 검토 대상"이라고 명시한다.
-- 정상 자동 운전(StartSequenceAsync / AutoSequenceCoordinator)에서는 OpenLot 이 호출되지 않는다.
-  따라서 LotStorage.ActiveLot 은 항상 null 이다.
-- Lot.RecordDie 호출부는 MachineController.cs:10398 한 곳(legacy DoOneDieAsync)뿐이라
-  Lot 의 ProcessedDies / GoodCount / NgCount / BinDistribution 은 항상 0 이다.
+과거 명령행 자동시험과 레거시 사이클 경로는 생산 코드에서 삭제되었다.
+정상 자동 운전(StartSequenceAsync / AutoSequenceCoordinator)의 LOT 관리만 유지한다.
 - LotStorage.ListByDate(:68) / Get(:61) / Lots(:17) / Clear(:88) 는 호출부 0건이다.
 - SaveJson 은 CloseLot 내부(:56)에서만 호출된다. Log\Lots 의 JSON 을 다시 읽는 코드는 없다.
 - README(QMC.CDT-320\README.md:35)가 언급하는 ActiveLotPage 는 존재하지 않는 파일이다.

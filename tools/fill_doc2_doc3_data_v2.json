@@ -41,7 +41,6 @@
           ["21", "BinCodeMap NG → bin → color",             "BinCodeMap.ConvertToBinCode/ConvertToBinCodeColor",            "3/3"],
           ["22", "JobOrder + JobQueue + DieMap CSV",        "JobOrder/JobQueue (Pending+History) + DieMapGenerator.LoadCsv","3/3"],
           ["23", "25 Interlock 등록 + 알람 다국어",          "InterlockRegistry 25개 + Title/Cause/ActionEn + Lang.Current","5/5"],
-          ["24", "--auto-cycle N CLI",                      "Program.cs CLI + Init→CycleRun(N)→Lot JSON→종료",              "5/5"],
           ["25", "ExtendedInterlocks3",                     "Door/WaferZ vs Lifter/Vacuum vs Picker/BinLid/ServoOff",       "2/2"],
           ["26", "UI Polish + LotPort",                     "Lang.Apply Tag/Anchor/사이드바 통합/LotPort 5항목",             "(데이터 소스 미발견)"],
           ["27", "Feeder 통합 + 4 GAP fix",                 "StoreCompletedWafer/OutputUnloader/Input·OutputFeederPage+GAP","(데이터 소스 미발견)"],

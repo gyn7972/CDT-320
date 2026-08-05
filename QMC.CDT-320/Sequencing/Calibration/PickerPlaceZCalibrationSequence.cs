@@ -902,6 +902,13 @@ namespace QMC.CDT320.Sequencing.Calibration
             options.MoveTimeoutMs = ResolveMoveTimeout();
             options.KeepVisionXAvoidOnProcessMove = true;
 
+            // [GoodStageZ 왕복 제거 2026-08-06] ★캘 전용★ — 자동 운전은 이 옵션을 켜지 않으므로 무영향.
+            // PlaceZ 캘은 같은 Y 목표(실측 287.944)로 픽커만 바꿔가며 반복하는데,
+            // Y 를 0.05~0.25mm 옮기려고 GoodStageZ 를 32.953mm 내렸다 올리는 왕복이 매번 발생했다.
+            // 인터락(OutputStageInterlockRules:1441)은 이 목표에서 Z 가 Process 여도 Y 이동을 허용한다.
+            // 옵션이 켜져도 인터락이 Avoid 를 요구하면 시퀀스가 스스로 수행하므로 이중 안전이다.
+            options.SkipTargetStageZAvoidBeforeYWhenInterlockAllows = true;
+
             int result = await new OutputStageSequence(Context)
                 .RunMoveProcessAsync(ct, options)
                 .ConfigureAwait(false);
@@ -911,17 +918,57 @@ namespace QMC.CDT320.Sequencing.Calibration
                     " process/avoid sequence failed. result=" + result +
                     ", " + stage.DescribeOutputStageInterlockState(_targetOutputSide));
 
+            // ================================================================
+            // [GoodStageZ 왕복 제거 2026-08-06]  ★실장비 미검증 — 실장비에서 테스트 필요★
+            //
+            // 사용자 지적(2026-08-06): "placeZ 캘리브레이션 할때 goodStageZ축이 계속
+            //   내려갔다 올라갔다 하고 있다. 그냥 한자리에서 움직이게 해줘."
+            //
+            // 기존 조건: 픽커마다 무조건 [GoodStageZ→Avoid → GoodBinY 이동 → GoodStageZ→Process]
+            //   를 수행해 Z 왕복이 반복됐다.
+            //
+            // 기존 인터락 규칙(새로 만들지 않고 그대로 재사용):
+            //   OutputStageInterlockRules.VerifyGoodStageYMechanicalClear(:1441)
+            //     requiresGoodZAvoid = (AxisHome) || IsGoodStageYTargetRequiringGoodZAvoid(target)
+            //     · 목표가 Avoid/Load/Unload/Home  → GoodStageZ Avoid 필수
+            //     · 그 외(캘 계산 좌표 등)          → GoodStageZ 가 Avoid "또는 Process" 면 허용
+            //   캘 타겟(_calibrationTarget.OutputStageY)은 Avoid/Load/Unload 가 아니므로
+            //   GoodStageZ 를 Process 에 둔 채로 Y 이동이 허용된다.
+            //
+            // 현재 기준: 인터락이 실제로 Avoid 를 요구할 때만 내린다.
+            //   판정은 인터락 함수를 직접 호출한다(중복 구현 금지 — 규칙이 어긋나면 안 된다).
+            // ================================================================
             if (_targetOutputSide == BinSide.Good && stage.HasStageAxis(BinStageAxis.GoodBinZ))
             {
-                int zAvoid = await MoveOutputStageAxisWithCalibrationMotionAsync(
-                    stage,
-                    BinStageAxis.GoodBinZ,
-                    stage.Recipe.GoodStageZ.AvoidPosition,
-                    description + " GoodStageZ Avoid Before GoodY Cal Target",
-                    ct,
-                    "PlaceZCalibration;GoodStageZ;AvoidBeforeY").ConfigureAwait(false);
-                if (zAvoid != 0)
-                    return zAvoid;
+                bool requiresGoodZAvoid = OutputStageInterlockRules.IsGoodStageYTargetRequiringGoodZAvoid(
+                    stage, _calibrationTarget.OutputStageY);
+                bool goodZAlreadyAllowed = stage.IsGoodStageZInAvoidOrProcessPosition();
+
+                if (!requiresGoodZAvoid && goodZAlreadyAllowed)
+                {
+                    WriteLog("PlaceZCalibration",
+                        Name + " GoodStageZ Avoid 생략: 캘 타겟은 Avoid/Load/Unload 가 아니라" +
+                        " GoodStageZ 가 Process 여도 GoodStageY 이동이 허용됩니다. " +
+                        "targetOutputStageY=" + _calibrationTarget.OutputStageY.ToString("F3") +
+                        ", " + stage.BuildStageAxisState(
+                            BinStageAxis.GoodBinZ, stage.Recipe.GoodStageZ.ProcessPosition) + " - Ok");
+                }
+                else
+                {
+                    WriteLog("PlaceZCalibration",
+                        Name + " GoodStageZ Avoid 수행. requiresGoodZAvoid=" + requiresGoodZAvoid +
+                        ", goodZAlreadyAllowed=" + goodZAlreadyAllowed + " - Check");
+
+                    int zAvoid = await MoveOutputStageAxisWithCalibrationMotionAsync(
+                        stage,
+                        BinStageAxis.GoodBinZ,
+                        stage.Recipe.GoodStageZ.AvoidPosition,
+                        description + " GoodStageZ Avoid Before GoodY Cal Target",
+                        ct,
+                        "PlaceZCalibration;GoodStageZ;AvoidBeforeY").ConfigureAwait(false);
+                    if (zAvoid != 0)
+                        return zAvoid;
+                }
             }
 
             BinStageAxis yAxis = _targetOutputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;

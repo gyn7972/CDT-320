@@ -858,6 +858,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                     options.PickerNo = target.PickerNo;
                     options.RestrictToPickerNo = target.PickerNo;
 
+                    // [NeedleZ 왕복 제거 2026-08-06] 다음 대상이 남아 있으면 대상 종료 후 NeedleZ 를 올리지 않는다.
+                    // 시퀀스는 대상 하나만 실행하므로 "내가 마지막인지"를 스스로 알 수 없어 배치가 알려준다.
+                    // 다음 대상의 MoveInputStageToCalibrationProcessAsync 가 작업영역 판정으로
+                    // 필요할 때만 NeedleZ 를 올린다(InputStageInterlockRules:1509/1527 규칙 그대로).
+                    // ★마지막 대상은 false 라 그대로 Avoid 복귀하고 종료 상태가 안전해진다.★
+                    options.KeepNeedleZAtWorkForNextTarget = index < targets.Count - 1;
+
                     _status.Text = "PickUpZ Batch " + (index + 1) + "/" + targets.Count +
                                    " 실행 중. side=" + target.Side +
                                    ", pickerNo=" + target.PickerNo;

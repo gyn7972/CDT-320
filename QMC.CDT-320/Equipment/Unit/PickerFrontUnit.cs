@@ -1663,10 +1663,13 @@ namespace QMC.CDT320
                 {
                     // 캘리브레이션 안전이동: 각 축 Config.Default(속도/가속/감속) × (SafeMovePercent/100) 명시 모션.
                     double factor = Math.Min(safeMovePercent, 100.0) / 100.0;
-                    // [정정 2026-07-26] 스케일 적용값 × 퍼센트 — 원본 유출 차단.
-                    velocity = item.Config.GetDefaultVel() * factor;
-                    acceleration = item.Config.GetDefaultAcc() * factor;
-                    deceleration = item.Config.GetDefaultDec() * factor;
+                    // [Manual 스코프 분리 2026-08-06] 사용자 확정: 캘 안전이동은 SafeMovePercent 하나로만 정한다.
+                    // 기존 조건: GetDefaultVel/Acc/Dec(= MotionSpeedScale 적용값) × 퍼센트.
+                    //   캘은 Manual Sequence 스코프라 ManualSequencePercent(현장 50)가 추가로 곱해져
+                    //   화면의 10% 가 실질 5% 로 동작했다. 상세는 CalibrationSafeMoveMotion 주석 참조.
+                    velocity = item.Config.GetRawDefaultVelocity() * factor;
+                    acceleration = item.Config.GetRawAcceleration() * factor;
+                    deceleration = item.Config.GetRawDeceleration() * factor;
                     safeMoveApplied = true;
                 }
                 else

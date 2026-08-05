@@ -1,4 +1,4 @@
-# CDT-320 Code Analysis (코드 분석)
+﻿# CDT-320 Code Analysis (코드 분석)
 
 - 작성일: 2026-07-29 / 기준 커밋: `b6b23cf2` (master, 작업트리 clean)
 - 목적: 2026-07-25~07-29 대규모 업데이트 이후의 코드 현황 파악 (분석 전용 — 코드 무수정)
@@ -160,7 +160,7 @@ MachineController.StartSequenceAsync
 
 ## 5. UI 레이어
 
-- `Program.cs`: 단일 인스턴스 Mutex, 1ms 타이머, 전역 예외→크래시덤프, `--auto-cycle/--auto-init/--start-page` 등 인수.
+- `Program.cs`: 단일 인스턴스 Mutex, 1ms 타이머, 전역 예외→크래시덤프 처리.
 - `Form1`(3,654행): 기동 순서 = 설정→Ajin Open→IO/실린더→Vision 6채널→Machine→Controller→Material 복구 프롬프트→**LOT 복원**→모니터 4종(Motion 50ms/Collision 10ms/IO 10ms/OpPanel)→SECS(5000)→6탭 생성. **자동 로그인 `admin/Admin` (TEST 임시)**. 종료는 EXIT 버튼만 허용, `OnFormClosing`에서 Material flush → **`SaveMachineSettings()`= EquipmentData Setup/Config 전체를 메모리 값으로 재작성**(IO 포함 — "IO Setup은 앱 종료 시 덮어써진다"의 코드 근거) → 런타임 상태 저장 → 서비스 역순 Dispose.
 - 탭: Work(운전+INIT/READY/START/STOP/CYCLE RUN)·WorkInfo(유닛별 상태/수동)·History·Recipe·Settings·User. 페이지는 lazy 생성+캐시.
 - **레시피 저장 방식(07-27 개선)**: 그리드 `ParameterValueChanged`에서 **즉시 저장** — `Scope.Recipe`→활성 레시피, `Scope.Config/Setup`→`SaveMachineSettings()`. 별도 SAVE 버튼 없음. 활성 레시피 없으면 예외로 차단.

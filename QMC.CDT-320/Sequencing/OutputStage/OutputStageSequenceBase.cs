@@ -494,6 +494,44 @@ namespace QMC.CDT320.Sequencing
                     "target=" + target,
                     "side=" + Options.Side,
                     "description=" + description);
+
+                // ============================================================
+                // [Output 스테이지 축 이동 추적 2026-08-06]
+                //   사용자 지시: "로그를 남겨야겠네. PlaceZ Cal 시퀀스에."
+                //
+                // 배경: PlaceZ 캘에서 GoodStageZ 가 픽커마다 내려갔다 올라오는데,
+                //   PickerPlaceZCalibrationSequence 안의 Avoid 블록을 조건부로 바꿔도
+                //   증상이 남았다. 실제 이동 주체가 이 시퀀스(OutputStageSequence)의
+                //   MoveProcess(:199 Good Z) / MoveAllAvoid(:218 Good Z avoid) 였기 때문이다.
+                //   그런데 이 경로에는 축 이동 추적 로그가 없어서 로그만으로는 보이지 않았다.
+                //
+                // MoveAxisAndVerifyAsync 가 Output 스테이지 축 이동의 단일 관문이므로
+                // 여기 한 곳에 남기면 어느 스텝이 어느 축을 어디로 움직이는지 전부 잡힌다.
+                // 이동 전 현재값과 목표값을 함께 남겨, 실제로 움직였는지(=거리)까지 판정 가능하다.
+                //
+                // 실장비 확인: findstr /C:"OUT-STAGE-MOVE-TRACE" D:\CDT-320\Log\Calibration_*.log
+                // ============================================================
+                // ★자동 운전(생산)에서는 남기지 않는다★
+                // 이 함수는 캘뿐 아니라 OutputSequence / OutputFeederLoadToStage 등 생산 경로도 탄다.
+                // 빈 이송마다 축이 움직이므로 Auto 에서 남기면 로그량이 크게 늘어난다.
+                // 사용자 요구는 "캘 쪽에만 남겨라 / 오토시퀀스에 영향 없어야 한다" 이므로 Manual 계열에서만 기록한다.
+                if (Options.RunMode != SequenceRunMode.Auto)
+                {
+                    QMC.Common.Motion.BaseAxis traceAxis = ResolveAxisOrNull(axis);
+                    double traceActual = traceAxis != null ? traceAxis.ActualPosition : 0.0;
+                    QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Calibration", "OUT-STAGE-MOVE-TRACE",
+                        Name + " Output 스테이지 축 이동. axis=" + axis +
+                        ", step=" + CurrentStep +
+                        ", side=" + Options.Side +
+                        ", runMode=" + Options.RunMode +
+                        ", description=" + (description ?? "-") +
+                        ", actual=" + traceActual.ToString("F3") +
+                        ", target=" + target.ToString("F3") +
+                        ", distance=" + System.Math.Abs(target - traceActual).ToString("F3") +
+                        ", targetName=" + (targetName ?? "-") +
+                        ", " + BuildAxisState(axis, target) + " - Check");
+                }
+
                 int result = await AwaitStepWithCancellationAsync(
                     Stage.MoveStageAxis(
                         axis,

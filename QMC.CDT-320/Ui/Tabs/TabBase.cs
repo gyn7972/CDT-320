@@ -157,48 +157,6 @@ namespace QMC.CDT_320.Ui.Tabs
         //  서브 페이지 전환
         // ──────────────────────────────────────────
 
-        /// <summary>Stage 60 R12 — 캐시된 모든 페이지에 대해 UiClickAuditor.PerformClickAll 호출.</summary>
-        public (int tried, int success, int failed) PerformClickAllPages()
-        {
-            int t = 0, s = 0, f = 0;
-            foreach (var kv in PageCache)
-            {
-                if (kv.Value == null) continue;
-                var (tt, ss, ff) = QMC.CDT_320.Ui.Util.UiClickAuditor.PerformClickAll(kv.Value);
-                t += tt; s += ss; f += ff;
-                Application.DoEvents();
-            }
-            return (t, s, f);
-        }
-
-        /// <summary>해당 키가 이 탭에 속하면 ShowPage 호출 후 true 반환.</summary>
-        public bool TryShowPage(string key)
-        {
-            if (string.IsNullOrEmpty(key) || !SidebarButtons.ContainsKey(key)) return false;
-            ShowPage(key);
-            return true;
-        }
-
-        /// <summary>
-        /// Stage 60 — 모든 사이드바 페이지를 1회씩 순회한다. 각 페이지의 OnLoad 가 발생하므로
-        /// PageBase 의 UiClickAuditor 가 자동 실행되어 dead-button 통계를 로그에 남긴다.
-        /// 끝나면 첫 페이지로 돌아간다.
-        /// </summary>
-        public void ShowAllPagesOnce()
-        {
-            string firstKey = null;
-            foreach (var kv in SidebarButtons)
-            {
-                if (firstKey == null) firstKey = kv.Key;
-                try { ShowPage(kv.Key); } catch { }
-                Application.DoEvents();
-            }
-            if (firstKey != null)
-            {
-                try { ShowPage(firstKey); } catch { }
-            }
-        }
-
         public void ShowPage(string key)
         {
             if (!SidebarButtons.ContainsKey(key)) return;

@@ -243,6 +243,15 @@ namespace QMC.CDT320.Sequencing.Calibration
                         "PickZ Calibration을 실행합니다.");
 
                     PickerSequenceOptions options = CreatePickerOptions(pickerNo);
+
+                    // [NeedleZ 왕복 제거 2026-08-06] 마지막 대상이 아니면 종료 후 NeedleZ 를 올리지 않는다.
+                    // AUTO CAL 은 side x picker 이중 루프라 마지막은 (SideOrder 마지막, PickerOrder 마지막)이다.
+                    // 중간 스킵이 없는 루프이므로 순서만으로 판정 가능하다.
+                    bool isLastPickUpZTarget =
+                        side == SideOrder[SideOrder.Length - 1] &&
+                        pickerNo == PickerOrder[PickerOrder.Length - 1];
+                    options.KeepNeedleZAtWorkForNextTarget = !isLastPickUpZTarget;
+
                     _activePickUpZ = new PickerPickUpZCalibrationSequence(_context, side, pickerNo);
                     int result = await _activePickUpZ.RunAsync(ct, options).ConfigureAwait(false);
                     _activePickUpZ = null;

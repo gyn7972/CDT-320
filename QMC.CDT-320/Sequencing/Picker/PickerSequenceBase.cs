@@ -1086,6 +1086,30 @@ namespace QMC.CDT320.Sequencing
                 int moveTimeout = ResolveMoveTimeout();
                 int waitCode = await WaitPickerAxisMoveDoneAsync(axis, target, moveTimeout, ct).ConfigureAwait(false);
                 waitMs = waitWatch.ElapsedMilliseconds;
+
+                // [캘 속도 전수 추적 2026-08-06] 캘 컨텍스트에서만 이동 완료 실측을 남긴다.
+                // 2026-08-06 03:22 VISION-FOCUS-CAL-REAR-AXIS-FINAL: PickerX 430mm 이동에
+                // 100mm/s 면 4.3초가 필요한데 3.19초 만에 반환되어 316mm 지점(1016.1)에서
+                // 위치 확인이 실패했다. 속도를 낮추자 처음 드러난 조기 반환이다.
+                // expectedMs 대비 elapsedMs 가 짧으면서 목표 미달이면 로그가 ★조기 반환 의심★을 붙인다.
+                if (CalibrationMotion != null)
+                {
+                    BaseAxis doneAxis = GetPickerAxis(axis);
+                    double doneVelocity = CalibrationMotion.MoveVelocity;
+                    double doneExpectedMs = doneVelocity > 0.0 && doneAxis != null
+                        ? (Math.Abs(target - doneAxis.ActualPosition) / doneVelocity) * 1000.0 + commandMs
+                        : -1.0;
+                    QMC.CDT320.Sequencing.Calibration.CalibrationSafeMoveMotion.LogMoveCompletion(
+                        Name,
+                        axis.ToString(),
+                        targetName ?? description ?? "-",
+                        doneAxis,
+                        target,
+                        doneExpectedMs,
+                        commandMs + waitMs,
+                        waitCode);
+                }
+
                 if (waitCode != 0)
                 {
                     SequenceTrace.MotionEnd("PickerMove", -1,
@@ -3094,10 +3118,15 @@ namespace QMC.CDT320.Sequencing
                     if (safeAxis != null && safeAxis.Config != null && safeAxis.Config.GetRawDefaultVelocity() > 0.0)
                     {
                         double factor = safePercent / 100.0;
-                        // [정정 2026-07-26] 스케일 적용값 × 퍼센트 — 원본 유출 차단.
-                        velocity = safeAxis.Config.GetDefaultVel() * factor;
-                        acceleration = safeAxis.Config.GetDefaultAcc() * factor;
-                        deceleration = safeAxis.Config.GetDefaultDec() * factor;
+                        // [Manual 스코프 분리 2026-08-06] 사용자 확정: 캘 안전이동은 SafeMovePercent 하나로만 정한다.
+                        // 기존 조건: GetDefaultVel/Acc/Dec(= MotionSpeedScale 적용값) × 퍼센트였다.
+                        //   캘은 Manual Sequence 스코프라 EffectiveScaleFactor 가 ManualSequencePercent(현장 50)를
+                        //   쓰므로 2000 × 0.5 × 0.1 = 100 이 되어 화면의 10% 가 실질 5% 로 동작했다.
+                        // 현재 기준: 원본 Default × 퍼센트 → 2000 × 0.1 = 200. 화면 값과 1:1로 맞는다.
+                        // 상세 근거는 CalibrationSafeMoveMotion.TryResolveAxisMotion 주석 참조.
+                        velocity = safeAxis.Config.GetRawDefaultVelocity() * factor;
+                        acceleration = safeAxis.Config.GetRawAcceleration() * factor;
+                        deceleration = safeAxis.Config.GetRawDeceleration() * factor;
                         safeMoveApplied = true;
                     }
                 }
@@ -3133,6 +3162,21 @@ namespace QMC.CDT320.Sequencing
                         safePercent,
                         velocity);
                 }
+
+                // [캘 속도 전수 추적 2026-08-06] 사용자 지시: "분석 안되면 로그 전부 남겨. 캘쪽에 전부 남겨."
+                // 이동 1건마다 속도 유도 과정(원본 Default -> 전역/Manual 스케일 -> 안전이동 %) 전체와
+                // 이동 거리/예상 소요시간을 남긴다. 캘 경로 전용이라 운전 로그량에는 영향이 없다.
+                QMC.CDT320.Sequencing.Calibration.CalibrationSafeMoveMotion.LogSpeedTrace(
+                    Name,
+                    axis.ToString(),
+                    targetName ?? "-",
+                    GetPickerAxis(axis),
+                    safePercent,
+                    safeMoveApplied,
+                    velocity,
+                    acceleration,
+                    deceleration,
+                    target);
 
                 if (Side == PickerSequenceSide.Front)
                     return FrontPicker.MovePickerAxisCommandWithMotion(

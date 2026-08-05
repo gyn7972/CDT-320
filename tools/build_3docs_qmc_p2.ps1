@@ -40,7 +40,7 @@ $plan = @(
         @{ kind="box"; name="g7"; x=4500000; y=2200000; w=1900000; h=700000; fill="70AD47"; color="FFFFFF"; text="Stage 27 (현재)`nFeeder 통합"; bold=$true; textSize=950 }
         @{ kind="box"; name="g8"; x=6600000; y=2200000; w=2000000; h=700000; fill="A5A5A5"; color="FFFFFF"; text="Stage 28+ (예정)`n실보드 양산"; bold=$true; textSize=950 }
         @{ kind="text"; name="dn"; x=300000; y=3000000; w=8400000; h=300000; text="↓"; size=2000; color="595959"; align="ctr" }
-        @{ kind="box"; name="ver"; x=300000; y=3500000; w=8400000; h=900000; fill="F2F2F2"; color="333333"; text="검증: tools/verify_all.pl (118 항목, 117 PASS, 0 FAIL)`n런타임: --auto-cycle 16 다이 — Stage 27 통합 호출 경로 활성"; textSize=1100; bold=$true }
+        @{ kind="box"; name="ver"; x=300000; y=3500000; w=8400000; h=900000; fill="F2F2F2"; color="333333"; text="검증: tools/verify_all.pl (118 항목, 117 PASS, 0 FAIL)"; textSize=1100; bold=$true }
     ) }
 
     @{ kind="section"; title="§2. 단계별 상세"; subtitle="Stage-by-Stage Detail" }

@@ -101,7 +101,7 @@ H. ID 통일 — 기존 UI 3곳 정상화 (3.2 함정)
 I. 회귀 방지 (건드리지 말아야 할 것)
 
 [ ] I-1  LotStorage.ActiveInputDieMap 관련 동작이 변하지 않았다(DieMap 시각화/시퀀스 20여 곳 사용 중).
-[ ] I-2  legacy CycleRunAsync / DoOneDieAsync 경로를 수정하지 않았다.
+[ ] I-2  삭제된 명령행 자동시험 및 레거시 사이클 경로가 다시 추가되지 않았다.
 [ ] I-3  피더 UseBarcode 옵션과 InputFeederUnit.ReadWaferFeederBarcode 를 건드리지 않았다.
 [ ] I-4  Form1 상단 상태바 lblBarcodeValue(VisionHub 상태 표시)를 건드리지 않았다.
 [ ] I-5  바코드 리더 2대(wafer ID 전용) 관련 코드를 건드리지 않았다.
@@ -129,5 +129,5 @@ K. 미결/후속 (이번 범위 아님)
 [ ] K-2  BarcodeReaderPage 목업을 실제 설정 바인딩으로 교체.
 [ ] K-3  Form1 상단 "Barcode Name" 캡션/값 불일치 정리(현재 VisionHub 상태 표시 중).
 [ ] K-4  RequireActiveLot 가드(IN-CST-NO-LOT / OUT-CST-NO-LOT) 활성화 여부 결정 (프롬프트 4.5).
-[ ] K-5  legacy CycleRunAsync / DoOneDieAsync 삭제 검토 (MachineController.cs:8930-8935 주석).
+[x] K-5  명령행 자동시험 및 레거시 사이클 경로 삭제 완료.
 [ ] K-6  LOT 이력 전용 페이지(README 가 언급하나 없는 ActiveLotPage) 신설 여부.

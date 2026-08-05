@@ -71,7 +71,6 @@ $plan = @(
          @("21", "BinCodeMap",                 "ConvertToBinCode + Color 매핑",                   "3/3")
          @("22", "JobOrder + JobQueue",        "Pending + History + DieMap CSV",                  "3/3")
          @("23", "25 Interlock 등록",           "InterlockRegistry + 다국어 알람",                 "5/5")
-         @("24", "auto-cycle CLI",             "--auto-cycle N + Lot JSON 자동",                  "5/5")
          @("25", "ExtendedInterlocks3",        "Door/WaferZ/Vacuum/BinLid/ServoOff",              "2/2")
          @("26", "UI Polish + LotPort",        "i18n fix + 사이드바 + Feeder 5 항목",              "PASS")
          @("27", "Feeder 통합 + 4 GAP fix",     "OutputUnloader + SoftLimit + Init scan",          "PASS")

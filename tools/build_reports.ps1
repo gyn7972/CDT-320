@@ -64,7 +64,6 @@ $slides1 = @(
         "Stage 21: BinCodeMap NG → bin → color (3/3 PASS)",
         "Stage 22: JobOrder + JobQueue (Pending + History) (3/3)",
         "Stage 23: 25 Interlock 등록 (5 standard + 5 ext + 5 stage8 + 10 추가) (5/5)",
-        "Stage 24: --auto-cycle N 명령행 옵션 + Lot JSON 자동 저장 (5/5)",
         "Stage 25: ExtendedInterlocks3 — DoorVsAll/WaferVisionZ/Vacuum 등 (2/2)"
     ) }
 
@@ -97,7 +96,7 @@ $slides1 = @(
     ) }
 
     @{ title="런타임 검증 — Auto-Cycle 결과"; lines=@(
-        "QMC.CDT-320.exe --auto-cycle 10 실행 결과:",
+        "과거 자동 사이클 검증 결과(현재 기능 삭제됨):",
         "",
         "[1] Init 자동 매핑: ScanCassetteAsync 16 슬롯 모두 검사 → 16/16 웨이퍼 감지",
         "[2] CycleRun 시작 → LoadNextWaferAsync 호출",
@@ -270,7 +269,7 @@ $slides2 = @(
     @{ title="검증 결과"; lines=@(
         "1. Build: QMC.Common + QMC.CDT-320 → CLEAN (warning 0)",
         "2. verify_all.pl → 117/118 PASS, 0 FAIL (회귀 무결성 유지)",
-        "3. Auto-cycle 런타임 (--auto-cycle 10):",
+        "3. 과거 자동 사이클 런타임 결과(현재 기능 삭제됨):",
         "   ✓ 카세트 매핑 16/16 슬롯 감지",
         "   ✓ ElevatorZ 10mm → 16mm → ... 슬롯 순차 진행",
         "   ✓ 피더 하강 / 클램프 / FeederY 150mm 전진",

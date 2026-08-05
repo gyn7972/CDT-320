@@ -15,7 +15,7 @@ namespace QMC.CDT320.Lots
     ///  - 살아있던 경로: RecipeProject.LotId -> MaterialSnapshot.LotId -> GetProductionLotId()
     ///    -> TactTime CSV / 웨이퍼·검사 CSV / 비전 요청 전문 / 생산통계 / 화면 표시
     ///  - 죽어있던 경로: LotStorage.OpenLot/CloseLot/RecordDie. OpenLot 호출부가 커맨드라인
-    ///    자동테스트(legacy CycleRunAsync)뿐이라 ActiveLot이 항상 null이었다.
+    ///    정상 자동 시퀀스 시작 시 ActiveLot이 준비되지 않는 경우를 차단한다.
     ///  - 게다가 두 경로의 ID 규칙이 달라(레시피 문자열 vs "LOT-yyyyMMdd-HHmmss")
     ///    StatePage / WorkMainPage / LiveLotMapView 세 곳이 ID 불일치로 lot을 강제 폐기했고,
     ///    화면에는 항상 "(no active lot)"만 보였다.
