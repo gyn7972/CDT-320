@@ -137,6 +137,10 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private async Task<int> RunColletCalibrationAsync(CancellationToken ct)
         {
+            // [중복 안전 이동 제거 2026-08-06] 종류 종료 시 1회만 안전 복귀하기 위한 마지막 대상 추적.
+            VisionFocusPickerSide lastSide = VisionFocusPickerSide.Front;
+            int lastPickerNo = 0;
+
             foreach (VisionFocusPickerSide side in SideOrder)
             {
                 foreach (int pickerNo in PickerOrder)
@@ -192,12 +196,31 @@ namespace QMC.CDT320.Sequencing.Calibration
                     if (result != 0)
                         return FailTarget("AUTO-CAL-COLLET-COC-SAVE", recipeMessage, side, pickerNo, step, result);
 
-                    result = await MoveAllUpperAxesToAvoidAsync(side, pickerNo, ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-
+                    // ================================================================
+                    // [중복 안전 이동 제거 2026-08-06]  ★실장비 미검증★
+                    // 상세: docs/cal-safe-position-redundancy-2026-08-06.txt
+                    //
+                    // 기존 조건: 픽커마다 MoveAllUpperAxesToAvoidAsync 를 돌렸다.
+                    //   2 side x 4 picker x 3 종류 = 최대 24회. 대부분 불필요했다.
+                    //   다음 픽커의 캘 시퀀스 준비 단계가 같은 안전 조건을 다시 확보하므로
+                    //   Avoid 로 갔다가 곧바로 작업위치로 되돌아오는 왕복이 반복됐다.
+                    //
+                    // 현재 기준: 종류(Collet/PickZ/PlaceZ) 내부의 픽커 사이에서는 생략하고
+                    //   ★종류가 끝날 때 1회만★ 안전 복귀한다(아래 루프 종료 후).
+                    //   종류 경계에서는 관여 스테이지(Input/Output)가 바뀌므로 보수적으로 유지한다.
+                    // ================================================================
+                    lastSide = side;
+                    lastPickerNo = pickerNo;
                     MarkTargetCompleted("COLLET", side, pickerNo);
                 }
+            }
+
+            // 종류 종료 시 1회 안전 복귀 — 다음 종류(PickZ)로 넘어가기 전 안전 상태를 확정한다.
+            if (lastPickerNo > 0)
+            {
+                int safeResult = await MoveAllUpperAxesToAvoidAsync(lastSide, lastPickerNo, ct).ConfigureAwait(false);
+                if (safeResult != 0)
+                    return safeResult;
             }
 
             return 0;
@@ -205,6 +228,10 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private async Task<int> RunPickUpZCalibrationAsync(CancellationToken ct)
         {
+            // [중복 안전 이동 제거 2026-08-06] 종류 종료 시 1회만 안전 복귀하기 위한 마지막 대상 추적.
+            VisionFocusPickerSide lastSide = VisionFocusPickerSide.Front;
+            int lastPickerNo = 0;
+
             foreach (VisionFocusPickerSide side in SideOrder)
             {
                 foreach (int pickerNo in PickerOrder)
@@ -226,12 +253,22 @@ namespace QMC.CDT320.Sequencing.Calibration
                     if (result != 0)
                         return result;
 
-                    result = await MoveAllUpperAxesToAvoidAsync(side, pickerNo, ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-
+                    // [중복 안전 이동 제거 2026-08-06] 픽커 사이 안전 복귀 생략.
+                    // 다음 픽커의 PickerPickUpZCalibrationSequence.PrepareSafeStartPositionCoreAsync(:473)
+                    // 가 PickerZ/Y/T 전체 Avoid + 상대 Picker Avoid + Input/Output 카메라 Avoid 를
+                    // 모두 확보하며, 이미 Avoid 면 재이동 없이 통과한다(:475 주석).
+                    lastSide = side;
+                    lastPickerNo = pickerNo;
                     MarkTargetCompleted("PICK Z", side, pickerNo);
                 }
+            }
+
+            // 종류 종료 시 1회 안전 복귀 — 다음 종류(PlaceZ)는 Output 스테이지를 쓰므로 경계에서 확정한다.
+            if (lastPickerNo > 0)
+            {
+                int safeResult = await MoveAllUpperAxesToAvoidAsync(lastSide, lastPickerNo, ct).ConfigureAwait(false);
+                if (safeResult != 0)
+                    return safeResult;
             }
 
             return 0;
@@ -239,6 +276,10 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private async Task<int> RunPlaceZCalibrationAsync(CancellationToken ct)
         {
+            // [중복 안전 이동 제거 2026-08-06] 종류 종료 시 1회만 안전 복귀하기 위한 마지막 대상 추적.
+            VisionFocusPickerSide lastSide = VisionFocusPickerSide.Front;
+            int lastPickerNo = 0;
+
             foreach (VisionFocusPickerSide side in SideOrder)
             {
                 foreach (int pickerNo in PickerOrder)
@@ -264,12 +305,22 @@ namespace QMC.CDT320.Sequencing.Calibration
                     if (result != 0)
                         return result;
 
-                    result = await MoveAllUpperAxesToAvoidAsync(side, pickerNo, ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-
+                    // [중복 안전 이동 제거 2026-08-06] 픽커 사이 안전 복귀 생략.
+                    // 다음 픽커의 PickerPlaceZCalibrationSequence.PrepareSafeStartPositionAsync(:778)
+                    // 가 PickerZ/Y/T 전체 Avoid + 상대 Picker Avoid + Input/Output 카메라 Avoid 를
+                    // 모두 확보하며, 이미 Avoid 면 재이동 없이 통과한다(:780 주석).
+                    lastSide = side;
+                    lastPickerNo = pickerNo;
                     MarkTargetCompleted("PLACE Z", side, pickerNo);
                 }
+            }
+
+            // ★AUTO CAL 최종 안전 복귀★ — 전체 자동 캘 종료 상태는 반드시 안전해야 한다.
+            if (lastPickerNo > 0)
+            {
+                int safeResult = await MoveAllUpperAxesToAvoidAsync(lastSide, lastPickerNo, ct).ConfigureAwait(false);
+                if (safeResult != 0)
+                    return safeResult;
             }
 
             return 0;

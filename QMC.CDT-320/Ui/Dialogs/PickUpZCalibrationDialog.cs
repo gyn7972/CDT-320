@@ -902,7 +902,40 @@ namespace QMC.CDT_320.Ui.Dialogs
                         return;
                     }
 
-                    _status.Text = "PickUpZ Batch 안전위치 복귀 중. side=" + target.Side +
+                    // ====================================================================
+                    // [중복 안전 이동 제거 2026-08-06]  ★실장비 미검증 — 실장비에서 테스트 필요★
+                    // 상세: docs/cal-safe-position-redundancy-2026-08-06.txt
+                    //
+                    // 기존 조건: 대상마다 무조건 AutoCalibrationSafePositionSequence 를 돌렸다.
+                    //   → 픽커당 [Avoid → 작업위치 → 측정 → 전체 Avoid 복귀] 가 되어
+                    //     다음 픽커에서 다시 작업위치로 들어가느라 왕복이 두 번씩 났다.
+                    //
+                    // Collet 배치 방식(ColletCalibrationDialog.RunSingleColletSequenceAsync:946):
+                    //   대상 사이에 안전 시퀀스를 넣지 않고 각 시퀀스의 준비 단계에 위임한다.
+                    //
+                    // 위임이 성립하는 근거 — PickerPickUpZCalibrationSequence
+                    //   PrepareSafeStartPositionCoreAsync(:473) 가 다음 대상 시작 시
+                    //   PickerZ 전체 Avoid / PickerY Avoid / PickerT 전체 Avoid /
+                    //   상대 Picker Avoid / Input·Output 카메라 Avoid 를 모두 확보한다.
+                    //   같은 파일 :475 주석: "시작 안전이동은 forceMove를 쓰지 않는다:
+                    //   이미 Avoid(정지+무알람+톨러런스)면 확인만 하고 통과한다."
+                    //   → 안전 시퀀스가 하던 일을 포함하며 idempotent 하다.
+                    //
+                    // ★마지막 대상 후에는 그대로 안전 복귀한다★ — 배치 종료 상태는 안전해야 한다.
+                    // ====================================================================
+                    bool hasNextTarget = index < targets.Count - 1;
+                    if (hasNextTarget)
+                    {
+                        _status.Text = "PickUpZ Batch " + target.Side + " P" + target.PickerNo +
+                                       " 완료. 다음 대상 준비 단계가 안전 조건을 확보합니다(중복 Avoid 복귀 생략).";
+                        EventLogger.Write(EventKind.Event, "CAL", "PICKUP-Z-CAL-BATCH-SAFE-SKIP",
+                            "Batch 대상 사이 안전 Avoid 복귀를 생략합니다(다음 대상 준비 단계가 확보). " +
+                            "completed=" + target.Side + " P" + target.PickerNo +
+                            ", next=" + targets[index + 1].Side + " P" + targets[index + 1].PickerNo);
+                        continue;
+                    }
+
+                    _status.Text = "PickUpZ Batch 최종 안전위치 복귀 중. side=" + target.Side +
                                    ", pickerNo=" + target.PickerNo;
                     var safe = new AutoCalibrationSafePositionSequence(context, target.Side);
                     _activeSafePositionSequence = safe;
@@ -910,7 +943,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     _activeSafePositionSequence = null;
                     if (safeResult != 0)
                     {
-                        _status.Text = "PickUpZ Batch 안전위치 복귀 실패. 다음 Picker 측정을 중단합니다. side=" +
+                        _status.Text = "PickUpZ Batch 최종 안전위치 복귀 실패. 최종 안전 상태를 확인하세요. side=" +
                                        target.Side + ", pickerNo=" + target.PickerNo +
                                        ", result=" + safeResult;
                         QMC.Common.MessageDialog.Show(

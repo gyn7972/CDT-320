@@ -1186,10 +1186,42 @@ namespace QMC.CDT_320.Ui.Dialogs
                     CaptureLastSuccessfulResult(host.Machine, sequence.Result);
                     host.SaveMachineSettings();
 
+                    // ====================================================================
+                    // [중복 안전 이동 제거 2026-08-06]  ★실장비 미검증 — 실장비에서 테스트 필요★
+                    //
+                    // 사용자 지시(2026-08-06): "Vision Focus cal 은 픽커 다른거 할때마다
+                    //   안전 위치 이동했다가 다시 또 이동했다가 이러고 있다.
+                    //   콜렛 캘리브레이션 안전 위치 조건 시컨스 참고해서 수정해줘."
+                    //
+                    // 기존 조건: 대상마다 무조건 AutoCalibrationSafePositionSequence 를 돌렸다.
+                    //   → 픽커당 [Avoid 진입 → Bottom 진입 → 스캔 → Default 복귀 → 전체 Avoid 복귀]
+                    //     가 되어, 다음 픽커에서 다시 Bottom 으로 들어가느라 왕복이 두 번씩 났다.
+                    //
+                    // Collet 배치 방식(ColletCalibrationDialog.RunSingleColletSequenceAsync:946 주석):
+                    //   "BATCH도 상대 Picker를 Avoid로 자동 이동한다(이미 Avoid면 시퀀스가 재이동 없이 통과)."
+                    //   즉 대상 사이에 별도 안전 시퀀스를 넣지 않고, 각 시퀀스의 준비 단계가
+                    //   필요한 안전 조건만 확보하도록 위임한다(idempotent skip).
+                    //
+                    // 현재 기준: 대상 사이에서는 안전 시퀀스를 돌리지 않는다.
+                    //   다음 대상의 VisionFocusScanSequence.PrepareFocusReadyPositionAsync 가
+                    //   EnsureInputOutputVisionAvoidAsync / MoveNonSelectedPickerOutputAvoidAsync /
+                    //   MoveSelectedPickerYAndZSafeForOppositePickerXAsync 로 안전 조건을 이미 확보하며,
+                    //   각 이동 헬퍼가 IsAxisIdleAtExactPosition 으로 이미 도달한 축은 건너뛴다.
+                    //   ★마지막 대상 후에는 그대로 안전 Avoid 로 복귀한다★ — 배치 종료 상태는 안전해야 한다.
+                    // ====================================================================
                     bool hasNextTarget = index < targets.Count - 1;
-                    lblStatus.Text = hasNextTarget
-                        ? "Batch " + target.Label + " 완료. 다음 대상 전 안전 Avoid 복귀 중입니다."
-                        : "Batch " + target.Label + " 완료. 최종 안전 Avoid 복귀 중입니다.";
+                    if (hasNextTarget)
+                    {
+                        lblStatus.Text = "Batch " + target.Label +
+                                         " 완료. 다음 대상 준비 단계가 안전 조건을 확보합니다(중복 Avoid 복귀 생략).";
+                        EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-BATCH-SAFE-SKIP",
+                            "Batch 대상 사이 안전 Avoid 복귀를 생략합니다(다음 대상 준비 단계가 확보). " +
+                            "completed=" + target.Label +
+                            ", next=" + targets[index + 1].Label);
+                        continue;
+                    }
+
+                    lblStatus.Text = "Batch " + target.Label + " 완료. 최종 안전 Avoid 복귀 중입니다.";
                     var safe = new AutoCalibrationSafePositionSequence(context, target.Side);
                     PickerSequenceOptions options = PickerSequenceOptions.Default();
                     options.RunMode = SequenceRunMode.Manual;
@@ -1200,8 +1232,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     if (safeResult != 0)
                     {
                         lblStatus.Text = "Batch " + target.Label +
-                                         " 완료 후 안전 Avoid 복귀에 실패했습니다. " +
-                                         (hasNextTarget ? "다음 대상을 실행하지 않습니다." : "최종 안전 상태를 확인하세요.") +
+                                         " 완료 후 최종 안전 Avoid 복귀에 실패했습니다. 최종 안전 상태를 확인하세요." +
                                          " code=" + safeResult;
                         QMC.Common.MessageDialog.Show(
                             this,

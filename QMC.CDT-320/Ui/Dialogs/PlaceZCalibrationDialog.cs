@@ -940,7 +940,37 @@ namespace QMC.CDT_320.Ui.Dialogs
                         return;
                     }
 
-                    _status.Text = "PlaceZ Batch 안전위치 복귀 중. output=" + batchOutputSide +
+                    // ====================================================================
+                    // [중복 안전 이동 제거 2026-08-06]  ★실장비 미검증 — 실장비에서 테스트 필요★
+                    // 상세: docs/cal-safe-position-redundancy-2026-08-06.txt
+                    //
+                    // 기존 조건: 대상마다 무조건 AutoCalibrationSafePositionSequence 를 돌려
+                    //   픽커 사이에서 Avoid 왕복이 두 번씩 났다(PickUpZ/VisionFocus 와 동일 문제).
+                    //
+                    // 위임이 성립하는 근거 — PickerPlaceZCalibrationSequence
+                    //   PrepareSafeStartPositionAsync(:778) 가 다음 대상 시작 시
+                    //   PickerZ 전체 Avoid / PickerY Avoid / PickerT 전체 Avoid /
+                    //   상대 Picker Avoid / Input·Output 카메라 Avoid 를 모두 확보하고
+                    //   OutputStage 를 공정 위치로 보낸다.
+                    //   같은 파일 :780 주석: "시작 안전이동은 forceMove를 쓰지 않는다:
+                    //   이미 Avoid(정지+무알람+톨러런스)면 확인만 하고 통과한다."
+                    //
+                    // ★마지막 대상 후에는 그대로 안전 복귀한다★
+                    // ====================================================================
+                    bool hasNextTarget = index < targets.Count - 1;
+                    if (hasNextTarget)
+                    {
+                        _status.Text = "PlaceZ Batch " + target.Side + " P" + target.PickerNo +
+                                       " 완료. 다음 대상 준비 단계가 안전 조건을 확보합니다(중복 Avoid 복귀 생략).";
+                        EventLogger.Write(EventKind.Event, "CAL", "PLACE-Z-CAL-BATCH-SAFE-SKIP",
+                            "Batch 대상 사이 안전 Avoid 복귀를 생략합니다(다음 대상 준비 단계가 확보). " +
+                            "output=" + batchOutputSide +
+                            ", completed=" + target.Side + " P" + target.PickerNo +
+                            ", next=" + targets[index + 1].Side + " P" + targets[index + 1].PickerNo);
+                        continue;
+                    }
+
+                    _status.Text = "PlaceZ Batch 최종 안전위치 복귀 중. output=" + batchOutputSide +
                                    ", side=" + target.Side +
                                    ", pickerNo=" + target.PickerNo;
                     var safe = new AutoCalibrationSafePositionSequence(context, target.Side);
@@ -949,7 +979,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     _activeSafePositionSequence = null;
                     if (safeResult != 0)
                     {
-                        _status.Text = "PlaceZ Batch 안전위치 복귀 실패. 다음 Picker 측정을 중단합니다. output=" +
+                        _status.Text = "PlaceZ Batch 최종 안전위치 복귀 실패. 최종 안전 상태를 확인하세요. output=" +
                                        batchOutputSide + ", side=" + target.Side +
                                        ", pickerNo=" + target.PickerNo +
                                        ", result=" + safeResult;
