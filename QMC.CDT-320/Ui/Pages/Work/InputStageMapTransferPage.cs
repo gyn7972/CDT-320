@@ -2387,6 +2387,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             finally
             {
+                // [리뷰 반영 2026-08-05] 이 저장은 wafer.UpdatedAt 갱신 후 락 없이 die/DieIds를
+                // 변이하므로, 편집 도중/예외 중단 상태가 최종 키로 캐시되는 창을 닫기 위해
+                // 성공·실패와 무관하게 완료 시점에 명시 무효화한다.
+                MaterialStateService.InvalidateInputPickContextCache("MapTransferPickStatusSave");
             }
         }
 
@@ -3555,6 +3559,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 wafer.State = WaferMaterialState.WorkReady;
                 wafer.UpdatedAt = DateTime.Now;
                 MaterialStateService.NotifyAndSave("MapTransferManualAlignComplete");
+                MaterialStateService.InvalidateInputPickContextCache("MapTransferManualAlignComplete");
                 lblBarcodeValue.Text = wafer.WaferId;
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual align complete saved. wafer=" + wafer.WaferId + " - Ok");

@@ -52,6 +52,252 @@ namespace QMC.CDT320.Materials
             return Guid.NewGuid().ToString("N");
         }
 
+        // [핫패스 인덱스 2026-08-05] DieId → DieMaterial 파생 인덱스.
+        // - State.Dies 선형 스캔(FirstOrDefault, O(N))을 O(1) 사전 조회로 대체하는 런타임 전용 인덱스다.
+        // - private static 필드: 스냅샷 그래프에 노출되면 CloneObject/직렬화가 따라가므로
+        //   절대 public 프로퍼티로 만들지 않는다.
+        // - 자기 치유: State 참조가 바뀌면(스냅샷 로드/교체) 접근 시점에 전체 재구축한다.
+        // - 값이 List인 이유: 같은 DieId의 물리 Material 2개 이상 감지
+        //   (GetOrCreateDieMaterial의 InvalidOperationException) 의미를 보존하기 위해서다.
+        // - 접근/갱신은 전부 _stateSync 락 안에서만 수행한다.
+        private static Dictionary<string, List<DieMaterial>> _dieByIdIndex;
+        private static MaterialSnapshot _dieByIdIndexSource;
+
+        private static Dictionary<string, List<DieMaterial>> GetDieByIdIndexNoLock()
+        {
+            if (_dieByIdIndex == null || !ReferenceEquals(_dieByIdIndexSource, State))
+            {
+                RebuildDieByIdIndexNoLock();
+                // State 교체/전체 재구축 시 입력 pick 컨텍스트 캐시도 함께 초기화한다.
+                _inputPickContextCache = null;
+            }
+            return _dieByIdIndex;
+        }
+
+        private static void RebuildDieByIdIndexNoLock()
+        {
+            MaterialSnapshot state = State;
+            var index = new Dictionary<string, List<DieMaterial>>(StringComparer.OrdinalIgnoreCase);
+            if (state != null && state.Dies != null)
+            {
+                for (int i = 0; i < state.Dies.Count; i++)
+                {
+                    DieMaterial die = state.Dies[i];
+                    if (die == null || string.IsNullOrWhiteSpace(die.DieId))
+                        continue;
+
+                    List<DieMaterial> list;
+                    if (!index.TryGetValue(die.DieId, out list))
+                    {
+                        list = new List<DieMaterial>(1);
+                        index[die.DieId] = list;
+                    }
+                    // State.Dies 삽입 순서를 보존해 기존 FirstOrDefault 선택 의미를 유지한다.
+                    list.Add(die);
+                }
+            }
+
+            _dieByIdIndex = index;
+            _dieByIdIndexSource = state;
+        }
+
+        private static void RegisterDieInIndexNoLock(DieMaterial die)
+        {
+            // 인덱스 미구축/다른 State면 다음 접근 때 전체 재구축되므로 여기서는 아무것도 안 해도 된다.
+            if (die == null || string.IsNullOrWhiteSpace(die.DieId) ||
+                _dieByIdIndex == null || !ReferenceEquals(_dieByIdIndexSource, State))
+                return;
+
+            List<DieMaterial> list;
+            if (!_dieByIdIndex.TryGetValue(die.DieId, out list))
+            {
+                list = new List<DieMaterial>(1);
+                _dieByIdIndex[die.DieId] = list;
+            }
+            list.Add(die);
+        }
+
+        private static void InvalidateDieByIdIndexNoLock()
+        {
+            _dieByIdIndex = null;
+            _dieByIdIndexSource = null;
+            // die 집합이 바뀌면 입력 pick 컨텍스트(맵/순서)도 함께 무효화한다.
+            _inputPickContextCache = null;
+        }
+
+        private static DieMaterial FindDieByIdNoLock(string dieId)
+        {
+            if (string.IsNullOrWhiteSpace(dieId))
+                return null;
+
+            List<DieMaterial> list;
+            if (!GetDieByIdIndexNoLock().TryGetValue(dieId, out list) || list == null || list.Count == 0)
+                return null;
+
+            return list[0];
+        }
+
+        // [핫패스 캐시 2026-08-05] 입력측 DieMap/Pick order 캐시 — 출력측 _outputReceiveOrderCache 동형.
+        // 20Hz 픽업 게이트 1회가 (FinishComplete + 게이트 본체)에서 DieMap 전체 재구축과 승인 순서
+        // 재구성을 최대 4회 반복하던 것을 wafer 상태 키 1개로 캐시한다.
+        // 키 무효화 근거:
+        //  - 맵 편집/매핑 적용/Review 승인 등 맵 골격을 바꾸는 경로는 전부 wafer.UpdatedAt(또는
+        //    Generation/Revision/승인 필드)을 갱신한다. die 단위 픽 진행은 wafer를 갱신하지 않는다.
+        //  - stale 안전 논거: pick 가능 판정의 최종 게이트는 항상 live die 검사
+        //    (CanUseInputPickCandidate의 die-level 검사)이므로 캐시된 entry가 오래되어도
+        //    잘못된 die가 pick 대상이 되지 않는다 — 손실은 entry-level 조기 스킵뿐이다.
+        // 접근은 전부 _stateSync 락 안에서만 수행한다.
+        private sealed class InputPickContext
+        {
+            public string Key;
+            public DieMap Map;
+            public List<DieMapEntry> Ordered;
+            public bool ReviewApprovalValid;
+            public string ReviewApprovalReason;
+        }
+
+        private static InputPickContext _inputPickContextCache;
+
+        private static string BuildInputPickContextKeyNoLock(WaferMaterial wafer)
+        {
+            return (wafer.WaferInstanceId ?? "") + "|" +
+                   wafer.InputStageProcessingGeneration + "|" +
+                   (wafer.InputStageRunReviewMappingRevision ?? "") + "|" +
+                   (wafer.HasInputStageRunReviewApproval ? "1" : "0") + "|" +
+                   wafer.InputStageRunReviewStartDieIndex + "|" +
+                   (wafer.InputStageRunReviewStartDieUid ?? "") + "|" +
+                   (wafer.InputStageRunReviewOrderedDieIds != null ? wafer.InputStageRunReviewOrderedDieIds.Count : 0) + "|" +
+                   (wafer.DieIds != null ? wafer.DieIds.Count : 0) + "|" +
+                   wafer.UpdatedAt.Ticks;
+        }
+
+        private static bool TryResolveInputPickContextNoLock(WaferMaterial wafer, out InputPickContext context)
+        {
+            context = null;
+            if (wafer == null)
+                return false;
+
+            string key = BuildInputPickContextKeyNoLock(wafer);
+            InputPickContext cached = _inputPickContextCache;
+            if (cached != null && string.Equals(cached.Key, key, StringComparison.Ordinal))
+            {
+                context = cached;
+                return true;
+            }
+
+            DieMap map = BuildDieMapFromWafer(wafer);
+            if (map == null || map.Entries == null || map.Entries.Count == 0)
+                return false;   // 미완성 상태는 캐시하지 않는다 (게이트가 조기 탈출하는 구간)
+
+            var built = new InputPickContext();
+            built.Key = key;
+            built.Map = map;
+
+            if (wafer.HasInputStageRunReviewApproval)
+            {
+                List<DieMapEntry> approvedOrder;
+                string approvalReason;
+                built.ReviewApprovalValid = TryBuildApprovedInputStagePickOrder(
+                    map, wafer, out approvedOrder, out approvalReason);
+                built.ReviewApprovalReason = approvalReason ?? "";
+                if (built.ReviewApprovalValid)
+                {
+                    built.Ordered = approvedOrder ?? new List<DieMapEntry>();
+                }
+                else
+                {
+                    // 기존 BuildInputStagePickOrder와 동일하게 recipe fallback을 차단하고 빈 순서를 유지한다.
+                    // (기존에는 이 로그가 20Hz로 반복되었으나 캐시 도입으로 갱신 시 1회만 남는다)
+                    Log.Write("Main", "MATERIAL", "InputStageRunReviewOrder",
+                        "승인된 Input PickUp 순서를 복원하지 못해 recipe fallback을 차단했습니다. wafer=" +
+                        (wafer.WaferId ?? "") + ", reason=" + built.ReviewApprovalReason + " - Blocked");
+                    built.Ordered = new List<DieMapEntry>();
+                }
+            }
+            else
+            {
+                var project = RecipeStore.LoadLastOrDefaultCached();
+                PickupSubset pickup = ResolveInputPickup(project);
+                built.ReviewApprovalValid = false;
+                built.ReviewApprovalReason = "InputStage Review 승인이 없습니다.";
+                built.Ordered = BuildOutputReceiveOrder(map, pickup) ?? new List<DieMapEntry>();
+            }
+
+            _inputPickContextCache = built;
+            context = built;
+            return true;
+        }
+
+        private static void InvalidateInputPickContextCacheNoLock()
+        {
+            _inputPickContextCache = null;
+        }
+
+        /// <summary>
+        /// 입력 pick 컨텍스트 캐시를 명시적으로 무효화한다.
+        /// MSS 밖(맵 편집 화면 등)에서 die/map을 직접 변이한 뒤 호출한다.
+        /// </summary>
+        public static void InvalidateInputPickContextCache(string reason)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    InvalidateInputPickContextCacheNoLock();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input pick context cache invalidate failed. reason=" + (reason ?? "") +
+                    ", error=" + ex.Message + " - Failed");
+            }
+        }
+
+        /// <summary>
+        /// [안전망] 파생 인덱스 총계와 State.Dies의 유효 die 수가 어긋나면(동기화 훅 누락 의심)
+        /// 경고 로그 후 인덱스를 재구축한다. 저장 캡처 시(약 6초 주기) 호출된다.
+        /// </summary>
+        private static void VerifyDieByIdIndexConsistencyNoLock()
+        {
+            try
+            {
+                if (_dieByIdIndex == null || !ReferenceEquals(_dieByIdIndexSource, State))
+                    return;
+
+                int indexTotal = 0;
+                foreach (List<DieMaterial> list in _dieByIdIndex.Values)
+                    indexTotal += list != null ? list.Count : 0;
+
+                int stateTotal = 0;
+                List<DieMaterial> dies = State != null ? State.Dies : null;
+                if (dies != null)
+                {
+                    for (int i = 0; i < dies.Count; i++)
+                    {
+                        DieMaterial die = dies[i];
+                        if (die != null && !string.IsNullOrWhiteSpace(die.DieId))
+                            stateTotal++;
+                    }
+                }
+
+                MaterialPerfProbe.SetGauge("DieIndexEntries", indexTotal);
+                if (indexTotal != stateTotal)
+                {
+                    Log.Write(LogLevel.Normal, "Main", "MaterialStateService",
+                        "Die index/state count mismatch. index=" + indexTotal +
+                        ", state=" + stateTotal + ". Index rebuilt. - Check");
+                    RebuildDieByIdIndexNoLock();
+                    // 불일치는 훅 누락(변이 미감지)을 의미하므로 pick 컨텍스트도 신뢰하지 않는다.
+                    InvalidateInputPickContextCacheNoLock();
+                }
+            }
+            catch
+            {
+                // 안전망 실패는 운전에 영향을 주지 않는다.
+            }
+        }
+
         private static string EnsureWaferInstanceIdNoLock(WaferMaterial wafer)
         {
             if (wafer == null)
@@ -265,33 +511,38 @@ namespace QMC.CDT320.Materials
 
         public static DieMaterial GetOrCreateDieMaterial(string dieId)
         {
-            if (string.IsNullOrEmpty(dieId))
+            // 공백 id는 인덱스에 등록되지 않아 매 호출 신규 생성으로 이어지므로 GUID로 대체한다.
+            if (string.IsNullOrWhiteSpace(dieId))
                 dieId = Guid.NewGuid().ToString("N").Substring(0, 12);
 
-            List<DieMaterial> candidates = State.Dies
-                .Where(d =>
-                    d != null &&
-                    string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase))
-                .Take(2)
-                .ToList();
-            if (candidates.Count > 1)
+            // [2026-08-05] 기존에는 락 없이 State.Dies를 열거/추가했다 — 게이트 스레드의 열거와
+            // 경합하면 "컬렉션이 수정되었습니다"가 가능했던 경로다. 인덱스 도입과 함께 락으로 보호한다.
+            lock (_stateSync)
             {
-                throw new InvalidOperationException(
-                    "같은 Die ID의 물리 Material이 둘 이상이므로 임의로 선택할 수 없습니다. dieId=" +
-                    dieId);
-            }
-            if (candidates.Count == 1)
-                return candidates[0];
+                List<DieMaterial> candidates;
+                if (!GetDieByIdIndexNoLock().TryGetValue(dieId, out candidates))
+                    candidates = null;
 
-            DieMaterial die = new DieMaterial
-            {
-                DieId = dieId,
-                CreatedAt = DateTime.Now,
-                UpdatedAt = DateTime.Now
-            };
-            State.Dies.Add(die);
-            NotifyAndSave("CreateDie");
-            return die;
+                if (candidates != null && candidates.Count > 1)
+                {
+                    throw new InvalidOperationException(
+                        "같은 Die ID의 물리 Material이 둘 이상이므로 임의로 선택할 수 없습니다. dieId=" +
+                        dieId);
+                }
+                if (candidates != null && candidates.Count == 1)
+                    return candidates[0];
+
+                DieMaterial die = new DieMaterial
+                {
+                    DieId = dieId,
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now
+                };
+                State.Dies.Add(die);
+                RegisterDieInIndexNoLock(die);
+                NotifyAndSave("CreateDie");
+                return die;
+            }
         }
 
         public static int ClearInputDieMaterialsForWafer(string waferId, string reason)
@@ -309,6 +560,8 @@ namespace QMC.CDT320.Materials
                     string instanceId = wafer != null ? EnsureWaferInstanceIdNoLock(wafer) : "";
                     int removed = State.Dies.RemoveAll(d =>
                         IsInputOnlyDieForWaferInstanceNoLock(d, waferId, instanceId));
+                    if (removed > 0)
+                        InvalidateDieByIdIndexNoLock();
 
                     if (removed > 0)
                     {
@@ -350,6 +603,8 @@ namespace QMC.CDT320.Materials
                         (activeDieIds == null ||
                          string.IsNullOrWhiteSpace(d.DieId) ||
                          !activeDieIds.Contains(d.DieId)));
+                    if (removed > 0)
+                        InvalidateDieByIdIndexNoLock();
 
                     if (removed > 0)
                     {
@@ -454,9 +709,7 @@ namespace QMC.CDT320.Materials
                     if (string.IsNullOrWhiteSpace(dieId))
                         return null;
 
-                    return State.Dies.FirstOrDefault(d =>
-                        d != null &&
-                        string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                    return FindDieByIdNoLock(dieId);
                 }
             }
             catch (Exception ex)
@@ -843,6 +1096,11 @@ namespace QMC.CDT320.Materials
             }
 
             die.UpdatedAt = DateTime.Now;
+
+            // [리뷰 반영 2026-08-05] 수동 die 상태 변경(IsTarget/Result)은 wafer 키 필드를 바꾸지
+            // 않으므로 캐시를 명시 무효화한다 — 승인 목록 밖 die 활성화의 fail-closed 차단과
+            // 재활성 die의 픽업 재개가 다음 게이트에서 즉시 재평가되게 한다.
+            InvalidateInputPickContextCacheNoLock();
         }
 
         private static void SyncManualDieStateTargetsNoLock(
@@ -2983,6 +3241,8 @@ namespace QMC.CDT320.Materials
                 return 0;
 
             int removed = State.Dies.RemoveAll(die => die != null && removeSet.Contains(die));
+            if (removed > 0)
+                InvalidateDieByIdIndexNoLock();
             var remainingDieIds = new HashSet<string>(
                 State.Dies
                     .Where(d => d != null && !string.IsNullOrWhiteSpace(d.DieId))
@@ -5552,7 +5812,7 @@ namespace QMC.CDT320.Materials
                     return false;
                 }
 
-                var project = RecipeStore.LoadLastOrDefault();
+                var project = RecipeStore.LoadLastOrDefaultCached();
                 PickupSubset pickup = ResolveOutputPickup(project);
                 List<DieMapEntry> ordered = BuildOutputReceiveOrder(binMap, pickup);
                 if (ordered.Count == 0)
@@ -5640,7 +5900,7 @@ namespace QMC.CDT320.Materials
             DieMap binMap = LoadRecipeBinMap(side);
             if (binMap == null)
                 return null;
-            var project = RecipeStore.LoadLastOrDefault();
+            var project = RecipeStore.LoadLastOrDefaultCached();
             PickupSubset pickup = ResolveOutputPickup(project);
             List<DieMapEntry> ordered = BuildOutputReceiveOrder(binMap, pickup);
             _outputReceiveOrderCache[side] =
@@ -7692,6 +7952,8 @@ namespace QMC.CDT320.Materials
         {
             try
             {
+                // [리뷰 반영 2026-08-05] LoadCompatibleMap 경로가 project를 변형할 가능성이 지적되어
+                // 이 지점은 캐시 인스턴스 대신 신선 로드를 유지한다 (per-wafer 캐시 뒤라 저빈도).
                 RecipeProject project = RecipeStore.LoadLastOrDefault();
                 if (project == null)
                     return null;
@@ -7724,6 +7986,7 @@ namespace QMC.CDT320.Materials
 
         public static InputStagePickTarget ReserveNextInputStagePickTarget(MaterialLocationKind pickerLocation, int pickerNo)
         {
+            long probeToken = MaterialPerfProbe.BeginSample();
             try
             {
                 lock (_stateSync)
@@ -7745,17 +8008,15 @@ namespace QMC.CDT320.Materials
                         return null;
                     }
 
-                    DieMap map = BuildDieMapFromWafer(wafer);
-                    if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
+                    InputPickContext pickContext;
+                    if (wafer == null || !TryResolveInputPickContextNoLock(wafer, out pickContext))
                     {
                         Log.Write("Main", "SYSTEM", "MaterialStateService",
                             "Input pick target reserve skipped: input stage die map is empty. - Check");
                         return null;
                     }
 
-                    var project = RecipeStore.LoadLastOrDefault();
-                    PickupSubset pickup = ResolveInputPickup(project);
-                    List<DieMapEntry> ordered = BuildInputStagePickOrder(map, pickup, wafer);
+                    List<DieMapEntry> ordered = pickContext.Ordered;
                     if (ordered == null || ordered.Count == 0)
                         return null;
 
@@ -7774,9 +8035,7 @@ namespace QMC.CDT320.Materials
                         if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
                             continue;
 
-                        DieMaterial die = State.Dies.FirstOrDefault(d =>
-                            d != null &&
-                            string.Equals(d.DieId, entry.DieUid, StringComparison.OrdinalIgnoreCase));
+                        DieMaterial die = FindDieByIdNoLock(entry.DieUid);
                         if (die == null)
                             continue;
 
@@ -7830,6 +8089,7 @@ namespace QMC.CDT320.Materials
             }
             finally
             {
+                MaterialPerfProbe.EndSample("ReserveNextInputStagePickTarget", probeToken);
             }
         }
 
@@ -7850,9 +8110,7 @@ namespace QMC.CDT320.Materials
                     if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
                         continue;
 
-                    DieMaterial die = State.Dies.FirstOrDefault(d =>
-                        d != null &&
-                        string.Equals(d.DieId, entry.DieUid, StringComparison.OrdinalIgnoreCase));
+                    DieMaterial die = FindDieByIdNoLock(entry.DieUid);
                     if (die == null)
                         continue;
 
@@ -7934,13 +8192,11 @@ namespace QMC.CDT320.Materials
                     if (!IsInputStageFinishCompleteNoLock(wafer, out readyReason))
                         return candidates;
 
-                    DieMap map = BuildDieMapFromWafer(wafer);
-                    if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
+                    InputPickContext pickContext;
+                    if (wafer == null || !TryResolveInputPickContextNoLock(wafer, out pickContext))
                         return candidates;
 
-                    var project = RecipeStore.LoadLastOrDefault();
-                    PickupSubset pickup = ResolveInputPickup(project);
-                    List<DieMapEntry> ordered = BuildInputStagePickOrder(map, pickup, wafer);
+                    List<DieMapEntry> ordered = pickContext.Ordered;
                     if (ordered == null || ordered.Count == 0)
                         return candidates;
 
@@ -7950,9 +8206,7 @@ namespace QMC.CDT320.Materials
                         if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
                             continue;
 
-                        DieMaterial die = State.Dies.FirstOrDefault(d =>
-                            d != null &&
-                            string.Equals(d.DieId, entry.DieUid, StringComparison.OrdinalIgnoreCase));
+                        DieMaterial die = FindDieByIdNoLock(entry.DieUid);
                         if (die == null)
                             continue;
 
@@ -8033,17 +8287,15 @@ namespace QMC.CDT320.Materials
                         return null;
                     }
 
-                    DieMap map = BuildDieMapFromWafer(wafer);
-                    if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
+                    InputPickContext pickContext;
+                    if (wafer == null || !TryResolveInputPickContextNoLock(wafer, out pickContext))
                     {
                         Log.Write("Main", "SYSTEM", "MaterialStateService",
                             "Input pick target reserve by die skipped: input stage die map is empty. - Check");
                         return null;
                     }
 
-                    var project = RecipeStore.LoadLastOrDefault();
-                    PickupSubset pickup = ResolveInputPickup(project);
-                    List<DieMapEntry> ordered = BuildInputStagePickOrder(map, pickup, wafer);
+                    List<DieMapEntry> ordered = pickContext.Ordered;
                     if (ordered == null || ordered.Count == 0)
                         return null;
 
@@ -8141,13 +8393,11 @@ namespace QMC.CDT320.Materials
                     if (!IsInputStageFinishCompleteNoLock(wafer, out readyReason))
                         return null;
 
-                    DieMap map = BuildDieMapFromWafer(wafer);
-                    if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
+                    InputPickContext pickContext;
+                    if (wafer == null || !TryResolveInputPickContextNoLock(wafer, out pickContext))
                         return null;
 
-                    var project = RecipeStore.LoadLastOrDefault();
-                    PickupSubset pickup = ResolveInputPickup(project);
-                    List<DieMapEntry> ordered = BuildInputStagePickOrder(map, pickup, wafer);
+                    List<DieMapEntry> ordered = pickContext.Ordered;
                     if (ordered == null || ordered.Count == 0)
                         return null;
 
@@ -8657,6 +8907,7 @@ namespace QMC.CDT320.Materials
 
         public static bool HasReadyInputStagePickTarget()
         {
+            long probeToken = MaterialPerfProbe.BeginSample();
             try
             {
                 lock (_stateSync)
@@ -8666,13 +8917,11 @@ namespace QMC.CDT320.Materials
                     if (!IsInputStageFinishCompleteNoLock(wafer, out readyReason))
                         return false;
 
-                    DieMap map = BuildDieMapFromWafer(wafer);
-                    if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
+                    InputPickContext pickContext;
+                    if (wafer == null || !TryResolveInputPickContextNoLock(wafer, out pickContext))
                         return false;
 
-                    var project = RecipeStore.LoadLastOrDefault();
-                    PickupSubset pickup = ResolveInputPickup(project);
-                    List<DieMapEntry> ordered = BuildInputStagePickOrder(map, pickup, wafer);
+                    List<DieMapEntry> ordered = pickContext.Ordered;
                     if (ordered == null || ordered.Count == 0)
                         return false;
 
@@ -8682,9 +8931,7 @@ namespace QMC.CDT320.Materials
                         if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
                             continue;
 
-                        DieMaterial die = State.Dies.FirstOrDefault(d =>
-                            d != null &&
-                            string.Equals(d.DieId, entry.DieUid, StringComparison.OrdinalIgnoreCase));
+                        DieMaterial die = FindDieByIdNoLock(entry.DieUid);
                         if (die == null)
                             continue;
 
@@ -8720,6 +8967,7 @@ namespace QMC.CDT320.Materials
             }
             finally
             {
+                MaterialPerfProbe.EndSample("HasReadyInputStagePickTarget", probeToken);
             }
         }
 
@@ -8733,6 +8981,7 @@ namespace QMC.CDT320.Materials
         /// </summary>
         public static bool HasActionableInputStagePickTarget(MaterialLocationKind pickerLocation)
         {
+            long probeToken = MaterialPerfProbe.BeginSample();
             try
             {
                 lock (_stateSync)
@@ -8746,13 +8995,11 @@ namespace QMC.CDT320.Materials
                     if (!IsInputStageFinishCompleteNoLock(wafer, out readyReason))
                         return false;
 
-                    DieMap map = BuildDieMapFromWafer(wafer);
-                    if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
+                    InputPickContext pickContext;
+                    if (wafer == null || !TryResolveInputPickContextNoLock(wafer, out pickContext))
                         return false;
 
-                    var project = RecipeStore.LoadLastOrDefault();
-                    PickupSubset pickup = ResolveInputPickup(project);
-                    List<DieMapEntry> ordered = BuildInputStagePickOrder(map, pickup, wafer);
+                    List<DieMapEntry> ordered = pickContext.Ordered;
                     if (ordered == null || ordered.Count == 0)
                         return false;
 
@@ -8762,9 +9009,7 @@ namespace QMC.CDT320.Materials
                         if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
                             continue;
 
-                        DieMaterial die = State.Dies.FirstOrDefault(d =>
-                            d != null &&
-                            string.Equals(d.DieId, entry.DieUid, StringComparison.OrdinalIgnoreCase));
+                        DieMaterial die = FindDieByIdNoLock(entry.DieUid);
                         if (die == null)
                             continue;
 
@@ -8805,6 +9050,7 @@ namespace QMC.CDT320.Materials
             }
             finally
             {
+                MaterialPerfProbe.EndSample("HasActionableInputStagePickTarget", probeToken);
             }
         }
 
@@ -9039,8 +9285,8 @@ namespace QMC.CDT320.Materials
                 return false;
             }
 
-            DieMap map = BuildDieMapFromWafer(wafer);
-            if (map == null || map.Entries == null || map.Entries.Count == 0)
+            InputPickContext pickContext;
+            if (!TryResolveInputPickContextNoLock(wafer, out pickContext))
             {
                 reason = "InputStage die map is empty. waferId=" + wafer.WaferId;
                 return false;
@@ -9052,18 +9298,16 @@ namespace QMC.CDT320.Materials
                 return false;
             }
 
-            List<DieMapEntry> approvedOrder;
-            string approvalReason;
-            if (!TryBuildApprovedInputStagePickOrder(map, wafer, out approvedOrder, out approvalReason))
+            if (!pickContext.ReviewApprovalValid)
             {
                 reason = "InputStage Review 승인 PickUp 순서가 유효하지 않습니다. waferId=" +
-                         wafer.WaferId + ", reason=" + approvalReason;
+                         wafer.WaferId + ", reason=" + pickContext.ReviewApprovalReason;
                 return false;
             }
 
             reason = "InputStage finish complete. waferId=" + wafer.WaferId +
                      ", dieCount=" + wafer.DieIds.Count +
-                     ", pickableCount=" + approvedOrder.Count;
+                     ", pickableCount=" + (pickContext.Ordered != null ? pickContext.Ordered.Count : 0);
             return true;
         }
 
@@ -9125,6 +9369,7 @@ namespace QMC.CDT320.Materials
 
         public static bool IsInputStagePickComplete()
         {
+            long probeToken = MaterialPerfProbe.BeginSample();
             try
             {
                 lock (_stateSync)
@@ -9139,9 +9384,7 @@ namespace QMC.CDT320.Materials
                         if (string.IsNullOrWhiteSpace(dieId))
                             continue;
 
-                        DieMaterial die = State.Dies.FirstOrDefault(d =>
-                            d != null &&
-                            string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                        DieMaterial die = FindDieByIdNoLock(dieId);
                         if (die == null || !die.IsInputTarget ||
                             die.Result == DieResult.NG ||
                             (die.Result == DieResult.Good && die.InputSequenceNo <= 0))
@@ -9171,6 +9414,7 @@ namespace QMC.CDT320.Materials
             }
             finally
             {
+                MaterialPerfProbe.EndSample("IsInputStagePickComplete", probeToken);
             }
         }
 
@@ -9772,6 +10016,7 @@ namespace QMC.CDT320.Materials
 
         public static DieMap BuildDieMapFromWafer(WaferMaterial wafer)
         {
+            long probeToken = MaterialPerfProbe.BeginSample();
             try
             {
                 if (wafer == null || string.IsNullOrWhiteSpace(wafer.WaferId))
@@ -9840,7 +10085,7 @@ namespace QMC.CDT320.Materials
                 }
 
                 if (!HasCompleteInputSequence(map))
-                    PickupSequenceGenerator.ApplySequenceNumbers(map, ResolveInputPickup(RecipeStore.LoadLastOrDefault()));
+                    PickupSequenceGenerator.ApplySequenceNumbers(map, ResolveInputPickup(RecipeStore.LoadLastOrDefaultCached()));
                 return DieMapGenerator.Normalize(map);
             }
             catch (Exception ex)
@@ -9851,6 +10096,7 @@ namespace QMC.CDT320.Materials
             }
             finally
             {
+                MaterialPerfProbe.EndSample("BuildDieMapFromWafer", probeToken);
             }
         }
 
@@ -10029,9 +10275,11 @@ namespace QMC.CDT320.Materials
             if (wafer == null)
                 return new List<DieMaterial>();
 
+            string waferInstanceId = wafer.WaferInstanceId ?? "";
             List<DieMaterial> source = State.Dies.Where(d =>
                 d != null &&
                 string.Equals(d.WaferID_Input, wafer.WaferId, StringComparison.OrdinalIgnoreCase) &&
+                IsDieOwnedByInputWaferInstance(d, waferInstanceId) &&
                 d.Wafer_IndexX >= 0 &&
                 d.Wafer_IndexY >= 0).ToList();
 
@@ -10067,6 +10315,26 @@ namespace QMC.CDT320.Materials
             }
 
             return DeduplicateWaferDiesByGrid(source);
+        }
+
+        /// <summary>
+        /// Die가 해당 Input wafer "세대"의 소유인지 판정한다.
+        /// 표시 WaferId는 Slot 고정 재사용 시 세대 간 중복되므로
+        /// (ResetInputStageWaferProcessingStateNoLock가 출력 부모 die를 남기고 새 instance를 발급),
+        /// 세대 구분은 InputWaferInstanceId로 확정한다.
+        /// 레거시 폴백: 어느 한쪽이라도 instance id가 없으면 기존 표시-ID 판정을 유지한다.
+        /// </summary>
+        private static bool IsDieOwnedByInputWaferInstance(DieMaterial die, string waferInstanceId)
+        {
+            if (string.IsNullOrWhiteSpace(waferInstanceId))
+                return true;
+
+            string dieInstanceId = die != null ? die.InputWaferInstanceId : null;
+            if (string.IsNullOrWhiteSpace(dieInstanceId))
+                return true;
+
+            // 다른 instance 판정들(ValidateWaferInstancePointer 등)과 동일하게 Trim 후 비교한다.
+            return string.Equals(dieInstanceId.Trim(), waferInstanceId.Trim(), StringComparison.OrdinalIgnoreCase);
         }
 
         private static List<DieMaterial> DeduplicateWaferDiesByGrid(IEnumerable<DieMaterial> dies)
@@ -10426,6 +10694,11 @@ namespace QMC.CDT320.Materials
                     }
 
                     LotStorage.ActiveInputDieMap = map;
+
+                    // [리뷰 반영 2026-08-05] 좌표 전파는 die.WaferOffset/entry.PosX,Y를 바꾸지만
+                    // wafer 키 필드를 건드리지 않는다 — 캐시된 pick 좌표가 굳지 않도록 명시 무효화한다.
+                    if (updatedDieCount > 0)
+                        InvalidateInputPickContextCacheNoLock();
                 }
 
                 NotifyAndSave(string.IsNullOrWhiteSpace(reason)
@@ -10913,6 +11186,10 @@ namespace QMC.CDT320.Materials
             SyncActiveInputMapEntryNoLock(die.DieId, true, DieResult.Unknown, 0);
             ResetOutputReceiveSlotsForManualRepickNoLock(die.DieId);
             die.UpdatedAt = DateTime.Now;
+
+            // [리뷰 반영 2026-08-05] 재픽업 복구 die가 캐시된 Ordered에 없을 수 있으므로
+            // (재기동/컴팩션 후 재구축된 캐시), 다음 게이트에서 재평가되도록 명시 무효화한다.
+            InvalidateInputPickContextCacheNoLock();
         }
 
         private static void ResetOutputReceiveSlotsForManualRepickNoLock(string dieId)
@@ -11272,7 +11549,11 @@ namespace QMC.CDT320.Materials
                     .ToList();
             }
 
-            return MaterialStateCompactor.Compact(State, activeInputMapRoots);
+            MaterialCompactionResult compactionOutcome = MaterialStateCompactor.Compact(State, activeInputMapRoots);
+            // 컴팩터가 State.Dies를 직접 제거하므로 파생 인덱스를 함께 무효화한다.
+            if (compactionOutcome != null && compactionOutcome.Changed)
+                InvalidateDieByIdIndexNoLock();
+            return compactionOutcome;
         }
 
         private static void LogMaterialCompaction(string reason, MaterialCompactionResult result)
@@ -11303,20 +11584,38 @@ namespace QMC.CDT320.Materials
                 // "컬렉션이 수정되었습니다" 예외로 저장이 실패할 수 있었다.
                 // 무거운 직렬화/디스크 쓰기는 계속 락 밖에서 수행한다.
                 MaterialSnapshot saveCopy;
-                lock (_stateSync)
+                // 저장 캡처(딥클론) 동안의 전역 락 "보유" 시간 — 기준선 계측 (락 대기 시간은 제외).
+                // 예외 경로의 최악 샘플도 통계에 남도록 try/finally로 감싼다.
+                long captureProbeToken = 0;
+                try
                 {
-                    State.SaveReason = reason ?? "";
-                    State.SavedAt = DateTime.Now;
-                    EnsureSnapshotMaterialIdentityNoLock();
-                    State.SnapshotRevision = IssueNextSnapshotRevisionNoLock();
-                    lock (_saveRequestSync)
+                    lock (_stateSync)
                     {
-                        // 새 Revision을 발급한 순간부터 해당 Revision의 커밋이 확인될 때까지
-                        // "최신 상태 저장 완료"로 판단하면 안 된다.
-                        _lastSaveSucceeded = false;
+                        captureProbeToken = MaterialPerfProbe.BeginSample();
+                        State.SaveReason = reason ?? "";
+                        State.SavedAt = DateTime.Now;
+                        EnsureSnapshotMaterialIdentityNoLock();
+                        State.SnapshotRevision = IssueNextSnapshotRevisionNoLock();
+                        lock (_saveRequestSync)
+                        {
+                            // 새 Revision을 발급한 순간부터 해당 Revision의 커밋이 확인될 때까지
+                            // "최신 상태 저장 완료"로 판단하면 안 된다.
+                            _lastSaveSucceeded = false;
+                        }
+                        NormalizeSnapshotHeader(State);
+                        VerifyDieByIdIndexConsistencyNoLock();
+                        saveCopy = MaterialSnapshotStore.CreateSaveCopy(State);
                     }
-                    NormalizeSnapshotHeader(State);
-                    saveCopy = MaterialSnapshotStore.CreateSaveCopy(State);
+                }
+                finally
+                {
+                    if (captureProbeToken != 0)
+                        MaterialPerfProbe.EndSample("SaveCaptureLock", captureProbeToken);
+                }
+                if (saveCopy != null)
+                {
+                    MaterialPerfProbe.SetGauge("StateDies", saveCopy.Dies != null ? saveCopy.Dies.Count : 0);
+                    MaterialPerfProbe.SetGauge("StateWafers", saveCopy.Wafers != null ? saveCopy.Wafers.Count : 0);
                 }
 
                 if (saveCopy == null)
@@ -12774,8 +13073,12 @@ namespace QMC.CDT320.Materials
 
             // 이전 wafer의 Die 진행 정보(Result/Picked/예약)를 함께 제거한다.
             string waferId = wafer.WaferId ?? string.Empty;
-            State.Dies.RemoveAll(d =>
+            int removedForReset = State.Dies.RemoveAll(d =>
                 IsInputOnlyDieForWaferInstanceNoLock(d, waferId, previousInstanceId));
+            if (removedForReset > 0)
+                InvalidateDieByIdIndexNoLock();
+            // 세대 리셋은 키 필드(Generation 등)로도 무효화되지만, 명시적으로도 비운다 (belt & braces).
+            InvalidateInputPickContextCacheNoLock();
 
             ClearInputStageWaferProcessingFieldsNoLock(wafer);
             wafer.DieIds = new List<string>();
