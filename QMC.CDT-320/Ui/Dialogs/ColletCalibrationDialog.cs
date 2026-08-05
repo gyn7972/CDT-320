@@ -1933,6 +1933,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (_busy)
                 return;
+            if (!CanRunManualCalibration(out gateReason))
 
             try
             {
