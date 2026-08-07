@@ -532,6 +532,16 @@
     <Compile Include="Equipment\Materials\MaterialSnapshotStore.cs" />
     <Compile Include="Equipment\Materials\MaterialStateCompactor.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.CassetteMapping.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.Clear.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.DieOps.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.InputPick.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.OutputReceive.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.ProcessTest.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.RecipeSpec.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.Save.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.WaferMove.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.WaferPlacement.cs" />
     <Compile Include="Equipment\Materials\MaterialStorage.cs" />
     <Compile Include="Equipment\Materials\MaterialSpecs.cs" />
     <Compile Include="Equipment\Materials\OutputWaferCsvSnapshotWriter.cs" />
@@ -1616,4 +1626,4 @@
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-</Project>
+</Project>
