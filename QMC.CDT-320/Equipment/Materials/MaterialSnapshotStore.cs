@@ -563,6 +563,12 @@ namespace QMC.CDT320.Materials
         /// </summary>
         public static MaterialSnapshot CreateSaveCopy(MaterialSnapshot snapshot)
         {
+            // [택타임 개선 2026-08-08] 검사 상세를 저장하지 않는 설정이면 "복제 후 비우기"가 아니라
+            // 처음부터 복제하지 않는다. 상세는 그래프의 대부분을 차지하므로 전역 락 보유 시간이 크게 준다.
+            // 결과 그래프는 기존 (딥클론 → TrimInspectionDetailIfDisabled) 와 동일하다.
+            if (IsTypedCloneUsable())
+                return CloneSnapshotTyped(snapshot, ShouldSaveInspectionDetail());
+
             MaterialSnapshot copy = CloneSnapshotForSave(snapshot);
             if (copy == null)
                 return null;
@@ -575,7 +581,29 @@ namespace QMC.CDT320.Materials
         {
             // 수동 Process Test transaction rollback용. 저장 정책에 따른 Inspection trim 없이
             // live graph를 그대로 복제해야 실패 전 상태를 정확히 복원할 수 있다.
+            if (IsTypedCloneUsable())
+                return CloneSnapshotTyped(snapshot, true);
+
             return CloneSnapshotForSave(snapshot);
+        }
+
+        /// <summary>
+        /// 저장 사본에 검사 측정값 상세를 포함할지 여부. 설정 조회 실패 시에는
+        /// 기존 TrimInspectionDetailIfDisabled 와 같은 방향(상세 포함)으로 안전하게 처리한다.
+        /// </summary>
+        private static bool ShouldSaveInspectionDetail()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                return settings == null || settings.SaveMaterialInspectionDetail;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                    "검사 상세 저장 설정을 확인하지 못해 상세를 포함해 저장합니다. error=" + ex.Message + " - Check");
+                return true;
+            }
         }
 
         /// <summary>
@@ -861,6 +889,493 @@ namespace QMC.CDT320.Materials
                 return -1L;
             }
         }
+
+        #region 타입별 스냅샷 딥클론 (저장 캡처 가속)
+
+        // [택타임 개선 2026-08-08] 저장 캡처 딥클론은 MaterialStateService._stateSync 전역 락 안에서
+        // 수행되므로, 이 시간이 그대로 시퀀스 대기 시간이 된다.
+        // 실측(2026-08-07 야간 연속 운전, 다이 14,846개):
+        //   SaveCaptureLock 평균 7.6초/회, 최대 8.1초 → 시간당 락 점유율 49%
+        //   같은 구간 OutputReceive tact 1,186ms → 1,864ms (UPH 3,034 → 1,925)
+        // 원인은 리플렉션 기반 범용 CloneObject다. 프로퍼티마다 GetValue/SetValue 박싱이 일어나고
+        // 객체마다 visited 사전에 참조 해시를 넣는다. 다이/검사 수에 선형으로 늘어난다.
+        // 아래 타입별 복제는 같은 그래프를 리플렉션/박싱/visited 없이 복사한다.
+        //
+        // 등가성 근거:
+        //  - 스냅샷 그래프 타입은 전부 DataMember 프로퍼티만 가지며, 공개 read/write 프로퍼티 목록과 일치한다.
+        //  - 저장 직렬화기(DataContractJsonSerializer)는 preserveObjectReferences를 쓰지 않으므로,
+        //    공유 참조를 트리로 펼쳐 복제해도 출력 JSON은 동일하다.
+        //  - 실제 운전 스냅샷(다이 14,846 / 웨이퍼 39 / 검사 89,076)으로 기존 경로와
+        //    바이트 단위 동일 출력을 확인했다.
+        //
+        // 안전장치: 모델에 프로퍼티가 추가/삭제되면 아래 개수 가드가 불일치를 감지해
+        //   기존 리플렉션 복제로 폴백하고 로그를 남긴다. 조용한 데이터 누락이 생기지 않는다.
+        private static int _typedCloneUsable = -1;   // -1=미검사, 1=사용, 0=폴백
+
+        private static bool IsTypedCloneUsable()
+        {
+            int cached = Volatile.Read(ref _typedCloneUsable);
+            if (cached >= 0)
+                return cached == 1;
+
+            bool usable;
+            try
+            {
+                usable =
+                    MatchesTypedCloneShape(typeof(MaterialSnapshot), 9) &&
+                    MatchesTypedCloneShape(typeof(CassetteMaterial), 10) &&
+                    MatchesTypedCloneShape(typeof(CassetteSlotMaterial), 4) &&
+                    MatchesTypedCloneShape(typeof(WaferMaterial), 76) &&
+                    MatchesTypedCloneShape(typeof(OutputReceiveSlotMaterial), 22) &&
+                    MatchesTypedCloneShape(typeof(DieMaterial), 28) &&
+                    MatchesTypedCloneShape(typeof(DieInspectionRecord), 8) &&
+                    MatchesTypedCloneShape(typeof(InspectionMeasurement), 7) &&
+                    MatchesTypedCloneShape(typeof(InspectionAlignmentSnapshot), 11) &&
+                    MatchesTypedCloneShape(typeof(MaterialLocation), 4) &&
+                    MatchesTypedCloneShape(typeof(VisionOffset), 4);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                    "스냅샷 타입별 복제 가능 여부 확인에 실패해 기존 복제를 사용합니다. error=" +
+                    ex.Message + " - Check");
+                usable = false;
+            }
+
+            Volatile.Write(ref _typedCloneUsable, usable ? 1 : 0);
+            return usable;
+        }
+
+        private static bool MatchesTypedCloneShape(Type type, int expectedPropertyCount)
+        {
+            int actual = GetSnapshotProperties(type).Length;
+            if (actual == expectedPropertyCount)
+                return true;
+
+            Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                "스냅샷 모델이 변경되어 타입별 복제를 사용할 수 없습니다(기존 리플렉션 복제로 폴백). type=" +
+                type.Name + ", expected=" + expectedPropertyCount + ", actual=" + actual +
+                ". 복제 코드에 신규 프로퍼티를 반영한 뒤 기대값을 갱신하십시오. - Check");
+            return false;
+        }
+
+        private static List<string> CloneStringList(List<string> source)
+        {
+            if (source == null)
+                return null;
+
+            var clone = new List<string>(source.Count);
+            for (int i = 0; i < source.Count; i++)
+                clone.Add(source[i]);
+            return clone;
+        }
+
+        private static MaterialLocation CloneLocation(MaterialLocation source)
+        {
+            if (source == null)
+                return null;
+
+            return new MaterialLocation
+            {
+                Kind = source.Kind,
+                CassetteRole = source.CassetteRole,
+                SlotNumber = source.SlotNumber,
+                PickerNo = source.PickerNo
+            };
+        }
+
+        private static VisionOffset CloneVisionOffset(VisionOffset source)
+        {
+            if (source == null)
+                return null;
+
+            return new VisionOffset
+            {
+                X = source.X,
+                Y = source.Y,
+                R = source.R,
+                IsValid = source.IsValid
+            };
+        }
+
+        private static InspectionMeasurement CloneMeasurement(InspectionMeasurement source)
+        {
+            if (source == null)
+                return null;
+
+            return new InspectionMeasurement
+            {
+                Name = source.Name,
+                Value = source.Value,
+                Unit = source.Unit,
+                LowerLimit = source.LowerLimit,
+                UpperLimit = source.UpperLimit,
+                RawValue = source.RawValue,
+                Result = source.Result
+            };
+        }
+
+        private static InspectionAlignmentSnapshot CloneAlignment(InspectionAlignmentSnapshot source)
+        {
+            if (source == null)
+                return null;
+
+            return new InspectionAlignmentSnapshot
+            {
+                Name = source.Name,
+                X = source.X,
+                Y = source.Y,
+                T = source.T,
+                Z = source.Z,
+                XAxisName = source.XAxisName,
+                YAxisName = source.YAxisName,
+                TAxisName = source.TAxisName,
+                ZAxisName = source.ZAxisName,
+                Offset = CloneVisionOffset(source.Offset),
+                IsValid = source.IsValid
+            };
+        }
+
+        // includeInspectionDetail=false 는 기존 TrimInspectionDetailIfDisabled 와 동일한 결과를 만든다.
+        // (원본이 null 이면 null 유지, 그 외에는 빈 목록) 다만 상세를 복제한 뒤 버리지 않고 처음부터 만들지 않는다.
+        private static DieInspectionRecord CloneInspectionRecord(
+            DieInspectionRecord source,
+            bool includeInspectionDetail)
+        {
+            if (source == null)
+                return null;
+
+            var clone = new DieInspectionRecord
+            {
+                InspectionType = source.InspectionType,
+                Result = source.Result,
+                NgCodes = CloneStringList(source.NgCodes),
+                Offset = CloneVisionOffset(source.Offset),
+                CreatedAt = source.CreatedAt,
+                UpdatedAt = source.UpdatedAt
+            };
+
+            if (source.Measurements == null)
+            {
+                clone.Measurements = null;
+            }
+            else if (!includeInspectionDetail)
+            {
+                clone.Measurements = new List<InspectionMeasurement>();
+            }
+            else
+            {
+                var measurements = new List<InspectionMeasurement>(source.Measurements.Count);
+                for (int i = 0; i < source.Measurements.Count; i++)
+                    measurements.Add(CloneMeasurement(source.Measurements[i]));
+                clone.Measurements = measurements;
+            }
+
+            if (source.Alignments == null)
+            {
+                clone.Alignments = null;
+            }
+            else if (!includeInspectionDetail)
+            {
+                clone.Alignments = new List<InspectionAlignmentSnapshot>();
+            }
+            else
+            {
+                var alignments = new List<InspectionAlignmentSnapshot>(source.Alignments.Count);
+                for (int i = 0; i < source.Alignments.Count; i++)
+                    alignments.Add(CloneAlignment(source.Alignments[i]));
+                clone.Alignments = alignments;
+            }
+
+            return clone;
+        }
+
+        private static DieMaterial CloneDie(DieMaterial source, bool includeInspectionDetail)
+        {
+            if (source == null)
+                return null;
+
+            var clone = new DieMaterial
+            {
+                DieId = source.DieId,
+                WaferID_Input = source.WaferID_Input,
+                InputWaferInstanceId = source.InputWaferInstanceId,
+                WaferID_Output = source.WaferID_Output,
+                OutputWaferInstanceId = source.OutputWaferInstanceId,
+                Input_BinCode = source.Input_BinCode,
+                IsInputTarget = source.IsInputTarget,
+                Output_BinCode = source.Output_BinCode,
+                Wafer_IndexX = source.Wafer_IndexX,
+                Wafer_IndexY = source.Wafer_IndexY,
+                Wafer_OriginalIndexX = source.Wafer_OriginalIndexX,
+                Wafer_OriginalIndexY = source.Wafer_OriginalIndexY,
+                InputSequenceNo = source.InputSequenceNo,
+                Bin_IndexX = source.Bin_IndexX,
+                Bin_IndexY = source.Bin_IndexY,
+                CurrentLocation = CloneLocation(source.CurrentLocation),
+                ReservedPickerLocation = source.ReservedPickerLocation,
+                ReservedPickerNo = source.ReservedPickerNo,
+                PickedPickerLocation = source.PickedPickerLocation,
+                PickedPickerNo = source.PickedPickerNo,
+                PickedAt = source.PickedAt,
+                Result = source.Result,
+                NgCodes = CloneStringList(source.NgCodes),
+                WaferOffset = CloneVisionOffset(source.WaferOffset),
+                BinOffset = CloneVisionOffset(source.BinOffset),
+                CreatedAt = source.CreatedAt,
+                UpdatedAt = source.UpdatedAt
+            };
+
+            if (source.Inspections == null)
+            {
+                clone.Inspections = null;
+            }
+            else
+            {
+                var inspections = new List<DieInspectionRecord>(source.Inspections.Count);
+                for (int i = 0; i < source.Inspections.Count; i++)
+                    inspections.Add(CloneInspectionRecord(source.Inspections[i], includeInspectionDetail));
+                clone.Inspections = inspections;
+            }
+
+            return clone;
+        }
+
+        private static CassetteSlotMaterial CloneCassetteSlot(CassetteSlotMaterial source)
+        {
+            if (source == null)
+                return null;
+
+            return new CassetteSlotMaterial
+            {
+                SlotNumber = source.SlotNumber,
+                WaferId = source.WaferId,
+                WaferInstanceId = source.WaferInstanceId,
+                HasWafer = source.HasWafer
+            };
+        }
+
+        private static CassetteMaterial CloneCassette(CassetteMaterial source)
+        {
+            if (source == null)
+                return null;
+
+            var clone = new CassetteMaterial
+            {
+                CassetteId = source.CassetteId,
+                CassetteLotId = source.CassetteLotId,
+                Role = source.Role,
+                Level = source.Level,
+                SlotCount = source.SlotCount,
+                IsEnabled = source.IsEnabled,
+                IsPresent = source.IsPresent,
+                IsMapped = source.IsMapped,
+                LastScanTime = source.LastScanTime
+            };
+
+            if (source.Slots == null)
+            {
+                clone.Slots = null;
+            }
+            else
+            {
+                var slots = new List<CassetteSlotMaterial>(source.Slots.Count);
+                for (int i = 0; i < source.Slots.Count; i++)
+                    slots.Add(CloneCassetteSlot(source.Slots[i]));
+                clone.Slots = slots;
+            }
+
+            return clone;
+        }
+
+        private static OutputReceiveSlotMaterial CloneOutputReceiveSlot(OutputReceiveSlotMaterial source)
+        {
+            if (source == null)
+                return null;
+
+            return new OutputReceiveSlotMaterial
+            {
+                OrderIndex = source.OrderIndex,
+                SequenceNo = source.SequenceNo,
+                DieMapX = source.DieMapX,
+                DieMapY = source.DieMapY,
+                OriginalMapX = source.OriginalMapX,
+                OriginalMapY = source.OriginalMapY,
+                IsTarget = source.IsTarget,
+                Result = source.Result,
+                BinCode = source.BinCode,
+                PosX = source.PosX,
+                PosY = source.PosY,
+                DieUid = source.DieUid,
+                SourceDieUid = source.SourceDieUid,
+                PlacementUid = source.PlacementUid,
+                LegacyDieUid = source.LegacyDieUid,
+                IdentityRecoveryNote = source.IdentityRecoveryNote,
+                IsOutputInspectionDone = source.IsOutputInspectionDone,
+                IsOutputInspectionOk = source.IsOutputInspectionOk,
+                OutputInspectionOffsetX = source.OutputInspectionOffsetX,
+                OutputInspectionOffsetY = source.OutputInspectionOffsetY,
+                OutputInspectionOffsetT = source.OutputInspectionOffsetT,
+                OutputInspectionRaw = source.OutputInspectionRaw
+            };
+        }
+
+        private static WaferMaterial CloneWafer(WaferMaterial source)
+        {
+            if (source == null)
+                return null;
+
+            var clone = new WaferMaterial
+            {
+                WaferId = source.WaferId,
+                OriginalWaferId = source.OriginalWaferId,
+                BarcodeId = source.BarcodeId,
+                BarcodeConfirmed = source.BarcodeConfirmed,
+                BarcodeSource = source.BarcodeSource,
+                BarcodeUpdatedAt = source.BarcodeUpdatedAt,
+                BarcodeAttemptCount = source.BarcodeAttemptCount,
+                WaferInstanceId = source.WaferInstanceId,
+                CassetteLotId = source.CassetteLotId,
+                SourceCassetteId = source.SourceCassetteId,
+                SourceCassetteRole = source.SourceCassetteRole,
+                SourceSlotNumber = source.SourceSlotNumber,
+                SourceCassetteSlotPosition = source.SourceCassetteSlotPosition,
+                OutputCassetteId = source.OutputCassetteId,
+                OutputCassetteRole = source.OutputCassetteRole,
+                OutputSlotNumber = source.OutputSlotNumber,
+                CurrentCassetteSlotPosition = source.CurrentCassetteSlotPosition,
+                OutputGrade = source.OutputGrade,
+                CurrentLocation = CloneLocation(source.CurrentLocation),
+                State = source.State,
+                TapeFrameSpecName = source.TapeFrameSpecName,
+                DieMapFrameObjId = source.DieMapFrameObjId,
+                HasInputStageAlignResult = source.HasInputStageAlignResult,
+                InputStageAlignResultMode = source.InputStageAlignResultMode,
+                InputStageAlignResultRunId = source.InputStageAlignResultRunId,
+                InputStageAlignOriginX = source.InputStageAlignOriginX,
+                InputStageAlignOriginY = source.InputStageAlignOriginY,
+                InputStageAlignPitchX = source.InputStageAlignPitchX,
+                InputStageAlignPitchY = source.InputStageAlignPitchY,
+                InputStageDieSizeX = source.InputStageDieSizeX,
+                InputStageDieSizeY = source.InputStageDieSizeY,
+                InputStageOuterDiameterMm = source.InputStageOuterDiameterMm,
+                InputStageAlignOffsetX = source.InputStageAlignOffsetX,
+                InputStageAlignOffsetY = source.InputStageAlignOffsetY,
+                HasInputStageThetaAlignResult = source.HasInputStageThetaAlignResult,
+                InputStageAlignReferenceT = source.InputStageAlignReferenceT,
+                InputStageAlignCorrectedT = source.InputStageAlignCorrectedT,
+                InputStageAlignOffsetT = source.InputStageAlignOffsetT,
+                HasInputStageDieMappingResult = source.HasInputStageDieMappingResult,
+                InputStageDieMappingResultMode = source.InputStageDieMappingResultMode,
+                InputStageDieMappingAlignRunId = source.InputStageDieMappingAlignRunId,
+                InputStageDieMappingOffsetX = source.InputStageDieMappingOffsetX,
+                InputStageDieMappingOffsetY = source.InputStageDieMappingOffsetY,
+                HasInputStageDieMappingOrigin = source.HasInputStageDieMappingOrigin,
+                InputStageDieMappingOriginX = source.InputStageDieMappingOriginX,
+                InputStageDieMappingOriginY = source.InputStageDieMappingOriginY,
+                HasInputStageDieMappingThetaSnapshot = source.HasInputStageDieMappingThetaSnapshot,
+                InputStageDieMappingCorrectedT = source.InputStageDieMappingCorrectedT,
+                InputStageDieMappingInvalidatedByAlignChange = source.InputStageDieMappingInvalidatedByAlignChange,
+                InputMapApprovalHashAtMapping = source.InputMapApprovalHashAtMapping,
+                HasInputStageRunReviewApproval = source.HasInputStageRunReviewApproval,
+                InputStageRunReviewStartDieIndex = source.InputStageRunReviewStartDieIndex,
+                InputStageRunReviewStartDieUid = source.InputStageRunReviewStartDieUid,
+                InputStageRunReviewOrderedDieIds = CloneStringList(source.InputStageRunReviewOrderedDieIds),
+                InputStageRunReviewMappingRevision = source.InputStageRunReviewMappingRevision,
+                InputStageProcessingGeneration = source.InputStageProcessingGeneration,
+                OutputReceiveSourceWaferId = source.OutputReceiveSourceWaferId,
+                OutputReceiveSourceWaferInstanceId = source.OutputReceiveSourceWaferInstanceId,
+                OutputReceiveDieMapX = source.OutputReceiveDieMapX,
+                OutputReceiveDieMapY = source.OutputReceiveDieMapY,
+                OutputReceivePitchX = source.OutputReceivePitchX,
+                OutputReceivePitchY = source.OutputReceivePitchY,
+                OutputReceiveDieSizeX = source.OutputReceiveDieSizeX,
+                OutputReceiveDieSizeY = source.OutputReceiveDieSizeY,
+                OutputReceiveOuterDiameterMm = source.OutputReceiveOuterDiameterMm,
+                OutputReceiveOriginX = source.OutputReceiveOriginX,
+                OutputReceiveOriginY = source.OutputReceiveOriginY,
+                OutputReceiveNextIndex = source.OutputReceiveNextIndex,
+                OutputReceiveTotalCount = source.OutputReceiveTotalCount,
+                OutputReceiveStartCorner = source.OutputReceiveStartCorner,
+                OutputReceiveDirection = source.OutputReceiveDirection,
+                OutputReceivePattern = source.OutputReceivePattern,
+                DieIds = CloneStringList(source.DieIds),
+                CreatedAt = source.CreatedAt,
+                UpdatedAt = source.UpdatedAt
+            };
+
+            if (source.OutputReceiveSlots == null)
+            {
+                clone.OutputReceiveSlots = null;
+            }
+            else
+            {
+                var slots = new List<OutputReceiveSlotMaterial>(source.OutputReceiveSlots.Count);
+                for (int i = 0; i < source.OutputReceiveSlots.Count; i++)
+                    slots.Add(CloneOutputReceiveSlot(source.OutputReceiveSlots[i]));
+                clone.OutputReceiveSlots = slots;
+            }
+
+            return clone;
+        }
+
+        private static MaterialSnapshot CloneSnapshotTyped(
+            MaterialSnapshot source,
+            bool includeInspectionDetail)
+        {
+            if (source == null)
+                return null;
+
+            var clone = new MaterialSnapshot
+            {
+                Version = source.Version,
+                SnapshotRevision = source.SnapshotRevision,
+                SavedAt = source.SavedAt,
+                SaveReason = source.SaveReason,
+                RecipeName = source.RecipeName,
+                LotId = source.LotId
+            };
+
+            if (source.Cassettes == null)
+            {
+                clone.Cassettes = null;
+            }
+            else
+            {
+                var cassettes = new List<CassetteMaterial>(source.Cassettes.Count);
+                for (int i = 0; i < source.Cassettes.Count; i++)
+                    cassettes.Add(CloneCassette(source.Cassettes[i]));
+                clone.Cassettes = cassettes;
+            }
+
+            if (source.Wafers == null)
+            {
+                clone.Wafers = null;
+            }
+            else
+            {
+                var wafers = new List<WaferMaterial>(source.Wafers.Count);
+                for (int i = 0; i < source.Wafers.Count; i++)
+                    wafers.Add(CloneWafer(source.Wafers[i]));
+                clone.Wafers = wafers;
+            }
+
+            if (source.Dies == null)
+            {
+                clone.Dies = null;
+            }
+            else
+            {
+                var dies = new List<DieMaterial>(source.Dies.Count);
+                for (int i = 0; i < source.Dies.Count; i++)
+                    dies.Add(CloneDie(source.Dies[i], includeInspectionDetail));
+                clone.Dies = dies;
+            }
+
+            return clone;
+        }
+
+        #endregion
 
         private static MaterialSnapshot CloneSnapshotForSave(MaterialSnapshot source)
         {
