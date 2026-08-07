@@ -411,6 +411,8 @@ cdt-320/smoke-sandbox/
 
 # Local agent build and verification artifacts
 /.codex-build/
+/.codex_build/
+/.codex-out/
 /_build_check*/
 /_codex_verify*/
 **/_stats_verify/
