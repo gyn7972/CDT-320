@@ -1924,7 +1924,13 @@ namespace QMC.CDT320.Initialization
                 }
 
                 bool isPickerYHome = IsPickerYHomeAxis(axis);
-                bool isEjectPinZHome = IsEjectPinZHomePreparationAxis(axis);
+                // [시뮬 예외 2026-08-07] EjectPinZ 특수 HOME 준비(ServoOff 생략 + "Servo 이미 ON" 전제)는
+                // 브레이크 없는 실축의 Servo OFF 낙하 방지 목적이다. 시뮬 축은 낙하가 없고 선행 ServoOn도
+                // 없어 전제조건이 항상 차단되므로(INIT-PREP: servo=OFF), 시뮬레이션에서는 다른 축과 동일한
+                // 표준 HOME 준비(ServoOff→ResetAlarm→ServoOn)를 사용한다.
+                // (NeedleZ는 같은 Step에서 병렬 HOME이라 이 차단에 함께 실패했었다.)
+                bool isEjectPinZHome = IsEjectPinZHomePreparationAxis(axis) &&
+                    (axis.Config == null || !axis.Config.IsSimulationMode);
                 if (isPickerYHome)
                 {
                     await _pickerYHomeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
