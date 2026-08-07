@@ -666,6 +666,134 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        /// <summary>
+        /// [시뮬 Review 건너뛰기 2026-08-07] 작업자 확인 없이 "기본 선택"으로 Review를 승인한다.
+        /// 작업자가 Review 화면에서 아무것도 바꾸지 않고 확인만 누른 것과 같은 상태를 만든다:
+        /// PickUp 순서는 레시피 기본 순서, 시작 Die 지정 없음(index=0), Die 상태 변경 없음.
+        /// 호출 측(InputSequence)이 SimulationMode를 이미 확인한 뒤에만 호출한다.
+        /// </summary>
+        public static bool TryApproveInputStageRunReviewWithDefaultOrder(
+            WaferMaterial wafer,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (wafer == null)
+                    {
+                        reason = "InputStage 리뷰 자동 승인 대상 Wafer Material이 없습니다.";
+                        return false;
+                    }
+
+                    if (!wafer.HasInputStageAlignResult ||
+                        !wafer.HasInputStageThetaAlignResult ||
+                        !wafer.HasInputStageDieMappingResult ||
+                        wafer.InputStageDieMappingInvalidatedByAlignChange)
+                    {
+                        reason = "Align/T Align/Die Mapping이 모두 유효한 상태에서만 리뷰를 자동 승인할 수 있습니다. waferId=" +
+                                 (wafer.WaferId ?? "");
+                        return false;
+                    }
+
+                    string resultModeReason;
+                    if (!IsStoredInputStageResultModeUsableNoLock(wafer, true, out resultModeReason))
+                    {
+                        reason = "저장된 Align/Die Mapping 결과를 사용할 수 없어 리뷰를 자동 승인할 수 없습니다. " +
+                                 resultModeReason;
+                        return false;
+                    }
+
+                    DieMap map = BuildDieMapFromWaferNoLock(wafer);
+                    if (wafer.DieIds == null || wafer.DieIds.Count == 0 ||
+                        map == null || map.Entries == null || map.Entries.Count == 0)
+                    {
+                        reason = "InputStage Die 데이터 또는 Die Map이 비어 있어 리뷰를 자동 승인할 수 없습니다. waferId=" +
+                                 (wafer.WaferId ?? "");
+                        return false;
+                    }
+
+                    string mappingRevision = ResolveInputStageRunReviewMappingRevision(wafer, map);
+                    if (string.IsNullOrWhiteSpace(mappingRevision))
+                    {
+                        reason = "현재 Die Mapping revision을 확인할 수 없어 리뷰를 자동 승인할 수 없습니다. waferId=" +
+                                 (wafer.WaferId ?? "");
+                        return false;
+                    }
+
+                    // 승인이 없을 때 사용하던 것과 동일한 레시피 기본 PickUp 순서를 그대로 승인 순서로 쓴다.
+                    RecipeProject project = RecipeStore.LoadLastOrDefaultCached();
+                    PickupSubset pickup = ResolveInputPickup(project);
+                    List<DieMapEntry> defaultOrder = BuildOutputReceiveOrder(map, pickup) ?? new List<DieMapEntry>();
+
+                    var orderedIds = new List<string>();
+                    var orderedIdSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (DieMapEntry entry in defaultOrder)
+                    {
+                        if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                            continue;
+                        if (orderedIdSet.Add(entry.DieUid))
+                            orderedIds.Add(entry.DieUid);
+                    }
+
+                    // TryBuildApprovedInputStagePickOrder는 승인 목록 밖의 WAIT Target을 fail-closed로 막는다.
+                    // 레시피 순서가 Pick 가능 Die를 모두 담지 못하면 Map 순서로 보충하고 사실을 로그로 남긴다.
+                    var appendedIds = new List<string>();
+                    foreach (DieMapEntry entry in map.Entries)
+                    {
+                        if (entry == null ||
+                            string.IsNullOrWhiteSpace(entry.DieUid) ||
+                            !entry.IsTarget ||
+                            entry.Result == DieResult.Good ||
+                            entry.Result == DieResult.NG)
+                        {
+                            continue;
+                        }
+
+                        if (orderedIdSet.Add(entry.DieUid))
+                        {
+                            orderedIds.Add(entry.DieUid);
+                            appendedIds.Add(entry.DieUid);
+                        }
+                    }
+
+                    if (appendedIds.Count > 0)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "InputStage 리뷰 자동 승인: 레시피 PickUp 순서에 없던 WAIT Target을 Map 순서로 보충했습니다. waferId=" +
+                            (wafer.WaferId ?? "") + ", appended=" + appendedIds.Count + " - Check");
+                    }
+
+                    // 시작 Die 미지정(index=0) — ValidateInputStageRunReviewStartSelection의 기본 통과 조건이다.
+                    wafer.HasInputStageRunReviewApproval = true;
+                    wafer.InputStageRunReviewStartDieIndex = 0;
+                    wafer.InputStageRunReviewStartDieUid = "";
+                    wafer.InputStageRunReviewOrderedDieIds = orderedIds;
+                    wafer.InputStageRunReviewMappingRevision = mappingRevision;
+                    wafer.UpdatedAt = DateTime.Now;
+                    // 승인/순서가 바뀌었으므로 파생 PickUp 컨텍스트 캐시를 버린다.
+                    InvalidateInputPickContextCacheNoLock();
+
+                    reason = "InputStage 리뷰를 기본 순서로 자동 승인했습니다. waferId=" + (wafer.WaferId ?? "") +
+                             ", orderedCount=" + orderedIds.Count +
+                             ", mappingRevision=" + mappingRevision;
+                    NotifyAndSave("InputStageRunReviewAutoApproved");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                reason = "InputStage 리뷰 자동 승인 실패: " + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService", reason + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static bool CommitInputStageRunReview(
             WaferMaterial wafer,
             UserConfirmResult review,

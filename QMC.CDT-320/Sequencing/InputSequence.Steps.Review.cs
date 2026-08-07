@@ -32,6 +32,37 @@ namespace QMC.CDT320.Sequencing
                     (reviewWafer.WaferId ?? ""));
             }
 
+            // [시뮬 Review 건너뛰기 2026-08-07] 시뮬레이션에서 웨이퍼를 연속 반복할 때 매 장마다
+            // 작업자 확인 조작을 요구하지 않도록, 설정(설정→일반: SKIP RUN REVIEW IN SIMULATION)이
+            // 켜져 있으면 확인 화면 없이 바로 운전을 시작한다.
+            // [안전] SimulationMode 에서만 적용된다. 실장비/Dry Run 에서는 설정값과 무관하게 항상 확인한다.
+            // PickUp 가능 판정(IsInputStageFinishComplete)이 Review 승인을 요구하므로, 확인 화면 대신
+            // "작업자가 아무것도 바꾸지 않고 확인만 누른 것"과 동일한 기본 승인을 자동으로 기록한다.
+            string reviewBypassReason;
+            if (ShouldBypassInputStageRunReviewInSimulation(out reviewBypassReason))
+            {
+                // Review 확정 후와 동일하게 Input Camera X를 Avoid로 복귀시켜 Picker 진입 경로를 연다.
+                int bypassAvoidResult = await MoveInputCameraXToAvoidAfterReviewAsync(stage, ct).ConfigureAwait(false);
+                if (bypassAvoidResult != 0)
+                    return bypassAvoidResult;
+
+                string autoApprovalReason;
+                if (!MaterialStateService.TryApproveInputStageRunReviewWithDefaultOrder(
+                        reviewWafer,
+                        out autoApprovalReason))
+                {
+                    return Fail("SEQ-IN-REVIEW-SIM-AUTO-APPROVE", "InputSequence",
+                        "시뮬레이션 사용자 확인 자동 승인에 실패했습니다. " + autoApprovalReason);
+                }
+
+                _autoStep = InputSequenceAutoStep.Complete;
+                WriteLog("InputStageRunReview",
+                    "시뮬레이션 설정에 따라 사용자 확인 화면을 건너뛰고 바로 운전을 시작합니다. wafer=" +
+                    (reviewWafer.WaferId ?? "") + ", slot=" + _autoSlotIndex +
+                    ", " + reviewBypassReason + ", CameraXAvoid=True, " + autoApprovalReason + " - Ok");
+                return 0;
+            }
+
             ResetInputStageReadySignals();
             string pickerReason;
             if (!controller.AreInputStageRunReviewPickersSafe(out pickerReason))
@@ -217,6 +248,37 @@ namespace QMC.CDT320.Sequencing
             }
 
             return 0;
+        }
+
+        /// <summary>
+        /// 시뮬레이션에서 Run Review 사용자 확인 화면을 건너뛸지 판단한다.
+        /// 실장비 보호를 위해 SimulationMode 가 아니면 설정값과 무관하게 항상 false 를 반환한다.
+        /// </summary>
+        private static bool ShouldBypassInputStageRunReviewInSimulation(out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null)
+                    return false;
+
+                // 실장비/Dry Run 에서는 어떤 설정으로도 확인을 생략하지 않는다.
+                if (!settings.SimulationMode)
+                    return false;
+
+                if (!settings.SkipInputStageRunReviewInSimulation)
+                    return false;
+
+                reason = "simulationMode=True, skipRunReviewInSimulation=True";
+                return true;
+            }
+            catch
+            {
+                // 판단 실패 시에는 확인을 수행하는 안전한 방향으로 처리한다.
+                return false;
+            }
         }
 
         // [10] Complete: 로딩/정렬/맵핑/사용자 확인이 끝났고, 상위 cycle에서 Picker 완료를 기다리는 상태이다.

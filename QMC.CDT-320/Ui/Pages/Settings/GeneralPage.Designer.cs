@@ -18,6 +18,7 @@
         private System.Windows.Forms.Label lblPickerMotionOnlyTestMode;
         private System.Windows.Forms.Label lblUseVision;
         private System.Windows.Forms.Label lblUseRealVisionInSimulation;
+        private System.Windows.Forms.Label lblSkipRunReviewInSimulation;
         private System.Windows.Forms.Label lblWaferCompleteRunMode;
         private System.Windows.Forms.Label lblPickRuntimeOffset;
         private System.Windows.Forms.Label lblPlaceRuntimeOffset;
@@ -37,6 +38,7 @@
         private System.Windows.Forms.ComboBox _cbPickerMotionOnlyTestMode;
         private System.Windows.Forms.ComboBox _cbUseVision;
         private System.Windows.Forms.ComboBox _cbUseRealVisionInSimulation;
+        private System.Windows.Forms.ComboBox _cbSkipRunReviewInSimulation;
         private System.Windows.Forms.ComboBox _cbWaferCompleteRunMode;
         private System.Windows.Forms.TableLayoutPanel logBtnLayout;
         private System.Windows.Forms.Button btnLogSettings;
@@ -69,6 +71,7 @@
             this.lblPickerMotionOnlyTestMode = new System.Windows.Forms.Label();
             this.lblUseVision = new System.Windows.Forms.Label();
             this.lblUseRealVisionInSimulation = new System.Windows.Forms.Label();
+            this.lblSkipRunReviewInSimulation = new System.Windows.Forms.Label();
             this.lblWaferCompleteRunMode = new System.Windows.Forms.Label();
             this._cbLang = new System.Windows.Forms.ComboBox();
             this._cbBinArr = new System.Windows.Forms.ComboBox();
@@ -79,6 +82,7 @@
             this._cbPickerMotionOnlyTestMode = new System.Windows.Forms.ComboBox();
             this._cbUseVision = new System.Windows.Forms.ComboBox();
             this._cbUseRealVisionInSimulation = new System.Windows.Forms.ComboBox();
+            this._cbSkipRunReviewInSimulation = new System.Windows.Forms.ComboBox();
             this._cbWaferCompleteRunMode = new System.Windows.Forms.ComboBox();
             this.lblPickRuntimeOffset = new System.Windows.Forms.Label();
             this.pickRuntimeOffsetLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -188,7 +192,8 @@
             this.bodyLayout.Controls.Add(this.lblPickerMotionOnlyTestMode, 0, 6);
             this.bodyLayout.Controls.Add(this.lblUseVision, 0, 7);
             this.bodyLayout.Controls.Add(this.lblUseRealVisionInSimulation, 0, 8);
-            this.bodyLayout.Controls.Add(this.lblWaferCompleteRunMode, 0, 9);
+            this.bodyLayout.Controls.Add(this.lblSkipRunReviewInSimulation, 0, 9);
+            this.bodyLayout.Controls.Add(this.lblWaferCompleteRunMode, 0, 10);
             this.bodyLayout.Controls.Add(this._cbLang, 1, 0);
             this.bodyLayout.Controls.Add(this._cbBinArr, 1, 1);
             this.bodyLayout.Controls.Add(this._cbVisionMatch, 1, 2);
@@ -198,16 +203,18 @@
             this.bodyLayout.Controls.Add(this._cbPickerMotionOnlyTestMode, 1, 6);
             this.bodyLayout.Controls.Add(this._cbUseVision, 1, 7);
             this.bodyLayout.Controls.Add(this._cbUseRealVisionInSimulation, 1, 8);
-            this.bodyLayout.Controls.Add(this._cbWaferCompleteRunMode, 1, 9);
-            this.bodyLayout.Controls.Add(this.lblPickRuntimeOffset, 0, 10);
-            this.bodyLayout.Controls.Add(this.pickRuntimeOffsetLayout, 1, 10);
-            this.bodyLayout.Controls.Add(this.lblPlaceRuntimeOffset, 0, 11);
-            this.bodyLayout.Controls.Add(this.placeRuntimeOffsetLayout, 1, 11);
+            this.bodyLayout.Controls.Add(this._cbSkipRunReviewInSimulation, 1, 9);
+            this.bodyLayout.Controls.Add(this._cbWaferCompleteRunMode, 1, 10);
+            this.bodyLayout.Controls.Add(this.lblPickRuntimeOffset, 0, 11);
+            this.bodyLayout.Controls.Add(this.pickRuntimeOffsetLayout, 1, 11);
+            this.bodyLayout.Controls.Add(this.lblPlaceRuntimeOffset, 0, 12);
+            this.bodyLayout.Controls.Add(this.placeRuntimeOffsetLayout, 1, 12);
             this.bodyLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.bodyLayout.Location = new System.Drawing.Point(0, 0);
             this.bodyLayout.Margin = new System.Windows.Forms.Padding(0);
             this.bodyLayout.Name = "bodyLayout";
-            this.bodyLayout.RowCount = 12;
+            this.bodyLayout.RowCount = 13;
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
@@ -348,7 +355,21 @@
             this.lblUseRealVisionInSimulation.TabIndex = 16;
             this.lblUseRealVisionInSimulation.Text = "REAL VISION IN SIMULATION";
             this.lblUseRealVisionInSimulation.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
+            // lblSkipRunReviewInSimulation
+            //
+            this.lblSkipRunReviewInSimulation.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblSkipRunReviewInSimulation.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblSkipRunReviewInSimulation.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblSkipRunReviewInSimulation.Location = new System.Drawing.Point(2, 308);
+            this.lblSkipRunReviewInSimulation.Margin = new System.Windows.Forms.Padding(2);
+            this.lblSkipRunReviewInSimulation.Name = "lblSkipRunReviewInSimulation";
+            this.lblSkipRunReviewInSimulation.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblSkipRunReviewInSimulation.Size = new System.Drawing.Size(176, 30);
+            this.lblSkipRunReviewInSimulation.TabIndex = 30;
+            this.lblSkipRunReviewInSimulation.Text = "SKIP RUN REVIEW (SIM)";
+            this.lblSkipRunReviewInSimulation.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
             // lblWaferCompleteRunMode
             // 
             this.lblWaferCompleteRunMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
@@ -470,6 +491,18 @@
             this._cbUseRealVisionInSimulation.Size = new System.Drawing.Size(645, 23);
             this._cbUseRealVisionInSimulation.TabIndex = 17;
             this._cbUseRealVisionInSimulation.SelectedIndexChanged += new System.EventHandler(this._cbUseRealVisionInSimulation_SelectedIndexChanged);
+            //
+            // _cbSkipRunReviewInSimulation
+            //
+            this._cbSkipRunReviewInSimulation.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._cbSkipRunReviewInSimulation.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbSkipRunReviewInSimulation.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._cbSkipRunReviewInSimulation.Location = new System.Drawing.Point(182, 308);
+            this._cbSkipRunReviewInSimulation.Margin = new System.Windows.Forms.Padding(2);
+            this._cbSkipRunReviewInSimulation.Name = "_cbSkipRunReviewInSimulation";
+            this._cbSkipRunReviewInSimulation.Size = new System.Drawing.Size(645, 23);
+            this._cbSkipRunReviewInSimulation.TabIndex = 31;
+            this._cbSkipRunReviewInSimulation.SelectedIndexChanged += new System.EventHandler(this._cbSkipRunReviewInSimulation_SelectedIndexChanged);
             // 
             // _cbWaferCompleteRunMode
             // 

@@ -133,6 +133,14 @@ namespace QMC.CDT320
         [DataMember] public WaferCompleteRunMode WaferCompleteRunMode { get; set; } = WaferCompleteRunMode.Continue;
 
         /// <summary>
+        /// 시뮬레이션 모드에서 Wafer 시작 시의 Align/Die Mapping 사용자 확인(Run Review) 화면을 건너뛰고
+        /// 바로 운전을 시작할지 여부입니다. 웨이퍼 연속 반복 시뮬 시 매 장 확인 조작을 없애기 위한 옵션입니다.
+        /// [안전] 이 설정은 SimulationMode 에서만 적용됩니다. 실장비(및 Dry Run)에서는 값과 무관하게
+        /// 항상 사용자 확인을 수행합니다. 기본 false(확인 수행).
+        /// </summary>
+        [DataMember] public bool   SkipInputStageRunReviewInSimulation { get; set; } = false;
+
+        /// <summary>
         /// 이력 탭의 로그(Event/시퀀스) 이력 화면 사용 여부. false 면 해당 페이지들은 안내만 표시한다.
         /// 로그 폭주 등으로 문제가 보일 때 빌드 없이 끌 수 있는 안전 스위치. 기본 true.
         /// </summary>

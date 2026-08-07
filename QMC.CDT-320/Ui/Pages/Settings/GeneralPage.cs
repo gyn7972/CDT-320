@@ -39,6 +39,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblWaferCompleteRunMode.Text = "WAFER COMPLETE RUN MODE";
             lblUseVision.Text = "VISION USE";
             lblUseRealVisionInSimulation.Text = "REAL VISION IN SIMULATION";
+            lblSkipRunReviewInSimulation.Text = "SKIP RUN REVIEW (SIM)";
             lblPickRuntimeOffset.Text = "PICK RUNTIME OFFSET";
             lblPlaceRuntimeOffset.Text = "PLACE RUNTIME OFFSET";
 
@@ -74,6 +75,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 ResetEnableDisableItems(_cbPickerMotionOnlyTestMode);
                 ResetEnableDisableItems(_cbUseVision);
                 ResetEnableDisableItems(_cbUseRealVisionInSimulation);
+                ResetEnableDisableItems(_cbSkipRunReviewInSimulation);
                 ResetEnableDisableItems(_cbPickRuntimeOffset);
                 ResetEnableDisableItems(_cbPlaceRuntimeOffset);
                 _cbWaferCompleteRunMode.Items.Clear();
@@ -88,6 +90,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 _cbPickerMotionOnlyTestMode.SelectedIndex = cfg.PickerMotionOnlyTestMode ? 0 : 1;
                 _cbUseVision.SelectedIndex = cfg.UseVision ? 0 : 1;
                 _cbUseRealVisionInSimulation.SelectedIndex = cfg.UseRealVisionInSimulation ? 0 : 1;
+                _cbSkipRunReviewInSimulation.SelectedIndex = cfg.SkipInputStageRunReviewInSimulation ? 0 : 1;
                 _cbWaferCompleteRunMode.SelectedIndex = cfg.WaferCompleteRunMode == WaferCompleteRunMode.StopAfterDrain
                     ? 1
                     : 0;
@@ -225,6 +228,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (_loadingSettings) return;
             if (RejectRuntimeModeChangeWhileRunning("REAL VISION IN SIMULATION")) return;
             AppSettingsStore.Current.UseRealVisionInSimulation = _cbUseRealVisionInSimulation.SelectedIndex == 0;
+            AppSettingsStore.Save();
+        }
+
+        // 시뮬레이션에서만 적용되는 옵션이므로 운전 중 변경을 막지 않는다(실장비 동작에 영향 없음).
+        private void _cbSkipRunReviewInSimulation_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_loadingSettings) return;
+            AppSettingsStore.Current.SkipInputStageRunReviewInSimulation = _cbSkipRunReviewInSimulation.SelectedIndex == 0;
             AppSettingsStore.Save();
         }
 
