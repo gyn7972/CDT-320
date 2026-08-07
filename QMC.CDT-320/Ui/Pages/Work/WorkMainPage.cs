@@ -796,7 +796,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private void OnMaterialStateChanged(MaterialSnapshot snapshot)
+        // 시그널 전용 계약 — 라이브 상태 객체는 전달되지 않으며,
+        // 실제 집계는 QueueMaterialDisplayRefresh가 ReadState(_stateSync) 안에서 수행한다.
+        private void OnMaterialStateChanged()
         {
             QueueMaterialDisplayRefresh(false);
         }
@@ -1258,52 +1260,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             try
             {
-                MaterialSnapshot state = MaterialStorage.State;
-                if (state == null)
-                    return display;
-
-                display.LotId = MaterialStateService.GetProductionLotId();
-
-                WaferMaterial currentInputWafer = ResolveCurrentInputStageWafer(state);
-                string currentInputWaferId = currentInputWafer != null ? currentInputWafer.WaferId : string.Empty;
-                HashSet<string> currentInputDieIds = BuildCurrentInputDieIdSet(currentInputWafer);
-
-                if (state.Dies != null)
-                {
-                    foreach (DieMaterial die in state.Dies)
-                    {
-                        if (die == null || !die.IsInputTarget)
-                            continue;
-
-                        display.HasMaterial = true;
-                        display.TargetCount++;
-
-                        if (die.Result == DieResult.Good)
-                        {
-                            display.GoodCount++;
-                            display.ProcessedCount++;
-                        }
-                        else if (die.Result == DieResult.NG)
-                        {
-                            display.NgCount++;
-                            display.ProcessedCount++;
-                        }
-                        else if (IsOutputLocation(die.CurrentLocation))
-                        {
-                            display.ProcessedCount++;
-                        }
-
-                        if (IsPickerLocation(die.CurrentLocation))
-                            display.PickedCount++;
-
-                        if (die.Output_BinCode > 0)
-                            display.CurrentBinCode = die.Output_BinCode;
-
-                        AccumulateCurrentInputWaferCount(display, die, currentInputWaferId, currentInputDieIds);
-                    }
-                }
-
-                ApplyOutputReceiveSlotFallback(state, display);
+                // [계약 보강 2026-08-07] ThreadPool에서 시퀀스가 변이 중인 State를 락 없이 순회하지 않도록
+                // 집계 전체를 ReadState(_stateSync) 안에서 수행한다. display는 카운터/문자열 사본이라
+                // 락 밖(UI 캐시/표시)에서 안전하게 쓸 수 있다.
+                MaterialStateService.ReadState(state =>
+                    FillMaterialDisplaySnapshot(state, display));
             }
             catch
             {
@@ -1314,6 +1275,56 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
 
             return display;
+        }
+
+        // MaterialStateService.ReadState(_stateSync) 안에서 호출된다 — 라이브 State를 읽어 표시 카운터를 채운다.
+        private static void FillMaterialDisplaySnapshot(MaterialSnapshot state, MaterialDisplaySnapshot display)
+        {
+            if (state == null)
+                return;
+
+            display.LotId = MaterialStateService.GetProductionLotId();
+
+            WaferMaterial currentInputWafer = ResolveCurrentInputStageWafer(state);
+            string currentInputWaferId = currentInputWafer != null ? currentInputWafer.WaferId : string.Empty;
+            HashSet<string> currentInputDieIds = BuildCurrentInputDieIdSet(currentInputWafer);
+
+            if (state.Dies != null)
+            {
+                foreach (DieMaterial die in state.Dies)
+                {
+                    if (die == null || !die.IsInputTarget)
+                        continue;
+
+                    display.HasMaterial = true;
+                    display.TargetCount++;
+
+                    if (die.Result == DieResult.Good)
+                    {
+                        display.GoodCount++;
+                        display.ProcessedCount++;
+                    }
+                    else if (die.Result == DieResult.NG)
+                    {
+                        display.NgCount++;
+                        display.ProcessedCount++;
+                    }
+                    else if (IsOutputLocation(die.CurrentLocation))
+                    {
+                        display.ProcessedCount++;
+                    }
+
+                    if (IsPickerLocation(die.CurrentLocation))
+                        display.PickedCount++;
+
+                    if (die.Output_BinCode > 0)
+                        display.CurrentBinCode = die.Output_BinCode;
+
+                    AccumulateCurrentInputWaferCount(display, die, currentInputWaferId, currentInputDieIds);
+                }
+            }
+
+            ApplyOutputReceiveSlotFallback(state, display);
         }
 
         private static WaferMaterial ResolveCurrentInputStageWafer(MaterialSnapshot state)

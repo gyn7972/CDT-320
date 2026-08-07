@@ -123,7 +123,8 @@ namespace QMC.CDT_320.Ui.Controls
         }
 
         // ─── 이벤트: 비-UI 스레드에서 호출될 수 있으므로 dirty flag 만 세운다. UI 접근 금지. ───
-        private void OnMaterialStateChanged(MaterialSnapshot snapshot)
+        // (시그널 전용 계약 — 라이브 상태 객체는 전달되지 않으며, 데이터는 이후 tick에서 락을 잡는 API로 읽는다.)
+        private void OnMaterialStateChanged()
         {
             MarkDirty();
         }
@@ -312,67 +313,19 @@ namespace QMC.CDT_320.Ui.Controls
             out Dictionary<string, LiveDieMapCellState> states)
         {
             states = new Dictionary<string, LiveDieMapCellState>(StringComparer.Ordinal);
+            // out 파라미터는 람다에 캡처할 수 없으므로 같은 사전을 로컬 참조로 넘긴다.
+            Dictionary<string, LiveDieMapCellState> resolvedStates = states;
             DieMap display = CloneMap(source);
             if (display == null)
                 return null;
 
             try
             {
-                MaterialSnapshot state = MaterialStorage.State;
-                if (state == null || state.Dies == null || state.Dies.Count == 0 || display.Entries == null)
-                    return display;
-
-                var dieById = new Dictionary<string, DieMaterial>(StringComparer.OrdinalIgnoreCase);
-                var dieByGrid = new Dictionary<string, DieMaterial>(StringComparer.Ordinal);
-                string waferId = inputWafer != null ? inputWafer.WaferId : null;
-                foreach (DieMaterial die in state.Dies)
-                {
-                    if (die == null)
-                        continue;
-
-                    if (!string.IsNullOrWhiteSpace(waferId) &&
-                        !string.Equals(die.WaferID_Input, waferId, StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(die.DieId) && !dieById.ContainsKey(die.DieId))
-                        dieById.Add(die.DieId, die);
-
-                    if (die.Wafer_IndexX >= 0 && die.Wafer_IndexY >= 0)
-                    {
-                        string key = BuildGridKey(die.Wafer_IndexX, die.Wafer_IndexY);
-                        if (!dieByGrid.ContainsKey(key))
-                            dieByGrid.Add(key, die);
-                    }
-                }
-
-                foreach (DieMapEntry entry in display.Entries)
-                {
-                    if (entry == null)
-                        continue;
-
-                    DieMaterial die = null;
-                    if (!string.IsNullOrWhiteSpace(entry.DieUid))
-                        dieById.TryGetValue(entry.DieUid, out die);
-                    if (die == null)
-                        dieByGrid.TryGetValue(BuildEntryGridKey(entry), out die);
-                    if (die == null)
-                    {
-                        states[BuildEntryGridKey(entry)] = LiveDieMapCellState.InspectionWait;
-                        continue;
-                    }
-
-                    entry.DieUid = die.DieId ?? entry.DieUid;
-                    entry.IsTarget = die.IsInputTarget;
-                    entry.Result = die.Result;
-                    if (die.Input_BinCode > 0)
-                        entry.BinCode = die.Input_BinCode;
-                    else if (die.Output_BinCode > 0)
-                        entry.BinCode = die.Output_BinCode;
-
-                    states[BuildEntryGridKey(entry)] = ResolveInputDieMapCellState(die);
-                }
+                // [계약 보강 2026-08-07] 시퀀스가 변이 중인 State.Dies를 락 없이 순회하지 않도록
+                // 상태 의존 구간 전체를 ReadState(_stateSync) 안에서 수행한다.
+                // 락 밖으로 나가는 결과물(display/resolvedStates)은 클론·enum 사본이라 안전하다.
+                MaterialStateService.ReadState(state =>
+                    FillInputDisplayStates(state, display, inputWafer, resolvedStates));
             }
             catch
             {
@@ -381,92 +334,171 @@ namespace QMC.CDT_320.Ui.Controls
             return display;
         }
 
+        // MaterialStateService.ReadState(_stateSync) 안에서 호출된다 —
+        // 라이브 die 필드를 읽어 display 클론 entry와 셀 상태 사전을 채운다.
+        private static void FillInputDisplayStates(
+            MaterialSnapshot state,
+            DieMap display,
+            WaferMaterial inputWafer,
+            Dictionary<string, LiveDieMapCellState> states)
+        {
+            if (state == null || state.Dies == null || state.Dies.Count == 0 || display.Entries == null)
+                return;
+
+            var dieById = new Dictionary<string, DieMaterial>(StringComparer.OrdinalIgnoreCase);
+            var dieByGrid = new Dictionary<string, DieMaterial>(StringComparer.Ordinal);
+            string waferId = inputWafer != null ? inputWafer.WaferId : null;
+            foreach (DieMaterial die in state.Dies)
+            {
+                if (die == null)
+                    continue;
+
+                if (!string.IsNullOrWhiteSpace(waferId) &&
+                    !string.Equals(die.WaferID_Input, waferId, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(die.DieId) && !dieById.ContainsKey(die.DieId))
+                    dieById.Add(die.DieId, die);
+
+                if (die.Wafer_IndexX >= 0 && die.Wafer_IndexY >= 0)
+                {
+                    string key = BuildGridKey(die.Wafer_IndexX, die.Wafer_IndexY);
+                    if (!dieByGrid.ContainsKey(key))
+                        dieByGrid.Add(key, die);
+                }
+            }
+
+            foreach (DieMapEntry entry in display.Entries)
+            {
+                if (entry == null)
+                    continue;
+
+                DieMaterial die = null;
+                if (!string.IsNullOrWhiteSpace(entry.DieUid))
+                    dieById.TryGetValue(entry.DieUid, out die);
+                if (die == null)
+                    dieByGrid.TryGetValue(BuildEntryGridKey(entry), out die);
+                if (die == null)
+                {
+                    states[BuildEntryGridKey(entry)] = LiveDieMapCellState.InspectionWait;
+                    continue;
+                }
+
+                entry.DieUid = die.DieId ?? entry.DieUid;
+                entry.IsTarget = die.IsInputTarget;
+                entry.Result = die.Result;
+                if (die.Input_BinCode > 0)
+                    entry.BinCode = die.Input_BinCode;
+                else if (die.Output_BinCode > 0)
+                    entry.BinCode = die.Output_BinCode;
+
+                states[BuildEntryGridKey(entry)] = ResolveInputDieMapCellState(die);
+            }
+        }
+
         private static DieMap BuildOutputDisplayMapFromMaterialState(
             DieMap source,
             WaferMaterial outputWafer,
             out Dictionary<string, LiveDieMapCellState> states)
         {
             states = new Dictionary<string, LiveDieMapCellState>(StringComparer.Ordinal);
+            // out 파라미터는 람다에 캡처할 수 없으므로 같은 사전을 로컬 참조로 넘긴다.
+            Dictionary<string, LiveDieMapCellState> resolvedStates = states;
             DieMap display = CloneMap(source);
             if (display == null)
                 return null;
 
             try
             {
-                var slotByOrder = new Dictionary<int, OutputReceiveSlotMaterial>();
-                var slotByGrid = new Dictionary<string, OutputReceiveSlotMaterial>(StringComparer.Ordinal);
-                var slotByDieId = new Dictionary<string, OutputReceiveSlotMaterial>(StringComparer.OrdinalIgnoreCase);
-
-                if (outputWafer != null && outputWafer.OutputReceiveSlots != null)
-                {
-                    foreach (OutputReceiveSlotMaterial slot in outputWafer.OutputReceiveSlots)
-                    {
-                        if (slot == null)
-                            continue;
-
-                        if (!slotByOrder.ContainsKey(slot.OrderIndex))
-                            slotByOrder.Add(slot.OrderIndex, slot);
-
-                        string gridKey = BuildGridKey(slot.DieMapX, slot.DieMapY);
-                        if (!slotByGrid.ContainsKey(gridKey))
-                            slotByGrid.Add(gridKey, slot);
-
-                        if (!string.IsNullOrWhiteSpace(slot.DieUid) && !slotByDieId.ContainsKey(slot.DieUid))
-                            slotByDieId.Add(slot.DieUid, slot);
-                    }
-                }
-
-                if (display.Entries == null)
-                    return display;
-
-                foreach (DieMapEntry entry in display.Entries)
-                {
-                    if (entry == null)
-                        continue;
-
-                    OutputReceiveSlotMaterial slot = null;
-                    if (!string.IsNullOrWhiteSpace(entry.DieUid))
-                        slotByDieId.TryGetValue(entry.DieUid, out slot);
-                    if (slot == null)
-                        slotByOrder.TryGetValue(entry.Index, out slot);
-                    if (slot == null)
-                        slotByGrid.TryGetValue(BuildEntryGridKey(entry), out slot);
-
-                    if (slot != null)
-                    {
-                        // 현재 기준: 작업 메인 Output 탭은 OutputReceiveSlot의 최신 배치/검사 상태를 그대로 표시한다.
-                        entry.Index = slot.OrderIndex;
-                        entry.SequenceNo = slot.SequenceNo;
-                        entry.DieMapX = slot.DieMapX;
-                        entry.DieMapY = slot.DieMapY;
-                        entry.OriginalMapX = slot.OriginalMapX >= 0 ? slot.OriginalMapX : slot.DieMapX;
-                        entry.OriginalMapY = slot.OriginalMapY >= 0 ? slot.OriginalMapY : slot.DieMapY;
-                        entry.IsTarget = slot.IsTarget;
-                        entry.Result = slot.Result;
-                        entry.BinCode = slot.BinCode;
-                        // 현재 기준: Output Vision 검사 NG는 물류 결과와 별도로 작업 맵에서 NG로 표시한다.
-                        if (slot.IsOutputInspectionDone && !slot.IsOutputInspectionOk)
-                        {
-                            entry.Result = DieResult.NG;
-                            if (entry.BinCode <= 0)
-                                entry.BinCode = BinCodeMap.MaxBin;
-                        }
-                        entry.PosX = slot.PosX;
-                        entry.PosY = slot.PosY;
-                        entry.DieUid = slot.DieUid ?? entry.DieUid;
-                        states[BuildEntryGridKey(entry)] = ResolveOutputDieMapCellState(slot);
-                    }
-                    else
-                    {
-                        states[BuildEntryGridKey(entry)] = ResolveOutputDieMapCellState(entry);
-                    }
-                }
+                // [계약 보강 2026-08-07] 시퀀스가 변이 중인 OutputReceiveSlots를 락 없이 순회하지 않도록
+                // ReadState(_stateSync) 안에서 수행한다. (state 인자는 사용하지 않고 락 범위만 빌린다.)
+                MaterialStateService.ReadState(state =>
+                    FillOutputDisplayStates(display, outputWafer, resolvedStates));
             }
             catch
             {
             }
 
             return display;
+        }
+
+        // MaterialStateService.ReadState(_stateSync) 안에서 호출된다 —
+        // 라이브 OutputReceiveSlot 필드를 읽어 display 클론 entry와 셀 상태 사전을 채운다.
+        private static void FillOutputDisplayStates(
+            DieMap display,
+            WaferMaterial outputWafer,
+            Dictionary<string, LiveDieMapCellState> states)
+        {
+            var slotByOrder = new Dictionary<int, OutputReceiveSlotMaterial>();
+            var slotByGrid = new Dictionary<string, OutputReceiveSlotMaterial>(StringComparer.Ordinal);
+            var slotByDieId = new Dictionary<string, OutputReceiveSlotMaterial>(StringComparer.OrdinalIgnoreCase);
+
+            if (outputWafer != null && outputWafer.OutputReceiveSlots != null)
+            {
+                foreach (OutputReceiveSlotMaterial slot in outputWafer.OutputReceiveSlots)
+                {
+                    if (slot == null)
+                        continue;
+
+                    if (!slotByOrder.ContainsKey(slot.OrderIndex))
+                        slotByOrder.Add(slot.OrderIndex, slot);
+
+                    string gridKey = BuildGridKey(slot.DieMapX, slot.DieMapY);
+                    if (!slotByGrid.ContainsKey(gridKey))
+                        slotByGrid.Add(gridKey, slot);
+
+                    if (!string.IsNullOrWhiteSpace(slot.DieUid) && !slotByDieId.ContainsKey(slot.DieUid))
+                        slotByDieId.Add(slot.DieUid, slot);
+                }
+            }
+
+            if (display.Entries == null)
+                return;
+
+            foreach (DieMapEntry entry in display.Entries)
+            {
+                if (entry == null)
+                    continue;
+
+                OutputReceiveSlotMaterial slot = null;
+                if (!string.IsNullOrWhiteSpace(entry.DieUid))
+                    slotByDieId.TryGetValue(entry.DieUid, out slot);
+                if (slot == null)
+                    slotByOrder.TryGetValue(entry.Index, out slot);
+                if (slot == null)
+                    slotByGrid.TryGetValue(BuildEntryGridKey(entry), out slot);
+
+                if (slot != null)
+                {
+                    // 현재 기준: 작업 메인 Output 탭은 OutputReceiveSlot의 최신 배치/검사 상태를 그대로 표시한다.
+                    entry.Index = slot.OrderIndex;
+                    entry.SequenceNo = slot.SequenceNo;
+                    entry.DieMapX = slot.DieMapX;
+                    entry.DieMapY = slot.DieMapY;
+                    entry.OriginalMapX = slot.OriginalMapX >= 0 ? slot.OriginalMapX : slot.DieMapX;
+                    entry.OriginalMapY = slot.OriginalMapY >= 0 ? slot.OriginalMapY : slot.DieMapY;
+                    entry.IsTarget = slot.IsTarget;
+                    entry.Result = slot.Result;
+                    entry.BinCode = slot.BinCode;
+                    // 현재 기준: Output Vision 검사 NG는 물류 결과와 별도로 작업 맵에서 NG로 표시한다.
+                    if (slot.IsOutputInspectionDone && !slot.IsOutputInspectionOk)
+                    {
+                        entry.Result = DieResult.NG;
+                        if (entry.BinCode <= 0)
+                            entry.BinCode = BinCodeMap.MaxBin;
+                    }
+                    entry.PosX = slot.PosX;
+                    entry.PosY = slot.PosY;
+                    entry.DieUid = slot.DieUid ?? entry.DieUid;
+                    states[BuildEntryGridKey(entry)] = ResolveOutputDieMapCellState(slot);
+                }
+                else
+                {
+                    states[BuildEntryGridKey(entry)] = ResolveOutputDieMapCellState(entry);
+                }
+            }
         }
 
         private static DieMap CloneMap(DieMap source)

@@ -2019,6 +2019,25 @@ namespace QMC.CDT320.Materials
 
         public static DieMap BuildInputDieMapFromStageWafer()
         {
+            // [계약 보강 2026-08-07] UI 등 락 밖 호출자를 위해 전체를 락 안에서 수행한다.
+            // (내부의 GetWaferAtLocation/IsStoredInputStageResultModeUsable/BuildDieMapFromWafer는 재진입)
+            try
+            {
+                lock (_stateSync)
+                {
+                    return BuildInputDieMapFromStageWaferNoLock();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input die map rebuild from stage wafer failed: " + ex.Message + " - Failed");
+                return null;
+            }
+        }
+
+        private static DieMap BuildInputDieMapFromStageWaferNoLock()
+        {
             try
             {
                 WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
@@ -2048,6 +2067,16 @@ namespace QMC.CDT320.Materials
         }
 
         public static DieMap BuildDieMapFromWafer(WaferMaterial wafer)
+        {
+            // [계약 보강 2026-08-07] State.Dies 전체 스캔(ResolveWaferDies)이 락 밖에서 수행되지 않도록
+            // 락을 잡는다. 시퀀스 경로(InputPickContext 등)는 이미 락 보유 상태라 재진입이다.
+            lock (_stateSync)
+            {
+                return BuildDieMapFromWaferNoLock(wafer);
+            }
+        }
+
+        private static DieMap BuildDieMapFromWaferNoLock(WaferMaterial wafer)
         {
             long probeToken = MaterialPerfProbe.BeginSample();
             try
@@ -2134,6 +2163,15 @@ namespace QMC.CDT320.Materials
         }
 
         public static DieMap BuildOutputReceiveDieMapFromWafer(WaferMaterial wafer)
+        {
+            // [계약 보강 2026-08-07] 시퀀스가 변이하는 OutputReceiveSlots를 락 밖에서 순회하지 않도록 락을 잡는다.
+            lock (_stateSync)
+            {
+                return BuildOutputReceiveDieMapFromWaferNoLock(wafer);
+            }
+        }
+
+        private static DieMap BuildOutputReceiveDieMapFromWaferNoLock(WaferMaterial wafer)
         {
             try
             {

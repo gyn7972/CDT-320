@@ -426,10 +426,15 @@ namespace QMC.CDT320.Materials
 
         public static WaferMaterial GetWaferAtLocation(MaterialLocationKind kind)
         {
-            return State.Wafers.FirstOrDefault(w =>
-                w.CurrentLocation != null &&
-                w.CurrentLocation.Kind == kind &&
-                WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty);
+            // [계약 보강 2026-08-07] UI 등 락 밖 호출자가 변이 중인 Wafers를 순회하지 않도록 락을 잡는다.
+            // 시퀀스 경로는 이미 _stateSync를 보유한 채 호출하므로 재진입이라 추가 비용이 거의 없다.
+            lock (_stateSync)
+            {
+                return State.Wafers.FirstOrDefault(w =>
+                    w.CurrentLocation != null &&
+                    w.CurrentLocation.Kind == kind &&
+                    WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty);
+            }
         }
 
         /// <summary>

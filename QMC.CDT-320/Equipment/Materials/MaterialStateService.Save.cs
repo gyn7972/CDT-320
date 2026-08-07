@@ -497,9 +497,24 @@ namespace QMC.CDT320.Materials
                         if (delayMs > 0)
                             await Task.Delay(delayMs).ConfigureAwait(false);
 
-                        Action<MaterialSnapshot> handler = StateChanged;
+                        // [계약 보강 2026-08-07] 라이브 State를 넘기지 않는 시그널 전용 알림.
+                        // 구독자별로 예외를 격리해 앞 구독자의 실패가 뒤 구독자의 알림을 막지 않게 한다.
+                        Action handler = StateChanged;
                         if (handler != null)
-                            handler(State);
+                        {
+                            foreach (Delegate subscriber in handler.GetInvocationList())
+                            {
+                                try
+                                {
+                                    ((Action)subscriber)();
+                                }
+                                catch (Exception subscriberEx)
+                                {
+                                    Log.Write("Main", "SYSTEM", "MaterialStateChanged",
+                                        "Material state changed subscriber failed: " + subscriberEx.Message + " - Failed");
+                                }
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {

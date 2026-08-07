@@ -18,7 +18,14 @@ namespace QMC.CDT320.Materials
     // 도메인별 본체는 MaterialStateService.*.cs partial 파일에 있다 (2026-08-07 분할, 동작 변경 없음).
     public static partial class MaterialStateService
     {
-        public static event Action<MaterialSnapshot> StateChanged;
+        /// <summary>
+        /// Material 상태 변경 알림(시그널 전용). [계약 보강 2026-08-07]
+        /// 라이브 State 객체를 전달하지 않는다 — 시퀀스가 _stateSync 안에서 변이 중인 그래프를
+        /// 구독자가 락 없이 순회하는 사고를 계약 수준에서 차단하기 위해서다.
+        /// 구독자 규약: 콜백은 ThreadPool 스레드에서 호출될 수 있으므로 dirty flag만 세우고,
+        /// 실제 데이터는 이후 ReadState(...) 또는 락을 잡는 public API로 읽는다.
+        /// </summary>
+        public static event Action StateChanged;
         private static readonly object _stateSync = new object();
         private static readonly object _saveRequestSync = new object();
         private static readonly object _saveIoSync = new object();
@@ -48,6 +55,45 @@ namespace QMC.CDT320.Materials
         private static long _saveRequestVersion;
 
         public static MaterialSnapshot State => MaterialStorage.State;
+
+        /// <summary>
+        /// [계약 보강 2026-08-07] _stateSync 락 안에서 reader를 실행해 변이 중이 아닌 일관된 State를 읽는다.
+        /// UI 등 락 밖 코드가 State 그래프를 직접 순회하는 대신 사용하는 공식 읽기 통로.
+        /// 전역 락을 보유하므로 reader는 필요한 값만 복사해 즉시 반환하고,
+        /// 무거운 가공/그리기는 반환된 사본으로 락 밖에서 수행한다.
+        /// 락 보유 시간은 MaterialPerfProbe "StateReadLock" 샘플로 계측된다.
+        /// </summary>
+        public static T ReadState<T>(Func<MaterialSnapshot, T> reader)
+        {
+            if (reader == null)
+                throw new ArgumentNullException("reader");
+
+            long probeToken = MaterialPerfProbe.BeginSample();
+            try
+            {
+                lock (_stateSync)
+                {
+                    return reader(State);
+                }
+            }
+            finally
+            {
+                MaterialPerfProbe.EndSample("StateReadLock", probeToken);
+            }
+        }
+
+        /// <summary>반환값이 필요 없는 읽기용 ReadState 오버로드. 계약은 위와 동일하다.</summary>
+        public static void ReadState(Action<MaterialSnapshot> reader)
+        {
+            if (reader == null)
+                throw new ArgumentNullException("reader");
+
+            ReadState(state =>
+            {
+                reader(state);
+                return 0;
+            });
+        }
 
         private static string CreateWaferInstanceId()
         {
