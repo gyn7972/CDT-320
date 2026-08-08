@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common;
+using QMC.Common.Logging;
 using QMC.CDT320.Bin;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Lots;
@@ -440,6 +441,9 @@ namespace QMC.CDT320.Materials
                     }
                 }
 
+                // [가시성 2026-08-08] 저장 성공/실패 상태 전환을 항상 남는 경고 채널로 알린다.
+                ReportMaterialSaveOutcome(latestRevisionIsDurable, saveCopy);
+
                 if (!latestRevisionIsDurable)
                 {
                     int waferCount = saveCopy.Wafers != null ? saveCopy.Wafers.Count : 0;
@@ -470,6 +474,102 @@ namespace QMC.CDT320.Materials
             }
             finally
             {
+            }
+        }
+
+        // [가시성 2026-08-08] Material 저장 실패를 즉시 알 수 있게 한다.
+        //
+        // 배경: 저장 실패 로그는 Log.Write(class,user,source,msg) 4-인자 형식이라 운영 최소 로그 정책에서
+        //   전부 버려졌다. 2026-08-08 운전에서 카세트 데이터 Clear 이후 저장이 5시간 동안 계속 실패했으나
+        //   로그가 한 줄도 남지 않아, 프로그램 종료 시 "Material 상태 저장에 실패했습니다" 대화상자로만
+        //   문제를 알 수 있었다. 그 사이 진행한 작업 상태는 디스크에 반영되지 않았다.
+        //
+        // 정책:
+        //  - EventKind.Warning 은 최소 로그 정책과 무관하게 Warning 로그에 남는다.
+        //  - AlarmManager.Raise 는 사용하지 않는다. AlarmManager.HasActive 는 심각도와 무관하게
+        //    시퀀스의 IsAlarmStopActive 판정에 쓰이므로, 저장 실패로 운전을 멈추는 동작 변경이 생긴다.
+        //  - 실패가 이어질 때 로그가 폭주하지 않도록 최초 1회와 이후 주기적으로만 남긴다.
+        private const int MaterialSaveFailureNotifyIntervalMs = 60000;
+        private static readonly object _saveFailureNotifySync = new object();
+        private static int _consecutiveSaveFailureCount;
+        private static DateTime _firstSaveFailureAt = DateTime.MinValue;
+        private static DateTime _lastSaveFailureNotifiedAt = DateTime.MinValue;
+
+        private static void ReportMaterialSaveOutcome(bool durable, MaterialSnapshot saveCopy)
+        {
+            try
+            {
+                int failureCount;
+                bool notify;
+                bool recovered = false;
+                TimeSpan failingFor = TimeSpan.Zero;
+
+                lock (_saveFailureNotifySync)
+                {
+                    if (durable)
+                    {
+                        recovered = _consecutiveSaveFailureCount > 0;
+                        failureCount = _consecutiveSaveFailureCount;
+                        failingFor = recovered && _firstSaveFailureAt != DateTime.MinValue
+                            ? DateTime.Now - _firstSaveFailureAt
+                            : TimeSpan.Zero;
+                        _consecutiveSaveFailureCount = 0;
+                        _firstSaveFailureAt = DateTime.MinValue;
+                        _lastSaveFailureNotifiedAt = DateTime.MinValue;
+                        notify = recovered;
+                    }
+                    else
+                    {
+                        if (_consecutiveSaveFailureCount == 0)
+                            _firstSaveFailureAt = DateTime.Now;
+                        _consecutiveSaveFailureCount++;
+                        failureCount = _consecutiveSaveFailureCount;
+                        failingFor = DateTime.Now - _firstSaveFailureAt;
+
+                        // 최초 실패는 즉시, 이후에는 주기적으로만 알린다.
+                        notify = _lastSaveFailureNotifiedAt == DateTime.MinValue ||
+                                 (DateTime.Now - _lastSaveFailureNotifiedAt).TotalMilliseconds >=
+                                     MaterialSaveFailureNotifyIntervalMs;
+                        if (notify)
+                            _lastSaveFailureNotifiedAt = DateTime.Now;
+                    }
+                }
+
+                if (!notify)
+                    return;
+
+                if (recovered)
+                {
+                    EventLogger.Write(
+                        EventKind.Warning,
+                        "SYSTEM",
+                        "MATERIAL-SAVE-RECOVERED",
+                        "Material 상태 저장이 정상 복구되었습니다. 실패 " + failureCount + "회, 지속 " +
+                        ((int)failingFor.TotalSeconds) + "초. file=" + MaterialSnapshotStore.SnapshotPath);
+                    return;
+                }
+
+                string failureReason = MaterialSnapshotStore.LastSaveFailureReason;
+                if (string.IsNullOrWhiteSpace(failureReason))
+                {
+                    // Store 단계가 아니라 revision 내구성 판정에서 실패한 경우다.
+                    failureReason = "최신 Material snapshot이 디스크에 반영되지 않았습니다(리비전 미커밋).";
+                }
+
+                EventLogger.Write(
+                    EventKind.Warning,
+                    "SYSTEM",
+                    "MATERIAL-SAVE-FAIL",
+                    "Material 상태 저장에 실패했습니다. 저장되지 않은 작업 정보가 손실될 수 있습니다. " +
+                    "연속 실패=" + failureCount + "회, 지속=" + ((int)failingFor.TotalSeconds) + "초" +
+                    ", wafers=" + (saveCopy != null && saveCopy.Wafers != null ? saveCopy.Wafers.Count : 0) +
+                    ", dies=" + (saveCopy != null && saveCopy.Dies != null ? saveCopy.Dies.Count : 0) +
+                    ", file=" + MaterialSnapshotStore.SnapshotPath +
+                    ", reason=" + failureReason);
+            }
+            catch
+            {
+                // 알림 실패가 저장 경로에 영향을 주지 않게 한다.
             }
         }
 

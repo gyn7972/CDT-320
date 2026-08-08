@@ -658,13 +658,33 @@ namespace QMC.CDT320.Materials
         /// <param name="alreadyCopied">
         /// true이면 snapshot이 이미 CreateSaveCopy로 만든 사본이므로 다시 클론하지 않는다.
         /// </param>
+        /// <summary>
+        /// 마지막 저장 실패 사유. 저장에 성공하면 빈 문자열로 초기화된다.
+        /// [가시성 2026-08-08] 저장 실패 로그는 기존에 Log.Write(class,user,source,msg) 4-인자 형식이라
+        /// 운영 최소 로그 정책(LogPolicy)에서 통째로 버려졌다. 실제로 2026-08-08 운전에서 저장이
+        /// 5시간 동안 실패했지만 로그가 한 줄도 남지 않아 종료 시점에야 발견되었다.
+        /// 실패 사유를 호출자(MaterialStateService)가 읽어 경고로 올릴 수 있게 보관한다.
+        /// </summary>
+        public static string LastSaveFailureReason
+        {
+            get { return _lastSaveFailureReason ?? string.Empty; }
+        }
+
+        private static volatile string _lastSaveFailureReason = string.Empty;
+
+        // 저장 실패를 기록하고 false를 돌려준다.
+        // 로그는 LogLevel 지정 오버로드를 사용한다. 4-인자 형식과 달리 최소 로그 정책에서 버려지지 않는다.
+        private static bool FailSave(string message)
+        {
+            _lastSaveFailureReason = message ?? string.Empty;
+            Log.Write(LogLevel.AboveNormal, "Main", "MaterialSnapshotSave", message + " - Failed");
+            return false;
+        }
+
         public static bool Save(MaterialSnapshot snapshot, bool alreadyCopied)
         {
             if (snapshot == null)
-            {
-                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave", "Material snapshot save failed: snapshot is null. - Failed");
-                return false;
-            }
+                return FailSave("Material snapshot save failed: snapshot is null.");
 
             string tmp = null;
             Stopwatch sw = Stopwatch.StartNew();
@@ -673,38 +693,28 @@ namespace QMC.CDT320.Materials
                 Directory.CreateDirectory(Dir);
                 MaterialSnapshot saveSnapshot = alreadyCopied ? snapshot : CloneSnapshotForSave(snapshot);
                 if (saveSnapshot == null)
-                {
-                    Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
-                        "Material snapshot 저장용 복사본을 만들지 못해 저장을 중단합니다. - Failed");
-                    return false;
-                }
+                    return FailSave("Material snapshot 저장용 복사본을 만들지 못해 저장을 중단합니다.");
 
                 saveSnapshot.SavedAt = DateTime.Now;
                 string rawValueReason;
                 if (!MaterialStateCompactor.TryValidateRawMaterialValues(saveSnapshot, out rawValueReason))
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
-                        "Material snapshot 원본 값 검증에 실패해 저장을 중단합니다. reason=" +
-                        rawValueReason + " - Failed");
-                    return false;
+                    return FailSave("Material snapshot 원본 값 검증에 실패해 저장을 중단합니다. reason=" +
+                        rawValueReason);
                 }
                 NormalizeSnapshotStates(saveSnapshot);
                 NormalizeSnapshotDateTimes(saveSnapshot);
 
                 if (!MaterialSnapshotRevisionPolicy.IsTrustedLoadedRevision(saveSnapshot.SnapshotRevision))
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
-                        "Material snapshot revision이 신뢰 범위를 벗어나 저장을 중단합니다. revision=" +
-                        saveSnapshot.SnapshotRevision + " - Failed");
-                    return false;
+                    return FailSave("Material snapshot revision이 신뢰 범위를 벗어나 저장을 중단합니다. revision=" +
+                        saveSnapshot.SnapshotRevision);
                 }
 
                 string integrityReason;
                 if (!MaterialStateCompactor.TryValidateForSave(saveSnapshot, out integrityReason))
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
-                        "Material snapshot graph validation failed. reason=" + integrityReason + " - Failed");
-                    return false;
+                    return FailSave("Material snapshot graph validation failed. reason=" + integrityReason);
                 }
 
                 tmp = Path.Combine(Dir,
@@ -721,7 +731,7 @@ namespace QMC.CDT320.Materials
                 {
                     CopyFailedSnapshotForDiagnosis(tmp);
                     DeleteTempFile(tmp);
-                    return false;
+                    return FailSave("기록한 Material snapshot 임시 파일을 사용할 수 없습니다. file=" + tmp);
                 }
 
                 bool validateWrittenSnapshot = ShouldValidateWrittenSnapshot(saveSnapshot.SaveReason);
@@ -729,7 +739,7 @@ namespace QMC.CDT320.Materials
                 {
                     CopyFailedSnapshotForDiagnosis(tmp);
                     DeleteTempFile(tmp);
-                    return false;
+                    return FailSave("기록한 Material snapshot 검증에 실패했습니다. file=" + tmp);
                 }
 
                 bool committed = CommitSnapshot(tmp);
@@ -739,16 +749,18 @@ namespace QMC.CDT320.Materials
                     CleanupStaleTempFiles();
                 }
                 else
+                {
                     DeleteTempFile(tmp);
+                    return FailSave("Material snapshot 파일 커밋(교체)에 실패했습니다. file=" + SnapshotPath);
+                }
 
-                if (committed)
-                    LogSaveElapsed(sw.ElapsedMilliseconds, saveSnapshot, validateWrittenSnapshot);
-
-                return committed;
+                LogSaveElapsed(sw.ElapsedMilliseconds, saveSnapshot, validateWrittenSnapshot);
+                _lastSaveFailureReason = string.Empty;
+                return true;
             }
             catch (Exception ex)
             {
-                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave", "Material snapshot save failed: " + SnapshotPath + " / " + ex.Message + " - Failed");
+                FailSave("Material snapshot save exception: " + SnapshotPath + " / " + ex.Message);
                 if (!string.IsNullOrWhiteSpace(tmp))
                 {
                     CopyFailedSnapshotForDiagnosis(tmp);
