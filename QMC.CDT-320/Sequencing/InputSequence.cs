@@ -1733,6 +1733,21 @@ namespace QMC.CDT320.Sequencing
                         if (!state.IsMapped)
                             return false;
 
+                        // [정합성 2026-08-10] mapped 플래그가 있어도 점유 슬롯이 하나도 없으면
+                        // 실제 작업 대상이 없는 상태다. 이때 Mapping을 건너뛰면 다음 스텝(ResolveSlot)이
+                        // 곧바로 "작업 가능한 Ready 웨이퍼 슬롯을 찾을 수 없습니다"로 정지한다.
+                        // 실측 2026-08-10: Input1[mapped=True, slots=13, materialOccupied=0] 상태에서
+                        //   Mapping 스텝이 통째로 생략되어(로그에 InputCassetteSequence 0건) 운전이 시작되지 못했다.
+                        // 빈 카세트에 웨이퍼를 다시 채운 경우에도 재매핑 없이는 새 웨이퍼를 인식할 수 없다.
+                        // 재매핑은 멱등이므로, 이 경우 매핑부터 다시 수행해 실제 상태를 확인한다.
+                        if (!HasOccupiedCassetteSlot(state))
+                        {
+                            WriteLog("IsInputCassetteMappedInRuntimeState",
+                                "Mapping 완료 표시가 있지만 점유 슬롯이 없어 Mapping부터 다시 시작합니다. cassette=" +
+                                role + ", slots=" + state.SlotCount + " - Check");
+                            return false;
+                        }
+
                         anyMappedUsableLevel = true;
                     }
                 }
@@ -1750,11 +1765,36 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 WriteLog("IsInputCassetteMappedInRuntimeState", "Input cassette mapped state resolve failed: " + ex.Message + " - Failed");
+                // 판정 실패 시 false를 돌려 Mapping부터 다시 시작한다(안전 방향).
                 return false;
             }
             finally
             {
             }
+        }
+
+        // [정합성 2026-08-10] 입력 카세트에 실제로 담긴 Wafer 가 하나라도 있는지 확인한다.
+        // HasWafer 가 false 여도 WaferId/WaferInstanceId 잔재가 있으면 점유로 본다(보수적 — 불필요한 재매핑 방지).
+        // 출력 카세트에는 적용하지 않는다. 출력은 빈 상태로 매핑을 마치는 것이 정상이기 때문이다.
+        private static bool HasOccupiedCassetteSlot(CassetteMaterial cassette)
+        {
+            if (cassette == null || cassette.Slots == null)
+                return false;
+
+            foreach (CassetteSlotMaterial slot in cassette.Slots)
+            {
+                if (slot == null)
+                    continue;
+
+                if (slot.HasWafer ||
+                    !string.IsNullOrWhiteSpace(slot.WaferId) ||
+                    !string.IsNullOrWhiteSpace(slot.WaferInstanceId))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         #endregion

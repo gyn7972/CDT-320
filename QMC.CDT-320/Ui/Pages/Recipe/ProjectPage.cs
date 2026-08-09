@@ -739,11 +739,49 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     throw new InvalidOperationException("메인 화면을 찾을 수 없습니다.");
 
                 string validationReason;
+                bool materialOnlyBlock;
                 if (!host.TryValidateMachineRecipeChange(
                         project.FileName,
+                        out materialOnlyBlock,
                         out validationReason))
                 {
-                    throw new InvalidOperationException(validationReason);
+                    // [강제 Recipe 변경 2026-08-09] 물리 센서 제품 감지 없이 Material 데이터 잔재만으로
+                    // 막힌 경우에는 무조건 실패로 끝내지 않고, 작업자에게 강제 변경 여부를 다시 묻는다.
+                    // (카세트 Clear 로도 지워지지 않는 고아 Die 기록 때문에 Recipe 변경이 막히는 사례 대응)
+                    if (!materialOnlyBlock)
+                        throw new InvalidOperationException(validationReason);
+
+                    DialogResult forceAnswer = QMC.Common.MessageDialog.Show(
+                        "Recipe 변경이 차단되었습니다.\r\n\r\n" + validationReason +
+                        "\r\n\r\n실제 제품 감지 신호는 없습니다(데이터 기록만 남아 있음).\r\n" +
+                        "장비 안이 실제로 비어 있다면 강제로 Recipe를 변경할 수 있습니다.\r\n\r\n" +
+                        "강제 변경 시 위 Material 기록을 모두 정리한 뒤 Recipe를 적용합니다.\r\n" +
+                        "(카세트는 재매핑이 필요하며, 생산 이력 CSV는 유지됩니다.)\r\n\r\n" +
+                        "강제로 Recipe를 변경하시겠습니까?",
+                        "Recipe 강제 변경",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning);
+                    if (forceAnswer != DialogResult.Yes)
+                        return;
+
+                    string forceDetail;
+                    if (!host.ForceClearInMachineMaterialForRecipeChange(project.FileName, out forceDetail))
+                        throw new InvalidOperationException("강제 Recipe 변경에 실패했습니다. " + forceDetail);
+
+                    // 정리 후 동일 게이트를 다시 통과시켜 실제로 해소됐는지 확인한다(우회 없음).
+                    bool recheckMaterialOnlyBlock;
+                    if (!host.TryValidateMachineRecipeChange(
+                            project.FileName,
+                            out recheckMaterialOnlyBlock,
+                            out validationReason))
+                    {
+                        throw new InvalidOperationException(
+                            "Material 정리 후에도 Recipe 변경이 차단되었습니다. " + validationReason);
+                    }
+
+                    EventLogger.Write(EventKind.Alarm, Security.UserSession.Name, "RECIPE-FORCE-APPLY",
+                        "작업자 확인으로 Recipe를 강제 변경합니다. project=" + project.FileName +
+                        ", cleared=" + forceDetail);
                 }
 
                 if (!RecipeStore.Save(project))

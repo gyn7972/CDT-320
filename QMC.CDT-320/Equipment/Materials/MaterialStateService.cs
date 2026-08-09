@@ -502,6 +502,97 @@ namespace QMC.CDT320.Materials
             NotifyAndSave("InitializeForRecipe");
         }
 
+        /// <summary>
+        /// [강제 Recipe 변경 2026-08-09] 장비 안이 비어 있다는 작업자 확인 아래, 남아 있는 Wafer/Die
+        /// Material 기록을 모두 지운다. 카세트 구성(역할·레벨·슬롯 수·사용 여부)은 그대로 두고
+        /// 슬롯 점유 표시와 매핑만 해제하므로, InitializeForRecipe 처럼 슬롯 수가 기본값으로 되돌아가지 않는다.
+        ///
+        /// 슬롯 단위 Clear 로는 지워지지 않는 고아 Die(부모 Wafer 가 이미 사라졌는데 위치만 카세트로
+        /// 남은 기록)까지 제거하는 것이 목적이다. 실제 2026-08-09 사례에서 카세트 Clear 후에도
+        /// InputCassette 위치 Die 18개가 남아 Recipe 변경이 계속 차단되었다.
+        ///
+        /// 생산 이력은 CSV(OutputWaferCsv/InputWaferInspectionCsv)에 이미 기록되어 있어 이 호출로 유실되지 않는다.
+        /// </summary>
+        public static bool ClearAllMaterialForRecipeChange(string reason, out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                int removedWafers;
+                int removedDies;
+                int clearedSlots;
+
+                lock (_stateSync)
+                {
+                    MaterialSnapshot state = State;
+                    if (state == null)
+                    {
+                        detail = "Material 상태를 확인할 수 없습니다.";
+                        return false;
+                    }
+
+                    removedWafers = state.Wafers != null ? state.Wafers.Count : 0;
+                    removedDies = state.Dies != null ? state.Dies.Count : 0;
+                    clearedSlots = 0;
+
+                    if (state.Wafers != null)
+                        state.Wafers.Clear();
+                    if (state.Dies != null)
+                        state.Dies.Clear();
+
+                    if (state.Cassettes != null)
+                    {
+                        foreach (CassetteMaterial cassette in state.Cassettes)
+                        {
+                            if (cassette == null)
+                                continue;
+
+                            // 카세트 자체(역할/레벨/슬롯 수/사용 여부/존재 여부)는 보존한다.
+                            // 담고 있던 Wafer 가 모두 사라졌으므로 매핑만 해제해 재매핑을 요구한다.
+                            cassette.IsMapped = false;
+
+                            if (cassette.Slots == null)
+                                continue;
+
+                            foreach (CassetteSlotMaterial slot in cassette.Slots)
+                            {
+                                if (slot == null || (!slot.HasWafer &&
+                                                     string.IsNullOrWhiteSpace(slot.WaferId) &&
+                                                     string.IsNullOrWhiteSpace(slot.WaferInstanceId)))
+                                {
+                                    continue;
+                                }
+
+                                slot.HasWafer = false;
+                                slot.WaferId = "";
+                                slot.WaferInstanceId = "";
+                                clearedSlots++;
+                            }
+                        }
+                    }
+
+                    // 파생 인덱스와 PickUp 컨텍스트 캐시는 Die 집합이 통째로 바뀌었으므로 모두 버린다.
+                    InvalidateDieByIdIndexNoLock();
+                    InvalidateInputPickContextCacheNoLock();
+                }
+
+                detail = "wafers=" + removedWafers + ", dies=" + removedDies + ", slots=" + clearedSlots;
+                Log.Write(LogLevel.AboveNormal, "Main", "MaterialStateService",
+                    "강제 Recipe 변경으로 장비 내부 Material 기록을 모두 정리했습니다. reason=" +
+                    (reason ?? "") + ", " + detail + " - Ok");
+                NotifyAndSave("ForceRecipeChangeMaterialClear");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "Material 정리 중 예외가 발생했습니다. error=" + ex.Message;
+                Log.Write(LogLevel.AboveNormal, "Main", "MaterialStateService",
+                    "강제 Recipe 변경 Material 정리 실패: " + ex.Message + " - Failed");
+                return false;
+            }
+        }
+
         public static void UpdateRecipeContext(string recipeName, string reason)
         {
             string normalizedRecipeName = string.IsNullOrWhiteSpace(recipeName) ? "" : recipeName.Trim();

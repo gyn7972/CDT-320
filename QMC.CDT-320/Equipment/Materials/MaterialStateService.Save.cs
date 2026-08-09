@@ -444,6 +444,12 @@ namespace QMC.CDT320.Materials
                 // [가시성 2026-08-08] 저장 성공/실패 상태 전환을 항상 남는 경고 채널로 알린다.
                 ReportMaterialSaveOutcome(latestRevisionIsDurable, saveCopy);
 
+                // [자가 복구 2026-08-09] 저장이 그래프 정합성 검증에서 거부되면 컴팩션이 고칠 수 있는
+                // 종류인지 한 번 시도한다. 컴팩션은 Clear/재매핑/이동/로드 경로에만 있어서, 그 밖의
+                // 경로로 정합성이 깨지면 재기동 전까지 저장이 영구 거부되었다(2026-08-08 5시간, 08-09 5.7시간).
+                if (!latestRevisionIsDurable)
+                    TryRecoverSaveFailureByCompaction();
+
                 if (!latestRevisionIsDurable)
                 {
                     int waferCount = saveCopy.Wafers != null ? saveCopy.Wafers.Count : 0;
@@ -474,6 +480,56 @@ namespace QMC.CDT320.Materials
             }
             finally
             {
+            }
+        }
+
+        // [자가 복구 2026-08-09] 저장 실패가 이어질 때 컴팩션으로 치유 가능한지 주기적으로 한 번씩 시도한다.
+        // 컴팩션은 그래프 전체 순회라 비용이 있으므로, 실패 상황에서만 그리고 최소 간격을 두고 실행한다.
+        // 정상 저장 경로에는 추가 비용이 없다.
+        private const int MaterialSaveRecoveryIntervalMs = 60000;
+        private static DateTime _lastSaveRecoveryAttemptAt = DateTime.MinValue;
+
+        private static void TryRecoverSaveFailureByCompaction()
+        {
+            try
+            {
+                lock (_saveFailureNotifySync)
+                {
+                    if (_lastSaveRecoveryAttemptAt != DateTime.MinValue &&
+                        (DateTime.Now - _lastSaveRecoveryAttemptAt).TotalMilliseconds < MaterialSaveRecoveryIntervalMs)
+                    {
+                        return;
+                    }
+
+                    _lastSaveRecoveryAttemptAt = DateTime.Now;
+                }
+
+                MaterialCompactionResult outcome;
+                lock (_stateSync)
+                {
+                    outcome = CompactMaterialStateNoLock();
+                }
+
+                if (outcome == null)
+                    return;
+
+                if (outcome.Changed || outcome.WarningCount > 0)
+                {
+                    EventLogger.Write(
+                        EventKind.Warning,
+                        "SYSTEM",
+                        "MATERIAL-SAVE-RECOVERY-TRY",
+                        "저장 실패가 계속되어 Material 그래프 정리를 시도했습니다. " +
+                        "wafers=" + outcome.BeforeWaferCount + "->" + outcome.AfterWaferCount +
+                        ", dies=" + outcome.BeforeDieCount + "->" + outcome.AfterDieCount +
+                        ", warnings=" + outcome.WarningCount +
+                        (outcome.WarningCount > 0 ? ", firstWarning=" + outcome.FirstWarning : ""));
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write(LogLevel.AboveNormal, "Main", "MaterialStateSave",
+                    "저장 실패 자가 복구 시도 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
             }
         }
 

@@ -70,7 +70,171 @@ namespace QMC.CDT320.Materials
             context.SeedRoots(externalDieRootIds);
             context.ResolveReachableGraph();
             context.RemoveUnreachableMaterials();
+            PruneDanglingInputStageRunReviewOrder(snapshot, result);
             return result;
+        }
+
+        /// <summary>
+        /// [정합성 복구 2026-08-09] Wafer 의 Input Stage Review 승인 PickUp 순서에서, 더 이상 존재하지 않거나
+        /// 그 Wafer 의 Die 가 아닌 UID 를 제거한다. 반드시 죽은 Die 제거(RemoveUnreachableMaterials) 뒤에 실행한다.
+        ///
+        /// 배경: Review 승인 순서(InputStageRunReviewOrderedDieIds)와 시작 Die pointer 는 승인 시점의 Die UID 를
+        ///   그대로 들고 있는데, 이후 Clear/재매핑으로 그 Die 가 State 에서 사라지면 목록만 옛 UID 를 붙들게 된다.
+        ///   저장 직전 TryValidateForSave 의 "Input Stage review 순서가 해당 Input Wafer 의 Die 를 가리키지 않습니다"
+        ///   검사에 걸려 이후 모든 저장이 영구 거부된다.
+        ///   실측: 2026-08-08 5시간, 2026-08-09 5.7시간(연속 실패 3,163회) 동안 자재 상태가 디스크에 반영되지 않았다.
+        ///   컴팩션은 저장 경로에 없고 Clear/재매핑/이동/로드 경로에만 있어, 한번 어긋나면 재기동 전까지 낫지 않았다.
+        ///
+        /// 안전: 승인 자체를 임의로 해제하지 않는다. 살아 있는 Die 로 이루어진 순서가 남으면 그대로 유지하고,
+        ///   순서가 모두 사라졌을 때만 승인을 해제해 작업자 재확인을 요구한다(fail-closed).
+        /// </summary>
+        private static void PruneDanglingInputStageRunReviewOrder(
+            MaterialSnapshot snapshot,
+            MaterialCompactionResult result)
+        {
+            try
+            {
+                if (snapshot.Wafers.Count == 0)
+                    return;
+
+                var waferByInstance = new Dictionary<string, WaferMaterial>(StringComparer.OrdinalIgnoreCase);
+                var wafersByDisplayId = new Dictionary<string, List<WaferMaterial>>(StringComparer.OrdinalIgnoreCase);
+                foreach (WaferMaterial wafer in snapshot.Wafers)
+                {
+                    if (wafer == null)
+                        continue;
+
+                    string instanceId = NormalizeId(wafer.WaferInstanceId);
+                    if (!string.IsNullOrWhiteSpace(instanceId) && !waferByInstance.ContainsKey(instanceId))
+                        waferByInstance.Add(instanceId, wafer);
+
+                    string displayId = NormalizeId(wafer.WaferId);
+                    if (string.IsNullOrWhiteSpace(displayId))
+                        continue;
+
+                    List<WaferMaterial> displayCandidates;
+                    if (!wafersByDisplayId.TryGetValue(displayId, out displayCandidates))
+                    {
+                        displayCandidates = new List<WaferMaterial>();
+                        wafersByDisplayId.Add(displayId, displayCandidates);
+                    }
+                    displayCandidates.Add(wafer);
+                }
+
+                var dieById = new Dictionary<string, DieMaterial>(StringComparer.OrdinalIgnoreCase);
+                foreach (DieMaterial die in snapshot.Dies)
+                {
+                    if (die == null)
+                        continue;
+
+                    string dieId = NormalizeId(die.DieId);
+                    if (!string.IsNullOrWhiteSpace(dieId) && !dieById.ContainsKey(dieId))
+                        dieById.Add(dieId, die);
+                }
+
+                foreach (WaferMaterial wafer in snapshot.Wafers)
+                {
+                    if (wafer == null)
+                        continue;
+
+                    int removedFromOrder = 0;
+                    if (wafer.InputStageRunReviewOrderedDieIds != null &&
+                        wafer.InputStageRunReviewOrderedDieIds.Count > 0)
+                    {
+                        var keptIds = new List<string>(wafer.InputStageRunReviewOrderedDieIds.Count);
+                        var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (string rawDieId in wafer.InputStageRunReviewOrderedDieIds)
+                        {
+                            string dieId = NormalizeId(rawDieId);
+                            DieMaterial reviewDie;
+                            if (!string.IsNullOrWhiteSpace(dieId) &&
+                                seenIds.Add(dieId) &&
+                                dieById.TryGetValue(dieId, out reviewDie) &&
+                                DoesDieReferenceWafer(
+                                    reviewDie,
+                                    wafer,
+                                    true,
+                                    false,
+                                    waferByInstance,
+                                    wafersByDisplayId))
+                            {
+                                keptIds.Add(rawDieId);
+                                continue;
+                            }
+
+                            removedFromOrder++;
+                        }
+
+                        if (removedFromOrder > 0)
+                            wafer.InputStageRunReviewOrderedDieIds = keptIds;
+                    }
+
+                    // 시작 Die pointer 도 같은 규칙으로 검사한다. 끊어졌으면 지정 없음(index=0)으로 되돌린다.
+                    bool startPointerCleared = false;
+                    string startDieId = NormalizeId(wafer.InputStageRunReviewStartDieUid);
+                    if (!string.IsNullOrWhiteSpace(startDieId))
+                    {
+                        DieMaterial startDie;
+                        if (!dieById.TryGetValue(startDieId, out startDie) ||
+                            !DoesDieReferenceWafer(
+                                startDie,
+                                wafer,
+                                true,
+                                false,
+                                waferByInstance,
+                                wafersByDisplayId))
+                        {
+                            wafer.InputStageRunReviewStartDieUid = "";
+                            wafer.InputStageRunReviewStartDieIndex = 0;
+                            startPointerCleared = true;
+                        }
+                    }
+
+                    if (removedFromOrder == 0 && !startPointerCleared)
+                        continue;
+
+                    // 시작 Die 가 유효해도 승인 순서 첫 항목과 어긋나면 검증에서 막히므로 지정을 해제한다.
+                    if (!startPointerCleared &&
+                        !string.IsNullOrWhiteSpace(wafer.InputStageRunReviewStartDieUid) &&
+                        (wafer.InputStageRunReviewOrderedDieIds == null ||
+                         wafer.InputStageRunReviewOrderedDieIds.Count == 0 ||
+                         !string.Equals(
+                             NormalizeId(wafer.InputStageRunReviewOrderedDieIds[0]),
+                             NormalizeId(wafer.InputStageRunReviewStartDieUid),
+                             StringComparison.OrdinalIgnoreCase)))
+                    {
+                        wafer.InputStageRunReviewStartDieUid = "";
+                        wafer.InputStageRunReviewStartDieIndex = 0;
+                    }
+
+                    // 승인된 PickUp 대상이 하나도 남지 않으면 승인을 해제해 작업자 재확인을 요구한다.
+                    bool approvalCleared = false;
+                    if (wafer.HasInputStageRunReviewApproval &&
+                        (wafer.InputStageRunReviewOrderedDieIds == null ||
+                         wafer.InputStageRunReviewOrderedDieIds.Count == 0))
+                    {
+                        wafer.HasInputStageRunReviewApproval = false;
+                        wafer.InputStageRunReviewMappingRevision = "";
+                        wafer.InputStageRunReviewStartDieUid = "";
+                        wafer.InputStageRunReviewStartDieIndex = 0;
+                        approvalCleared = true;
+                    }
+
+                    // UpdatedAt 갱신으로 Wafer 상태 키가 바뀌므로 InputPickContext 캐시는 자동 무효화된다.
+                    // Die 집합은 건드리지 않으므로 DieId 인덱스는 그대로 유효하다.
+                    wafer.UpdatedAt = DateTime.Now;
+                    result.AddWarning(
+                        "Input Stage Review 승인 데이터에서 사라진 Die 참조를 정리했습니다. wafer=" +
+                        (wafer.WaferId ?? "") +
+                        ", removedOrder=" + removedFromOrder +
+                        ", startPointerCleared=" + startPointerCleared +
+                        ", approvalCleared=" + approvalCleared);
+                }
+            }
+            catch (Exception ex)
+            {
+                result.AddWarning("Input Stage Review 승인 데이터 정리 실패: " + ex.Message);
+            }
         }
 
         public static bool TryValidateForSave(MaterialSnapshot snapshot, out string reason)

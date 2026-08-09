@@ -214,7 +214,19 @@ namespace QMC.CDT_320
 
         internal bool TryValidateMachineRecipeChange(string recipeName, out string reason)
         {
+            bool ignoredMaterialOnlyBlock;
+            return TryValidateMachineRecipeChange(recipeName, out ignoredMaterialOnlyBlock, out reason);
+        }
+
+        // [강제 Recipe 변경 2026-08-09] materialOnlyBlock=true 면 물리 센서 제품 감지 없이
+        // Material 데이터 잔재만으로 막힌 상태다. 작업자 확인 후 ForceClearInMachineMaterialForRecipeChange 로 진행할 수 있다.
+        internal bool TryValidateMachineRecipeChange(
+            string recipeName,
+            out bool materialOnlyBlock,
+            out string reason)
+        {
             reason = string.Empty;
+            materialOnlyBlock = false;
             if (Controller == null)
             {
                 reason = "MachineController가 준비되지 않았습니다.";
@@ -225,7 +237,20 @@ namespace QMC.CDT_320
             return Controller.TryValidateRecipeChange(
                 NormalizeRecipeName(recipeName),
                 out materialRecipeRestore,
+                out materialOnlyBlock,
                 out reason);
+        }
+
+        internal bool ForceClearInMachineMaterialForRecipeChange(string recipeName, out string detail)
+        {
+            detail = string.Empty;
+            if (Controller == null)
+            {
+                detail = "MachineController가 준비되지 않았습니다.";
+                return false;
+            }
+
+            return Controller.ForceClearInMachineMaterial(NormalizeRecipeName(recipeName), out detail);
         }
 
         internal bool LoadMachineRecipe(string recipeName)

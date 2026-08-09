@@ -65,11 +65,107 @@ namespace QMC.CDT320
             out bool materialRecipeRestore,
             out string reason)
         {
+            bool ignoredMaterialOnlyBlock;
+            return TryValidateRecipeChange(
+                recipeName,
+                out materialRecipeRestore,
+                out ignoredMaterialOnlyBlock,
+                out reason);
+        }
+
+        /// <summary>
+        /// [강제 Recipe 변경 2026-08-09] 차단된 경우 그것이 "Material 데이터 잔재만"인지 알려준다.
+        /// materialOnlyBlock 이 true 면 물리 센서 제품 감지가 없다는 뜻이므로,
+        /// 작업자 확인을 받아 <see cref="ForceClearInMachineMaterial"/> 후 재시도할 수 있다.
+        /// 물리 센서가 제품을 감지했거나 Alarm/동작 중 차단이면 false 이며 강제 변경 대상이 아니다.
+        /// </summary>
+        public bool TryValidateRecipeChange(
+            string recipeName,
+            out bool materialRecipeRestore,
+            out bool materialOnlyBlock,
+            out string reason)
+        {
             return TryValidateRecipeChangeCore(
                 recipeName,
                 false,
+                false,
                 out materialRecipeRestore,
+                out materialOnlyBlock,
                 out reason);
+        }
+
+        /// <summary>
+        /// [강제 Recipe 변경 2026-08-09] 작업자가 "장비 안이 비어 있다"고 확인한 뒤,
+        /// Recipe 변경을 막고 있던 장비 내부 Material 기록을 정리한다.
+        /// 안전을 위해 호출 시점에 물리 센서 제품 감지가 없는지 다시 확인하고,
+        /// 감지되면 정리하지 않는다(대화상자 확인과 실제 실행 사이의 상태 변화 방어).
+        /// </summary>
+        public bool ForceClearInMachineMaterial(string requestedRecipeName, out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                if (_status == EquipmentStatus.Alarm || AlarmManager.HasActive)
+                {
+                    detail = "Alarm 상태에서는 강제 Material 정리를 할 수 없습니다.";
+                    return false;
+                }
+
+                if (HasActiveEquipmentOperation)
+                {
+                    detail = "장비 동작 중에는 강제 Material 정리를 할 수 없습니다.";
+                    return false;
+                }
+
+                bool hasPhysicalEvidence;
+                string physicalDetail;
+                string physicalCheckReason;
+                if (!TryCollectRecipePhysicalProductEvidence(
+                        out hasPhysicalEvidence,
+                        out physicalDetail,
+                        out physicalCheckReason))
+                {
+                    detail = "실제 제품 감지 신호를 확인할 수 없어 강제 정리를 중단했습니다. " + physicalCheckReason;
+                    return false;
+                }
+
+                if (hasPhysicalEvidence)
+                {
+                    detail = "실제 제품 감지 신호가 있어 강제 정리를 중단했습니다. physical=" + physicalDetail;
+                    return false;
+                }
+
+                string materialRecipeName;
+                string materialDetail;
+                HasInMachineMaterial(out materialRecipeName, out materialDetail);
+
+                string clearDetail;
+                if (!MaterialStateService.ClearAllMaterialForRecipeChange(
+                        "ForceRecipeChange:" + (requestedRecipeName ?? ""),
+                        out clearDetail))
+                {
+                    detail = clearDetail;
+                    return false;
+                }
+
+                detail = clearDetail;
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    QMC.CDT_320.Ui.Security.UserSession.Name,
+                    "RECIPE-FORCE-MATERIAL-CLEAR",
+                    "작업자 확인으로 장비 내부 Material 기록을 강제 정리하고 Recipe 변경을 진행합니다. " +
+                    "requested=" + (requestedRecipeName ?? "") +
+                    ", materialRecipe=" + (string.IsNullOrWhiteSpace(materialRecipeName) ? "-" : materialRecipeName) +
+                    ", before=" + materialDetail +
+                    ", cleared=" + clearDetail);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "강제 Material 정리 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
+            }
         }
 
         public bool TryBeginRecipeApplyOperation(
@@ -122,11 +218,13 @@ namespace QMC.CDT320
                 _recipeApplyOperationActive = true;
             }
 
+            bool ignoredMaterialOnlyBlockForApply;
             if (!TryValidateRecipeChangeCore(
                     recipeName,
                     true,
                     startupAutoLoad,
                     out materialRecipeRestore,
+                    out ignoredMaterialOnlyBlockForApply,
                     out reason))
             {
                 EndRecipeApplyOperation();
@@ -143,11 +241,13 @@ namespace QMC.CDT320
             out bool materialRecipeRestore,
             out string reason)
         {
+            bool ignoredMaterialOnlyBlock;
             return TryValidateRecipeChangeCore(
                 recipeName,
                 recipeApplyLeaseHeld,
                 false,
                 out materialRecipeRestore,
+                out ignoredMaterialOnlyBlock,
                 out reason);
         }
 
@@ -156,9 +256,11 @@ namespace QMC.CDT320
             bool recipeApplyLeaseHeld,
             bool startupAutoLoad,
             out bool materialRecipeRestore,
+            out bool materialOnlyBlock,
             out string reason)
         {
             materialRecipeRestore = false;
+            materialOnlyBlock = false;
             reason = string.Empty;
 
             string currentRecipeName = (ActiveRecipeName ?? string.Empty).Trim();
@@ -251,6 +353,10 @@ namespace QMC.CDT320
                 currentRecipeName,
                 nextRecipeName,
                 StringComparison.OrdinalIgnoreCase);
+            // [강제 변경 2026-08-09] 물리 센서 근거가 없고 Material 데이터 잔재만 남은 경우에 한해
+            // 작업자 확인을 거친 강제 변경을 허용한다(실제 제품 감지 시에는 절대 허용하지 않는다).
+            materialOnlyBlock = hasMaterial && !hasPhysicalEvidence;
+
             if (sameRecipe)
             {
                 if (!hasMaterial && !hasPhysicalEvidence)

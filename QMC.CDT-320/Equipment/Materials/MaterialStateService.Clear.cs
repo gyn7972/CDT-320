@@ -1087,11 +1087,61 @@ namespace QMC.CDT320.Materials
                 slot.WaferId = "";
                 slot.WaferInstanceId = "";
                 slot.HasWafer = false;
+                ResetCassetteMappingIfEmptyNoLock(cassette, "ClearInputCassetteSlotData");
                 compactionResult = CompactMaterialStateNoLock();
             }
             LogMaterialCompaction("ClearInputCassetteSlotData", compactionResult);
             NotifyAndSave("ClearInputCassetteSlotData");
             return true;
+        }
+
+        /// <summary>
+        /// [정합성 2026-08-10] 슬롯을 하나씩 지워 카세트가 완전히 비게 된 경우에도
+        /// 전체 Clear(ClearInput/OutputCassetteAllSlotData)와 동일하게 mapping 상태를 해제한다.
+        ///
+        /// 배경: 단일 슬롯 Clear 경로는 IsMapped/IsPresent를 건드리지 않아서, 13슬롯을 하나씩 비우면
+        ///   "mapped=True, present=True 인데 점유 0"인 모순 상태가 남았다. 이 상태는 매핑이 끝난 것처럼
+        ///   보이지만 작업할 Ready Wafer가 없어 Auto 시작이 SEQ-IN-NO-READY-WAFER로 멈춘다
+        ///   (2026-08-10 실측: Input1[mapped=True, slots=13, materialOccupied=0]).
+        ///   IsPresent도 물리 센서가 아니라 mapping으로 만든 논리 상태이므로 함께 초기화한다.
+        ///
+        /// 슬롯이 하나라도 남아 있으면 mapping은 여전히 유효하므로 아무것도 바꾸지 않는다.
+        /// </summary>
+        private static void ResetCassetteMappingIfEmptyNoLock(CassetteMaterial cassette, string reason)
+        {
+            try
+            {
+                if (cassette == null || cassette.Slots == null)
+                    return;
+
+                if (!cassette.IsMapped && !cassette.IsPresent)
+                    return;
+
+                foreach (CassetteSlotMaterial slot in cassette.Slots)
+                {
+                    if (slot == null)
+                        continue;
+
+                    // 점유 슬롯이 하나라도 남아 있으면 mapping 결과는 그대로 유효하다.
+                    if (slot.HasWafer ||
+                        !string.IsNullOrWhiteSpace(slot.WaferId) ||
+                        !string.IsNullOrWhiteSpace(slot.WaferInstanceId))
+                    {
+                        return;
+                    }
+                }
+
+                cassette.IsMapped = false;
+                cassette.IsPresent = false;
+                Log.Write(LogLevel.AboveNormal, "Main", "MaterialStateService",
+                    "슬롯을 모두 비워 카세트 mapping 상태를 해제했습니다. 다음 Auto 시작 전에 다시 매핑해야 합니다. cassette=" +
+                    cassette.Role + ", reason=" + (reason ?? "") + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                Log.Write(LogLevel.AboveNormal, "Main", "MaterialStateService",
+                    "카세트 mapping 상태 해제 확인 실패: " + ex.Message + " - Failed");
+            }
         }
 
         public static bool ClearInputCassetteAllSlotData()
@@ -1283,6 +1333,7 @@ namespace QMC.CDT320.Materials
                 slot.WaferId = "";
                 slot.WaferInstanceId = "";
                 slot.HasWafer = false;
+                ResetCassetteMappingIfEmptyNoLock(cassette, "ClearOutputCassetteSlotData");
                 compactionResult = CompactMaterialStateNoLock();
             }
             LogMaterialCompaction("ClearOutputCassetteSlotData", compactionResult);
