@@ -17,7 +17,10 @@ namespace QMC.CDT320
     ///   <item><description><b>압축본 관리(설정)</b>: <see cref="AppSettings.ArchiveKeepDays"/>(OFF/90/180/365)가
     ///   지난 압축본은 최종 삭제한다(복구 불가). 0(OFF) = 무기한 보관.</description></item>
     /// </list>
-    /// 대상: Event CSV(분할 조각 포함), 레거시 *.log, 알람 JSON. 제외: Lot 기록·번역 카탈로그(보존 데이터).
+    /// 대상: Event CSV(분할 조각 포함), 레거시 *.log, 알람 JSON,
+    ///   [확장 2026-08-09] TactTime CSV, AlarmContext 스냅샷 로그,
+    ///   OutputWaferCsv 날짜폴더(폴더째 zip 보관), Temp\InputWaferInspectionCsv 날짜폴더(보관 없이 삭제).
+    /// 제외: Lot 기록·번역 카탈로그(보존 데이터).
     /// 결과는 EventLogger 에 LOG-RETENTION 이벤트로 남긴다(감사 추적).
     /// </summary>
     public static class LogRetentionService
@@ -117,6 +120,72 @@ namespace QMC.CDT320
                         + (zipFailed > 0 ? ", 실패 " + zipFailed + "개" : "");
                 }
 
+                // ── 1.5단계: 날짜 하위폴더 정리 [확장 2026-08-09] ──
+                // 파일 단위가 아니라 yyyy-MM-dd 폴더 단위로 쌓이는 로그를 처리한다.
+                // 압축 마스터 스위치(LogCompressEnabled)를 그대로 따른다(rawCutoff=MinValue면 아무것도 안 함).
+                //
+                // (a) OutputWaferCsv\<날짜> — 생산 이력이므로 폴더째 zip 보관 후 원본 폴더 삭제.
+                int dirZipped = 0, dirZipFailed = 0;
+                long dirBeforeBytes = 0, dirAfterBytes = 0;
+                foreach (string dateDir in CollectDateDirectories(
+                    Path.Combine(EventLogger.LogRoot, "OutputWaferCsv")))
+                {
+                    if (ResolveDirectoryDate(dateDir) >= rawCutoff)
+                        continue;
+
+                    long size = ResolveDirectorySize(dateDir);
+                    long zipSize = TryArchiveDirectory(dateDir, "OutputWaferCsv");
+                    if (zipSize >= 0)
+                    {
+                        dirZipped++;
+                        dirBeforeBytes += size;
+                        dirAfterBytes += zipSize;
+                    }
+                    else
+                    {
+                        dirZipFailed++;
+                    }
+                }
+
+                if (dirZipped > 0 || dirZipFailed > 0)
+                {
+                    summary += (summary.Length > 0 ? " / " : "")
+                        + "OutputWaferCsv 날짜폴더 압축 " + dirZipped + "개("
+                        + (dirBeforeBytes / 1048576) + "MB → " + (dirAfterBytes / 1048576) + "MB)"
+                        + (dirZipFailed > 0 ? ", 실패 " + dirZipFailed + "개" : "");
+                }
+
+                // (b) Temp\InputWaferInspectionCsv\<날짜> — 이름 그대로 임시 산출물. 보관 없이 삭제한다.
+                //     Temp 바로 아래 전체가 아니라 알려진 하위(InputWaferInspectionCsv)만 건드린다(보수적).
+                int tempDeleted = 0, tempDeleteFailed = 0;
+                long tempDeletedBytes = 0;
+                foreach (string dateDir in CollectDateDirectories(
+                    Path.Combine(EventLogger.LogRoot, "Temp", "InputWaferInspectionCsv")))
+                {
+                    if (ResolveDirectoryDate(dateDir) >= rawCutoff)
+                        continue;
+
+                    long size = ResolveDirectorySize(dateDir);
+                    try
+                    {
+                        Directory.Delete(dateDir, true);
+                        tempDeleted++;
+                        tempDeletedBytes += size;
+                    }
+                    catch
+                    {
+                        tempDeleteFailed++;
+                    }
+                }
+
+                if (tempDeleted > 0 || tempDeleteFailed > 0)
+                {
+                    summary += (summary.Length > 0 ? " / " : "")
+                        + "Temp 검사 CSV 날짜폴더 삭제 " + tempDeleted + "개("
+                        + (tempDeletedBytes / 1048576) + "MB)"
+                        + (tempDeleteFailed > 0 ? ", 실패 " + tempDeleteFailed + "개" : "");
+                }
+
                 // ── 2단계: 보존일수(설정)가 지난 압축본 최종 삭제 ──
                 // 압축 OFF면 삭제도 하지 않는다(압축 없이 삭제만 쓰는 조합 금지 — 구 설정 방어).
                 int archiveKeepDays = AppSettingsStore.Current.LogCompressEnabled
@@ -192,7 +261,128 @@ namespace QMC.CDT320
 
             AddFiles(list, EventLogger.LogRoot, "*.log");                                 // 레거시 Event_/CDT-320_/Main_ 로그
             AddFiles(list, Path.Combine(EventLogger.LogRoot, "Alarms"), "*.json");        // 알람 이력 JSON
+
+            // [확장 2026-08-09] 정책 밖에서 무한 증가하던 폴더를 대상에 추가한다.
+            // - TactTime: 하루 1개 yyyy-MM-dd.csv (시뮬 연속 운전 시 하루 수백 MB).
+            //   파일명 날짜가 기존 ResolveFileDate 규칙에 그대로 걸리므로 폴더 추가만으로 충분하다.
+            //   이력 페이지(LogicDetailPage)는 Event 이력과 동일하게 최근 14일 원본 조회가 유지된다.
+            // - AlarmContext: 알람 시점 컨텍스트 스냅샷(yyyyMMdd_ 접두 — 날짜 정규식 미매칭이라
+            //   마지막 수정 날짜 폴백으로 판정된다). 쓰기 전용이라 압축 보관으로 충분하다.
+            AddFiles(list, Path.Combine(EventLogger.LogRoot, "TactTime"), "*.csv");
+            AddFiles(list, Path.Combine(EventLogger.LogRoot, "AlarmContext"), "*.log");
             return list;
+        }
+
+        // [확장 2026-08-09] 루트 아래의 날짜(yyyy-MM-dd) 하위폴더 목록.
+        private static IEnumerable<string> CollectDateDirectories(string root)
+        {
+            var list = new List<string>();
+            try
+            {
+                if (Directory.Exists(root))
+                {
+                    foreach (string dir in Directory.GetDirectories(root))
+                    {
+                        // 날짜 형식 폴더만 대상 — 그 외 폴더는 정리 대상에서 제외한다(안전 우선).
+                        if (DateInName.IsMatch(Path.GetFileName(dir) ?? string.Empty))
+                            list.Add(dir);
+                    }
+                }
+            }
+            catch
+            {
+            }
+            return list;
+        }
+
+        // 폴더 날짜 판정 — 폴더명의 yyyy-MM-dd 우선, 없으면 폴더 마지막 수정 날짜.
+        // 판정 실패 시 오늘로 취급해 절대 정리하지 않는다(안전 우선).
+        private static DateTime ResolveDirectoryDate(string dir)
+        {
+            try
+            {
+                Match m = DateInName.Match(Path.GetFileName(dir) ?? string.Empty);
+                DateTime parsed;
+                if (m.Success && DateTime.TryParse(m.Value, out parsed))
+                    return parsed.Date;
+
+                return Directory.GetLastWriteTime(dir).Date;
+            }
+            catch
+            {
+                return DateTime.Today;
+            }
+        }
+
+        private static long ResolveDirectorySize(string dir)
+        {
+            long total = 0;
+            try
+            {
+                foreach (string file in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
+                {
+                    try { total += new FileInfo(file).Length; } catch { }
+                }
+            }
+            catch
+            {
+            }
+            return total;
+        }
+
+        // 날짜 폴더 하나를 Log\Archive\<접두>_<폴더명>.zip 으로 통째 압축하고, 성공 확인 후에만 폴더를 지운다.
+        // zip 파일명에 폴더명(yyyy-MM-dd)이 들어가므로 2단계(ArchiveKeepDays) 삭제 판정도 그대로 적용된다.
+        // 반환: 압축본 크기(바이트), 실패 시 -1(폴더 유지 → 다음 실행에서 재시도).
+        private static long TryArchiveDirectory(string dir, string zipPrefix)
+        {
+            try
+            {
+                Directory.CreateDirectory(ArchiveDir);
+                string zipPath = Path.Combine(
+                    ArchiveDir,
+                    zipPrefix + "_" + Path.GetFileName(dir) + ".zip");
+
+                // 같은 이름의 압축본이 이미 있으면(직전 실행이 폴더 삭제 직전에 중단된 경우)
+                // 다시 압축하지 않고 폴더 삭제만 이어서 한다.
+                if (!File.Exists(zipPath))
+                {
+                    string[] files = Directory.GetFiles(dir, "*", SearchOption.AllDirectories);
+                    if (files.Length == 0)
+                    {
+                        // 빈 폴더는 압축할 것이 없으므로 바로 지운다.
+                        Directory.Delete(dir, true);
+                        return 0;
+                    }
+
+                    string tempPath = zipPath + ".tmp";
+                    using (var zipStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                    using (var zip = new ZipArchive(zipStream, ZipArchiveMode.Create))
+                    {
+                        foreach (string file in files)
+                        {
+                            // 폴더 기준 상대경로를 엔트리 이름으로 사용해 내부 구조를 보존한다.
+                            string entryName = file.Substring(dir.Length + 1).Replace('\\', '/');
+                            using (var entry = zip.CreateEntry(entryName, CompressionLevel.Optimal).Open())
+                            using (var source = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                            {
+                                source.CopyTo(entry);   // 스트리밍 복사 — 대용량도 메모리 상한 고정
+                            }
+                        }
+                    }
+
+                    File.Move(tempPath, zipPath);   // 완성된 뒤에만 정식 이름으로 — 중단돼도 깨진 zip 이 남지 않음
+                }
+
+                if (new FileInfo(zipPath).Length <= 0)
+                    return -1;
+
+                Directory.Delete(dir, true);
+                return new FileInfo(zipPath).Length;
+            }
+            catch
+            {
+                return -1;
+            }
         }
 
         // 2단계 정리 대상 — Archive 폴더의 압축본.
