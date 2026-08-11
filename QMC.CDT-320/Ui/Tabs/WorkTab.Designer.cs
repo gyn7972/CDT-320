@@ -471,6 +471,11 @@ namespace QMC.CDT_320.Ui.Tabs
             // WorkTab
             //
             this.Name = "WorkTab";
+            // [사이드바 정리 2026-08-10] PnlSidebarButtons 는 FlowLayoutPanel 이라 이 추가 순서가 곧 화면 순서다.
+            // 현재 사용하는 버튼만 위쪽에 두고, 미구현 버튼은 아래쪽에 모아 WorkTab.cs 에서 Visible=false 로 숨긴다.
+            // 기능 구현 후 숨김 목록에서 빼면 여기 순서 그대로 아래쪽에 다시 나타난다.
+
+            // ── 사용 중 ──
             this.PnlSidebarButtons.Controls.Add(this.BtnMain);
             this.PnlSidebarButtons.Controls.Add(this.BtnInit);
             this.PnlSidebarButtons.Controls.Add(this.BtnReady);
@@ -479,12 +484,17 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.Controls.Add(this.BtnStop);
             this.PnlSidebarButtons.Controls.Add(this.BtnCycleRun);
             this.PnlSidebarButtons.Controls.Add(this.BtnResetAlarm);
-            this.PnlSidebarButtons.Controls.Add(this.BtnShutdown);
-            this.PnlSidebarButtons.Controls.Add(this.BtnEStop);
             this.PnlSidebarButtons.Controls.Add(this.BtnInputCst);
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputCst);
+            this.PnlSidebarButtons.Controls.Add(this.PnlPageSeparator);
+            this.PnlSidebarButtons.Controls.Add(this.BtnInputMapTransfer);
+            this.PnlSidebarButtons.Controls.Add(this.BtnOutputMapTransfer);
             this.PnlSidebarButtons.Controls.Add(this.PnlModeSeparator);
             this.PnlSidebarButtons.Controls.Add(this.BtnColletMode);
+
+            // ── 미구현(숨김) — WorkTab.cs 의 HideUnimplementedSidebarButtons 목록과 같이 관리한다 ──
+            this.PnlSidebarButtons.Controls.Add(this.BtnShutdown);
+            this.PnlSidebarButtons.Controls.Add(this.BtnEStop);
             this.PnlSidebarButtons.Controls.Add(this.BtnNeedleMode);
             this.PnlSidebarButtons.Controls.Add(this.BtnSelfCheckMode);
             this.PnlSidebarButtons.Controls.Add(this.BtnAutoPosMode);
@@ -492,9 +502,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.Controls.Add(this.BtnColletCheckMode);
             this.PnlSidebarButtons.Controls.Add(this.BtnPosCheck);
             this.PnlSidebarButtons.Controls.Add(this.BtnNeedlePosMode);
-            this.PnlSidebarButtons.Controls.Add(this.PnlPageSeparator);
-            this.PnlSidebarButtons.Controls.Add(this.BtnInputMapTransfer);
-            this.PnlSidebarButtons.Controls.Add(this.BtnOutputMapTransfer);
             this.PnlSidebarButtons.Controls.Add(this.BtnVisionAlign);
             this.PnlSidebarButtons.Controls.Add(this.BtnWaferMapOpen);
             this.PnlSidebarButtons.Controls.Add(this.BtnDieMap);

@@ -548,9 +548,17 @@ namespace QMC.CDT320.Materials
                             if (cassette == null)
                                 continue;
 
-                            // 카세트 자체(역할/레벨/슬롯 수/사용 여부/존재 여부)는 보존한다.
-                            // 담고 있던 Wafer 가 모두 사라졌으므로 매핑만 해제해 재매핑을 요구한다.
+                            // 카세트 자체(역할/레벨/슬롯 수/사용 여부)는 보존하고, 담고 있던 Wafer 가
+                            // 모두 사라졌으므로 매핑 상태만 해제해 재매핑을 요구한다.
+                            //
+                            // [정정 2026-08-10] IsPresent 도 함께 내려야 한다. IsPresent 는 물리 센서가 아니라
+                            // Mapping 이 만든 논리 상태이고, HasInMachineMaterial 은
+                            // (IsEnabled && IsPresent && !IsMapped) 를 "Present/Unmapped" 잔재로 보고
+                            // Recipe 변경을 차단한다. IsMapped 만 내리면 강제 정리 직후 재검증에서
+                            // 다시 차단되어 강제 Recipe 변경이 항상 실패한다.
+                            // (기존 ClearInput/OutputCassetteAllSlotData 도 같은 이유로 둘 다 내린다.)
                             cassette.IsMapped = false;
+                            cassette.IsPresent = false;
 
                             if (cassette.Slots == null)
                                 continue;

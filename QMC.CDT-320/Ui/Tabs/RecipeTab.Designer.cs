@@ -460,22 +460,27 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputStage);
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputFeeder);
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputCassette);
+            // [사이드바 정리 2026-08-10] PnlSidebarButtons 는 FlowLayoutPanel 이라 이 추가 순서가 곧 화면 순서다.
+            // 현재 사용하는 버튼만 위쪽에 두고, 미구현 버튼은 아래쪽에 모아 RecipeTab.cs 에서 Visible=false 로 숨긴다.
+            // 기능 구현 후 숨김 목록에서 빼면 여기 순서 그대로 아래쪽에 다시 나타난다.
             this.PnlSidebarButtons.Controls.Add(this.PnlMapSeparator);
+            this.PnlSidebarButtons.Controls.Add(this.BtnCalibration);
             this.PnlSidebarButtons.Controls.Add(this.BtnInputMapCreate);
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputMapCreate);
             this.PnlSidebarButtons.Controls.Add(this.BtnDieMapSetup);
             this.PnlSidebarButtons.Controls.Add(this.PnlSubsetSeparator);
             this.PnlSidebarButtons.Controls.Add(this.BtnDieSubset);
             this.PnlSidebarButtons.Controls.Add(this.BtnTapeFrameSubset);
+            this.PnlSidebarButtons.Controls.Add(this.BtnBinCode);
+            this.PnlSidebarButtons.Controls.Add(this.BtnPickupSubset);
+
+            // ── 미구현(숨김) — RecipeTab.cs 의 HideUnimplementedSidebarButtons 목록과 같이 관리한다 ──
+            this.PnlSidebarButtons.Controls.Add(this.PnlForceSeparator);
             this.PnlSidebarButtons.Controls.Add(this.BtnLoadFrame);
             this.PnlSidebarButtons.Controls.Add(this.BtnUnloadFrame);
-            this.PnlSidebarButtons.Controls.Add(this.BtnBinCode);
             this.PnlSidebarButtons.Controls.Add(this.BtnModuleSubset);
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputSubset);
-            this.PnlSidebarButtons.Controls.Add(this.BtnPickupSubset);
-            this.PnlSidebarButtons.Controls.Add(this.PnlForceSeparator);
             this.PnlSidebarButtons.Controls.Add(this.BtnForceControl);
-            this.PnlSidebarButtons.Controls.Add(this.BtnCalibration);
             this.PnlSidebar.ResumeLayout(false);
             this.ResumeLayout(false);
 

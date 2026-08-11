@@ -75,7 +75,34 @@ namespace QMC.CDT_320.Ui.Tabs
                     ShowDialogCenteredOnContent(dlg);
             };
 
+            // 숨김을 먼저 적용해야 CompactSettingsSidebar 의 좌표 계산이 숨긴 항목을 건너뛴다.
+            HideUnimplementedSidebarButtons();
             CompactSettingsSidebar();
+        }
+
+        // [사이드바 정리 2026-08-10] 아직 사용하지 않는 사이드바 버튼을 화면에서만 숨긴다.
+        //
+        // - 등록(RegisterSidebarButton)은 그대로 두고 Visible 만 내린다.
+        //   기능이 준비되면 아래 목록에서 해당 버튼만 빼면 배선 작업 없이 다시 나타난다.
+        // - 이 탭은 FlowLayoutPanel 자동 배치가 아니라 CompactSettingsSidebar 가 좌표를 직접 계산한다.
+        //   그 루프가 Visible=false 인 컨트롤을 건너뛰므로 빈칸은 생기지 않는다.
+        // - 사용자 레벨 접근 제어(AccessControl)는 Enabled 만 조정하므로 이 숨김을 되돌리지 않는다.
+        private void HideUnimplementedSidebarButtons()
+        {
+            Control[] hidden =
+            {
+                BtnSimulator,      // 시뮬레이터 연결
+                BtnSelfTest,       // 자가 진단
+                BtnAlarmMaster,    // 알람 마스터
+                BtnTeach,          // 위치 티칭
+                BtnRemoteViewer    // 원격 뷰어
+            };
+
+            foreach (Control control in hidden)
+            {
+                if (control != null)
+                    control.Visible = false;
+            }
         }
 
         private void ShowDialogCenteredOnContent(Form dialog)
@@ -138,14 +165,17 @@ namespace QMC.CDT_320.Ui.Tabs
                 BtnLightSource,
                 PnlSecondarySeparator,
                 BtnBarcode,
-                BtnSimulator,
                 BtnVisionLink,
-                BtnSelfTest,
-                BtnAlarmMaster,
-                BtnTeach,
                 BtnAxisSetup,
                 BtnCameraSetup,
                 BtnLightSetup,
+
+                // 이하 미구현(숨김) — HideUnimplementedSidebarButtons 목록과 같이 관리한다.
+                // 지금은 Visible=false 라 아래 루프가 건너뛰고, 다시 보이게 하면 맨 아래에 배치된다.
+                BtnSimulator,
+                BtnSelfTest,
+                BtnAlarmMaster,
+                BtnTeach,
                 BtnRemoteViewer
             };
 

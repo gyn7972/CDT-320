@@ -83,6 +83,41 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnVisionAlign,       "work.visionAlign",       en, () => new VisionAlignPage());
             RegisterSidebarButton(BtnWaferMapOpen,      "work.waferMapOpen",      en, () => new WaferMapOpenPage());
             RegisterSidebarButton(BtnDieMap,            "work.dieMap",            en, () => new DieMapPage());
+
+            HideUnimplementedSidebarButtons();
+        }
+
+        // [사이드바 정리 2026-08-10] 아직 사용하지 않는 사이드바 버튼을 화면에서만 숨긴다.
+        //
+        // - 등록(RegisterModeButton/RegisterSidebarButton)은 그대로 두고 Visible 만 내린다.
+        //   기능이 준비되면 아래 목록에서 해당 버튼만 빼면 배선 작업 없이 다시 나타난다.
+        // - PnlSidebarButtons 는 FlowLayoutPanel 이라 숨긴 버튼의 자리는 자동으로 사라지고 빈칸이 생기지 않는다.
+        // - 배치 순서는 WorkTab.Designer.cs 에서 이미 숨김 대상을 맨 아래로 내려두었으므로,
+        //   다시 보이게 해도 위쪽 사용 버튼들의 순서는 바뀌지 않는다.
+        // - 사용자 레벨 접근 제어(AccessControl)는 Enabled 만 조정하므로 이 숨김을 되돌리지 않는다.
+        private void HideUnimplementedSidebarButtons()
+        {
+            SidebarButton[] hidden =
+            {
+                BtnShutdown,          // SHUTDOWN
+                BtnEStop,             // E-STOP
+                BtnNeedleMode,        // 니들 유닛 교체모드
+                BtnSelfCheckMode,     // 자주검사 모드
+                BtnAutoPosMode,       // 자동위치 설정모드
+                BtnColletCleanMode,   // 콜렛 클리닝 모드
+                BtnColletCheckMode,   // 콜렛 확인 모드
+                BtnPosCheck,          // POSITION CHECK
+                BtnNeedlePosMode,     // 니들 위치 확인 모드
+                BtnVisionAlign,       // 비전 얼라인
+                BtnWaferMapOpen,      // 웨이퍼 맵 오픈
+                BtnDieMap             // DIE MAP
+            };
+
+            foreach (SidebarButton button in hidden)
+            {
+                if (button != null)
+                    button.Visible = false;
+            }
         }
 
         private void StartAutoWithFocusSelection()

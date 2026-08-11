@@ -395,17 +395,22 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.Controls.Add(this.BtnSwitch);
             this.PnlSidebarButtons.Controls.Add(this.BtnLightSource);
             this.PnlSidebarButtons.Controls.Add(this.PnlSecondarySeparator);
+            // [사이드바 정리 2026-08-10] PnlSidebarButtons 는 FlowLayoutPanel 이라 이 추가 순서가 곧 화면 순서다.
+            // 현재 사용하는 버튼만 위쪽에 두고, 미구현 버튼은 아래쪽에 모아 SettingsTab.cs 에서 Visible=false 로 숨긴다.
+            // 기능 구현 후 숨김 목록에서 빼면 여기 순서 그대로 아래쪽에 다시 나타난다.
             this.PnlSidebarButtons.Controls.Add(this.BtnBarcode);
             this.PnlSidebarButtons.Controls.Add(this.BtnZoomLens);
             this.PnlSidebarButtons.Controls.Add(this.BtnHeightSensor);
-            this.PnlSidebarButtons.Controls.Add(this.BtnSimulator);
             this.PnlSidebarButtons.Controls.Add(this.BtnVisionLink);
-            this.PnlSidebarButtons.Controls.Add(this.BtnSelfTest);
-            this.PnlSidebarButtons.Controls.Add(this.BtnAlarmMaster);
-            this.PnlSidebarButtons.Controls.Add(this.BtnTeach);
             this.PnlSidebarButtons.Controls.Add(this.BtnAxisSetup);
             this.PnlSidebarButtons.Controls.Add(this.BtnCameraSetup);
             this.PnlSidebarButtons.Controls.Add(this.BtnLightSetup);
+
+            // ── 미구현(숨김) — SettingsTab.cs 의 HideUnimplementedSidebarButtons 목록과 같이 관리한다 ──
+            this.PnlSidebarButtons.Controls.Add(this.BtnSimulator);
+            this.PnlSidebarButtons.Controls.Add(this.BtnSelfTest);
+            this.PnlSidebarButtons.Controls.Add(this.BtnAlarmMaster);
+            this.PnlSidebarButtons.Controls.Add(this.BtnTeach);
             this.PnlSidebarButtons.Controls.Add(this.BtnRemoteViewer);
             this.PnlSidebar.ResumeLayout(false);
             this.ResumeLayout(false);

@@ -49,10 +49,39 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnForceControl,     "recipe.forceControl",    UserLevel.Maintenance, () => new ForceControlPage());
             RegisterSidebarButton(BtnCalibration,      "recipe.calibration",     UserLevel.Maintenance, () => new CalibrationPage());
 
+            HideUnimplementedSidebarButtons();
+
             // 레시피 사이드바 메뉴는 로케일과 무관하게 대문자 영어로 표시한다.
             // (번역 데이터/권한 Tag는 그대로 두고 표시 텍스트만 영어로 오버라이드)
             ApplyEnglishMenuLabels();
             Lang.LanguageChanged += OnLanguageChangedMenu;
+        }
+
+        // [사이드바 정리 2026-08-10] 아직 사용하지 않는 사이드바 버튼을 화면에서만 숨긴다.
+        //
+        // - 등록(RegisterSidebarButton)은 그대로 두고 Visible 만 내린다.
+        //   기능이 준비되면 아래 목록에서 해당 버튼만 빼면 배선 작업 없이 다시 나타난다.
+        // - PnlSidebarButtons 는 FlowLayoutPanel 이라 숨긴 항목의 자리는 자동으로 사라지고 빈칸이 생기지 않는다.
+        // - 배치 순서는 RecipeTab.Designer.cs 에서 이미 숨김 대상을 맨 아래로 내려두었다.
+        // - 사용자 레벨 접근 제어(AccessControl)는 Enabled 만 조정하므로 이 숨김을 되돌리지 않는다.
+        // - PnlForceSeparator 는 숨김 구역만 나누던 구분선이라 함께 숨긴다(맨 아래 빈 줄 방지).
+        private void HideUnimplementedSidebarButtons()
+        {
+            Control[] hidden =
+            {
+                PnlForceSeparator,   // 숨김 구역 구분선
+                BtnLoadFrame,        // 로드 웨이퍼
+                BtnUnloadFrame,      // 언로드 웨이퍼
+                BtnModuleSubset,     // 모듈 옵션
+                BtnOutputSubset,     // 출력 옵션
+                BtnForceControl      // FORCE CONTROL
+            };
+
+            foreach (Control control in hidden)
+            {
+                if (control != null)
+                    control.Visible = false;
+            }
         }
 
         /// <summary>사이드바 메뉴 버튼 텍스트를 영어(대문자)로 강제한다. Tag(i18n/권한)는 유지.</summary>
