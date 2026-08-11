@@ -3530,7 +3530,7 @@ namespace QMC.CDT320.Sequencing
             {
                 BarcodeDisabledNoticeService.Show(
                     "INPUT WAFER 바코드 판독이 꺼져 있어 Auto 진행 중 웨이퍼 ID가 바코드로 갱신되지 않습니다.\r\n" +
-                    "필요하면 레시피 → INPUT STAGE 화면의 'USE INPUT BARCODE'를 켜십시오.\r\n" +
+                    "필요하면 설정 → BARCODE 화면의 'USE BARCODE'를 켜십시오.\r\n" +
                     "테스트 목적이면 이 창을 최소화한 상태로 계속 진행할 수 있습니다.");
             }
             catch (Exception ex)
