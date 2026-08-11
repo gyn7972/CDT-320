@@ -22,15 +22,13 @@ namespace QMC.CDT320.Initialization
     {
         private const int InitializeAxisStopWaitTimeoutMs = 5000;
         private const int InitializeAxisStopPollIntervalMs = 20;
-        private const double FeederVisionLimitBackoffDistanceMm = 5.0;
-        private const int FeederVisionServoSettleMs = 500;
-
-        // To do: [원점복귀 리밋 탐색] 탐색 타임아웃을 리터럴에서 상수로 분리하고 상향한다.
-        // 기존 조건: 호출부에 30000(30초) 리터럴. OutputVisionX는 스트로크가 1084mm(-50.76~1033.62)라
-        //            Jog Fine 속도로 리밋까지 탐색하면 30초 안에 도달하지 못해 타임아웃이 났다.
-        // 현재 기준: 120초. 속도도 Coarse로 올려 실제 소요 시간을 함께 줄인다.
-        private const int FeederVisionLimitSearchTimeoutMs = 120000;
         private const int HomePreparationFeedbackPollMs = 20;
+
+        // To do: [Feeder HOME 카메라 퇴피 폐지 2026-08-11] Step 180/260의 VisionX 물리 퇴피를 제거해
+        //        FeederVisionLimitBackoffDistanceMm / FeederVisionServoSettleMs /
+        //        FeederVisionLimitSearchTimeoutMs 상수도 함께 폐지했다.
+        //        PickerY 페어 HOME이 쓰는 SearchHardwareLimitForInitializeAsync 계열 공용 헬퍼는
+        //        그대로 유지한다(무변경).
 
         private readonly CDT320_Machine _machine;
         private readonly AxisInterferenceMap _axisInterferenceMap;
@@ -1468,170 +1466,6 @@ namespace QMC.CDT320.Initialization
             }
         }
 
-        /// <summary>
-        /// Vision X를 일반 MotionGuard 밖에서 외측으로 움직이기 전에, 이번 전체 초기화에서
-        /// 수직축과 PickerY HOME이 실제 완료됐는지 Runtime 실행 이력으로 다시 확인합니다.
-        /// </summary>
-        private bool VerifyFeederVisionRetreatRunPrerequisites(out string reason)
-        {
-            reason = string.Empty;
-            try
-            {
-                if (_machine.InputStageUnit == null ||
-                    _machine.OutputStageUnit == null ||
-                    _machine.OutputStageUnit.GoodStage == null ||
-                    _machine.PickerFrontUnit == null ||
-                    _machine.PickerRearUnit == null)
-                {
-                    reason = "Vision X 퇴피 전 공통 Z/PickerY Unit 구성을 확인할 수 없습니다.";
-                    return false;
-                }
-
-                var requiredAxes = new List<BaseAxis>
-                {
-                    _machine.PickerFrontUnit.PickerZ0,
-                    _machine.PickerFrontUnit.PickerZ1,
-                    _machine.PickerFrontUnit.PickerZ2,
-                    _machine.PickerFrontUnit.PickerZ3,
-                    _machine.PickerRearUnit.PickerZ0,
-                    _machine.PickerRearUnit.PickerZ1,
-                    _machine.PickerRearUnit.PickerZ2,
-                    _machine.PickerRearUnit.PickerZ3,
-                    _machine.InputStageUnit.NeedleZ,
-                    _machine.InputStageUnit.EjectPinZ,
-                    _machine.InputStageUnit.ExpanderZ,
-                    _machine.OutputStageUnit.GoodStage.StageZ,
-                    _machine.PickerFrontUnit.PickerY,
-                    _machine.PickerRearUnit.PickerY
-                };
-
-                if (requiredAxes.Any(x => x == null))
-                {
-                    reason = "Vision X 퇴피 전 필수 Z/PickerY 축 참조가 누락되었습니다.";
-                    return false;
-                }
-
-                foreach (BaseAxis axis in requiredAxes.Distinct())
-                {
-                    if (!_runState.IsAxisHomed(axis))
-                    {
-                        reason = "Vision X 퇴피는 이번 전체 초기화에서 공통 Z와 PickerY HOME을 먼저 완료해야 합니다. axis=" +
-                            (axis != null ? axis.Name : "missing");
-                        return false;
-                    }
-                }
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                reason = "Vision X 퇴피 선행 HOME 확인 예외. error=" + ex.Message;
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 실장비에서는 Feeder Avoid Dog를 보드에서 즉시 갱신하고, Simulation에서만 가상 위치 판정을 사용합니다.
-        /// </summary>
-        private bool TryRefreshFeederAvoidDog(
-            bool inputSide,
-            out bool dogOn,
-            out string reason)
-        {
-            dogOn = false;
-            reason = string.Empty;
-            try
-            {
-                BaseDigitalInput dogInput = inputSide
-                    ? (_machine.InputFeederUnit != null
-                        ? _machine.InputFeederUnit.WaferFeederAvoidPositionCheckSensor
-                        : null)
-                    : (_machine.OutputFeederUnit != null
-                        ? _machine.OutputFeederUnit.BinFeederAvoidPositionCheckSensor
-                        : null);
-
-                if (AjinFactory.IsRealBoardReady)
-                {
-                    if (dogInput == null || dogInput.Config == null ||
-                        dogInput.Config.IsSimulationMode || dogInput.Config.IgnoreWaits)
-                    {
-                        reason = (inputSide ? "Input" : "Output") +
-                            "Feeder Avoid Dog 실입력을 확인할 수 없습니다. 실장비 초기화에서는 Simulation/IgnoreWaits를 허용하지 않습니다.";
-                        return false;
-                    }
-
-                    int readError;
-                    if (!AjinIoScanService.TryReadHardwareInput(dogInput, out readError))
-                    {
-                        reason = (inputSide ? "Input" : "Output") +
-                            "Feeder Avoid Dog 실입력 갱신에 실패했습니다. error=" + readError;
-                        return false;
-                    }
-                }
-
-                dogOn = inputSide
-                    ? _machine.InputFeederUnit.IsWaferFeederAvoidPositionCheck()
-                    : _machine.OutputFeederUnit.IsBinFeederAvoidPositionCheck();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                reason = (inputSide ? "Input" : "Output") +
-                    "Feeder Avoid Dog 확인 예외. error=" + ex.Message;
-                return false;
-            }
-        }
-
-        private bool VerifyPickerAxesStoppedForVisionRetreat(out string reason)
-        {
-            reason = string.Empty;
-            try
-            {
-                var axes = new List<BaseAxis>();
-                if (_machine.PickerFrontUnit != null)
-                {
-                    axes.Add(_machine.PickerFrontUnit.PickerX);
-                    axes.Add(_machine.PickerFrontUnit.PickerY);
-                    axes.Add(_machine.PickerFrontUnit.PickerZ0);
-                    axes.Add(_machine.PickerFrontUnit.PickerZ1);
-                    axes.Add(_machine.PickerFrontUnit.PickerZ2);
-                    axes.Add(_machine.PickerFrontUnit.PickerZ3);
-                }
-                if (_machine.PickerRearUnit != null)
-                {
-                    axes.Add(_machine.PickerRearUnit.PickerX);
-                    axes.Add(_machine.PickerRearUnit.PickerY);
-                    axes.Add(_machine.PickerRearUnit.PickerZ0);
-                    axes.Add(_machine.PickerRearUnit.PickerZ1);
-                    axes.Add(_machine.PickerRearUnit.PickerZ2);
-                    axes.Add(_machine.PickerRearUnit.PickerZ3);
-                }
-
-                if (axes.Any(x => x == null))
-                {
-                    reason = "Vision X 퇴피 전 Front/Rear Picker X/Y/Z 축 구성을 확인할 수 없습니다.";
-                    return false;
-                }
-
-                foreach (BaseAxis axis in axes.Distinct())
-                {
-                    axis.UpdateStatus();
-                    if (axis.IsMoving)
-                    {
-                        reason = "Vision X 퇴피 전 Picker 축이 이동 중입니다. axis=" + axis.Name;
-                        return false;
-                    }
-                }
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                reason = "Vision X 퇴피 전 Picker 정지 확인 예외. error=" + ex.Message;
-                return false;
-            }
-        }
-
         private async Task<int> PrepareOutputStageNgClampForInitializeAsync(
             AxisInitializeAction action,
             CancellationToken cancellationToken)
@@ -1931,6 +1765,7 @@ namespace QMC.CDT320.Initialization
                 // (NeedleZ는 같은 Step에서 병렬 HOME이라 이 차단에 함께 실패했었다.)
                 bool isEjectPinZHome = IsEjectPinZHomePreparationAxis(axis) &&
                     (axis.Config == null || !axis.Config.IsSimulationMode);
+
                 if (isPickerYHome)
                 {
                     await _pickerYHomeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -1967,6 +1802,7 @@ namespace QMC.CDT320.Initialization
                     // Brake가 없는 EjectPinZ는 Servo OFF 시 실제 하강하므로 공용 HOME 준비의
                     // ServoOff -> ResetAlarm -> ServoOn 순서를 사용하지 않습니다.
                     // 현재 Servo가 이미 ON이고 Alarm이 없을 때만 기존 MotionGuard HOME으로 진입합니다.
+                    axis.ServoOn();
                     axis.UpdateStatus();
                     if (!axis.IsServoOn || axis.IsAlarm)
                     {
@@ -2223,273 +2059,6 @@ namespace QMC.CDT320.Initialization
             }
         }
 
-        /// <summary>
-        /// Step 180/260 전용입니다. Vision X 물리 퇴피와 Feeder HOME을 한 흐름에서 처리해
-        /// Step 사이에 임시 상태나 권한을 보관하지 않습니다.
-        /// </summary>
-        private async Task<int> ExecuteFeederHomeWithVisionRetreatAsync(
-            bool inputSide,
-            BaseAxis feederY,
-            CancellationToken cancellationToken)
-        {
-            BaseAxis visionX = inputSide
-                ? (_machine.InputStageUnit != null ? _machine.InputStageUnit.CameraX : null)
-                : (_machine.OutputStageUnit != null ? _machine.OutputStageUnit.OutputCameraX : null);
-            AjinAxis ajinVisionX = visionX as AjinAxis;
-            int searchDirection = inputSide ? -1 : 1;
-            bool limitSearchActive = false;
-            bool visionServoOffIssued = false;
-            bool visionServoWasOn = false;
-
-            try
-            {
-                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
-
-                BaseAxis expectedFeederY = inputSide
-                    ? (_machine.InputFeederUnit != null ? _machine.InputFeederUnit.FeederY : null)
-                    : (_machine.OutputFeederUnit != null ? _machine.OutputFeederUnit.FeederY : null);
-                if (feederY == null || visionX == null || !ReferenceEquals(feederY, expectedFeederY))
-                {
-                    return FailInitializePreparation(
-                        (inputSide ? "Input" : "Output") +
-                        " Feeder/Vision 실제 Unit 축 구성이 올바르지 않습니다.");
-                }
-
-                string reason;
-                if (!VerifyFeederVisionRetreatRunPrerequisites(out reason) ||
-                    !VerifyPickerAxesStoppedForVisionRetreat(out reason))
-                {
-                    return FailInitializePreparation(reason);
-                }
-
-                bool liftDown = inputSide
-                    ? _machine.InputFeederUnit.IsWaferFeederDown()
-                    : _machine.OutputFeederUnit.IsFeederDown();
-                bool feederEmpty = inputSide
-                    ? _machine.InputFeederUnit.IsWaferFeederEmpty()
-                    : _machine.OutputFeederUnit.IsFeederEmpty();
-                bool feederUnclamped = inputSide
-                    ? _machine.InputFeederUnit.IsWaferFeederUnclamp()
-                    : _machine.OutputFeederUnit.IsFeederUnclamped();
-                if (!liftDown || !feederEmpty || !feederUnclamped)
-                {
-                    return FailInitializePreparation(
-                        (inputSide ? "Input" : "Output") +
-                        " Feeder HOME 안전조건 실패. liftDown=" + liftDown +
-                        ", empty=" + feederEmpty +
-                        ", unclamped=" + feederUnclamped);
-                }
-
-                bool dogOn;
-                if (!TryRefreshFeederAvoidDog(inputSide, out dogOn, out reason))
-                    return FailInitializePreparation(reason);
-
-                if (visionX.IsMoving)
-                {
-                    return FailInitializePreparation(
-                        "Vision X가 이동 중이어서 Feeder HOME 복구를 시작할 수 없습니다. axis=" +
-                        visionX.Name);
-                }
-
-                // Dog OFF이면 카메라를 먼저 움직이지 않습니다. 정확한 외측 Limit ON만 확인합니다.
-                if (!dogOn)
-                {
-                    bool targetLimitOn = inputSide ? visionX.Sensor_MEL : visionX.Sensor_PEL;
-                    bool oppositeLimitOn = inputSide ? visionX.Sensor_PEL : visionX.Sensor_MEL;
-                    bool simulation = visionX.Config != null && visionX.Config.IsSimulationMode;
-                    if (!simulation && ajinVisionX != null)
-                    {
-                        double actualPosition;
-                        bool sensorPel;
-                        bool sensorMel;
-                        int readError;
-                        if (!ajinVisionX.TryReadInitializeHardwareFeedback(
-                            out actualPosition,
-                            out sensorPel,
-                            out sensorMel,
-                            out readError))
-                        {
-                            return FailInitializePreparation(
-                                "Vision X 외측 Limit 원시 신호 읽기 실패. axis=" + visionX.Name +
-                                ", error=" + readError);
-                        }
-
-                        targetLimitOn = inputSide ? sensorMel : sensorPel;
-                        oppositeLimitOn = inputSide ? sensorPel : sensorMel;
-                    }
-
-                    if (ajinVisionX == null || !targetLimitOn || oppositeLimitOn)
-                    {
-                        return FailInitializePreparation(
-                            (inputSide ? "Input" : "Output") +
-                            " Feeder Avoid Dog OFF 상태에서 Vision X 외측 Limit을 확인할 수 없습니다. " +
-                            "Servo 조작과 X축 이동을 수행하지 않았습니다.");
-                    }
-                }
-
-                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
-                visionX.Stop();
-                visionServoWasOn = visionX.IsServoOn;
-                visionServoOffIssued = true;
-                visionX.ServoOff();
-                await Task.Delay(FeederVisionServoSettleMs, cancellationToken).ConfigureAwait(false);
-                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
-                visionX.ResetAlarm();
-                await Task.Delay(FeederVisionServoSettleMs, cancellationToken).ConfigureAwait(false);
-                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
-                visionX.ServoOn();
-                await Task.Delay(FeederVisionServoSettleMs, cancellationToken).ConfigureAwait(false);
-
-                // To do: [원점복귀 리밋 탐색] 탐색은 Coarse, 이탈은 Fine으로 분리한다.
-                // 기존 조건: 탐색·이탈 모두 JogFineVelocity(폴백 1.0mm/s)를 사용했다.
-                //            → OutputVisionX처럼 스트로크가 긴 축(1084mm)은 리밋 도달 전에 타임아웃이 났다.
-                // 현재 기준: 긴 거리를 달리는 탐색만 Coarse로 올린다. 이탈은 5mm 단거리이고 리밋 근처라
-                //            저속이 안전하므로 Fine을 유지한다(사용자 지시 2026-08-05).
-                double fineVelocity = visionX.Config != null && visionX.Config.JogFineVelocity > 0.0
-                    ? visionX.Config.JogFineVelocity
-                    : 1.0;
-                double searchVelocity = visionX.Config != null && visionX.Config.JogCoarseVelocity > 0.0
-                    ? visionX.Config.JogCoarseVelocity
-                    : fineVelocity;
-                double backoffVelocity = fineVelocity;
-                if (ajinVisionX != null)
-                {
-                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
-                    // Dog ON은 Limit까지 실제 탐색하고, Dog OFF는 현재 Limit ON만 무이동 재확인합니다.
-                    int searchResult = await ajinVisionX.SearchHardwareLimitForInitializeAsync(
-                        searchDirection,
-                        searchVelocity,
-                        FeederVisionLimitSearchTimeoutMs,
-                        cancellationToken,
-                        dogOn).ConfigureAwait(false);
-                    if (searchResult == 0)
-                        limitSearchActive = true;
-
-                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
-                    if (searchResult != 0)
-                        return FailInitializePreparation(BuildAxisMotionFailureMessage(
-                            visionX,
-                            "Vision X 외측 Limit 확인 실패",
-                            searchResult));
-
-                    if (dogOn)
-                    {
-                        int backoffResult = await ajinVisionX.BackOffHardwareLimitForInitializeAsync(
-                            searchDirection,
-                            FeederVisionLimitBackoffDistanceMm,
-                            backoffVelocity,
-                            cancellationToken).ConfigureAwait(false);
-                        ThrowIfInitializeCancelledOrAlarm(cancellationToken);
-                        if (backoffResult != 0)
-                            return FailInitializePreparation(BuildAxisMotionFailureMessage(
-                                visionX,
-                                "Vision X 5mm 이탈 실패",
-                                backoffResult));
-
-                        ajinVisionX.ReleaseInitializeHardwareLimitSearch();
-                        limitSearchActive = false;
-                    }
-                }
-                else
-                {
-                    if (visionX.Config == null || !visionX.Config.IsSimulationMode || !dogOn)
-                    {
-                        return FailInitializePreparation(
-                            "실장비 Vision X가 AjinAxis가 아니거나 Simulation Dog가 OFF입니다. axis=" +
-                            visionX.Name);
-                    }
-
-                    await Task.Delay(100, cancellationToken).ConfigureAwait(false);
-                }
-
-                // 반대 Lane이 실패했다면 StopAll 이후 Feeder HOME을 새로 시작하지 않습니다.
-                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
-                int homeResult;
-                // 이 Scope는 정확한 FeederY AxisHome의 Camera 위치 조건만 잠시 대체합니다.
-                using (MotionGuardRuntime.BeginFeederHomeVisionRetreat(feederY, visionX, inputSide))
-                {
-                    homeResult = await ExecuteSingleAxisHomeAsync(
-                        feederY,
-                        cancellationToken).ConfigureAwait(false);
-                }
-                if (homeResult != 0)
-                    return homeResult;
-
-                // HOME 중 반대 Lane이 실패했으면 후속 5mm 이탈을 새로 시작하지 않습니다.
-                ThrowIfInitializeCancelledOrAlarm(cancellationToken);
-                if (!TryRefreshFeederAvoidDog(inputSide, out dogOn, out reason))
-                    return FailInitializePreparation(reason);
-                if (!dogOn)
-                {
-                    return FailInitializePreparation(
-                        (inputSide ? "Input" : "Output") +
-                        " FeederY HOME 후 Avoid Dog가 ON이 아닙니다.");
-                }
-
-                if (limitSearchActive)
-                {
-                    // 이탈은 5mm 단거리이고 리밋 근처이므로 Fine 속도를 유지한다(위 탐색 구간과 동일 규칙).
-                    int backoffResult = await ajinVisionX.BackOffHardwareLimitForInitializeAsync(
-                        searchDirection,
-                        FeederVisionLimitBackoffDistanceMm,
-                        backoffVelocity,
-                        cancellationToken).ConfigureAwait(false);
-                    ThrowIfInitializeCancelledOrAlarm(cancellationToken);
-                    if (backoffResult != 0)
-                        return FailInitializePreparation(BuildAxisMotionFailureMessage(
-                            visionX,
-                            "Feeder HOME 후 Vision X 5mm 이탈 실패",
-                            backoffResult));
-
-                    ajinVisionX.ReleaseInitializeHardwareLimitSearch();
-                    limitSearchActive = false;
-                }
-
-                QMC.Common.Log.Write(
-                    "Main",
-                    "SYSTEM",
-                    "VisionXFeederHomeRetreat",
-                    (inputSide ? "Input" : "Output") +
-                    " Vision X 물리 퇴피와 FeederY HOME 완료. - Ok");
-                return 0;
-            }
-            catch (OperationCanceledException)
-            {
-                if (visionServoOffIssued && visionServoWasOn &&
-                    visionX != null && !visionX.IsServoOn)
-                {
-                    string holdState = await TryHoldUnsafeHomePreparationAxisAsync(
-                        visionX,
-                        true).ConfigureAwait(false);
-                    QMC.Common.Log.Write("Main", "SYSTEM", "VisionXFeederHomeRetreat",
-                        "취소 중 이 초기화가 OFF시킨 VisionX Servo 위치 유지를 시도했습니다. axis=" +
-                        visionX.Name + ", " + holdState + " - SafetyHold");
-                }
-                throw;
-            }
-            catch (Exception ex)
-            {
-                if (visionServoOffIssued && visionServoWasOn &&
-                    visionX != null && !visionX.IsServoOn)
-                {
-                    string holdState = await TryHoldUnsafeHomePreparationAxisAsync(
-                        visionX,
-                        true).ConfigureAwait(false);
-                    QMC.Common.Log.Write("Main", "SYSTEM", "VisionXFeederHomeRetreat",
-                        "예외 중 이 초기화가 OFF시킨 VisionX Servo 위치 유지를 시도했습니다. axis=" +
-                        visionX.Name + ", " + holdState + " - SafetyHold");
-                }
-                return FailInitializePreparation(
-                    (inputSide ? "Input" : "Output") +
-                    " Feeder/Vision 초기화 예외. error=" + ex.Message);
-            }
-            finally
-            {
-                if (limitSearchActive && ajinVisionX != null)
-                    ajinVisionX.StopInitializeHardwareLimitSearch();
-            }
-        }
-
         public async Task<int> ExecuteSerialHomeAsync(
             AxisInitializeStep step,
             IList<BaseAxis> axes,
@@ -2497,16 +2066,22 @@ namespace QMC.CDT320.Initialization
         {
             try
             {
-                if (step != null && step.StepNo == 180)
-                    return await ExecuteFeederHomeWithVisionRetreatAsync(
-                        true,
-                        axes.FirstOrDefault(),
-                        cancellationToken).ConfigureAwait(false);
-                if (step != null && step.StepNo == 260)
-                    return await ExecuteFeederHomeWithVisionRetreatAsync(
-                        false,
-                        axes.FirstOrDefault(),
-                        cancellationToken).ConfigureAwait(false);
+                // To do: [Feeder HOME 카메라 퇴피 폐지 2026-08-11] Step 180/260은 FeederY HOME 전에
+                //        VisionX를 외측 하드리밋까지 물리 퇴피시키고 5mm 이탈시키는 전용 경로
+                //        (ExecuteFeederHomeWithVisionRetreatAsync)를 사용했다.
+                //        기존 조건: 퇴피 선행조건으로 "이번 실행 안에서" 공통 Z/PickerY 14축 HOME을 요구해
+                //                  개별축 HOME 복구 중에는 절대 통과할 수 없었다(INIT-PREP axis=FrontPickerZ0).
+                //        현재 기준: 카메라를 움직이지 않고 일반 Serial HOME으로 FeederY만 HOME 한다.
+                //                  FeederY 이동 안전은 Feeder Avoid Dog 실입력으로 인터락에서 확인한다
+                //                  (사용자 지시 2026-08-11).
+                if (step != null && (step.StepNo == 180 || step.StepNo == 260))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "FeederHomeWithoutVisionRetreat",
+                        "VisionX 퇴피 없이 FeederY HOME을 수행합니다. step=" + step.StepNo +
+                        ", group=" + step.GroupName +
+                        ", axes=" + string.Join(",", axes.Select(x => x != null ? x.Name : "-").ToArray()) +
+                        " - Start");
+                }
 
                 foreach (BaseAxis axis in axes)
                 {

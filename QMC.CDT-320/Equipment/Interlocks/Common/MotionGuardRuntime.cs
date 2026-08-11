@@ -16,8 +16,6 @@ namespace QMC.CDT320.Interlocks
         private static readonly AsyncLocal<CylinderMoveScope> CurrentCylinderMoveScope = new AsyncLocal<CylinderMoveScope>();
         private static readonly AsyncLocal<ExecutionModeScope> CurrentExecutionModeScope = new AsyncLocal<ExecutionModeScope>();
         private static readonly AsyncLocal<PickerYPairHomeScope> CurrentPickerYPairHomeScope = new AsyncLocal<PickerYPairHomeScope>();
-        private static readonly AsyncLocal<FeederHomeVisionRetreatScope> CurrentFeederHomeVisionRetreatScope =
-            new AsyncLocal<FeederHomeVisionRetreatScope>();
         private static PickerYPairLimitSearchScope _pickerYPairLimitSearchScope;
         private static PickerYCollisionRecoveryJogScope _pickerYCollisionRecoveryJogScope;
         private static MotionGuardService _service;
@@ -471,47 +469,11 @@ namespace QMC.CDT320.Interlocks
 
         #endregion
 
-        #region Feeder HOME 전 Vision X 물리 퇴피 승인
-
-        /// <summary>
-        /// 전체 초기화 Step 180/260이 외측 하드리밋 또는 5mm 이탈을 실제 확인한 경우에만 생성합니다.
-        /// 이 범위는 해당 FeederY의 AxisHome 요청 한 번에만 사용하며 Auto/Manual 이동에는 적용하지 않습니다.
-        /// </summary>
-        internal static IDisposable BeginFeederHomeVisionRetreat(
-            BaseAxis feederY,
-            BaseAxis visionX,
-            bool inputSide)
-        {
-            if (feederY == null)
-                throw new ArgumentNullException("feederY");
-            if (visionX == null)
-                throw new ArgumentNullException("visionX");
-
-            FeederHomeVisionRetreatScope previous = CurrentFeederHomeVisionRetreatScope.Value;
-            CurrentFeederHomeVisionRetreatScope.Value =
-                new FeederHomeVisionRetreatScope(feederY, visionX, inputSide);
-            return new FeederHomeVisionRetreatScopeToken(previous);
-        }
-
-        /// <summary>
-        /// 초기화 전용 물리 확인 범위가 현재 요청의 정확한 Feeder/Vision 축 쌍과 일치하는지 확인합니다.
-        /// </summary>
-        internal static bool IsFeederHomeVisionRetreatActive(
-            BaseAxis feederY,
-            BaseAxis visionX,
-            bool inputSide)
-        {
-            if (feederY == null || visionX == null)
-                return false;
-
-            FeederHomeVisionRetreatScope scope = CurrentFeederHomeVisionRetreatScope.Value;
-            return scope != null &&
-                   scope.InputSide == inputSide &&
-                   ReferenceEquals(scope.FeederY, feederY) &&
-                   ReferenceEquals(scope.VisionX, visionX);
-        }
-
-        #endregion
+        // To do: [Feeder HOME 카메라 퇴피 폐지 2026-08-11] Step 180/260의 VisionX 물리 퇴피를
+        //        제거했으므로, 퇴피를 근거로 FeederY AxisHome의 카메라 위치 조건을 대체했던
+        //        BeginFeederHomeVisionRetreat / IsFeederHomeVisionRetreatActive 예외 스코프도 폐지한다.
+        //        이후 FeederY HOME의 안전 근거는 Feeder Avoid Dog 실입력 하나로 통일한다.
+        //        (InputFeederInterlockRules / OutputFeederInterlockRules 참조)
 
         #region Picker Y 충돌 복구 조그
 
@@ -1117,43 +1079,6 @@ namespace QMC.CDT320.Interlocks
                     }
                 }
 
-                _disposed = true;
-            }
-        }
-
-        private sealed class FeederHomeVisionRetreatScope
-        {
-            public FeederHomeVisionRetreatScope(
-                BaseAxis feederY,
-                BaseAxis visionX,
-                bool inputSide)
-            {
-                FeederY = feederY;
-                VisionX = visionX;
-                InputSide = inputSide;
-            }
-
-            public BaseAxis FeederY { get; private set; }
-            public BaseAxis VisionX { get; private set; }
-            public bool InputSide { get; private set; }
-        }
-
-        private sealed class FeederHomeVisionRetreatScopeToken : IDisposable
-        {
-            private readonly FeederHomeVisionRetreatScope _previous;
-            private bool _disposed;
-
-            public FeederHomeVisionRetreatScopeToken(FeederHomeVisionRetreatScope previous)
-            {
-                _previous = previous;
-            }
-
-            public void Dispose()
-            {
-                if (_disposed)
-                    return;
-
-                CurrentFeederHomeVisionRetreatScope.Value = _previous;
                 _disposed = true;
             }
         }

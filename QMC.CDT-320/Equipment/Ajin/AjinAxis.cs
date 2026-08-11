@@ -1560,13 +1560,16 @@ namespace QMC.CDT320.Ajin
             if (!AjinSystem.IsOpen) return;
             UpdateStatus();
             // 리밋 밖 복구를 위해 리밋 알람만 있는 경우에는 Servo ON을 허용한다.
-            if (IsAlarm && !IsRecoverableLimitAlarmActive()) return;
+            if (IsAlarm && !IsRecoverableLimitAlarmActive())
+                return;
+
             int ret;
             lock (_sync)
             {
                 // 호출부의 사전 검사 직후 Alarm이 발생하는 경합에서도 일반 Servo ON은 발행하지 않습니다.
                 if (!allowActiveAlarmSafetyHold && AlarmManager.HasActive)
                     return;
+
                 ret = AXM.SetAmpEnabled(AxisNo, true);
             }
             if (ret == 0)

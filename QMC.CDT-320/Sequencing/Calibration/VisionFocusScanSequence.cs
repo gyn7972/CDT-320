@@ -1393,6 +1393,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
                 ? axis.Config.InPositionTolerance
                 : 0.01;
+
             return axis.IsAtTargetPosition(target, tolerance);
         }
 
@@ -2166,11 +2167,14 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 BaseAxis pickerZ = ResolveFrontPickerAxis(axis);
                 double tolerance = ResolveAxisInPositionTolerance(pickerZ);
-                if (IsAxisIdleAtExactPosition(pickerZ, position))
-                {
-                    LogSkipMove("PickerZ", "Front", axis.ToString(), position, ExactMoveSkipToleranceMm);
-                    return 0;
-                }
+                //IsAxisIdleAtExactPosition 이함수로 무부 안하도록 한것들 다 제거 해야됨.
+                // 김영남 - 2026-08-11
+                //
+                //if (IsAxisIdleAtExactPosition(pickerZ, position))
+                //{
+                //    LogSkipMove("PickerZ", "Front", axis.ToString(), position, ExactMoveSkipToleranceMm);
+                //    return 0;
+                //} 
 
                 // [측정/준비 분리 2026-08-06] 스캔 스트로크만 측정 속도, 그 외(Default 복귀 등)는 안전이동.
                 double zVelocity = _request.MoveVelocity;
@@ -2202,11 +2206,14 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 BaseAxis pickerZ = ResolveRearPickerAxis(axis);
                 double tolerance = ResolveAxisInPositionTolerance(pickerZ);
-                if (IsAxisIdleAtExactPosition(pickerZ, position))
-                {
-                    LogSkipMove("PickerZ", "Rear", axis.ToString(), position, ExactMoveSkipToleranceMm);
-                    return 0;
-                }
+
+                //IsAxisIdleAtExactPosition 이함수로 무부 안하도록 한것들 다 제거 해야됨.
+                // 김영남 - 2026-08-11
+                //if (IsAxisIdleAtExactPosition(pickerZ, position))
+                //{
+                //    LogSkipMove("PickerZ", "Rear", axis.ToString(), position, ExactMoveSkipToleranceMm);
+                //    return 0;
+                //}
 
                 // [측정/준비 분리 2026-08-06] 스캔 스트로크만 측정 속도, 그 외(Default 복귀 등)는 안전이동.
                 double zVelocity = _request.MoveVelocity;

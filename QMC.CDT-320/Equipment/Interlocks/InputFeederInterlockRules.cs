@@ -117,27 +117,51 @@ namespace QMC.CDT320.Interlocks
 
             //Todo: Feeder 가 안전 위치고 클램프가 업상태이면 PASS
 
+            // To do: [Feeder HOME 카메라 퇴피 폐지 2026-08-11] Step 180의 InputVisionX MEL(-) 물리 퇴피를
+            //        제거했다. 퇴피를 근거로 이 카메라 조건을 대체했던 초기화 전용 예외
+            //        (MotionGuardRuntime.IsFeederHomeVisionRetreatActive)도 함께 폐지했다.
+            //        이제 FeederY 이동의 안전 근거는 Feeder Avoid Dog 실입력 하나다.
+            //        Dog OFF에서 카메라가 안전 위치가 아니면 차단하고, 작업자가 Feeder를 Avoid로
+            //        빼서 Dog를 ON으로 만든 뒤 재시도한다(카메라를 자동으로 움직이지 않는다).
+            if (!feeder.IsWaferFeederSimulationOrDryRun())
+            {
+                int avoidDogReadError = -1;
+                if (feeder.WaferFeederAvoidPositionCheckSensor == null ||
+                    !AjinIoScanService.TryReadHardwareInput(
+                        feeder.WaferFeederAvoidPositionCheckSensor,
+                        out avoidDogReadError))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeeder Avoid Dog 센서 갱신 실패. error=" + avoidDogReadError,
+                        out reason);
+                }
+            }
+
             bool feederAvoidDogOn = feeder.IsWaferFeederAvoidPositionCheck();
-            bool initializeVisionRetreatVerified =
-                request.MoveKind == MotionGuardMoveKind.AxisHome &&
-                MotionGuardRuntime.IsFeederHomeVisionRetreatActive(
-                    feeder.FeederY,
-                    cameraX,
-                    true);
 
             if (!feederAvoidDogOn)
             {
-                // 전체 초기화 Step 180이 MEL(-)을 확인한 정확한 축 쌍만 좌표 유실 상태의
-                // Feeder HOME 1회에 허용합니다. 5mm 이탈은 Dog 복구 후 수행하며 Auto/Manual은 그대로입니다.
-                if (!initializeVisionRetreatVerified &&
-                    !IsInputVisionXInAvoidPosition(stage) &&
+                if (!IsInputVisionXInAvoidPosition(stage) &&
                     cameraX.ActualPosition > 0.0)
                     return MotionGuardRuleHelpers.Block(
                         "InputFeederY",
-                        "InputFeederY 이동 불가: InputCameraX가 정확한 Avoid 또는 0 이하 위치여야 합니다. " +
-                        "cameraActual=" + cameraX.ActualPosition.ToString("0.###"),
+                        "InputFeederY 이동 불가: Avoid Dog가 OFF이고 InputCameraX가 정확한 Avoid 또는 0 이하 위치도 아닙니다. " +
+                        "InputFeeder를 Avoid 위치로 이동시켜 Avoid Dog를 ON으로 만든 후 다시 실행하십시오. " +
+                        "moveKind=" + request.MoveKind +
+                        ", avoidDog=OFF" +
+                        ", cameraActual=" + cameraX.ActualPosition.ToString("0.###") +
+                        ", cameraInAvoid=False",
                         out reason);
-
+            }
+            else if (request.MoveKind == MotionGuardMoveKind.AxisHome)
+            {
+                // 계측: HOME은 드물게 발생하므로, Dog ON으로 카메라 조건을 통과시킨 사실을 남긴다.
+                QMC.Common.Log.Write("Main", "INTERLOCK", "InputFeederYAvoidDog",
+                    "InputFeederY HOME 카메라 조건을 Avoid Dog ON으로 통과했습니다. " +
+                    "카메라를 이동시키지 않습니다. avoidDog=ON" +
+                    ", cameraActual=" + cameraX.ActualPosition.ToString("0.###") +
+                    ", cameraInAvoid=" + IsInputVisionXInAvoidPosition(stage) + " - Check");
             }
 
             if (request.MoveKind == MotionGuardMoveKind.AxisMove ||
