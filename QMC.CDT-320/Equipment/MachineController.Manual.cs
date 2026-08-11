@@ -22,6 +22,27 @@ using QMC.CDT320.Recipes;
 
 namespace QMC.CDT320
 {
+    /// <summary>
+    /// [알람 강등 2026-08-11] 수동 동작 시작이 "거부"되었음을 나타내는 예외.
+    /// Alarm 상태이거나 자동/시퀀스 동작 중이라 시작할 수 없다는 안내이며, 장비 이상이 아니다.
+    ///
+    /// UI 는 이 예외를 잡아 알람 대신 안내창 + Warning 로그로 처리해야 한다.
+    /// AlarmManager 에 알람을 올리면 중앙 안전 계약(AlarmResponseService)이 severity 와 무관하게
+    /// 전체 축 EStop 과 모든 시퀀스 정지를 수행한다 — 실측 2026-08-11 13:08/13:16:
+    /// Auto 운전 중 LIFT WAFER MAPPING 클릭 → 정상 거부가 Error 알람으로 등록 →
+    /// 가동 중이던 FrontPicker 시퀀스가 전축 EStop 으로 정지했다.
+    ///
+    /// InvalidOperationException 을 상속하므로 이 타입을 모르는 기존
+    /// catch(Exception)/catch(InvalidOperationException) 호출자의 동작은 바뀌지 않는다.
+    /// </summary>
+    public sealed class ManualActionBlockedException : InvalidOperationException
+    {
+        public ManualActionBlockedException(string message)
+            : base(message)
+        {
+        }
+    }
+
     public partial class MachineController
     {
         private void StopInputStageRunReviewAxes()
@@ -848,12 +869,14 @@ namespace QMC.CDT320
         {
             try
             {
+                // [알람 강등 2026-08-11] 시작 거부는 ManualActionBlockedException 으로 던져
+                // UI 가 알람 대신 안내로 처리할 수 있게 구분한다(타입 정의부 주석 참고).
                 if (_status == EquipmentStatus.Alarm || AlarmManager.HasActive)
-                    throw new InvalidOperationException(
+                    throw new ManualActionBlockedException(
                         "Alarm 상태에서는 수동 동작을 시작할 수 없습니다. reason=" + reason);
 
                 if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
-                    throw new InvalidOperationException(
+                    throw new ManualActionBlockedException(
                         "자동/시컨스 동작 중에는 수동 동작을 시작할 수 없습니다. reason=" + reason +
                         ", status=" + _status +
                         ", activeMode=" + (ActiveSequenceRunMode.HasValue ? ActiveSequenceRunMode.Value.ToString() : "-"));
@@ -866,7 +889,7 @@ namespace QMC.CDT320
                     if (_status == EquipmentStatus.Alarm || AlarmManager.HasActive)
                     {
                         CancelManualOperation();
-                        throw new InvalidOperationException(
+                        throw new ManualActionBlockedException(
                             "수동 동작 진입 중 Alarm이 발생하여 실행을 취소했습니다. reason=" + reason);
                     }
 

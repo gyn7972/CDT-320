@@ -49,7 +49,9 @@ namespace QMC.CDT_320.Ui.Tabs
             });
             RegisterActionButton(BtnStart,      "work.start",      op, () =>
             {
-                if (!EnsureAxesHomeReadyForRun("Start")) return;
+                if (!EnsureAxesHomeReadyForRun("Start"))
+                    return;
+
                 if (ConfirmRun("Start", "장비를 Start 하여 작업을 진행하시겠습니까?"))
                     StartAutoWithFocusSelection();
             });
@@ -61,6 +63,7 @@ namespace QMC.CDT_320.Ui.Tabs
 
                 OpenManualSequenceDialog();
             });
+
             RegisterActionButton(BtnResetAlarm, "work.resetAlarm", en, () => RunSafe(async c => await c.ResetAlarmAsync()));
             RegisterActionButton(BtnShutdown,   "work.shutdown",   mt, () => RunSafe(async c => await c.ShutdownAsync()));
             RegisterActionButton(BtnEStop,      "work.estop",      op, () => RunSafe(async c => await c.EmergencyStopAsync()));
@@ -70,6 +73,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // 콜렛 교체는 교체 작업 중 다른 화면(JOG/위치 확인 등)을 함께 봐야 하므로 모달리스로 띄운다.
             RegisterModelessModeButton(BtnColletMode, "work.colletMode", en,
                 owner => ModelessDialogHost.Show("dlg.colletChange", owner, () => new ColletChangeDialog()));
+
             RegisterModeButton(BtnNeedleMode,      "work.needleMode",      mt, () => new NeedleChangeDialog());
             RegisterModeButton(BtnSelfCheckMode,   "work.selfCheckMode",   en, () => new SelfInspectionDialog());
             RegisterModeButton(BtnAutoPosMode,     "work.autoPosMode",     mt, () => new AutoPositionDialog());

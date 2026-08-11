@@ -593,6 +593,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 WriteEvent(actionName + " 취소.");
             }
+            catch (QMC.CDT320.ManualActionBlockedException ex)
+            {
+                // 수동 시작 거부는 장비 이상이 아니므로 알람을 올리지 않는다(알람은 전체 축 EStop 유발).
+                EventLogger.Write(EventKind.Warning, "QMC", LogCode, actionName + " blocked: " + ex.Message);
+                QMC.Common.MessageDialog.Show(
+                    _owner,
+                    "지금은 수동 동작을 시작할 수 없습니다.\r\n\r\n" + ex.Message,
+                    SideName,
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
             catch (Exception ex)
             {
                 WriteAlarm(actionName + " 실패: " + ex.Message);

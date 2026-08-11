@@ -104,6 +104,11 @@ namespace QMC.CDT320.Sequencing
             string reason)
         {
             bool waitLogged = false;
+            // [가시성 2026-08-11] 허가 대기 로그는 4-인자 WriteLog 라 운영 최소 로그 정책에서 버려져,
+            // 픽커 본 시퀀스가 선행검사 허가를 기다리는 정체 구간이 무로그였다(실측 2026-08-11 16:37 —
+            // Place 완료 후 33초 무진행). 60초 초과 시 항상 남는 Warning 을 60초마다 남긴다.
+            DateTime waitStartUtc = DateTime.UtcNow;
+            DateTime lastLongNotifiedUtc = DateTime.MinValue;
 
             while (true)
             {
@@ -235,10 +240,26 @@ namespace QMC.CDT320.Sequencing
 
                     if (!waitLogged)
                     {
-                        WriteLog("InputCameraPreInspectionCoordinator",
+                        // [가시성 2026-08-11] 최소 로그 정책에서도 남도록 레벨 지정 로그를 사용한다.
+                        QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "InputCameraPreInspectionCoordinator",
                             side + " InputCamera 선행검사 완료 대기 중입니다. 조건이 맞을 때까지 대기합니다. " +
                             "reason=" + (reason ?? "-") + " - Wait");
                         waitLogged = true;
+                    }
+
+                    double waitedSec = (DateTime.UtcNow - waitStartUtc).TotalSeconds;
+                    if (waitedSec >= 60.0 &&
+                        (lastLongNotifiedUtc == DateTime.MinValue ||
+                         (DateTime.UtcNow - lastLongNotifiedUtc).TotalSeconds >= 60.0))
+                    {
+                        lastLongNotifiedUtc = DateTime.UtcNow;
+                        QMC.Common.Logging.EventLogger.Write(
+                            QMC.Common.Logging.EventKind.Warning,
+                            "SYSTEM",
+                            "INPUT-CAMERA-PERMISSION-WAIT-LONG",
+                            side + " InputCamera 선행검사 허가 대기가 길어지고 있습니다. elapsedSec=" + (int)waitedSec +
+                            ", reason=" + (reason ?? "-") +
+                            ", queue=" + InputEntryQueue.Describe());
                     }
 
                     await Task.Delay(1, ct).ConfigureAwait(false);

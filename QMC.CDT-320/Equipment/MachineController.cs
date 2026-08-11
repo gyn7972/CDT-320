@@ -234,6 +234,18 @@ namespace QMC.CDT320
         public DateTime MachineInitializedAt { get; private set; }
         public string LastActionFailureMessage { get; private set; }
         public bool CanRunEquipment => IsMachineInitialized && _status != EquipmentStatus.Alarm && !IsSequenceRunning;
+
+        /// <summary>
+        /// 현재 장비가 자동 운전(Auto Run) 중인지 확인합니다.
+        /// UI 버튼 차단과 화면 전환 제한은 이 판정을 단일 기준으로 사용합니다.
+        /// </summary>
+        /// <returns>자동 운전 중이면 <c>true</c>, 그 외 상태이면 <c>false</c></returns>
+        public bool IsAutoRun()
+        {
+            return _status == EquipmentStatus.AutoRunning;
+        }
+
+
         public QMC.CDT320.Sequencing.SequenceRunMode? ActiveSequenceRunMode { get; private set; }
         public string ActiveRecipeName { get; private set; } = string.Empty;
         public bool IsOutputFullPreparationRequested

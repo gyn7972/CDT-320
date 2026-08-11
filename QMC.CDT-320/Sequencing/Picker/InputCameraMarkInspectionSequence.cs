@@ -338,6 +338,10 @@ namespace QMC.CDT320.Sequencing
                 int timeoutMs = QMC.Common.Motion.MotionSpeedScale.ScaleDefaultTimeoutMs(100000);
                 DateTime start = DateTime.UtcNow;
                 bool waitLogged = false;
+                // [가시성 2026-08-11] FIFO 대기 로그는 4-인자 WriteLog 라 운영 최소 로그 정책에서 버려져,
+                // head 티켓이 해소되지 않는 정체 구간이 무로그였다(실측 2026-08-10 12:12 / 08-11 16:37).
+                // 60초 경과 시 항상 남는 Warning 으로 head/queue 상태를 남긴다(100초 타임아웃 전 1회).
+                bool longWaitNotified = false;
 
                 while (true)
                 {
@@ -359,13 +363,27 @@ namespace QMC.CDT320.Sequencing
 
                     if (!waitLogged)
                     {
-                        WriteLog("InputCameraMarkInspectionSequence",
+                        // [가시성 2026-08-11] 최소 로그 정책에서도 남도록 레벨 지정 로그를 사용한다.
+                        QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "InputCameraMarkInspectionSequence",
                             Name + " 선행검사 카메라 존 진입 순번 대기(FIFO). 앞선 진입 티켓이 있어 카메라 존을 잡지 않고 " +
                             "먼저 등록된 피커의 진입을 기다립니다. " + headDetail + ", side=" + Side + " - Wait");
                         waitLogged = true;
                     }
 
                     double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    if (!longWaitNotified && elapsedMs >= 60000.0)
+                    {
+                        longWaitNotified = true;
+                        QMC.Common.Logging.EventLogger.Write(
+                            QMC.Common.Logging.EventKind.Warning,
+                            "SYSTEM",
+                            "INPUT-CAMERA-FIFO-WAIT-LONG",
+                            "선행검사 카메라 존 진입 순번(FIFO) 대기가 길어지고 있습니다. side=" + Side +
+                            ", elapsedMs=" + (long)elapsedMs +
+                            ", timeoutMs=" + timeoutMs +
+                            ", " + headDetail +
+                            ", queue=" + InputEntryQueue.Describe());
+                    }
                     if (elapsedMs >= timeoutMs)
                     {
                         return Fail("INPUT-CAMERA-MARK-INSPECTION-FIFO-HEAD-TIMEOUT", Name,

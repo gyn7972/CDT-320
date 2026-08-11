@@ -163,6 +163,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 WriteEvent("INPUT-CST-CANCEL", actionName + " canceled.");
             }
+            catch (QMC.CDT320.ManualActionBlockedException ex)
+            {
+                // 수동 시작 거부는 장비 이상이 아니므로 알람을 올리지 않는다(알람은 전체 축 EStop 유발).
+                EventLogger.Write(EventKind.Warning, "UI", "INPUT-CST-ACTION-BLOCKED", actionName + " blocked: " + ex.Message);
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    "지금은 수동 동작을 시작할 수 없습니다.\r\n\r\n" + ex.Message,
+                    "Input Cassette",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
             catch (Exception ex)
             {
                 WriteAlarm("INPUT-CST-ACTION-EX", actionName + " failed: " + ex.Message);
@@ -235,6 +246,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             catch (OperationCanceledException)
             {
                 WriteEvent("INPUT-CST-MOTION-CANCEL", actionName + " canceled.");
+            }
+            catch (QMC.CDT320.ManualActionBlockedException ex)
+            {
+                // 수동 시작 거부는 장비 이상이 아니므로 알람을 올리지 않는다(알람은 전체 축 EStop 유발).
+                EventLogger.Write(EventKind.Warning, "UI", "INPUT-CST-MOTION-BLOCKED", actionName + " blocked: " + ex.Message);
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    "지금은 수동 동작을 시작할 수 없습니다.\r\n\r\n" + ex.Message,
+                    "Input Cassette",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -571,6 +593,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 "INPUT-CST-MANUAL-CONDITION",
                 LogSource,
                 message);
+
             return false;
         }
 

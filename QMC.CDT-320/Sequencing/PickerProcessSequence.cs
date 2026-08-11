@@ -1276,7 +1276,10 @@ namespace QMC.CDT320.Sequencing
                 moveCt,
                 moveTargetName);
 
-            WriteLog("PickerProcessSequence",
+            // [가시성 2026-08-11] 이 이동은 target 존이 Input(PickerZone=Input)이라 선행검사 카메라 존의
+            // "픽커 물리 클리어" 판정을 차단할 수 있다. 교착 분석의 핵심 단서이므로 최소 로그 정책에서도
+            // 남도록 레벨 지정 로그를 사용한다.
+            QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "PickerProcessSequence",
                 Name + " PickUp 동적 선행 대기점 이동 발행. constraintVisionX=" + resolved.ConstraintVisionX.ToString("F3") +
                 ", batchVisionXRange=" + resolved.MinVisionX.ToString("F3") + "~" + resolved.MaxVisionX.ToString("F3") +
                 ", dieCount=" + resolved.DieCount +

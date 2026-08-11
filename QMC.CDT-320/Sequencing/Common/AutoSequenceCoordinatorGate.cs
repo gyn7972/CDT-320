@@ -332,9 +332,38 @@ namespace QMC.CDT320.Sequencing
             bool waitLogged = false;
             bool fifoWaitLogged = false;
             DateTime acquireStart = DateTime.UtcNow;
+
+            // [가시성 2026-08-11] 카메라 존 대기 로그는 4-인자 Log.Write 라 운영 최소 로그 정책에서
+            // 통째로 버려져, 선행검사 교착의 정체 구간이 전부 무로그였다
+            // (실측 2026-08-10 12:12 / 08-11 11:06 / 08-11 16:37 — 세 건 모두 침묵 후 타임아웃 알람).
+            // 대기가 60초를 넘으면 항상 남는 Warning 채널로 현재 차단 사유를 60초마다 남긴다.
+            DateTime lastLongWaitNotifiedUtc = DateTime.MinValue;
+            void NotifyLongWaitIfNeeded(string currentBlockDetail)
+            {
+                double elapsedSec = (DateTime.UtcNow - acquireStart).TotalSeconds;
+                if (elapsedSec < 60.0)
+                    return;
+                if (lastLongWaitNotifiedUtc != DateTime.MinValue &&
+                    (DateTime.UtcNow - lastLongWaitNotifiedUtc).TotalSeconds < 60.0)
+                    return;
+
+                lastLongWaitNotifiedUtc = DateTime.UtcNow;
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "SYSTEM",
+                    "CAMERA-ZONE-WAIT-LONG",
+                    "카메라 존 획득 대기가 길어지고 있습니다. kind=" + kind +
+                    ", zone=" + safeZone +
+                    ", holder=" + safeHolder +
+                    ", elapsedSec=" + (int)elapsedSec +
+                    ", block=" + currentBlockDetail +
+                    ", queue=" + InputEntryQueue.Describe());
+            }
+
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
+
                 _context.StopIfCycleStopRequested(
                     "AutoSequenceCoordinator.CameraWorkZone:" + kind + ":" + safeZone,
                     ShouldDeferCycleStopForOutputCameraDrain(kind),
@@ -367,13 +396,15 @@ namespace QMC.CDT320.Sequencing
                     {
                         if (!fifoWaitLogged)
                         {
-                            Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                            // [가시성 2026-08-11] 최소 로그 정책에서도 남도록 레벨 지정 로그를 사용한다.
+                            Log.Write(LogLevel.AboveNormal, "Main", "AutoSequenceCoordinator",
                                 "InputCamera 선행검사 카메라 존 획득을 FIFO 순번 양보합니다. 앞선 진입 티켓이 있어 존을 잡지 않고 대기합니다. " +
                                 "holder=" + safeHolder + ", side=" + preInspectionSide.Value +
                                 ", " + headDetail + " - Wait");
                             fifoWaitLogged = true;
                         }
 
+                        NotifyLongWaitIfNeeded("FIFO 순번 양보 중. " + headDetail);
                         await Task.Delay(PickerWorkZonePollIntervalMs, ct).ConfigureAwait(false);
                         continue;
                     }
@@ -397,7 +428,8 @@ namespace QMC.CDT320.Sequencing
                 {
                     _context.LogPublic("[SEQ] AutoSequenceCoordinator camera work zone waiting. kind=" +
                         kind + ", zone=" + safeZone + ", holder=" + safeHolder + ", reason=" + reason);
-                    Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                    // [가시성 2026-08-11] 최소 로그 정책에서도 남도록 레벨 지정 로그를 사용한다.
+                    Log.Write(LogLevel.AboveNormal, "Main", "AutoSequenceCoordinator",
                         "Camera work zone waiting. kind=" + kind +
                         ", zone=" + safeZone +
                         ", holder=" + safeHolder +
@@ -405,6 +437,7 @@ namespace QMC.CDT320.Sequencing
                     waitLogged = true;
                 }
 
+                NotifyLongWaitIfNeeded(reason);
                 await Task.Delay(PickerWorkZonePollIntervalMs, ct).ConfigureAwait(false);
             }
         }
