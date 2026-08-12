@@ -1039,6 +1039,7 @@ namespace QMC.CDT320.Sequencing
                     description,
                     ct,
                     forceMove).ConfigureAwait(false);
+
                 if (sharedRailReadyResult != 0)
                     return sharedRailReadyResult;
 

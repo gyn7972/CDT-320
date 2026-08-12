@@ -1020,7 +1020,7 @@ namespace QMC.CDT320.Sequencing
                             ", pickerXState={" + BuildContiPlaceAxisDecision(pickerX, pickerXTarget, pickerXForceMove) + "}");
                     }
 
-                    await Task.Delay(10, ct).ConfigureAwait(false);
+                    await Task.Delay(1, ct).ConfigureAwait(false);
                 }
 
                 WriteLog("PickerPlaceSequence",

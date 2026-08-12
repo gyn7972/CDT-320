@@ -1385,13 +1385,30 @@ namespace QMC.CDT320.Sequencing.Calibration
                 bool stopCommanded = false;
                 bool lastFlowState = ReadPickerFlowState(_pickerNo);
 
-                Task<int> moveTask = MovePickerAxisCommandWithMotionAsync(
+                // 기존 조건: Task<int> moveTask = MovePickerAxisCommandWithMotionAsync(...) — 블로킹 이동을
+                //           백그라운드 태스크로 발행하고 Flow ON에서 정지시켰다. 그러면 태스크가 축 레이어의
+                //           완주 검증(Command≠Target → -5)에 걸려 유닛 레벨 PK-MOVE Critical 오탐 알람이 발생했다
+                //           (PickUpZ와 동일 구조 — 2026-08-12 사용자 지시로 두 캘리브레이션 함께 전환).
+                // 현재 기준: 명령 전용 이동(발행 즉시 리턴, 완주 검증 없음)으로 전환한다.
+                //           탐색형 이동(끝까지 안 가는 게 정상)에 맞는 구조이며, 도달/정지 판정은
+                //           아래 감시 루프가 IsMoving으로 직접 수행한다. 전달 속도/가감속은 기존 경로와
+                //           동일하게 최종값 그대로 보드에 적용된다(재스케일 없음 — MotionSpeedScale 불변).
+                // To do: [Z캘 명령 전용 전환] Flow 탐색 하강을 명령 전용 API로 발행.
+                int searchCommandResult = await MovePickerAxisCommandOnlyAsync(
                     _pickerZAxis,
                     searchLimit,
                     velocity,
                     acceleration,
                     deceleration,
-                    SearchTargetName);
+                    SearchTargetName).ConfigureAwait(false);
+                if (searchCommandResult != 0)
+                {
+                    result.ResultCode = Fail("PLACE-Z-CAL-Z-MOVE", Name,
+                        "PlaceZ Calibration search move command failed. pass=" + attemptName +
+                        ", result=" + searchCommandResult +
+                        ", " + BuildPickerAxisState(_pickerZAxis, searchLimit));
+                    return result;
+                }
 
                 WriteLog("PlaceZCalibration",
                     "PlaceZ Calibration " + attemptName + " Flow 검색 시작. " +
@@ -1408,7 +1425,9 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 try
                 {
-                    while (!moveTask.IsCompleted)
+                    // 기존 조건: while (!moveTask.IsCompleted) — 블로킹 태스크 완료를 루프 종료 조건으로 썼다.
+                    // 현재 기준: 명령 전용 이동은 태스크가 없으므로 축 상태(IsMoving)로 종료를 판정한다.
+                    while (true)
                     {
                         ct.ThrowIfCancellationRequested();
                         if (Context != null)
@@ -1418,9 +1437,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                         {
                             stopCommanded = true;
                             StopPickerZAxis("PlaceZ Calibration 검색 중 즉시 정지 요청");
-                            await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 즉시 정지 요청").ConfigureAwait(false);
+                            await WaitPickerZStoppedAsync(attemptName + " 즉시 정지 요청").ConfigureAwait(false);
                             throw new OperationCanceledException();
                         }
+
+                        // 현재 기준: 명령 전용 이동은 축 내부 대기 루프가 없으므로 감시 루프가 상태를 직접 갱신한다.
+                        axis.UpdateStatus();
 
                         bool currentFlowState = ReadPickerFlowState(_pickerNo);
                         if (currentFlowState != lastFlowState)
@@ -1452,6 +1474,11 @@ namespace QMC.CDT320.Sequencing.Calibration
                             break;
                         }
 
+                        // 현재 기준: searchLimit 도달(또는 외부 정지)로 축이 멈추면 Flow 미감지로 루프를 종료한다.
+                        //           발행 직후 보드 in-motion 반영 지연으로 인한 오판을 막기 위해 200ms 이후부터 판정한다.
+                        if (watch.ElapsedMilliseconds >= 200 && !axis.IsMoving)
+                            break;
+
                         if (watch.ElapsedMilliseconds > _settings.Motion.MoveTimeoutMs)
                         {
                             stopCommanded = true;
@@ -1462,9 +1489,11 @@ namespace QMC.CDT320.Sequencing.Calibration
                         await Task.Delay(_settings.FlowPollIntervalMs, ct).ConfigureAwait(false);
                     }
 
-                    int moveResult = stopCommanded
-                        ? await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 정지 후 이동 대기").ConfigureAwait(false)
-                        : await moveTask.ConfigureAwait(false);
+                    // 기존 조건: int moveResult = stopCommanded ? await WaitMoveTaskAfterStopAsync(moveTask, ...) : await moveTask;
+                    //           (블로킹 이동 태스크의 결과 회수 — 완주 검증 -5가 여기서 튀어나왔다)
+                    // 현재 기준: 명령 전용 이동은 태스크가 없다. 발행 실패는 발행 시점에 이미 처리했고,
+                    //           여기서는 정지/도달 후 축이 완전히 멈출 때까지만 대기한다.
+                    await WaitPickerZStoppedAsync(attemptName + " 검색 종료 후 정지 대기").ConfigureAwait(false);
                     axis.UpdateStatus();
 
                     // 정지 명령 후에도 축이 여전히 이동 중이면 현재 위치를 측정값으로 신뢰할 수 없다.
@@ -1560,14 +1589,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                         return result;
                     }
 
-                    if (moveResult != 0)
-                    {
-                        result.ResultCode = Fail("PLACE-Z-CAL-Z-MOVE", Name,
-                            "PlaceZ Calibration search move failed. pass=" + attemptName +
-                            ", result=" + moveResult +
-                            ", " + BuildPickerAxisState(_pickerZAxis, searchLimit));
-                        return result;
-                    }
+                    // 기존 조건: if (moveResult != 0) → PLACE-Z-CAL-Z-MOVE 실패
+                    //           (블로킹 태스크 결과 검사 — 명령 전용 전환으로 발행 결과는 발행 시점에 검사한다)
 
                     result.ResultCode = Fail("PLACE-Z-CAL-FLOW-NOT-DETECTED", Name,
                         "PlaceZ Calibration Flow was not detected. pass=" + attemptName +
@@ -1583,19 +1606,19 @@ namespace QMC.CDT320.Sequencing.Calibration
                 catch (OperationCanceledException)
                 {
                     StopPickerZAxis("Flow 검색 중 취소");
-                    await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 취소 후 이동 대기").ConfigureAwait(false);
+                    await WaitPickerZStoppedAsync(attemptName + " 취소 후 정지 대기").ConfigureAwait(false);
                     throw;
                 }
                 catch (SequenceStopException)
                 {
                     StopPickerZAxis("Flow 검색 중 시퀀스 정지");
-                    await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 정지 후 이동 대기").ConfigureAwait(false);
+                    await WaitPickerZStoppedAsync(attemptName + " 정지 후 정지 대기").ConfigureAwait(false);
                     throw;
                 }
                 catch
                 {
                     StopPickerZAxis("Flow 검색 중 예외");
-                    await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 예외 후 이동 대기").ConfigureAwait(false);
+                    await WaitPickerZStoppedAsync(attemptName + " 예외 후 정지 대기").ConfigureAwait(false);
                     throw;
                 }
                 finally
@@ -1967,6 +1990,57 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
+        // To do: [Z캘 명령 전용 전환] 명령 전용 탐색 이동의 정지/도달 후 축 정지 완료 대기.
+        //        기존 WaitMoveTaskAfterStopAsync(블로킹 태스크 대기)를 대체한다 — 태스크가 없으므로 축 상태로 판정.
+        //        재정지 1회 동작은 기존 헬퍼의 방어 동작을 그대로 유지한 것.
+        private async Task WaitPickerZStoppedAsync(string reason)
+        {
+            try
+            {
+                BaseAxis axis = GetPickerAxis(_pickerZAxis);
+                if (axis == null)
+                    return;
+
+                Stopwatch watch = Stopwatch.StartNew();
+                bool restopIssued = false;
+                while (watch.ElapsedMilliseconds < 2000)
+                {
+                    axis.UpdateStatus();
+                    if (!axis.IsMoving)
+                        return;
+
+                    if (!restopIssued && watch.ElapsedMilliseconds > 1000)
+                    {
+                        restopIssued = true;
+                        StopPickerZAxis(reason + " - 타임아웃 재정지");
+                    }
+
+                    await Task.Delay(10).ConfigureAwait(false);
+                }
+
+                axis.UpdateStatus();
+                WriteLog("PlaceZCalibration",
+                    "PlaceZ Calibration 정지 완료 대기 시간이 초과되었습니다. " +
+                    "side=" + Side +
+                    ", outputSide=" + _targetOutputSide +
+                    ", pickerNo=" + _pickerNo +
+                    ", reason=" + reason +
+                    ", " + BuildPickerAxisState(_pickerZAxis, axis.ActualPosition) + " - Check");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PlaceZCalibration",
+                    "PlaceZ Calibration 정지 완료 대기 중 예외. " +
+                    "outputSide=" + _targetOutputSide +
+                    ", reason=" + reason +
+                    ", error=" + ex.Message + " - Check");
+            }
+            finally
+            {
+            }
+        }
+
+        // 기존 조건: 블로킹 이동 태스크 대기용 — 명령 전용 전환(2026-08-12)으로 미사용. 참고용으로 보존.
         private async Task<int> WaitMoveTaskAfterStopAsync(Task<int> moveTask, string reason)
         {
             if (moveTask == null)

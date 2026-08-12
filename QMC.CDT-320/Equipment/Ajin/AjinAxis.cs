@@ -1697,17 +1697,21 @@ namespace QMC.CDT320.Ajin
                 bool useDefaultMotionScale = !hasExplicitProfile &&
                     (velocity <= 0.0 ||
                      MotionSpeedScale.MatchesDefaultVelocityScale(velocity, Config.GetRawDefaultVelocity()));
+
                 double vel = velocity > 0 ? velocity : Config.GetDefaultVel();
+
                 double acceleration = hasExplicitProfile
                     ? explicitAcceleration
                     : useDefaultMotionScale
                         ? Config.GetDefaultAcc()
                         : Config.GetDefaultAcc();
+
                 double deceleration = hasExplicitProfile
                     ? explicitDeceleration
                     : useDefaultMotionScale
                         ? Config.GetDefaultDec()
                         : Config.GetDefaultDec();
+
                 double boardTargetPos = ToBoardPosition(targetPos);
                 double boardVelocity = ToBoardVelocity(vel);
                 double boardAcceleration = ToBoardAcceleration(acceleration);
@@ -1774,11 +1778,13 @@ namespace QMC.CDT320.Ajin
                 // 코디네이터의 인포지션 대기, 팔로잉의 완료 대기)이 이미 수행한다.
                 bool redirectedByOverride =
                     Volatile.Read(ref _positionOverrideSerial) != overrideSerial;
+
                 if (!redirectedByOverride && Math.Abs(CommandPosition - targetPos) > tolerance)
                     return FailMotion(-5, "ABS MOVE",
                         "이동 완료 후 Command 위치가 목표와 다릅니다. command=" + CommandPosition.ToString("0.######") +
                         ", target=" + targetPos.ToString("0.######") +
                         ", tolerance=" + tolerance.ToString("0.######"), targetPos, true);
+
                 if (redirectedByOverride)
                     QMC.Common.Log.Write("Motion", "SYSTEM", "AX-MOVE-REDIRECT",
                         Name + " 이동 중 위치 오버라이드로 목표가 변경되어 원래 목표 확인을 생략합니다. " +
@@ -1788,7 +1794,7 @@ namespace QMC.CDT320.Ajin
                 ClearMotionFailure();
                 return 0;
             }
-            catch (Exception ex)
+            catch (Exception ex) 
             {
                 IsMoving = false;
                 IsAlarm = true;
@@ -1830,6 +1836,7 @@ namespace QMC.CDT320.Ajin
                 double tolerance = Config != null && Config.InPositionTolerance > 0.0
                     ? Config.InPositionTolerance
                     : 0.01;
+
                 //if (!BaseAxis.IsForceMoveActive &&
                 //    CanSkipMoveToTarget(targetPos, tolerance))
                 //{
@@ -2657,7 +2664,7 @@ namespace QMC.CDT320.Ajin
 
             lock (_sync)
             {
-                info.uMask = 0x1F;
+                info.uMask = 0xFF;
                 AXM.GetMotionInfo(AxisNo, ref info);
                 cmd = info.dCmdPos;
                 act = info.dActPos;
@@ -3573,6 +3580,75 @@ namespace QMC.CDT320.Ajin
         }
 
         /// <summary>
+        /// 보드 오픈(.mot 로드) 후 Setup의 속도 프로파일(사다리꼴/SCurve)과 Acc/Dec Jerk %
+        /// "3개 항목만" 보드에 적용한다. [사용자 지시 2026-08-12]
+        /// 기존 조건: 화면 PROFILE 설정은 Setup JSON에 저장만 되고, 유일한 보드 적용 경로
+        ///           (WriteSetupToBoard)의 호출부가 주석 처리되어 보드는 .mot 값으로만 돌았다.
+        /// 현재 기준: 보드 오픈 직후 이 함수로 프로파일 3개 항목만 덮어쓴다.
+        ///           다른 Setup 항목(펄스 출력/리밋 레벨/소프트리밋 등)은 절대 쓰지 않는다 —
+        ///           전체 Write 금지 정책(BlockSetupWriteToBoard)은 그대로 유지되고,
+        ///           이 함수만 프로파일 한정 예외다.
+        ///           보드 프로파일이 이미 같은 계열이면 보드 raw 값(ASYM 변형 포함)을 보존한다.
+        /// </summary>
+        /// <returns>3개 항목 모두 적용(또는 보존) 성공 시 true.</returns>
+        public bool ApplyProfileSetupToBoard()
+        {
+            try
+            {
+                if (UseSimulation || !AjinSystem.IsOpen || Setup == null)
+                    return false;
+
+                uint boardRaw = 0;
+                bool boardRawReadOk;
+                try { boardRawReadOk = AXM.GetProfileModeRaw(AxisNo, ref boardRaw) == 0; }
+                catch { boardRawReadOk = false; }
+
+                bool modelIsTrap = Setup.ProfileMode == AxisProfileMode.Trapezoid;
+                bool boardIsTrap = boardRawReadOk && boardRaw <= 1;
+
+                int profileRet = 0;
+                string profileAction;
+                if (boardRawReadOk && boardIsTrap == modelIsTrap)
+                {
+                    // 이미 같은 계열이면 보드값 보존(WriteSetupToBoard의 라운드트립 규칙과 동일).
+                    _rawProfileMode = (AXT_MOTION_PROFILE_MODE)boardRaw;
+                    profileAction = "keep";
+                }
+                else
+                {
+                    AXT_MOTION_PROFILE_MODE prof = modelIsTrap
+                        ? AXT_MOTION_PROFILE_MODE.SYM_TRAPEZOIDE_MODE
+                        : AXT_MOTION_PROFILE_MODE.SYM_S_CURVE_MODE;
+                    profileRet = AXM.SetProfileMode(AxisNo, prof);
+                    if (profileRet == 0)
+                        _rawProfileMode = prof;
+                    profileAction = "set->" + prof;
+                }
+
+                int accRet = AXM.SetAccelerationJerk(AxisNo, Setup.AccJerkPercent);
+                int decRet = AXM.SetDecelerationJerk(AxisNo, Setup.DecJerkPercent);
+
+                bool ok = profileRet == 0 && accRet == 0 && decRet == 0;
+                QMC.Common.Log.Write("Main", "SYSTEM", "AxisProfileApply",
+                    Name + " 속도 프로파일 적용. setup=" + Setup.ProfileMode +
+                    ", boardRaw=" + (boardRawReadOk ? boardRaw.ToString() : "readFail") +
+                    ", action=" + profileAction +
+                    ", profileRet=" + profileRet +
+                    ", accJerk%=" + Setup.AccJerkPercent + "(ret=" + accRet + ")" +
+                    ", decJerk%=" + Setup.DecJerkPercent + "(ret=" + decRet + ")" +
+                    ", axisNo=" + AxisNo +
+                    (ok ? " - Ok" : " - Failed"));
+                return ok;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "AxisProfileApply",
+                    Name + " 속도 프로파일 적용 실패: " + ex.Message + " - Failed");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// 현재 축의 <see cref="AxisSetup"/> / <see cref="AxisConfig"/> 값을 보드에 기록한다.<br/>
         /// SaveSpeedRows / Apply 흐름에서 호출되어 모델 → 보드 방향 동기화를 보장한다.
         /// 시뮬레이션 모드이거나 보드가 닫혀 있으면 아무 일도 하지 않고 false 를 반환한다.
@@ -3969,7 +4045,7 @@ namespace QMC.CDT320.Ajin
             //           보드가 이동 중이 아니고 Actual이 목표와 일치(톨러런스 내)하면 완료로
             //           판정한다(위치 기반 완료). 이동 중(inMotion)에는 기존 완료 판정 유지.
             const int MoveWaitTimeoutMs = DefaultAxisMoveTimeoutMs;
-            const int MotionStartGraceMs = 5000;
+            const int MotionStartGraceMs = 100;
             double arrivalTolerance = Config != null && Config.InPositionTolerance > 0.0
                 ? Config.InPositionTolerance
                 : 0.01;
@@ -3985,7 +4061,7 @@ namespace QMC.CDT320.Ajin
                 // 계속 폴링한다(지속 실패는 300초 타임아웃으로 귀결).
                 bool inMotion = false;
                 bool inMotionReadOk = AXM.GetInMotion(AxisNo, ref inMotion) == 0;
-                if (inMotionReadOk && inMotion)
+                if (inMotionReadOk && inMotion || elapsed.ElapsedMilliseconds > MotionStartGraceMs)
                     detectedMotion = true;
 
                 if (inMotionReadOk && detectedMotion && !inMotion)
@@ -3994,7 +4070,7 @@ namespace QMC.CDT320.Ajin
                 if (inMotionReadOk && !inMotion && Math.Abs(ActualPosition - targetPos) <= arrivalTolerance)
                     break;
 
-                if (inMotionReadOk && !detectedMotion && !inMotion && elapsed.ElapsedMilliseconds > MotionStartGraceMs)
+                if (inMotionReadOk && !detectedMotion && !inMotion)
                     break;
 
                 if (Volatile.Read(ref _motionStopSerial) != motionStopSerial && inMotionReadOk && !inMotion)

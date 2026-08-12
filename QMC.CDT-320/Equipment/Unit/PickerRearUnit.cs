@@ -2048,7 +2048,7 @@ namespace QMC.CDT320
         {
 
             BaseAxis item = GetAxis(axis);
-            item?.UpdateStatus();
+           
             return Math.Abs(item.ActualPosition - targetPos) <= tolerance && !item.IsAlarm;
         }
 

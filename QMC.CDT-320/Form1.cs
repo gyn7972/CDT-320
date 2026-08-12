@@ -157,6 +157,18 @@ namespace QMC.CDT_320
                             axis.Config.IsSimulationMode = true;
                         }
                     }
+                    else
+                    {
+                        // [사용자 지시 2026-08-12] 보드 오픈(.mot 로드) 후 화면 PROFILE 설정
+                        // (사다리꼴/SCurve + Acc/Dec Jerk %) 3개 항목만 축별로 보드에 적용한다.
+                        // 다른 Setup 항목은 쓰지 않는다(전면 Write 금지 정책 유지).
+                        foreach (BaseAxis axis in axes)
+                        {
+                            var ajinAxis = axis as AjinAxis;
+                            if (ajinAxis != null)
+                                ajinAxis.ApplyProfileSetupToBoard();
+                        }
+                    }
 
                     foreach (BaseDigitalInput input in EnumerateInputs(Machine))
                     {
