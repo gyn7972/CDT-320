@@ -126,9 +126,9 @@
             this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
             this.rootLayout.RowCount = 5;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 440F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 78F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 478F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 100F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
@@ -159,7 +159,7 @@
             this.grpSetting.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.grpSetting.Name = "grpSetting";
             this.grpSetting.Padding = new System.Windows.Forms.Padding(1, 10, 1, 2);
-            this.grpSetting.Size = new System.Drawing.Size(831, 439);
+            this.grpSetting.Size = new System.Drawing.Size(831, 477);
             this.grpSetting.TabIndex = 1;
             this.grpSetting.TabStop = false;
             this.grpSetting.Text = "SETTING";
@@ -175,7 +175,7 @@
             this.settingLayout.Name = "settingLayout";
             this.settingLayout.RowCount = 1;
             this.settingLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 408F));
-            this.settingLayout.Size = new System.Drawing.Size(829, 407);
+            this.settingLayout.Size = new System.Drawing.Size(829, 445);
             this.settingLayout.TabIndex = 0;
             // 
             // bodyLayout
@@ -227,7 +227,7 @@
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.bodyLayout.Size = new System.Drawing.Size(829, 408);
+            this.bodyLayout.Size = new System.Drawing.Size(829, 445);
             this.bodyLayout.TabIndex = 1;
             // 
             // lblLanguage
@@ -355,9 +355,9 @@
             this.lblUseRealVisionInSimulation.TabIndex = 16;
             this.lblUseRealVisionInSimulation.Text = "REAL VISION IN SIMULATION";
             this.lblUseRealVisionInSimulation.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblSkipRunReviewInSimulation
-            //
+            // 
             this.lblSkipRunReviewInSimulation.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblSkipRunReviewInSimulation.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSkipRunReviewInSimulation.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -369,13 +369,13 @@
             this.lblSkipRunReviewInSimulation.TabIndex = 30;
             this.lblSkipRunReviewInSimulation.Text = "SKIP RUN REVIEW (SIM)";
             this.lblSkipRunReviewInSimulation.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblWaferCompleteRunMode
             // 
             this.lblWaferCompleteRunMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblWaferCompleteRunMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblWaferCompleteRunMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblWaferCompleteRunMode.Location = new System.Drawing.Point(2, 308);
+            this.lblWaferCompleteRunMode.Location = new System.Drawing.Point(2, 342);
             this.lblWaferCompleteRunMode.Margin = new System.Windows.Forms.Padding(2);
             this.lblWaferCompleteRunMode.Name = "lblWaferCompleteRunMode";
             this.lblWaferCompleteRunMode.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
@@ -491,9 +491,9 @@
             this._cbUseRealVisionInSimulation.Size = new System.Drawing.Size(645, 23);
             this._cbUseRealVisionInSimulation.TabIndex = 17;
             this._cbUseRealVisionInSimulation.SelectedIndexChanged += new System.EventHandler(this._cbUseRealVisionInSimulation_SelectedIndexChanged);
-            //
+            // 
             // _cbSkipRunReviewInSimulation
-            //
+            // 
             this._cbSkipRunReviewInSimulation.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbSkipRunReviewInSimulation.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbSkipRunReviewInSimulation.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -509,7 +509,7 @@
             this._cbWaferCompleteRunMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbWaferCompleteRunMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbWaferCompleteRunMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbWaferCompleteRunMode.Location = new System.Drawing.Point(182, 308);
+            this._cbWaferCompleteRunMode.Location = new System.Drawing.Point(182, 342);
             this._cbWaferCompleteRunMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbWaferCompleteRunMode.Name = "_cbWaferCompleteRunMode";
             this._cbWaferCompleteRunMode.Size = new System.Drawing.Size(645, 23);
@@ -521,7 +521,7 @@
             this.lblPickRuntimeOffset.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblPickRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPickRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblPickRuntimeOffset.Location = new System.Drawing.Point(2, 342);
+            this.lblPickRuntimeOffset.Location = new System.Drawing.Point(2, 376);
             this.lblPickRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this.lblPickRuntimeOffset.Name = "lblPickRuntimeOffset";
             this.lblPickRuntimeOffset.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
@@ -538,7 +538,7 @@
             this.pickRuntimeOffsetLayout.Controls.Add(this._cbPickRuntimeOffset, 0, 0);
             this.pickRuntimeOffsetLayout.Controls.Add(this.btnResetPickRuntimeOffset, 1, 0);
             this.pickRuntimeOffsetLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pickRuntimeOffsetLayout.Location = new System.Drawing.Point(180, 340);
+            this.pickRuntimeOffsetLayout.Location = new System.Drawing.Point(180, 374);
             this.pickRuntimeOffsetLayout.Margin = new System.Windows.Forms.Padding(0);
             this.pickRuntimeOffsetLayout.Name = "pickRuntimeOffsetLayout";
             this.pickRuntimeOffsetLayout.RowCount = 1;
@@ -577,11 +577,11 @@
             this.lblPlaceRuntimeOffset.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblPlaceRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPlaceRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblPlaceRuntimeOffset.Location = new System.Drawing.Point(2, 376);
+            this.lblPlaceRuntimeOffset.Location = new System.Drawing.Point(2, 410);
             this.lblPlaceRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this.lblPlaceRuntimeOffset.Name = "lblPlaceRuntimeOffset";
             this.lblPlaceRuntimeOffset.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPlaceRuntimeOffset.Size = new System.Drawing.Size(176, 30);
+            this.lblPlaceRuntimeOffset.Size = new System.Drawing.Size(176, 33);
             this.lblPlaceRuntimeOffset.TabIndex = 22;
             this.lblPlaceRuntimeOffset.Text = "PLACE RUNTIME OFFSET";
             this.lblPlaceRuntimeOffset.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -596,12 +596,12 @@
             this.placeRuntimeOffsetLayout.Controls.Add(this.btnResetPlaceRuntimeOffset, 1, 0);
             this.placeRuntimeOffsetLayout.Controls.Add(this.btnRuntimeOffsetMonitor, 2, 0);
             this.placeRuntimeOffsetLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.placeRuntimeOffsetLayout.Location = new System.Drawing.Point(180, 374);
+            this.placeRuntimeOffsetLayout.Location = new System.Drawing.Point(180, 408);
             this.placeRuntimeOffsetLayout.Margin = new System.Windows.Forms.Padding(0);
             this.placeRuntimeOffsetLayout.Name = "placeRuntimeOffsetLayout";
             this.placeRuntimeOffsetLayout.RowCount = 1;
             this.placeRuntimeOffsetLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.placeRuntimeOffsetLayout.Size = new System.Drawing.Size(649, 34);
+            this.placeRuntimeOffsetLayout.Size = new System.Drawing.Size(649, 37);
             this.placeRuntimeOffsetLayout.TabIndex = 23;
             // 
             // _cbPlaceRuntimeOffset
@@ -624,36 +624,36 @@
             this.btnResetPlaceRuntimeOffset.Location = new System.Drawing.Point(411, 2);
             this.btnResetPlaceRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this.btnResetPlaceRuntimeOffset.Name = "btnResetPlaceRuntimeOffset";
-            this.btnResetPlaceRuntimeOffset.Size = new System.Drawing.Size(106, 30);
+            this.btnResetPlaceRuntimeOffset.Size = new System.Drawing.Size(106, 33);
             this.btnResetPlaceRuntimeOffset.TabIndex = 1;
             this.btnResetPlaceRuntimeOffset.Text = "RESET";
             this.btnResetPlaceRuntimeOffset.UseVisualStyleBackColor = true;
             this.btnResetPlaceRuntimeOffset.Click += new System.EventHandler(this.btnResetPlaceRuntimeOffset_Click);
-            //
+            // 
             // btnRuntimeOffsetMonitor
-            //
+            // 
             this.btnRuntimeOffsetMonitor.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnRuntimeOffsetMonitor.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnRuntimeOffsetMonitor.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnRuntimeOffsetMonitor.Location = new System.Drawing.Point(651, 2);
+            this.btnRuntimeOffsetMonitor.Location = new System.Drawing.Point(521, 2);
             this.btnRuntimeOffsetMonitor.Margin = new System.Windows.Forms.Padding(2);
             this.btnRuntimeOffsetMonitor.Name = "btnRuntimeOffsetMonitor";
-            this.btnRuntimeOffsetMonitor.Size = new System.Drawing.Size(126, 30);
+            this.btnRuntimeOffsetMonitor.Size = new System.Drawing.Size(126, 33);
             this.btnRuntimeOffsetMonitor.TabIndex = 2;
             this.btnRuntimeOffsetMonitor.Text = "OFFSET MONITOR";
             this.btnRuntimeOffsetMonitor.UseVisualStyleBackColor = true;
             this.btnRuntimeOffsetMonitor.Click += new System.EventHandler(this.btnRuntimeOffsetMonitor_Click);
-            //
+            // 
             // grpAjin
             // 
             this.grpAjin.Controls.Add(this.ajinLayout);
             this.grpAjin.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpAjin.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpAjin.Location = new System.Drawing.Point(8, 478);
+            this.grpAjin.Location = new System.Drawing.Point(8, 516);
             this.grpAjin.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.grpAjin.Name = "grpAjin";
             this.grpAjin.Padding = new System.Windows.Forms.Padding(8);
-            this.grpAjin.Size = new System.Drawing.Size(831, 70);
+            this.grpAjin.Size = new System.Drawing.Size(831, 92);
             this.grpAjin.TabIndex = 2;
             this.grpAjin.TabStop = false;
             this.grpAjin.Text = "AJINEXTEK";
@@ -716,13 +716,13 @@
             this.logBtnLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.logBtnLayout.Controls.Add(this.btnLogSettings, 1, 0);
             this.logBtnLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.logBtnLayout.Location = new System.Drawing.Point(8, 556);
+            this.logBtnLayout.Location = new System.Drawing.Point(8, 616);
             this.logBtnLayout.Margin = new System.Windows.Forms.Padding(0);
             this.logBtnLayout.Name = "logBtnLayout";
             this.logBtnLayout.Padding = new System.Windows.Forms.Padding(0, 3, 0, 0);
             this.logBtnLayout.RowCount = 1;
             this.logBtnLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.logBtnLayout.Size = new System.Drawing.Size(831, 40);
+            this.logBtnLayout.Size = new System.Drawing.Size(831, 44);
             this.logBtnLayout.TabIndex = 3;
             // 
             // btnLogSettings
@@ -733,7 +733,7 @@
             this.btnLogSettings.Location = new System.Drawing.Point(415, 3);
             this.btnLogSettings.Margin = new System.Windows.Forms.Padding(0);
             this.btnLogSettings.Name = "btnLogSettings";
-            this.btnLogSettings.Size = new System.Drawing.Size(416, 37);
+            this.btnLogSettings.Size = new System.Drawing.Size(416, 41);
             this.btnLogSettings.TabIndex = 0;
             this.btnLogSettings.Text = "LOG SETTINGS";
             this.btnLogSettings.UseVisualStyleBackColor = true;
