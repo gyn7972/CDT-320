@@ -38,6 +38,11 @@ namespace QMC.CDT320.Sequencing
             new Dictionary<PickerSequenceSide, int>();
         private static readonly HashSet<PickerSequenceSide> ResumeDrainDone =
             new HashSet<PickerSequenceSide>();
+        // [선입선출 2026-08-13] 재시작 드레인 rank 동률 타이브레이크용 side별 FIFO 키.
+        // ConfigureResumeDrain 시 1회 캡처·고정한다(대기 중 재계산 없음).
+        private static readonly Dictionary<PickerSequenceSide, PickerResumeDrainFifoKey> ResumeDrainFifoKeys =
+            new Dictionary<PickerSequenceSide, PickerResumeDrainFifoKey>();
+        private static string _resumeDrainConfigureDetail = string.Empty;
         private static PickerSequenceSide? _holder;
         private static PickerSequenceSide? _resumeDrainHolder;
 
@@ -51,6 +56,8 @@ namespace QMC.CDT320.Sequencing
                 Expected.Clear();
                 ResumeDrainRanks.Clear();
                 ResumeDrainDone.Clear();
+                ResumeDrainFifoKeys.Clear();
+                _resumeDrainConfigureDetail = string.Empty;
                 _holder = null;
                 _resumeDrainHolder = null;
             }
@@ -71,22 +78,45 @@ namespace QMC.CDT320.Sequencing
         public static void ConfigureResumeDrain(
             bool frontRequired,
             int frontRank,
+            PickerResumeDrainFifoKey frontFifoKey,
             bool rearRequired,
-            int rearRank)
+            int rearRank,
+            PickerResumeDrainFifoKey rearFifoKey)
         {
             lock (Sync)
             {
                 ResumeDrainRanks.Clear();
                 ResumeDrainDone.Clear();
+                ResumeDrainFifoKeys.Clear();
+                _resumeDrainConfigureDetail = string.Empty;
                 _resumeDrainHolder = null;
 
                 if (frontRequired)
+                {
                     ResumeDrainRanks[PickerSequenceSide.Front] = frontRank;
+                    ResumeDrainFifoKeys[PickerSequenceSide.Front] = frontFifoKey;
+                }
                 if (rearRequired)
+                {
                     ResumeDrainRanks[PickerSequenceSide.Rear] = rearRank;
+                    ResumeDrainFifoKeys[PickerSequenceSide.Rear] = rearFifoKey;
+                }
 
                 if (ResumeDrainRanks.Count > 0)
                     ConfigureExpectedForNextResumeDrainNoLock(false);
+
+                _resumeDrainConfigureDetail = BuildResumeDrainConfigureDetailNoLock();
+            }
+        }
+
+        // configure 직후 확정된 드레인 순서와 판정 근거(계측용). AutoSequenceCoordinator가 로그로 남긴다.
+        public static string GetResumeDrainConfigureDetail()
+        {
+            lock (Sync)
+            {
+                return string.IsNullOrWhiteSpace(_resumeDrainConfigureDetail)
+                    ? "drainOrder=none"
+                    : _resumeDrainConfigureDetail;
             }
         }
 
@@ -383,13 +413,102 @@ namespace QMC.CDT320.Sequencing
                 if (other.Value > selfRank)
                     return false;
 
+                // [선입선출 2026-08-13] rank 동률이면 Front 고정 대신 FIFO 키로 판정한다.
                 if (other.Value == selfRank &&
-                    other.Key == PickerSequenceSide.Front &&
-                    side != PickerSequenceSide.Front)
+                    !IsResumeDrainFifoWinnerNoLock(side, other.Key))
                     return false;
             }
 
             return true;
+        }
+
+        // [선입선출 2026-08-13] 재시작 드레인 rank 동률 타이브레이크(팀장님 확정).
+        //   1차: 같은 입력 웨이퍼면 투입 순번(InputSequenceNo) 작은 쪽 우선.
+        //   2차: 픽업 시각(PickedAt) 이른 쪽 우선 — 서로 다른 웨이퍼/순번 무효 케이스.
+        //   폴백: 기존 동작 유지(Front 우선) — 키가 모두 없거나 완전 동일할 때만.
+        // Expected 사전설정(IsHigherResumeDrainPriorityNoLock)과 홀더 결정
+        // (IsHighestResumeDrainPriorityNoLock)이 다른 답을 내면 교착/역전이 생기므로
+        // 동률 판정은 반드시 이 함수 하나만 사용한다.
+        private static bool IsResumeDrainFifoWinnerNoLock(PickerSequenceSide side, PickerSequenceSide otherSide)
+        {
+            string tiebreakDetail;
+            return CompareResumeDrainFifoNoLock(side, otherSide, out tiebreakDetail);
+        }
+
+        private static bool CompareResumeDrainFifoNoLock(
+            PickerSequenceSide side,
+            PickerSequenceSide otherSide,
+            out string tiebreakDetail)
+        {
+            PickerResumeDrainFifoKey own = GetResumeDrainFifoKeyNoLock(side);
+            PickerResumeDrainFifoKey other = GetResumeDrainFifoKeyNoLock(otherSide);
+
+            if (own.HasSequenceNo && other.HasSequenceNo &&
+                !string.IsNullOrWhiteSpace(own.WaferKey) &&
+                !string.IsNullOrWhiteSpace(other.WaferKey) &&
+                string.Equals(own.WaferKey, other.WaferKey, StringComparison.OrdinalIgnoreCase) &&
+                own.SequenceNo != other.SequenceNo)
+            {
+                tiebreakDetail = "SequenceNo(" + side + "=" + own.SequenceNo +
+                                 " vs " + otherSide + "=" + other.SequenceNo + ")";
+                return own.SequenceNo < other.SequenceNo;
+            }
+
+            if (own.HasPickedAt && other.HasPickedAt && own.PickedAt != other.PickedAt)
+            {
+                tiebreakDetail = "PickedAt(" + side + "=" + own.PickedAt.ToString("HH:mm:ss.fff") +
+                                 " vs " + otherSide + "=" + other.PickedAt.ToString("HH:mm:ss.fff") + ")";
+                return own.PickedAt < other.PickedAt;
+            }
+
+            tiebreakDetail = "FrontFallback(own=" + DescribeFifoKey(own) +
+                             ", other=" + DescribeFifoKey(other) + ")";
+            return side == PickerSequenceSide.Front;
+        }
+
+        private static PickerResumeDrainFifoKey GetResumeDrainFifoKeyNoLock(PickerSequenceSide side)
+        {
+            PickerResumeDrainFifoKey key;
+            return ResumeDrainFifoKeys.TryGetValue(side, out key)
+                ? key
+                : default(PickerResumeDrainFifoKey);
+        }
+
+        private static string BuildResumeDrainConfigureDetailNoLock()
+        {
+            bool frontRequired = ResumeDrainRanks.ContainsKey(PickerSequenceSide.Front);
+            bool rearRequired = ResumeDrainRanks.ContainsKey(PickerSequenceSide.Rear);
+            if (!frontRequired && !rearRequired)
+                return "drainOrder=none";
+
+            if (frontRequired != rearRequired)
+            {
+                PickerSequenceSide onlySide = frontRequired ? PickerSequenceSide.Front : PickerSequenceSide.Rear;
+                return "drainOrder=" + onlySide + " only, tiebreak=unused(single side)";
+            }
+
+            int frontRank = ResumeDrainRanks[PickerSequenceSide.Front];
+            int rearRank = ResumeDrainRanks[PickerSequenceSide.Rear];
+            if (frontRank != rearRank)
+            {
+                PickerSequenceSide rankWinner = frontRank > rearRank
+                    ? PickerSequenceSide.Front
+                    : PickerSequenceSide.Rear;
+                PickerSequenceSide rankLoser = rankWinner == PickerSequenceSide.Front
+                    ? PickerSequenceSide.Rear
+                    : PickerSequenceSide.Front;
+                return "drainOrder=" + rankWinner + "->" + rankLoser +
+                       ", tiebreak=unused(rank " + frontRank + " vs " + rearRank + ")";
+            }
+
+            string tiebreakDetail;
+            bool frontWins = CompareResumeDrainFifoNoLock(
+                PickerSequenceSide.Front,
+                PickerSequenceSide.Rear,
+                out tiebreakDetail);
+            PickerSequenceSide winner = frontWins ? PickerSequenceSide.Front : PickerSequenceSide.Rear;
+            PickerSequenceSide loser = frontWins ? PickerSequenceSide.Rear : PickerSequenceSide.Front;
+            return "drainOrder=" + winner + "->" + loser + ", tiebreak=" + tiebreakDetail;
         }
 
         private static void ConfigureExpectedForNextResumeDrainNoLock(bool clearWhenDone)
@@ -429,8 +548,8 @@ namespace QMC.CDT320.Sequencing
             if (candidateRank != currentRank)
                 return candidateRank > currentRank;
 
-            return candidate == PickerSequenceSide.Front &&
-                   current != PickerSequenceSide.Front;
+            // [선입선출 2026-08-13] 홀더 결정과 동일한 FIFO 비교 함수를 사용해야 한다(어긋나면 교착/역전).
+            return IsResumeDrainFifoWinnerNoLock(candidate, current);
         }
 
         private static void ConfigureFirstForwardExpectedNoLock(PickerSequenceSide side)
@@ -457,7 +576,24 @@ namespace QMC.CDT320.Sequencing
             if (!ResumeDrainRanks.TryGetValue(side, out rank))
                 return "none";
 
-            return "rank=" + rank + ",done=" + ResumeDrainDone.Contains(side);
+            return "rank=" + rank + ",done=" + ResumeDrainDone.Contains(side) +
+                   "," + DescribeFifoKey(GetResumeDrainFifoKeyNoLock(side));
+        }
+
+        // FIFO 키 요약(계측용). 값이 없는 항목은 "-"로 표기한다.
+        public static string DescribeFifoKey(PickerResumeDrainFifoKey key)
+        {
+            return "seq=" + (key.HasSequenceNo ? key.SequenceNo.ToString() : "-") +
+                   ",wafer=" + ShortWaferKey(key.WaferKey) +
+                   ",pickedAt=" + (key.HasPickedAt ? key.PickedAt.ToString("HH:mm:ss.fff") : "-");
+        }
+
+        private static string ShortWaferKey(string waferKey)
+        {
+            if (string.IsNullOrWhiteSpace(waferKey))
+                return "-";
+
+            return waferKey.Length <= 8 ? waferKey : waferKey.Substring(waferKey.Length - 8);
         }
 
         private static string DescribeExpectedNoLock()
@@ -486,5 +622,18 @@ namespace QMC.CDT320.Sequencing
             return "front=" + Done.Contains(PickerSequenceSide.Front) +
                    ",rear=" + Done.Contains(PickerSequenceSide.Rear);
         }
+    }
+
+    // [선입선출 2026-08-13] 재시작 드레인 동률 타이브레이크용 FIFO 키.
+    // AutoSequenceCoordinator가 ConfigureRestartPickerDrain에서 side별 보유 target 다이를
+    // 집계해 1회 산출한다. InputSequenceNo는 웨이퍼마다 1부터 재시작하므로 WaferKey가
+    // 같을 때만 비교 유효하고, 그 외에는 PickedAt(전역 시각)으로 판정한다.
+    internal struct PickerResumeDrainFifoKey
+    {
+        public bool HasSequenceNo;    // 유효(>0) InputSequenceNo 보유 여부
+        public int SequenceNo;        // 보유 target 다이 중 최소 InputSequenceNo
+        public string WaferKey;       // 위 대표 다이의 InputWaferInstanceId(비면 WaferID_Input)
+        public bool HasPickedAt;      // 유효 PickedAt 보유 여부(1900-01-01 23:59:59 초과)
+        public DateTime PickedAt;     // 보유 target 다이 중 가장 이른 PickedAt
     }
 }

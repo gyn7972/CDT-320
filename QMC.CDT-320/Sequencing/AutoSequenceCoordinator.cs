@@ -390,29 +390,40 @@ namespace QMC.CDT320.Sequencing
                 bool frontRequired;
                 int frontRank;
                 string frontReason;
-                ResolveRestartPickerDrain(PickerSequenceSide.Front, out frontRequired, out frontRank, out frontReason);
+                PickerResumeDrainFifoKey frontFifoKey;
+                ResolveRestartPickerDrain(PickerSequenceSide.Front, out frontRequired, out frontRank, out frontReason, out frontFifoKey);
 
                 bool rearRequired;
                 int rearRank;
                 string rearReason;
-                ResolveRestartPickerDrain(PickerSequenceSide.Rear, out rearRequired, out rearRank, out rearReason);
+                PickerResumeDrainFifoKey rearFifoKey;
+                ResolveRestartPickerDrain(PickerSequenceSide.Rear, out rearRequired, out rearRank, out rearReason, out rearFifoKey);
 
                 PickerFirstForwardSequencer.ConfigureResumeDrain(
                     frontRequired,
                     frontRank,
+                    frontFifoKey,
                     rearRequired,
-                    rearRank);
+                    rearRank,
+                    rearFifoKey);
+
+                // [선입선출 2026-08-13] 확정 순서·판정 근거(tiebreak=SequenceNo|PickedAt|FrontFallback)를
+                // configure 시점에 남긴다 — 실런 1회로 "왜 이 픽커가 먼저인가"를 확정하기 위한 계측.
+                string drainOrderDetail = PickerFirstForwardSequencer.GetResumeDrainConfigureDetail();
 
                 _ctx.LogPublic("[SEQ] Picker restart drain configured. front=" +
                     frontRequired + "(" + frontReason + "), rear=" +
-                    rearRequired + "(" + rearReason + ")");
+                    rearRequired + "(" + rearReason + "), " + drainOrderDetail);
                 QMC.Common.Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
                     "Picker restart drain configured. frontRequired=" + frontRequired +
                     ", frontRank=" + frontRank +
                     ", frontReason=" + frontReason +
+                    ", frontFifoKey=" + PickerFirstForwardSequencer.DescribeFifoKey(frontFifoKey) +
                     ", rearRequired=" + rearRequired +
                     ", rearRank=" + rearRank +
-                    ", rearReason=" + rearReason + " - Check");
+                    ", rearReason=" + rearReason +
+                    ", rearFifoKey=" + PickerFirstForwardSequencer.DescribeFifoKey(rearFifoKey) +
+                    ", " + drainOrderDetail + " - Check");
             }
             catch (Exception ex)
             {
@@ -464,11 +475,13 @@ namespace QMC.CDT320.Sequencing
             PickerSequenceSide side,
             out bool required,
             out int rank,
-            out string reason)
+            out string reason,
+            out PickerResumeDrainFifoKey fifoKey)
         {
             required = false;
             rank = PickerFirstForwardSequencer.RankPickUp;
             reason = "no picker work";
+            fifoKey = new PickerResumeDrainFifoKey();
 
             if (!IsPickerSideActive(side))
             {
@@ -478,6 +491,10 @@ namespace QMC.CDT320.Sequencing
 
             bool hasPickerDie = false;
             bool hasTargetPickerDie = false;
+            int targetDieCount = 0;
+            // [선입선출 2026-08-13] PickedAt 유효 기준은 MaterialStateCompactor와 동일(1900-01-01 23:59:59 초과).
+            // GetPickerDieSortTime류는 UpdatedAt이 섞여 FIFO 비교가 오염되므로 die.PickedAt 원본만 사용한다.
+            DateTime pickedAtValidThreshold = new DateTime(1900, 1, 1, 23, 59, 59);
             MaterialLocationKind location = side == PickerSequenceSide.Front
                 ? MaterialLocationKind.PickerFront
                 : MaterialLocationKind.PickerRear;
@@ -489,8 +506,28 @@ namespace QMC.CDT320.Sequencing
                     continue;
 
                 hasPickerDie = true;
-                if (die.IsInputTarget)
-                    hasTargetPickerDie = true;
+                if (!die.IsInputTarget)
+                    continue;
+
+                hasTargetPickerDie = true;
+                targetDieCount++;
+
+                if (die.InputSequenceNo > 0 &&
+                    (!fifoKey.HasSequenceNo || die.InputSequenceNo < fifoKey.SequenceNo))
+                {
+                    fifoKey.HasSequenceNo = true;
+                    fifoKey.SequenceNo = die.InputSequenceNo;
+                    fifoKey.WaferKey = !string.IsNullOrWhiteSpace(die.InputWaferInstanceId)
+                        ? die.InputWaferInstanceId
+                        : die.WaferID_Input;
+                }
+
+                if (die.PickedAt > pickedAtValidThreshold &&
+                    (!fifoKey.HasPickedAt || die.PickedAt < fifoKey.PickedAt))
+                {
+                    fifoKey.HasPickedAt = true;
+                    fifoKey.PickedAt = die.PickedAt;
+                }
             }
 
             if (hasTargetPickerDie || hasPickerDie)
@@ -498,7 +535,7 @@ namespace QMC.CDT320.Sequencing
                 required = true;
                 rank = PickerFirstForwardSequencer.RankBottomSide;
                 reason = hasTargetPickerDie
-                    ? "picked die remains on picker; Bottom/Side reinspection required"
+                    ? "picked die remains on picker; Bottom/Side reinspection required; targetDieCount=" + targetDieCount
                     : "non-target die remains on picker; operator/material recovery required";
                 return;
             }
