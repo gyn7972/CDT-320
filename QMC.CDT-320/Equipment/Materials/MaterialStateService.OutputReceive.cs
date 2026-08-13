@@ -1043,6 +1043,39 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        private static int CountPendingOutputReceiveSlotsNoLock(QMC.CDT320.BinSide side)
+        {
+            MaterialLocationKind stageLocation = ResolveOutputStageLocation(side);
+            WaferMaterial outputWafer = State.Wafers.FirstOrDefault(w =>
+                w != null &&
+                w.CurrentLocation != null &&
+                w.CurrentLocation.Kind == stageLocation &&
+                WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty);
+            if (outputWafer == null ||
+                WaferMaterialStateText.Normalize(outputWafer.State) == WaferMaterialState.Finish)
+            {
+                return 0;
+            }
+
+            if (outputWafer.OutputReceiveSlots != null && outputWafer.OutputReceiveSlots.Count > 0)
+            {
+                List<OutputReceiveSlotMaterial> targetSlots = outputWafer.OutputReceiveSlots
+                    .Where(s => s != null && s.IsTarget)
+                    .ToList();
+                if (targetSlots.Count > 0)
+                    return targetSlots.Count(IsOutputReceiveSlotPending);
+            }
+
+            int total = outputWafer.OutputReceiveTotalCount;
+            if (total <= 0)
+                return 0;
+
+            int placed = outputWafer.DieIds != null
+                ? outputWafer.DieIds.Count(id => !string.IsNullOrWhiteSpace(id))
+                : 0;
+            return Math.Max(0, total - placed);
+        }
+
         private static bool IsOutputStageReceiveComplete(WaferMaterial outputWafer)
         {
             if (outputWafer == null)

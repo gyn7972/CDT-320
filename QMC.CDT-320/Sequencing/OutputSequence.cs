@@ -1728,6 +1728,52 @@ namespace QMC.CDT320.Sequencing
                 if (!OutputSlotPlanner.TryResolveNextStoreSlot(grade, out plan, out slotPlanReason))
                     return Fail("OUT-SLOT-UNAVAILABLE", "OutputSequence", "Output 카세트의 동일 Source Slot을 사용할 수 없습니다. grade=" + grade + ", reason=" + slotPlanReason);
 
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings != null &&
+                    settings.UseOutputGoodPickupCap &&
+                    Mode == SequenceRunMode.Auto &&
+                    plan.Side == BinSide.Good)
+                {
+                    var heldTargetDies = new List<string>();
+                    MaterialLocationKind[] pickerLocations =
+                    {
+                        MaterialLocationKind.PickerFront,
+                        MaterialLocationKind.PickerRear
+                    };
+                    for (int locationIndex = 0; locationIndex < pickerLocations.Length; locationIndex++)
+                    {
+                        MaterialLocationKind pickerLocation = pickerLocations[locationIndex];
+                        for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                        {
+                            DieMaterial die = MaterialStateService.GetDieAtPicker(pickerLocation, pickerNo);
+                            if (die != null && die.IsInputTarget)
+                            {
+                                heldTargetDies.Add(
+                                    pickerLocation + "#" + pickerNo + ":" + (die.DieId ?? "-"));
+                            }
+                        }
+                    }
+
+                    if (heldTargetDies.Count > 0)
+                    {
+                        int pending;
+                        int held;
+                        int reserved;
+                        int allowance = MaterialStateService.GetOutputGoodNewPickAllowance(
+                            out pending,
+                            out held,
+                            out reserved);
+                        Log.Write(LogLevel.AboveNormal, "Main", "OutputSequence",
+                            "GOOD OutputStage 배출 직전에 Picker 보유 target Die를 확인했습니다. " +
+                            "배출은 교착 방지를 위해 계속 진행합니다. heldDies=" +
+                            string.Join(",", heldTargetDies) +
+                            ", pending=" + pending +
+                            ", held=" + held +
+                            ", reserved=" + reserved +
+                            ", allowance=" + allowance + " - Warning");
+                    }
+                }
+
                 // 배출 시작 직전 인터락/자재 정합성 재확인: 대상 Stage에 Bin이 있고 Feeder는 비어 있어야 한다.
                 int interlockResult = CheckOutputWorkInterlocksBeforeExecute(
                     "OutputStore(" + plan.Side + ")", plan.Side, false, true);

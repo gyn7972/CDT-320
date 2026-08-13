@@ -13,6 +13,7 @@ namespace QMC.CDT320.Sequencing
         private static readonly TimeSpan FrontPickupYieldLogInterval = TimeSpan.FromSeconds(2);
         private PickerProcessSequence _stepSequence;
         private DateTime _lastFrontPickupYieldLogTime = DateTime.MinValue;
+        private bool _outputGoodPickupCapBlocked;
 
         public RearPickerSequence(MachineSequenceContext ctx)
             : base(ctx, SequenceUnitKind.PickerRear, "RearPicker")
@@ -488,7 +489,42 @@ namespace QMC.CDT320.Sequencing
 
                 // 전역 target 존재 여부가 아니라 "이 side가 실제 처리 가능한" target(미예약 또는 Rear 예약)으로 판정한다.
                 // 전역 판정은 상대 픽커 예약 die에도 true를 반환해 빈 PickerProcess 무한 재진입(busy loop)을 유발했다.
-                return MaterialStateService.HasActionableInputStagePickTarget(MaterialLocationKind.PickerRear);
+                bool actionable = MaterialStateService.HasActionableInputStagePickTarget(
+                    MaterialLocationKind.PickerRear);
+                if (!actionable)
+                    return false;
+
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null || !settings.UseOutputGoodPickupCap)
+                {
+                    _outputGoodPickupCapBlocked = false;
+                    return true;
+                }
+
+                bool hasOwnReservation = MaterialStateService.HasInputStagePickReservationForPickerLocation(
+                    MaterialLocationKind.PickerRear);
+                int pending;
+                int held;
+                int reserved;
+                int allowance = MaterialStateService.GetOutputGoodNewPickAllowance(
+                    out pending,
+                    out held,
+                    out reserved);
+                bool blocked = !hasOwnReservation && allowance <= 0;
+                if (blocked == _outputGoodPickupCapBlocked)
+                    return !blocked;
+
+                _outputGoodPickupCapBlocked = blocked;
+                int ownReservationCount = MaterialStateService.CountInputStagePickReservationsForPickerLocation(
+                    MaterialLocationKind.PickerRear);
+                WriteLog("HasPickerWork",
+                    "RearPicker GOOD 배출 픽업 캡 진입 차단 " + (blocked ? "시작" : "해제") + ". " +
+                    "allowance=" + allowance +
+                    ", pending=" + pending +
+                    ", held=" + held +
+                    ", reserved=" + reserved +
+                    ", ownReserved=" + ownReservationCount + " - " + (blocked ? "Wait" : "Ok"));
+                return !blocked;
             }
             catch (Exception ex)
             {

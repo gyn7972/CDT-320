@@ -133,6 +133,12 @@ namespace QMC.CDT320
         [DataMember] public WaferCompleteRunMode WaferCompleteRunMode { get; set; } = WaferCompleteRunMode.Continue;
 
         /// <summary>
+        /// GOOD OutputStage의 남은 수령 슬롯을 기준으로 신규 Input pick 예약 수를 제한합니다.
+        /// Output 배출 시 Picker 빈손 보장을 위한 옵션이며 기본값은 true입니다.
+        /// </summary>
+        [DataMember] public bool   UseOutputGoodPickupCap { get; set; } = true;
+
+        /// <summary>
         /// 시뮬레이션 모드에서 Wafer 시작 시의 Align/Die Mapping 사용자 확인(Run Review) 화면을 건너뛰고
         /// 바로 운전을 시작할지 여부입니다. 웨이퍼 연속 반복 시뮬 시 매 장 확인 조작을 없애기 위한 옵션입니다.
         /// [안전] 이 설정은 SimulationMode 에서만 적용됩니다. 실장비(및 Dry Run)에서는 값과 무관하게
@@ -217,6 +223,7 @@ namespace QMC.CDT320
             InputBarcodeTriggerCommand = "";
             OutputBarcodeTriggerCommand = "";
             WaferCompleteRunMode = WaferCompleteRunMode.Continue;
+            UseOutputGoodPickupCap = true;
             ViewerMeasureScaleFactor = 1.0;   // 구 settings.json 에 키 없으면 0 으로 로드되는 것 방지(기본=저장 스케일 그대로)
             FileLogHistoryEnabled = true;   // 구 settings.json 에 키가 없으면 false 로 로드되어 이력 화면이 꺼지는 문제 방지
             // ArchiveKeepDays 는 키가 없으면 0(무기한 보관)으로 로드되며, 이는 기본값과 같아 별도 처리가 필요 없다.

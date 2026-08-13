@@ -37,6 +37,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblDeveloperMode.Text = "DEVELOPER MODE";
             lblPickerMotionOnlyTestMode.Text = "PICKER MOTION ONLY TEST";
             lblWaferCompleteRunMode.Text = "WAFER COMPLETE RUN MODE";
+            lblUseOutputGoodPickupCap.Text = "GOOD OUTPUT PICKUP CAP";
             lblUseVision.Text = "VISION USE";
             lblUseRealVisionInSimulation.Text = "REAL VISION IN SIMULATION";
             lblSkipRunReviewInSimulation.Text = "SKIP RUN REVIEW (SIM)";
@@ -76,6 +77,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 ResetEnableDisableItems(_cbUseVision);
                 ResetEnableDisableItems(_cbUseRealVisionInSimulation);
                 ResetEnableDisableItems(_cbSkipRunReviewInSimulation);
+                ResetEnableDisableItems(_cbUseOutputGoodPickupCap);
                 ResetEnableDisableItems(_cbPickRuntimeOffset);
                 ResetEnableDisableItems(_cbPlaceRuntimeOffset);
                 _cbWaferCompleteRunMode.Items.Clear();
@@ -94,6 +96,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 _cbWaferCompleteRunMode.SelectedIndex = cfg.WaferCompleteRunMode == WaferCompleteRunMode.StopAfterDrain
                     ? 1
                     : 0;
+                _cbUseOutputGoodPickupCap.SelectedIndex = cfg.UseOutputGoodPickupCap ? 0 : 1;
 
                 _cbAjin.Checked = cfg.UseAjin;
                 _tbIrq.Text = cfg.AjinIrqNo.ToString();
@@ -209,6 +212,17 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 ? WaferCompleteRunMode.StopAfterDrain
                 : WaferCompleteRunMode.Continue;
             AppSettingsStore.Save();
+        }
+
+        private void _cbUseOutputGoodPickupCap_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_loadingSettings) return;
+
+            bool enabled = _cbUseOutputGoodPickupCap.SelectedIndex == 0;
+            AppSettingsStore.Current.UseOutputGoodPickupCap = enabled;
+            AppSettingsStore.Save();
+            QMC.Common.Log.Write("Main", "SYSTEM", "GeneralPage",
+                "GOOD 배출 픽업 캡 설정을 변경했습니다. enabled=" + enabled + " - Ok");
         }
 
         private void _cbUseVision_SelectedIndexChanged(object sender, EventArgs e)

@@ -332,6 +332,29 @@ namespace QMC.CDT320.Sequencing
                         ", inputStageY=" + target.TargetY + " - Ok");
                 }
 
+                int enabledEmptyPickerCount = _enabledPickerIndexes.Count - occupiedPickerCount;
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings != null &&
+                    settings.UseOutputGoodPickupCap &&
+                    _preparedItems.Count < enabledEmptyPickerCount)
+                {
+                    int pending;
+                    int held;
+                    int reserved;
+                    int allowance = MaterialStateService.GetOutputGoodNewPickAllowance(
+                        out pending,
+                        out held,
+                        out reserved);
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " GOOD 배출 픽업 캡 계측: 빈 Picker 수보다 준비 배치가 작습니다. " +
+                        "enabledEmpty=" + enabledEmptyPickerCount +
+                        ", batch=" + _preparedItems.Count +
+                        ", allowance=" + allowance +
+                        ", pending=" + pending +
+                        ", held=" + held +
+                        ", reserved=" + reserved + " - Check");
+                }
+
                 if (_preparedItems.Count == 0)
                 {
                     if (occupiedPickerCount > 0 && occupiedPickerCount >= _enabledPickerIndexes.Count)

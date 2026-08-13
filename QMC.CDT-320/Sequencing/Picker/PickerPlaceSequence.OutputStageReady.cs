@@ -139,6 +139,28 @@ namespace QMC.CDT320.Sequencing
 
                     if (stageReceiveComplete && !fullAvoidPrepared)
                     {
+                        AppSettings settings = AppSettingsStore.Current;
+                        if (settings != null && settings.UseOutputGoodPickupCap)
+                        {
+                            int pending;
+                            int held;
+                            int reserved;
+                            int allowance = MaterialStateService.GetOutputGoodNewPickAllowance(
+                                out pending,
+                                out held,
+                                out reserved);
+                            QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "PickerPlaceSequence",
+                                Name + " 픽업 캡 적용 상태에서 보유 대기 경로에 도달했습니다. " +
+                                "수동 슬롯 완료 등 예외 경로를 확인하십시오. side=" + Side +
+                                ", outputSide=" + _currentOutputSide +
+                                ", pickerNo=" + _currentPickerNo +
+                                ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                                ", goodPending=" + pending +
+                                ", held=" + held +
+                                ", reserved=" + reserved +
+                                ", allowance=" + allowance + " - Warning");
+                        }
+
                         const string fullWaitDescription = "OutputStage 수령 완료 대기 중 보유 Die Picker 전체 Avoid";
                         int fullAvoidResult = await MovePickerToAvoidAfterPlaceFastAsync(
                             fullWaitDescription,

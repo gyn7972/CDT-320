@@ -61,6 +61,30 @@ namespace QMC.CDT320.Materials
                     if (existingReservedTarget != null)
                         return existingReservedTarget;
 
+                    AppSettings settings = AppSettingsStore.Current;
+                    if (settings != null && settings.UseOutputGoodPickupCap)
+                    {
+                        int pending;
+                        int held;
+                        int reserved;
+                        int allowance = ResolveOutputGoodNewPickAllowanceNoLock(
+                            out pending,
+                            out held,
+                            out reserved);
+                        if (allowance <= 0)
+                        {
+                            Log.Write("Main", "SYSTEM", "MaterialStateService",
+                                "GOOD 배출 픽업 캡으로 신규 Input pick 예약을 보류합니다. " +
+                                "pending=" + pending +
+                                ", held=" + held +
+                                ", reserved=" + reserved +
+                                ", allowance=" + allowance +
+                                ", pickerLocation=" + pickerLocation +
+                                ", pickerNo=" + pickerNo + " - Wait");
+                            return null;
+                        }
+                    }
+
                     var skipSummary = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                     for (int i = 0; i < ordered.Count; i++)
                     {
@@ -1254,6 +1278,119 @@ namespace QMC.CDT320.Materials
             finally
             {
             }
+        }
+
+        public static int CountInputStagePickReservationsForPickerLocation(MaterialLocationKind pickerLocation)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (pickerLocation != MaterialLocationKind.PickerFront &&
+                        pickerLocation != MaterialLocationKind.PickerRear)
+                    {
+                        return 0;
+                    }
+
+                    int count = 0;
+                    for (int i = 0; i < State.Dies.Count; i++)
+                    {
+                        DieMaterial die = State.Dies[i];
+                        if (die == null || die.ReservedPickerLocation != pickerLocation)
+                            continue;
+
+                        if (die.ReservedPickerNo <= 0)
+                            continue;
+
+                        MaterialLocationKind kind = die.CurrentLocation != null
+                            ? die.CurrentLocation.Kind
+                            : MaterialLocationKind.Unknown;
+                        if (kind == MaterialLocationKind.Unknown || kind == MaterialLocationKind.InputStage)
+                            count++;
+                    }
+
+                    return count;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input pick 예약 수 조회에 실패했습니다. pickerLocation=" + pickerLocation +
+                    ", error=" + ex.Message + " - Failed");
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
+        public static int GetOutputGoodNewPickAllowance(out int pending, out int held, out int reserved)
+        {
+            pending = 0;
+            held = 0;
+            reserved = 0;
+
+            try
+            {
+                lock (_stateSync)
+                {
+                    return ResolveOutputGoodNewPickAllowanceNoLock(out pending, out held, out reserved);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "GOOD 배출 신규 pick 허용량 조회에 실패했습니다. error=" + ex.Message + " - Failed");
+                pending = 0;
+                held = 0;
+                reserved = 0;
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
+        private static int ResolveOutputGoodNewPickAllowanceNoLock(
+            out int pending,
+            out int held,
+            out int reserved)
+        {
+            pending = CountPendingOutputReceiveSlotsNoLock(QMC.CDT320.BinSide.Good);
+            held = 0;
+            reserved = 0;
+
+            if (State.Dies != null)
+            {
+                for (int i = 0; i < State.Dies.Count; i++)
+                {
+                    DieMaterial die = State.Dies[i];
+                    if (die == null)
+                        continue;
+
+                    MaterialLocation location = die.CurrentLocation;
+                    MaterialLocationKind kind = location != null
+                        ? location.Kind
+                        : MaterialLocationKind.Unknown;
+
+                    bool isPickerLocation =
+                        kind == MaterialLocationKind.PickerFront ||
+                        kind == MaterialLocationKind.PickerRear;
+                    int pickerNo = location != null ? location.PickerNo : 0;
+                    if (die.IsInputTarget &&
+                        isPickerLocation &&
+                        pickerNo >= 1 &&
+                        pickerNo <= 4)
+                    {
+                        held++;
+                    }
+
+                    if (kind == MaterialLocationKind.InputStage && IsDieReservedForPicker(die))
+                        reserved++;
+                }
+            }
+
+            return Math.Max(0, pending - held - reserved);
         }
 
         private static void CountPickTargetSkip(Dictionary<string, int> summary, string reason)
