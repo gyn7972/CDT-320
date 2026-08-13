@@ -161,8 +161,13 @@ namespace QMC.CDT320
                     : EquipmentStatus.ManualRunning);
 
                 Log("[SEQ] StartSequenceAsync units=" + options.Units + ", mode=" + options.Mode);
+
+                // 오토시컨스 속도 % 확인을 위한 로그 수정
+                //QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
+                //    "Sequence start. units=" + options.Units + ", mode=" + options.Mode + " - Ok");
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
-                    "Sequence start. units=" + options.Units + ", mode=" + options.Mode + " - Ok");
+                    "Sequence start. units=" + options.Units + ", mode=" + options.Mode +
+                    ", scalePercent=" + QMC.Common.Motion.MotionSpeedScale.ScalePercent.ToString("0.###") + " - Ok");
 
                 if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
                     LogMachineAxisSnapshot("AutoStartBeforeCoordinatorRun");

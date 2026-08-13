@@ -102,6 +102,29 @@ InputDieVisionPrepareSequence.cs:291~299 — 선행검사 모드에서는 픽커
 2. **B(캡) 다음** — §5 결정 확정 후 별도 프롬프트로. 같은 날 병행 구현도 기술적으론
    충돌 없으나, 실장비 검증 시 원인 분리를 위해 **커밋/시험은 분리** 권장.
 
+## 4-4. ★추가 발견(2026-08-13 2차): 캡=0 구간의 빈 픽커 무한 재진입(busy loop)
+
+`HasPickerWork`(FrontPickerSequence.cs:456~494, Rear 동일)는 빈 픽커의 사이클 진입을
+`HasActionableInputStagePickTarget`(처리 가능 target 존재)으로만 판정한다. 캡 도입 후
+**"픽 대상은 남아 있는데 allowance=0"인 구간**(마지막 배치가 Place되는 수십 초)에는:
+
+진입(HasPickerWork=true) → 리소스 점유/phase 진입 → BuildPickBatch 0개 → 완료 →
+20ms 뒤 재진입 → 반복
+
+이 패턴은 이 코드베이스에서 **실제로 겪었던 버그와 동일**하다 — FrontPickerSequence.cs:482~484
+주석: "전역 판정은 상대 픽커 예약 die에도 true를 반환해 빈 PickerProcess 무한 재진입(busy
+loop)을 유발했다" (그래서 side별 actionable 판정으로 고친 이력). 캡은 같은 모양의 구멍을
+새로 만든다.
+
+**대책**: `HasPickerWork`의 마지막 판정에 조건 추가 —
+`actionable && (allowance > 0 || 자기 side 예약 잔존)`.
+- allowance>0만 걸면 **교착 함정**: 마지막 슬롯들이 전부 자기 side 예약분이면
+  (pending=2, reserved=2 → allowance=0) 예약 다이를 픽업하러 진입조차 못 해 스테이지가
+  영원히 완료되지 않는다. 반드시 `HasInputStagePickReservationForPickerLocation`(기존 API)
+  OR 조건과 세트로 넣어야 한다.
+- 이 대책은 변경 범위에 FrontPickerSequence.cs / RearPickerSequence.cs 2개 파일을
+  추가한다(각 1개 판정식). → 팀장님 승인 필요(§5-4).
+
 ## 5. 팀장님 결정 필요 (B 진행 전)
 
 1. **(기존 5-1) 빈손 보장 범위**: NG 스테이지 Full로 NG 배출될 때는 픽커가 Good행 다이를
