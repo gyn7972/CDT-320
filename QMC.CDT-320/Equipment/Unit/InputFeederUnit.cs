@@ -1336,7 +1336,9 @@ namespace QMC.CDT320
         public async Task<bool> WaitWaferFeederRingState(bool expected, int timeoutMs, CancellationToken ct)
         {
             if (ShouldBypassInputWaitInSimulation(WaferFeederRingCheckSensor))
+            {
                 return IsWaferFeederTransferDataOccupied() == expected;
+            }
 
             return await WaferFeederRingCheckSensor.WaitUntilStateAsync(expected, timeoutMs, ct);
         }

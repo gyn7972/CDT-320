@@ -1498,11 +1498,20 @@ namespace QMC.Common.Motion.Ajin
         }
         public static int SetInPositionEnable(int axis, bool enable)
         {
-            int ret = 0;
-            uint value = 2;
-            if (enable != false) return ret;
-            if ((ret = AXL.CheckErrorCode("AXM.AxmSignalSetInpos", AXM.AxmSignalSetInpos(axis, value))) != 0) return ret;
-            return ret;
+            // 기존 조건: enable=true면 아무 것도 쓰지 않고 0을 반환했다(무동작).
+            //           false일 때만 Unused(2)를 기록해 비활성 방향만 동작했다.
+            // 현재 기준: enable=false는 기존대로 Unused(2)를 기록한다.
+            //           enable=true는 보드 현재값이 Unused(2)일 때만 High(1)로 활성화하고,
+            //           이미 Low(0)/High(1)면 기존 레벨을 보존한다.
+            //           레벨을 함께 지정하려면 SetInPositionLevel(InPosition)을 사용한다.
+            int ret;
+            if (!enable)
+                return AXL.CheckErrorCode("AXM.AxmSignalSetInpos", AXM.AxmSignalSetInpos(axis, 2));
+
+            uint current = 0;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmSignalGetInpos", AXM.AxmSignalGetInpos(axis, ref current))) != 0) return ret;
+            if (current != 2) return 0;
+            return AXL.CheckErrorCode("AXM.AxmSignalSetInpos", AXM.AxmSignalSetInpos(axis, 1));
         }
         public static int GetInPositionLevel(int axis, ref ActiveLevel level)
         {

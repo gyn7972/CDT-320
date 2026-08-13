@@ -56,7 +56,14 @@ namespace QMC.CDT320.Ajin
             get
             {
                 double pos = base.ActualPosition;
-                AXM.GetCommandPosition(AxisNo, ref pos);
+                // [사용자 지시 2026-08-12] INPOSITION 설정에 따라 위치 소스를 나눈다.
+                //  - Unused: 보드 INP 신호를 쓰지 않는 축 — 실제 엔코더 값을 반환한다.
+                //            (InPosition 판정·티칭·로그의 actual이 모두 실측이 된다)
+                //  - Low/High: 기존 정책 유지 — 지령(Command) 반환(의도 설계, 로그 actual=지령 해석).
+                if (Setup != null && Setup.InPosition == InPosition.Unused)
+                    AXM.GetActualPosition(AxisNo, ref pos);
+                else
+                    AXM.GetCommandPosition(AxisNo, ref pos);
                 return pos;
             }
             protected set => base.ActualPosition = value; }
@@ -2682,7 +2689,11 @@ namespace QMC.CDT320.Ajin
                 //AXM.GetCommandPosition(AxisNo, ref cmd);
                 AXM.GetActualPosition(AxisNo, ref act);
                 AXM.GetInMotion(AxisNo, ref mot);
-                AXM.GetInPositionValue(AxisNo, ref inp);
+                // [사용자 지시 2026-08-12] INPOSITION=Unused 축은 보드 INP 신호를 읽지 않는다.
+                // 판정은 ApplyReadStatus에서 "정지 + |엔코더 실측 − 보드 지령| ≤ InPositionTolerance"
+                // 수식으로 수행한다(이동 완료 후 보드 지령 = 최종 목표이므로 목표 vs 엔코더 비교와 동일).
+                if (Setup == null || Setup.InPosition != InPosition.Unused)
+                    AXM.GetInPositionValue(AxisNo, ref inp);
                 //AXM.GetAmpFaultValue(AxisNo, ref fault);
                 //AXM.GetPositiveLimitValue(AxisNo, ref pel);
                 //AXM.GetNegativeLimitValue(AxisNo, ref mel);
@@ -2720,7 +2731,22 @@ namespace QMC.CDT320.Ajin
             bool wasMoving = IsMoving;
             int statusMotionDirection = _motionDirection;
             IsMoving = mot;
-            IsInPosition = inp;
+            if (Setup != null && Setup.InPosition == InPosition.Unused)
+            {
+                // [사용자 지시 2026-08-12] Unused: 보드 INP 신호 대신 수식으로 판정한다.
+                //  - 이동 중(mot)은 지령이 궤적(0→100)을 따라가므로 무조건 false.
+                //  - 정지 후에는 보드 지령이 최종 목표에 멈춰 있으므로
+                //    |엔코더 실측(act) − 지령(cmd)| ≤ InPositionTolerance = "목표 vs 엔코더" 판정.
+                double softInPositionTolerance = Config != null && Config.InPositionTolerance > 0.0
+                    ? Config.InPositionTolerance
+                    : 0.01;
+                IsInPosition = !mot &&
+                    Math.Abs(FromBoardPosition(act) - FromBoardPosition(cmd)) <= softInPositionTolerance;
+            }
+            else
+            {
+                IsInPosition = inp;
+            }
 
             bool limitAlarmSuppressed = _isHomeSearching || IsSharedRailXHomeLimitSuppressed();
             // Servo OFF/Reset/Servo ON으로 이어지는 HOME 준비 구간은 아직 _isHomeSearching이 아닙니다.
@@ -3649,6 +3675,55 @@ namespace QMC.CDT320.Ajin
         }
 
         /// <summary>
+        /// 보드 오픈(.mot 로드) 후 Setup의 INPOSITION 설정만 보드에 적용한다. [사용자 지시 2026-08-12]
+        /// 기존 조건: 화면 INPOSITION(HIGH/LOW/Unused)은 저장만 되고 보드에 반영되지 않았다
+        ///           (SetInPositionLevel은 전면 금지된 WriteSetupToBoard 안에만 존재).
+        /// 현재 기준: Low(0)/High(1)/Unused(2)를 AxmSignalSetInpos 값으로 그대로 기록한다.
+        ///           Unused는 보드 INP를 비활성화하고, 소프트웨어 수식 판정
+        ///           (정지 + |엔코더 실측 − 지령| ≤ InPositionTolerance)이 대신 사용된다.
+        ///           다른 Setup 항목은 쓰지 않는다(전면 Write 금지 정책 유지, 이 항목만 예외).
+        /// </summary>
+        /// <returns>적용 성공 시 true.</returns>
+        public bool ApplyInPositionSetupToBoard()
+        {
+            try
+            {
+                if (UseSimulation || !AjinSystem.IsOpen || Setup == null)
+                    return false;
+
+                bool beforeEnable = false;
+                ActiveLevel beforeLevel = ActiveLevel.Low;
+                bool beforeReadOk;
+                try
+                {
+                    beforeReadOk = AXM.GetInPositionEnable(AxisNo, ref beforeEnable) == 0 &&
+                                   AXM.GetInPositionLevel(AxisNo, ref beforeLevel) == 0;
+                }
+                catch { beforeReadOk = false; }
+
+                int ret = AXM.SetInPositionLevel(AxisNo, Setup.InPosition);
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "AxisInPositionApply",
+                    Name + " INPOSITION 설정 적용. setup=" + Setup.InPosition +
+                    ", board(before)=" + (beforeReadOk
+                        ? (beforeEnable ? beforeLevel.ToString() : "Unused")
+                        : "readFail") +
+                    ", ret=" + ret +
+                    ", tolerance=" + (Config != null ? Config.InPositionTolerance.ToString("0.####") : "-") +
+                    ", moveTimeoutMs=" + Setup.MoveTimeoutMs +
+                    ", axisNo=" + AxisNo +
+                    (ret == 0 ? " - Ok" : " - Failed"));
+                return ret == 0;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "AxisInPositionApply",
+                    Name + " INPOSITION 설정 적용 실패: " + ex.Message + " - Failed");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// 현재 축의 <see cref="AxisSetup"/> / <see cref="AxisConfig"/> 값을 보드에 기록한다.<br/>
         /// SaveSpeedRows / Apply 흐름에서 호출되어 모델 → 보드 방향 동기화를 보장한다.
         /// 시뮬레이션 모드이거나 보드가 닫혀 있으면 아무 일도 하지 않고 false 를 반환한다.
@@ -3951,7 +4026,13 @@ namespace QMC.CDT320.Ajin
             try
             {
                 if (timeoutMs <= 0)
-                    timeoutMs = DefaultAxisMoveTimeoutMs;
+                {
+                    // [사용자 지시 2026-08-12] 호출자가 타임아웃을 지정하지 않으면
+                    // 화면 MOVE TIMEOUT(ms) 설정(Setup.MoveTimeoutMs)을 사용한다.
+                    timeoutMs = Setup != null && Setup.MoveTimeoutMs > 0
+                        ? Setup.MoveTimeoutMs
+                        : DefaultAxisMoveTimeoutMs;
+                }
                 double tolerance = Config != null && Config.InPositionTolerance > 0.0
                     ? Config.InPositionTolerance
                     : 0.01;
@@ -4044,7 +4125,11 @@ namespace QMC.CDT320.Ajin
             // 보완(사용자 지시 2026-07-26): 인모션 미관측 미소 이동의 5초 대기 방지 —
             //           보드가 이동 중이 아니고 Actual이 목표와 일치(톨러런스 내)하면 완료로
             //           판정한다(위치 기반 완료). 이동 중(inMotion)에는 기존 완료 판정 유지.
-            const int MoveWaitTimeoutMs = DefaultAxisMoveTimeoutMs;
+            // [사용자 지시 2026-08-12] 화면 MOVE TIMEOUT(ms) 설정(Setup.MoveTimeoutMs)을 사용한다.
+            // 0 이하면 기존 TEST 임시값(DefaultAxisMoveTimeoutMs=300초)으로 폴백.
+            int moveWaitTimeoutMs = Setup != null && Setup.MoveTimeoutMs > 0
+                ? Setup.MoveTimeoutMs
+                : DefaultAxisMoveTimeoutMs;
             const int MotionStartGraceMs = 100;
             double arrivalTolerance = Config != null && Config.InPositionTolerance > 0.0
                 ? Config.InPositionTolerance
@@ -4078,7 +4163,7 @@ namespace QMC.CDT320.Ajin
 
                 await Task.Delay(1).ConfigureAwait(false);
 
-                if (elapsed.ElapsedMilliseconds > MoveWaitTimeoutMs)
+                if (elapsed.ElapsedMilliseconds > moveWaitTimeoutMs)
                 {
                     AlarmManager.Raise(
                         AlarmSeverity.Error,
@@ -4086,7 +4171,7 @@ namespace QMC.CDT320.Ajin
                         Name,
                         "Move wait timeout. AxisNo=" + AxisNo +
                         ", elapsedMs=" + elapsed.ElapsedMilliseconds +
-                        ", timeoutMs=" + MoveWaitTimeoutMs);
+                        ", timeoutMs=" + moveWaitTimeoutMs);
                     UpdateStatus();
                     return -3;
                 }

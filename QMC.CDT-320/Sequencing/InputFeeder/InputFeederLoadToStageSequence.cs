@@ -357,12 +357,13 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            if (!IsHardwareBypass())
-            {
-                bool cleared = await Feeder.WaitWaferFeederRingState(false, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (!cleared)
-                    return Fail("IN-FEEDER-STAGE-TRANSFER-SENSOR", Feeder.Name, "WaferFeeder ring remained after feeder stage load avoid move.");
-            }
+            // Todo : GYN - 위치 이동 필요...  인터락은 Data로 처리.
+            //if (!IsHardwareBypass())
+            //{
+            //    bool cleared = await Feeder.WaitWaferFeederRingState(false, ResolveTimeout(), ct).ConfigureAwait(false);
+            //    if (!cleared)
+            //        return Fail("IN-FEEDER-STAGE-TRANSFER-SENSOR", Feeder.Name, "WaferFeeder ring remained after feeder stage load avoid move.");
+            //}
 
             CurrentStep = InputFeederLoadToStageStep.MoveMaterialDataToStage;
             return 0;
