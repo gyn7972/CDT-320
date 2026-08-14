@@ -1692,8 +1692,19 @@ namespace QMC.CDT320.Materials
                             ? die.CurrentLocation.Kind
                             : MaterialLocationKind.Unknown;
 
-                        if (kind == MaterialLocationKind.Unknown ||
-                            kind == MaterialLocationKind.InputStage ||
+                        if (kind == MaterialLocationKind.Unknown)
+                        {
+                            // Output Cassette Clear 시 Source Input wafer가 아직 작업 집합이면 완료 Die를
+                            // 복구용으로 보존하면서 위치만 Unknown으로 분리한다. 실제 Pick 완료 이력이
+                            // 확인된 Die만 InputStage에서 이미 배출된 것으로 인정하고, 이력이 없는
+                            // Unknown Die는 실제 미처리 가능성이 있으므로 기존처럼 완료를 차단한다.
+                            if (HasInputPickCompletedHistory(die))
+                                continue;
+
+                            return false;
+                        }
+
+                        if (kind == MaterialLocationKind.InputStage ||
                             kind == MaterialLocationKind.PickerFront ||
                             kind == MaterialLocationKind.PickerRear)
                         {
