@@ -139,8 +139,8 @@ namespace QMC.CDT_320.Ui.Tabs
                 {
                     using (var dialog = new EnumPickerDialog(
                         "시작 시 Bottom Die AutoFocus",
-                        new[] { "Rough + Fine", "Fine", "AutoFocus 안 함" },
-                        "Rough + Fine"))
+                        new[] { "AutoFocus 안 함", "Fine", "Rough + Fine" },
+                        "AutoFocus 안 함"))
                     {
                         if (dialog.ShowDialog(FindForm()) != DialogResult.OK)
                             return;
