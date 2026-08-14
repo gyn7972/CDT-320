@@ -325,6 +325,13 @@ namespace QMC.CDT320.Sequencing
             {
                 if (Options == null || Options.RunMode != SequenceRunMode.Auto || Options.PickerMotionOnlyTestMode)
                     return;
+                if (Context != null && Context.IsCycleStopRequested)
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " 정상 Cycle Stop 요청 중이므로 Place 복귀 동적 대기점을 사용하지 않고 고정 X Avoid로 복귀합니다. " +
+                        "side=" + Side + " - Check");
+                    return;
+                }
 
                 PickerPickUpMotionConfig pickUpConfig = Side == PickerSequenceSide.Front
                     ? (FrontPicker != null && FrontPicker.Config != null ? FrontPicker.Config.PickUp : null)
@@ -418,6 +425,28 @@ namespace QMC.CDT320.Sequencing
             CancellationToken ct,
             Func<int> beforeFinalReturnHandover)
         {
+            if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+            {
+                return await MovePickerToAvoidAfterPlaceFastCoreAsync(
+                    description,
+                    ct,
+                    beforeFinalReturnHandover).ConfigureAwait(false);
+            }
+
+            // 정상 STOP이 Y Avoid 직후 들어와도 X/T 최종 복귀가 Cycle Stop 경계에서 절단되지 않게 한다.
+            // 안전 후퇴 보호는 정지 경계만 보류하며 기존 MotionGuard/SharedRailX/대향 PickerY 검사는 유지한다.
+            return await RunSafetyRetreatMoveAsync(
+                () => MovePickerToAvoidAfterPlaceFastCoreAsync(
+                    description,
+                    ct,
+                    beforeFinalReturnHandover)).ConfigureAwait(false);
+        }
+
+        private async Task<int> MovePickerToAvoidAfterPlaceFastCoreAsync(
+            string description,
+            CancellationToken ct,
+            Func<int> beforeFinalReturnHandover)
+        {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -478,6 +507,13 @@ namespace QMC.CDT320.Sequencing
                 double pickerXReturnTarget = pickerXAvoid;
                 string xtTargetName = "AvoidPosition;PickerPhase=PlaceDoneSafeXT";
                 TryApplyPlaceReturnDynamicWaitTarget(ref pickerXReturnTarget, ref xtTargetName, pickerXAvoid);
+
+                // 동적 목표 계산 직후 STOP이 경합한 경우에도 이번 복귀의 최종 목표를 고정 Avoid로 확정한다.
+                if (Context != null && Context.IsCycleStopRequested)
+                {
+                    pickerXReturnTarget = pickerXAvoid;
+                    xtTargetName = "AvoidPosition;PickerPhase=PlaceDoneSafeXT";
+                }
 
                 var tTargets = new Dictionary<PickerAxis, double>();
                 tTargets[PickerAxis.PickerT0] = GetPickerTeachingPosition(PickerAxis.PickerT0, "AvoidPosition");

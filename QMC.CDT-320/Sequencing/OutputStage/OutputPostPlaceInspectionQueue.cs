@@ -328,6 +328,167 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        /// <summary>
+        /// 정상 Auto Cycle Stop 최종 배리어에서 OutputVisionX를 최소 회피가 아닌 전체 Recipe Avoid로 정리한다.
+        /// 기존 camera work zone, OutputPlaceArea, SharedRailX 및 MotionGuard 경로를 그대로 사용한다.
+        /// </summary>
+        public async Task<int> EnsureVisionXFullAvoidForCycleStopAsync(
+            string waiter,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            AutoSequenceCameraWorkZoneLease cameraWorkLease = null;
+            SequenceResourceLease placeLease = null;
+            string safeWaiter = string.IsNullOrWhiteSpace(waiter) ? "CycleStopFinalDrain" : waiter;
+            int safeTimeoutMs = timeoutMs > 0 ? timeoutMs : 10000;
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (_context == null || !_context.IsCycleStopRequested)
+                    return 0;
+                if (IsAlarmStopActive())
+                    return -1;
+                if (Volatile.Read(ref _pendingOrRunning) > 0)
+                {
+                    return RaiseFailure(
+                        "OUT-POST-INSPECT-CYCLE-STOP-NOT-IDLE",
+                        "OutputPostPlaceInspection",
+                        safeWaiter + " OutputVisionX 최종 Avoid 전 후검사 큐가 Idle이 아닙니다. " +
+                        BuildWaitStateMessage());
+                }
+
+                OutputStageUnit stage = _context.Machine != null
+                    ? _context.Machine.OutputStageUnit
+                    : null;
+                if (stage == null || stage.OutputCameraX == null || stage.Recipe == null)
+                {
+                    return RaiseFailure(
+                        "OUT-POST-INSPECT-CYCLE-STOP-STAGE-MISSING",
+                        "OutputStage",
+                        safeWaiter + " 정상 Cycle Stop OutputVisionX 전체 Avoid 확인에 필요한 축/Recipe가 없습니다.");
+                }
+
+                stage.Recipe.EnsurePositionObjects();
+                stage.OutputCameraX.UpdateStatus();
+                double fullAvoid = stage.Recipe.VisionX.AvoidPosition;
+                if (IsAxisAlreadyInPosition(stage.OutputCameraX, fullAvoid) &&
+                    stage.OutputCameraX.IsInPosition)
+                {
+                    Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                        safeWaiter + " 정상 Cycle Stop OutputVisionX 전체 Avoid가 이미 확인되었습니다. " +
+                        "target=" + fullAvoid.ToString("F6") + " - Ok");
+                    return 0;
+                }
+
+                // 존/리소스 획득에만 제한 시간을 적용한다. 모션 발행 후에는 기존 축 완료 timeout으로 끝까지 확인한다.
+                using (CancellationTokenSource acquireCts =
+                    CancellationTokenSource.CreateLinkedTokenSource(ct))
+                {
+                    acquireCts.CancelAfter(safeTimeoutMs);
+                    if (_context.AutoSequenceGate != null)
+                    {
+                        cameraWorkLease = await _context.AutoSequenceGate
+                            .BeginOutputCameraWorkAsync(
+                                "OutputPostPlaceInspection:CycleStopFullAvoid",
+                                acquireCts.Token)
+                            .ConfigureAwait(false);
+                        if (cameraWorkLease == null)
+                        {
+                            return RaiseFailure(
+                                "OUT-POST-INSPECT-CYCLE-STOP-CAMERA-ZONE",
+                                "OutputStage",
+                                safeWaiter + " 정상 Cycle Stop Output camera 작업 존을 획득하지 못했습니다.");
+                        }
+                    }
+
+                    placeLease = await _context.Resources.AcquireAsync(
+                        SequenceResourceKind.OutputPlaceArea,
+                        "OutputPostPlaceInspection:CycleStopFullAvoid",
+                        safeTimeoutMs,
+                        acquireCts.Token).ConfigureAwait(false);
+                    if (placeLease == null)
+                    {
+                        return RaiseFailure(
+                            "OUT-POST-INSPECT-CYCLE-STOP-PLACE-AREA",
+                            "OutputStage",
+                            safeWaiter + " 정상 Cycle Stop OutputPlaceArea를 획득하지 못했습니다.");
+                    }
+                }
+
+                int clearResult = await WaitOutputVisionXSharedRailClearAsync(
+                    stage,
+                    stage.OutputCameraX,
+                    fullAvoid,
+                    "AvoidPosition;OutputStageStep=CycleStopFullAvoid",
+                    "정상 Cycle Stop OutputVisionX 전체 Avoid",
+                    null,
+                    safeTimeoutMs,
+                    ct).ConfigureAwait(false);
+                if (clearResult != 0)
+                    return clearResult;
+
+                int moveResult = await SequenceAwaiter.AwaitAsync(
+                    stage.MoveVisionXToAvoidAndVerifyAsync(safeTimeoutMs, false, ct),
+                    -1,
+                    ct).ConfigureAwait(false);
+                if (moveResult != 0)
+                {
+                    return RaiseFailure(
+                        "OUT-POST-INSPECT-CYCLE-STOP-VISION-AVOID",
+                        "OutputStage",
+                        safeWaiter + " 정상 Cycle Stop OutputVisionX 전체 Avoid 이동 실패. result=" + moveResult);
+                }
+
+                stage.OutputCameraX.UpdateStatus();
+                if (stage.OutputCameraX.IsMoving ||
+                    stage.OutputCameraX.IsAlarm ||
+                    !stage.OutputCameraX.IsInPosition ||
+                    !stage.IsVisionXInAvoidPosition())
+                {
+                    return RaiseFailure(
+                        "OUT-POST-INSPECT-CYCLE-STOP-VISION-CHECK",
+                        "OutputStage",
+                        safeWaiter + " 정상 Cycle Stop OutputVisionX 전체 Avoid 최종 확인 실패. " +
+                        "actual=" + stage.OutputCameraX.ActualPosition.ToString("F6") +
+                        ", command=" + stage.OutputCameraX.CommandPosition.ToString("F6") +
+                        ", target=" + fullAvoid.ToString("F6") +
+                        ", moving=" + stage.OutputCameraX.IsMoving +
+                        ", inPosition=" + stage.OutputCameraX.IsInPosition +
+                        ", alarm=" + stage.OutputCameraX.IsAlarm);
+                }
+
+                Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                    safeWaiter + " 정상 Cycle Stop OutputVisionX 전체 Avoid 이동/정지 확인 완료. " +
+                    "target=" + fullAvoid.ToString("F6") + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                if (ct.IsCancellationRequested)
+                    throw;
+
+                return RaiseFailure(
+                    "OUT-POST-INSPECT-CYCLE-STOP-ACQUIRE-TIMEOUT",
+                    "OutputStage",
+                    safeWaiter + " 정상 Cycle Stop OutputVisionX 최종 Avoid 리소스 획득 시간이 초과되었습니다. " +
+                    "timeoutMs=" + safeTimeoutMs);
+            }
+            catch (Exception ex)
+            {
+                return RaiseFailure(
+                    "OUT-POST-INSPECT-CYCLE-STOP-EX",
+                    "OutputStage",
+                    safeWaiter + " 정상 Cycle Stop OutputVisionX 전체 Avoid 처리 중 예외. error=" + ex.Message);
+            }
+            finally
+            {
+                if (placeLease != null)
+                    placeLease.Dispose();
+                if (cameraWorkLease != null)
+                    cameraWorkLease.Dispose();
+            }
+        }
+
         /// <summary>C1-(b): 현재 Place 진입 대기자가 있는지 — 배치 EPD 완료 시점 회피 목표 결정에 사용.</summary>
         public bool HasPlaceEntryWaiter
         {
@@ -1725,6 +1886,16 @@ namespace QMC.CDT320.Sequencing
                 recipeFullAvoid = stage.Recipe.VisionX.AvoidPosition;
             }
             visionTarget = recipeFullAvoid;
+
+            if (_context != null && _context.IsCycleStopRequested)
+            {
+                retreatDetail = "정상 Cycle Stop 요청으로 최소 회피를 사용하지 않고 전체 Avoid를 완주합니다.";
+                Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                    "BIN 촬영 종료 후 OutputVisionX 회피 목표 확정. mode=cycleStopFullAvoid" +
+                    ", target=" + recipeFullAvoid.ToString("F6") +
+                    ", die=" + (request != null ? request.DieId : "-") + " - Check");
+                return;
+            }
 
             // 보강(사용자 지시 2026-07-26, "아웃풋 비전이 너무 멀리 빠짐" 해소): 대기자 카운터는
             // 존 승인 이후에야 올라 EPD 시점엔 항상 0이었다(매 배치 fullAvoid 완주 실측 — 다음

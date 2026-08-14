@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -58,6 +59,8 @@ namespace QMC.CDT320.Sequencing
         private static RetreatSession _input;
         private static PickerSequenceSide _inputSide;
         private static RetreatSession _output;
+        private static readonly List<Task<int>> ActiveInputRetreatTasks = new List<Task<int>>();
+        private static string _inputRetreatFailure = string.Empty;
 
         // ---------- 인풋 (InputVisionX, side = 회피를 시작한 선행검사 측) ----------
 
@@ -79,7 +82,11 @@ namespace QMC.CDT320.Sequencing
                     StartedAtUtc = DateTime.UtcNow
                 };
                 _inputSide = side;
+                if (!ActiveInputRetreatTasks.Contains(moveTask))
+                    ActiveInputRetreatTasks.Add(moveTask);
             }
+
+            ObserveInputRetreatCompletion(moveTask, side, owner);
 
             ObserveReplacedSession(previous, "InputVisionX 독립 회피 세션 교체");
             WriteLog("InputVisionX 독립 회피 세션을 등록했습니다. side=" + side +
@@ -123,6 +130,66 @@ namespace QMC.CDT320.Sequencing
                      ", target=" + target.ToString("F6") +
                      ", taskState=" + taskState + " - Ok");
             return true;
+        }
+
+        /// <summary>
+        /// 정상 Auto Cycle Stop 최종 배리어에서 등록된 InputVisionX 독립 회피 Task가 끝날 때까지 기다린다.
+        /// 진행 중 모션을 취소하지 않으며, 등록 이후 발생한 실패는 성공 정지로 숨기지 않는다.
+        /// </summary>
+        public static async Task<int> WaitInputRetreatsUntilIdleAsync(
+            string reason,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            string safeReason = string.IsNullOrWhiteSpace(reason) ? "CycleStopDrain" : reason;
+            int safeTimeoutMs = timeoutMs > 0 ? timeoutMs : 30000;
+            DateTime startedAt = DateTime.UtcNow;
+            bool waitLogged = false;
+
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int activeCount;
+                string failure;
+                lock (Sync)
+                {
+                    activeCount = ActiveInputRetreatTasks.Count;
+                    failure = _inputRetreatFailure;
+                }
+
+                if (!string.IsNullOrWhiteSpace(failure))
+                {
+                    WriteLog(safeReason + " InputVisionX 독립 회피 실패 상태가 확인되었습니다. " +
+                             "reason=" + failure + " - Failed");
+                    return -1;
+                }
+
+                if (activeCount == 0)
+                {
+                    if (waitLogged)
+                    {
+                        WriteLog(safeReason + " InputVisionX 독립 회피 drain 완료. - Ok");
+                    }
+                    return 0;
+                }
+
+                if ((DateTime.UtcNow - startedAt).TotalMilliseconds >= safeTimeoutMs)
+                {
+                    WriteLog(safeReason + " InputVisionX 독립 회피 drain 시간 초과. active=" + activeCount +
+                             ", timeoutMs=" + safeTimeoutMs + " - Failed");
+                    return -1;
+                }
+
+                if (!waitLogged)
+                {
+                    waitLogged = true;
+                    WriteLog(safeReason + " InputVisionX 독립 회피 완료를 기다립니다. active=" +
+                             activeCount + " - Wait");
+                }
+
+                await Task.Delay(20, ct).ConfigureAwait(false);
+            }
         }
 
         /// <summary>
@@ -323,6 +390,57 @@ namespace QMC.CDT320.Sequencing
                     catch (Exception ex)
                     {
                         WriteLog(context + " Task 관찰 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                    }
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+        }
+
+        private static void ObserveInputRetreatCompletion(
+            Task<int> task,
+            PickerSequenceSide side,
+            string owner)
+        {
+            if (task == null)
+                return;
+
+            task.ContinueWith(
+                completed =>
+                {
+                    string failure = string.Empty;
+                    try
+                    {
+                        if (completed.IsCanceled)
+                        {
+                            failure = "취소됨";
+                        }
+                        else if (completed.IsFaulted)
+                        {
+                            failure = completed.Exception != null
+                                ? completed.Exception.GetBaseException().Message
+                                : "faulted";
+                        }
+                        else if (completed.Result != 0)
+                        {
+                            failure = "result=" + completed.Result;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        failure = ex.Message;
+                    }
+
+                    lock (Sync)
+                    {
+                        ActiveInputRetreatTasks.Remove(task);
+                        if (!string.IsNullOrWhiteSpace(failure) &&
+                            string.IsNullOrWhiteSpace(_inputRetreatFailure))
+                        {
+                            _inputRetreatFailure = "side=" + side +
+                                ", owner=" + Safe(owner) +
+                                ", " + failure;
+                        }
                     }
                 },
                 CancellationToken.None,

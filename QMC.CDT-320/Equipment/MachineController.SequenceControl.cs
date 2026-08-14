@@ -254,11 +254,16 @@ namespace QMC.CDT320
                             if (cycleStopRequested &&
                                 runMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
                             {
-                                QMC.CDT320.Sequencing.SequenceResumeStore.MarkCycleStopped(
-                                    "AutoSequence",
-                                    "",
-                                    "시퀀스 취소 시점에 CYCLE STOP 요청이 감지되었습니다.");
-                                SetStatus(EquipmentStatus.CycleStopped);
+                                const string drainMissingMessage =
+                                    "정상 CYCLE STOP 요청이 최종 검사·저장·전축 정지 배리어를 통과하지 못하고 취소 경로로 종료되었습니다.";
+                                QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
+                                    drainMissingMessage + " - Failed");
+                                AlarmManager.Raise(
+                                    AlarmSeverity.Error,
+                                    "SEQ-CYCLE-STOP-DRAIN-MISSING",
+                                    "MachineController",
+                                    drainMissingMessage);
+                                SetStatus(EquipmentStatus.Alarm);
                             }
                             else
                             {
@@ -785,6 +790,109 @@ namespace QMC.CDT320
             }
             finally
             {
+            }
+        }
+
+        /// <summary>
+        /// 정상 Auto Cycle Stop 최종 배리어용 읽기 전용 확인이다.
+        /// 축 정지 명령을 새로 발행하지 않고 모든 등록 축의 IsMoving=false가 연속 샘플에서 유지되는지 확인한다.
+        /// </summary>
+        internal async Task<int> WaitUntilAllAxesStoppedAsync(
+            string reason,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            string safeReason = string.IsNullOrWhiteSpace(reason) ? "CycleStopFinalDrain" : reason;
+            int safeTimeoutMs = timeoutMs > 0 ? timeoutMs : 30000;
+            const int requiredStableSamples = 3;
+            const int sampleIntervalMs = 50;
+            DateTime startedAt = DateTime.UtcNow;
+            int stableSamples = 0;
+            bool waitLogged = false;
+
+            List<BaseAxis> axes = EnumerateAxes()
+                .Where(axis => axis != null)
+                .Distinct()
+                .ToList();
+            if (axes.Count == 0)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "CycleStopAxisBarrier",
+                    safeReason + " 전체 축 정지 확인 대상이 없습니다. - Failed");
+                return -1;
+            }
+
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var movingAxes = new List<string>();
+                for (int i = 0; i < axes.Count; i++)
+                {
+                    BaseAxis axis = axes[i];
+                    try
+                    {
+                        axis.UpdateStatus();
+                    }
+                    catch (Exception ex)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "CycleStopAxisBarrier",
+                            safeReason + " 축 상태 갱신 실패. axis=" + axis.Name +
+                            ", error=" + ex.Message + " - Failed");
+                        return -1;
+                    }
+
+                    if (axis.IsAlarm)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "CycleStopAxisBarrier",
+                            safeReason + " 전체 축 정지 확인 중 축 Alarm이 감지되었습니다. axis=" + axis.Name +
+                            ", actual=" + axis.ActualPosition.ToString("F6") +
+                            ", command=" + axis.CommandPosition.ToString("F6") + " - Failed");
+                        return -1;
+                    }
+
+                    if (axis.IsMoving)
+                    {
+                        movingAxes.Add(
+                            axis.Name + "(actual=" + axis.ActualPosition.ToString("F6") +
+                            ",command=" + axis.CommandPosition.ToString("F6") + ")");
+                    }
+                }
+
+                if (movingAxes.Count == 0)
+                {
+                    stableSamples++;
+                    if (stableSamples >= requiredStableSamples)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "CycleStopAxisBarrier",
+                            safeReason + " 전체 축 완전 정지 확인 완료. axisCount=" + axes.Count +
+                            ", stableSamples=" + stableSamples + " - Ok");
+                        LogMachineAxisSnapshot("CycleStopFinalDrainStopped");
+                        return 0;
+                    }
+                }
+                else
+                {
+                    stableSamples = 0;
+                    if (!waitLogged)
+                    {
+                        waitLogged = true;
+                        QMC.Common.Log.Write("Main", "SYSTEM", "CycleStopAxisBarrier",
+                            safeReason + " 전체 축 완전 정지를 기다립니다. moving=" +
+                            string.Join(", ", movingAxes) + " - Wait");
+                    }
+                }
+
+                if ((DateTime.UtcNow - startedAt).TotalMilliseconds >= safeTimeoutMs)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "CycleStopAxisBarrier",
+                        safeReason + " 전체 축 완전 정지 확인 시간 초과. moving=" +
+                        (movingAxes.Count > 0 ? string.Join(", ", movingAxes) : "stableSamplePending") +
+                        ", timeoutMs=" + safeTimeoutMs + " - Failed");
+                    LogMachineAxisSnapshot("CycleStopFinalDrainTimeout");
+                    return -1;
+                }
+
+                await Task.Delay(sampleIntervalMs, ct).ConfigureAwait(false);
             }
         }
 

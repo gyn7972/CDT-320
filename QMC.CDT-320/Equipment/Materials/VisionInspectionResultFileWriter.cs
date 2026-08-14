@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common;
 using QMC.CDT320.Recipes;
@@ -42,6 +43,10 @@ namespace QMC.CDT320.Materials
         private static readonly Dictionary<string, HashSet<string>> RawLineCache =
             new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
         private static bool _writerRunning;
+        private static long _lastEnqueuedSequence;
+        private static long _lastCompletedSequence;
+        private static long _firstFailedSequence;
+        private static string _firstFailureMessage = string.Empty;
 
         public static void EnqueueBottomResult(
             string recipeName,
@@ -93,6 +98,7 @@ namespace QMC.CDT320.Materials
             }
             catch (Exception ex)
             {
+                RecordPreparationFailure("INPUT-BOTTOM-RESULT-QUEUE", ex);
                 LogFailure("INPUT-BOTTOM-RESULT-QUEUE", "", ex);
             }
         }
@@ -175,7 +181,90 @@ namespace QMC.CDT320.Materials
             }
             catch (Exception ex)
             {
+                RecordPreparationFailure("OUTPUT-PLACE-RESULT-QUEUE", ex);
                 LogFailure("OUTPUT-PLACE-RESULT-QUEUE", "", ex);
+            }
+        }
+
+        /// <summary>
+        /// 호출 시점까지 enqueue된 검사 결과 파일 요청의 디스크 쓰기가 모두 완료됐는지 확인한다.
+        /// 일반 생산 저장은 계속 비동기로 동작하고 정상 Auto Cycle Stop 최종 배리어만 이 fence를 기다린다.
+        /// </summary>
+        public static async Task<int> WaitUntilFlushedAsync(
+            string reason,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            string safeReason = string.IsNullOrWhiteSpace(reason) ? "CycleStopFlush" : reason;
+            int safeTimeoutMs = timeoutMs > 0 ? timeoutMs : 30000;
+            long targetSequence;
+            lock (QueueSyncRoot)
+            {
+                targetSequence = _lastEnqueuedSequence;
+            }
+
+            if (targetSequence <= 0)
+                return 0;
+
+            DateTime startedAt = DateTime.UtcNow;
+            bool waitLogged = false;
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                long completedSequence;
+                long failedSequence;
+                string failureMessage;
+                int pendingCount;
+                bool writerRunning;
+                lock (QueueSyncRoot)
+                {
+                    completedSequence = _lastCompletedSequence;
+                    failedSequence = _firstFailedSequence;
+                    failureMessage = _firstFailureMessage;
+                    pendingCount = PendingItems.Count;
+                    writerRunning = _writerRunning;
+                }
+
+                if (failedSequence > 0 && failedSequence <= targetSequence)
+                {
+                    Log.Write("Main", "SYSTEM", "InspectionResultFileWriter",
+                        safeReason + " 검사 결과 파일 flush 실패. failedSequence=" + failedSequence +
+                        ", targetSequence=" + targetSequence +
+                        ", completedSequence=" + completedSequence +
+                        ", reason=" + failureMessage + " - Failed");
+                    return -1;
+                }
+
+                if (completedSequence >= targetSequence)
+                {
+                    Log.Write("Main", "SYSTEM", "InspectionResultFileWriter",
+                        safeReason + " 검사 결과 파일 flush 완료. targetSequence=" + targetSequence +
+                        ", completedSequence=" + completedSequence + " - Ok");
+                    return 0;
+                }
+
+                if ((DateTime.UtcNow - startedAt).TotalMilliseconds >= safeTimeoutMs)
+                {
+                    Log.Write("Main", "SYSTEM", "InspectionResultFileWriter",
+                        safeReason + " 검사 결과 파일 flush 시간 초과. targetSequence=" + targetSequence +
+                        ", completedSequence=" + completedSequence +
+                        ", pending=" + pendingCount +
+                        ", writerRunning=" + writerRunning +
+                        ", timeoutMs=" + safeTimeoutMs + " - Failed");
+                    return -1;
+                }
+
+                if (!waitLogged)
+                {
+                    waitLogged = true;
+                    Log.Write("Main", "SYSTEM", "InspectionResultFileWriter",
+                        safeReason + " 검사 결과 파일 저장 완료 대기 시작. targetSequence=" + targetSequence +
+                        ", completedSequence=" + completedSequence +
+                        ", pending=" + pendingCount + " - Wait");
+                }
+
+                await Task.Delay(20, ct).ConfigureAwait(false);
             }
         }
 
@@ -186,6 +275,7 @@ namespace QMC.CDT320.Materials
 
             lock (QueueSyncRoot)
             {
+                item.QueueSequence = ++_lastEnqueuedSequence;
                 PendingItems.Enqueue(item);
                 if (_writerRunning)
                     return;
@@ -227,12 +317,18 @@ namespace QMC.CDT320.Materials
                     }
                     catch (Exception ex)
                     {
+                        MarkWriteFailure(item, ex);
                         LogFailure(item.FailureCode, ResolveRequestPath(item), ex);
+                    }
+                    finally
+                    {
+                        MarkWriteCompleted(item.QueueSequence);
                     }
                 }
             }
             catch (Exception ex)
             {
+                MarkWorkerFailure("INSPECTION-RESULT-WORKER", ex);
                 LogFailure("INSPECTION-RESULT-WORKER", "", ex);
             }
             finally
@@ -258,6 +354,7 @@ namespace QMC.CDT320.Materials
                         {
                             _writerRunning = false;
                         }
+                        MarkWorkerFailure("INSPECTION-RESULT-WORKER-RESTART", ex);
                         LogFailure("INSPECTION-RESULT-WORKER-RESTART", "", ex);
                     }
                 }
@@ -1445,6 +1542,63 @@ namespace QMC.CDT320.Materials
             return item.RawPath ?? "";
         }
 
+        private static void RecordPreparationFailure(string code, Exception ex)
+        {
+            lock (QueueSyncRoot)
+            {
+                long sequence = ++_lastEnqueuedSequence;
+                if (_firstFailedSequence == 0)
+                {
+                    _firstFailedSequence = sequence;
+                    _firstFailureMessage = (code ?? "INSPECTION-RESULT-QUEUE") + ": " +
+                        (ex != null ? ex.Message : "unknown");
+                }
+            }
+        }
+
+        private static void MarkWriteFailure(WriteRequest item, Exception ex)
+        {
+            long sequence = item != null ? item.QueueSequence : 0;
+            lock (QueueSyncRoot)
+            {
+                if (_firstFailedSequence == 0)
+                {
+                    _firstFailedSequence = sequence > 0 ? sequence : ++_lastEnqueuedSequence;
+                    _firstFailureMessage =
+                        (item != null ? item.FailureCode : "INSPECTION-RESULT-WRITE") + ": " +
+                        (ex != null ? ex.Message : "unknown");
+                }
+            }
+        }
+
+        private static void MarkWriteCompleted(long sequence)
+        {
+            if (sequence <= 0)
+                return;
+
+            lock (QueueSyncRoot)
+            {
+                if (sequence > _lastCompletedSequence)
+                    _lastCompletedSequence = sequence;
+            }
+        }
+
+        private static void MarkWorkerFailure(string code, Exception ex)
+        {
+            lock (QueueSyncRoot)
+            {
+                if (_firstFailedSequence == 0)
+                {
+                    long sequence = _lastCompletedSequence < _lastEnqueuedSequence
+                        ? _lastCompletedSequence + 1
+                        : ++_lastEnqueuedSequence;
+                    _firstFailedSequence = sequence;
+                    _firstFailureMessage = (code ?? "INSPECTION-RESULT-WORKER") + ": " +
+                        (ex != null ? ex.Message : "unknown");
+                }
+            }
+        }
+
         private static void LogFailure(string code, string path, Exception ex)
         {
             try
@@ -1467,6 +1621,7 @@ namespace QMC.CDT320.Materials
 
         private sealed class WriteRequest
         {
+            public long QueueSequence { get; set; }
             public string CsvPath { get; set; }
             public string CsvPreamble { get; set; }
             public string CsvLine { get; set; }

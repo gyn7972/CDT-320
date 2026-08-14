@@ -44,6 +44,8 @@ QMC.CDT-320/
 - [전체 축 초기화 시퀀스형 리팩터링 검증 체크리스트](docs/initialization/axis-initialize-sequence-refactor-validation-checklist.txt)
 - [Material Journal + Checkpoint 구현 프롬프트](docs/material-state/material-journal-checkpoint-implementation-prompt.txt)
 - [Material Journal + Checkpoint 검증 체크리스트](docs/material-state/material-journal-checkpoint-validation-checklist.txt)
+- [정상 Auto Cycle Stop 전체 Drain 구현 프롬프트](docs/auto-cycle-stop-full-drain-implementation-prompt.txt)
+- [정상 Auto Cycle Stop 전체 Drain 검증 체크리스트](docs/auto-cycle-stop-full-drain-validation-checklist.txt)
 
 ## 외부 Vision 계약
 

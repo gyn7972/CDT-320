@@ -39,6 +39,7 @@ namespace QMC.CDT320.Sequencing
         // Pick 측(PickRuntimeOffsetService)과 동일한 방식으로 처리한다.
         private const int DeferredSaveQuietMs = 1000;
         private static readonly object DeferredSaveSync = new object();
+        private static readonly object DeferredSaveIoSync = new object();
         private static bool _deferredSaveRequested;
         private static bool _deferredSaveWorkerRunning;
 
@@ -86,8 +87,9 @@ namespace QMC.CDT320.Sequencing
                         return;
 
                     _useCorrection = enabled;
-                    SaveLocked();
                 }
+
+                SaveOutsideLock();
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
                     "Place 런타임 오프셋 사용 설정을 변경했습니다. enabled=" + enabled + " - Ok");
@@ -273,8 +275,9 @@ namespace QMC.CDT320.Sequencing
                     set.ClampLatchedX = false;
                     set.ClampLatchedY = false;
                     set.LastUpdated = DateTime.Now;
-                    SaveLocked();
                 }
+
+                SaveOutsideLock();
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
                     "Place 런타임 오프셋 X/Y를 초기화했습니다(메카 오프셋 이관). side=" + side +
@@ -309,8 +312,9 @@ namespace QMC.CDT320.Sequencing
                     set.ClampLatchedY = false;
                     set.ClampLatchedT = false;
                     set.LastUpdated = DateTime.Now;
-                    SaveLocked();
                 }
+
+                SaveOutsideLock();
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
                     "Place 런타임 오프셋을 초기화했습니다. side=" + side + ", pickerNo=" + pickerNo + " - Ok");
@@ -343,9 +347,9 @@ namespace QMC.CDT320.Sequencing
                         _filters[i].ClampLatchedT = false;
                         _filters[i].LastUpdated = DateTime.Now;
                     }
-
-                    SaveLocked();
                 }
+
+                SaveOutsideLock();
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
                     "Place 런타임 오프셋 전체를 초기화했습니다. - Ok");
@@ -515,7 +519,11 @@ namespace QMC.CDT320.Sequencing
                             _deferredSaveRequested = false;
                         }
 
-                        SaveOutsideLock();
+                        if (!SaveOutsideLock())
+                        {
+                            QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
+                                "Place 런타임 오프셋 지연 저장이 실패했습니다. 다음 갱신 또는 Cycle Stop flush에서 재시도합니다. - Failed");
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -534,32 +542,40 @@ namespace QMC.CDT320.Sequencing
         /// <summary>대기 중인 지연 저장을 즉시 반영한다(종료/수동 확정 시 호출).</summary>
         public static void FlushPendingSave()
         {
-            bool pending;
+            TryFlushPendingSave("FlushPendingSave");
+        }
+
+        /// <summary>
+        /// 정상 Cycle Stop 최종 배리어용 동기 저장. 지연 저장 워커와 파일 IO를 직렬화하고 성공 여부를 반환한다.
+        /// </summary>
+        public static bool TryFlushPendingSave(string reason)
+        {
             lock (DeferredSaveSync)
             {
-                pending = _deferredSaveRequested;
                 _deferredSaveRequested = false;
             }
 
-            if (pending)
-                SaveOutsideLock();
+            bool saved = SaveOutsideLock();
+            QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
+                "Place 런타임 오프셋 동기 flush. reason=" + (reason ?? "-") +
+                " - " + (saved ? "Ok" : "Failed"));
+            return saved;
         }
 
         // 문서 구성만 Sync 락 안에서 하고, 디스크 쓰기는 락 밖에서 수행한다.
-        private static void SaveOutsideLock()
+        private static bool SaveOutsideLock()
         {
-            PlaceRuntimeOffsetDocument document;
-            lock (Sync)
+            lock (DeferredSaveIoSync)
             {
-                document = BuildDocumentLocked();
+                PlaceRuntimeOffsetDocument document;
+                lock (Sync)
+                {
+                    EnsureLoadedLocked();
+                    document = BuildDocumentLocked();
+                }
+
+                return PlaceRuntimeOffsetStore.Save(document);
             }
-
-            PlaceRuntimeOffsetStore.Save(document);
-        }
-
-        private static void SaveLocked()
-        {
-            PlaceRuntimeOffsetStore.Save(BuildDocumentLocked());
         }
 
         private static PlaceRuntimeOffsetDocument BuildDocumentLocked()

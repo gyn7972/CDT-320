@@ -1,0 +1,101 @@
+﻿CDT-320 정상 Auto Cycle Stop 전체 Drain 구현 프롬프트
+=====================================================
+
+1. 작업 기준
+-----------
+- 저장소: D:\Source\CDT-320_New
+- 솔루션: D:\Source\CDT-320_New\QMC.CDT-320.sln
+- 대상: .NET Framework 4.7.2 / C# 7.3
+- 정상 Auto Cycle Stop 시퀀스만 변경한다.
+- Manual, Step, Calibration, Alarm, EMO 동작은 변경하지 않는다.
+- 기존 MotionGuard, SharedRailX, Picker facing-Y, 작업 존 및 리소스 인터락을 우회하거나 완화하지 않는다.
+- commit, push, pull, merge, reset, checkout, clean, rebuild를 수행하지 않는다.
+- 실제 장비 축 이동, IO 출력, 카메라 연결 및 Auto 운전은 수행하지 않는다.
+
+2. 목표
+------
+정상 Auto 운전 중 STOP 요청을 받으면 CycleStopped 상태를 즉시 표시하지 않는다.
+이미 Place가 진행 중이면 다음 안전 완료 조건을 모두 만족한 뒤 CycleStopped로 전환한다.
+
+Cycle Stop 요청
+→ 새 공정/새 선행검사 진입 차단
+→ 진행 중 Place 완료
+→ Picker Z/Y/고정 X/T Avoid 이동 및 위치 확인
+→ 이미 시작된 Input 선행검사/선행이동/독립 회피 안전 종료
+→ OutputCameraX 후검사 Capture/EPD/RESULT 완료
+→ 검사 결과 Material 반영
+→ OutputCameraX 전체 Recipe Avoid 이동 및 정지 확인
+→ Material 상태, 고객 검사 결과 파일, Place 런타임 오프셋 저장 완료
+→ 장비 전체 축 정지 상태 연속 확인
+→ CycleStopped 전환
+
+3. Picker 정지 계약
+------------------
+- Place 완료 후 복귀 순서는 기존 Z 상승 → Y Avoid → X/T 복귀 순서를 유지한다.
+- 정상 Cycle Stop 요청 중에는 동적 X 대기점을 최종 정지점으로 사용하지 않고 고정 PickerX Avoid를 사용한다.
+- Place 안전 복귀와 Process finally 안전 복귀는 Cycle Stop 경계 예외에 의해 중간 절단되지 않아야 한다.
+- 안전 복귀 중에도 기존 SharedRailX 거리 검사, MotionGuard 및 대향 PickerY 검사를 그대로 통과해야 한다.
+- 안전 복귀 실패를 성공한 Cycle Stop으로 바꾸지 않는다. 실패는 상위로 전파하여 Alarm으로 처리한다.
+
+4. OutputCameraX 후검사 계약
+--------------------------
+- 이미 등록된 모든 Output post-place 요청의 Capture, EPD, RESULT 수집과 Material 반영을 완료한다.
+- 정상 Cycle Stop에서는 최소 회피가 아닌 전체 Recipe VisionX Avoid를 최종 위치로 사용한다.
+- Stop 요청과 최소 회피 목표 계산이 경합하더라도 최종 배리어에서 전체 Avoid를 다시 확인하고 필요하면 이동한다.
+- OutputCameraX 최종 이동도 기존 Output camera 작업 존, OutputPlaceArea, SharedRailX 및 MotionGuard를 사용한다.
+- 후검사 실패나 전체 Avoid 실패는 CycleStopped로 처리하지 않는다.
+
+5. 데이터 저장 계약
+------------------
+- Output 후검사 큐 Idle은 메모리 반영 완료일 뿐 디스크 저장 완료로 간주하지 않는다.
+- MaterialStateService.TryFlushPendingSave 성공을 확인한다.
+- VisionInspectionResultFileWriter는 enqueue 순번 기반 flush fence를 제공한다.
+- 고객 Input CSV/Raw 및 Output Place 결과 파일의 fence 이전 요청이 모두 성공해야 한다.
+- 파일 저장 실패를 로그만 남기고 CycleStopped로 진행하지 않는다.
+- PlaceRuntimeOffsetService는 비동기 지연 저장과 경합하지 않는 동기 flush 성공 여부를 제공한다.
+- 저장 실패는 상위 Coordinator 실패로 전파하여 Alarm으로 처리한다.
+
+6. 백그라운드 작업과 전체 축 정지 계약
+------------------------------------
+- Cycle Stop 요청 후 InputVisionPrefetchRunner가 새 선행검사를 시작하지 않도록 한다.
+- 이미 시작된 InputCamera 선행검사는 취소로 모션을 절단하지 않고 Cycle Stop 안전 경계까지 종료를 기다린다.
+- 모든 유닛, 후검사, 저장 및 카메라 최종 Avoid가 끝난 뒤 MachineController가 전체 축 IsMoving=false를 확인한다.
+- 순간적인 false 판정을 완료로 오인하지 않도록 연속된 복수 샘플에서 전체 축 정지를 확인한다.
+- 전체 축 정지 대기에는 timeout을 적용하고 실패 원인을 로그에 남긴다.
+
+7. 모드 격리
+-----------
+신규 동작의 활성 조건은 다음과 같다.
+
+SequenceRunMode.Auto
+&& MachineSequenceContext.IsCycleStopRequested
+&& Alarm/EMO 아님
+
+- Manual/Step Place는 기존 동작을 유지한다.
+- AutoCalibration 및 Picker Calibration은 기존 RunMode=Manual 경로를 유지한다.
+- 일반 Auto 생산 중 비동기 검사 결과 파일 저장 성능을 변경하지 않는다. 동기 대기는 정상 Cycle Stop 최종 배리어에서만 수행한다.
+
+8. 실패 정책
+-----------
+다음 항목 중 하나라도 실패하거나 timeout이면 SequenceStopException을 성공적으로 완료시키지 않는다.
+
+- Picker 전체 Avoid 실패
+- Input 선행검사 drain 실패
+- Output post-place 후검사 실패
+- OutputCameraX 전체 Avoid 실패
+- Material snapshot 저장 실패
+- 고객 검사 결과 파일 저장 실패
+- Place 런타임 오프셋 저장 실패
+- 전체 축 정지 확인 실패
+
+상위 MachineController의 기존 일반 예외 경로가 Alarm을 발생시키고 EquipmentStatus.Alarm으로 전환해야 한다.
+
+9. 검증
+------
+- Auto 조건과 Manual/Calibration 호출 경로 정적 확인
+- 기존 MotionGuard/Interlock 파일 diff 0 확인
+- 파일 저장 fence와 실패 전파 경로 정적 확인
+- git diff --check
+- 별도 OutDir을 지정한 Debug Build
+- Clean/Rebuild 금지
+- 실장비 검증은 현장 체크리스트로 남긴다.

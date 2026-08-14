@@ -99,6 +99,12 @@ namespace QMC.CDT320.Sequencing
                 while (true)
                 {
                     ct.ThrowIfCancellationRequested();
+                    if (context.IsCycleStopRequested)
+                    {
+                        WriteLog("InputVisionPrefetchRunner",
+                            "정상 Cycle Stop 요청으로 새 Input Vision 선행검사 시작을 차단하고 러너를 종료합니다. - Stopped");
+                        return;
+                    }
 
                     int idlePollMs = ResolveIdlePollMs(context);
                     if (!IsEnabled(context))

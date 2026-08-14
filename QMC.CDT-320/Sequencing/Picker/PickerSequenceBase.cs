@@ -2250,6 +2250,38 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        /// <summary>
+        /// 정상 정지용 안전 후퇴가 Cycle Stop 경계 폴링으로 중간 절단되지 않도록 보호한다.
+        /// 이 보호는 정지 플래그만 보류하며 MotionGuard, SharedRailX 및 대향 PickerY 검사는 그대로 수행한다.
+        /// </summary>
+        protected async Task<int> RunSafetyRetreatMoveAsync(Func<Task<int>> moveAsync)
+        {
+            if (moveAsync == null)
+                throw new ArgumentNullException(nameof(moveAsync));
+
+            bool previousSafetyRetreatMoveActive = safetyRetreatMoveActive;
+            try
+            {
+                safetyRetreatMoveActive = true;
+                return await moveAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                safetyRetreatMoveActive = previousSafetyRetreatMoveActive;
+            }
+        }
+
+        /// <summary>
+        /// 정상 Auto Cycle Stop 최종 자세용 전체 안전 후퇴.
+        /// 기존 안전 순서(Z → Y → X → T)와 최종 Teaching 위치 검증을 재사용한다.
+        /// </summary>
+        protected Task<int> EnsureSelfFullSafeAsync(string reason, CancellationToken ct)
+        {
+            string label = string.IsNullOrWhiteSpace(reason) ? "EnsureSelfFullSafe" : reason;
+            return RunSafetyRetreatMoveAsync(
+                () => MoveCurrentPickerToAvoidAndVerifyAsync(label, ct));
+        }
+
         // INV-6: 인터락/리스 해제·정지·Abort 전에 자기 픽커를 물리적으로 안전(Z=Avoid → Y=Avoid)하게 후퇴시키고 검증한다.
         // 순서(Z 상승 후 Y 후퇴)가 안전의 핵심이다. 공용 레일 X는 여기서 움직이지 않는다(마주보기 위험 회피).
         protected async Task<int> EnsureSelfSafeAsync(string reason, CancellationToken ct)

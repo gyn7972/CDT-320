@@ -141,22 +141,52 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
-                ReleaseActivePickerProcessResource("ProcessFinally");
-                // [사용자 지시 2026-07-27] Cycle Stop/종료 정리 전, place의 백그라운드 Z Avoid
-                // 상승이 진행 중이면 완주를 기다린다 — 상승이 잘리며 -5 알람으로 승격 방지.
-                if (_placeSequence != null)
+                bool holdProcessResourceUntilCycleStopSafe =
+                    Options != null && Options.RunMode == SequenceRunMode.Auto &&
+                    Context != null && Context.IsCycleStopRequested &&
+                    !ct.IsCancellationRequested && !IsAlarmStopActive();
+                if (!holdProcessResourceUntilCycleStopSafe)
+                    ReleaseActivePickerProcessResource("ProcessFinally");
+
+                Exception pendingPlaceRetreatError = null;
+                try
                 {
-                    try
+                    // [사용자 지시 2026-07-27] Cycle Stop/종료 정리 전, place의 백그라운드 Z Avoid
+                    // 상승이 진행 중이면 완주를 기다린다 — 상승이 잘리며 -5 알람으로 승격 방지.
+                    if (_placeSequence != null)
                     {
-                        await _placeSequence.WaitPendingPickerZAvoidRiseBeforeStopAsync().ConfigureAwait(false);
+                        try
+                        {
+                            await _placeSequence.WaitPendingPickerZAvoidRiseBeforeStopAsync().ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            pendingPlaceRetreatError = ex;
+                            WriteLog("PickerProcessSequence",
+                                Name + " 종료 전 Place PickerZ Avoid 상승 대기 실패. side=" + Side +
+                                ", error=" + ex.Message + " - Failed");
+                        }
                     }
-                    catch
+
+                    await EnsureCycleStopSafePoseAsync(ct).ConfigureAwait(false);
+
+                    if (pendingPlaceRetreatError != null &&
+                        Context != null && Context.IsCycleStopRequested &&
+                        !ct.IsCancellationRequested && !IsAlarmStopActive())
                     {
+                        throw new InvalidOperationException(
+                            Name + " 정상 Cycle Stop 전 Place PickerZ Avoid 상승 완료를 확인하지 못했습니다.",
+                            pendingPlaceRetreatError);
                     }
                 }
-                await EnsureCycleStopSafePoseAsync(ct).ConfigureAwait(false);
-                ReleasePickerProcessPhase("ProcessFinally");
-                ResetPickerPhaseSignals();
+                finally
+                {
+                    // 정상 Cycle Stop에서는 Picker 전체 Avoid가 확인된 뒤에만 Process/phase 리소스를 반환한다.
+                    if (holdProcessResourceUntilCycleStopSafe)
+                        ReleaseActivePickerProcessResource("ProcessFinallyCycleStopSafe");
+                    ReleasePickerProcessPhase("ProcessFinally");
+                    ResetPickerPhaseSignals();
+                }
             }
         }
 
@@ -180,8 +210,7 @@ namespace QMC.CDT320.Sequencing
                     return;
                 }
 
-                // 현재 기준: 정상 Cycle Stop 최종 자세는 X 이동 없이 Picker Z 상승 후 Picker Y Avoid로 정리한다.
-                int result = await EnsureSelfSafeAsync(
+                int result = await EnsureSelfFullSafeAsync(
                     "Cycle Stop 최종 안전 자세",
                     ct).ConfigureAwait(false);
                 if (result != 0)
@@ -189,11 +218,13 @@ namespace QMC.CDT320.Sequencing
                     WriteLog("PickerProcessSequence",
                         Name + " Cycle Stop 최종 안전 자세 정리 실패. result=" + result +
                         ", side=" + Side + " - Failed");
-                    return;
+                    throw new InvalidOperationException(
+                        Name + " 정상 Cycle Stop Picker 전체 Avoid 정리에 실패했습니다. result=" + result +
+                        ", side=" + Side);
                 }
 
                 WriteLog("PickerProcessSequence",
-                    Name + " Cycle Stop 최종 안전 자세 정리 완료. PickerZ=Avoid, PickerY=Avoid, X 이동 없음. side=" +
+                    Name + " Cycle Stop 최종 안전 자세 정리 완료. PickerX/Y/T/Z=Avoid. side=" +
                     Side + " - Ok");
             }
             catch (OperationCanceledException)
@@ -209,6 +240,7 @@ namespace QMC.CDT320.Sequencing
                 WriteLog("PickerProcessSequence",
                     Name + " Cycle Stop 최종 안전 자세 정리 중 예외 발생. side=" + Side +
                     ", error=" + ex.Message + " - Failed");
+                throw;
             }
             finally
             {

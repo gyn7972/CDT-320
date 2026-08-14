@@ -47,9 +47,22 @@ namespace QMC.CDT320.Sequencing
         {
             if (context == null || context.Machine == null)
                 return false;
+            if (options != null &&
+                options.RunMode == SequenceRunMode.Auto &&
+                context.IsCycleStopRequested)
+            {
+                return false;
+            }
 
             lock (Sync)
             {
+                if (options != null &&
+                    options.RunMode == SequenceRunMode.Auto &&
+                    context.IsCycleStopRequested)
+                {
+                    return false;
+                }
+
                 ClearCompletedNoLock();
                 if (_runningTask != null && !_runningTask.IsCompleted)
                 {
@@ -83,6 +96,87 @@ namespace QMC.CDT320.Sequencing
                 side + " PickUp 완료 후 InputVisionX 선행이동 세션을 시작했습니다. " +
                 "reason=" + Safe(reason) + " - Start");
             return true;
+        }
+
+        /// <summary>
+        /// 정상 Auto Cycle Stop에서 이미 시작된 InputVisionX 선행이동 세션의 종료를 기다린다.
+        /// 신규 취소를 발행하지 않으며 세션 자체의 Cycle Stop 안전 정리 완료만 확인한다.
+        /// </summary>
+        public static async Task<int> WaitUntilIdleAsync(
+            string reason,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            string safeReason = string.IsNullOrWhiteSpace(reason) ? "CycleStopDrain" : reason;
+            int safeTimeoutMs = timeoutMs > 0 ? timeoutMs : 30000;
+            DateTime startedAt = DateTime.UtcNow;
+            bool waitLogged = false;
+
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                Task<int> runningTask;
+                PickerSequenceSide runningSide;
+                lock (Sync)
+                {
+                    runningTask = _runningTask;
+                    runningSide = _runningSide;
+                }
+
+                if (runningTask == null)
+                {
+                    if (waitLogged)
+                    {
+                        WriteLog("InputVisionXPrePosition",
+                            safeReason + " InputVisionX 선행이동 drain 완료. - Ok");
+                    }
+                    return 0;
+                }
+
+                if (runningTask.IsCompleted)
+                {
+                    try
+                    {
+                        int result = await runningTask.ConfigureAwait(false);
+                        if (result != 0)
+                        {
+                            WriteLog("InputVisionXPrePosition",
+                                safeReason + " InputVisionX 선행이동 drain 결과 실패. side=" + runningSide +
+                                ", result=" + result + " - Failed");
+                            return result;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        WriteLog("InputVisionXPrePosition",
+                            safeReason + " InputVisionX 선행이동 drain 작업 실패. side=" + runningSide +
+                            ", error=" + ex.Message + " - Failed");
+                        return -1;
+                    }
+
+                    await Task.Yield();
+                    continue;
+                }
+
+                if ((DateTime.UtcNow - startedAt).TotalMilliseconds >= safeTimeoutMs)
+                {
+                    WriteLog("InputVisionXPrePosition",
+                        safeReason + " InputVisionX 선행이동 drain 시간 초과. side=" + runningSide +
+                        ", timeoutMs=" + safeTimeoutMs + " - Failed");
+                    return -1;
+                }
+
+                if (!waitLogged)
+                {
+                    waitLogged = true;
+                    WriteLog("InputVisionXPrePosition",
+                        safeReason + " 진행 중 InputVisionX 선행이동의 안전 종료를 기다립니다. side=" +
+                        runningSide + " - Wait");
+                }
+
+                await Task.Delay(20, ct).ConfigureAwait(false);
+            }
         }
 
         // [A안 2026-07-27] 세션 정상 종료 시 호출자 콜백을 1회 실행한다. 취소/실패/예외 종료는

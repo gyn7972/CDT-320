@@ -21,6 +21,12 @@ namespace QMC.CDT320.Sequencing
         private const int AbortPendingWaitLogIntervalMs = 1000;
         private const int CycleStopPendingWaitTimeoutMs = 5000;
         private const int PendingAbortFinishTimeoutMs = 3000;
+        private const int CycleStopPrefetchExitTimeoutMs = 5000;
+        private const int CycleStopPreInspectionDrainTimeoutMs = 30000;
+        private const int CycleStopOutputInspectionDrainTimeoutMs = 120000;
+        private const int CycleStopOutputVisionAvoidTimeoutMs = 15000;
+        private const int CycleStopResultFileFlushTimeoutMs = 30000;
+        private const int CycleStopAllAxesStoppedTimeoutMs = 30000;
         private CancellationTokenSource _childrenCts;
         private SequenceRunOptions _options = SequenceRunOptions.FullAuto();
 
@@ -169,7 +175,30 @@ namespace QMC.CDT320.Sequencing
                 _ctx.LogPublic("[SEQ] Run stopped");
                 tactScope.Stop("", "시퀀스가 Cycle Stop 경계에서 정지되었습니다.");
                 await AwaitPendingAfterCycleStopAsync(unitTasks, false).ConfigureAwait(false);
+                await WaitInputVisionPrefetchRunnerAfterCycleStopAsync(
+                    prefetchTask,
+                    childrenToken).ConfigureAwait(false);
+                await CompleteNormalCycleStopDrainAsync(childrenToken).ConfigureAwait(false);
                 throw;
+            }
+            catch (OperationCanceledException) when (
+                _ctx != null &&
+                _ctx.IsCycleStopRequested &&
+                _options != null &&
+                _options.Mode == SequenceRunMode.Auto &&
+                !ct.IsCancellationRequested &&
+                _ctx.Controller != null &&
+                _ctx.Controller.Status != EquipmentStatus.Alarm)
+            {
+                _ctx.LogPublic("[SEQ] Cycle Stop용 중단 가능 대기가 깨어나 최종 drain 경로로 전환됩니다.");
+                tactScope.Stop("", "Cycle Stop 대기 해제 후 최종 drain을 수행합니다.");
+                await AwaitPendingAfterCycleStopAsync(unitTasks, false).ConfigureAwait(false);
+                await WaitInputVisionPrefetchRunnerAfterCycleStopAsync(
+                    prefetchTask,
+                    childrenToken).ConfigureAwait(false);
+                await CompleteNormalCycleStopDrainAsync(childrenToken).ConfigureAwait(false);
+                throw new SequenceStopException(
+                    "CYCLE STOP 요청으로 중단 가능 대기를 해제하고 검사·저장·전축 정지 배리어를 완료했습니다.");
             }
             catch (OperationCanceledException)
             {
@@ -297,6 +326,146 @@ namespace QMC.CDT320.Sequencing
                 if (prefetchCts != null)
                     prefetchCts.Dispose();
             }
+        }
+
+        private async Task WaitInputVisionPrefetchRunnerAfterCycleStopAsync(
+            Task prefetchTask,
+            CancellationToken ct)
+        {
+            if (prefetchTask == null)
+                return;
+
+            ct.ThrowIfCancellationRequested();
+            if (!prefetchTask.IsCompleted)
+            {
+                _ctx.LogPublic("[SEQ] 정상 Cycle Stop 신규 Input Vision 선행검사 차단 완료를 기다립니다.");
+                Task timeoutTask = Task.Delay(CycleStopPrefetchExitTimeoutMs, ct);
+                Task completed = await Task.WhenAny(prefetchTask, timeoutTask).ConfigureAwait(false);
+                if (completed != prefetchTask)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    throw new TimeoutException(
+                        "정상 Cycle Stop Input Vision Prefetch 러너 종료 시간이 초과되었습니다. timeoutMs=" +
+                        CycleStopPrefetchExitTimeoutMs);
+                }
+            }
+
+            await prefetchTask.ConfigureAwait(false);
+            QMC.Common.Log.Write("Main", "SYSTEM", "InputVisionPrefetchRunner",
+                "정상 Cycle Stop 신규 선행검사 차단 및 Prefetch 러너 종료 확인 완료. - Ok");
+        }
+
+        /// <summary>
+        /// 정상 Auto Cycle Stop을 CycleStopped로 전달하기 전의 최종 완료 배리어다.
+        /// 검사/저장/모션 실패는 SequenceStopException으로 숨기지 않고 일반 실패로 상위에 전파한다.
+        /// </summary>
+        private async Task CompleteNormalCycleStopDrainAsync(CancellationToken ct)
+        {
+            if (_ctx == null || !_ctx.IsCycleStopRequested)
+                return;
+            if (_options == null || _options.Mode != SequenceRunMode.Auto)
+                return;
+            if (_ctx.Controller == null || _ctx.Controller.Status == EquipmentStatus.Alarm)
+                throw new InvalidOperationException("정상 Cycle Stop 최종 drain 중 장비 Alarm 상태가 감지되었습니다.");
+
+            _ctx.LogPublic("[SEQ] 정상 Cycle Stop 최종 drain을 시작합니다. " +
+                           "Input 선행검사 → Output 후검사 → 데이터 저장 → 전축 정지 순서로 확인합니다.");
+            QMC.Common.Log.Write("Main", "SYSTEM", "SequenceCycleStop",
+                "Normal cycle stop final drain started. - Start");
+
+            int inputInspectionResult = await InputCameraPreInspectionCoordinator.WaitUntilIdleAsync(
+                "AutoSequenceCoordinator:CycleStopFinalDrain",
+                CycleStopPreInspectionDrainTimeoutMs,
+                ct).ConfigureAwait(false);
+            if (inputInspectionResult != 0)
+            {
+                throw new InvalidOperationException(
+                    "정상 Cycle Stop InputCamera 선행검사 안전 종료 확인 실패. result=" + inputInspectionResult);
+            }
+
+            int inputPrePositionResult = await InputVisionXPrePositionCoordinator.WaitUntilIdleAsync(
+                "AutoSequenceCoordinator:CycleStopFinalDrain",
+                CycleStopPreInspectionDrainTimeoutMs,
+                ct).ConfigureAwait(false);
+            if (inputPrePositionResult != 0)
+            {
+                throw new InvalidOperationException(
+                    "정상 Cycle Stop InputVisionX 선행이동 안전 종료 확인 실패. result=" + inputPrePositionResult);
+            }
+
+            int inputRetreatResult = await VisionIndependentRetreatCoordinator
+                .WaitInputRetreatsUntilIdleAsync(
+                    "AutoSequenceCoordinator:CycleStopFinalDrain",
+                    CycleStopPreInspectionDrainTimeoutMs,
+                    ct).ConfigureAwait(false);
+            if (inputRetreatResult != 0)
+            {
+                throw new InvalidOperationException(
+                    "정상 Cycle Stop InputVisionX 독립 회피 완료 확인 실패. result=" + inputRetreatResult);
+            }
+
+            if (_ctx.OutputPostPlaceInspections == null)
+                throw new InvalidOperationException("정상 Cycle Stop Output 후검사 큐를 확인할 수 없습니다.");
+
+            int outputIdleResult = await _ctx.OutputPostPlaceInspections.WaitUntilIdleAsync(
+                "AutoSequenceCoordinator:CycleStopFinalDrain",
+                CycleStopOutputInspectionDrainTimeoutMs,
+                ct).ConfigureAwait(false);
+            if (outputIdleResult != 0)
+            {
+                throw new InvalidOperationException(
+                    "정상 Cycle Stop OutputCameraX 후검사/RESULT/Material 반영 완료 대기 실패. result=" +
+                    outputIdleResult);
+            }
+
+            string pickerSafeReason = _ctx.WaferCompletion == null
+                ? "WaferCompletion=null"
+                : string.Empty;
+            if (_ctx.WaferCompletion == null ||
+                !_ctx.WaferCompletion.AreAllEnabledPickersAvoidAndStopped(out pickerSafeReason))
+            {
+                throw new InvalidOperationException(
+                    "정상 Cycle Stop Picker 전체 고정 Avoid/정지 최종 확인 실패. reason=" +
+                    (pickerSafeReason ?? "unknown"));
+            }
+
+            int outputVisionAvoidResult = await _ctx.OutputPostPlaceInspections
+                .EnsureVisionXFullAvoidForCycleStopAsync(
+                    "AutoSequenceCoordinator:CycleStopFinalDrain",
+                    CycleStopOutputVisionAvoidTimeoutMs,
+                    ct).ConfigureAwait(false);
+            if (outputVisionAvoidResult != 0)
+            {
+                throw new InvalidOperationException(
+                    "정상 Cycle Stop OutputCameraX 전체 Recipe Avoid 완료 확인 실패. result=" +
+                    outputVisionAvoidResult);
+            }
+
+            if (!MaterialStateService.TryFlushPendingSave("AutoCycleStopFinalDrain"))
+                throw new InvalidOperationException("정상 Cycle Stop Material 상태 파일 저장 완료 확인 실패.");
+
+            if (!PlaceRuntimeOffsetService.TryFlushPendingSave("AutoCycleStopFinalDrain"))
+                throw new InvalidOperationException("정상 Cycle Stop Place 런타임 오프셋 저장 완료 확인 실패.");
+
+            int resultFileFlush = await VisionInspectionResultFileWriter.WaitUntilFlushedAsync(
+                "AutoCycleStopFinalDrain",
+                CycleStopResultFileFlushTimeoutMs,
+                ct).ConfigureAwait(false);
+            if (resultFileFlush != 0)
+                throw new InvalidOperationException("정상 Cycle Stop 검사 결과 CSV/Raw 저장 완료 확인 실패.");
+
+            int allAxesStopped = await _ctx.Controller.WaitUntilAllAxesStoppedAsync(
+                "AutoCycleStopFinalDrain",
+                CycleStopAllAxesStoppedTimeoutMs,
+                ct).ConfigureAwait(false);
+            if (allAxesStopped != 0)
+                throw new InvalidOperationException("정상 Cycle Stop 전체 축 완전 정지 확인 실패.");
+
+            QMC.Common.Log.Write("Main", "SYSTEM", "SequenceCycleStop",
+                "Normal cycle stop final drain completed. " +
+                "inputInspection=Idle, outputInspection=Idle, picker=FullAvoid, outputVisionX=FullAvoid, " +
+                "material=Durable, inspectionFiles=Durable, runtimeOffset=Durable, allAxes=Stopped - Ok");
+            _ctx.LogPublic("[SEQ] 정상 Cycle Stop 최종 drain 완료. 검사·데이터 저장·모든 축 정지를 확인했습니다.");
         }
 
         private async Task StopWaferCompletionMonitorAsync(
@@ -633,6 +802,20 @@ namespace QMC.CDT320.Sequencing
 
                 if (completed.IsCanceled)
                 {
+                    if (_ctx != null &&
+                        _ctx.IsCycleStopRequested &&
+                        _options != null &&
+                        _options.Mode == SequenceRunMode.Auto &&
+                        !ct.IsCancellationRequested &&
+                        _ctx.Controller != null &&
+                        _ctx.Controller.Status != EquipmentStatus.Alarm)
+                    {
+                        _ctx.LogPublic("[SEQ] Cycle Stop으로 중단 가능 대기가 종료되었습니다. 형제 유닛의 안전 경계를 기다립니다.");
+                        await AwaitPendingAfterCycleStopAsync(pending, false).ConfigureAwait(false);
+                        throw new SequenceStopException(
+                            "CYCLE STOP 요청으로 중단 가능 대기가 해제되어 작업 경계 정지로 전환합니다.");
+                    }
+
                     AbortChildren();
                     await AwaitPendingAfterAbortAsync(pending).ConfigureAwait(false);
                     throw new OperationCanceledException(ct);

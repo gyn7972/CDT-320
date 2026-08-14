@@ -355,7 +355,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private bool AreAllEnabledPickersAvoidAndStopped(out string reason)
+        internal bool AreAllEnabledPickersAvoidAndStopped(out string reason)
         {
             reason = string.Empty;
             CDT320_Machine machine = _context.Machine;

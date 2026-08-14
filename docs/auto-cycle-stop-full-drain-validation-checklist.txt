@@ -1,0 +1,135 @@
+﻿CDT-320 정상 Auto Cycle Stop 전체 Drain 검증 체크리스트
+=========================================================
+
+1. 작업 보호
+-----------
+[x] PROT-001 | 저장소 루트가 D:\Source\CDT-320_New이다.
+    결과/근거: git rev-parse --show-toplevel = D:/Source/CDT-320_New
+[x] PROT-002 | 작업 시작 시 작업 트리가 깨끗하고 기존 변경과 겹침이 없다.
+    결과/근거: git status --short --branch = ## codex/output-good-pickup-cap
+[x] PROT-003 | 관련 없는 파일을 수정하지 않았다.
+    결과/근거: 변경 목록은 정상 Auto Cycle Stop drain 구현 파일, 문서, README 링크로 한정됨
+[x] PROT-004 | commit/push/pull/merge/reset/checkout/clean/rebuild를 수행하지 않았다.
+    결과/근거: 정적 조회와 별도 OutDir의 Build만 수행함
+
+2. 모드 격리
+-----------
+[x] MODE-001 | 신규 정지 drain은 Auto+CycleStop+비Alarm 조건에서만 실행된다.
+    결과/근거: AutoSequenceCoordinator.CompleteNormalCycleStopDrainAsync 진입 조건 정적 확인
+[x] MODE-002 | Manual Place 호출 경로의 동작이 변경되지 않는다.
+    결과/근거: Place 안전 후퇴 wrapper는 Auto 외 모드에서 기존 core를 그대로 호출함
+[x] MODE-003 | Step 모드 호출 경로의 동작이 변경되지 않는다.
+    결과/근거: 최종 drain과 Picker Process 전체 Avoid 보강 모두 RunMode=Auto 조건임
+[x] MODE-004 | AutoCalibration 및 Picker Calibration의 RunMode=Manual 경로가 변경되지 않는다.
+    결과/근거: Calibration 파일 diff 0, Place Manual 경로 기존 core 유지
+[x] MODE-005 | Alarm/EMO 시 즉시 중단·기존 정리 정책이 변경되지 않는다.
+    결과/근거: Alarm/EMO 파일 diff 0, 최종 drain은 Alarm 상태에서 실패하며 안전 후퇴 보강도 Alarm 활성 시 실행하지 않음
+
+3. Picker 안전 복귀
+------------------
+[x] PICK-001 | 정상 Cycle Stop 중 Place 완료 복귀가 Z→Y→X/T 순서를 유지한다.
+    결과/근거: 기존 Place 복귀 순서 유지, 최종 보강은 기존 Z→Y→X→T 전체 Avoid 메서드 재사용
+[x] PICK-002 | 정상 Cycle Stop 최종 PickerX 목표가 동적 대기점이 아닌 고정 Avoid다.
+    결과/근거: 동적 목표 판정 전·후 Cycle Stop 경합을 모두 고정 Avoid로 확정
+[x] PICK-003 | Front/Rear Picker가 각각 X/Y/T/Z 전체 Avoid 위치를 확인한다.
+    결과/근거: 각 활성 Picker Process에서 EnsureSelfFullSafeAsync 실행 후 Coordinator가 양쪽 전체 Avoid/정지를 재확인
+[x] PICK-004 | 안전 복귀 중 Cycle Stop 경계 예외가 X 이동을 중간 절단하지 않는다.
+    결과/근거: RunSafetyRetreatMoveAsync가 안전 복귀 구간의 Cycle Stop 경계 polling만 보류함
+[x] PICK-005 | Picker Process 리소스와 phase는 전체 안전 복귀 확인 후 반환된다.
+    결과/근거: 정상 Auto Cycle Stop finally에서 전체 안전 복귀 이후 Process/phase 반환
+[x] PICK-006 | Picker Avoid 실패가 성공 CycleStopped로 바뀌지 않고 Alarm으로 전파된다.
+    결과/근거: 안전 복귀 실패는 일반 예외로 Coordinator 상위 MachineController 실패 경로에 전파됨
+
+4. OutputCameraX 후검사
+---------------------
+[x] OUT-001 | 등록된 모든 Capture/EPD/RESULT가 완료된 뒤 Output queue Idle이 된다.
+    결과/근거: 기존 pendingOrRunning 완료 배리어를 최종 drain에서 timeout 포함 대기
+[x] OUT-002 | RESULT가 Material의 Output inspection 상태에 반영된다.
+    결과/근거: 기존 RESULT 수집/Material 적용이 완료된 후 요청 count를 감소시키는 순서 유지
+[x] OUT-003 | Cycle Stop 중 batch retreat 목표가 전체 Recipe Avoid다.
+    결과/근거: ResolvePostBatchVisionRetreatTarget의 Cycle Stop 분기에서 최소 회피를 차단함
+[x] OUT-004 | 최소 회피 경합이 있어도 최종 배리어가 OutputCameraX 전체 Avoid를 확인한다.
+    결과/근거: queue Idle 뒤 EnsureVisionXFullAvoidForCycleStopAsync가 Recipe Avoid를 재확인/필요 시 이동
+[x] OUT-005 | OutputCameraX 최종 이동이 기존 camera work zone, OutputPlaceArea, SharedRailX, MotionGuard를 사용한다.
+    결과/근거: 기존 gate/resource/shared rail clear와 MoveVisionXToAvoidAndVerifyAsync 경로 재사용
+[x] OUT-006 | 후검사 또는 VisionX Avoid 실패가 Alarm으로 전파된다.
+    결과/근거: 최종 drain의 0 외 결과는 일반 예외로 상위 Alarm 경로에 전파됨
+
+5. 데이터 저장
+-------------
+[x] DATA-001 | Material snapshot flush 성공 후에만 다음 배리어로 진행한다.
+    결과/근거: MaterialStateService.TryFlushPendingSave 실패 시 즉시 최종 drain 실패
+[x] DATA-002 | 검사 결과 파일 writer가 enqueue 순번 fence를 제공한다.
+    결과/근거: enqueue/completed/failed sequence와 호출 시점 target fence 구현
+[x] DATA-003 | fence 이전 Input CSV/Raw 및 Output Place 파일 요청 완료를 기다린다.
+    결과/근거: 공용 VisionInspectionResultFileWriter queue의 target sequence 완료를 대기
+[x] DATA-004 | writer 저장 실패가 flush 실패로 유지되고 Alarm으로 전파된다.
+    결과/근거: 최초 실패 sequence를 보존하고 fence 범위 실패 시 -1 반환
+[x] DATA-005 | Place runtime offset flush가 지연 저장 worker와 파일 쓰기 경합을 만들지 않는다.
+    결과/근거: 전용 IO lock 안에서 최신 상태 snapshot 생성과 파일 저장을 직렬화함
+[x] DATA-006 | Place runtime offset 저장 성공 여부를 Cycle Stop 배리어에서 확인한다.
+    결과/근거: Store.Save bool 결과를 TryFlushPendingSave와 최종 drain이 확인함
+[x] DATA-007 | 일반 Auto 생산 중 검사 결과 저장은 기존 비동기 동작을 유지한다.
+    결과/근거: enqueue worker 구조 유지, 동기 대기는 정상 Cycle Stop 최종 drain에서만 호출
+
+6. 백그라운드 작업과 전체 축 정지
+--------------------------------
+[x] BG-001 | Cycle Stop 요청 후 prefetch runner가 새 선행검사를 시작하지 않는다.
+    결과/근거: runner loop와 두 EnsureStarted 진입/lock 내부에서 Cycle Stop 재확인
+[x] BG-002 | 이미 시작된 Input 선행검사를 강제 취소하지 않고 안전 종료까지 기다린다.
+    결과/근거: WaitUntilIdleAsync는 취소를 발행하지 않고 기존 Task 완료만 관찰함
+[x] BG-003 | 선행검사 drain에 timeout과 실패 전파가 있다.
+    결과/근거: 30초 제한과 nonzero/예외 결과 전파 구현
+[x] BG-004 | 선행검사 종료 후 남은 InputVisionX 독립 회피 Task 완료를 기다린다.
+    결과/근거: 등록된 독립 회피 Task 전체를 추적하고 완료/실패를 최종 drain에서 확인
+[x] BG-005 | Cycle Stop 이후 새 InputVisionX 선행이동을 차단하고 기존 세션 종료를 기다린다.
+    결과/근거: Auto+CycleStop 이중 진입 차단과 기존 session WaitUntilIdleAsync 구현
+[x] AXIS-001 | 전체 장비 축 IsMoving=false를 연속 복수 샘플로 확인한다.
+    결과/근거: 등록 축 전체를 UpdateStatus 후 50ms 간격 3회 연속 확인
+[x] AXIS-002 | 전체 축 정지 확인은 검사·저장·OutputVisionX Avoid 이후 실행된다.
+    결과/근거: CompleteNormalCycleStopDrainAsync의 마지막 배리어로 배치됨
+[x] AXIS-003 | 전체 축 정지 timeout이 성공 CycleStopped로 바뀌지 않는다.
+    결과/근거: 30초 timeout 실패가 일반 예외로 상위 Alarm 경로에 전파됨
+
+7. 코드 안전 불변조건
+--------------------
+[x] SAFE-001 | MotionGuard 파일을 수정하지 않았다.
+    결과/근거: MotionGuard 이름을 포함한 변경 파일 없음
+[x] SAFE-002 | Picker/Output/SharedRail 인터락 파일을 수정하지 않았다.
+    결과/근거: Interlock 이름을 포함한 변경 파일 없음
+[x] SAFE-003 | 기존 작업 존·리소스 lease를 우회하는 직접 모션 경로가 없다.
+    결과/근거: Picker 기존 모션 헬퍼와 Output 기존 gate/resource/motion helper 재사용
+[x] SAFE-004 | 모션 완료와 최종 위치 확인을 생략하지 않았다.
+    결과/근거: Picker 전체 teaching 위치, OutputVisionX Avoid, 전체 축 정지 최종 검증 유지/추가
+[x] SAFE-005 | 무기한 신규 polling을 추가하지 않았고 신규 비동기 drain 대기에 timeout이 있다.
+    결과/근거: Prefetch/Input/Output/file/axis 대기는 모두 제한 시간 적용, 동기 저장은 성공 결과 확인
+
+8. 정적 검사와 빌드
+-----------------
+[x] TEST-001 | git diff --check가 통과한다.
+[x] TEST-002 | 변경 C# 파일의 신규 컴파일 참조가 정상이다.
+    결과/근거: QMC.Common.dll 및 QMC.CDT-320.exe Build 성공
+[x] TEST-003 | 별도 OutDir Debug Build가 오류 0으로 성공한다.
+    결과/근거: MSBuild /t:Build /p:Configuration=Debug /p:Platform=Any CPU /p:OutDir=... 실행 성공
+[x] TEST-004 | 원본 저장소에서 Clean/Rebuild를 실행하지 않았다.
+[ ] TEST-005 | 검증용 임시 산출물을 정확한 대상만 정리했다.
+    결과/근거: 대상 경로는 확인했으나 현재 실행 환경의 삭제 정책에 의해 정리 명령이 차단됨
+
+9. 현장 검증
+-----------
+[ ] FIELD-001 | 양쪽 Picker가 Die를 보유하고 Place 진행 중 정상 STOP을 요청한다.
+    기대 결과: 두 Picker 모두 Place 완료 후 고정 X/Y/T/Z Avoid에서 정지한다.
+[ ] FIELD-002 | STOP 직전/직후 OutputCameraX Capture, EPD, RESULT 로그 순서를 확인한다.
+    기대 결과: 모든 RESULT/Material 반영 후 OutputCameraX가 전체 Avoid에 도착한다.
+[ ] FIELD-003 | CycleStopped 표시 직전에 Material JSON, 고객 CSV/Raw, place_runtime_offset.json 저장 완료 로그를 확인한다.
+[ ] FIELD-004 | CycleStopped 시 모든 축의 moving=N 스냅샷을 확인한다.
+[ ] FIELD-005 | Front만 공정 중, Rear만 공정 중, 양쪽 공정 중 조건을 각각 확인한다.
+[ ] FIELD-006 | Manual Place, Step Place, PickUp/Place/Collet Calibration 동작이 기존과 동일한지 확인한다.
+[ ] FIELD-007 | 검사 통신 실패, 파일 저장 실패, 축 정지 timeout 모의 조건에서 CycleStopped가 아닌 Alarm인지 확인한다.
+
+10. 현장 검증 시 주의
+-------------------
+- 첫 검증은 저속/Fine 조건과 충돌 감시가 가능한 상태에서 수행한다.
+- 정상 STOP 버튼만 사용하고 EMO/Alarm 정지 결과와 혼합하지 않는다.
+- 축 Actual/Command/IsMoving, Picker Die 보유 상태, Output inspection pending 수를 함께 기록한다.
+- 이상 발생 시 재시작하지 말고 해당 시점 로그와 Material/축 상태를 먼저 보존한다.

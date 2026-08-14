@@ -35,6 +35,105 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        /// <summary>
+        /// 정상 Auto Cycle Stop에서 이미 시작된 선행검사가 자체 안전 경계까지 종료될 때까지 기다린다.
+        /// 호출자는 prefetch 러너의 신규 시작을 먼저 차단해야 하며, 이 메서드는 진행 중 모션을 취소하지 않는다.
+        /// </summary>
+        public static async Task<int> WaitUntilIdleAsync(
+            string reason,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            string safeReason = string.IsNullOrWhiteSpace(reason) ? "CycleStopDrain" : reason;
+            int safeTimeoutMs = timeoutMs > 0 ? timeoutMs : 30000;
+            DateTime startedAt = DateTime.UtcNow;
+            bool waitLogged = false;
+
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var snapshot = new List<KeyValuePair<PickerSequenceSide, Task<int>>>();
+                lock (Sync)
+                {
+                    foreach (KeyValuePair<PickerSequenceSide, RunningInspection> pair in Running)
+                    {
+                        if (pair.Value != null && pair.Value.Task != null)
+                        {
+                            snapshot.Add(new KeyValuePair<PickerSequenceSide, Task<int>>(
+                                pair.Key,
+                                pair.Value.Task));
+                        }
+                    }
+                }
+
+                if (snapshot.Count == 0)
+                {
+                    if (waitLogged)
+                    {
+                        WriteLog("InputCameraPreInspectionCoordinator",
+                            safeReason + " InputCamera 선행검사 drain 완료. - Ok");
+                    }
+                    return 0;
+                }
+
+                for (int i = 0; i < snapshot.Count; i++)
+                {
+                    PickerSequenceSide side = snapshot[i].Key;
+                    Task<int> task = snapshot[i].Value;
+                    if (task == null || !task.IsCompleted)
+                        continue;
+
+                    int result;
+                    try
+                    {
+                        result = await task.ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException ex)
+                    {
+                        WriteLog("InputCameraPreInspectionCoordinator",
+                            safeReason + " InputCamera 선행검사 drain 중 작업이 취소되었습니다. side=" + side +
+                            ", error=" + ex.Message + " - Failed");
+                        return -1;
+                    }
+                    catch (Exception ex)
+                    {
+                        WriteLog("InputCameraPreInspectionCoordinator",
+                            safeReason + " InputCamera 선행검사 drain 중 작업이 실패했습니다. side=" + side +
+                            ", error=" + ex.Message + " - Failed");
+                        return -1;
+                    }
+
+                    RemoveIfSame(side, task);
+                    if (result != 0 && result != CycleStoppedResult)
+                    {
+                        WriteLog("InputCameraPreInspectionCoordinator",
+                            safeReason + " InputCamera 선행검사 drain 결과 실패. side=" + side +
+                            ", result=" + result + " - Failed");
+                        return result;
+                    }
+                }
+
+                if ((DateTime.UtcNow - startedAt).TotalMilliseconds >= safeTimeoutMs)
+                {
+                    WriteLog("InputCameraPreInspectionCoordinator",
+                        safeReason + " InputCamera 선행검사 drain 시간 초과. running=" + snapshot.Count +
+                        ", timeoutMs=" + safeTimeoutMs + " - Failed");
+                    return -1;
+                }
+
+                if (!waitLogged)
+                {
+                    waitLogged = true;
+                    WriteLog("InputCameraPreInspectionCoordinator",
+                        safeReason + " 진행 중 InputCamera 선행검사의 Cycle Stop 안전 종료를 기다립니다. running=" +
+                        snapshot.Count + " - Wait");
+                }
+
+                await Task.Delay(20, ct).ConfigureAwait(false);
+            }
+        }
+
         public static bool EnsureStarted(
             MachineSequenceContext context,
             PickerSequenceSide side,
@@ -44,6 +143,12 @@ namespace QMC.CDT320.Sequencing
         {
             if (context == null)
                 return false;
+            if (options != null &&
+                options.RunMode == SequenceRunMode.Auto &&
+                context.IsCycleStopRequested)
+            {
+                return false;
+            }
 
             if (InputCameraPickUpPermissionStore.HasPermission(side))
                 return false;
@@ -60,6 +165,13 @@ namespace QMC.CDT320.Sequencing
 
             lock (Sync)
             {
+                if (options != null &&
+                    options.RunMode == SequenceRunMode.Auto &&
+                    context.IsCycleStopRequested)
+                {
+                    return false;
+                }
+
                 RunningInspection current;
                 if (Running.TryGetValue(side, out current) &&
                     current != null &&
