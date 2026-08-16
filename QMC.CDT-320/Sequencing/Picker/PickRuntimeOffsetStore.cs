@@ -15,14 +15,29 @@ namespace QMC.CDT320.Sequencing
     [DataContract]
     internal sealed class PickRuntimeOffsetDocument
     {
+        // 필터 한계 기본값 — 설정화 전 서비스 const와 동일(현행 동작 보존, 2026-08-16 팀장님 확인).
+        // 구버전 파일(필드 부재 → 0)은 Normalize가 이 값으로 복원한다.
+        public const double DefaultOutlierLimitXyMm = 3.0;
+        public const double DefaultOutlierLimitTDeg = 0.5;
+        public const double DefaultClampLimitXyMm = 2.0;
+        public const double DefaultClampLimitTDeg = 0.5;
+
         [DataMember(Order = 0)] public bool UsePickRuntimeOffset { get; set; }
         [DataMember(Order = 1)] public double CutoffFrequency { get; set; }
-        [DataMember(Order = 2)] public List<PickRuntimeOffsetRow> Filters { get; set; }
+        [DataMember(Order = 2)] public double OutlierLimitXyMm { get; set; }
+        [DataMember(Order = 3)] public double OutlierLimitTDeg { get; set; }
+        [DataMember(Order = 4)] public double ClampLimitXyMm { get; set; }
+        [DataMember(Order = 5)] public double ClampLimitTDeg { get; set; }
+        [DataMember(Order = 6)] public List<PickRuntimeOffsetRow> Filters { get; set; }
 
         public PickRuntimeOffsetDocument()
         {
             UsePickRuntimeOffset = false;
             CutoffFrequency = 0.1;
+            OutlierLimitXyMm = DefaultOutlierLimitXyMm;
+            OutlierLimitTDeg = DefaultOutlierLimitTDeg;
+            ClampLimitXyMm = DefaultClampLimitXyMm;
+            ClampLimitTDeg = DefaultClampLimitTDeg;
             Filters = new List<PickRuntimeOffsetRow>();
         }
     }
@@ -113,9 +128,25 @@ namespace QMC.CDT320.Sequencing
                 document = new PickRuntimeOffsetDocument();
             if (document.CutoffFrequency <= 0.0)
                 document.CutoffFrequency = 0.1;
+            document.OutlierLimitXyMm = NormalizeLimit(
+                document.OutlierLimitXyMm, PickRuntimeOffsetDocument.DefaultOutlierLimitXyMm);
+            document.OutlierLimitTDeg = NormalizeLimit(
+                document.OutlierLimitTDeg, PickRuntimeOffsetDocument.DefaultOutlierLimitTDeg);
+            document.ClampLimitXyMm = NormalizeLimit(
+                document.ClampLimitXyMm, PickRuntimeOffsetDocument.DefaultClampLimitXyMm);
+            document.ClampLimitTDeg = NormalizeLimit(
+                document.ClampLimitTDeg, PickRuntimeOffsetDocument.DefaultClampLimitTDeg);
             if (document.Filters == null)
                 document.Filters = new List<PickRuntimeOffsetRow>();
             return document;
+        }
+
+        // 구버전 파일에는 한계 필드가 없어 0으로 로드된다 — 0 이하·NaN은 기본값으로 복원한다.
+        private static double NormalizeLimit(double value, double fallback)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0.0)
+                return fallback;
+            return value;
         }
     }
 }

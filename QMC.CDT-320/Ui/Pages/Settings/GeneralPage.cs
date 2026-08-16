@@ -43,6 +43,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblSkipRunReviewInSimulation.Text = "SKIP RUN REVIEW (SIM)";
             lblPickRuntimeOffset.Text = "PICK RUNTIME OFFSET";
             lblPlaceRuntimeOffset.Text = "PLACE RUNTIME OFFSET";
+            lblPickerZRuntimeOffset.Text = "PICKER Z RUNTIME OFFSET";
 
             grpAjin.Tag = "level:Maintenance";
         }
@@ -80,6 +81,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 ResetEnableDisableItems(_cbUseOutputGoodPickupCap);
                 ResetEnableDisableItems(_cbPickRuntimeOffset);
                 ResetEnableDisableItems(_cbPlaceRuntimeOffset);
+                ResetEnableDisableItems(_cbPickerZRuntimeOffset);
                 _cbWaferCompleteRunMode.Items.Clear();
                 _cbWaferCompleteRunMode.Items.Add("CONTINUE");
                 _cbWaferCompleteRunMode.Items.Add("STOP AFTER DRAIN");
@@ -104,6 +106,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 // 런타임 보정 사용 유무는 AppSettings가 아니라 각 보정 스토어(JSON)에 저장된다.
                 _cbPickRuntimeOffset.SelectedIndex = PickRuntimeOffsetService.IsEnabled ? 0 : 1;
                 _cbPlaceRuntimeOffset.SelectedIndex = PlaceRuntimeOffsetService.IsEnabled ? 0 : 1;
+                _cbPickerZRuntimeOffset.SelectedIndex = PickerZRuntimeOffsetService.IsEnabled ? 0 : 1;
             }
             finally
             {
@@ -289,35 +292,36 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             PlaceRuntimeOffsetService.SetEnabled(_cbPlaceRuntimeOffset.SelectedIndex == 0);
         }
 
+        // 기본 OFF — 실장비 방향 검증(클램프 축소 후 수렴 확인) 뒤에만 ON한다(지시 2026-08-14).
+        private void _cbPickerZRuntimeOffset_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_loadingSettings) return;
+            PickerZRuntimeOffsetService.SetEnabled(_cbPickerZRuntimeOffset.SelectedIndex == 0);
+        }
+
+        // 런타임 보정 필터 리셋은 모니터 다이얼로그와 동일 플로우(운전 중 금지 게이트 +
+        // 리셋 전 학습값 요약 확인 + 리셋 전 값·실행자 로그)를 공유한다 — 2026-08-16 팀장님 통일 지시.
         private void btnResetPickRuntimeOffset_Click(object sender, EventArgs e)
         {
-            DialogResult answer = QMC.Common.MessageDialog.Show(
-                "Pick 런타임 보정 필터(8세트 X/Y/T)를 모두 0으로 초기화합니다.\n계속하시겠습니까?",
-                "PICK RUNTIME OFFSET RESET",
-                MessageBoxButtons.YesNo);
-            if (answer != DialogResult.Yes)
-                return;
-
-            PickRuntimeOffsetService.ResetAll();
-            QMC.Common.MessageDialog.Show("Pick 런타임 보정 필터를 초기화했습니다.");
+            QMC.CDT_320.Ui.Dialogs.RuntimeOffsetMonitorDialog.ResetRuntimeOffsetsWithConfirm(
+                FindForm() as Form1, false);
         }
 
         private void btnResetPlaceRuntimeOffset_Click(object sender, EventArgs e)
         {
-            DialogResult answer = QMC.Common.MessageDialog.Show(
-                "Place 런타임 보정 필터(8세트 X/Y/T)를 모두 0으로 초기화합니다.\n계속하시겠습니까?",
-                "PLACE RUNTIME OFFSET RESET",
-                MessageBoxButtons.YesNo);
-            if (answer != DialogResult.Yes)
-                return;
-
-            PlaceRuntimeOffsetService.ResetAll();
-            QMC.Common.MessageDialog.Show("Place 런타임 보정 필터를 초기화했습니다.");
+            QMC.CDT_320.Ui.Dialogs.RuntimeOffsetMonitorDialog.ResetRuntimeOffsetsWithConfirm(
+                FindForm() as Form1, true);
         }
 
         private void btnRuntimeOffsetMonitor_Click(object sender, EventArgs e)
         {
             using (var dlg = new QMC.CDT_320.Ui.Dialogs.RuntimeOffsetMonitorDialog())
+                dlg.ShowDialog(FindForm());
+        }
+
+        private void btnRuntimeFilterSettings_Click(object sender, EventArgs e)
+        {
+            using (var dlg = new QMC.CDT_320.Ui.Dialogs.RuntimeFilterSettingsDialog())
                 dlg.ShowDialog(FindForm());
         }
     }

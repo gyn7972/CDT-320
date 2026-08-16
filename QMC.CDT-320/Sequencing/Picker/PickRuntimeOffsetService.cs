@@ -23,12 +23,19 @@ namespace QMC.CDT320.Sequencing
     /// </summary>
     internal static class PickRuntimeOffsetService
     {
+        // 필터 설정 입력 허용 범위(SetFilterSettings·설정 다이얼로그 공통, 2026-08-16 팀장님 승인).
+        public const double MinCutoffFrequency = 0.001;
+        public const double MaxCutoffFrequency = 1.0;
+        public const double MinFilterLimit = 0.01;
+        public const double MaxFilterLimit = 5.0;
+
+        // 필터 한계 설정값(스토어 로드, SetFilterSettings로 변경) — 판정 알고리즘은 무변경.
         // 이상치 거부 한계: 현재 필터 출력 대비 편차가 이 값 이상이면 해당 채널 샘플 폐기.
-        private const double OutlierLimitXyMm = 3.0;
-        private const double OutlierLimitTDeg = 0.5;
-        // 발산 방지 클램프 한계 (필터 상태값 자체를 이 범위로 제한).
-        private const double ClampLimitXyMm = 2.0;
-        private const double ClampLimitTDeg = 0.5;
+        private static double _outlierLimitXyMm = PickRuntimeOffsetDocument.DefaultOutlierLimitXyMm;
+        private static double _outlierLimitTDeg = PickRuntimeOffsetDocument.DefaultOutlierLimitTDeg;
+        // 발산 방지 클램프 한계: 필터 상태값 자체를 이 범위로 제한.
+        private static double _clampLimitXyMm = PickRuntimeOffsetDocument.DefaultClampLimitXyMm;
+        private static double _clampLimitTDeg = PickRuntimeOffsetDocument.DefaultClampLimitTDeg;
 
         private static readonly object Sync = new object();
         private static bool _loaded;
@@ -100,6 +107,117 @@ namespace QMC.CDT320.Sequencing
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "PickRuntimeOffset",
                     "Pick 런타임 오프셋 사용 설정 변경 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>현재 필터 설정(fc + 이상치/클램프 한계 4종)을 반환한다.</summary>
+        public static void GetFilterSettings(
+            out double cutoffFrequency,
+            out double outlierLimitXyMm,
+            out double outlierLimitTDeg,
+            out double clampLimitXyMm,
+            out double clampLimitTDeg)
+        {
+            lock (Sync)
+            {
+                EnsureLoadedLocked();
+                cutoffFrequency = _cutoffFrequency;
+                outlierLimitXyMm = _outlierLimitXyMm;
+                outlierLimitTDeg = _outlierLimitTDeg;
+                clampLimitXyMm = _clampLimitXyMm;
+                clampLimitTDeg = _clampLimitTDeg;
+            }
+        }
+
+        /// <summary>
+        /// 필터 설정(fc + 한계 4종)을 변경하고 즉시 저장한다. UI 저장은 반드시 이 API를 경유할 것 —
+        /// json은 런 중 지연 저장으로 덮어써지므로 파일을 직접 쓰면 유실된다.
+        /// fc 변경은 8세트 필터의 alpha만 재계산하고 학습 상태를 유지한다.
+        /// 클램프 한계 축소로 현재 상태값이 범위를 벗어나면 즉시 재클램프한다(래치 무조작, 로그만).
+        /// 범위 밖 입력은 저장하지 않고 false를 반환한다(다이얼로그 검증과 이중 방어).
+        /// </summary>
+        public static bool SetFilterSettings(
+            double cutoffFrequency,
+            double outlierLimitXyMm,
+            double outlierLimitTDeg,
+            double clampLimitXyMm,
+            double clampLimitTDeg)
+        {
+            try
+            {
+                string rejectReason = BuildFilterSettingsRejectReason(
+                    cutoffFrequency, outlierLimitXyMm, outlierLimitTDeg, clampLimitXyMm, clampLimitTDeg);
+                if (rejectReason != null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "PickRuntimeOffset",
+                        "Pick 런타임 필터 설정 입력이 허용 범위를 벗어나 거부했습니다. " + rejectReason + " - Failed");
+                    return false;
+                }
+
+                double oldFc;
+                double oldOutlierXy;
+                double oldOutlierT;
+                double oldClampXy;
+                double oldClampT;
+                var reclampLines = new System.Collections.Generic.List<string>();
+
+                lock (Sync)
+                {
+                    EnsureLoadedLocked();
+                    oldFc = _cutoffFrequency;
+                    oldOutlierXy = _outlierLimitXyMm;
+                    oldOutlierT = _outlierLimitTDeg;
+                    oldClampXy = _clampLimitXyMm;
+                    oldClampT = _clampLimitTDeg;
+
+                    _cutoffFrequency = cutoffFrequency;
+                    _outlierLimitXyMm = outlierLimitXyMm;
+                    _outlierLimitTDeg = outlierLimitTDeg;
+                    _clampLimitXyMm = clampLimitXyMm;
+                    _clampLimitTDeg = clampLimitTDeg;
+
+                    for (int i = 0; i < _filters.Length; i++)
+                    {
+                        FilterSet set = _filters[i];
+                        set.X.SetCutoffFrequency(_cutoffFrequency);
+                        set.Y.SetCutoffFrequency(_cutoffFrequency);
+                        set.T.SetCutoffFrequency(_cutoffFrequency);
+
+                        PickerSequenceSide side = i < 4 ? PickerSequenceSide.Front : PickerSequenceSide.Rear;
+                        int pickerNo = (i % 4) + 1;
+                        ReclampChannelLocked(set.X, _clampLimitXyMm, side, pickerNo, "X", reclampLines);
+                        ReclampChannelLocked(set.Y, _clampLimitXyMm, side, pickerNo, "Y", reclampLines);
+                        ReclampChannelLocked(set.T, _clampLimitTDeg, side, pickerNo, "T", reclampLines);
+                    }
+
+                    SaveLocked();
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "PickRuntimeOffset",
+                    "Pick 런타임 필터 설정을 변경했습니다." +
+                    " fc=" + F(oldFc) + "→" + F(cutoffFrequency) +
+                    "(alpha=" + F(LowPassFilter.CalculateAlpha(oldFc)) + "→" + F(LowPassFilter.CalculateAlpha(cutoffFrequency)) + ")" +
+                    ", outlierXy=" + F(oldOutlierXy) + "→" + F(outlierLimitXyMm) +
+                    ", outlierT=" + F(oldOutlierT) + "→" + F(outlierLimitTDeg) +
+                    ", clampXy=" + F(oldClampXy) + "→" + F(clampLimitXyMm) +
+                    ", clampT=" + F(oldClampT) + "→" + F(clampLimitTDeg) + " - Ok");
+
+                foreach (string line in reclampLines)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "PickRuntimeOffset",
+                        "Pick 런타임 오프셋을 축소된 클램프 한계로 재클램프했습니다. " + line + " - Check");
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "PickRuntimeOffset",
+                    "Pick 런타임 필터 설정 변경 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                return false;
             }
             finally
             {
@@ -199,16 +317,16 @@ namespace QMC.CDT320.Sequencing
                         return;
                     }
 
-                    acceptedX = AcceptChannelLocked(set.X, offsetX, OutlierLimitXyMm, "X", side, pickerNo, dieId);
-                    acceptedY = AcceptChannelLocked(set.Y, preprocessedY, OutlierLimitXyMm, "Y", side, pickerNo, dieId);
-                    acceptedT = AcceptChannelLocked(set.T, offsetT, OutlierLimitTDeg, "T", side, pickerNo, dieId);
+                    acceptedX = AcceptChannelLocked(set.X, offsetX, _outlierLimitXyMm, "X", side, pickerNo, dieId);
+                    acceptedY = AcceptChannelLocked(set.Y, preprocessedY, _outlierLimitXyMm, "Y", side, pickerNo, dieId);
+                    acceptedT = AcceptChannelLocked(set.T, offsetT, _outlierLimitTDeg, "T", side, pickerNo, dieId);
 
                     if (acceptedX)
-                        set.ClampLatchedX = ClampChannelLocked(set.X, ClampLimitXyMm, set.ClampLatchedX, "X", side, pickerNo);
+                        set.ClampLatchedX = ClampChannelLocked(set.X, _clampLimitXyMm, set.ClampLatchedX, "X", side, pickerNo);
                     if (acceptedY)
-                        set.ClampLatchedY = ClampChannelLocked(set.Y, ClampLimitXyMm, set.ClampLatchedY, "Y", side, pickerNo);
+                        set.ClampLatchedY = ClampChannelLocked(set.Y, _clampLimitXyMm, set.ClampLatchedY, "Y", side, pickerNo);
                     if (acceptedT)
-                        set.ClampLatchedT = ClampChannelLocked(set.T, ClampLimitTDeg, set.ClampLatchedT, "T", side, pickerNo);
+                        set.ClampLatchedT = ClampChannelLocked(set.T, _clampLimitTDeg, set.ClampLatchedT, "T", side, pickerNo);
 
                     if (acceptedX || acceptedY || acceptedT)
                     {
@@ -416,6 +534,10 @@ namespace QMC.CDT320.Sequencing
             PickRuntimeOffsetDocument document = PickRuntimeOffsetStore.Load();
             _useCorrection = document.UsePickRuntimeOffset;
             _cutoffFrequency = document.CutoffFrequency > 0.0 ? document.CutoffFrequency : 0.1;
+            _outlierLimitXyMm = document.OutlierLimitXyMm;
+            _outlierLimitTDeg = document.OutlierLimitTDeg;
+            _clampLimitXyMm = document.ClampLimitXyMm;
+            _clampLimitTDeg = document.ClampLimitTDeg;
             _filters = new FilterSet[8];
             for (int i = 0; i < _filters.Length; i++)
                 _filters[i] = new FilterSet(_cutoffFrequency);
@@ -517,6 +639,57 @@ namespace QMC.CDT320.Sequencing
             return true;
         }
 
+        /// <summary>설정 입력 검증. 전 항목을 검사해 위반을 전부 담은 사유를 반환한다(정상이면 null).</summary>
+        private static string BuildFilterSettingsRejectReason(
+            double cutoffFrequency,
+            double outlierLimitXyMm,
+            double outlierLimitTDeg,
+            double clampLimitXyMm,
+            double clampLimitTDeg)
+        {
+            var reasons = new System.Text.StringBuilder();
+            AppendRangeViolation(reasons, "fc", cutoffFrequency, MinCutoffFrequency, MaxCutoffFrequency);
+            AppendRangeViolation(reasons, "outlierXy", outlierLimitXyMm, MinFilterLimit, MaxFilterLimit);
+            AppendRangeViolation(reasons, "outlierT", outlierLimitTDeg, MinFilterLimit, MaxFilterLimit);
+            AppendRangeViolation(reasons, "clampXy", clampLimitXyMm, MinFilterLimit, MaxFilterLimit);
+            AppendRangeViolation(reasons, "clampT", clampLimitTDeg, MinFilterLimit, MaxFilterLimit);
+            return reasons.Length > 0 ? reasons.ToString() : null;
+        }
+
+        private static void AppendRangeViolation(
+            System.Text.StringBuilder reasons, string item, double value, double min, double max)
+        {
+            if (!double.IsNaN(value) && !double.IsInfinity(value) && value >= min && value <= max)
+                return;
+
+            if (reasons.Length > 0)
+                reasons.Append(", ");
+            reasons.Append(item + "=" + F(value) + "(허용 " + F(min) + "~" + F(max) + ")");
+        }
+
+        /// <summary>
+        /// 한계 축소 시 범위를 벗어난 채널을 새 한계로 재클램프한다(워닝 래치는 조작하지 않는다).
+        /// 잘린 채널은 before→after 로그 라인을 수집한다.
+        /// </summary>
+        private static void ReclampChannelLocked(
+            LowPassFilter filter,
+            double limit,
+            PickerSequenceSide side,
+            int pickerNo,
+            string channel,
+            System.Collections.Generic.List<string> reclampLines)
+        {
+            double value = filter.Value;
+            if (Math.Abs(value) <= limit)
+                return;
+
+            double clamped = value > 0.0 ? limit : -limit;
+            filter.Reset(clamped);
+            reclampLines.Add(
+                "side=" + side + ", pickerNo=" + pickerNo + ", channel=" + channel +
+                ", before=" + F(value) + ", after=" + F(clamped) + ", limit=" + F(limit));
+        }
+
         /// <summary>
         /// 핫패스용 병합 저장 요청. 호출자는 디스크를 기다리지 않는다.
         /// Sync 락을 쥔 상태에서 호출해도 안전하다(여기서는 플래그만 세운다).
@@ -603,6 +776,10 @@ namespace QMC.CDT320.Sequencing
             var document = new PickRuntimeOffsetDocument();
             document.UsePickRuntimeOffset = _useCorrection;
             document.CutoffFrequency = _cutoffFrequency;
+            document.OutlierLimitXyMm = _outlierLimitXyMm;
+            document.OutlierLimitTDeg = _outlierLimitTDeg;
+            document.ClampLimitXyMm = _clampLimitXyMm;
+            document.ClampLimitTDeg = _clampLimitTDeg;
             for (int sideIndex = 0; sideIndex < 2; sideIndex++)
             {
                 PickerSequenceSide side = sideIndex == 0 ? PickerSequenceSide.Front : PickerSequenceSide.Rear;

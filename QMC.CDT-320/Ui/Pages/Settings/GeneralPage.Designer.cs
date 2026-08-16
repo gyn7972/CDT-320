@@ -30,6 +30,9 @@
         private System.Windows.Forms.Button btnResetPickRuntimeOffset;
         private System.Windows.Forms.Button btnResetPlaceRuntimeOffset;
         private System.Windows.Forms.Button btnRuntimeOffsetMonitor;
+        private System.Windows.Forms.Button btnRuntimeFilterSettings;
+        private System.Windows.Forms.Label lblPickerZRuntimeOffset;
+        private System.Windows.Forms.ComboBox _cbPickerZRuntimeOffset;
         private System.Windows.Forms.ComboBox _cbLang;
         private System.Windows.Forms.ComboBox _cbBinArr;
         private System.Windows.Forms.ComboBox _cbVisionMatch;
@@ -92,11 +95,14 @@
             this.pickRuntimeOffsetLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbPickRuntimeOffset = new System.Windows.Forms.ComboBox();
             this.btnResetPickRuntimeOffset = new System.Windows.Forms.Button();
+            this.btnRuntimeFilterSettings = new System.Windows.Forms.Button();
             this.lblPlaceRuntimeOffset = new System.Windows.Forms.Label();
             this.placeRuntimeOffsetLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbPlaceRuntimeOffset = new System.Windows.Forms.ComboBox();
             this.btnResetPlaceRuntimeOffset = new System.Windows.Forms.Button();
             this.btnRuntimeOffsetMonitor = new System.Windows.Forms.Button();
+            this.lblPickerZRuntimeOffset = new System.Windows.Forms.Label();
+            this._cbPickerZRuntimeOffset = new System.Windows.Forms.ComboBox();
             this.grpAjin = new System.Windows.Forms.GroupBox();
             this.ajinLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbAjin = new System.Windows.Forms.CheckBox();
@@ -215,11 +221,14 @@
             this.bodyLayout.Controls.Add(this.pickRuntimeOffsetLayout, 1, 12);
             this.bodyLayout.Controls.Add(this.lblPlaceRuntimeOffset, 0, 13);
             this.bodyLayout.Controls.Add(this.placeRuntimeOffsetLayout, 1, 13);
+            this.bodyLayout.Controls.Add(this.lblPickerZRuntimeOffset, 0, 14);
+            this.bodyLayout.Controls.Add(this._cbPickerZRuntimeOffset, 1, 14);
             this.bodyLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.bodyLayout.Location = new System.Drawing.Point(0, 0);
             this.bodyLayout.Margin = new System.Windows.Forms.Padding(0);
             this.bodyLayout.Name = "bodyLayout";
-            this.bodyLayout.RowCount = 14;
+            this.bodyLayout.RowCount = 15;
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
@@ -565,11 +574,13 @@
             // 
             // pickRuntimeOffsetLayout
             // 
-            this.pickRuntimeOffsetLayout.ColumnCount = 2;
+            this.pickRuntimeOffsetLayout.ColumnCount = 3;
             this.pickRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.pickRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 110F));
+            this.pickRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 130F));
             this.pickRuntimeOffsetLayout.Controls.Add(this._cbPickRuntimeOffset, 0, 0);
             this.pickRuntimeOffsetLayout.Controls.Add(this.btnResetPickRuntimeOffset, 1, 0);
+            this.pickRuntimeOffsetLayout.Controls.Add(this.btnRuntimeFilterSettings, 2, 0);
             this.pickRuntimeOffsetLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pickRuntimeOffsetLayout.Location = new System.Drawing.Point(180, 408);
             this.pickRuntimeOffsetLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -604,6 +615,20 @@
             this.btnResetPickRuntimeOffset.Text = "RESET";
             this.btnResetPickRuntimeOffset.UseVisualStyleBackColor = true;
             this.btnResetPickRuntimeOffset.Click += new System.EventHandler(this.btnResetPickRuntimeOffset_Click);
+            //
+            // btnRuntimeFilterSettings
+            //
+            this.btnRuntimeFilterSettings.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnRuntimeFilterSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnRuntimeFilterSettings.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnRuntimeFilterSettings.Location = new System.Drawing.Point(521, 2);
+            this.btnRuntimeFilterSettings.Margin = new System.Windows.Forms.Padding(2);
+            this.btnRuntimeFilterSettings.Name = "btnRuntimeFilterSettings";
+            this.btnRuntimeFilterSettings.Size = new System.Drawing.Size(126, 30);
+            this.btnRuntimeFilterSettings.TabIndex = 2;
+            this.btnRuntimeFilterSettings.Text = "FILTER SETTING";
+            this.btnRuntimeFilterSettings.UseVisualStyleBackColor = true;
+            this.btnRuntimeFilterSettings.Click += new System.EventHandler(this.btnRuntimeFilterSettings_Click);
             // 
             // lblPlaceRuntimeOffset
             // 
@@ -676,6 +701,32 @@
             this.btnRuntimeOffsetMonitor.Text = "OFFSET MONITOR";
             this.btnRuntimeOffsetMonitor.UseVisualStyleBackColor = true;
             this.btnRuntimeOffsetMonitor.Click += new System.EventHandler(this.btnRuntimeOffsetMonitor_Click);
+            //
+            // lblPickerZRuntimeOffset
+            //
+            this.lblPickerZRuntimeOffset.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblPickerZRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblPickerZRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblPickerZRuntimeOffset.Location = new System.Drawing.Point(2, 478);
+            this.lblPickerZRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
+            this.lblPickerZRuntimeOffset.Name = "lblPickerZRuntimeOffset";
+            this.lblPickerZRuntimeOffset.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblPickerZRuntimeOffset.Size = new System.Drawing.Size(176, 30);
+            this.lblPickerZRuntimeOffset.TabIndex = 26;
+            this.lblPickerZRuntimeOffset.Text = "PICKER Z RUNTIME OFFSET";
+            this.lblPickerZRuntimeOffset.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // _cbPickerZRuntimeOffset
+            //
+            this._cbPickerZRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._cbPickerZRuntimeOffset.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbPickerZRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._cbPickerZRuntimeOffset.Location = new System.Drawing.Point(182, 478);
+            this._cbPickerZRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
+            this._cbPickerZRuntimeOffset.Name = "_cbPickerZRuntimeOffset";
+            this._cbPickerZRuntimeOffset.Size = new System.Drawing.Size(645, 23);
+            this._cbPickerZRuntimeOffset.TabIndex = 27;
+            this._cbPickerZRuntimeOffset.SelectedIndexChanged += new System.EventHandler(this._cbPickerZRuntimeOffset_SelectedIndexChanged);
             // 
             // grpAjin
             // 

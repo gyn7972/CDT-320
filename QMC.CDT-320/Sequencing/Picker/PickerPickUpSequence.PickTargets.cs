@@ -640,11 +640,16 @@ namespace QMC.CDT320.Sequencing
                 double pickColletOverdrive = ResolveColletPickOverdrive(_currentPickerIndex);
                 double pickOverdrive = pickHeadOverdrive + pickColletOverdrive;
 
+                // [PickerZ 런타임 폐루프 2026-08-16] Side FrontSide ch0 필터값을 이동 목표에서만 감산.
+                // 배치 저장·복원(MotionResolvers)은 이 값을 그대로 실어 나르므로 이중 적용 없음.
+                double pickerZRuntimeOffset = CapturePickerZRuntimeOffset(
+                    _currentPickerNo, "PickZ", coordinate.PickerZ + pickOverdrive);
+
                 _targetStageY = coordinate.StageY;
                 _targetPickerX = coordinate.PickerX;
                 _targetPickerY = coordinate.PickerY;
                 _targetPickerT = coordinate.PickerT;
-                _targetPickerZ = coordinate.PickerZ + pickOverdrive;
+                _targetPickerZ = coordinate.PickerZ + pickOverdrive - pickerZRuntimeOffset;
                 _targetNeedleX = coordinate.NeedleX;
                 _targetNeedleZ = coordinate.NeedleZ;
                 _targetEjectPinZ = coordinate.EjectPinZ;
@@ -673,6 +678,7 @@ namespace QMC.CDT320.Sequencing
                     ", pickerZ=" + _targetPickerZ +
                     ", headOverdrive=" + pickHeadOverdrive.ToString("F6") +
                     ", colletOverdrive=" + pickColletOverdrive.ToString("F6") +
+                    ", pickerZRuntimeOffset=" + pickerZRuntimeOffset.ToString("F6") +
                     ", needleX=" + _targetNeedleX +
                     ", needleZ=" + _targetNeedleZ +
                     ", ejectPinZ=" + _targetEjectPinZ +

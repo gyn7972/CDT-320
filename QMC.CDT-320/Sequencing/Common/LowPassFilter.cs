@@ -35,6 +35,12 @@ namespace QMC.CDT320.Sequencing
             _value = initialValue;
         }
 
+        /// <summary>fc(cycles/sample)를 변경한다 — Alpha만 재계산하고 학습 상태(_value)는 유지한다.</summary>
+        public void SetCutoffFrequency(double cutoffFrequency)
+        {
+            Alpha = CalculateAlpha(cutoffFrequency);
+        }
+
         /// <summary>1샘플 갱신 후 필터 출력값을 반환한다.</summary>
         public double Update(double input)
         {

@@ -9,11 +9,15 @@
         private System.Windows.Forms.DataGridView gridPlace;
         private System.Windows.Forms.GroupBox grpPick;
         private System.Windows.Forms.DataGridView gridPick;
+        private System.Windows.Forms.GroupBox grpPickerZ;
+        private System.Windows.Forms.DataGridView gridPickerZ;
         private System.Windows.Forms.FlowLayoutPanel buttonBar;
         private System.Windows.Forms.Button btnClose;
         private System.Windows.Forms.Button btnRefresh;
         private System.Windows.Forms.Button btnApplyPick;
         private System.Windows.Forms.Button btnApplyPlace;
+        private System.Windows.Forms.Button btnResetPick;
+        private System.Windows.Forms.Button btnResetPlace;
         private System.Windows.Forms.Label lblStatus;
         private System.Windows.Forms.Timer timerRefresh;
 
@@ -34,11 +38,15 @@
             this.gridPlace = new System.Windows.Forms.DataGridView();
             this.grpPick = new System.Windows.Forms.GroupBox();
             this.gridPick = new System.Windows.Forms.DataGridView();
+            this.grpPickerZ = new System.Windows.Forms.GroupBox();
+            this.gridPickerZ = new System.Windows.Forms.DataGridView();
             this.buttonBar = new System.Windows.Forms.FlowLayoutPanel();
             this.btnClose = new System.Windows.Forms.Button();
             this.btnRefresh = new System.Windows.Forms.Button();
             this.btnApplyPick = new System.Windows.Forms.Button();
             this.btnApplyPlace = new System.Windows.Forms.Button();
+            this.btnResetPick = new System.Windows.Forms.Button();
+            this.btnResetPlace = new System.Windows.Forms.Button();
             this.lblStatus = new System.Windows.Forms.Label();
             this.timerRefresh = new System.Windows.Forms.Timer(this.components);
             this.rootLayout.SuspendLayout();
@@ -46,6 +54,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.gridPlace)).BeginInit();
             this.grpPick.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridPick)).BeginInit();
+            this.grpPickerZ.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.gridPickerZ)).BeginInit();
             this.buttonBar.SuspendLayout();
             this.SuspendLayout();
             //
@@ -55,18 +65,20 @@
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.grpPlace, 0, 0);
             this.rootLayout.Controls.Add(this.grpPick, 0, 1);
-            this.rootLayout.Controls.Add(this.buttonBar, 0, 2);
-            this.rootLayout.Controls.Add(this.lblStatus, 0, 3);
+            this.rootLayout.Controls.Add(this.grpPickerZ, 0, 2);
+            this.rootLayout.Controls.Add(this.buttonBar, 0, 3);
+            this.rootLayout.Controls.Add(this.lblStatus, 0, 4);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
-            this.rootLayout.RowCount = 4;
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.rootLayout.RowCount = 5;
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 34F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 58F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.Size = new System.Drawing.Size(900, 720);
+            this.rootLayout.Size = new System.Drawing.Size(900, 860);
             this.rootLayout.TabIndex = 0;
             //
             // grpPlace
@@ -116,7 +128,7 @@
             this.grpPick.Size = new System.Drawing.Size(878, 310);
             this.grpPick.TabIndex = 1;
             this.grpPick.TabStop = false;
-            this.grpPick.Text = "PICK RUNTIME OFFSET (Bottom 검사 폐루프) — 표시 전용";
+            this.grpPick.Text = "PICK RUNTIME OFFSET (Bottom 검사 폐루프)";
             //
             // gridPick
             //
@@ -139,12 +151,49 @@
             this.gridPick.Size = new System.Drawing.Size(866, 279);
             this.gridPick.TabIndex = 0;
             //
+            // grpPickerZ
+            //
+            this.grpPickerZ.Controls.Add(this.gridPickerZ);
+            this.grpPickerZ.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpPickerZ.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.grpPickerZ.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(35)))), ((int)(((byte)(45)))), ((int)(((byte)(57)))));
+            this.grpPickerZ.Location = new System.Drawing.Point(11, 519);
+            this.grpPickerZ.Name = "grpPickerZ";
+            this.grpPickerZ.Padding = new System.Windows.Forms.Padding(6);
+            this.grpPickerZ.Size = new System.Drawing.Size(878, 245);
+            this.grpPickerZ.TabIndex = 4;
+            this.grpPickerZ.TabStop = false;
+            this.grpPickerZ.Text = "PICKER Z RUNTIME OFFSET (Side FrontSide ch0 폐루프) — 표시 전용";
+            //
+            // gridPickerZ
+            //
+            this.gridPickerZ.AllowUserToAddRows = false;
+            this.gridPickerZ.AllowUserToDeleteRows = false;
+            this.gridPickerZ.AllowUserToResizeRows = false;
+            this.gridPickerZ.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            this.gridPickerZ.BackgroundColor = System.Drawing.Color.White;
+            this.gridPickerZ.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.gridPickerZ.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.gridPickerZ.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.gridPickerZ.EnableHeadersVisualStyles = false;
+            this.gridPickerZ.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.gridPickerZ.Location = new System.Drawing.Point(6, 25);
+            this.gridPickerZ.MultiSelect = false;
+            this.gridPickerZ.Name = "gridPickerZ";
+            this.gridPickerZ.ReadOnly = true;
+            this.gridPickerZ.RowHeadersVisible = false;
+            this.gridPickerZ.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.gridPickerZ.Size = new System.Drawing.Size(866, 214);
+            this.gridPickerZ.TabIndex = 0;
+            //
             // buttonBar
             //
             this.buttonBar.Controls.Add(this.btnClose);
             this.buttonBar.Controls.Add(this.btnRefresh);
             this.buttonBar.Controls.Add(this.btnApplyPick);
             this.buttonBar.Controls.Add(this.btnApplyPlace);
+            this.buttonBar.Controls.Add(this.btnResetPick);
+            this.buttonBar.Controls.Add(this.btnResetPlace);
             this.buttonBar.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonBar.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
             this.buttonBar.Location = new System.Drawing.Point(11, 643);
@@ -181,8 +230,7 @@
             //
             // btnApplyPick
             //
-            this.btnApplyPick.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(190)))));
-            this.btnApplyPick.Enabled = false;
+            this.btnApplyPick.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(122)))), ((int)(((byte)(204)))));
             this.btnApplyPick.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnApplyPick.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnApplyPick.ForeColor = System.Drawing.Color.White;
@@ -210,6 +258,32 @@
             this.btnApplyPlace.UseVisualStyleBackColor = false;
             this.btnApplyPlace.Click += new System.EventHandler(this.btnApplyPlace_Click);
             //
+            // btnResetPick
+            //
+            this.btnResetPick.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnResetPick.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnResetPick.Location = new System.Drawing.Point(141, 11);
+            this.btnResetPick.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.btnResetPick.Name = "btnResetPick";
+            this.btnResetPick.Size = new System.Drawing.Size(110, 36);
+            this.btnResetPick.TabIndex = 4;
+            this.btnResetPick.Text = "PICK 리셋";
+            this.btnResetPick.UseVisualStyleBackColor = true;
+            this.btnResetPick.Click += new System.EventHandler(this.btnResetPick_Click);
+            //
+            // btnResetPlace
+            //
+            this.btnResetPlace.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnResetPlace.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnResetPlace.Location = new System.Drawing.Point(25, 11);
+            this.btnResetPlace.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.btnResetPlace.Name = "btnResetPlace";
+            this.btnResetPlace.Size = new System.Drawing.Size(110, 36);
+            this.btnResetPlace.TabIndex = 5;
+            this.btnResetPlace.Text = "PLACE 리셋";
+            this.btnResetPlace.UseVisualStyleBackColor = true;
+            this.btnResetPlace.Click += new System.EventHandler(this.btnResetPlace_Click);
+            //
             // lblStatus
             //
             this.lblStatus.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -219,7 +293,7 @@
             this.lblStatus.Name = "lblStatus";
             this.lblStatus.Size = new System.Drawing.Size(878, 30);
             this.lblStatus.TabIndex = 3;
-            this.lblStatus.Text = "PLACE 적용은 기구 오프셋 = 기구 오프셋 − 필터값(X/Y)으로 이관하고, 이관한 채널의 필터를 0으로 초기화합니다.";
+            this.lblStatus.Text = "이관식: PLACE 기구 = 기구 − 필터(X/Y), PICK 기구 = 기구 + 필터(X/Y). 이관한 채널의 필터는 0으로 초기화. 리셋은 8세트 전체 0.";
             this.lblStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // timerRefresh
@@ -231,13 +305,13 @@
             //
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.White;
-            this.ClientSize = new System.Drawing.Size(900, 720);
+            this.ClientSize = new System.Drawing.Size(900, 860);
             this.Controls.Add(this.rootLayout);
             this.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.Sizable;
             this.MaximizeBox = true;
             this.MinimizeBox = false;
-            this.MinimumSize = new System.Drawing.Size(776, 600);
+            this.MinimumSize = new System.Drawing.Size(900, 600);
             this.Name = "RuntimeOffsetMonitorDialog";
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
@@ -248,6 +322,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.gridPlace)).EndInit();
             this.grpPick.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridPick)).EndInit();
+            this.grpPickerZ.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.gridPickerZ)).EndInit();
             this.buttonBar.ResumeLayout(false);
             this.ResumeLayout(false);
         }

@@ -3960,7 +3960,49 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        /// <summary>
+        /// PickerZ 런타임 보정(Side FrontSide ch0 폐루프) 적용값을 캡처한다 — 적용 지점 4곳
+        /// (Pick Z/Place Z/Bottom 검사 Z/Side 검사 Z) 공용. Enable OFF면 0을 반환해 기존 산식과
+        /// 완전히 동일하다. 감산은 각 지점에서 이동 목표 계산 시 1회만 수행한다 —
+        /// 레시피 공정값(PickPosition/PlacePosition)·AF 확정식에 스며들면 이중 적용이라 금지.
+        /// Enable 상태면 적용마다 지점명+baseZ+filteredZ+correctedZ 1줄을 로그로 남긴다.
+        /// </summary>
+        protected double CapturePickerZRuntimeOffset(int pickerNo, string applyPoint, double baseZ)
+        {
+            try
+            {
+                if (!PickerZRuntimeOffsetService.IsEnabled)
+                    return 0.0;
+
+                double filteredZ;
+                PickerZRuntimeOffsetService.GetOffset(Side, pickerNo, out filteredZ);
+                WriteLog("PickerZRuntimeOffset",
+                    Name + " PickerZ 런타임 보정 적용. point=" + applyPoint +
+                    ", side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", baseZ=" + baseZ.ToString("F6") +
+                    ", filteredZ=" + filteredZ.ToString("F6") +
+                    ", correctedZ=" + (baseZ - filteredZ).ToString("F6") + " - Ok");
+                return filteredZ;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerZRuntimeOffset",
+                    Name + " PickerZ 런타임 보정 캡처 중 예외가 발생해 0을 적용합니다. point=" + applyPoint +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
+                return 0.0;
+            }
+        }
+
         protected double ResolveSideInspectionPickerZFromBottomBest(int pickerIndex, int pickerNo, string source)
+        {
+            // [PickerZ 런타임 폐루프 2026-08-16] 사이클별 이동 목표에만 1회 감산 — 산출 본체(Base)는 무변경.
+            double baseZ = ResolveSideInspectionPickerZFromBottomBestBase(pickerIndex, pickerNo, source);
+            return baseZ - CapturePickerZRuntimeOffset(pickerNo, "SideInspectZ", baseZ);
+        }
+
+        private double ResolveSideInspectionPickerZFromBottomBestBase(int pickerIndex, int pickerNo, string source)
         {
             double bottomTeachingZ = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "BottomPosition");
             double sideTeachingZ = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "SidePosition");

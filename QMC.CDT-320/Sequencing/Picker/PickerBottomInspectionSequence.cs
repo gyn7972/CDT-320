@@ -374,7 +374,9 @@ namespace QMC.CDT320.Sequencing
 
             _targetPickerX = ResolvePickerZoneX("DieBottomPosition", _currentPickerIndex);
             _targetPickerY = ResolvePickerZoneY("DieBottomPosition", _currentPickerIndex);
-            _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "BottomPosition");
+            // [PickerZ 런타임 폐루프 2026-08-16] 검사 Z 이동 목표에서만 감산(티칭 무변경).
+            double bottomBaseZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "BottomPosition");
+            _targetPickerZ = bottomBaseZ - CapturePickerZRuntimeOffset(_currentPickerNo, "BottomInspectZ", bottomBaseZ);
             _targetPickerT = ResolvePickerZoneT("DieBottomPosition", _currentPickerIndex);
             _bottomFlyingZDownActive = false;
             bool wasInInspectionZone = _inspectionYPositionReady;
@@ -624,7 +626,9 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "BottomPosition");
+            // [PickerZ 런타임 폐루프 2026-08-16] AF 후 재산출 목표에도 동일하게 이동 목표에서만 감산.
+            double bottomBaseZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "BottomPosition");
+            _targetPickerZ = bottomBaseZ - CapturePickerZRuntimeOffset(_currentPickerNo, "BottomInspectZ", bottomBaseZ);
             CurrentStep = PickerBottomInspectionStep.RequestBottomInspection;
             return 0;
         }

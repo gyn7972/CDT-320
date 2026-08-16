@@ -1008,7 +1008,9 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            target.Z = GetPickerTeachingPosition(GetPickerZAxis(target.PickerIndex), "BottomPosition");
+            // [PickerZ 런타임 폐루프 2026-08-16] AF 후 재산출 목표에도 동일하게 이동 목표에서만 감산.
+            double bottomBaseZ = GetPickerTeachingPosition(GetPickerZAxis(target.PickerIndex), "BottomPosition");
+            target.Z = bottomBaseZ - CapturePickerZRuntimeOffset(target.PickerNo, "BottomInspectZ", bottomBaseZ);
             return 0;
         }
 
@@ -1019,6 +1021,9 @@ namespace QMC.CDT320.Sequencing
             if (die == null)
                 return null;
 
+            // [PickerZ 런타임 폐루프 2026-08-16] 검사 Z 이동 목표에서만 감산(티칭 무변경).
+            double bottomBaseZ = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "BottomPosition");
+
             return new InspectionTarget
             {
                 PickerIndex = pickerIndex,
@@ -1028,7 +1033,7 @@ namespace QMC.CDT320.Sequencing
                 Y = _inspectionFixedYConfigured
                     ? _inspectionFixedY
                     : ResolvePickerZoneY("DieBottomPosition", pickerIndex),
-                Z = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "BottomPosition"),
+                Z = bottomBaseZ - CapturePickerZRuntimeOffset(pickerNo, "BottomInspectZ", bottomBaseZ),
                 T0 = ResolvePickerZoneT("DieBottomPosition", pickerIndex)
             };
         }
@@ -4088,6 +4093,106 @@ namespace QMC.CDT320.Sequencing
                 ", pickerNo=" + target.PickerNo +
                 ", ok0=" + ok0 +
                 ", ok90=" + ok90 + " - Ok");
+
+            TryFeedPickerZRuntimeOffsetSample(target, side0Result);
+        }
+
+        /// <summary>
+        /// [PickerZ 런타임 폐루프 2026-08-16] Side 집계 결과에서 FRONTSIDE 0도(ch0)
+        /// center_offset_mm만 Z 필터 샘플로 공급한다. RearSide raw·ch1(90도)은 읽지 않는다
+        /// (팀장님 확정 2026-08-14). 자격 게이트: FRONTSIDE PASS + measure_valid=1 + ch0_valid=1 +
+        /// (side, pickerNo) 컨텍스트 확정 — 불충족 시 종류별 사유를 로그로 남기고 스킵한다
+        /// (ch1로 대체하지 않는다). ver은 하드체크하지 않고 로그에만 기록(키 기반 파싱).
+        /// </summary>
+        private void TryFeedPickerZRuntimeOffsetSample(InspectionTarget target, SideVisionResult sideResult)
+        {
+            try
+            {
+                if (target == null || target.Die == null || sideResult == null)
+                    return;
+
+                string dieId = target.Die.DieId ?? string.Empty;
+                int pickerNo = target.PickerNo;
+                if (pickerNo < 1 || pickerNo > 4)
+                {
+                    WriteLog("PickerZRuntimeOffset",
+                        Name + " PickerZ 샘플 스킵: 대상 픽커 컨텍스트가 유효하지 않습니다. pickerNo=" +
+                        pickerNo + ", die=" + dieId + " - Check");
+                    return;
+                }
+
+                System.Collections.Generic.Dictionary<string, string> values = sideResult.Values;
+                if (values == null)
+                {
+                    WriteLog("PickerZRuntimeOffset",
+                        Name + " PickerZ 샘플 스킵: Side 집계 Values가 없습니다. pickerNo=" + pickerNo +
+                        ", die=" + dieId + " - Check");
+                    return;
+                }
+
+                string ver;
+                values.TryGetValue("FrontSide.ver", out ver);
+
+                string frontPass;
+                if (!values.TryGetValue("FrontSide.Pass", out frontPass) || frontPass != "1")
+                {
+                    WriteLog("PickerZRuntimeOffset",
+                        Name + " PickerZ 샘플 스킵: FRONTSIDE 판정이 PASS가 아닙니다. pickerNo=" + pickerNo +
+                        ", die=" + dieId +
+                        ", frontPass=" + (frontPass ?? "(없음)") +
+                        ", ver=" + (ver ?? "-") + " - Check");
+                    return;
+                }
+
+                string measureValid;
+                if (!values.TryGetValue("FrontSide.measure_valid", out measureValid) || measureValid != "1")
+                {
+                    WriteLog("PickerZRuntimeOffset",
+                        Name + " PickerZ 샘플 스킵: FRONTSIDE measure_valid가 1이 아닙니다. pickerNo=" + pickerNo +
+                        ", die=" + dieId +
+                        ", measureValid=" + (measureValid ?? "(없음)") +
+                        ", ver=" + (ver ?? "-") + " - Check");
+                    return;
+                }
+
+                string ch0Valid;
+                if (!values.TryGetValue("FrontSide.ch0_valid", out ch0Valid) || ch0Valid != "1")
+                {
+                    WriteLog("PickerZRuntimeOffset",
+                        Name + " PickerZ 샘플 스킵: FRONTSIDE ch0(0도)이 무효라 폐기합니다(ch1 대체 없음). pickerNo=" + pickerNo +
+                        ", die=" + dieId +
+                        ", ch0Valid=" + (ch0Valid ?? "(없음)") +
+                        ", ver=" + (ver ?? "-") + " - Check");
+                    return;
+                }
+
+                string centerText;
+                double centerOffsetMm;
+                if (!values.TryGetValue("FrontSide.ch0_side_item_center_offset_mm", out centerText) ||
+                    !double.TryParse(centerText, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out centerOffsetMm) ||
+                    double.IsNaN(centerOffsetMm) || double.IsInfinity(centerOffsetMm))
+                {
+                    WriteLog("PickerZRuntimeOffset",
+                        Name + " PickerZ 샘플 스킵: ch0_side_item_center_offset_mm 키 부재 또는 파싱 실패. pickerNo=" + pickerNo +
+                        ", die=" + dieId +
+                        ", raw=" + (centerText ?? "(없음)") +
+                        ", ver=" + (ver ?? "-") + " - Check");
+                    return;
+                }
+
+                WriteLog("PickerZRuntimeOffset",
+                    Name + " PickerZ 샘플 공급: FRONTSIDE ch0 center_offset을 필터에 반영합니다. pickerNo=" + pickerNo +
+                    ", die=" + dieId +
+                    ", centerOffsetMm=" + centerOffsetMm.ToString("F6") +
+                    ", ver=" + (ver ?? "-") + " - Ok");
+                PickerZRuntimeOffsetService.OnSideInspectionOffset(Side, pickerNo, centerOffsetMm, dieId);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerZRuntimeOffset",
+                    Name + " PickerZ 샘플 공급 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
         }
 
         private static List<InspectionMeasurement> BuildSideMeasurements(SideVisionResult result, string prefix)

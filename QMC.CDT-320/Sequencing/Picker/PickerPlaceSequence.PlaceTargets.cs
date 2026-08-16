@@ -158,10 +158,15 @@ namespace QMC.CDT320.Sequencing
             // bestZ+BottomToPlace 산식으로 갱신하며(승인 2026-07-29), 목표식은 티칭 + PlaceZOverDrive 그대로다.
             // PlaceZ 캘리브레이션은 이 함수를 지나지 않는다.
             double placeZOverDrive = ResolvePlaceZOverDrive();
-            _targetPickerZ = coordinate.PickerZ + placeZOverDrive;
+            // [PickerZ 런타임 폐루프 2026-08-16] Side FrontSide ch0 필터값을 이동 목표에서만 감산.
+            // Conti 노드/하강/검증은 이 값을 그대로 전파하므로 이중 적용 없음.
+            double pickerZRuntimeOffset = CapturePickerZRuntimeOffset(
+                _currentPickerNo, "PlaceZ", coordinate.PickerZ + placeZOverDrive);
+            _targetPickerZ = coordinate.PickerZ + placeZOverDrive - pickerZRuntimeOffset;
             _targetFormula = coordinate.Formula +
                 " / pickerZFinal = pickerZTeaching(" + coordinate.PickerZ.ToString("F6") +
                 ") + placeZOverDrive(" + placeZOverDrive.ToString("F6") +
+                ") - pickerZRuntimeOffset(" + pickerZRuntimeOffset.ToString("F6") +
                 ") = " + _targetPickerZ.ToString("F6");
 
             WriteLog("PickerPlaceSequence",
@@ -175,6 +180,7 @@ namespace QMC.CDT320.Sequencing
                 ", pickerZ=" + _targetPickerZ +
                 ", pickerZTeaching=" + coordinate.PickerZ +
                 ", placeZOverDrive=" + placeZOverDrive +
+                ", pickerZRuntimeOffset=" + pickerZRuntimeOffset.ToString("F6") +
                 ", outputStageBaseY=" + outputStageBaseY +
                 ", receiveTargetX=" + (_receiveTarget != null ? _receiveTarget.TargetX.ToString() : "-") +
                 ", receiveTargetY=" + (_receiveTarget != null ? _receiveTarget.TargetY.ToString() : "-") +
