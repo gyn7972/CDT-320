@@ -19,18 +19,42 @@ namespace QMC.CDT320.Materials
     {
         public static bool InitializeOutputStageReceivePlan(QMC.CDT320.BinSide side)
         {
+            string reason;
+            return InitializeOutputStageReceivePlan(side, out reason);
+        }
+
+        /// <summary>
+        /// 위 오버로드와 동일하되 실패 사유를 반환한다.
+        /// 배경(2026-08-17 무언정지): 이 함수가 false를 반환하면 출력 wafer의 OutputReceiveSlots/
+        ///   OutputReceiveTotalCount가 0으로 남고, 그 결과 GOOD 배출 픽업 캡 allowance가 0이 되어
+        ///   Front/Rear 픽커가 HasPickerWork()=false로 무한 대기한다(알람 없음, 13분 무언정지 실측).
+        ///   당시 실패 사유 로그는 4-인자 Log.Write라 LogPolicy에서 폐기되어 아무 흔적도 없었다.
+        /// 현재 기준: 실패 3경로 모두 사유를 반환하고 EventKind.Warning으로 디스크에 보존한다.
+        ///   호출자(Bin 로딩 시퀀스)는 이 사유를 알람 메시지에 그대로 싣는다.
+        /// </summary>
+        public static bool InitializeOutputStageReceivePlan(QMC.CDT320.BinSide side, out string reason)
+        {
+            reason = string.Empty;
             try
             {
                 WaferMaterial outputWafer = GetWaferAtLocation(ResolveOutputStageLocation(side));
                 if (outputWafer == null)
+                {
+                    reason = "출력 스테이지에 자재 데이터가 없습니다. side=" + side;
+                    LogOutputReceivePlanBlocked(side, reason);
                     return false;
+                }
 
                 // 출력 수령 계획은 레시피의 원형 빈맵(side별)에서 타겟 슬롯을 소스로 한다.
-                DieMap binMap = LoadRecipeBinMap(side);
+                string binMapReason;
+                DieMap binMap = LoadRecipeBinMap(side, out binMapReason);
                 if (binMap == null || binMap.DieMapX <= 0 || binMap.DieMapY <= 0)
                 {
+                    reason = "레시피 " + side + " 빈맵을 사용할 수 없습니다. " +
+                             (string.IsNullOrWhiteSpace(binMapReason) ? "빈맵이 비어 있습니다." : binMapReason);
                     Log.Write("Main", "SYSTEM", "MaterialStateService",
                         "Output receive plan initialize skipped: recipe bin map is missing. side=" + side + " - Check");
+                    LogOutputReceivePlanBlocked(side, reason + ", wafer=" + outputWafer.WaferId);
                     return false;
                 }
 
@@ -38,7 +62,12 @@ namespace QMC.CDT320.Materials
                 PickupSubset pickup = ResolveOutputPickup(project);
                 List<DieMapEntry> ordered = BuildOutputReceiveOrder(binMap, pickup);
                 if (ordered.Count == 0)
+                {
+                    reason = "레시피 " + side + " 빈맵에 배출 대상 슬롯이 하나도 없습니다. " +
+                             "dieMap=" + binMap.DieMapX + "x" + binMap.DieMapY;
+                    LogOutputReceivePlanBlocked(side, reason + ", wafer=" + outputWafer.WaferId);
                     return false;
+                }
 
                 // [사용자 승인 2026-07-27] 계획 재초기화 시 수령 순서 캐시를 최신으로 갱신.
                 _outputReceiveOrderCache[side] =
@@ -89,9 +118,35 @@ namespace QMC.CDT320.Materials
             }
             catch (Exception ex)
             {
+                reason = "배출 수령 계획 생성 중 예외가 발생했습니다: " + ex.Message;
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
                     "Output receive plan initialize failed: " + ex.Message + " - Failed");
+                LogOutputReceivePlanBlocked(side, reason);
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 배출 수령 계획 생성 차단 사유를 최소 로그 정책에서도 보존되도록 기록한다.
+        /// 4-인자 Log.Write는 LogPolicy.IsDiagnosticVerbose가 꺼져 있으면 통째로 폐기되므로
+        /// (2026-08-17 무언정지에서 실제로 사유가 남지 않았다) EventKind.Warning으로 올린다.
+        /// </summary>
+        private static void LogOutputReceivePlanBlocked(QMC.CDT320.BinSide side, string reason)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "SYSTEM",
+                    "OUT-RECEIVE-PLAN-BLOCKED",
+                    "MaterialStateService",
+                    "배출 수령 계획을 생성하지 못했습니다. side=" + side + ", reason=" + (reason ?? ""));
+            }
+            catch
+            {
             }
             finally
             {
@@ -2205,31 +2260,52 @@ namespace QMC.CDT320.Materials
         /// 경로는 RecipeMapPaths 공용 규칙을 사용하며, 없으면 null.</summary>
         private static DieMap LoadRecipeBinMap(QMC.CDT320.BinSide side)
         {
+            string reason;
+            return LoadRecipeBinMap(side, out reason);
+        }
+
+        /// <summary>
+        /// 위 오버로드와 동일하되 차단 사유를 호출자에게 반환한다.
+        /// 배경(2026-08-17 무언정지): Map Create FINAL APPLY 미승인으로 빈맵이 차단되면 여기서 null이
+        ///   나가는데, 호출자는 사유 없이 false만 받았고 사유 로그마저 4-인자 Log.Write라 LogPolicy에서
+        ///   폐기되어 "GoodBin 맵이 아직 Map Create에서 FINAL APPLY 되지 않았습니다"가 어디에도 남지 않았다.
+        /// 현재 기준: 사유를 위로 올려 알람 메시지에 그대로 싣는다.
+        /// </summary>
+        private static DieMap LoadRecipeBinMap(QMC.CDT320.BinSide side, out string reason)
+        {
+            reason = string.Empty;
             try
             {
                 // [리뷰 반영 2026-08-05] LoadCompatibleMap 경로가 project를 변형할 가능성이 지적되어
                 // 이 지점은 캐시 인스턴스 대신 신선 로드를 유지한다 (per-wafer 캐시 뒤라 저빈도).
                 RecipeProject project = RecipeStore.LoadLastOrDefault();
                 if (project == null)
+                {
+                    reason = "Recipe Project를 로드하지 못했습니다.";
                     return null;
+                }
 
                 RecipeMapKind kind = side == QMC.CDT320.BinSide.Ng ? RecipeMapKind.NgBin : RecipeMapKind.GoodBin;
                 string path;
-                string reason;
+                string resolverReason;
                 // 현재 기준: 출력 Good/NG 빈맵도 Input과 같은 원본 wafer map index 기준을 사용한다.
-                DieMap map = RecipeDieMapResolver.LoadCompatibleMap(project, kind, out path, out reason);
+                DieMap map = RecipeDieMapResolver.LoadCompatibleMap(project, kind, out path, out resolverReason);
                 if (map != null)
                     return DieMapGenerator.Normalize(map);
 
-                if (!string.IsNullOrWhiteSpace(reason))
+                reason = !string.IsNullOrWhiteSpace(resolverReason)
+                    ? resolverReason
+                    : (kind + " 빈맵을 레시피에서 찾지 못했습니다.");
+                if (!string.IsNullOrWhiteSpace(resolverReason))
                 {
                     Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Recipe bin map load skipped: side=" + side + ", " + reason + " - Check");
+                        "Recipe bin map load skipped: side=" + side + ", " + resolverReason + " - Check");
                 }
                 return null;
             }
             catch (Exception ex)
             {
+                reason = "빈맵 로드 중 예외가 발생했습니다: " + ex.Message;
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
                     "Recipe bin map load failed: " + ex.Message + " - Failed");
                 return null;

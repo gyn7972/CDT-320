@@ -517,12 +517,51 @@ namespace QMC.CDT320.Sequencing
                     ", held=" + held +
                     ", reserved=" + reserved +
                     ", ownReserved=" + ownReservationCount + " - " + (blocked ? "Wait" : "Ok"));
+
+                // [사용자 승인 2026-08-17] 위 WriteLog는 4-인자 Log.Write라 LogPolicy에서 폐기된다.
+                // 이 캡 차단이 무언정지의 직접 원인이므로 전이 시점만 Warning으로 올려 디스크에 남긴다.
+                LogPickupCapTransition(blocked, allowance, pending, held, reserved, ownReservationCount);
                 return !blocked;
             }
             catch (System.Exception ex)
             {
                 WriteLog("HasPickerWork", "FrontPicker 작업 조건 확인 실패: " + ex.Message + " - Failed");
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// GOOD 배출 픽업 캡 차단/해제 전이를 최소 로그 정책에서도 보존한다(전이 시점 1회, 폴링 아님).
+        /// allowance=0은 출력 GOOD wafer의 수령 슬롯이 0이라는 뜻이며, 이 상태에서는 픽커가
+        /// 알람 없이 무한 대기한다(2026-08-17 실측). 사유 추적에 필요한 계측값을 함께 남긴다.
+        /// </summary>
+        private void LogPickupCapTransition(
+            bool blocked,
+            int allowance,
+            int pending,
+            int held,
+            int reserved,
+            int ownReservationCount)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "SYSTEM",
+                    blocked ? "PICK-CAP-BLOCKED" : "PICK-CAP-CLEARED",
+                    "FrontPicker",
+                    "GOOD 배출 픽업 캡 " + (blocked ? "차단 — 픽커가 신규 픽업을 시작하지 않습니다." : "해제") +
+                    " allowance=" + allowance +
+                    ", pending=" + pending +
+                    ", held=" + held +
+                    ", reserved=" + reserved +
+                    ", ownReserved=" + ownReservationCount);
+            }
+            catch
+            {
             }
             finally
             {

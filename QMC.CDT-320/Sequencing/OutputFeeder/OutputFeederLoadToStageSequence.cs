@@ -1459,7 +1459,24 @@ namespace QMC.CDT320.Sequencing
                 return Fail("OUT-STAGE-MATERIAL-SIDE", "Material", "Ring 확인 후 Output side와 source cassette role이 일치하지 않습니다. wafer=" + wafer.WaferId + ", side=" + Options.Side + ", sourceRole=" + sourceRole);
 
             MaterialStateService.MoveWafer(wafer.WaferId, new MaterialLocation { Kind = ResolveOutputStageLocation() }, WaferMaterialState.Working);
-            MaterialStateService.InitializeOutputStageReceivePlan(Options.Side);
+
+            // [사용자 승인 2026-08-17] 종전에는 반환값을 버렸다. 계획 생성이 실패하면 OutputReceiveSlots가
+            // 0으로 남고 GOOD 배출 픽업 캡 allowance=0이 되어 Front/Rear 픽커가 알람 없이 무한 대기한다
+            // (실측 13분 무언정지, 원인은 GoodBin 맵 FINAL APPLY 누락). 여기서 즉시 알람으로 세운다.
+            // 복구는 Map Create에서 해당 역할 FINAL APPLY 후 재가동하면 OutputSequence의
+            // EnsureOutputStageReadyForPlace가 계획을 재초기화한다.
+            string receivePlanReason;
+            if (!MaterialStateService.InitializeOutputStageReceivePlan(Options.Side, out receivePlanReason))
+            {
+                return Fail(
+                    "OUT-STAGE-RECEIVE-PLAN",
+                    "Material",
+                    "Bin 로딩 후 배출 수령 계획을 생성하지 못했습니다. 이 상태로 가동하면 픽업 캡이 0이 되어 " +
+                    "픽커가 알람 없이 대기만 합니다. side=" + Options.Side +
+                    ", wafer=" + wafer.WaferId +
+                    ", reason=" + receivePlanReason);
+            }
+
             Feeder.ClearFeederMaterialState();
             CurrentStep = OutputFeederLoadToStageStep.PrepareFeederLiftUp;
             return 0;
