@@ -191,6 +191,11 @@ namespace QMC.CDT_320
                 // Main UI 접근을 허용하기 위해 unowned modeless top-level 창으로 연다.
                 // 정리는 FormClosed 기반 CleanupInputStageRunReviewSessionAsync 단일 경로에서 수행한다.
                 dialog.Show();
+
+                // [오픈 시 자동 Live 2026-08-17, 팀장님 지시] 화면이 열리면 Wafer Vision을 Live 상태로 켠다.
+                // 기존 "비전 사용 시작" 경로를 그대로 1회 호출하므로 안전 Scope 확보/중복 방지 판정은 동일하다.
+                // 실패(비전 미연결·다른 화면 Live 점유 등)해도 알람 없이 상태 문구만 남고 화면은 정상 사용한다.
+                StartInputStageRunReviewEmbeddedVisionAsync(dialog);
             }
             catch (Exception ex)
             {
@@ -495,7 +500,7 @@ namespace QMC.CDT_320
                     if (!Controller.AreInputStageRunReviewPickersSafe(out safetyReason))
                     {
                         throw new InvalidOperationException(
-                            "Review 선택 Die 이동 직전 Picker 안전 재확인에 실패했습니다. " + safetyReason);
+                            "Review " + actionName + " 직전 Picker 안전 재확인에 실패했습니다. " + safetyReason);
                     }
                     dialog.SetWaferVisionMoveBusy(
                         true,
@@ -834,7 +839,8 @@ namespace QMC.CDT_320
                         offsetT);
                     return System.Threading.Tasks.Task.FromResult(
                         "T 보정값을 저장했습니다. Die Mapping을 다시 실행하세요. Offset=" + offsetT.ToString("F6"));
-                }).ConfigureAwait(true);
+                },
+                true).ConfigureAwait(true);
 
             if (dialog != null && !dialog.IsDisposed && !wafer.HasInputStageDieMappingResult)
             {
@@ -882,6 +888,19 @@ namespace QMC.CDT_320
                 return;
 
             ClearInputStageRunReviewPendingOffset();
+
+            // [DIE DETECTION Live 정지/복귀 2026-08-17, 팀장님 지시] 검출은 Grab을 직접 사용하므로
+            // Live 수신과 카메라를 다툰다. 검출 직전 Live만 멈추고(안전 Scope는 유지) 검출 종료 후
+            // finally에서 반드시 복귀시킨다. 복귀 실패는 알람 없이 상태 문구로만 안내한다(팀장님 확정).
+            bool waferLivePaused = dialog.PauseWaferVisionLiveForAction();
+            if (waferLivePaused)
+            {
+                QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReviewVision",
+                    "DIE DETECTION 실행을 위해 Wafer Vision Live를 일시 정지했습니다. - Check");
+            }
+
+            try
+            {
             string detectedWaferId = dialog.WaferId;
             string detectedMappingRevision = dialog.MappingRevision;
             string detectedDieUid = entry.DieUid ?? string.Empty;
@@ -975,7 +994,8 @@ namespace QMC.CDT_320
 
                     return "Die 검출 완료. Offset 적용 버튼으로 Draft Map에 반영하세요. X=" +
                            offsetX.ToString("F6") + ", Y=" + offsetY.ToString("F6");
-                }).ConfigureAwait(true);
+                },
+                true).ConfigureAwait(true);
 
             // 시뮬레이션 경로의 offset은 항상 0이며 실측이 아니므로 pending으로 등록하지 않는다.
             // (등록하면 APPLY OFFSET이 "적용 성공"으로 보고되어 실제 보정을 한 것처럼 오인된다.)
@@ -1000,6 +1020,25 @@ namespace QMC.CDT_320
                 _inputStageRunReviewPendingOffsetReferenceX = detectedReferenceX;
                 _inputStageRunReviewPendingOffsetReferenceY = detectedReferenceY;
                 _inputStageRunReviewPendingOffsetDraftSignature = detectedDraftSignature;
+            }
+            }
+            finally
+            {
+                // 성공/실패/취소 어느 경로로 끝나도 Live를 복귀시킨다(정지한 경우에만).
+                if (waferLivePaused && dialog != null && !dialog.IsDisposed)
+                {
+                    bool resumed = dialog.StartWaferVisionLive();
+                    QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReviewVision",
+                        "DIE DETECTION 종료 후 Wafer Vision Live 복귀 시도. resumed=" + resumed +
+                        (resumed ? " - Ok" : " - Check"));
+                    if (!resumed)
+                    {
+                        // 복귀 실패는 알람 없이 상태 문구만 남긴다(팀장님 확정 2026-08-17).
+                        dialog.SetStatusMessage(
+                            "DIE DETECTION은 종료했으나 Live 영상 복귀에 실패했습니다. " +
+                            "[비전 사용 종료] 후 [비전 사용 시작]으로 다시 켜주세요.");
+                    }
+                }
             }
         }
 
@@ -1310,9 +1349,15 @@ namespace QMC.CDT_320
                 {
                     throw new InvalidOperationException("내장 Wafer Vision Viewer 구성에 실패했습니다.");
                 }
-                dialog.SetBusy(true, visionLinkReady
-                    ? "Wafer Vision 사용 중입니다. 종료 또는 STOP 후 다른 Review 동작을 실행하세요."
-                    : "안전 영역 사용 중입니다(영상 불가). 종료 또는 STOP 후 다른 Review 동작을 실행하세요.");
+                // [자동 Live 2026-08-17, 팀장님 지시] Scope 확보 직후 Live 영상을 켠다.
+                // Live 중에도 액션 버튼은 사용 가능하며(UpdateActionAvailability), DIE DETECTION만
+                // 자체적으로 Live를 잠시 멈췄다가 복귀시킨다.
+                bool liveStarted = visionLinkReady && dialog.StartWaferVisionLive();
+                dialog.SetBusy(true, !visionLinkReady
+                    ? "안전 영역 사용 중입니다(영상 불가). 종료 또는 STOP 후 다른 Review 동작을 실행하세요."
+                    : liveStarted
+                        ? "Wafer Vision Live 사용 중입니다. 아래 버튼들을 그대로 사용할 수 있습니다."
+                        : "Wafer Vision 사용 중입니다(Live 자동 시작 실패 — 상단 Live 버튼으로 켜세요).");
                 QMC.Common.Log.Write(
                     "Main",
                     UserSession.Name,

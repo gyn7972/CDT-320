@@ -3965,11 +3965,41 @@ namespace QMC.CDT320
                     : source;
 
                 // 현재 기준: VisionX는 작업영역 원형 경계와 무관하고, StageY는 NeedleX/StageY/NeedleZ 인터락에서 판단한다.
-                int result = await moveAxisAsync(WaferStageAxis.WaferY, targetY).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                //
+                // [동시 이동 2026-08-17, 팀장님 승인 A안] 기존에는 StageY 완료 후 VisionX를 순차 이동했다.
+                // 두 축은 기계적 간섭이 없으므로(2026-07-25 사용자 확인) 동시 이동으로 택타임을 줄인다.
+                //
+                // ★발행 순서 역전 금지 — InputStageInterlockRules.VerifyInputStageNotBusy가 비대칭이다.
+                //   · VisionX 발행 시 StageY가 이동 중이면 "WaferStageY is moving."으로 차단된다.
+                //   · StageY 발행 시 VisionX가 이동 중인 것은 허용된다(2026-07-25 승인 예외).
+                //   따라서 VisionX를 먼저 발행해야 두 명령 모두 통과한다.
+                //   순서가 보장되는 근거: MotionGuard 검사(SharedRailXMotionService.MoveAsync의
+                //   VerifyMotionGuardTargets 등)는 첫 await 이전에 동기 실행되므로, 아래처럼 await 없이
+                //   연속 호출하면 VisionX 가드 → StageY 가드 순서가 같은 스레드에서 결정론적으로 확정된다.
+                Task<int> visionTask = moveAxisAsync(WaferStageAxis.VisionX, targetX);
+                Task<int> stageTask = moveAxisAsync(WaferStageAxis.WaferY, targetY);
+                int[] results = await Task.WhenAll(visionTask, stageTask).ConfigureAwait(false);
 
-                return await moveAxisAsync(WaferStageAxis.VisionX, targetX).ConfigureAwait(false);
+                int visionResult = results[0];
+                int stageResult = results[1];
+                // 순차 시절에는 StageY 실패 시 VisionX를 발행하지 않았다. 동시 발행에서는 둘 다 나가므로
+                // 어느 축이 실패했는지 로그로 남기고, 0이 아닌 결과를 VisionX 우선으로 반환한다.
+                if (visionResult != 0 || stageResult != 0)
+                {
+                    Log.Write("Main", "SYSTEM", "InputStageUnit",
+                        "Vision point 동시 이동 실패. source=" + moveSource +
+                        ", visionXTarget=" + targetX.ToString("F3") +
+                        ", visionXResult=" + visionResult +
+                        ", stageYTarget=" + targetY.ToString("F3") +
+                        ", stageYResult=" + stageResult + " - Failed");
+                    return visionResult != 0 ? visionResult : stageResult;
+                }
+
+                Log.Write("Main", "SYSTEM", "InputStageUnit",
+                    "Vision point 동시 이동 완료. source=" + moveSource +
+                    ", visionXTarget=" + targetX.ToString("F3") +
+                    ", stageYTarget=" + targetY.ToString("F3") + " - Ok");
+                return 0;
             }
             catch (Exception ex)
             {

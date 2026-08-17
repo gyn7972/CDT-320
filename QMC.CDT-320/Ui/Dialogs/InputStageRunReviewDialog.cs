@@ -280,6 +280,78 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
 
         /// <summary>
+        /// Wafer Vision Live 영상을 시작합니다(안전 Scope는 이미 확보된 상태여야 합니다).
+        /// 화면 오픈 자동 Live 및 DIE DETECTION 후 Live 복귀에서 사용합니다.
+        /// 명령 채널이 미연결이거나 Scope가 없으면 아무 동작도 하지 않고 false를 반환합니다.
+        /// </summary>
+        public bool StartWaferVisionLive()
+        {
+            try
+            {
+                if (IsDisposed || Disposing ||
+                    waferVisionViewer == null || waferVisionViewer.IsDisposed)
+                    return false;
+                if (!_waferVisionControlActive || !_waferVisionLinkConnected || _readOnlyPreview || _decisionSubmitted)
+                    return false;
+                if (waferVisionViewer.IsLive)
+                    return true;
+
+                waferVisionViewer.StartLive();
+                ApplyWaferVisionStateLabel();
+                return waferVisionViewer.IsLive;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>현재 Wafer Vision Live 수신 중인지 여부입니다.</summary>
+        public bool IsWaferVisionLive
+        {
+            get
+            {
+                try
+                {
+                    return waferVisionViewer != null &&
+                           !waferVisionViewer.IsDisposed &&
+                           waferVisionViewer.IsLive;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// DIE DETECTION처럼 Grab을 직접 사용하는 동작 전에 Live만 잠시 멈춥니다.
+        /// 안전 Scope는 유지하므로(반환하지 않음) 동작 후 <see cref="StartWaferVisionLive"/>로 즉시 복귀할 수 있습니다.
+        /// 반환값은 "멈추기 전에 Live 중이었는지"이며, 호출자는 이 값이 true일 때만 복귀시킵니다.
+        /// </summary>
+        public bool PauseWaferVisionLiveForAction()
+        {
+            try
+            {
+                if (IsDisposed || Disposing ||
+                    waferVisionViewer == null || waferVisionViewer.IsDisposed)
+                    return false;
+                if (!waferVisionViewer.IsLive)
+                    return false;
+
+                waferVisionViewer.StopLive();
+                // Grab/Live는 Worker Queue에서 실행되므로 완료를 확인한 뒤 검출 Grab을 시작해야 합니다.
+                waferVisionViewer.WaitForCameraOperationsAsync().GetAwaiter().GetResult();
+                ApplyWaferVisionStateLabel();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Sequence 종료/STOP에서는 Viewer 재구성 없이 즉시 CAM_SWITCH OFF와 수신 Thread 정지만 수행합니다.
         /// 안전 Scope는 호출한 Form1이 이 함수 실행 후 반환합니다.
         /// </summary>
@@ -1734,8 +1806,14 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void UpdateActionAvailability()
         {
-            bool enabled = !_busy;
-            bool actionEnabled = enabled && !_readOnlyPreview;
+            // [라이브 중 버튼 사용 2026-08-17, 팀장님 지시] 기존에는 Wafer Vision Live Scope를 잡으면
+            // SetBusy(true)가 걸려 _busy=true → 액션 버튼이 전부 비활성이었다.
+            // 현재 기준: Live 보유 상태(_waferVisionControlActive)는 "동작 중"이 아니라 "대기 중"이므로
+            // 버튼을 잠그지 않는다. 실제 동작 중 중복 실행 차단은 _waferVisionMoveBusy가 담당한다
+            // (기존 MOVE SELECTED DIE의 Scope 재사용 경로와 동일한 정책).
+            bool busyBlocksActions = _busy && !_waferVisionControlActive;
+            bool enabled = !busyBlocksActions;
+            bool actionEnabled = enabled && !_readOnlyPreview && !_waferVisionMoveBusy;
             grpDieState.Enabled = actionEnabled && _mode == InputStageRunReviewMode.MappingReview;
             grpStartDie.Enabled = actionEnabled && _mappingComplete;
             grpJog.Enabled = !_readOnlyPreview;
@@ -1784,6 +1862,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnBuzzerStop.Enabled = enabled;
             btnClose.Enabled = enabled && !_autoReviewMode;
             btnJogStop.Enabled = !_readOnlyPreview;
+        }
+
+        /// <summary>외부(Form1)에서 상태 문구만 갱신합니다(버튼 활성 상태는 변경하지 않습니다).</summary>
+        public void SetStatusMessage(string message)
+        {
+            if (IsDisposed || Disposing)
+                return;
+            SetStatus(message);
         }
 
         private void SetStatus(string message)
