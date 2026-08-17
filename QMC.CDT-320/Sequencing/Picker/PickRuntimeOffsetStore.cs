@@ -97,8 +97,11 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        /// <summary>필터 상태를 저장한다. 실패해도 예외를 전파하지 않고 로그만 남긴다.</summary>
-        public static void Save(PickRuntimeOffsetDocument document)
+        /// <summary>
+        /// 필터 상태를 저장한다. 실패해도 예외를 전파하지 않고 로그만 남기며, 성공 여부를 반환한다.
+        /// (종료 flush가 저장 성공을 확인할 수 있도록 bool 반환 — Place 스토어와 동일 규약, 2026-08-17)
+        /// </summary>
+        public static bool Save(PickRuntimeOffsetDocument document)
         {
             try
             {
@@ -111,11 +114,14 @@ namespace QMC.CDT320.Sequencing
                 {
                     JsonPrettySerializer.WriteObject(fs, typeof(PickRuntimeOffsetDocument), document);
                 }
+
+                return true;
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "PickRuntimeOffsetStore",
                     "Pick 런타임 오프셋 저장에 실패했습니다. error=" + ex.Message + " - Failed");
+                return false;
             }
             finally
             {

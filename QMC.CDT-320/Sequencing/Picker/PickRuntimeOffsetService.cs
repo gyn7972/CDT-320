@@ -50,6 +50,9 @@ namespace QMC.CDT320.Sequencing
         // 설정 변경/리셋 같은 사용자 조작 경로는 기존대로 즉시 저장한다.
         private const int DeferredSaveQuietMs = 1000;
         private static readonly object DeferredSaveSync = new object();
+        // [종료 저장 2026-08-17] 지연 저장 워커와 동기 flush가 같은 파일에 동시에 쓰지 않도록 IO를 직렬화한다
+        // (Place 서비스와 동일 규약 — 동시 쓰기는 파일 손상 = 학습값 전체 소실로 이어진다).
+        private static readonly object DeferredSaveIoSync = new object();
         private static bool _deferredSaveRequested;
         private static bool _deferredSaveWorkerRunning;
 
@@ -743,27 +746,42 @@ namespace QMC.CDT320.Sequencing
         /// <summary>대기 중인 지연 저장을 즉시 반영한다(종료/수동 확정 시 호출).</summary>
         public static void FlushPendingSave()
         {
-            bool pending;
+            TryFlushPendingSave("FlushPendingSave");
+        }
+
+        /// <summary>
+        /// 앱 종료/정지 배리어용 동기 저장. 지연 저장 워커와 파일 IO를 직렬화하고 성공 여부를 반환한다.
+        /// [종료 저장 2026-08-17] 대기 중인 저장이 없어도 무조건 1회 저장한다 — 지연 저장은 1000ms 무음
+        /// 후에만 기록하므로, "pending일 때만 저장"으로 두면 종료가 그 창에 걸릴 때 최신 학습분이 유실된다.
+        /// </summary>
+        public static bool TryFlushPendingSave(string reason)
+        {
             lock (DeferredSaveSync)
             {
-                pending = _deferredSaveRequested;
                 _deferredSaveRequested = false;
             }
 
-            if (pending)
-                SaveOutsideLock();
+            bool saved = SaveOutsideLock();
+            QMC.Common.Log.Write("Main", "SYSTEM", "PickRuntimeOffset",
+                "Pick 런타임 오프셋 동기 flush. reason=" + (reason ?? "-") +
+                " - " + (saved ? "Ok" : "Failed"));
+            return saved;
         }
 
         // 문서 구성만 Sync 락 안에서 하고, 디스크 쓰기는 락 밖에서 수행한다.
-        private static void SaveOutsideLock()
+        private static bool SaveOutsideLock()
         {
-            PickRuntimeOffsetDocument document;
-            lock (Sync)
+            lock (DeferredSaveIoSync)
             {
-                document = BuildDocumentLocked();
-            }
+                PickRuntimeOffsetDocument document;
+                lock (Sync)
+                {
+                    EnsureLoadedLocked();
+                    document = BuildDocumentLocked();
+                }
 
-            PickRuntimeOffsetStore.Save(document);
+                return PickRuntimeOffsetStore.Save(document);
+            }
         }
 
         private static void SaveLocked()

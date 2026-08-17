@@ -50,6 +50,8 @@ namespace QMC.CDT_320
         private string _materialSnapshotLotIdBeforeInitialization = "";
         private bool _applicationExitRequested;
         private bool _materialStateSavedForExit;
+        // [종료 저장 2026-08-17] 폐루프 런타임 오프셋 종료 저장 1회 보장(종료 경로가 중복 호출돼도 안전).
+        private bool _runtimeOffsetsSavedForExit;
         private bool _topDoorClosed = true;
 
         /// <summary>상단 프로젝트명을 현재 레시피 파일명으로 갱신합니다.</summary>
@@ -1238,6 +1240,11 @@ namespace QMC.CDT_320
             if (!_materialSnapshotRestored && MaterialStorage.State.Cassettes.Count == 0)
                 MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
 
+            // [시작 로드 2026-08-17, 팀장님 지시] 폐루프 학습값을 기동 시 명시적으로 읽어 로그로 확인한다.
+            // 기존에도 첫 접근 시 지연 로드는 됐지만, 파일이 비었거나 깨져 값이 0으로 초기화돼도
+            // 가동 중에야 드러났다. 여기서 읽어두면 "이번 가동이 어떤 값으로 시작했는지"가 로그에 남는다.
+            LoadRuntimeOffsetsOnStartup();
+
             #endregion
 
             #region 12. 기본 화면
@@ -2318,12 +2325,123 @@ namespace QMC.CDT_320
             base.OnFormClosing(e);
         }
 
+        /// <summary>
+        /// 기동 시 폐루프 런타임 오프셋 3종을 명시적으로 로드하고 현재 값을 로그로 남긴다.
+        /// 값 자체는 각 서비스가 지연 로드로도 읽지만, 여기서 한 번 읽어두면
+        /// "이번 가동이 어떤 학습값으로 시작했는지"가 기동 로그에 남아 값 변화 추적이 가능해진다.
+        /// </summary>
+        private void LoadRuntimeOffsetsOnStartup()
+        {
+            try
+            {
+                LogRuntimeOffsetStartupSnapshot("Pick",
+                    QMC.CDT320.Sequencing.PickRuntimeOffsetService.IsEnabled, QMC.CDT320.Sequencing.PickRuntimeOffsetService.GetSnapshot());
+                LogRuntimeOffsetStartupSnapshot("Place",
+                    QMC.CDT320.Sequencing.PlaceRuntimeOffsetService.IsEnabled, QMC.CDT320.Sequencing.PlaceRuntimeOffsetService.GetSnapshot());
+
+                double pickerZFront1;
+                QMC.CDT320.Sequencing.PickerZRuntimeOffsetService.GetOffset(
+                    QMC.CDT320.Sequencing.PickerSequenceSide.Front, 1, out pickerZFront1);
+                Log.Write("Main", UserSession.Name, "StartupRuntimeOffset",
+                    "PickerZ 런타임 오프셋 로드. enabled=" + QMC.CDT320.Sequencing.PickerZRuntimeOffsetService.IsEnabled +
+                    ", front P1 Z=" + pickerZFront1.ToString("F4") + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", UserSession.Name, "StartupRuntimeOffset",
+                    "폐루프 런타임 오프셋 기동 로드 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
+        }
+
+        private void LogRuntimeOffsetStartupSnapshot(
+            string kind,
+            bool enabled,
+            QMC.CDT320.Sequencing.RuntimeOffsetSnapshot[] rows)
+        {
+            int sampleCount = 0;
+            var builder = new System.Text.StringBuilder();
+            if (rows != null)
+            {
+                for (int i = 0; i < rows.Length; i++)
+                {
+                    QMC.CDT320.Sequencing.RuntimeOffsetSnapshot row = rows[i];
+                    if (row == null)
+                        continue;
+
+                    if (row.HasSample)
+                        sampleCount++;
+
+                    if (builder.Length > 0)
+                        builder.Append(" / ");
+                    builder.Append(row.Side).Append(" P").Append(row.PickerNo)
+                        .Append(" X=").Append(row.X.ToString("F4"))
+                        .Append(" Y=").Append(row.Y.ToString("F4"))
+                        .Append(" T=").Append(row.T.ToString("F4"));
+                }
+            }
+
+            Log.Write("Main", UserSession.Name, "StartupRuntimeOffset",
+                kind + " 런타임 오프셋 로드. enabled=" + enabled +
+                ", rows=" + (rows != null ? rows.Length : 0) +
+                ", withSample=" + sampleCount +
+                ", values=" + (builder.Length > 0 ? builder.ToString() : "-") + " - Ok");
+        }
+
+        /// <summary>
+        /// 폐루프 런타임 오프셋 3종(Pick/Place/PickerZ)을 종료 직전 디스크에 확정한다.
+        /// 실패해도 종료를 막지 않는다 — 학습값은 재학습 가능하고, 종료를 붙잡으면 장비 운용이 막힌다.
+        /// 성공/실패는 각각 로그로 남겨 다음 가동 시 값이 왜 달라졌는지 추적할 수 있게 한다.
+        /// </summary>
+        private void SaveRuntimeOffsetsBeforeApplicationExit()
+        {
+            if (_runtimeOffsetsSavedForExit)
+                return;
+
+            _runtimeOffsetsSavedForExit = true;
+
+            bool pickSaved = false;
+            bool placeSaved = false;
+            bool pickerZSaved = false;
+            try
+            {
+                pickSaved = QMC.CDT320.Sequencing.PickRuntimeOffsetService.TryFlushPendingSave("ApplicationExit");
+                placeSaved = QMC.CDT320.Sequencing.PlaceRuntimeOffsetService.TryFlushPendingSave("ApplicationExit");
+                pickerZSaved = QMC.CDT320.Sequencing.PickerZRuntimeOffsetService.TryFlushPendingSave("ApplicationExit");
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", UserSession.Name, "ApplicationExit",
+                    "런타임 오프셋 종료 저장 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
+
+            bool allSaved = pickSaved && placeSaved && pickerZSaved;
+            Log.Write("Main", UserSession.Name, "ApplicationExit",
+                "폐루프 런타임 오프셋 종료 저장. pick=" + pickSaved +
+                ", place=" + placeSaved +
+                ", pickerZ=" + pickerZSaved +
+                " - " + (allSaved ? "Ok" : "Check"));
+            QMC.Common.Logging.EventLogger.Write(
+                allSaved
+                    ? QMC.Common.Logging.EventKind.Event
+                    : QMC.Common.Logging.EventKind.Warning,
+                UserSession.Name,
+                "APP-EXIT-RUNTIME-OFFSET-SAVE",
+                "Runtime offset save before application exit. pick=" + pickSaved +
+                ", place=" + placeSaved + ", pickerZ=" + pickerZSaved);
+        }
+
         private bool SaveMaterialStateBeforeApplicationExit()
         {
             try
             {
                 if (_materialStateSavedForExit)
                     return true;
+
+                // [종료 저장 2026-08-17, 팀장님 지시] 폐루프 학습값(Pick/Place/PickerZ 런타임 오프셋)을
+                // 종료 시 반드시 디스크에 확정한다. 기존에는 Material만 저장되고 이 3종은 종료 경로가 없어,
+                // 지연 저장(1000ms 무음) 창에 종료가 걸리면 최신 학습분이 유실됐다.
+                // 학습값은 재학습 가능한 데이터이므로 실패해도 종료를 막지 않고 로그만 남긴다.
+                SaveRuntimeOffsetsBeforeApplicationExit();
 
                 bool saved = MaterialStateService.TryFlushPendingSave("ApplicationExit");
                 if (saved)
