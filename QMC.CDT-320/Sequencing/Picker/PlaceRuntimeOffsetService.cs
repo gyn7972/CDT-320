@@ -47,6 +47,14 @@ namespace QMC.CDT320.Sequencing
         private const int DeferredSaveQuietMs = 1000;
         private static readonly object DeferredSaveSync = new object();
         private static readonly object DeferredSaveIoSync = new object();
+        // [내구성 워터마크 2026-08-18] Material 저장과 동일 규약. 저장 완료를 "몇 번째 저장 시도인가"가
+        // 아니라 "어느 자료 세대가 디스크에 있는가"로 판정한다. 동시 저장(지연 워커 + 종료 flush)이
+        // 겹쳐도 더 새 저장이 내 자료를 포함하므로 성공이며, 기다리거나 재시도할 필요가 없다.
+        //   _stateVersion       : 필터/설정이 바뀔 때마다 증가 (Sync 보호)
+        //   _durableStateVersion: 디스크에 확정된 최대 세대, 단조 증가 (DeferredSaveIoSync 보호)
+        // 둘 다 0에서 시작 — 기동 직후 로드된 상태는 이미 파일에 있으므로 내구성 있음(0>=0).
+        private static long _stateVersion;
+        private static long _durableStateVersion;
         private static bool _deferredSaveRequested;
         private static bool _deferredSaveWorkerRunning;
 
@@ -94,6 +102,7 @@ namespace QMC.CDT320.Sequencing
                         return;
 
                     _useCorrection = enabled;
+                    MarkStateChangedLocked();
                 }
 
                 SaveOutsideLock();
@@ -190,6 +199,8 @@ namespace QMC.CDT320.Sequencing
                         ReclampChannelLocked(set.Y, _clampLimitXyMm, side, pickerNo, "Y", reclampLines);
                         ReclampChannelLocked(set.T, _clampLimitTDeg, side, pickerNo, "T", reclampLines);
                     }
+
+                    MarkStateChangedLocked();
                 }
 
                 SaveOutsideLock();
@@ -303,6 +314,7 @@ namespace QMC.CDT320.Sequencing
                     if (acceptedX || acceptedY || acceptedT)
                     {
                         set.LastUpdated = DateTime.Now;
+                        MarkStateChangedLocked();
                         // 다이당 실행되는 핫패스 — 디스크 쓰기를 락 밖 병합 저장으로 넘긴다.
                         RequestDeferredSave();
                     }
@@ -393,6 +405,7 @@ namespace QMC.CDT320.Sequencing
                     set.ClampLatchedX = false;
                     set.ClampLatchedY = false;
                     set.LastUpdated = DateTime.Now;
+                    MarkStateChangedLocked();
                 }
 
                 SaveOutsideLock();
@@ -430,6 +443,7 @@ namespace QMC.CDT320.Sequencing
                     set.ClampLatchedY = false;
                     set.ClampLatchedT = false;
                     set.LastUpdated = DateTime.Now;
+                    MarkStateChangedLocked();
                 }
 
                 SaveOutsideLock();
@@ -465,6 +479,8 @@ namespace QMC.CDT320.Sequencing
                         _filters[i].ClampLatchedT = false;
                         _filters[i].LastUpdated = DateTime.Now;
                     }
+
+                    MarkStateChangedLocked();
                 }
 
                 SaveOutsideLock();
@@ -719,20 +735,66 @@ namespace QMC.CDT320.Sequencing
         }
 
         /// <summary>
-        /// 정상 Cycle Stop 최종 배리어용 동기 저장. 지연 저장 워커와 파일 IO를 직렬화하고 성공 여부를 반환한다.
+        /// 정상 Cycle Stop / 앱 종료 배리어용 동기 저장. 성공 여부를 반환한다.
+        /// [내구성 워터마크 2026-08-18] "호출 시점의 자료가 디스크에 있는가"로 판정한다.
+        /// 이미 확정돼 있으면 쓰지 않고, 동시 저장이 더 새 세대를 먼저 확정했어도 성공이다
+        /// (그 스냅샷이 내 자료를 포함하므로). 경합을 기다리거나 재시도하지 않는다.
         /// </summary>
         public static bool TryFlushPendingSave(string reason)
         {
+            long targetVersion;
+            lock (Sync)
+            {
+                EnsureLoadedLocked();
+                targetVersion = _stateVersion;
+            }
+
             lock (DeferredSaveSync)
             {
                 _deferredSaveRequested = false;
             }
 
-            bool saved = SaveOutsideLock();
+            bool alreadyDurable = IsStateVersionDurable(targetVersion);
+            if (!alreadyDurable)
+                SaveOutsideLock();
+
+            bool durable = IsStateVersionDurable(targetVersion);
             QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
                 "Place 런타임 오프셋 동기 flush. reason=" + (reason ?? "-") +
-                " - " + (saved ? "Ok" : "Failed"));
-            return saved;
+                ", targetVersion=" + targetVersion +
+                ", durableVersion=" + System.Threading.Interlocked.Read(ref _durableStateVersion) +
+                ", wrote=" + (!alreadyDurable) +
+                " - " + (durable ? "Ok" : "Failed"));
+            return durable;
+        }
+
+        /// <summary>자료 변경 세대를 올린다(Sync 락 안에서만 호출).</summary>
+        private static void MarkStateChangedLocked()
+        {
+            _stateVersion++;
+        }
+
+        /// <summary>지정 자료 세대가 디스크에 확정됐는지 판정한다(단조 워터마크 비교).</summary>
+        private static bool IsStateVersionDurable(long targetVersion)
+        {
+            return System.Threading.Interlocked.Read(ref _durableStateVersion) >= targetVersion;
+        }
+
+        /// <summary>
+        /// 디스크 확정 세대를 단조 증가로 게시한다. 어떤 락 문맥에서 불려도 안전하도록 Interlocked CAS를 쓴다
+        /// (락을 쓰면 Sync ↔ IoSync 순서가 호출 경로마다 달라져 역전 위험이 생긴다).
+        /// </summary>
+        private static void PublishDurableStateVersion(long capturedVersion)
+        {
+            while (true)
+            {
+                long current = System.Threading.Interlocked.Read(ref _durableStateVersion);
+                if (capturedVersion <= current)
+                    return;
+                if (System.Threading.Interlocked.CompareExchange(
+                        ref _durableStateVersion, capturedVersion, current) == current)
+                    return;
+            }
         }
 
         // 문서 구성만 Sync 락 안에서 하고, 디스크 쓰기는 락 밖에서 수행한다.
@@ -741,13 +803,19 @@ namespace QMC.CDT320.Sequencing
             lock (DeferredSaveIoSync)
             {
                 PlaceRuntimeOffsetDocument document;
+                long capturedStateVersion;
                 lock (Sync)
                 {
                     EnsureLoadedLocked();
+                    // 문서와 세대를 같은 락 안에서 집어야 "이 문서가 담은 세대"가 정확히 확정된다.
+                    capturedStateVersion = _stateVersion;
                     document = BuildDocumentLocked();
                 }
 
-                return PlaceRuntimeOffsetStore.Save(document);
+                bool saved = PlaceRuntimeOffsetStore.Save(document);
+                if (saved)
+                    PublishDurableStateVersion(capturedStateVersion);
+                return saved;
             }
         }
 

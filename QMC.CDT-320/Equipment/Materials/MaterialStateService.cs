@@ -53,6 +53,16 @@ namespace QMC.CDT320.Materials
         private static long _lastCommittedSnapshotRevision;
         // _saveRequestSync 보호: 저장 중 들어온 새 요청과 현재 시도를 구분한다.
         private static long _saveRequestVersion;
+        // [내구성 워터마크 2026-08-18] 저장 완료 판정을 "저장 시도 일련번호(SnapshotRevision)"가 아니라
+        // "자료 변경 세대"로 한다. Revision은 저장을 시작할 때 발급되므로 같은 자료를 두 번 저장해도
+        // 두 개가 생기고, 옆 스레드가 하나 더 발급했다는 이유만으로 내 성공이 실패로 뒤집혔다
+        // (2026-08-17 19:00:31 정상 Cycle Stop 오탐 알람의 직접 원인).
+        // 더 새 스냅샷이 디스크에 있다는 것은 내 자료도 그 안에 있다는 뜻(상위집합)이므로 성공의 근거다.
+        //   _stateVersion       : 자료가 바뀔 때마다 증가하는 세대 (_stateSync 보호)
+        //   _durableStateVersion: 디스크에 확정된 최대 세대, 단조 증가 (_saveIoSync 보호)
+        // 둘 다 0에서 시작한다 — 기동 직후 로드된 상태는 이미 디스크에 있으므로 내구성 있음(0>=0).
+        private static long _stateVersion;
+        private static long _durableStateVersion;
 
         public static MaterialSnapshot State => MaterialStorage.State;
 

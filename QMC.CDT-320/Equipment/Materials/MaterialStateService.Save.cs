@@ -27,6 +27,15 @@ namespace QMC.CDT320.Materials
         {
             try
             {
+                // [내구성 워터마크 2026-08-18] 자료 변경 세대를 여기서 한 번만 올린다.
+                // 이 함수는 "변경이 끝난 뒤" 호출되는 공식 통지 경로이므로, 세대 증가가 항상 변경 이후다.
+                // (변경보다 먼저 올리면 변경 전 스냅샷이 새 세대를 주장해 유실로 이어진다 — 순서가 중요.)
+                // _stateSync 안에서 올려야 저장 캡처가 (자료, 세대)를 짝이 맞게 집는다.
+                lock (_stateSync)
+                {
+                    _stateVersion++;
+                }
+
                 RequestStateChanged();
                 RequestBackgroundSave(reason);
                 return true;
@@ -45,25 +54,26 @@ namespace QMC.CDT320.Materials
         {
             try
             {
-                bool shouldSave;
+                // [내구성 워터마크 2026-08-18] 이 호출이 보장해야 하는 것은
+                // "호출 시점의 자료가 디스크에 있다"이다. 그 기준 세대를 먼저 고정한다.
+                long targetVersion;
+                lock (_stateSync)
+                {
+                    targetVersion = _stateVersion;
+                }
+
                 long requestVersion;
                 lock (_saveRequestSync)
                 {
-                    long lastIssuedRevision = Interlocked.Read(ref _lastIssuedSnapshotRevision);
-                    long lastCommittedRevision = Interlocked.Read(ref _lastCommittedSnapshotRevision);
-                    bool latestRevisionIsDurable =
-                        lastIssuedRevision > 0L && lastCommittedRevision >= lastIssuedRevision;
-                    shouldSave = _saveRequested ||
-                                 _saveWorkerRunning ||
-                                 !_lastSaveSucceeded ||
-                                 !latestRevisionIsDurable ||
-                                 _lastSaveCompletedUtc == DateTime.MinValue;
                     _pendingSaveReason = reason ?? "";
                     requestVersion = _saveRequestVersion;
                 }
 
                 RequestStateChanged();
-                if (!shouldSave)
+
+                // 이미 이 세대(또는 그 이후)가 디스크에 확정돼 있으면 쓸 이유가 없다.
+                // 다른 스레드가 더 새 스냅샷을 저장했어도 그 안에 내 자료가 들어 있으므로 성공이다.
+                if (IsStateVersionDurable(targetVersion))
                 {
                     lock (_saveRequestSync)
                     {
@@ -75,22 +85,28 @@ namespace QMC.CDT320.Materials
                     }
                     Log.Write("Main", "SYSTEM", "MaterialStateSave",
                         "Material state flush skipped because latest snapshot is already saved. reason=" +
-                        (reason ?? "") + " - Ok");
+                        (reason ?? "") +
+                        ", targetVersion=" + targetVersion +
+                        ", durableVersion=" + Interlocked.Read(ref _durableStateVersion) + " - Ok");
                     return true;
                 }
 
-                bool saved = SaveCurrentSnapshot(reason);
+                SaveCurrentSnapshot(reason);
+
+                // 내 쓰기가 밀렸더라도(동시 저장이 더 새 세대를 먼저 확정) 목표 세대가 디스크에 있으면 성공이다.
+                // 경합을 기다리거나 재시도하지 않는다 — 판정 기준 자체가 경합에 영향받지 않는다.
+                bool durable = IsStateVersionDurable(targetVersion);
                 lock (_saveRequestSync)
                 {
-                    if (saved && _saveRequestVersion == requestVersion)
+                    if (durable && _saveRequestVersion == requestVersion)
                     {
                         _saveRequested = false;
                         _pendingSaveReason = "";
                     }
                 }
-                if (!saved)
+                if (!durable)
                     RequestBackgroundSave(reason);
-                return saved;
+                return durable;
             }
             catch (Exception ex)
             {
@@ -240,6 +256,22 @@ namespace QMC.CDT320.Materials
             return false;
         }
 
+        /// <summary>
+        /// 지정 자료 세대가 디스크에 확정됐는지 판정한다(단조 워터마크 비교).
+        /// 동시 저장이 더 새 세대를 확정했다면 그 스냅샷이 이 세대의 자료를 포함하므로 참이다.
+        /// </summary>
+        private static bool IsStateVersionDurable(long targetVersion)
+        {
+            return Interlocked.Read(ref _durableStateVersion) >= targetVersion;
+        }
+
+        /// <summary>디스크 확정 세대를 단조 증가로 게시한다(_saveIoSync 안에서 호출).</summary>
+        private static void PublishDurableStateVersionNoLock(long capturedVersion)
+        {
+            if (capturedVersion > _durableStateVersion)
+                _durableStateVersion = capturedVersion;
+        }
+
         private static long IssueNextSnapshotRevisionNoLock()
         {
             long stateRevision = State != null ? State.SnapshotRevision : 0L;
@@ -362,6 +394,9 @@ namespace QMC.CDT320.Materials
                 // "컬렉션이 수정되었습니다" 예외로 저장이 실패할 수 있었다.
                 // 무거운 직렬화/디스크 쓰기는 계속 락 밖에서 수행한다.
                 MaterialSnapshot saveCopy;
+                // [내구성 워터마크 2026-08-18] 딥카피와 같은 락 안에서 자료 세대를 함께 집는다.
+                // 이렇게 해야 "이 스냅샷이 담은 자료 세대"가 정확히 확정된다(사후에 읽으면 어긋난다).
+                long capturedStateVersion;
                 // 저장 캡처(딥클론) 동안의 전역 락 "보유" 시간 — 기준선 계측 (락 대기 시간은 제외).
                 // 예외 경로의 최악 샘플도 통계에 남도록 try/finally로 감싼다.
                 long captureProbeToken = 0;
@@ -370,6 +405,7 @@ namespace QMC.CDT320.Materials
                     lock (_stateSync)
                     {
                         captureProbeToken = MaterialPerfProbe.BeginSample();
+                        capturedStateVersion = _stateVersion;
                         State.SaveReason = reason ?? "";
                         State.SavedAt = DateTime.Now;
                         EnsureSnapshotMaterialIdentityNoLock();
@@ -412,7 +448,13 @@ namespace QMC.CDT320.Materials
                     {
                         saved = MaterialSnapshotStore.Save(saveCopy, true);
                         if (saved)
+                        {
                             _lastCommittedSnapshotRevision = saveCopy.SnapshotRevision;
+                            // 실제로 디스크에 쓴 경우에만 워터마크를 올린다.
+                            // superseded(더 새 스냅샷이 이미 커밋됨) 경로는 그 저장 주체가 자기 세대를
+                            // 게시하므로 여기서 올리지 않는다 — 쓰지도 않은 세대를 확정으로 주장하지 않는다.
+                            PublishDurableStateVersionNoLock(capturedStateVersion);
+                        }
                     }
                 }
 
@@ -430,8 +472,12 @@ namespace QMC.CDT320.Materials
                 {
                     latestIssuedRevision = _lastIssuedSnapshotRevision;
                     committedRevision = Interlocked.Read(ref _lastCommittedSnapshotRevision);
-                    latestRevisionIsDurable =
-                        latestIssuedRevision > 0L && committedRevision >= latestIssuedRevision;
+
+                    // [내구성 워터마크 2026-08-18] 완료 판정을 "내가 담은 자료 세대가 디스크에 있는가"로 한다.
+                    // 기존 판정(committedRevision >= latestIssuedRevision)은 옆 스레드가 저장을 시작만 해도
+                    // 거짓이 되어, 내 쓰기가 성공했는데도 실패로 뒤집혔다(2026-08-17 오탐).
+                    // 세대 기준은 동시 저장에 영향받지 않는다 — 더 새 스냅샷은 내 자료를 포함하므로 성공이다.
+                    latestRevisionIsDurable = IsStateVersionDurable(capturedStateVersion);
 
                     lock (_saveRequestSync)
                     {
@@ -458,6 +504,8 @@ namespace QMC.CDT320.Materials
                     Log.Write("Main", "SYSTEM", "MaterialStateSave",
                         "최신 Material snapshot이 아직 디스크에 반영되지 않았습니다. reason=" +
                         (saveCopy.SaveReason ?? "") +
+                        ", capturedStateVersion=" + capturedStateVersion +
+                        ", durableStateVersion=" + Interlocked.Read(ref _durableStateVersion) +
                         ", savedRevision=" + saveCopy.SnapshotRevision +
                         ", latestIssuedRevision=" + latestIssuedRevision +
                         ", committedRevision=" + committedRevision +

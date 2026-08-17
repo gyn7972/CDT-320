@@ -43,6 +43,11 @@ namespace QMC.CDT320.Sequencing
         // [종료 저장 2026-08-17] 지연 저장 워커와 동기 flush가 같은 파일에 동시에 쓰지 않도록 IO를 직렬화한다
         // (Place 서비스와 동일 규약 — 동시 쓰기는 파일 손상 = 학습값 전체 소실로 이어진다).
         private static readonly object DeferredSaveIoSync = new object();
+        // [내구성 워터마크 2026-08-18] Material·Pick·Place와 동일 규약. 저장 완료를 "몇 번째 저장 시도인가"가
+        // 아니라 "어느 자료 세대가 디스크에 있는가"로 판정한다. 동시 저장이 겹쳐도 더 새 저장이 내 자료를
+        // 포함하므로 성공이며, 기다리거나 재시도할 필요가 없다. 둘 다 0에서 시작(로드된 상태는 이미 내구성 있음).
+        private static long _stateVersion;
+        private static long _durableStateVersion;
         private static bool _deferredSaveRequested;
         private static bool _deferredSaveWorkerRunning;
 
@@ -84,6 +89,7 @@ namespace QMC.CDT320.Sequencing
                         return;
 
                     _useCorrection = enabled;
+                    MarkStateChangedLocked();
                     SaveLocked();
                 }
 
@@ -162,6 +168,8 @@ namespace QMC.CDT320.Sequencing
                         int pickerNo = (i % 4) + 1;
                         ReclampChannelLocked(set.Z, _clampLimitMm, side, pickerNo, reclampLines);
                     }
+
+                    MarkStateChangedLocked();
 
                     SaveLocked();
                 }
@@ -254,6 +262,7 @@ namespace QMC.CDT320.Sequencing
                     {
                         set.ClampLatchedZ = ClampChannelLocked(set.Z, _clampLimitMm, set.ClampLatchedZ, side, pickerNo);
                         set.LastUpdated = DateTime.Now;
+                        MarkStateChangedLocked();
                         RequestDeferredSave();
                     }
 
@@ -333,6 +342,7 @@ namespace QMC.CDT320.Sequencing
                     set.Z.Reset(0.0);
                     set.ClampLatchedZ = false;
                     set.LastUpdated = DateTime.Now;
+                    MarkStateChangedLocked();
                     SaveLocked();
                 }
 
@@ -364,6 +374,7 @@ namespace QMC.CDT320.Sequencing
                         _filters[i].LastUpdated = DateTime.Now;
                     }
 
+                    MarkStateChangedLocked();
                     SaveLocked();
                 }
 
@@ -397,22 +408,67 @@ namespace QMC.CDT320.Sequencing
         }
 
         /// <summary>
-        /// 앱 종료/정지 배리어용 동기 저장. 지연 저장 워커와 파일 IO를 직렬화하고 성공 여부를 반환한다.
-        /// [종료 저장 2026-08-17] 대기 중인 저장이 없어도 무조건 1회 저장한다 — 지연 저장은 1000ms 무음
-        /// 후에만 기록하므로, "pending일 때만 저장"으로 두면 종료가 그 창에 걸릴 때 최신 학습분이 유실된다.
+        /// 앱 종료/정지 배리어용 동기 저장. 성공 여부를 반환한다.
+        /// [내구성 워터마크 2026-08-18] "호출 시점의 자료가 디스크에 있는가"로 판정한다.
+        /// 이미 확정돼 있으면 쓰지 않고, 동시 저장이 더 새 세대를 먼저 확정했어도 성공이다
+        /// (그 문서가 내 자료를 포함하므로). 경합을 기다리거나 재시도하지 않는다.
+        /// 지연 저장의 1000ms 무음 창 유실도 세대 판정으로 함께 해결된다 — 미확정이면 여기서 쓴다.
         /// </summary>
         public static bool TryFlushPendingSave(string reason)
         {
+            long targetVersion;
+            lock (Sync)
+            {
+                EnsureLoadedLocked();
+                targetVersion = _stateVersion;
+            }
+
             lock (DeferredSaveSync)
             {
                 _deferredSaveRequested = false;
             }
 
-            bool saved = SaveOutsideLock();
+            bool alreadyDurable = IsStateVersionDurable(targetVersion);
+            if (!alreadyDurable)
+                SaveOutsideLock();
+
+            bool durable = IsStateVersionDurable(targetVersion);
             QMC.Common.Log.Write("Main", "SYSTEM", "PickerZRuntimeOffset",
                 "PickerZ 런타임 오프셋 동기 flush. reason=" + (reason ?? "-") +
-                " - " + (saved ? "Ok" : "Failed"));
-            return saved;
+                ", targetVersion=" + targetVersion +
+                ", durableVersion=" + System.Threading.Interlocked.Read(ref _durableStateVersion) +
+                ", wrote=" + (!alreadyDurable) +
+                " - " + (durable ? "Ok" : "Failed"));
+            return durable;
+        }
+
+        /// <summary>자료 변경 세대를 올린다(Sync 락 안에서만 호출).</summary>
+        private static void MarkStateChangedLocked()
+        {
+            _stateVersion++;
+        }
+
+        /// <summary>지정 자료 세대가 디스크에 확정됐는지 판정한다(단조 워터마크 비교).</summary>
+        private static bool IsStateVersionDurable(long targetVersion)
+        {
+            return System.Threading.Interlocked.Read(ref _durableStateVersion) >= targetVersion;
+        }
+
+        /// <summary>
+        /// 디스크 확정 세대를 단조 증가로 게시한다. SaveLocked는 Sync를 쥔 채, SaveOutsideLock은
+        /// IoSync를 쥔 채 호출하므로 락으로 보호하면 순서가 역전된다 — Interlocked CAS로 락 없이 처리한다.
+        /// </summary>
+        private static void PublishDurableStateVersion(long capturedVersion)
+        {
+            while (true)
+            {
+                long current = System.Threading.Interlocked.Read(ref _durableStateVersion);
+                if (capturedVersion <= current)
+                    return;
+                if (System.Threading.Interlocked.CompareExchange(
+                        ref _durableStateVersion, capturedVersion, current) == current)
+                    return;
+            }
         }
 
         // ── 내부 구현 (Sync lock 안에서만 호출) ─────────────────────
@@ -624,19 +680,28 @@ namespace QMC.CDT320.Sequencing
             lock (DeferredSaveIoSync)
             {
                 PickerZRuntimeOffsetDocument document;
+                long capturedStateVersion;
                 lock (Sync)
                 {
                     EnsureLoadedLocked();
+                    // 문서와 세대를 같은 락 안에서 집어야 "이 문서가 담은 세대"가 정확히 확정된다.
+                    capturedStateVersion = _stateVersion;
                     document = BuildDocumentLocked();
                 }
 
-                return PickerZRuntimeOffsetStore.Save(document);
+                bool saved = PickerZRuntimeOffsetStore.Save(document);
+                if (saved)
+                    PublishDurableStateVersion(capturedStateVersion);
+                return saved;
             }
         }
 
         private static void SaveLocked()
         {
-            PickerZRuntimeOffsetStore.Save(BuildDocumentLocked());
+            // Sync를 쥔 채 호출된다 — 지금 메모리 세대가 곧 이 문서가 담는 세대다.
+            long capturedStateVersion = _stateVersion;
+            if (PickerZRuntimeOffsetStore.Save(BuildDocumentLocked()))
+                PublishDurableStateVersion(capturedStateVersion);
         }
 
         private static PickerZRuntimeOffsetDocument BuildDocumentLocked()
