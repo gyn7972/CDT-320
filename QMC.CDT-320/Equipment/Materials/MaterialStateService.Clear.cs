@@ -17,6 +17,25 @@ namespace QMC.CDT320.Materials
     // MaterialStateService partial: Stage/Cassette 자재 Clear 및 대상 수집 (원본 2797-4449)
     public static partial class MaterialStateService
     {
+        /// <summary>
+        /// 자재 Clear 차단 사유 기록 — 반드시 디스크에 남아야 한다.
+        /// [사용자 확정 2026-08-17] 기존에는 4-인자 Log.Write를 썼는데, 이 형식은
+        ///   LogPolicy.IsDiagnosticVerbose가 꺼져 있으면 Log.cs에서 통째로 버려진다.
+        ///   그 결과 화면은 "로그를 확인하십시오"라고 안내하는데 정작 사유 로그가 남지 않아
+        ///   원인을 추적할 수 없었다(2026-08-08 스냅샷 저장 실패 때와 동일한 결함).
+        /// 현재 기준: EventKind.Warning으로 올려 최소 로그 정책에서도 보존한다.
+        ///   호출자는 동일 사유 문자열을 화면 메시지로도 사용한다.
+        /// </summary>
+        private static void LogMaterialClearBlocked(string scope, string reason)
+        {
+            string message = (scope ?? "Material clear") + " blocked: " + (reason ?? "");
+            QMC.Common.Logging.EventLogger.Write(
+                QMC.Common.Logging.EventKind.Warning,
+                "SYSTEM",
+                "MATERIAL-CLEAR-BLOCKED",
+                message);
+        }
+
         public static bool ClearWaferAtLocation(MaterialLocationKind kind)
         {
             if (kind == MaterialLocationKind.InputStage ||
@@ -59,9 +78,7 @@ namespace QMC.CDT320.Materials
                             out outputClearReason);
                     if (!canClear)
                     {
-                        Log.Write("Main", "SYSTEM", "MaterialStateService",
-                            "위치 Clear가 Material 참조 무결성 때문에 차단되었습니다. location=" + kind +
-                            ", detail=" + outputClearReason + " - Blocked");
+                        LogMaterialClearBlocked("위치 Clear(참조 무결성)", "location=" + kind + ", detail=" + outputClearReason);
                         return false;
                     }
                 }
@@ -74,9 +91,7 @@ namespace QMC.CDT320.Materials
                         out inputDies,
                         out inputClearReason))
                     {
-                        Log.Write("Main", "SYSTEM", "MaterialStateService",
-                            "위치 Clear가 Material 참조 무결성 때문에 차단되었습니다. location=" + kind +
-                            ", detail=" + inputClearReason + " - Blocked");
+                        LogMaterialClearBlocked("위치 Clear(참조 무결성)", "location=" + kind + ", detail=" + inputClearReason);
                         return false;
                     }
                     if (!TryCollectInputHistoryForClearNoLock(
@@ -85,9 +100,7 @@ namespace QMC.CDT320.Materials
                         out preserveInputHistory,
                         out inputClearReason))
                     {
-                        Log.Write("Main", "SYSTEM", "MaterialStateService",
-                            "위치 Clear history 확인에 실패했습니다. location=" + kind +
-                            ", detail=" + inputClearReason + " - Blocked");
+                        LogMaterialClearBlocked("위치 Clear(history 확인 실패)", "location=" + kind + ", detail=" + inputClearReason);
                         return false;
                     }
                 }
@@ -152,9 +165,7 @@ namespace QMC.CDT320.Materials
                     out affectedWafers,
                     out affectedWaferReason))
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Stage Material Clear 대상 확인에 실패했습니다. location=" + kind +
-                        ", detail=" + affectedWaferReason + " - Blocked");
+                    LogMaterialClearBlocked("Stage Clear(대상 확인 실패)", "location=" + kind + ", detail=" + affectedWaferReason);
                     return false;
                 }
 
@@ -173,9 +184,7 @@ namespace QMC.CDT320.Materials
                         out clearReason);
                 if (!canClear)
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Stage Material Clear가 참조 무결성 때문에 차단되었습니다. location=" + kind +
-                        ", detail=" + clearReason + " - Blocked");
+                    LogMaterialClearBlocked("Stage Clear(참조 무결성)", "location=" + kind + ", detail=" + clearReason);
                     return false;
                 }
 
@@ -188,9 +197,7 @@ namespace QMC.CDT320.Materials
                         out preserveInputHistory,
                         out clearReason))
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Stage Material history 확인에 실패했습니다. location=" + kind +
-                        ", detail=" + clearReason + " - Blocked");
+                    LogMaterialClearBlocked("Stage Clear(history 확인 실패)", "location=" + kind + ", detail=" + clearReason);
                     return false;
                 }
 
@@ -994,24 +1001,43 @@ namespace QMC.CDT320.Materials
 
         public static bool ClearInputCassetteSlotData(CassetteMaterialRole cassetteRole, int slotNumber)
         {
+            string reason;
+            return ClearInputCassetteSlotData(cassetteRole, slotNumber, out reason);
+        }
+
+        /// <summary>
+        /// Input Cassette 단일 Slot Data 초기화. 차단 시 사유를 그대로 돌려준다(전체 초기화와 동일 정책).
+        /// </summary>
+        public static bool ClearInputCassetteSlotData(CassetteMaterialRole cassetteRole, int slotNumber, out string reason)
+        {
+            reason = "";
             MaterialCompactionResult compactionResult;
             lock (_stateSync)
             {
                 var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
                 if (cassette == null)
+                {
+                    reason = "대상 Cassette가 자재 상태에 없습니다. cassette=" + cassetteRole;
+                    LogMaterialClearBlocked("Input cassette slot clear", reason);
                     return false;
+                }
 
                 string preflightReason;
                 if (!TryValidateCassetteRoleForClearNoLock(cassetteRole, out preflightReason))
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Input cassette slot clear blocked: " + preflightReason + " - Blocked");
+                    reason = preflightReason;
+                    LogMaterialClearBlocked("Input cassette slot clear", preflightReason);
                     return false;
                 }
 
                 cassette.EnsureSlots();
                 if (slotNumber < 0 || slotNumber >= cassette.Slots.Count)
+                {
+                    reason = "Slot 번호가 범위를 벗어났습니다. cassette=" + cassetteRole +
+                             ", slot=" + (slotNumber + 1) + ", slotCount=" + cassette.Slots.Count;
+                    LogMaterialClearBlocked("Input cassette slot clear", reason);
                     return false;
+                }
 
                 var slot = cassette.Slots[slotNumber];
                 WaferMaterial slotWafer = null;
@@ -1021,10 +1047,8 @@ namespace QMC.CDT320.Materials
                     slotWafer = ResolveCassetteSlotWaferNoLock(slot, out slotReason);
                     if (slotWafer == null)
                     {
-                        Log.Write("Main", "SYSTEM", "MaterialStateService",
-                            "Input cassette slot clear blocked: " + slotReason +
-                            ", cassette=" + cassetteRole +
-                            ", slot=" + (slotNumber + 1) + " - Blocked");
+                        reason = slotReason + ", cassette=" + cassetteRole + ", slot=" + (slotNumber + 1);
+                        LogMaterialClearBlocked("Input cassette slot clear", reason);
                         return false;
                     }
                 }
@@ -1049,8 +1073,8 @@ namespace QMC.CDT320.Materials
                     out inputOnlyDies,
                     out inputDieReason))
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Input cassette slot clear blocked: " + inputDieReason + " - Blocked");
+                    reason = inputDieReason;
+                    LogMaterialClearBlocked("Input cassette slot clear", inputDieReason);
                     return false;
                 }
                 List<DieMaterial> inputHistoryDies;
@@ -1061,8 +1085,8 @@ namespace QMC.CDT320.Materials
                     out preserveInputHistory,
                     out inputDieReason))
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Input cassette slot clear blocked: " + inputDieReason + " - Blocked");
+                    reason = inputDieReason;
+                    LogMaterialClearBlocked("Input cassette slot clear", inputDieReason);
                     return false;
                 }
 
@@ -1146,6 +1170,19 @@ namespace QMC.CDT320.Materials
 
         public static bool ClearInputCassetteAllSlotData()
         {
+            string reason;
+            return ClearInputCassetteAllSlotData(out reason);
+        }
+
+        /// <summary>
+        /// Input Cassette 전체 Data 초기화. 차단 시 사유를 그대로 돌려준다.
+        /// [사용자 확정 2026-08-17] 기존에는 bool만 반환해, 호출 화면이 "초기화 차단"과
+        ///   "저장 실패"를 구분하지 못하고 동일 문구("저장 파일까지 초기화하지 못했습니다")를
+        ///   띄웠다. 실제로는 사전검사에서 막혀 저장은 시도조차 하지 않은 경우가 대부분이다.
+        /// </summary>
+        public static bool ClearInputCassetteAllSlotData(out string reason)
+        {
+            reason = "";
             bool processed = false;
             MaterialCompactionResult compactionResult;
             lock (_stateSync)
@@ -1154,8 +1191,8 @@ namespace QMC.CDT320.Materials
                 if (!TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Input1, out preflightReason) ||
                     !TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Input2, out preflightReason))
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Input cassette all clear blocked: " + preflightReason + " - Blocked");
+                    reason = preflightReason;
+                    LogMaterialClearBlocked("Input cassette all clear", preflightReason);
                     return false;
                 }
 
@@ -1163,7 +1200,11 @@ namespace QMC.CDT320.Materials
                 ClearInputCassetteAllSlotData(CassetteMaterialRole.Input2, ref processed);
 
                 if (!processed)
+                {
+                    reason = "초기화 대상 Input Cassette(Input1/Input2)가 자재 상태에 없습니다.";
+                    LogMaterialClearBlocked("Input cassette all clear", reason);
                     return false;
+                }
 
                 compactionResult = CompactMaterialStateNoLock();
             }
@@ -1271,8 +1312,7 @@ namespace QMC.CDT320.Materials
                 string preflightReason;
                 if (!TryValidateCassetteRoleForClearNoLock(cassetteRole, out preflightReason))
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Output cassette slot clear blocked: " + preflightReason + " - Blocked");
+                    LogMaterialClearBlocked("Output cassette slot clear", preflightReason);
                     return false;
                 }
 
@@ -1288,10 +1328,8 @@ namespace QMC.CDT320.Materials
                     slotWafer = ResolveCassetteSlotWaferNoLock(slot, out slotReason);
                     if (slotWafer == null)
                     {
-                        Log.Write("Main", "SYSTEM", "MaterialStateService",
-                            "Output cassette slot clear blocked: " + slotReason +
-                            ", cassette=" + cassetteRole +
-                            ", slot=" + (slotNumber + 1) + " - Blocked");
+                        LogMaterialClearBlocked("Output cassette slot clear",
+                            slotReason + ", cassette=" + cassetteRole + ", slot=" + (slotNumber + 1));
                         return false;
                     }
                 }
@@ -1315,8 +1353,7 @@ namespace QMC.CDT320.Materials
                     out relatedDies,
                     out dieReason))
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Output cassette slot clear blocked: " + dieReason + " - Blocked");
+                    LogMaterialClearBlocked("Output cassette slot clear", dieReason);
                     return false;
                 }
 
@@ -1352,8 +1389,7 @@ namespace QMC.CDT320.Materials
                     !TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Good2, out preflightReason) ||
                     !TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Ng1, out preflightReason))
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Output cassette all clear blocked: " + preflightReason + " - Blocked");
+                    LogMaterialClearBlocked("Output cassette all clear", preflightReason);
                     return false;
                 }
 
@@ -1389,8 +1425,7 @@ namespace QMC.CDT320.Materials
                     {
                         if (!TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Ng1, out preflightReason))
                         {
-                            Log.Write("Main", "SYSTEM", "MaterialStateService",
-                                "Output cassette side clear blocked: " + preflightReason + " - Blocked");
+                            LogMaterialClearBlocked("Output cassette side clear", preflightReason);
                             return false;
                         }
                         ClearOutputCassetteAllSlotData(CassetteMaterialRole.Ng1, ref processed);
@@ -1400,8 +1435,7 @@ namespace QMC.CDT320.Materials
                         if (!TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Good1, out preflightReason) ||
                             !TryValidateCassetteRoleForClearNoLock(CassetteMaterialRole.Good2, out preflightReason))
                         {
-                            Log.Write("Main", "SYSTEM", "MaterialStateService",
-                                "Output cassette side clear blocked: " + preflightReason + " - Blocked");
+                            LogMaterialClearBlocked("Output cassette side clear", preflightReason);
                             return false;
                         }
                         ClearOutputCassetteAllSlotData(CassetteMaterialRole.Good1, ref processed);

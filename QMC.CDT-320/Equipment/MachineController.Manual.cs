@@ -1975,6 +1975,25 @@ namespace QMC.CDT320
                     }
 
                     SaveMachineRuntimeState("ManualUnitProcess:" + processLabel);
+
+                    // [사용자 확정 2026-08-17] 수동 LOAD/UNLOAD 완료 시 자재 상태를 확정 저장한다.
+                    // 기존 조건: 물류 시퀀스는 NotifyAndSave(디바운스 quiet 1s / 최소 간격 5s)만 걸었다.
+                    //   수동 언로드 직후 5초 안에 앱이 종료되면 슬롯 포인터와 Wafer 레코드 중 한쪽만
+                    //   파일에 남아, 다음 기동 후 Cassette DATA CLEAR 사전검사가 차단되는 원인이 됐다.
+                    // 현재 기준: 작업자가 "이 시점 상태가 저장되었다"고 기대하는 지점이므로 즉시 flush한다.
+                    //   저장 실패는 공정 결과(0)를 뒤집지 않고 경고로만 올린다 — 물류는 이미 끝났다.
+                    if (!MaterialStateService.TryFlushPendingSave("ManualUnitProcess:" + processLabel))
+                    {
+                        string flushFailure =
+                            processLabel + " Manual 공정은 완료했지만 자재 상태를 저장 파일에 확정하지 못했습니다. " +
+                            "reason=" + MaterialSnapshotStore.LastSaveFailureReason;
+                        AlarmManager.Raise(
+                            AlarmSeverity.Warning,
+                            alarmCodePrefix + "-MATERIAL-SAVE",
+                            "MachineController",
+                            flushFailure);
+                    }
+
                     return 0;
                 }
             }

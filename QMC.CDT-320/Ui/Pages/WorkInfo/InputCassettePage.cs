@@ -1027,15 +1027,31 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!ConfirmMaterialDataAction("선택한 Cassette Slot의 Material Data를 초기화하시겠습니까?"))
                     return;
 
-                bool ok = MaterialStateService.ClearInputCassetteSlotData(_selectedCassetteRole, _selectedMaterialSlot);
-                if (ok)
-                    ok = MaterialStateService.TryFlushPendingSave("InputCassetteSlotDataClear");
-                WriteEvent("INPUT-CST-DATA-CLEAR", "slot=" + _selectedCassetteRole + "/" + (_selectedMaterialSlot + 1).ToString("00") + ", result=" + ok);
-                if (!ok)
+                // 전체 초기화와 동일 정책: 차단/저장실패를 구분하고 사유를 그대로 표시한다.
+                string clearReason;
+                bool cleared = MaterialStateService.ClearInputCassetteSlotData(
+                    _selectedCassetteRole, _selectedMaterialSlot, out clearReason);
+                bool saved = cleared && MaterialStateService.TryFlushPendingSave("InputCassetteSlotDataClear");
+                WriteEvent("INPUT-CST-DATA-CLEAR",
+                    "slot=" + _selectedCassetteRole + "/" + (_selectedMaterialSlot + 1).ToString("00") +
+                    ", cleared=" + cleared + ", saved=" + saved + ", reason=" + (clearReason ?? ""));
+                if (!cleared)
                 {
                     QMC.Common.MessageDialog.Show(
                         this,
-                        "선택한 Input Cassette Slot Data를 저장 파일까지 초기화하지 못했습니다.\r\n로그를 확인하십시오.",
+                        "선택한 Input Cassette Slot Data 초기화가 차단되었습니다.\r\n" +
+                        "저장 파일은 변경되지 않았습니다.\r\n\r\n" +
+                        "사유: " + (string.IsNullOrWhiteSpace(clearReason) ? "(사유 없음)" : clearReason),
+                        "Material Data",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+                else if (!saved)
+                {
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        "선택한 Slot Data는 초기화했지만 저장 파일에 반영하지 못했습니다.\r\n\r\n" +
+                        "사유: " + EmptyToDash(QMC.CDT320.Materials.MaterialSnapshotStore.LastSaveFailureReason),
                         "Material Data",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
@@ -1056,15 +1072,31 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!ConfirmMaterialDataAction("Input Cassette의 모든 Material Data를 초기화하시겠습니까?"))
                     return;
 
-                bool ok = MaterialStateService.ClearInputCassetteAllSlotData();
-                if (ok)
-                    ok = MaterialStateService.TryFlushPendingSave("InputCassetteAllDataClear");
-                WriteEvent("INPUT-CST-DATA-ALL-CLEAR", "result=" + ok);
-                if (!ok)
+                // [사용자 확정 2026-08-17] "초기화 차단"과 "저장 실패"를 구분해 사유를 화면에 그대로 표시한다.
+                //   기존에는 두 경우가 같은 문구("저장 파일까지 초기화하지 못했습니다")로 표시돼,
+                //   실제로는 사전검사에서 막혀 저장을 시도조차 안 한 경우에도 저장 실패로 오인됐다.
+                string clearReason;
+                bool cleared = MaterialStateService.ClearInputCassetteAllSlotData(out clearReason);
+                bool saved = cleared && MaterialStateService.TryFlushPendingSave("InputCassetteAllDataClear");
+                WriteEvent("INPUT-CST-DATA-ALL-CLEAR",
+                    "cleared=" + cleared + ", saved=" + saved + ", reason=" + (clearReason ?? ""));
+                if (!cleared)
                 {
                     QMC.Common.MessageDialog.Show(
                         this,
-                        "Input Cassette 전체 Data를 저장 파일까지 초기화하지 못했습니다.\r\n로그를 확인하십시오.",
+                        "Input Cassette 전체 Data 초기화가 차단되었습니다.\r\n" +
+                        "저장 파일은 변경되지 않았습니다.\r\n\r\n" +
+                        "사유: " + (string.IsNullOrWhiteSpace(clearReason) ? "(사유 없음)" : clearReason),
+                        "Material Data",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+                else if (!saved)
+                {
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        "Input Cassette 전체 Data는 초기화했지만 저장 파일에 반영하지 못했습니다.\r\n\r\n" +
+                        "사유: " + EmptyToDash(QMC.CDT320.Materials.MaterialSnapshotStore.LastSaveFailureReason),
                         "Material Data",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
@@ -1076,6 +1108,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 WriteAlarm("INPUT-CST-DATA-ALL-CLEAR-EX", "Material data all clear failed: " + ex.Message);
             }
+        }
+
+        /// <summary>저장 실패 사유가 비어 있을 때 화면에 빈 칸이 나오지 않게 한다.</summary>
+        private static string EmptyToDash(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? "(사유 없음 - 로그의 MATERIAL-SAVE-FAIL 확인)" : value;
         }
 
         private bool ConfirmMaterialDataAction(string message)
