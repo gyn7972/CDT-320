@@ -373,7 +373,10 @@ namespace QMC.CDT_320.Ui.Localization
             A("recipe.inputMapCreate","INPUT DIE MAP CREATE", "INPUT DIE MAP CREATE");
             A("recipe.outputMapCreate","OUTPUT DIE MAP CREATE","OUTPUT DIE MAP CREATE");
             A("recipe.binMapCreate",  "BIN DIE MAP CREATE",  "BIN DIE MAP CREATE");
-            A("recipe.dieMapSetup",   "DIE MAP SETUP",    "DIE MAP SETUP");
+            // [명칭 정정 2026-08-17] 이 메뉴는 다이맵 편집기가 아니라 InputStage 비전 얼라인
+            //   티칭 포인트(StageY/VisionX/offset) 다이얼로그다. 이름 때문에 INPUT/BIN DIE MAP
+            //   CREATE와 같은 계열로 오인됐다. 키(recipe.dieMapSetup)는 유지하고 표기만 바꾼다.
+            A("recipe.dieMapSetup",   "INPUT ALIGN TEACH", "INPUT ALIGN TEACH");
 
             // 설정 서브
             A("set.general",          "GENERAL",          "GENERAL");

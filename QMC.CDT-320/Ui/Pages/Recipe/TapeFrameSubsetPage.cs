@@ -22,9 +22,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private bool _loadingRole;
         private bool _applyingPitchValues;
         private bool _currentRoleIsOutput;
-        private bool _inputGridDefinitionDirty;
-        private bool _outputGridDefinitionDirty;
+        // [사용자 확정 2026-08-17] Grid dirty 플래그 폐지.
+        //   기존 조건: Grid X/Y를 건드리면 dirty가 서고, 상단 SAVE가 확인 없이 Base Map을 재생성했다.
+        //     dirty는 LoadFromRecipe/Reload에서 지워지지 않고 PageCache에 남아, 화면에 아무 변화가 없는데도
+        //     SAVE 한 번에 외부 Wafer Map이 Grid Map으로 교체되는 사고가 가능했다.
+        //   현재 기준: 상단 SAVE는 Base Map을 절대 만들거나 지우지 않는다. Base 생성/교체는
+        //     LOAD WAFER MAP / GRID MAP CREATE 두 버튼(확인 다이얼로그 포함)에서만 일어난다.
+        //     Grid 변경은 "GRID MAP CREATE 필요" 안내로만 표시한다.
+        private bool _gridEditedSinceLoad;
         private string _pitchLoadNotice = "";
+        private string _specPartialApplyNotice = "";
         private string _lastGridCountPreview = "";
         private string _lastWaferStatus = "대기: Base Wafer Map을 불러오거나 현재 Recipe를 확인하세요.";
 
@@ -38,10 +45,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _nPitchY.Minimum = 0M;
             _nPitchX.Value = 0M;
             _nPitchY.Value = 0M;
-            lblPitchX.Text = "Pitch Gap X (mm)";
-            lblPitchY.Text = "Pitch Gap Y (mm)";
-            toolTipRecipeLocation.SetToolTip(_nPitchX, "다이 X 중심 간격 = Recipe Die Width + Pitch Gap X");
-            toolTipRecipeLocation.SetToolTip(_nPitchY, "다이 Y 중심 간격 = Recipe Die Height + Pitch Gap Y");
+            // [사용자 확정 2026-08-17] 라벨을 "Pitch Gap"에서 "DIE GAP"으로 정정한다.
+            //   실제 값은 다이 사이 간격인데 "Pitch"라는 이름 때문에 중심 간 거리로 오해됐다.
+            //   중심 간 거리는 lblCenterPitchValue에 항상 계산해 보여준다.
+            lblPitchX.Text = "DIE GAP X (mm)";
+            lblPitchY.Text = "DIE GAP Y (mm)";
+            toolTipRecipeLocation.SetToolTip(_nPitchX, "다이 사이 X 간격입니다. 중심 간 거리 = Recipe Die Width + DIE GAP X");
+            toolTipRecipeLocation.SetToolTip(_nPitchY, "다이 사이 Y 간격입니다. 중심 간 거리 = Recipe Die Height + DIE GAP Y");
             _nPitchX.ValueChanged += OnPitchValueChanged;
             _nPitchY.ValueChanged += OnPitchValueChanged;
             _nGridX.ValueChanged += OnGridValueChanged;
@@ -76,8 +86,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 TapeFrameSubset frame = ResolveRoleFrame(_currentRoleIsOutput) ?? new TapeFrameSubset();
                 RefreshSpecList(frame.FrameSpecName);
                 ApplyFrameToControls(frame);
+                // 화면 값이 Recipe 값으로 되돌아왔으므로 편집 표시도 함께 초기화한다.
+                // (기존에는 이 플래그가 남아 화면과 무관하게 SAVE가 Base Map을 재생성했다)
+                _gridEditedSinceLoad = false;
                 UpdateMapFileLabel();
                 UpdateDerivedControlAccess();
+                UpdateCenterPitchDisplay();
+                UpdateChangeHints();
                 UpdateMapSourceInfo();
             }
             finally
@@ -86,42 +101,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        /// <summary>
+        /// 상단 SAVE — 값 저장 + (Base가 있으면) 역할 맵 좌표 재계산만 수행한다.
+        /// [사용자 확정 2026-08-17] Base Map 생성/교체는 이 경로에서 완전히 분리했다.
+        ///   Grid X/Y를 바꾼 뒤 SAVE를 눌러도 Base Map은 그대로이며, 새 Grid를 반영하려면
+        ///   GRID MAP CREATE(확인 다이얼로그 포함)를 명시적으로 눌러야 한다.
+        /// </summary>
         protected override void SaveToRecipe()
         {
             try
             {
-                bool createGridMaps = IsCurrentGridDefinitionDirty();
-                GridCountPreview gridPreview = null;
-                RecipeMapBuildResult gridResult = null;
-                if (createGridMaps)
-                {
-                    gridPreview = BuildGridCountPreview();
-                    if (gridPreview.GeneratedTargetCount <= 0)
-                    {
-                        throw new InvalidOperationException(
-                            "현재 Grid/Die/Pitch/Wafer Diameter/Edge Skip 조건에서 공정 대상 Die가 없습니다.");
-                    }
-                }
-
                 SaveControlsToSelectedRole();
-                if (createGridMaps)
-                {
-                    gridResult = RecipeMapBuildService.CreateGridBaseAndBuildRole(
-                        _project,
-                        _currentRoleIsOutput,
-                        RecipeStore.Save);
-                    if (gridResult == null || !gridResult.Success)
-                    {
-                        throw new InvalidOperationException(
-                            gridResult != null ? gridResult.Message : "Grid Map 생성 결과가 없습니다.");
-                    }
-                    SetCurrentGridDefinitionDirty(false);
-                }
-                else if (!RebuildConfiguredMaps() && !RecipeStore.Save(_project))
-                {
+                if (!RebuildConfiguredMaps() && !RecipeStore.Save(_project))
                     throw new IOException("[PROJECT FILE SAVE] Recipe Project 파일을 저장할 수 없습니다.");
-                }
 
+                bool gridPending = IsGridDefinitionDifferentFromBase();
                 _loadingRole = true;
                 try
                 {
@@ -130,15 +124,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     ApplyFrameToControls(frame);
                     UpdateMapFileLabel();
                     UpdateDerivedControlAccess();
-                    _lastWaferStatus = createGridMaps
-                        ? "[SAVE + GRID MAP CREATE OK] " + (_currentRoleIsOutput ? "OUTPUT GOOD/NG" : "INPUT") +
-                          " 역할 맵을 Grid " + gridPreview.GridX + "x" + gridPreview.GridY +
-                          ", 전체 셀 " + gridResult.AddressCount + ", Target " + gridResult.TargetCount +
-                          "개로 생성했습니다. Map Create에서 FINAL APPLY 하세요."
-                        : "[SAVE OK] " + (_currentRoleIsOutput ? "OUTPUT" : "INPUT") +
-                          " Pitch Gap을 Recipe에 저장하고 Die Size + Gap 중심 간격으로 역할 맵 좌표를 다시 계산했습니다.";
-                    if (!createGridMaps && IsBaseMapConnected())
-                        _lastWaferStatus += " 공정 사용 전 Map Create에서 역할별 FINAL APPLY가 필요합니다.";
+
+                    _lastWaferStatus = "[SAVE OK] " + (_currentRoleIsOutput ? "OUTPUT" : "INPUT") +
+                        " 값을 Recipe에 저장했습니다.";
+                    if (IsBaseMapConnected())
+                    {
+                        _lastWaferStatus +=
+                            " Die Size + DIE GAP 중심 간격으로 역할 맵 좌표를 다시 계산했습니다." +
+                            " 공정 사용 전 Map Create에서 역할별 FINAL APPLY가 필요합니다.";
+                    }
+                    else
+                    {
+                        _lastWaferStatus += " Base Map이 없어 값만 저장했습니다. 맵을 만들려면 GRID MAP CREATE 또는 LOAD WAFER MAP을 누르세요.";
+                    }
+
+                    if (gridPending)
+                    {
+                        _lastWaferStatus +=
+                            " ※ 화면 Grid가 Base Map 격자와 다릅니다 — SAVE는 Base Map을 바꾸지 않습니다." +
+                            " 새 격자를 적용하려면 GRID MAP CREATE를 누르세요.";
+                    }
+
                     UpdateMapSourceInfo();
                 }
                 finally
@@ -172,15 +178,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     TapeFrameSubset frame = ResolveRoleFrame(_currentRoleIsOutput) ?? new TapeFrameSubset();
                     RefreshSpecList(frame.FrameSpecName);
                     ApplyFrameToControls(frame);
+                    _gridEditedSinceLoad = false;
                     UpdateMapFileLabel();
                     UpdateDerivedControlAccess();
+                    UpdateCenterPitchDisplay();
+                    UpdateChangeHints();
                 }
                 finally
                 {
                     _loadingRole = false;
                 }
+                // [문구 정정 2026-08-17] 기존 문구는 "미저장 Pitch Gap은 화면 값으로만 유지됩니다"였으나,
+                //   실제로는 전환 직전 SaveControlsToRole이 직전 역할 값을 메모리 Recipe에 이미 커밋한다.
+                //   사실과 반대인 안내라 SAVE 필요성을 오해하게 만들었다.
                 _lastWaferStatus = "역할 전환: " + (_currentRoleIsOutput ? "OUTPUT" : "INPUT") +
-                    " 설정과 생성 맵 정보를 표시합니다. 미저장 Pitch Gap은 화면 값으로만 유지됩니다." +
+                    " 설정과 생성 맵 정보를 표시합니다. 직전 역할의 편집값은 이미 반영되었으며, 상단 SAVE를 눌러야 파일과 맵 좌표에 적용됩니다." +
                     (string.IsNullOrWhiteSpace(_pitchLoadNotice) ? "" : " " + _pitchLoadNotice);
                 UpdateMapSourceInfo();
             }
@@ -214,8 +226,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 ApplySpecToControls(spec);
                 _lastWaferStatus = "[LOAD SPEC] 선택 Spec을 화면에만 불러왔습니다. 상단 SAVE 또는 SAVE SPEC 전에는 Recipe에 적용되지 않습니다." +
+                    (string.IsNullOrWhiteSpace(_specPartialApplyNotice) ? "" : " ※ " + _specPartialApplyNotice) +
                     (string.IsNullOrWhiteSpace(_pitchLoadNotice) ? "" : " " + _pitchLoadNotice);
                 UpdateMapSourceInfo();
+                if (!string.IsNullOrWhiteSpace(_specPartialApplyNotice))
+                {
+                    MessageBox.Show(_specPartialApplyNotice, "Wafer Spec",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
             }
             catch (Exception ex)
             {
@@ -230,7 +248,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 SaveToRecipe();
-                SaveFrameSpec(ResolveRoleFrame(_currentRoleIsOutput), ResolveRoleMapFileName(_currentRoleIsOutput));
+                SaveFrameSpec(ResolveRoleFrame(_currentRoleIsOutput), ResolveRoleMapFileName(_currentRoleIsOutput), "");
 
                 var host = FindForm() as Form1;
                 if (host == null)
@@ -282,7 +300,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     if (!result.Success)
                         throw new InvalidOperationException(result.Message);
 
-                    SetCurrentGridDefinitionDirty(false);
+                    _gridEditedSinceLoad = false;
 
                     SaveAllFrameSpecs();
                     var host = FindForm() as Form1;
@@ -373,7 +391,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (result == null || !result.Success)
                     throw new InvalidOperationException(result != null ? result.Message : "Grid Map 생성 결과가 없습니다.");
 
-                SetCurrentGridDefinitionDirty(false);
+                _gridEditedSinceLoad = false;
                 SaveAllFrameSpecs();
                 var host = FindForm() as Form1;
                 if (host == null)
@@ -469,6 +487,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             ApplyPitchValuesToControls(spec.PitchX, spec.PitchY, "선택 Spec");
             _nDiameter.Value = ClampDecimal((decimal)spec.OuterDiameterMm, _nDiameter.Minimum, _nDiameter.Maximum);
 
+            // [명시화 2026-08-17] Base가 연결돼 있으면 Grid/EdgeSkip은 적용되지 않는다.
+            //   기존에는 아무 안내 없이 스펙의 절반만 반영돼 사용자가 알 수 없었다.
             if (!IsBaseMapConnected())
             {
                 _nGridX.Value = ClampDecimal(spec.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
@@ -476,10 +496,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 SetSelectedEdgeSkipMode(spec.EdgeSkipMode);
                 _nSideEdgeSkip.Value = ClampDecimal(GetEdgeSkipControlValue(spec), _nSideEdgeSkip.Minimum, _nSideEdgeSkip.Maximum);
                 _nTopBottomEdgeSkip.Value = ClampDecimal(GetTopBottomEdgeSkipControlValue(spec), _nTopBottomEdgeSkip.Minimum, _nTopBottomEdgeSkip.Maximum);
+                _specPartialApplyNotice = "";
+            }
+            else
+            {
+                _specPartialApplyNotice =
+                    "Base Map이 연결돼 있어 Grid X/Y·Edge skip은 적용하지 않았습니다(Name/DIE GAP/직경만 반영).";
             }
 
             ApplyRecipeDieSizeToControls();
             UpdateDerivedControlAccess();
+            UpdateCenterPitchDisplay();
+            UpdateChangeHints();
         }
 
         private void ApplyFrameToControls(TapeFrameSubset frame)
@@ -575,19 +603,37 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return true;
         }
 
+        /// <summary>
+        /// Input/Output 프레임을 저장 사양 라이브러리에 기록한다.
+        /// [정정 2026-08-17] UpsertFrame은 이름(대소문자 무시)으로만 매칭하는데 두 프레임의
+        ///   FrameSpecName이 기본적으로 같아, Output이 나중에 저장되며 Input 스펙을 덮어썼다.
+        ///   이름이 같으면 역할 suffix를 붙여 서로 다른 항목으로 남긴다.
+        /// </summary>
         private void SaveAllFrameSpecs()
         {
-            SaveFrameSpec(_project != null ? _project.InputFrame : null, _project != null ? _project.InputDieMapFileName : "");
-            SaveFrameSpec(_project != null ? _project.OutputFrame : null, _project != null ? _project.GoodBinDieMapFileName : "");
+            TapeFrameSubset inputFrame = _project != null ? _project.InputFrame : null;
+            TapeFrameSubset outputFrame = _project != null ? _project.OutputFrame : null;
+            bool sameName = inputFrame != null && outputFrame != null &&
+                            !string.IsNullOrWhiteSpace(inputFrame.FrameSpecName) &&
+                            string.Equals(inputFrame.FrameSpecName, outputFrame.FrameSpecName, StringComparison.OrdinalIgnoreCase);
+
+            SaveFrameSpec(
+                inputFrame,
+                _project != null ? _project.InputDieMapFileName : "",
+                sameName ? "_IN" : "");
+            SaveFrameSpec(
+                outputFrame,
+                _project != null ? _project.GoodBinDieMapFileName : "",
+                sameName ? "_OUT" : "");
         }
 
-        private void SaveFrameSpec(TapeFrameSubset frame, string mapFileName)
+        private void SaveFrameSpec(TapeFrameSubset frame, string mapFileName, string nameSuffix)
         {
             if (frame == null)
                 return;
 
             MaterialSpecs.UpsertFrame(
-                frame.FrameSpecName,
+                (frame.FrameSpecName ?? "") + (nameSuffix ?? ""),
                 frame.DieMapX,
                 frame.DieMapY,
                 frame.PitchX,
@@ -653,7 +699,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             _pitchLoadNotice = "";
-            _lastWaferStatus = "[EDITING] 현재 화면의 Pitch Gap이 변경되었습니다. 실제 중심 간격은 Die Size + Gap이며 상단 SAVE 전에는 역할 맵 좌표에 적용되지 않습니다.";
+            _lastWaferStatus = "[EDITING] DIE GAP이 변경되었습니다. 중심 간 거리 = Die Size + DIE GAP이며, 상단 SAVE 전에는 역할 맵 좌표에 적용되지 않습니다.";
+            UpdateCenterPitchDisplay();
+            UpdateChangeHints();
             UpdateMapSourceInfo();
         }
 
@@ -662,25 +710,158 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (_loadingRole)
                 return;
 
-            SetCurrentGridDefinitionDirty(true);
+            _gridEditedSinceLoad = true;
             _lastGridCountPreview = "";
-            _lastWaferStatus = "[EDITING] Grid X/Y changed. COUNT CHECK 후 SAVE/SAVE SPEC을 누르면 선택 역할의 Grid Map을 생성합니다.";
+            _lastWaferStatus = "[EDITING] Grid X/Y가 변경되었습니다. COUNT CHECK로 개수를 확인한 뒤 GRID MAP CREATE를 눌러야 Base Map에 반영됩니다(상단 SAVE는 Base Map을 바꾸지 않습니다).";
             if (lblGridCountResult != null)
                 lblGridCountResult.Text = "Count: -";
+            UpdateChangeHints();
             UpdateMapSourceInfo();
         }
 
-        private bool IsCurrentGridDefinitionDirty()
+        /// <summary>화면 Grid X/Y가 연결된 Base Map 격자와 다른지 — 다르면 GRID MAP CREATE가 필요하다.</summary>
+        private bool IsGridDefinitionDifferentFromBase()
         {
-            return _currentRoleIsOutput ? _outputGridDefinitionDirty : _inputGridDefinitionDirty;
+            try
+            {
+                if (!IsBaseMapConnected())
+                    return _gridEditedSinceLoad;
+
+                TapeFrameSubset frame = ResolveRoleFrame(_currentRoleIsOutput);
+                if (frame == null)
+                    return _gridEditedSinceLoad;
+
+                return (int)_nGridX.Value != frame.DieMapX || (int)_nGridY.Value != frame.DieMapY;
+            }
+            catch
+            {
+                return _gridEditedSinceLoad;
+            }
+            finally
+            {
+            }
         }
 
-        private void SetCurrentGridDefinitionDirty(bool dirty)
+        /// <summary>중심 간 거리(= Die Size + DIE GAP) 표시를 화면 값으로 즉시 갱신한다.</summary>
+        private void UpdateCenterPitchDisplay()
         {
-            if (_currentRoleIsOutput)
-                _outputGridDefinitionDirty = dirty;
-            else
-                _inputGridDefinitionDirty = dirty;
+            if (lblCenterPitchValue == null)
+                return;
+
+            try
+            {
+                double dieX = ResolveRecipeDieSizeX();
+                double dieY = ResolveRecipeDieSizeY();
+                double gapX = (double)_nPitchX.Value;
+                double gapY = (double)_nPitchY.Value;
+                lblCenterPitchValue.Text =
+                    "X " + FormatNumber(dieX) + " + " + FormatNumber(gapX) + " = " + FormatNumber(dieX + gapX) +
+                    "     |     Y " + FormatNumber(dieY) + " + " + FormatNumber(gapY) + " = " + FormatNumber(dieY + gapY);
+            }
+            catch (Exception ex)
+            {
+                lblCenterPitchValue.Text = "계산 실패: " + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 각 그룹 하단 안내를 현재 편집 상태에 맞춰 갱신한다.
+        /// "이 값을 반영하려면 무엇을 눌러야 하는가"를 화면에서 바로 알 수 있게 한다.
+        /// </summary>
+        private void UpdateChangeHints()
+        {
+            if (lblBaseHint != null)
+            {
+                bool gridPending = IsGridDefinitionDifferentFromBase();
+                if (gridPending)
+                {
+                    lblBaseHint.ForeColor = Color.FromArgb(200, 90, 20);
+                    lblBaseHint.Text =
+                        "⚠ 화면 격자가 Base Map과 다릅니다 — GRID MAP CREATE를 눌러야 반영됩니다. 상단 SAVE는 Base Map을 바꾸지 않습니다.";
+                }
+                else
+                {
+                    lblBaseHint.ForeColor = Color.FromArgb(120, 120, 120);
+                    lblBaseHint.Text =
+                        "Grid / Outer diameter / Edge skip은 LOAD WAFER MAP 또는 GRID MAP CREATE로만 맵에 반영됩니다.";
+                }
+            }
+
+            if (lblDieHint != null)
+            {
+                lblDieHint.ForeColor = Color.FromArgb(120, 120, 120);
+                lblDieHint.Text = IsBaseMapConnected()
+                    ? "DIE GAP을 바꾸면 상단 SAVE로 Base 주소를 유지한 채 역할 맵 좌표만 다시 계산됩니다(Target/Skip 보존)."
+                    : "DIE GAP은 상단 SAVE로 저장됩니다. 맵이 없으므로 좌표 재계산은 GRID MAP CREATE 이후부터 적용됩니다.";
+            }
+
+            UpdateApprovalBadges();
+        }
+
+        /// <summary>INPUT / GOOD / NG 승인 상태 배지 — 공정 차단 여부를 화면에서 바로 보이게 한다.</summary>
+        private void UpdateApprovalBadges()
+        {
+            SetApprovalBadge(lblApprovalInput, "INPUT", RecipeMapKind.Input);
+            SetApprovalBadge(lblApprovalGood, "GOOD", RecipeMapKind.GoodBin);
+            SetApprovalBadge(lblApprovalNg, "NG", RecipeMapKind.NgBin);
+        }
+
+        private void SetApprovalBadge(Label badge, string title, RecipeMapKind kind)
+        {
+            if (badge == null)
+                return;
+
+            try
+            {
+                if (_project == null)
+                {
+                    badge.Text = title + " -";
+                    badge.ForeColor = Color.FromArgb(120, 120, 120);
+                    return;
+                }
+
+                string path;
+                string reason;
+                DieMap map = RecipeDieMapResolver.LoadCompatibleMap(_project, kind, out path, out reason);
+                if (map != null)
+                {
+                    badge.Text = title + " ✅ APPROVED";
+                    badge.ForeColor = Color.FromArgb(30, 120, 60);
+                    toolTipRecipeLocation.SetToolTip(badge, path ?? "");
+                    return;
+                }
+
+                badge.Text = title + " ⚠ PENDING";
+                badge.ForeColor = Color.FromArgb(200, 90, 20);
+                toolTipRecipeLocation.SetToolTip(badge,
+                    (string.IsNullOrWhiteSpace(reason) ? "맵을 사용할 수 없습니다." : reason) +
+                    Environment.NewLine + "→ " + (kind == RecipeMapKind.Input ? "INPUT DIE MAP CREATE" : "BIN DIE MAP CREATE") +
+                    " 화면에서 FINAL APPLY 하세요.");
+            }
+            catch (Exception ex)
+            {
+                badge.Text = title + " ?";
+                badge.ForeColor = Color.FromArgb(120, 120, 120);
+                toolTipRecipeLocation.SetToolTip(badge, ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void btnEditDieSpec_Click(object sender, EventArgs e)
+        {
+            MessageBox.Show(
+                "Die Size는 이 화면에서 편집할 수 없습니다." + Environment.NewLine +
+                "Recipe > 다이 사양(Die Spec) 화면에서 변경한 뒤 이 화면으로 돌아오세요." + Environment.NewLine +
+                Environment.NewLine +
+                "현재 값: X " + FormatNumber(ResolveRecipeDieSizeX()) + " mm / Y " + FormatNumber(ResolveRecipeDieSizeY()) + " mm",
+                "Wafer Spec",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
 
         private void btnGridCountPreview_Click(object sender, EventArgs e)
@@ -904,6 +1085,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         : "Base map      : READ FAILED - " + basePath);
                     lines.Add("Source folder : D:\\CDT-320\\Config\\WaferMap");
                     lines.Add("");
+                    // [정정 2026-08-17] 기존에는 Base가 없으면 여기서 바로 종료해
+                    //   COUNT CHECK 상세 결과가 화면 어디에도 나오지 않았다.
+                    //   "직접 Grid로 처음 만드는" 흐름에서 제일 필요한 정보였으므로 항상 출력한다.
+                    AppendGridCountSection(lines);
                     AppendWaferApplyFlow(lines);
                     _tbMapSourceInfo.Text = string.Join(Environment.NewLine, lines);
                     return;
@@ -990,13 +1175,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     lines.Add("NG final apply: " + (ngApproved ? "APPROVED" : "PENDING - " + (ngMap == null ? "role map not found" : ngApprovalReason)));
                 }
                 lines.Add("");
-                if (!string.IsNullOrWhiteSpace(_lastGridCountPreview))
-                {
-                    lines.Add("[GRID COUNT CHECK]");
-                    foreach (string previewLine in _lastGridCountPreview.Split(new[] { Environment.NewLine }, StringSplitOptions.None))
-                        lines.Add(previewLine);
-                    lines.Add("");
-                }
+                AppendGridCountSection(lines);
                 AppendWaferApplyFlow(lines);
                 _tbMapSourceInfo.Text = string.Join(Environment.NewLine, lines);
             }
@@ -1007,13 +1186,31 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        /// <summary>COUNT CHECK 상세 결과 섹션 — Base Map 유무와 무관하게 항상 출력한다.</summary>
+        private void AppendGridCountSection(System.Collections.Generic.ICollection<string> lines)
+        {
+            lines.Add("[GRID COUNT CHECK]");
+            if (string.IsNullOrWhiteSpace(_lastGridCountPreview))
+            {
+                lines.Add("아직 실행하지 않았습니다. ③ 결과 그룹의 COUNT CHECK를 누르세요.");
+            }
+            else
+            {
+                foreach (string previewLine in _lastGridCountPreview.Split(new[] { Environment.NewLine }, StringSplitOptions.None))
+                    lines.Add(previewLine);
+            }
+            lines.Add("");
+        }
+
         private static void AppendWaferApplyFlow(System.Collections.Generic.ICollection<string> lines)
         {
-            lines.Add("[SAVE / LOAD / FINAL APPLY]");
-            lines.Add("1. 역할 선택 -> 외부 맵이면 LOAD WAFER MAP, 직접 Grid면 Grid X/Y 입력 -> COUNT CHECK -> SAVE/SAVE SPEC");
-            lines.Add("2. Pitch Gap만 변경할 때는 top SAVE로 기존 Base 주소의 역할 좌표를 다시 계산");
+            // [문구 개정 2026-08-17] 상단 SAVE가 Base Map을 생성/교체하지 않도록 분리한 뒤의 실제 절차.
+            lines.Add("[SAVE / CREATE / FINAL APPLY]");
+            lines.Add("1. ① 역할 선택 -> 외부 맵이면 LOAD WAFER MAP / 직접 격자면 Grid·직경·EdgeSkip 입력 후 COUNT CHECK -> GRID MAP CREATE");
+            lines.Add("2. ② DIE GAP만 바꿀 때는 상단 SAVE -> Base 주소를 유지한 채 역할 좌표만 다시 계산(Target/Skip 보존)");
             lines.Add("3. INPUT DIE MAP CREATE: Input Base 기준 맵/좌표 확인 -> FINAL APPLY");
             lines.Add("4. BIN DIE MAP CREATE: Output Base 기준 GOOD/NG 각각 확인 -> FINAL APPLY");
+            lines.Add("※ 상단 SAVE는 Base Map을 만들거나 지우지 않습니다. Base 생성/교체는 LOAD WAFER MAP / GRID MAP CREATE 뿐입니다.");
             lines.Add("※ LOAD SPEC은 화면만 변경하며 SAVE 전에는 Recipe에 적용되지 않습니다.");
         }
 
@@ -1050,12 +1247,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             double diameter = (double)_nDiameter.Value;
             double radius = Math.Max(0.0, diameter / 2.0);
             double centerGridX = Math.Max(0, gridX - 1) / 2.0;
-            string edgeSkipMode = GetSelectedEdgeSkipModeName();
-            bool millimeterMode = edgeSkipMode.IndexOf("Millimeter", StringComparison.OrdinalIgnoreCase) >= 0;
-            int sideGridSkip = millimeterMode
+            // [정정 2026-08-17] 미리보기와 실제 생성이 서로 다른 값을 읽어 결과가 어긋났다.
+            //   실제 생성은 ApplyControlsToFrame을 거치는데, Base가 연결돼 있으면 거기서
+            //   EdgeSkip을 전부 0 / 모드를 ExternalMap으로 강제한다.
+            //   미리보기도 같은 규칙을 적용해 "보여준 개수 = 만들어질 개수"가 되게 한다.
+            bool baseConnected = IsBaseMapConnected();
+            string edgeSkipMode = baseConnected ? "ExternalMap" : GetSelectedEdgeSkipModeName();
+            bool millimeterMode = !baseConnected &&
+                edgeSkipMode.IndexOf("Millimeter", StringComparison.OrdinalIgnoreCase) >= 0;
+            int sideGridSkip = baseConnected || millimeterMode
                 ? 0
                 : Math.Min(Math.Max(0, (int)Math.Floor(_nSideEdgeSkip.Value)), Math.Max(0, (gridX - 1) / 2));
-            int topBottomGridSkip = millimeterMode
+            int topBottomGridSkip = baseConnected || millimeterMode
                 ? 0
                 : Math.Min(Math.Max(0, (int)Math.Floor(_nTopBottomEdgeSkip.Value)), Math.Max(0, (gridY - 1) / 2));
             double sideMmSkip = millimeterMode ? Math.Max(0.0, (double)_nSideEdgeSkip.Value) : 0.0;
