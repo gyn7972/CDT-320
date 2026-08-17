@@ -19,19 +19,24 @@ namespace QMC.CDT_320.Ui.Dialogs
     ///   따라서 폐루프와 같은 방향의 영구 보정으로 옮기려면 기구값 = 기구값 − 필터값이다.
     /// Pick 이관(2026-08-14 활성화): 런타임 X와 기구 X는 같은 진입점(PickerX/NeedleX)에
     ///   같은 부호(+)로 들어가므로 기구X′ = 기구X + 필터X 로 총합 불변 이관이 확정된다.
-    ///   Y는 런타임이 StageY(+), 기구가 PickerY(+)로 서로 다른 축이라 코드만으로 확정 불가였고,
-    ///   실장비 수렴 확인으로 + 확정(2026-08-16) — 근거·재검증 조건은 PickApplyYSign 주석 참조.
-    /// T 채널은 기구 오프셋에 대응 항이 없어 표시 전용이다(Pick/Place 동일).
+    ///   Y는 런타임이 StageY(+), 기구가 PickerY(+)로 서로 다른 축 — 실장비 이관 검증(2026-08-16)에서
+    ///   두 축의 물리 + 방향이 같음이 확인되어 기구Y′ = 기구Y − 필터Y 로 확정.
+    ///   근거·재검증 조건은 PickApplyYSign 주석 참조.
+    /// T 기구 보정(2026-08-16 신설, 팀장님 지시): 런타임 T(감산)와 같은 PickerT 축에 가산(+)으로
+    ///   들어가므로 Pick/Place 모두 기구T′ = 기구T − 필터T 로 이관식이 코드 확정된다.
     /// 이관·리셋은 운전/초기화 중 금지(CanApplyMechanicalOffset), 필터 설정 변경과 달리 게이트 유지.
     /// </summary>
     public partial class RuntimeOffsetMonitorDialog : Form
     {
-        // Pick 이관 Y 부호 — 확정 +1 (2026-08-16 팀장님 실장비 확인: 이관 후 Bottom 검사 Y가 0으로 수렴).
-        // 근거: 런타임 Y는 InputStage Y축(+), 기구 Y는 Picker Y축(+)으로 서로 다른 축에 들어가
-        // 코드만으로는 방향을 확정할 수 없었고(2026-08-14 잠정 +), 실장비 이관 후 수렴 방향으로 확정했다.
+        // Pick 이관 Y 부호 — 확정 -1 (2026-08-16 실장비 이관 검증, 팀장님 승인).
+        // 근거: 런타임 Y는 InputStage Y축을 +로 움직여 보정하고, 기구 Y는 Picker Y축을 +로 움직인다.
+        // 잠정 +1로 전 픽커 이관(+0.146~0.165)한 결과 Bottom 측정 Y가 전 픽커 약 2배(+0.26~0.30)
+        // 점프(Front 4픽커·Rear 동일 방향) — 두 축의 물리 + 방향이 같아 스테이지 대신 픽커로 옮길 때는
+        // 부호를 뒤집어야 상대 정렬이 유지된다. (대조: X는 런타임·기구가 같은 축(PickerX/NeedleX)·같은
+        // 부호라 +1 이관이 정확히 상쇄됨 — 이관 후 필터 X 재학습값 ≈ 0으로 확인.)
         // 축 구성이나 좌표 산식(CalculatePickTarget/ApplyPickMechanicalOffsets)이 바뀌면 재검증할 것 —
-        // 반전이 필요해지면 이 상수만 -1.0으로 바꾸면 된다(이관식 전 지점이 이 상수를 곱한다).
-        private const double PickApplyYSign = 1.0;
+        // 이관식 전 지점이 이 상수를 곱하므로 반전은 이 상수 한 곳만 바꾸면 된다. Front/Rear 공통.
+        private const double PickApplyYSign = -1.0;
 
         private bool _allowClose;
         private bool _busy;
@@ -58,9 +63,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colT", HeaderText = "T (deg)", FillWeight = 90 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colMechX", HeaderText = "기구 X (mm)", FillWeight = 95 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colMechY", HeaderText = "기구 Y (mm)", FillWeight = 95 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colMechT", HeaderText = "기구 T (deg)", FillWeight = 95 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colUpdated", HeaderText = "최종 갱신", FillWeight = 150 });
 
-            for (int i = 2; i <= 6; i++)
+            for (int i = 2; i <= 7; i++)
                 grid.Columns[i].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
         }
 
@@ -251,7 +257,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             DialogResult answer = QMC.Common.MessageDialog.Show(
                 "Place 런타임 보정값을 Place 기구 오프셋으로 이관합니다.\n" +
-                "적용식: 기구값 = 기구값 − 필터값 (X/Y), T는 대응 항이 없어 제외합니다.\n" +
+                "적용식: 기구값 = 기구값 − 필터값 (X/Y/T).\n" +
                 "이관한 채널의 필터는 0으로 초기화됩니다.\n\n" +
                 preview + "\n계속하시겠습니까?",
                 "PLACE RUNTIME OFFSET",
@@ -273,7 +279,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 RuntimeOffsetSnapshot row = rows[i];
                 if (row == null)
                     continue;
-                if (IsZero(row.X) && IsZero(row.Y))
+                if (IsZero(row.X) && IsZero(row.Y) && IsZero(row.T))
                     continue;
 
                 PickerPlaceMotionConfig config = ResolvePlaceConfig(machine, row.Side);
@@ -283,26 +289,33 @@ namespace QMC.CDT_320.Ui.Dialogs
                 int pickerIndex = row.PickerNo - 1;
                 double beforeX = config.GetMechanicalOffsetX(pickerIndex);
                 double beforeY = config.GetMechanicalOffsetY(pickerIndex);
+                double beforeT = config.GetMechanicalOffsetT(pickerIndex);
 
-                // 폐루프 적용식(pickerX = … − runtimeX, outputStageY = … − runtimeY)과
-                // 같은 방향의 영구 보정이 되도록 감산 이관한다.
+                // 폐루프 적용식(pickerX = … − runtimeX, outputStageY = … − runtimeY,
+                // pickerT = … − runtimeT)과 같은 방향의 영구 보정이 되도록 감산 이관한다.
+                // (T 기구 보정 2026-08-16 신설 — 런타임 T와 같은 PickerT 축 가산이라 감산 이관 확정)
                 double requestedX = beforeX - row.X;
                 double requestedY = beforeY - row.Y;
+                double requestedT = beforeT - row.T;
 
-                // SetMechanicalOffset*은 설정 한계(MechanicalOffsetLimitMm)로 자동 클램프한다.
+                // SetMechanicalOffset*은 설정 한계(X/Y: LimitMm, T: LimitTDeg)로 자동 클램프한다.
                 config.SetMechanicalOffsetX(pickerIndex, requestedX);
                 config.SetMechanicalOffsetY(pickerIndex, requestedY);
+                config.SetMechanicalOffsetT(pickerIndex, requestedT);
 
                 double afterX = config.GetMechanicalOffsetX(pickerIndex);
                 double afterY = config.GetMechanicalOffsetY(pickerIndex);
+                double afterT = config.GetMechanicalOffsetT(pickerIndex);
                 bool clampedX = !IsZero(afterX - requestedX);
                 bool clampedY = !IsZero(afterY - requestedY);
-                if (clampedX || clampedY)
+                bool clampedT = !IsZero(afterT - requestedT);
+                if (clampedX || clampedY || clampedT)
                 {
                     clamped.AppendLine(
                         row.Side + " P" + row.PickerNo +
                         (clampedX ? " X " + F(requestedX) + " → " + F(afterX) : string.Empty) +
-                        (clampedY ? " Y " + F(requestedY) + " → " + F(afterY) : string.Empty));
+                        (clampedY ? " Y " + F(requestedY) + " → " + F(afterY) : string.Empty) +
+                        (clampedT ? " T " + F(requestedT) + " → " + F(afterT) : string.Empty));
                 }
 
                 EventLogger.Write(
@@ -313,6 +326,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", pickerNo=" + row.PickerNo +
                     ", filterX=" + F(row.X) +
                     ", filterY=" + F(row.Y) +
+                    ", filterT=" + F(row.T) +
                     ", mechXBefore=" + F(beforeX) +
                     ", mechXRequested=" + F(requestedX) +
                     ", mechXAfter=" + F(afterX) +
@@ -321,10 +335,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", mechYRequested=" + F(requestedY) +
                     ", mechYAfter=" + F(afterY) +
                     ", mechYClamped=" + clampedY +
-                    ", limitMm=" + F(config.MechanicalOffsetLimitMm));
+                    ", mechTBefore=" + F(beforeT) +
+                    ", mechTRequested=" + F(requestedT) +
+                    ", mechTAfter=" + F(afterT) +
+                    ", mechTClamped=" + clampedT +
+                    ", limitMm=" + F(config.MechanicalOffsetLimitMm) +
+                    ", limitTDeg=" + F(config.MechanicalOffsetTLimitDeg));
 
-                // 이관한 채널의 필터를 0으로 초기화한다 — 이후 Enable 시 이중 보정 방지.
-                PlaceRuntimeOffsetService.ResetXy(row.Side, row.PickerNo);
+                // 이관한 채널(X/Y/T)의 필터를 0으로 초기화한다 — 이후 이중 보정 방지.
+                PlaceRuntimeOffsetService.Reset(row.Side, row.PickerNo);
                 appliedCount++;
             }
 
@@ -363,7 +382,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 RuntimeOffsetSnapshot row = rows[i];
                 if (row == null)
                     continue;
-                if (IsZero(row.X) && IsZero(row.Y))
+                if (IsZero(row.X) && IsZero(row.Y) && IsZero(row.T))
                     continue;
 
                 PickerPlaceMotionConfig config = ResolvePlaceConfig(machine, row.Side);
@@ -373,10 +392,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 int pickerIndex = row.PickerNo - 1;
                 double currentX = config.GetMechanicalOffsetX(pickerIndex);
                 double currentY = config.GetMechanicalOffsetY(pickerIndex);
+                double currentT = config.GetMechanicalOffsetT(pickerIndex);
                 builder.AppendLine(
                     row.Side + " P" + row.PickerNo +
                     " : X " + F(currentX) + " → " + F(currentX - row.X) +
-                    " / Y " + F(currentY) + " → " + F(currentY - row.Y));
+                    " / Y " + F(currentY) + " → " + F(currentY - row.Y) +
+                    " / T " + F(currentT) + " → " + F(currentT - row.T));
                 any = true;
             }
 
@@ -410,7 +431,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             DialogResult answer = QMC.Common.MessageDialog.Show(
                 "Pick 런타임 보정값을 Pick 기구 오프셋으로 이관합니다.\n" +
                 "적용식: 기구X = 기구X + 필터X, 기구Y = 기구Y " + (PickApplyYSign >= 0.0 ? "+" : "−") +
-                " 필터Y, T는 대응 항이 없어 제외합니다.\n" +
+                " 필터Y, 기구T = 기구T − 필터T.\n" +
                 "이관한 채널의 필터는 0으로 초기화됩니다.\n\n" +
                 preview + "\n계속하시겠습니까?",
                 "PICK RUNTIME OFFSET",
@@ -432,7 +453,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 RuntimeOffsetSnapshot row = rows[i];
                 if (row == null)
                     continue;
-                if (IsZero(row.X) && IsZero(row.Y))
+                if (IsZero(row.X) && IsZero(row.Y) && IsZero(row.T))
                     continue;
 
                 PickerPickUpMotionConfig config = ResolvePickUpConfig(machine, row.Side);
@@ -442,26 +463,33 @@ namespace QMC.CDT_320.Ui.Dialogs
                 int pickerIndex = row.PickerNo - 1;
                 double beforeX = config.GetMechanicalOffsetX(pickerIndex);
                 double beforeY = config.GetMechanicalOffsetY(pickerIndex);
+                double beforeT = config.GetMechanicalOffsetT(pickerIndex);
 
                 // 런타임 X와 기구 X는 같은 진입점(PickerX/NeedleX)에 같은 부호(+)로 들어가므로
                 // 총합 불변 이관은 가산이다. Y는 축이 달라 부호 파라미터(PickApplyYSign)를 곱한다.
+                // T는 런타임(감산)·기구(가산)가 같은 PickerT 축이라 감산 이관이 코드 확정(2026-08-16 신설).
                 double requestedX = beforeX + row.X;
                 double requestedY = beforeY + PickApplyYSign * row.Y;
+                double requestedT = beforeT - row.T;
 
-                // SetMechanicalOffset*은 설정 한계(MechanicalOffsetLimitMm)로 자동 클램프한다.
+                // SetMechanicalOffset*은 설정 한계(X/Y: LimitMm, T: LimitTDeg)로 자동 클램프한다.
                 config.SetMechanicalOffsetX(pickerIndex, requestedX);
                 config.SetMechanicalOffsetY(pickerIndex, requestedY);
+                config.SetMechanicalOffsetT(pickerIndex, requestedT);
 
                 double afterX = config.GetMechanicalOffsetX(pickerIndex);
                 double afterY = config.GetMechanicalOffsetY(pickerIndex);
+                double afterT = config.GetMechanicalOffsetT(pickerIndex);
                 bool clampedX = !IsZero(afterX - requestedX);
                 bool clampedY = !IsZero(afterY - requestedY);
-                if (clampedX || clampedY)
+                bool clampedT = !IsZero(afterT - requestedT);
+                if (clampedX || clampedY || clampedT)
                 {
                     clamped.AppendLine(
                         row.Side + " P" + row.PickerNo +
                         (clampedX ? " X " + F(requestedX) + " → " + F(afterX) : string.Empty) +
-                        (clampedY ? " Y " + F(requestedY) + " → " + F(afterY) : string.Empty));
+                        (clampedY ? " Y " + F(requestedY) + " → " + F(afterY) : string.Empty) +
+                        (clampedT ? " T " + F(requestedT) + " → " + F(afterT) : string.Empty));
                 }
 
                 EventLogger.Write(
@@ -472,6 +500,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", pickerNo=" + row.PickerNo +
                     ", filterX=" + F(row.X) +
                     ", filterY=" + F(row.Y) +
+                    ", filterT=" + F(row.T) +
                     ", applyYSign=" + F(PickApplyYSign) +
                     ", mechXBefore=" + F(beforeX) +
                     ", mechXRequested=" + F(requestedX) +
@@ -481,10 +510,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", mechYRequested=" + F(requestedY) +
                     ", mechYAfter=" + F(afterY) +
                     ", mechYClamped=" + clampedY +
-                    ", limitMm=" + F(config.MechanicalOffsetLimitMm));
+                    ", mechTBefore=" + F(beforeT) +
+                    ", mechTRequested=" + F(requestedT) +
+                    ", mechTAfter=" + F(afterT) +
+                    ", mechTClamped=" + clampedT +
+                    ", limitMm=" + F(config.MechanicalOffsetLimitMm) +
+                    ", limitTDeg=" + F(config.MechanicalOffsetTLimitDeg));
 
-                // 이관한 채널의 필터를 0으로 초기화한다 — 이후 Enable 시 이중 보정 방지.
-                PickRuntimeOffsetService.ResetXy(row.Side, row.PickerNo);
+                // 이관한 채널(X/Y/T)의 필터를 0으로 초기화한다 — 이후 이중 보정 방지.
+                PickRuntimeOffsetService.Reset(row.Side, row.PickerNo);
                 appliedCount++;
             }
 
@@ -523,7 +557,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 RuntimeOffsetSnapshot row = rows[i];
                 if (row == null)
                     continue;
-                if (IsZero(row.X) && IsZero(row.Y))
+                if (IsZero(row.X) && IsZero(row.Y) && IsZero(row.T))
                     continue;
 
                 PickerPickUpMotionConfig config = ResolvePickUpConfig(machine, row.Side);
@@ -533,10 +567,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 int pickerIndex = row.PickerNo - 1;
                 double currentX = config.GetMechanicalOffsetX(pickerIndex);
                 double currentY = config.GetMechanicalOffsetY(pickerIndex);
+                double currentT = config.GetMechanicalOffsetT(pickerIndex);
                 builder.AppendLine(
                     row.Side + " P" + row.PickerNo +
                     " : X " + F(currentX) + " → " + F(currentX + row.X) +
-                    " / Y " + F(currentY) + " → " + F(currentY + PickApplyYSign * row.Y));
+                    " / Y " + F(currentY) + " → " + F(currentY + PickApplyYSign * row.Y) +
+                    " / T " + F(currentT) + " → " + F(currentT - row.T));
                 any = true;
             }
 
@@ -630,7 +666,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 double mechX;
                 double mechY;
-                bool hasMech = TryResolveMechanicalOffset(row.Side, row.PickerNo, isPlace, out mechX, out mechY);
+                double mechT;
+                bool hasMech = TryResolveMechanicalOffset(row.Side, row.PickerNo, isPlace, out mechX, out mechY, out mechT);
 
                 DataGridViewRow view = grid.Rows[i];
                 view.Cells[0].Value = row.Side.ToString();
@@ -640,7 +677,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 view.Cells[4].Value = F(row.T);
                 view.Cells[5].Value = hasMech ? F(mechX) : "-";
                 view.Cells[6].Value = hasMech ? F(mechY) : "-";
-                view.Cells[7].Value = row.HasSample
+                view.Cells[7].Value = hasMech ? F(mechT) : "-";
+                view.Cells[8].Value = row.HasSample
                     ? row.LastUpdated.ToString("yyyy-MM-dd HH:mm:ss")
                     : "(샘플 없음)";
             }
@@ -680,10 +718,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             int pickerNo,
             bool isPlace,
             out double mechX,
-            out double mechY)
+            out double mechY,
+            out double mechT)
         {
             mechX = 0.0;
             mechY = 0.0;
+            mechT = 0.0;
 
             Form1 host = FindHostForm();
             CDT320_Machine machine = host != null ? host.Machine : null;
@@ -699,6 +739,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 mechX = placeConfig.GetMechanicalOffsetX(pickerIndex);
                 mechY = placeConfig.GetMechanicalOffsetY(pickerIndex);
+                mechT = placeConfig.GetMechanicalOffsetT(pickerIndex);
                 return true;
             }
 
@@ -708,6 +749,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             mechX = pickConfig.GetMechanicalOffsetX(pickerIndex);
             mechY = pickConfig.GetMechanicalOffsetY(pickerIndex);
+            mechT = pickConfig.GetMechanicalOffsetT(pickerIndex);
             return true;
         }
 

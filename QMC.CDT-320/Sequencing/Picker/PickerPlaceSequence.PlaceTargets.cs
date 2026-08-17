@@ -91,6 +91,9 @@ namespace QMC.CDT320.Sequencing
             double placeMechanicalOffsetY = _placeCorrectionConfigCaptured
                 ? _placeMechanicalOffsetYSnapshot
                 : placeConfig.GetMechanicalOffsetY(_currentPickerIndex);
+            double placeMechanicalOffsetT = _placeCorrectionConfigCaptured
+                ? _placeMechanicalOffsetTSnapshot
+                : placeConfig.GetMechanicalOffsetT(_currentPickerIndex);
             double placeCorrectionX = -bottomOffset.X + placeMechanicalOffsetX;
             double placeCorrectionY = -bottomOffset.Y + placeMechanicalOffsetY;
             double placeCorrectionLimitMm = _placeCorrectionConfigCaptured
@@ -148,7 +151,8 @@ namespace QMC.CDT320.Sequencing
                 placeRuntimeOffsetT,
                 placeMechanicalOffsetX,
                 placeMechanicalOffsetY,
-                useBottomFinalItemOffsetYAsSoleColletYCorrection);
+                useBottomFinalItemOffsetYAsSoleColletYCorrection,
+                placeMechanicalOffsetT);
 
             _targetOutputStageY = coordinate.OutputStageY;
             _targetPickerX = coordinate.PickerX;
@@ -201,6 +205,8 @@ namespace QMC.CDT320.Sequencing
                 ", placeMechanicalOffsetY=" + placeMechanicalOffsetY.ToString("F3") +
                 ", placeMechanicalOffsetYAppliedToOutputStageY=True" +
                 ", placeMechanicalOffsetYAppliedToPickerY=False" +
+                ", placeMechanicalOffsetT=" + placeMechanicalOffsetT.ToString("F3") +
+                ", placeMechanicalOffsetTAppliedToPickerT=True" +
                 ", combinedPlaceCorrectionX=" + placeCorrectionX.ToString("F6") +
                 ", combinedPlaceCorrectionY=" + placeCorrectionY.ToString("F6") +
                 ", combinedPlaceCorrectionLimitMm=" + placeCorrectionLimitMm.ToString("F3") +

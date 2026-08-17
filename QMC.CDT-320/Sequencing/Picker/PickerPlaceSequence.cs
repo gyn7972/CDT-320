@@ -51,6 +51,7 @@ namespace QMC.CDT320.Sequencing
         private bool _placeCorrectionConfigCaptured;
         private double _placeMechanicalOffsetXSnapshot;
         private double _placeMechanicalOffsetYSnapshot;
+        private double _placeMechanicalOffsetTSnapshot;
         private double _bottomPlaceCorrectionLimitSnapshot = PickerPickUpMotionConfig.DefaultMechanicalOffsetLimitMm;
         // R4(follow-entry): 비동기 시작한 OutputVisionX 최소 회피 이동 Task와 확정 목표.
         // 피커 X 진입(MoveOutputStageReceivePosition) 완료 전에 반드시 join(결과 0 확인)한다.
@@ -932,6 +933,9 @@ namespace QMC.CDT320.Sequencing
             _placeMechanicalOffsetYSnapshot = placeConfig != null
                 ? placeConfig.GetMechanicalOffsetY(_currentPickerIndex)
                 : 0.0;
+            _placeMechanicalOffsetTSnapshot = placeConfig != null
+                ? placeConfig.GetMechanicalOffsetT(_currentPickerIndex)
+                : 0.0;
             _bottomPlaceCorrectionLimitSnapshot = correctionLimitMm;
             _placeCorrectionConfigCaptured = true;
 
@@ -1005,7 +1009,8 @@ namespace QMC.CDT320.Sequencing
                 ", die=" + _currentDie.DieId +
                 ", correctionLimitMm=±" + correctionLimitMm.ToString("F3") +
                 ", mechanicalOffsetX=" + _placeMechanicalOffsetXSnapshot.ToString("F3") +
-                ", mechanicalOffsetY=" + _placeMechanicalOffsetYSnapshot.ToString("F3") + " - Start");
+                ", mechanicalOffsetY=" + _placeMechanicalOffsetYSnapshot.ToString("F3") +
+                ", mechanicalOffsetT=" + _placeMechanicalOffsetTSnapshot.ToString("F3") + " - Start");
 
             int bottomResult;
             using (CancellationTokenSource bottomGateCancellation =

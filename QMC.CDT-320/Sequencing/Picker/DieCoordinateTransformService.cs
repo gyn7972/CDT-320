@@ -130,10 +130,13 @@ namespace QMC.CDT320.Sequencing
 
         // PickUp 기구 보정은 Needle/Stage의 1:1 좌표 관계를 유지하기 위해
         // X는 PickerX와 NeedleX에 동일 적용하고 Y는 PickerY에만 적용한다.
+        // T는 PickerT에 가산(+) — 런타임 T(감산)와 같은 축이라 이관식(기구T′=기구T−필터T)이
+        // 코드로 확정된다(T 기구 보정 신설 2026-08-16, 팀장님 지시).
         public static PickCoordinateResult ApplyPickMechanicalOffsets(
             PickCoordinateResult result,
             double pickMechanicalOffsetX,
-            double pickMechanicalOffsetY)
+            double pickMechanicalOffsetY,
+            double pickMechanicalOffsetT)
         {
             if (result == null)
                 throw new ArgumentNullException("result");
@@ -141,13 +144,16 @@ namespace QMC.CDT320.Sequencing
             result.PickerX += pickMechanicalOffsetX;
             result.NeedleX += pickMechanicalOffsetX;
             result.PickerY += pickMechanicalOffsetY;
+            result.PickerT += pickMechanicalOffsetT;
             result.Formula =
                 (result.Formula ?? string.Empty) +
                 " / pickMechanicalOffsetX(" + F(pickMechanicalOffsetX) + ") applied equally to PickerX/NeedleX" +
                 " / pickMechanicalOffsetY(" + F(pickMechanicalOffsetY) + ") applied only to PickerY" +
+                " / pickMechanicalOffsetT(" + F(pickMechanicalOffsetT) + ") applied to PickerT" +
                 " / pickup mechanical result=(pickerX=" + F(result.PickerX) +
                 ", needleX=" + F(result.NeedleX) +
                 ", pickerY=" + F(result.PickerY) +
+                ", pickerT=" + F(result.PickerT) +
                 ", stageY unchanged=" + F(result.StageY) + ")";
             return result;
         }
@@ -191,7 +197,8 @@ namespace QMC.CDT320.Sequencing
             double placeRuntimeOffsetT = 0.0,
             double placeMechanicalOffsetX = 0.0,
             double placeMechanicalOffsetY = 0.0,
-            bool bottomFinalItemOffsetYIsSoleColletYCorrection = false)
+            bool bottomFinalItemOffsetYIsSoleColletYCorrection = false,
+            double placeMechanicalOffsetT = 0.0)
         {
             PlaceCoordinateResult result = new PlaceCoordinateResult();
             result.TargetSide = targetSide;
@@ -219,7 +226,8 @@ namespace QMC.CDT320.Sequencing
             // Place Y 기구 보정은 PickerY 티칭을 바꾸지 않고 선택된 GOOD/NG OutputStageY에만 더한다.
             double placeCorrectionY = -bottomOffsetY - placeRuntimeOffsetY + placeMechanicalOffsetY;
             double placeCorrectionX = -bottomOffsetX - placeRuntimeOffsetX + placeMechanicalOffsetX;
-            double placeCorrectionT = -bottomOffsetT - placeRuntimeOffsetT;
+            // T 기구 보정(신설 2026-08-16)은 런타임 T와 같은 PickerT 축에 가산 — 이관은 기구T′=기구T−필터T.
+            double placeCorrectionT = -bottomOffsetT - placeRuntimeOffsetT + placeMechanicalOffsetT;
 
             result.OutputStageY = mapStageY + placeCorrectionY;
             result.PickerX = mapPickerX + placeCorrectionX;
@@ -241,7 +249,7 @@ namespace QMC.CDT320.Sequencing
                 " / mapPickerX = outputVisionProcessX(" + F(outputVisionProcessX) + ") + receiveTargetX(" + F(receiveTargetX) + ") + outputVisionToPickerX(" + F(outputVisionToPickerX) + ") + runtimeOffsetX(" + F(pickerAlignOffsetX) + ") = " + F(mapPickerX) +
                 " / placeCorrectionX = -bottomOffsetX(" + F(bottomOffsetX) + ") - placeRuntimeOffsetX(" + F(placeRuntimeOffsetX) + ") + placeMechanicalOffsetX(" + F(placeMechanicalOffsetX) + ") = " + F(placeCorrectionX) +
                 " / pickerX = mapPickerX + placeCorrectionX = " + F(result.PickerX) +
-                " / pickerT = placeTeachingT(" + F(pickerTTeaching) + ") - bottomOffsetT(" + F(bottomOffsetT) + ") - placeRuntimeOffsetT(" + F(placeRuntimeOffsetT) + ") [pickerAlignOffsetT ignored for place=" + F(pickerAlignOffsetT) + "] = " + F(result.PickerT) +
+                " / pickerT = placeTeachingT(" + F(pickerTTeaching) + ") - bottomOffsetT(" + F(bottomOffsetT) + ") - placeRuntimeOffsetT(" + F(placeRuntimeOffsetT) + ") + placeMechanicalOffsetT(" + F(placeMechanicalOffsetT) + ") [pickerAlignOffsetT ignored for place=" + F(pickerAlignOffsetT) + "] = " + F(result.PickerT) +
                 " / pickerY = fixed pickerYTeaching(" + F(pickerYTeaching) + ") [runtimeOffsetY logged separately=" + F(pickerAlignOffsetY) + "] = " + F(result.PickerY) +
                 " / pickerZ = " + F(result.PickerZ);
             LogFormula(sequenceName, "PLACE", side, pickerIndex, dieId, result.Formula);

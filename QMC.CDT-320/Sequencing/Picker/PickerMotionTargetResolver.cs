@@ -277,7 +277,8 @@ namespace QMC.CDT320.Sequencing
             double placeRuntimeOffsetT = 0.0,
             double placeMechanicalOffsetX = 0.0,
             double placeMechanicalOffsetY = 0.0,
-            bool bottomFinalItemOffsetYIsSoleColletYCorrection = false)
+            bool bottomFinalItemOffsetYIsSoleColletYCorrection = false,
+            double placeMechanicalOffsetT = 0.0)
         {
             PickerAlignOffset runtime = InputPickerPickTargetResolver.ResolveRuntimePickerOffset(machine, side, pickerIndex);
             PickerCalibrationOffset collet = ResolveColletOffset(machine, side, pickerIndex);
@@ -328,7 +329,8 @@ namespace QMC.CDT320.Sequencing
                 placeRuntimeOffsetT,
                 placeMechanicalOffsetX,
                 placeMechanicalOffsetY,
-                bottomFinalItemOffsetYIsSoleColletYCorrection);
+                bottomFinalItemOffsetYIsSoleColletYCorrection,
+                placeMechanicalOffsetT);
 
             WriteCoordinateLog(
                 "OutputPlaceTarget",

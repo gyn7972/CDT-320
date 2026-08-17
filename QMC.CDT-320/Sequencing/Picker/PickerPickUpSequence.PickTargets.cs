@@ -585,6 +585,7 @@ namespace QMC.CDT320.Sequencing
                 PickerPickUpMotionConfig pickUpConfig = ResolvePickUpMotionConfig();
                 double pickMechanicalOffsetX = pickUpConfig.GetMechanicalOffsetX(_currentPickerIndex);
                 double pickMechanicalOffsetY = pickUpConfig.GetMechanicalOffsetY(_currentPickerIndex);
+                double pickMechanicalOffsetT = pickUpConfig.GetMechanicalOffsetT(_currentPickerIndex);
                 // Pick 런타임 보정: Enable일 때만 필터 상태를 적용하고, Disable이면 0을 전달한다
                 // (Disable이어도 필터 학습·저장은 Bottom 검사 경로에서 계속된다).
                 bool pickRuntimeEnabled = PickRuntimeOffsetService.IsEnabled;
@@ -632,7 +633,8 @@ namespace QMC.CDT320.Sequencing
                 coordinate = DieCoordinateTransformService.ApplyPickMechanicalOffsets(
                     coordinate,
                     pickMechanicalOffsetX,
-                    pickMechanicalOffsetY);
+                    pickMechanicalOffsetY,
+                    pickMechanicalOffsetT);
 
                 // 공정 Pick Z 유일한 대입점: 헤드 공통 + 콜렛별 Pick Overdrive를 여기서 1회만 가산한다
                 // (파생 이동/검증/배치 저장·복원에 자동 전파). PickPosition 티칭 자체는 콜렛/다이 AF가 산식으로 갱신한다(승인 2026-07-29).
@@ -699,6 +701,8 @@ namespace QMC.CDT320.Sequencing
                     ", pickMechanicalOffsetXAppliedToPickerAndNeedle=True" +
                     ", pickMechanicalOffsetY=" + pickMechanicalOffsetY.ToString("F3") +
                     ", pickMechanicalOffsetYAppliedToPicker=True" +
+                    ", pickMechanicalOffsetT=" + pickMechanicalOffsetT.ToString("F3") +
+                    ", pickMechanicalOffsetTAppliedToPickerT=True" +
                     ", pickMechanicalOffsetYAppliedToStage=False" +
                     ", needleYToVisionYOffset=" + ResolveNeedleCalibrationOffsetY() +
                     ", alignOffsetT=" + alignOffsetT +

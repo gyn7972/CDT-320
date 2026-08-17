@@ -489,6 +489,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 () => ResolveLivePickUpConfig().MechanicalOffsetLimitMm,
                 v => SetPickUpMechanicalOffsetLimit(ResolveLivePickUpConfig(), v)),
                 "Picker별 PickUp 기구 보정의 X/Y 절대값 한계입니다. 기본값은 1.000 mm이고 안전 상한은 2.000 mm입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP MECHANICAL OFFSET T LIMIT", "deg (0.000)", ParameterGridScope.Config,
+                () => ResolveLivePickUpConfig().MechanicalOffsetTLimitDeg,
+                v => SetPickUpMechanicalOffsetTLimit(ResolveLivePickUpConfig(), v)),
+                "Picker별 PickUp T 기구 보정의 절대값 한계입니다. 기본값은 1.000 deg이고 안전 상한은 2.000 deg입니다."), groupKey));
             for (int i = 0; i < PickerPickUpMotionConfig.MechanicalOffsetPickerCount; i++)
             {
                 int index = i;
@@ -501,6 +505,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     () => ResolveLivePickUpConfig().GetMechanicalOffsetY(index),
                     v => SetPickUpMechanicalOffset(ResolveLivePickUpConfig(), index, false, v)),
                     "PickUp 목표의 PickerY에만 더합니다. NeedleX와 1:1로 움직이는 WaferStageY 목표에는 적용하지 않습니다."), groupKey));
+                items.Add(InGroup(Describe(ParameterGridItem.Double(pickerName + " PICKUP MECHANICAL T", "deg (0.000)", ParameterGridScope.Config,
+                    () => ResolveLivePickUpConfig().GetMechanicalOffsetT(index),
+                    v => SetPickUpMechanicalOffsetT(ResolveLivePickUpConfig(), index, v)),
+                    "PickUp 목표의 PickerT에 더하는 Picker별 T 기구 보정입니다(2026-08-16 신설). 런타임 T 필터 이관은 기구T = 기구T − 필터T 입니다."), groupKey));
             }
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpZMotionMode>("PICKUP Z MOTION MODE", "mode", ParameterGridScope.Config, () => ResolveLivePickUpConfig().MotionMode, v => ResolveLivePickUpConfig().MotionMode = v),
                 "PickUp Z 동작 방식을 선택합니다.\r\nDetailed: Needle/Eject 준비, 진공, PrePick, 저속 접촉, 동기 상승, 안전 복귀 순서로 동작합니다.\r\nSimpleZDownVacuumUp: PickerZ 하강, 진공 ON, PickerZ 상승만 수행하는 단순 모드입니다."), groupKey));
@@ -570,6 +578,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 () => ResolveLivePlaceConfig().MechanicalOffsetLimitMm,
                 v => SetPlaceMechanicalOffsetLimit(ResolveLivePlaceConfig(), v)),
                 "Picker별 Place 기구 보정의 X/Y 절대값 한계입니다. 기본값은 1.000 mm이고 안전 상한은 2.000 mm입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE MECHANICAL OFFSET T LIMIT", "deg (0.000)", ParameterGridScope.Config,
+                () => ResolveLivePlaceConfig().MechanicalOffsetTLimitDeg,
+                v => SetPlaceMechanicalOffsetTLimit(ResolveLivePlaceConfig(), v)),
+                "Picker별 Place T 기구 보정의 절대값 한계입니다. 기본값은 1.000 deg이고 안전 상한은 2.000 deg입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("BOTTOM PLACE CORRECTION LIMIT", "mm (0.000)", ParameterGridScope.Config,
                 () => ResolveLivePlaceConfig().BottomPlaceCorrectionLimitMm,
                 v => SetBottomPlaceCorrectionLimit(ResolveLivePlaceConfig(), v)),
@@ -586,6 +598,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     () => ResolveLivePlaceConfig().GetMechanicalOffsetY(index),
                     v => SetPlaceMechanicalOffset(ResolveLivePlaceConfig(), index, false, v)),
                     "Place 대상 GOOD/NG OutputStageY 목표에 더합니다. PickerY Place Teaching은 변경하지 않습니다."), groupKey));
+                items.Add(InGroup(Describe(ParameterGridItem.Double(pickerName + " PLACE MECHANICAL T", "deg (0.000)", ParameterGridScope.Config,
+                    () => ResolveLivePlaceConfig().GetMechanicalOffsetT(index),
+                    v => SetPlaceMechanicalOffsetT(ResolveLivePlaceConfig(), index, v)),
+                    "Place 목표의 PickerT에 더하는 Picker별 T 기구 보정입니다(2026-08-16 신설). 런타임 T 필터 이관은 기구T = 기구T − 필터T 입니다."), groupKey));
             }
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPlaceMotionMode>("PLACE MOTION MODE", "mode", ParameterGridScope.Config, () => ResolveLivePlaceConfig().MotionMode, v => ResolveLivePlaceConfig().MotionMode = v),
                 "Default는 기존 Place 이동 순서를 사용합니다.\r\nContiSegmentedPlace는 이전 Z1 상승과 현재 Z2 접근을 5개 ContiNode로 나누어 연속 구동합니다."), groupKey));
@@ -1450,6 +1466,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 config.SetMechanicalOffsetY(pickerIndex, value);
         }
 
+        private void SetPickUpMechanicalOffsetTLimit(PickerPickUpMotionConfig config, double value)
+        {
+            if (config == null || !CanEditMechanicalOffsetConfig())
+                return;
+
+            config.MechanicalOffsetTLimitDeg = PickerPickUpMotionConfig.NormalizeMechanicalOffsetLimit(value);
+            config.Ensure();
+        }
+
+        private void SetPickUpMechanicalOffsetT(PickerPickUpMotionConfig config, int pickerIndex, double value)
+        {
+            if (config == null || !CanEditMechanicalOffsetConfig())
+                return;
+
+            config.SetMechanicalOffsetT(pickerIndex, value);
+        }
+
         private void SetPlaceMechanicalOffsetLimit(PickerPlaceMotionConfig config, double value)
         {
             if (config == null || !CanEditMechanicalOffsetConfig())
@@ -1478,6 +1511,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 config.SetMechanicalOffsetX(pickerIndex, value);
             else
                 config.SetMechanicalOffsetY(pickerIndex, value);
+        }
+
+        private void SetPlaceMechanicalOffsetTLimit(PickerPlaceMotionConfig config, double value)
+        {
+            if (config == null || !CanEditMechanicalOffsetConfig())
+                return;
+
+            config.MechanicalOffsetTLimitDeg = PickerPickUpMotionConfig.NormalizeMechanicalOffsetLimit(value);
+            config.Ensure();
+        }
+
+        private void SetPlaceMechanicalOffsetT(PickerPlaceMotionConfig config, int pickerIndex, double value)
+        {
+            if (config == null || !CanEditMechanicalOffsetConfig())
+                return;
+
+            config.SetMechanicalOffsetT(pickerIndex, value);
         }
 
         private bool CanEditMechanicalOffsetConfig()

@@ -46,14 +46,21 @@ namespace QMC.CDT320
         public const int MechanicalOffsetPickerCount = 4;
         public const double DefaultMechanicalOffsetLimitMm = 1.0;
         public const double MaximumMechanicalOffsetLimitMm = 2.0;
+        // T 기구 보정 한계(deg) — 2026-08-16 팀장님 지시로 T 기구 보정 신설. X/Y 한계와 대칭(기본 1.0, 상한 2.0).
+        public const double DefaultMechanicalOffsetLimitTDeg = 1.0;
+        public const double MaximumMechanicalOffsetLimitTDeg = 2.0;
         public const double LegacyPickUpMechanicalOffsetXmm = 0.020;
 
         [DataMember] public PickerPickUpZMotionMode MotionMode { get; set; } = PickerPickUpZMotionMode.Detailed;
         [DataMember] public PickerPickUpTransferMotionMode TransferMotionMode { get; set; } = PickerPickUpTransferMotionMode.Default;
         [DataMember] public double MechanicalOffsetLimitMm { get; set; } = DefaultMechanicalOffsetLimitMm;
+        [DataMember] public double MechanicalOffsetTLimitDeg { get; set; } = DefaultMechanicalOffsetLimitTDeg;
         [DataMember] public double[] MechanicalOffsetX { get; set; } =
             new double[] { LegacyPickUpMechanicalOffsetXmm, LegacyPickUpMechanicalOffsetXmm, LegacyPickUpMechanicalOffsetXmm, LegacyPickUpMechanicalOffsetXmm };
         [DataMember] public double[] MechanicalOffsetY { get; set; } = new double[MechanicalOffsetPickerCount];
+        // PickerT 축 기구 보정(deg) — 이동식에서 PickerT에 가산(+). 런타임 T(감산)와 같은 축이라
+        // 이관식은 기구T′ = 기구T − 필터T 로 코드 확정(2026-08-16).
+        [DataMember] public double[] MechanicalOffsetT { get; set; } = new double[MechanicalOffsetPickerCount];
         [DataMember] public int TransferContiCoordinate { get; set; } = 2;
         [DataMember] public int TransferContiTimeoutMs { get; set; } = 5000;
         [DataMember] public double TransferContiMaxTravelDistance { get; set; } = 45.0;
@@ -114,9 +121,11 @@ namespace QMC.CDT320
             NeedleVacuumOffSettleBeforeXYMs = 100;
             // 구버전에는 기구 보정 필드가 없고 PickUp X에 +0.020 mm가 코드로 고정되어 있었다.
             MechanicalOffsetLimitMm = DefaultMechanicalOffsetLimitMm;
+            MechanicalOffsetTLimitDeg = DefaultMechanicalOffsetLimitTDeg;
             MechanicalOffsetX =
                 new double[] { LegacyPickUpMechanicalOffsetXmm, LegacyPickUpMechanicalOffsetXmm, LegacyPickUpMechanicalOffsetXmm, LegacyPickUpMechanicalOffsetXmm };
             MechanicalOffsetY = new double[MechanicalOffsetPickerCount];
+            MechanicalOffsetT = new double[MechanicalOffsetPickerCount];
             // 구버전 설정 파일 하위호환: 멤버 부재 시 기본값 보장(스위치는 안전측 Off).
             PickUpEntryZPreDownMode = false;
             PreDownNeedleWorkRadiusMm = 130.0;
@@ -133,11 +142,13 @@ namespace QMC.CDT320
         public void Ensure()
         {
             MechanicalOffsetLimitMm = NormalizeMechanicalOffsetLimit(MechanicalOffsetLimitMm);
+            MechanicalOffsetTLimitDeg = NormalizeMechanicalOffsetLimit(MechanicalOffsetTLimitDeg);
             MechanicalOffsetX = EnsureMechanicalOffsetArray(
                 MechanicalOffsetX,
                 LegacyPickUpMechanicalOffsetXmm,
                 MechanicalOffsetLimitMm);
             MechanicalOffsetY = EnsureMechanicalOffsetArray(MechanicalOffsetY, 0.0, MechanicalOffsetLimitMm);
+            MechanicalOffsetT = EnsureMechanicalOffsetArray(MechanicalOffsetT, 0.0, MechanicalOffsetTLimitDeg);
 
             if (PickerZSyncLiftDistance <= 0.0 && SyncLiftDistance > 0.0)
                 PickerZSyncLiftDistance = SyncLiftDistance;
@@ -294,6 +305,21 @@ namespace QMC.CDT320
                 MechanicalOffsetY[pickerIndex] = NormalizeMechanicalOffset(value, MechanicalOffsetLimitMm);
         }
 
+        public double GetMechanicalOffsetT(int pickerIndex)
+        {
+            Ensure();
+            return pickerIndex >= 0 && pickerIndex < MechanicalOffsetT.Length
+                ? MechanicalOffsetT[pickerIndex]
+                : 0.0;
+        }
+
+        public void SetMechanicalOffsetT(int pickerIndex, double value)
+        {
+            Ensure();
+            if (pickerIndex >= 0 && pickerIndex < MechanicalOffsetT.Length)
+                MechanicalOffsetT[pickerIndex] = NormalizeMechanicalOffset(value, MechanicalOffsetTLimitDeg);
+        }
+
         public static double NormalizePickerSafeForWaferStageDistance(double distance)
         {
             if (double.IsNaN(distance) || double.IsInfinity(distance))
@@ -416,9 +442,13 @@ namespace QMC.CDT320
     public sealed class PickerPlaceMotionConfig
     {
         [DataMember] public double MechanicalOffsetLimitMm { get; set; } = PickerPickUpMotionConfig.DefaultMechanicalOffsetLimitMm;
+        [DataMember] public double MechanicalOffsetTLimitDeg { get; set; } = PickerPickUpMotionConfig.DefaultMechanicalOffsetLimitTDeg;
         [DataMember] public double BottomPlaceCorrectionLimitMm { get; set; } = PickerPickUpMotionConfig.DefaultMechanicalOffsetLimitMm;
         [DataMember] public double[] MechanicalOffsetX { get; set; } = new double[PickerPickUpMotionConfig.MechanicalOffsetPickerCount];
         [DataMember] public double[] MechanicalOffsetY { get; set; } = new double[PickerPickUpMotionConfig.MechanicalOffsetPickerCount];
+        // PickerT 축 기구 보정(deg) — 이동식에서 PickerT에 가산(+). 런타임 T(감산)와 같은 축이라
+        // 이관식은 기구T′ = 기구T − 필터T 로 코드 확정(2026-08-16).
+        [DataMember] public double[] MechanicalOffsetT { get; set; } = new double[PickerPickUpMotionConfig.MechanicalOffsetPickerCount];
         [DataMember] public PickerPlaceMotionMode MotionMode { get; set; } = PickerPlaceMotionMode.ContiSegmentedPlace;
         [DataMember] public int ContiCoordinate { get; set; } = 1;
         [DataMember] public int ContiTimeoutMs { get; set; } = 5000;
@@ -463,9 +493,11 @@ namespace QMC.CDT320
             PlaceEntryZPreDownMode = false;
             RearEntryPreDownStageYLimitMm = 0.0;
             MechanicalOffsetLimitMm = PickerPickUpMotionConfig.DefaultMechanicalOffsetLimitMm;
+            MechanicalOffsetTLimitDeg = PickerPickUpMotionConfig.DefaultMechanicalOffsetLimitTDeg;
             BottomPlaceCorrectionLimitMm = PickerPickUpMotionConfig.DefaultMechanicalOffsetLimitMm;
             MechanicalOffsetX = new double[PickerPickUpMotionConfig.MechanicalOffsetPickerCount];
             MechanicalOffsetY = new double[PickerPickUpMotionConfig.MechanicalOffsetPickerCount];
+            MechanicalOffsetT = new double[PickerPickUpMotionConfig.MechanicalOffsetPickerCount];
         }
 
         [OnDeserialized]
@@ -477,6 +509,7 @@ namespace QMC.CDT320
         public void Ensure()
         {
             MechanicalOffsetLimitMm = PickerPickUpMotionConfig.NormalizeMechanicalOffsetLimit(MechanicalOffsetLimitMm);
+            MechanicalOffsetTLimitDeg = PickerPickUpMotionConfig.NormalizeMechanicalOffsetLimit(MechanicalOffsetTLimitDeg);
             BottomPlaceCorrectionLimitMm =
                 PickerPickUpMotionConfig.NormalizeMechanicalOffsetLimit(BottomPlaceCorrectionLimitMm);
             MechanicalOffsetX = PickerPickUpMotionConfig.EnsureMechanicalOffsetArray(
@@ -487,6 +520,10 @@ namespace QMC.CDT320
                 MechanicalOffsetY,
                 0.0,
                 MechanicalOffsetLimitMm);
+            MechanicalOffsetT = PickerPickUpMotionConfig.EnsureMechanicalOffsetArray(
+                MechanicalOffsetT,
+                0.0,
+                MechanicalOffsetTLimitDeg);
 
             if (MotionMode != PickerPlaceMotionMode.Default &&
                 MotionMode != PickerPlaceMotionMode.ContiSegmentedPlace)
@@ -551,6 +588,21 @@ namespace QMC.CDT320
             Ensure();
             if (pickerIndex >= 0 && pickerIndex < MechanicalOffsetY.Length)
                 MechanicalOffsetY[pickerIndex] = PickerPickUpMotionConfig.NormalizeMechanicalOffset(value, MechanicalOffsetLimitMm);
+        }
+
+        public double GetMechanicalOffsetT(int pickerIndex)
+        {
+            Ensure();
+            return pickerIndex >= 0 && pickerIndex < MechanicalOffsetT.Length
+                ? MechanicalOffsetT[pickerIndex]
+                : 0.0;
+        }
+
+        public void SetMechanicalOffsetT(int pickerIndex, double value)
+        {
+            Ensure();
+            if (pickerIndex >= 0 && pickerIndex < MechanicalOffsetT.Length)
+                MechanicalOffsetT[pickerIndex] = PickerPickUpMotionConfig.NormalizeMechanicalOffset(value, MechanicalOffsetTLimitDeg);
         }
 
         public double GetContiNodeVelocity(int nodeIndex)
