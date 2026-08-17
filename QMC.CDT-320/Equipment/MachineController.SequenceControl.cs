@@ -471,8 +471,15 @@ namespace QMC.CDT320
                 }
 
                 coordinator.RequestCycleStop();
-                QMC.Common.Log.Write("Main", "SYSTEM", "CycleStopSequence",
-                    "Cycle stop requested. The sequence will stop at the next safe boundary. - Requested");
+                // [무언정지 방지 2026-08-17, 팀장님 확인] 기존 4-인자 Log.Write는 최소 로그 정책에서
+                // 디스크에 남지 않아, STOP으로 세운 정지가 로그상 "무언정지"로 보였다(15:33 실사례).
+                // 정지 발원은 반드시 남도록 Warning으로 승격한다.
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "SYSTEM",
+                    "SEQ-CYCLE-STOP-REQUEST",
+                    "MachineController",
+                    "CYCLE STOP 요청 — 자동 시퀀스를 다음 안전 경계에서 정지합니다. status=" + _status);
                 Log("[SEQ] Cycle stop requested");
                 return Task.CompletedTask;
             }

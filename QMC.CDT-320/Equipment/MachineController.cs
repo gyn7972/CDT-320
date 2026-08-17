@@ -2125,6 +2125,17 @@ namespace QMC.CDT320
         /// </summary>
         public async Task StopAsync()
         {
+            // [무언정지 방지 2026-08-17, 팀장님 확인] STOP 버튼 이력이 4-인자 로그로만 남아
+            // 정책에 잘려 디스크에 없었다 — 누가 세웠는지 항상 남도록 Warning으로 기록한다.
+            QMC.Common.Logging.EventLogger.Write(
+                QMC.Common.Logging.EventKind.Warning,
+                "SYSTEM",
+                "SEQ-STOP-REQUEST",
+                "MachineController",
+                "운전 STOP 요청. status=" + _status +
+                ", reviewManualActive=" + IsInputStageRunReviewManualActive +
+                ", sequenceRunning=" + IsSequenceRunning);
+
             if (IsInputStageRunReviewManualActive)
             {
                 CancelInputStageRunReviewAction();

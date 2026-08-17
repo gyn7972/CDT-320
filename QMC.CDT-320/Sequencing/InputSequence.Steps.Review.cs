@@ -218,6 +218,13 @@ namespace QMC.CDT320.Sequencing
                         out resetReason);
                     controller.CancelInputStageRunReviewAction();
                     controller.TryExitInputStageRunReviewManual(Context, false, out sessionReason);
+                    // [무언정지 방지 2026-08-17] Review STOP 결정이 CycleStop의 발원임을 디스크에 남긴다.
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Warning,
+                        "SYSTEM",
+                        "SEQ-REVIEW-STOP-DECISION",
+                        "InputSequence",
+                        "Review STOP 결정으로 Auto Coordinator를 정지합니다. wafer=" + (reviewWafer.WaferId ?? ""));
                     Context.RequestCycleStop();
                     throw new SequenceStopException(
                         "InputStage Review 중 STOP 요청으로 동일 Auto Coordinator를 안전 정지합니다.");

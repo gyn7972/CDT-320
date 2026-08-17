@@ -97,13 +97,30 @@ namespace QMC.CDT_320
                 dialog.SetReviewValid(alignComplete && mappingComplete, "USER CONFIRM REQUIRED");
                 dialog.SetAutoReviewMode(true);
 
+                // [사용자 확정 2026-08-17] 죽은 세션 컨펌 차단 — Auto가 CycleStop 등으로 이미
+                // 종료된 뒤 눌린 결정은 받아줄 시퀀스가 없어 무음으로 사라졌다(15:4x 실사례:
+                // 다이얼로그만 닫히고 다이 촬영이 시작되지 않음). 모든 결정 경로에서 세션을
+                // 확인하고, 죽었으면 이유를 화면과 디스크 로그에 남긴다.
+                Func<string, bool> ensureReviewSessionAlive = delegate(string decisionName)
+                {
+                    if (Controller != null && Controller.IsInputStageRunReviewManualActive)
+                        return true;
+
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Warning,
+                        "UI",
+                        "IN-REVIEW-DECISION-DEAD-SESSION",
+                        "InputStageRunReview",
+                        "Auto 시퀀스가 정지된 상태에서 Review 결정이 눌려 처리하지 않았습니다. decision=" + decisionName);
+                    dialog.RestoreAfterDecisionFailure(
+                        "Auto 시퀀스가 정지되어 이 확인을 처리할 수 없습니다. 이 창을 닫고 START로 다시 시작하세요.");
+                    return false;
+                };
+
                 dialog.StartRunRequested += delegate
                 {
-                    if (Controller == null || !Controller.IsInputStageRunReviewManualActive)
-                    {
-                        dialog.RestoreAfterDecisionFailure("활성 InputStage Review Manual 세션이 없습니다.");
+                    if (!ensureReviewSessionAlive("ConfirmAndContinue"))
                         return;
-                    }
                     if (Controller.IsInputStageRunReviewActionBusy)
                     {
                         dialog.RestoreAfterDecisionFailure("수동 동작 또는 Jog가 진행 중입니다. STOP 후 다시 확인하세요.");
@@ -115,18 +132,24 @@ namespace QMC.CDT_320
                 };
                 dialog.AbortAutoRequested += delegate
                 {
+                    if (!ensureReviewSessionAlive("AbortAuto(RetryAlign)"))
+                        return;
                     stage.ConfirmFromUi(BuildInputStageRunReviewResult(
                         dialog,
                         InputStageRunReviewDecision.RetryAlign));
                 };
                 dialog.AlignRetryRequested += delegate
                 {
+                    if (!ensureReviewSessionAlive("RetryAlign"))
+                        return;
                     stage.ConfirmFromUi(BuildInputStageRunReviewResult(
                         dialog,
                         InputStageRunReviewDecision.RetryAlign));
                 };
                 dialog.MappingRetryRequested += delegate
                 {
+                    if (!ensureReviewSessionAlive("RetryMapping"))
+                        return;
                     stage.ConfirmFromUi(BuildInputStageRunReviewResult(
                         dialog,
                         InputStageRunReviewDecision.RetryMapping));
@@ -565,10 +588,33 @@ namespace QMC.CDT_320
                     !Controller.IsInputStageRunReviewManualActive || Machine == null || Machine.InputStageUnit == null)
                     return;
 
-                if (_inputStageRunReviewJogScope != null || Controller.IsInputStageRunReviewActionBusy)
+                // [Live 중 Jog 허용 2026-08-17, 팀장님 지시] Wafer Vision Live는 Review work scope를
+                //   계속 보유하므로 IsInputStageRunReviewActionBusy가 true다. 기존에는 여기서
+                //   무조건 거절해 Live 상태에서는 Jog가 전혀 동작하지 않았다.
+                //   현재 기준: MOVE SELECTED DIE와 동일하게 그 Live scope를 재사용한다
+                //   (RunInputStageReviewOneShotAsync의 allowEmbeddedVisionScopeReuse와 같은 판정·안전 재확인).
+                bool reuseVisionScope =
+                    !_inputStageRunReviewEmbeddedVisionTransition &&
+                    _inputStageRunReviewEmbeddedVisionScope != null &&
+                    dialog.IsWaferVisionControlActive;
+
+                if (_inputStageRunReviewJogScope != null ||
+                    (!reuseVisionScope && Controller.IsInputStageRunReviewActionBusy))
                 {
                     dialog.SetBusy(false, "다른 Review 동작이 진행 중입니다. STOP 후 다시 시도하세요.");
                     return;
+                }
+
+                if (reuseVisionScope)
+                {
+                    // Scope를 새로 잡지 않으므로 Picker 안전 조건을 이 시점에 다시 확인한다.
+                    string jogSafetyReason;
+                    if (!Controller.AreInputStageRunReviewPickersSafe(out jogSafetyReason))
+                    {
+                        dialog.SetBusy(true,
+                            "Jog 직전 Picker 안전 재확인에 실패했습니다. " + jogSafetyReason);
+                        return;
+                    }
                 }
 
                 InputStageUnit stage = Machine.InputStageUnit;
@@ -618,16 +664,28 @@ namespace QMC.CDT_320
                                     "Step Jog 실패. axis=" + args.Axis + ", result=" + stepResult);
                             return args.Axis + " Step Jog(" +
                                    args.StepDistance.ToString("0.###") + ") 완료.";
-                        }).ConfigureAwait(true);
+                        },
+                        // Live 중이면 기존 Vision scope를 재사용한다(새 scope 획득 시 Busy로 거절됨).
+                        true).ConfigureAwait(true);
                     return;
                 }
 
-                dialog.SetBusy(true, args.Axis + " Jog 시작 중입니다. 버튼을 놓거나 STOP을 누르세요.");
                 _inputStageRunReviewJogStartPending = true;
-                scope = await Controller.BeginInputStageRunReviewWorkAsync(
-                    ManualMotionScopeKind.ProcessSequence,
-                    "Jog:" + args.Axis,
-                    System.Threading.CancellationToken.None).ConfigureAwait(true);
+                if (reuseVisionScope)
+                {
+                    // Live scope 재사용: 새 scope를 잡지 않으므로 _inputStageRunReviewJogScope는 null로 둔다.
+                    //   (StopInputStageRunReviewJogCoreAsync가 null이면 Dispose하지 않으므로 Live가 유지된다.)
+                    dialog.SetWaferVisionMoveBusy(true,
+                        args.Axis + " Jog 중입니다. Live 영상은 유지되며 버튼을 놓거나 STOP으로 정지합니다.");
+                }
+                else
+                {
+                    dialog.SetBusy(true, args.Axis + " Jog 시작 중입니다. 버튼을 놓거나 STOP을 누르세요.");
+                    scope = await Controller.BeginInputStageRunReviewWorkAsync(
+                        ManualMotionScopeKind.ProcessSequence,
+                        "Jog:" + args.Axis,
+                        System.Threading.CancellationToken.None).ConfigureAwait(true);
+                }
 
                 System.Threading.CancellationToken actionToken = Controller.InputStageRunReviewActionToken;
                 if (!_inputStageRunReviewJogStartPending ||
@@ -641,6 +699,7 @@ namespace QMC.CDT_320
 
                 _inputStageRunReviewJogScope = scope;
                 _inputStageRunReviewJogAxis = axis;
+                _inputStageRunReviewJogReusedVisionScope = reuseVisionScope;
                 _inputStageRunReviewJogStartPending = false;
                 scope = null;
 
@@ -657,7 +716,15 @@ namespace QMC.CDT_320
                 if (result != 0)
                     throw new InvalidOperationException("Jog 명령 실패. axis=" + args.Axis + ", result=" + result);
 
-                dialog.SetBusy(true, args.Axis + " Jog 중입니다. 버튼을 놓거나 STOP을 누르세요.");
+                if (reuseVisionScope)
+                {
+                    dialog.SetWaferVisionMoveBusy(true,
+                        args.Axis + " Jog 중입니다. Live 영상은 유지되며 버튼을 놓거나 STOP으로 정지합니다.");
+                }
+                else
+                {
+                    dialog.SetBusy(true, args.Axis + " Jog 중입니다. 버튼을 놓거나 STOP을 누르세요.");
+                }
             }
             catch (OperationCanceledException)
             {
@@ -694,7 +761,10 @@ namespace QMC.CDT_320
                 if (!hasJog)
                     return;
 
-                if (Controller != null)
+                // Live scope 재사용 Jog는 그 scope의 Action Token을 취소하면 Live까지 끊긴다.
+                // 이 경우 축 정지만 수행하고 Review Action은 취소하지 않는다(2026-08-17 팀장님 지시).
+                bool reusedVisionScope = _inputStageRunReviewJogReusedVisionScope;
+                if (Controller != null && !reusedVisionScope)
                     Controller.CancelInputStageRunReviewAction();
                 await StopInputStageRunReviewJogCoreAsync().ConfigureAwait(true);
                 if (dialog != null && !dialog.IsDisposed)
@@ -707,7 +777,11 @@ namespace QMC.CDT_320
                             stage.StageY != null ? stage.StageY.ActualPosition : 0.0,
                             stage.StageT != null ? stage.StageT.ActualPosition : 0.0);
                     }
-                    dialog.SetBusy(false, string.IsNullOrWhiteSpace(reason) ? "Jog를 정지했습니다." : reason);
+                    string stopStatus = string.IsNullOrWhiteSpace(reason) ? "Jog를 정지했습니다." : reason;
+                    if (reusedVisionScope && dialog.IsWaferVisionControlActive)
+                        dialog.SetWaferVisionMoveBusy(false, stopStatus);
+                    else
+                        dialog.SetBusy(false, stopStatus);
                 }
             }
             catch (Exception ex)
@@ -724,6 +798,8 @@ namespace QMC.CDT_320
             bool startPending = _inputStageRunReviewJogStartPending;
             _inputStageRunReviewJogAxis = null;
             _inputStageRunReviewJogScope = null;
+            // 재사용 Jog는 scope가 애초에 null이라 Dispose 대상이 없다(Live 유지). 플래그만 정리한다.
+            _inputStageRunReviewJogReusedVisionScope = false;
             _inputStageRunReviewJogStartPending = false;
 
             try

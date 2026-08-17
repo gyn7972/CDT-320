@@ -737,6 +737,9 @@ namespace QMC.CDT_320
         private IDisposable _inputStageRunReviewJogScope;
         private BaseAxis _inputStageRunReviewJogAxis;
         private bool _inputStageRunReviewJogStartPending;
+        // Live 중 Jog가 Wafer Vision scope를 재사용했는지. 재사용이면 Jog 정지 시 그 scope를
+        // 반환하지 않는다(Live 유지). 2026-08-17 팀장님 지시.
+        private bool _inputStageRunReviewJogReusedVisionScope;
         private bool _inputStageRunReviewOffsetPending;
         // Die 검출이 실제 비전 측정이 아니라 UseVision=false 시뮬레이션 경로로 만들어졌는지.
         // 운전자에게 "실제 검출이 아님"을 알리고, 시뮬 offset이 실측처럼 취급되지 않게 하려고 둔다.

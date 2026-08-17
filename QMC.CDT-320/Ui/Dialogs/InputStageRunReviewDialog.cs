@@ -1487,7 +1487,15 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void JogButton_MouseDown(object sender, MouseEventArgs e)
         {
-            if (_busy || e.Button != MouseButtons.Left)
+            // [Live 중 Jog 허용 2026-08-17, 팀장님 지시] 기존 조건: _busy면 무조건 return.
+            //   Wafer Vision Live Scope를 잡으면 SetBusy(true)로 _busy=true가 되므로,
+            //   UpdateActionAvailability가 버튼을 활성으로 그려도 이 가드에서 조용히 막혀
+            //   "버튼은 눌리는데 아무 일도 안 일어나는" 상태였다.
+            //   현재 기준: UpdateActionAvailability와 동일 정책 —
+            //   Live 보유(_waferVisionControlActive)는 "대기 중"이라 Jog를 막지 않고,
+            //   실제 이동 중(_waferVisionMoveBusy)일 때만 중복 실행을 막는다.
+            bool busyBlocksJog = (_busy && !_waferVisionControlActive) || _waferVisionMoveBusy;
+            if (busyBlocksJog || _readOnlyPreview || e.Button != MouseButtons.Left)
                 return;
 
             Button button = sender as Button;
@@ -1759,10 +1767,28 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             if (_waferVisionControlActive)
             {
-                LogReviewBlocked("DECISION-BLOCKED",
-                    "결정 거부: 비전 사용 중. decision=" + decisionName);
-                SetStatus("비전 사용을 먼저 종료한 뒤 Auto 진행 여부를 선택하세요.");
-                return;
+                // [사용자 확정 2026-08-17] 기존 조건: Live 보유 중이면 무조건 거부 —
+                //   화면 오픈 시 자동 Live가 켜지므로 CONFIRM이 항상 거부되어
+                //   작업자가 STOP으로 라인을 세우는 사고가 났다(15:32 실사례 4회 거부).
+                // 현재 기준: 실제 동작(이동/Jog) 중이 아니면 Live를 자동 종료하고 결정을 진행한다.
+                if (_waferVisionMoveBusy || _activeJogButton != null)
+                {
+                    LogReviewBlocked("DECISION-BLOCKED",
+                        "결정 거부: Review 이동/Jog 진행 중. decision=" + decisionName);
+                    SetStatus("진행 중인 이동/Jog를 정지(STOP/버튼 놓기)한 뒤 다시 선택하세요.");
+                    return;
+                }
+
+                LogReviewAction("DECISION-VISION-AUTO-STOP",
+                    "결정 진행을 위해 Wafer Vision 사용을 자동 종료합니다. decision=" + decisionName);
+                RaiseSimpleEvent(WaferVisionControlStopRequested);
+                if (_waferVisionControlActive)
+                {
+                    LogReviewBlocked("DECISION-BLOCKED",
+                        "결정 거부: Wafer Vision 자동 종료 실패. decision=" + decisionName);
+                    SetStatus("비전 사용을 종료하지 못했습니다. '비전 사용 종료'를 직접 누른 뒤 다시 선택하세요.");
+                    return;
+                }
             }
 
             if (handler == null)
