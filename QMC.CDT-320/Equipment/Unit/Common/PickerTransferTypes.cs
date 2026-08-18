@@ -668,6 +668,13 @@ namespace QMC.CDT320
     public class BottomVisionOffset
     {
         public int PickerNo { get; set; }
+        // [프레임 주의] OffsetX/OffsetY는 비전이 계산해 보낸 mm 원본(bottom_offset_x/y_mm)이며 **이미지 프레임**이다.
+        //   이미지: 위쪽 −, 아래쪽 +, 왼쪽 −, 오른쪽 +.  기계(모션): 이미지 위쪽이 +Y.
+        //   따라서 X는 같은 부호지만 **Y는 기계와 반대**다 ⇒ 기계 변위로 쓰려면 −OffsetY 로 환산한다.
+        //   (Side 비전 Y 절대식의 0도항이 −OffsetY인 이유가 감산이 아니라 이 환산이다.)
+        // 반면 VisionCameraPixelCalibration.PixelToMmOffsetY(픽셀 입력)는 (중심픽셀Y − py)라
+        //   이미 뒤집어 **기계 Y**를 반환한다. 콜렛Cal 센터링·회전중심(COC) 저장은 그 경로를 쓴다.
+        //   두 값을 한 식에서 섞을 때는 반드시 프레임을 먼저 맞출 것.
         public double OffsetX { get; set; }
         public double OffsetY { get; set; }
         public double OffsetT { get; set; }

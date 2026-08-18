@@ -23,7 +23,7 @@ namespace QMC.CDT320.Sequencing
         public double BottomShotPickerY;     // Bottom 촬영 시점 PickerY 지령
         public double CocEccentricX;   // cX = BottomShotPickerX − RotationCenterPickerX
         public double CocEccentricY;   // cY = BottomShotPickerY − RotationCenterPickerY
-        public double Rot90Y;          // 90도 회전 후 다이중심 Y 변위
+        public double Rot90Y;          // o'y(90) = 90도 회전 후 다이중심의 기계 Y 변위(= cY + OffsetX − cX)
         public double DeltaY4;         // 콜렛Cal FinalPickerY(현재) − FinalPickerY(4번), 마지막 1회 가산
         public double Front0Y;
         public double Front90Y;
@@ -59,26 +59,37 @@ namespace QMC.CDT320.Sequencing
         }
     }
 
-    // 확정식(2026-07-29, 회전중심 소스 정정 2026-08-17):
-    //   ΔY4  = 콜렛Cal FinalPickerY(현재 콜렛) − FinalPickerY(4번 콜렛)  — 마지막에 1회만 가산
+    // 확정식(2026-08-18 회전 방정식 정식 전개판. 이전 판의 rotY 부호 오류를 정정).
     //
-    //   [회전중심 유효(Config.ColletRotationCenterValid=true) + Bottom 측정 프레임 확보]
-    //     cX   = Bottom 촬영 PickerX − Config.ColletRotationCenterX[콜렛]
-    //     cY   = Bottom 촬영 PickerY − Config.ColletRotationCenterY[콜렛]
-    //     rotY = cY − (OffsetX − cX)    ← CW 90도 회전 (x,y)→(y,−x)를 회전중심 c 기준으로 적용한 Y성분
-    //   Recipe의 ColletRotationCenterX/Y는 "그 콜렛의 회전축이 Bottom 카메라 광축에 오는 PickerXY 기계좌표"다.
-    //   따라서 (Bottom 촬영 PickerXY − 그 값) = 촬영 프레임에서 회전축이 카메라축으로부터 벗어난 편심량이며,
-    //   이 편심 때문에 90도 회전 시 다이가 휘둘려 초점면이 이동한다. 0도에서는 회전중심이 수식에서 소거된다.
+    // [프레임 규약 — 실장비 확정]
+    //   기계X = 이미지X (같은 부호), 기계Y = −이미지Y (이미지 위쪽이 모션 +Y).
+    //   비전이 주는 OffsetX/OffsetY는 이미지 프레임이므로 기계 프레임에서 다이 중심은 (OffsetX, −OffsetY).
+    //   0도식의 −OffsetY는 감산이 아니라 이 이미지→기계 환산이다.
     //
-    //   [회전중심 무효(COC VALID=false) 또는 Bottom 측정 없음 — 팀장님 지시 2026-08-17]
-    //     회전중심 계산 없이(편심 cX=cY=0) 같은 회전식을 적용한다 ⇒ rotY = −OffsetX.
-    //     결과적으로 0도의 −OffsetY 자리에 +OffsetX가 들어간 형태가 된다(카메라축 중심 회전).
+    // [회전 방정식] 회전중심 c=(cX,cY) 기준 CCW θ 회전 후 다이 중심의 기계 Y
+    //   o'y(θ) = cY + (OffsetX − cX)·sinθ + (−OffsetY − cY)·cosθ
+    //     θ=0  ⇒ −OffsetY             (회전중심이 완전히 소거된다 — 0도식이 COC 없이 성립하는 이유)
+    //     θ=90 ⇒ cY + (OffsetX − cX)  (OffsetY는 cos90=0으로 소거되고 X성분으로 넘어간다)
+    //   회전 방향이 CCW인 근거: T 널링 루프가 targetT = actualT − theta (ThetaMoveGain=1, 실장비 수렴)
+    //   이므로 T+ = 이미지 각도+ = 화면상 CW이고, 기계 프레임은 Y가 반전돼 회전 감각이 뒤집혀 CCW가 된다.
+    //
+    //   cX = Bottom 촬영 PickerX − Config.ColletRotationCenterX[콜렛]
+    //   cY = Bottom 촬영 PickerY − Config.ColletRotationCenterY[콜렛]
+    //   Config.ColletRotationCenterX/Y는 "그 콜렛의 회전축이 Bottom 카메라 광축에 오는 PickerXY 기계좌표"이므로
+    //   (Bottom 촬영 PickerXY − 그 값) = 촬영 프레임에서 회전축이 카메라축으로부터 벗어난 편심이다.
+    //   Bottom 촬영 Y는 콜렛과 무관하게 P4 고정이라 콜렛 1~3은 cY가 0이 아니다.
+    //
+    //   회전중심 무효(COC VALID=false) 또는 Bottom 측정 없음 ⇒ d=0(다이가 회전축 위에 있다) 가정.
+    //   이때 회전해도 위치가 안 변하므로 각도 무관하게 o'y = −OffsetY (0도와 동일).
+    //
+    //   ΔY4 = 콜렛Cal FinalPickerY(현재 콜렛) − FinalPickerY(4번 콜렛) — 마지막에 1회만 가산.
+    //         Bottom 촬영 Y가 P4 고정이라 OffsetY에 섞여 들어온 콜렛 파킹분을 상쇄하는 항이다.
     //
     //   0도:  FrontY = P_F − DieSizeY/2 − OffsetY + ΔY4
     //         RearY  = P_R + DieSizeY/2 − OffsetY + ΔY4
-    //   90도: FrontY = P_F − DieSizeX/2 − rotY   + ΔY4
-    //         RearY  = P_R + DieSizeX/2 − rotY   + ΔY4
-    // 오프셋 추종 항(−OffsetY/−rotY/+ΔY4)은 두 카메라 공통, 반쪽치수 항만 카메라별(Front −, Rear +).
+    //   90도: FrontY = P_F − DieSizeX/2 + rotY   + ΔY4      (rotY = o'y(90))
+    //         RearY  = P_R + DieSizeX/2 + rotY   + ΔY4
+    // 다이 추종 항(o'y, ΔY4)은 두 카메라 공통, 반쪽치수 항만 카메라별(Front −, Rear +).
     internal static class SideVisionYTargetCalculator
     {
         public static bool TryBuild(
@@ -179,9 +190,6 @@ namespace QMC.CDT320.Sequencing
                     out rotationCenterPickerX,
                     out rotationCenterPickerY);
 
-                // 회전중심을 못 쓰는 경우(COC VALID=false 또는 Bottom 측정 프레임 없음)에는
-                // 편심을 0으로 두고 같은 회전식을 그대로 적용한다 ⇒ rotY = −OffsetX.
-                // 즉 90도 오프셋 항이 0도의 −OffsetY 자리에 +OffsetX가 들어간 형태가 된다.
                 double cocEccentricX = 0.0;
                 double cocEccentricY = 0.0;
                 bool rotationCenterUsed = rotationCenterValid && offsetApplied;
@@ -191,7 +199,14 @@ namespace QMC.CDT320.Sequencing
                     cocEccentricY = bottomShotPickerY - rotationCenterPickerY;
                 }
 
-                double rot90Y = cocEccentricY - (offsetX - cocEccentricX);
+                // 기계 프레임(X = 이미지X, Y = −이미지Y)에서 회전중심 c 기준 CCW 90도 회전의 Y성분.
+                //   o'y(θ) = cY + (OffsetX − cX)·sinθ + (−OffsetY − cY)·cosθ
+                //   θ=0  ⇒ −OffsetY            (회전중심 소거 — 0도식과 일치하는 교차검증)
+                //   θ=90 ⇒ cY + (OffsetX − cX) (OffsetY는 cos90=0으로 소거되고 X성분으로 넘어감)
+                // 회전중심을 못 쓰면 d=0(다이가 회전축 위) 가정 ⇒ 각도 무관하게 −OffsetY.
+                double rot90Y = rotationCenterUsed
+                    ? cocEccentricY + (offsetX - cocEccentricX)
+                    : -offsetY;
 
                 if (double.IsNaN(rot90Y) || double.IsInfinity(rot90Y))
                 {
@@ -225,8 +240,8 @@ namespace QMC.CDT320.Sequencing
                     DeltaY4 = deltaY4,
                     Front0Y = frontProcessY - half0 - offsetY + deltaY4,
                     Rear0Y = rearProcessY + half0 - offsetY + deltaY4,
-                    Front90Y = frontProcessY - half90 - rot90Y + deltaY4,
-                    Rear90Y = rearProcessY + half90 - rot90Y + deltaY4
+                    Front90Y = frontProcessY - half90 + rot90Y + deltaY4,
+                    Rear90Y = rearProcessY + half90 + rot90Y + deltaY4
                 };
                 return true;
             }
