@@ -360,6 +360,64 @@ namespace QMC.CDT320.Sequencing
             return !double.IsNaN(target);
         }
 
+        // ---------- 아웃풋 OutputVisionX 명령권 중재 토큰 ----------
+        // 배경(2026-08-17 23:20 PickerX PEL 사고 후속, 2026-08-18): Bottom/Side 검사 시퀀스의
+        //   진입 게이트가 "후검사 예약 0건 + 카메라 유휴"일 때 스스로 카메라 회피를 명령하는
+        //   유휴 폴백을 갖는다. 후검사 큐 워커와 픽커 시퀀스는 서로 다른 스레드라 "예약==0"
+        //   판정과 회피 명령 발행 사이의 TOCTOU(그 사이 신규 예약 진입 → 큐 접근 명령과
+        //   이중 명령)가 원자화로는 막히지 않는다. 대신 OutputVisionX 명령권 자체를 토큰으로
+        //   직렬화한다: 큐 배치(접근~배치말 회피)와 픽커 유휴 회피가 토큰을 쥔 쪽만 명령한다.
+        //   예약 카운터는 힌트로 강등 — 힌트가 낡아도 명령권이 직렬이라 누가 몇 초 기다리는지만
+        //   달라지고 이중 명령은 없다. 플래그 조작만 lock 안에서 하고 모션은 항상 lock 밖.
+        private static string _outputVisionCommandOwner;
+
+        /// <summary>OutputVisionX 명령권 토큰 획득 시도. 미보유 또는 동일 소유자면 성공.</summary>
+        public static bool TryAcquireOutputVisionCommand(string owner)
+        {
+            if (string.IsNullOrEmpty(owner))
+                return false;
+
+            lock (Sync)
+            {
+                if (_outputVisionCommandOwner != null &&
+                    !string.Equals(_outputVisionCommandOwner, owner, StringComparison.Ordinal))
+                    return false;
+
+                _outputVisionCommandOwner = owner;
+                return true;
+            }
+        }
+
+        /// <summary>OutputVisionX 명령권 토큰 해제. 소유자가 일치할 때만 해제된다.</summary>
+        public static void ReleaseOutputVisionCommand(string owner)
+        {
+            lock (Sync)
+            {
+                if (string.Equals(_outputVisionCommandOwner, owner, StringComparison.Ordinal))
+                    _outputVisionCommandOwner = null;
+            }
+        }
+
+        /// <summary>현재 토큰 소유자(진단/대기 사유 로그용). 미보유면 false.</summary>
+        public static bool TryGetOutputVisionCommandOwner(out string owner)
+        {
+            lock (Sync)
+            {
+                owner = _outputVisionCommandOwner;
+            }
+
+            return owner != null;
+        }
+
+        /// <summary>등록된 아웃풋 독립 회피 Task가 아직 실행 중인지(유휴 폴백 자격 판정용).</summary>
+        public static bool IsOutputRetreatTaskRunning()
+        {
+            lock (Sync)
+            {
+                return _output != null && _output.MoveTask != null && !_output.MoveTask.IsCompleted;
+            }
+        }
+
         // ---------- 공통 ----------
 
         private static void ObserveReplacedSession(RetreatSession session, string context)

@@ -419,6 +419,16 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> MoveBottomXToInspectionAsync(CancellationToken ct)
         {
             bool measureVisionToPitch = _bottomVisionToPitchTactActive;
+
+            // [공유레일 근접 사고 2026-08-17 후속] Bottom X 진입 전 OutputVisionX Extra 간격
+            // 게이트(31mm) — 간격 충분이면 무로그 즉시 통과, 미달이면 대기(타임아웃 알람).
+            int visionGateResult = await EnsureOutputVisionClearBeforeInspectionPickerXMoveAsync(
+                _targetPickerX,
+                "bottom inspection X",
+                ct).ConfigureAwait(false);
+            if (visionGateResult != 0)
+                return visionGateResult;
+
             var targets = new Dictionary<PickerAxis, double>();
             targets[PickerAxis.PickerX] = _targetPickerX;
             if (!_inspectionYPositionReady || !CanSkipPickerMoveCommand(PickerAxis.PickerY, _targetPickerY))

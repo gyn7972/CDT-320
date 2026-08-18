@@ -1151,6 +1151,20 @@ namespace QMC.CDT320.Sequencing
                             return fixedYResult;
                     }
 
+                    // [공유레일 근접 사고 2026-08-17 후속] Bottom X 진입 전 OutputVisionX Extra
+                    // 간격 게이트 — 간격 충분(31mm)이면 무로그 즉시 통과, 미달이면 카메라 배치
+                    // 종료/회피를 대기(타임아웃 알람). 아래 선행/동기 두 이동 경로 모두 커버.
+                    int visionGateResult = await EnsureOutputVisionClearBeforeInspectionPickerXMoveAsync(
+                        target.X,
+                        "Bottom/Side 통합 Bottom X",
+                        ct).ConfigureAwait(false);
+                    if (visionGateResult != 0)
+                    {
+                        tactScope.Fail("PICKER-BOTTOM-SIDE-BOTTOM-XY",
+                            BuildTactDetail(target, "Bottom X 진입 전 OutputVisionX 간격 게이트 실패. result=" + visionGateResult));
+                        return visionGateResult;
+                    }
+
                     // 1-A 접근 구간 Z+T 선행(사용자 승인 2026-07-26): 게이트 3종 —
                     //   (1) fixed-Y 확립(Y가 이미 촬영 위치 — Y가 Avoid면 Z 하강이
                     //       VerifyPickerYAvoidBlocksZDown에 차단되므로 이 게이트가 안전 근거),
@@ -2738,6 +2752,16 @@ namespace QMC.CDT320.Sequencing
             int fixedYResult = VerifyInspectionFixedY("Side PickerX 이동 전", target);
             if (fixedYResult != 0)
                 return fixedYResult;
+
+            // [공유레일 근접 사고 2026-08-17 23:20 후속] 사고 지점 — Side X(Bottom 기준 X)가
+            // OutputVisionX와 16.65mm까지 근접(검증기 10mm만 통과)해 PEL. Extra 포함 31mm
+            // 게이트를 이동 발행 직전에 건다. 간격 충분이면 무로그 즉시 통과.
+            int visionGateResult = await EnsureOutputVisionClearBeforeInspectionPickerXMoveAsync(
+                target.X,
+                "Bottom/Side 통합 Side X",
+                ct).ConfigureAwait(false);
+            if (visionGateResult != 0)
+                return visionGateResult;
 
             var pickerTargets = new Dictionary<PickerAxis, double>();
             pickerTargets[PickerAxis.PickerX] = target.X;

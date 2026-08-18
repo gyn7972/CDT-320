@@ -992,6 +992,234 @@ namespace QMC.CDT320.Sequencing
             return true;
         }
 
+        // [공유레일 근접 사고 2026-08-17 23:20 후속] Bottom/Side 검사 픽커 X 진입 게이트.
+        // 사고: Side 검사가 Bottom 기준 X(835.438)로 진입할 때 OutputVisionX(327.090)와의 페어
+        //   간격 16.65mm가 검증기 SafetyDistance(10mm)만 통과해 하드웨어 리미트 도그 밴드
+        //   (~17mm 이하)에 들어가 PickerX PEL 알람. Place/PickUp은 Extra 포함 회피 요청·대기
+        //   경로(31mm)를 갖지만 Bottom/Side 검사 시퀀스에는 그 경로 자체가 없었다.
+        // 동작(사용자 확정 2026-08-17~18): 픽커 X 이동 발행 직전 호출.
+        //   최악 카메라 X = min(카메라 actual, 카메라 command, 후검사 예약 검사 목표 X 최솟값)
+        //   과 픽커 목표 X의 페어 간격이 required(페어 Safety 10 + Output Extra 20 +
+        //   RetreatTargetExtraMarginMm 1 = 31mm) 이상이면 즉시 0 반환(무로그 — 다이마다 도는
+        //   핫패스). 미달이면:
+        //   - 수동 대기: 카메라 촬영 배치를 끊지 않는다. 예약 최솟값까지 합성하므로 배치 도중
+        //     픽커가 먼저 들어가는 창이 없다.
+        //   - 유휴 폴백: 후검사 큐 유휴 + 독립 회피 미실행 + 카메라 정지일 때만 OutputVisionX
+        //     명령권 토큰을 획득해 최소 회피를 직접 명령(코디네이터 등록 — Place 인수 가능).
+        //     예약 카운터는 힌트 — 명령권이 토큰으로 직렬화되므로 힌트가 낡아도 이중 명령 없음.
+        //   - CycleStop은 관찰만(배치가 끝나면 카메라가 물러난다). 알람 정지는 즉시 중단.
+        //   - 한도 VisionFollowEntryTimeoutMs(속도 스케일 반영) 초과 시 알람(무언정지 금지).
+        // 폴백 안전: 축/서비스/페어 조회 불가 시 0 반환 — 기존 검증기(10mm)+MotionGuard 판정은
+        //   기존 이동 헬퍼 안에서 그대로 살아 있으므로 동작 무변경으로 후퇴한다.
+        protected async Task<int> EnsureOutputVisionClearBeforeInspectionPickerXMoveAsync(
+            double pickerTargetX,
+            string context,
+            CancellationToken ct)
+        {
+            BaseAxis visionX = null;
+            try
+            {
+                OutputStageUnit outputStage = Context != null && Context.Machine != null
+                    ? Context.Machine.OutputStageUnit
+                    : null;
+                visionX = outputStage != null ? outputStage.OutputCameraX : null;
+                BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                    Context != null ? Context.Machine : null);
+                if (outputStage == null || visionX == null || pickerX == null || service == null)
+                    return 0;
+
+                // 이미 목표 X에 서 있으면 신규 접근이 아니다 — 게이트 없이 통과(상호 배제는
+                // 카메라 접근 측 Extra 판정이 담당).
+                if (IsPickerAxisInPosition(PickerAxis.PickerX, pickerTargetX))
+                    return 0;
+
+                int direction;
+                double homeGap;
+                double safetyGap;
+                string gapDetail;
+                if (!service.TryGetFollowGapParameters(
+                    pickerX,
+                    visionX,
+                    service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0,
+                    out direction,
+                    out homeGap,
+                    out safetyGap,
+                    out gapDetail))
+                {
+                    return 0;
+                }
+
+                double required = safetyGap + VisionIndependentRetreatCoordinator.RetreatTargetExtraMarginMm;
+                OutputPostPlaceInspectionQueue inspectionQueue = Context != null
+                    ? Context.OutputPostPlaceInspections
+                    : null;
+
+                int gateTimeoutMs = MotionSpeedScale.ScaleDefaultTimeoutMs(
+                    service.Config != null ? service.Config.VisionFollowEntryTimeoutMs : 15000);
+                DateTime start = DateTime.UtcNow;
+                bool waitLogged = false;
+                DateTime lastWaitLogUtc = DateTime.MinValue;
+                bool idleRetreatAttempted = false;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (IsAlarmStopActive())
+                        return StopPickerMoveBecauseAlarmActive(context);
+
+                    // 최악 카메라 X 합성: actual/command + 예약(대기+촬영 중) 검사 목표 최솟값.
+                    double visionActual = visionX.ActualPosition;
+                    double visionCommand = visionX.CommandPosition;
+                    double worstVision = direction > 0
+                        ? Math.Min(visionActual, visionCommand)
+                        : Math.Max(visionActual, visionCommand);
+                    double reservedMinX = double.NaN;
+                    bool hasReserved = inspectionQueue != null &&
+                        inspectionQueue.TryGetReservedInspectionMinVisionTargetX(out reservedMinX);
+                    // 예약 최솟값 합성은 direction>0(간격=vision+homeGap−picker, 카메라 X가
+                    // 작을수록 최악)일 때만 의미가 있다 — 현 설비 OutputVisionX 페어가 이 경우.
+                    if (hasReserved && direction > 0 && reservedMinX < worstVision)
+                        worstVision = reservedMinX;
+
+                    double clearance = direction > 0
+                        ? (worstVision + homeGap) - pickerTargetX
+                        : (pickerTargetX + homeGap) - worstVision;
+                    // 경계 부동소수 여유(Place 판정 선례: required − 1e-6).
+                    if (clearance >= required - 0.000001)
+                        break;
+
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    if (elapsedMs >= gateTimeoutMs)
+                    {
+                        return Fail("PICKER-INSPECT-OUTPUT-VISION-CLEAR-TIMEOUT", Name,
+                            context + " 진입 전 OutputVisionX 간격 확보 대기가 시간 초과되었습니다. " +
+                            "pickerTargetX=" + pickerTargetX.ToString("F3") +
+                            ", worstCameraX=" + worstVision.ToString("F3") +
+                            ", cameraActual=" + visionActual.ToString("F3") +
+                            ", cameraCommand=" + visionCommand.ToString("F3") +
+                            ", reservedMinX=" + (hasReserved ? reservedMinX.ToString("F3") : "-") +
+                            ", clearance=" + clearance.ToString("F3") +
+                            ", required=" + required.ToString("F3") +
+                            ", elapsedMs=" + elapsedMs.ToString("0") +
+                            ", timeoutMs=" + gateTimeoutMs);
+                    }
+
+                    if (!waitLogged || (DateTime.UtcNow - lastWaitLogUtc).TotalMilliseconds >= 2000.0)
+                    {
+                        WriteLog("PickerSequenceBase",
+                            Name + " " + context + " 진입 전 OutputVisionX 간격 확보 대기. " +
+                            "pickerTargetX=" + pickerTargetX.ToString("F3") +
+                            ", worstCameraX=" + worstVision.ToString("F3") +
+                            ", cameraActual=" + visionActual.ToString("F3") +
+                            ", cameraCommand=" + visionCommand.ToString("F3") +
+                            ", reservedMinX=" + (hasReserved ? reservedMinX.ToString("F3") : "-") +
+                            ", clearance=" + clearance.ToString("F3") +
+                            ", required=" + required.ToString("F3") +
+                            ", queueIdle=" + (inspectionQueue != null ? inspectionQueue.IsIdle.ToString() : "-") +
+                            ", cycleStop=" + (Context != null && Context.IsCycleStopRequested) +
+                            ", elapsedMs=" + elapsedMs.ToString("0") + " - Wait");
+                        waitLogged = true;
+                        lastWaitLogUtc = DateTime.UtcNow;
+                    }
+
+                    // 유휴 폴백: 예약 0건(힌트) + 독립 회피 미실행 + 카메라 정지 — 카메라가 스스로
+                    // 움직일 이유가 없는 주차 상태(예: 수동 조그 후 자동 시작)만 직접 회피시킨다.
+                    if (!idleRetreatAttempted &&
+                        inspectionQueue != null && inspectionQueue.IsIdle &&
+                        !VisionIndependentRetreatCoordinator.IsOutputRetreatTaskRunning() &&
+                        !visionX.IsMoving)
+                    {
+                        string tokenOwner = "PickerInspectionGate:" + Side;
+                        if (VisionIndependentRetreatCoordinator.TryAcquireOutputVisionCommand(tokenOwner))
+                        {
+                            try
+                            {
+                                // 토큰 획득 후 재확인 — 그 사이 예약이 들어왔다면 회피를 접고
+                                // 수동 대기로 복귀한다(큐 접근은 우리 토큰 해제를 기다리므로
+                                // 어느 쪽이든 이중 명령은 없다).
+                                if (inspectionQueue.IsIdle &&
+                                    !VisionIndependentRetreatCoordinator.IsOutputRetreatTaskRunning() &&
+                                    !visionX.IsMoving)
+                                {
+                                    idleRetreatAttempted = true;
+                                    // 회피 목표는 판정 경계보다 1mm 더 깊게(RetreatTargetExtraMarginMm
+                                    // 선례: 회피만 깊어지고 판정 기준은 무변경) — 도착 오차로
+                                    // 경계에서 재대기하는 창을 없앤다.
+                                    double retreatDepth = required +
+                                        VisionIndependentRetreatCoordinator.RetreatTargetExtraMarginMm;
+                                    double requiredVision = direction > 0
+                                        ? pickerTargetX - homeGap + retreatDepth
+                                        : pickerTargetX + homeGap - retreatDepth;
+                                    double fullAvoid = requiredVision;
+                                    if (outputStage.Recipe != null)
+                                    {
+                                        outputStage.Recipe.EnsurePositionObjects();
+                                        fullAvoid = outputStage.Recipe.VisionX.AvoidPosition;
+                                    }
+                                    // 최소 회피: required 경계까지만, 전체 Avoid는 넘지 않는다.
+                                    double retreatTarget = direction > 0
+                                        ? Math.Min(requiredVision, fullAvoid)
+                                        : Math.Max(requiredVision, fullAvoid);
+                                    int moveTimeoutMs = MotionSpeedScale.ScaleDefaultTimeoutMs(ResolveTimeout());
+                                    WriteLog("PickerSequenceBase",
+                                        Name + " " + context + " 진입 전 유휴 카메라 최소 회피를 직접 명령합니다. " +
+                                        "retreatTarget=" + retreatTarget.ToString("F3") +
+                                        ", requiredVision=" + requiredVision.ToString("F3") +
+                                        ", fullAvoid=" + fullAvoid.ToString("F3") +
+                                        ", cameraActual=" + visionActual.ToString("F3") +
+                                        ", owner=" + tokenOwner + " - Start");
+                                    Task<int> retreatTask = outputStage.MoveVisionXToTargetAndVerifyAsync(
+                                        retreatTarget, moveTimeoutMs, false, ct);
+                                    VisionIndependentRetreatCoordinator.RegisterOutput(
+                                        retreatTask, retreatTarget, tokenOwner);
+                                    int retreatResult = await retreatTask.ConfigureAwait(false);
+                                    WriteLog("PickerSequenceBase",
+                                        Name + " " + context + " 진입 전 유휴 카메라 최소 회피 완료. " +
+                                        "result=" + retreatResult +
+                                        ", cameraActual=" + visionX.ActualPosition.ToString("F3") +
+                                        " - " + (retreatResult == 0 ? "Ok" : "Failed"));
+                                    // 실패해도 여기서 알람하지 않는다 — 간격 미달이면 위
+                                    // 타임아웃 알람이 최종 안전망(사유 수치 포함)이다.
+                                }
+                            }
+                            finally
+                            {
+                                VisionIndependentRetreatCoordinator.ReleaseOutputVisionCommand(tokenOwner);
+                            }
+                            continue;
+                        }
+                    }
+
+                    await Task.Delay(20, ct).ConfigureAwait(false);
+                }
+
+                if (waitLogged)
+                {
+                    WriteLog("PickerSequenceBase",
+                        Name + " " + context + " 진입 전 OutputVisionX 간격 확보 완료. " +
+                        "pickerTargetX=" + pickerTargetX.ToString("F3") +
+                        ", cameraActual=" + visionX.ActualPosition.ToString("F3") +
+                        ", elapsedMs=" + (DateTime.UtcNow - start).TotalMilliseconds.ToString("0") + " - Ok");
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // 충돌 게이트의 예기치 못한 예외는 조용히 통과시키지 않는다(사고 재발 방지).
+                return Fail("PICKER-INSPECT-OUTPUT-VISION-GATE-EX", Name,
+                    context + " 진입 전 OutputVisionX 간격 게이트 처리 중 예외가 발생했습니다. " +
+                    "pickerTargetX=" + pickerTargetX.ToString("F3") +
+                    ", cameraActual=" + (visionX != null ? visionX.ActualPosition.ToString("F3") : "-") +
+                    ", error=" + ex.Message);
+            }
+        }
+
         protected async Task<int> MovePickerAxisAndVerifyAsync(
             PickerAxis axis,
             double target,

@@ -604,6 +604,15 @@ namespace QMC.CDT320.Sequencing
             if (!_inspectionYPositionReady || !CanSkipPickerMoveCommand(PickerAxis.PickerY, _targetPickerY))
                 targets[PickerAxis.PickerY] = _targetPickerY;
 
+            // [공유레일 근접 사고 2026-08-17 후속] Side X 진입 전 OutputVisionX Extra 간격
+            // 게이트(31mm) — 간격 충분이면 무로그 즉시 통과, 미달이면 대기(타임아웃 알람).
+            int visionGateResult = await EnsureOutputVisionClearBeforeInspectionPickerXMoveAsync(
+                _targetPickerX,
+                "side inspection X",
+                ct).ConfigureAwait(false);
+            if (visionGateResult != 0)
+                return visionGateResult;
+
             int result = await MoveSideXAndVision0PositionAsync(targets, ct).ConfigureAwait(false);
             if (result != 0)
                 return result;

@@ -95,6 +95,11 @@ namespace QMC.CDT320.Sequencing
         // C1-(b)(2026-07-26): Place 진입 대기자 수 — 배치 EPD 완료 시점에 대기자가 있으면
         // 최소 회피(잔류), 없으면 전체 Avoid 완주(FeederY 자동 이동 인터락 보존).
         private int _placeEntryWaiters;
+        // [공유레일 근접 사고 후속 2026-08-18] 현재 촬영 중(in-flight) 요청의 카메라 목표 X.
+        // 대기 큐(_queue)에서 이미 빠져나와 카메라가 접근 중/촬영 중인 요청은 큐 스냅샷에
+        // 안 잡히므로 별도 게시한다. 배치 종료(finally)에서 NaN으로 정리. 픽커 Bottom/Side
+        // 진입 게이트가 "예약 검사 목표 X 최솟값" 계산에 함께 반영한다.
+        private double _activeInspectionTargetVisionX = double.NaN;
 
         public OutputPostPlaceInspectionQueue(MachineSequenceContext context)
         {
@@ -108,6 +113,42 @@ namespace QMC.CDT320.Sequencing
                 return Volatile.Read(ref _pendingOrRunning) <= 0 &&
                        Volatile.Read(ref _batchDepth) <= 0;
             }
+        }
+
+        // [공유레일 근접 사고 후속 2026-08-18] 읽기 전용 조회: 예약(대기 큐)+촬영 중(in-flight)
+        // 검사 요청들의 카메라 목표 X 최솟값. OutputVisionX↔PickerX 페어는 카메라 X가 작을수록
+        // 간격이 줄므로(간격 = HomeClearance + visionX − pickerX) 최솟값이 최악 지점이다.
+        // 픽커 Bottom/Side 진입 게이트가 "카메라 현재/지령/예약 최악 X"를 합성할 때 쓴다.
+        // 큐 상태는 건드리지 않는다. ConcurrentQueue 열거는 스냅샷이라 스레드 세이프.
+        public bool TryGetReservedInspectionMinVisionTargetX(out double minTargetX)
+        {
+            minTargetX = double.NaN;
+            OutputStageUnit stage = _context != null && _context.Machine != null
+                ? _context.Machine.OutputStageUnit
+                : null;
+            if (stage == null || stage.Recipe == null || stage.Recipe.VisionX == null)
+                return false;
+
+            double processPosition = stage.Recipe.VisionX.ProcessPosition;
+            double min = double.PositiveInfinity;
+            foreach (OutputPostPlaceInspectionRequest pending in _queue)
+            {
+                if (pending == null || pending.ReceiveTarget == null)
+                    continue;
+                double candidate = processPosition + pending.ReceiveTarget.TargetX;
+                if (candidate < min)
+                    min = candidate;
+            }
+
+            double active = Volatile.Read(ref _activeInspectionTargetVisionX);
+            if (!double.IsNaN(active) && active < min)
+                min = active;
+
+            if (double.IsPositiveInfinity(min))
+                return false;
+
+            minTargetX = min;
+            return true;
         }
 
         public bool IsSafelyIdleForDrain(out string reason)
@@ -422,6 +463,7 @@ namespace QMC.CDT320.Sequencing
                     "AvoidPosition;OutputStageStep=CycleStopFullAvoid",
                     "정상 Cycle Stop OutputVisionX 전체 Avoid",
                     null,
+                    false, // 회피(탈출) 이동 — 픽커 Extra 판정을 켜면 카메라가 갇힐 수 있어 제외.
                     safeTimeoutMs,
                     ct).ConfigureAwait(false);
                 if (clearResult != 0)
@@ -923,6 +965,15 @@ namespace QMC.CDT320.Sequencing
                     firstRequestCompleted = true;
                     return -1;
                 }
+                // [공유레일 근접 사고 후속 2026-08-18] OutputVisionX 명령권 토큰 획득 — 픽커
+                // Bottom/Side 게이트의 유휴 회피 명령과 카메라 접근/배치말 회피 명령이 교차하지
+                // 않도록 배치 동안 보유한다. 평상시 무경합(유휴 회피는 예약 0건일 때만 발동,
+                // 보유 시간은 회피 이동 수 초)이라 즉시 획득된다. 해제는 배치 finally.
+                int commandTokenResult = await AcquireOutputVisionCommandTokenAsync(firstRequest, ct)
+                    .ConfigureAwait(false);
+                if (commandTokenResult != 0)
+                    return commandTokenResult;
+
                 OutputPostPlaceInspectionRequest request = firstRequest;
                 while (request != null)
                 {
@@ -1112,6 +1163,66 @@ namespace QMC.CDT320.Sequencing
                     placeLease.Dispose();
                 if (cameraWorkLease != null)
                     cameraWorkLease.Dispose();
+                // [공유레일 근접 사고 후속 2026-08-18] in-flight 목표 정리 + 명령권 토큰 반환.
+                // 배치말 회피 Task는 위 병렬 배리어(Task.WhenAll)에서 완료를 기다린 뒤라
+                // 이 시점에 큐 발행 카메라 모션은 남아 있지 않다. Release는 소유자 일치 시에만
+                // 해제되므로 토큰 미획득 조기 반환 경로에서도 무해하다.
+                Volatile.Write(ref _activeInspectionTargetVisionX, double.NaN);
+                VisionIndependentRetreatCoordinator.ReleaseOutputVisionCommand(OutputVisionCommandTokenOwner);
+            }
+        }
+
+        // [공유레일 근접 사고 후속 2026-08-18] OutputVisionX 명령권 토큰 소유자 이름(고정).
+        private const string OutputVisionCommandTokenOwner = "OutputPostPlaceInspection:Batch";
+
+        // [공유레일 근접 사고 후속 2026-08-18] 명령권 토큰 획득 대기 — 평상시 첫 시도에 성공해
+        // 무로그 통과. 픽커 유휴 회피가 쥐고 있으면(수 초) 폴링 대기하고, 한도 초과 시 알람
+        // (무언정지 금지). 대기 사유에 현재 소유자를 남긴다.
+        private async Task<int> AcquireOutputVisionCommandTokenAsync(
+            OutputPostPlaceInspectionRequest request,
+            CancellationToken ct)
+        {
+            if (VisionIndependentRetreatCoordinator.TryAcquireOutputVisionCommand(OutputVisionCommandTokenOwner))
+                return 0;
+
+            SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                _context != null ? _context.Machine : null);
+            int timeoutMs = service != null && service.Config != null
+                ? service.Config.VisionFollowEntryTimeoutMs
+                : 15000;
+            string holder;
+            VisionIndependentRetreatCoordinator.TryGetOutputVisionCommandOwner(out holder);
+            Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                "Output camera 후검사 배치 시작 전 OutputVisionX 명령권 토큰 대기. holder=" + (holder ?? "-") +
+                ", die=" + (request != null ? request.DieId : "-") +
+                ", timeoutMs=" + timeoutMs + " - Wait");
+
+            DateTime start = DateTime.UtcNow;
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (IsStopOrAlarmActive())
+                    return StopRequestedResult;
+
+                if (VisionIndependentRetreatCoordinator.TryAcquireOutputVisionCommand(OutputVisionCommandTokenOwner))
+                {
+                    Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                        "Output camera 후검사 배치 OutputVisionX 명령권 토큰 획득 완료. elapsedMs=" +
+                        (DateTime.UtcNow - start).TotalMilliseconds.ToString("0") + " - Ok");
+                    return 0;
+                }
+
+                if ((DateTime.UtcNow - start).TotalMilliseconds >= timeoutMs)
+                {
+                    VisionIndependentRetreatCoordinator.TryGetOutputVisionCommandOwner(out holder);
+                    return RaiseFailure("OUT-POST-INSPECT-VISION-CMD-TOKEN-TIMEOUT", "OutputStage",
+                        "Output camera 후검사 배치 시작 전 OutputVisionX 명령권 토큰 대기가 시간 초과되었습니다. " +
+                        "holder=" + (holder ?? "-") +
+                        ", die=" + (request != null ? request.DieId : "-") +
+                        ", timeoutMs=" + timeoutMs);
+                }
+
+                await Task.Delay(20, ct).ConfigureAwait(false);
             }
         }
 
@@ -1180,6 +1291,9 @@ namespace QMC.CDT320.Sequencing
                     ? stage.Recipe.NGStageY.ProcessPosition
                     : stage.Recipe.GoodStageY.ProcessPosition;
                 double targetVisionX = stage.Recipe.VisionX.ProcessPosition + request.ReceiveTarget.TargetX;
+                // [공유레일 근접 사고 후속 2026-08-18] in-flight 목표 게시 — 대기 큐에서 빠진 뒤에도
+                // 픽커 게이트의 "예약 최솟값" 계산에 잡히도록 한다. 배치 finally에서 NaN 정리.
+                Volatile.Write(ref _activeInspectionTargetVisionX, targetVisionX);
                 double cameraToPickerY = 0.0;
                 // Place 후 촬영 X/Y는 항상 다이맵 기준으로 계산한다.
                 // Bottom/기구/런타임 보정은 Picker Place 이동에만 쓰고, 촬영 좌표에 다시 실으면
@@ -1264,6 +1378,7 @@ namespace QMC.CDT320.Sequencing
                         BuildOutputPostPlaceTargetName(BinStageAxis.VisionX, "Output camera inspection VisionX", request),
                         "Output camera inspection VisionX",
                         request,
+                        true, // 검사 접근 이동 — 최근접 픽커 Extra 포함 간격(31mm)까지 요구.
                         timeout,
                         ct).ConfigureAwait(false);
                     if (visionXClearResult != 0)
@@ -1576,6 +1691,7 @@ namespace QMC.CDT320.Sequencing
             string guardTargetName,
             string description,
             OutputPostPlaceInspectionRequest request,
+            bool enforcePickerExtraClearance,
             int timeout,
             CancellationToken ct)
         {
@@ -1617,12 +1733,24 @@ namespace QMC.CDT320.Sequencing
                     bool guardClear = sharedRailClear &&
                         MotionGuardRuntime.CanAxisTeachingMove(guardAxis, target, guardTargetName, out guardReason);
 
-                    if (sharedRailClear && guardClear)
+                    // [공유레일 근접 사고 후속 2026-08-18] 검사 접근 전용(opt-in) 추가 판정 —
+                    // 검증기 SafetyDistance(10mm)만으로는 하드웨어 리미트 도그 밴드(~17mm)에
+                    // 들어갈 수 있어, 픽커 게이트와 동일한 Extra 포함 기준(10+20+1=31mm)으로
+                    // 최근접 픽커와의 페어 간격을 함께 요구한다. 픽커 위치는 actual/command 중
+                    // 최악값 — 픽커가 진입 "이동 중"인 경우도 지령 기준으로 잡는다.
+                    // 회피/탈출 이동은 판정을 켜지 않으므로(호출부 opt-in) 카메라 갇힘이 없다.
+                    string pickerExtraReason = string.Empty;
+                    bool pickerExtraClear = !enforcePickerExtraClearance || !sharedRailClear || !guardClear ||
+                        IsVisionTargetClearOfPickerExtraClearance(stage, service, target, out pickerExtraReason);
+
+                    if (sharedRailClear && guardClear && pickerExtraClear)
                         break;
 
                     reason = !sharedRailClear
                         ? "SharedRailX: " + sharedRailReason
-                        : "MotionGuard: " + guardReason;
+                        : !guardClear
+                            ? "MotionGuard: " + guardReason
+                            : "PickerExtra: " + pickerExtraReason;
 
                     double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
                     if (elapsedMs >= timeoutMs)
@@ -1635,7 +1763,9 @@ namespace QMC.CDT320.Sequencing
                             "reason=" + reason);
                         string timeoutAlarmCode = !sharedRailClear
                             ? "OUT-POST-INSPECT-SHARED-RAIL-X-TIMEOUT"
-                            : "OUT-POST-INSPECT-MOTION-GUARD-TIMEOUT";
+                            : reason.StartsWith("PickerExtra:", StringComparison.Ordinal)
+                                ? "OUT-POST-INSPECT-PICKER-EXTRA-CLEARANCE-TIMEOUT"
+                                : "OUT-POST-INSPECT-MOTION-GUARD-TIMEOUT";
                         return RaiseFailure(timeoutAlarmCode, "OutputStage",
                             description + " wait before move timed out. " +
                             "target=" + target.ToString("F6") +
@@ -1687,6 +1817,111 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        // [공유레일 근접 사고 후속 2026-08-18] 카메라 접근 목표가 Front/Rear 픽커 각각과
+        // Extra 포함 기준(페어 SafetyDistance + OutputVisionRetreatExtraClearance +
+        // RetreatTargetExtraMarginMm = 31mm)을 만족하는지 판정한다.
+        // - 픽커 위치는 actual/command 중 간격이 작아지는 쪽(최악값) — 진입 이동 중인 픽커도
+        //   지령 기준으로 잡아 이동 중 충돌 창을 막는다.
+        // - 탈출 의미론(검증기 :92~99 미러): 목표 간격이 현재 간격보다 좋아지는 이동은 통과 —
+        //   판정 자체는 접근 호출부에만 켜지지만 이중 안전으로 유지한다.
+        // - 파라미터 조회 실패 시 true(기존 검증기·MotionGuard 판정만으로 진행 — 동작 무변경 폴백).
+        private bool IsVisionTargetClearOfPickerExtraClearance(
+            OutputStageUnit stage,
+            SharedRailXMotionService service,
+            double target,
+            out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (service == null || stage == null || stage.OutputCameraX == null ||
+                    _context == null || _context.Machine == null)
+                    return true;
+
+                BaseAxis visionX = stage.OutputCameraX;
+                for (int side = 0; side < 2; side++)
+                {
+                    string pickerName = side == 0 ? "Front" : "Rear";
+                    BaseAxis pickerX = null;
+                    if (side == 0)
+                    {
+                        PickerFrontUnit front = _context.Machine.PickerFrontUnit;
+                        if (front != null && front.Axes.ContainsKey(PickerAxis.PickerX))
+                            pickerX = front.Axes[PickerAxis.PickerX];
+                    }
+                    else
+                    {
+                        PickerRearUnit rear = _context.Machine.PickerRearUnit;
+                        if (rear != null && rear.Axes.ContainsKey(PickerAxis.PickerX))
+                            pickerX = rear.Axes[PickerAxis.PickerX];
+                    }
+                    if (pickerX == null)
+                        continue;
+
+                    int direction;
+                    double homeGap;
+                    double safetyGap;
+                    string gapDetail;
+                    if (!service.TryGetFollowGapParameters(
+                        visionX,
+                        pickerX,
+                        service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0,
+                        out direction,
+                        out homeGap,
+                        out safetyGap,
+                        out gapDetail))
+                    {
+                        continue;
+                    }
+
+                    double required = safetyGap + VisionIndependentRetreatCoordinator.RetreatTargetExtraMarginMm;
+                    // 최악 픽커 X: 간격식(direction<0: gap=vision+homeGap−picker)이 작아지는 쪽.
+                    double pickerActual = pickerX.ActualPosition;
+                    double pickerCommand = pickerX.CommandPosition;
+                    double worstPicker = direction > 0
+                        ? Math.Min(pickerActual, pickerCommand)
+                        : Math.Max(pickerActual, pickerCommand);
+                    double gapAtTarget = direction > 0
+                        ? (worstPicker + homeGap) - target
+                        : (target + homeGap) - worstPicker;
+                    if (gapAtTarget >= required)
+                        continue;
+
+                    // 탈출 면제: 현재 간격(간격이 커 보이는 쪽 비전값 기준 = 보수적)보다
+                    // 좋아지는 목표면 통과.
+                    double visionActual = visionX.ActualPosition;
+                    double visionCommand = visionX.CommandPosition;
+                    double currentVision = direction > 0
+                        ? Math.Min(visionActual, visionCommand)
+                        : Math.Max(visionActual, visionCommand);
+                    double gapAtCurrent = direction > 0
+                        ? (worstPicker + homeGap) - currentVision
+                        : (currentVision + homeGap) - worstPicker;
+                    if (gapAtTarget > gapAtCurrent + 0.000001)
+                        continue;
+
+                    reason = "nearestPicker=" + pickerName +
+                        ", clearanceAtTarget=" + gapAtTarget.ToString("F3") +
+                        ", required=" + required.ToString("F3") +
+                        ", pickerX=" + pickerActual.ToString("F3") +
+                        "(cmd " + pickerCommand.ToString("F3") + ")" +
+                        ", visionTarget=" + target.ToString("F3") +
+                        ", clearanceAtCurrent=" + gapAtCurrent.ToString("F3");
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // 판정 실패는 기존 판정(검증기+MotionGuard)만으로 진행 — 사유만 남긴다.
+                Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                    "Output camera 접근 픽커 Extra 간격 판정 중 예외 — 기존 판정만으로 진행합니다. error=" +
+                    ex.Message + " - Check");
+                return true;
             }
         }
 
