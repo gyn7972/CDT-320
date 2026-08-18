@@ -403,15 +403,29 @@ namespace QMC.CDT320.Sequencing
                 tTargets,
                 "place picker T",
                 ct,
-                targetName);
+                targetName,
+                forceMove: true);
 
             int[] results = await Task.WhenAll(pickerXEntryMove, pickerTMove).ConfigureAwait(false);
             int xtResult = results[0] != 0 ? results[0] : results[1];
             if (xtResult != 0)
                 return xtResult;
 
-            if (!hasPickerY || CanSkipPickerMoveCommand(PickerAxis.PickerY, pickerYTarget))
+            if (!hasPickerY)
                 return 0;
+
+            // [사용자 지시 2026-08-18] 최종 목표 접근 Y는 허용치 내라도 스킵 없이 강제 발행한다.
+            if (CanSkipPickerMoveCommand(PickerAxis.PickerY, pickerYTarget))
+            {
+                BaseAxis pickerYAxis = GetPickerAxis(PickerAxis.PickerY);
+                double actualY = pickerYAxis != null ? pickerYAxis.ActualPosition : double.NaN;
+                WriteLog("PickerPlaceSequence",
+                    Name + " place picker Y를 허용치 내에서도 강제 발행합니다. " +
+                    "targetY=" + pickerYTarget.ToString("F6") +
+                    ", actual=" + actualY.ToString("F6") +
+                    ", diff=" + (pickerYTarget - actualY).ToString("F6") +
+                    ", targetName=" + (targetName ?? "-") + " - Check");
+            }
 
             WriteLog("PickerMove",
                 Name + " place picker X(follow)/T 이동 완료 후 PickerY 전진을 시작합니다. " +
@@ -424,7 +438,8 @@ namespace QMC.CDT320.Sequencing
                 pickerYTarget,
                 "place picker Y",
                 ct,
-                targetName).ConfigureAwait(false);
+                targetName,
+                forceMove: true).ConfigureAwait(false);
         }
 
         // R6(follow-entry): follow 실패 시 — 함수가 피커 정지를 보장하므로 비전 회피 Task를
@@ -454,7 +469,8 @@ namespace QMC.CDT320.Sequencing
                 _targetPickerX,
                 description + " (follow 폴백)",
                 ct,
-                targetName).ConfigureAwait(false);
+                targetName,
+                forceMove: true).ConfigureAwait(false);
         }
 
         // R4/R5(follow-entry): 피커X(후행)가 회피 중인 OutputVisionX(선행)를 추종 진입한다.

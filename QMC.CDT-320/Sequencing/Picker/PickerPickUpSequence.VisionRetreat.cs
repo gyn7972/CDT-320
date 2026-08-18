@@ -646,7 +646,8 @@ namespace QMC.CDT320.Sequencing
                 _targetPickerX,
                 description + " (follow 폴백)",
                 ct,
-                targetName).ConfigureAwait(false);
+                targetName,
+                forceMove: true).ConfigureAwait(false);
         }
 
         // [사용자 승인 2026-07-27] 픽업 중 InputVisionX 비동기 전진 — die 이송 발행 때마다

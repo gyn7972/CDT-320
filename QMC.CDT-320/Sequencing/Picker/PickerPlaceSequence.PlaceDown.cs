@@ -160,6 +160,26 @@ namespace QMC.CDT320.Sequencing
                 PickerAxis tAxis = GetPickerTAxis(pickerIndex);
                 double target = ResolvePlacePickerTTarget(pickerIndex);
 
+                // [사용자 지시 2026-08-18] 현재 Place 픽커 T는 미소 보정이 실리므로 허용치 내라도
+                // 스킵 없이 강제 발행한다. 비-현재 픽커(순수 티칭 목표)는 기존 스킵 유지.
+                if (pickerIndex == _currentPickerIndex)
+                {
+                    if (CanSkipPickerMoveCommand(tAxis, target))
+                    {
+                        BaseAxis tAxisItem = GetPickerAxis(tAxis);
+                        double actual = tAxisItem != null ? tAxisItem.ActualPosition : double.NaN;
+                        WriteLog("PickerPlaceSequence",
+                            Name + " Place T 목표를 허용치 내에서도 강제 발행합니다(미소 보정 반영). " +
+                            "pickerNo=" + ToPickerNo(pickerIndex) +
+                            ", target=" + target.ToString("F6") +
+                            ", actual=" + actual.ToString("F6") +
+                            ", diff=" + (target - actual).ToString("F6") + " - Check");
+                    }
+
+                    targets[tAxis] = target;
+                    continue;
+                }
+
                 if (!CanSkipPickerMoveCommand(tAxis, target))
                     targets[tAxis] = target;
             }

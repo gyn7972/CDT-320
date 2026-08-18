@@ -231,7 +231,8 @@ namespace QMC.CDT320.Sequencing
                 targets,
                 "place picker X/Y/T",
                 ct,
-                BuildPlaceMoveTargetName()).ConfigureAwait(false);
+                BuildPlaceMoveTargetName(),
+                forceMove: true).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -471,7 +472,8 @@ namespace QMC.CDT320.Sequencing
                     pickerTargets,
                     "place picker X/Y/T",
                     ct,
-                    BuildPlaceMoveTargetName());
+                    BuildPlaceMoveTargetName(),
+                    forceMove: true);
 
             // 1-A: Y 전진 시작(Avoid 이탈) 감지 시 Z PrePlace 선행 — 게이트 미충족이면 즉시 종료.
             Task entryPreDownMonitor = StartPlaceEntryZPreDownWhenYDepartsAsync(pickerMove, ct);
@@ -529,7 +531,8 @@ namespace QMC.CDT320.Sequencing
                 pickerXAndTTargets,
                 "Place 재시작 Picker X/T",
                 ct,
-                BuildPlaceMoveTargetName());
+                BuildPlaceMoveTargetName(),
+                forceMove: true);
 
             int[] results = await Task.WhenAll(stageYMove, pickerXAndTMove).ConfigureAwait(false);
             if (results[0] != 0 || results[1] != 0)
@@ -543,15 +546,19 @@ namespace QMC.CDT320.Sequencing
                     ", outputSide=" + _currentOutputSide);
             }
 
+            // [사용자 지시 2026-08-18] 최종 목표 접근 Y는 허용치 내라도 스킵 없이 강제 발행한다.
             if (CanSkipPickerMoveCommand(PickerAxis.PickerY, _targetPickerY))
             {
+                BaseAxis pickerYAxis = GetPickerAxis(PickerAxis.PickerY);
+                double actualY = pickerYAxis != null ? pickerYAxis.ActualPosition : double.NaN;
                 WriteLog("PickerPlaceSequence",
-                    Name + " Place 재시작 Picker X/T 목표 이동 완료 후 PickerY가 이미 Place 위치임을 확인했습니다. " +
+                    Name + " Place 재시작 PickerY를 허용치 내에서도 강제 발행합니다. " +
                     "die=" + (_currentDie != null ? _currentDie.DieId : "-") +
                     ", pickerNo=" + _currentPickerNo +
                     ", outputSide=" + _currentOutputSide +
-                    ", targetY=" + _targetPickerY + " - Check");
-                return 0;
+                    ", targetY=" + _targetPickerY.ToString("F6") +
+                    ", actual=" + actualY.ToString("F6") +
+                    ", diff=" + (_targetPickerY - actualY).ToString("F6") + " - Check");
             }
 
             WriteLog("PickerPlaceSequence",
@@ -566,7 +573,8 @@ namespace QMC.CDT320.Sequencing
                 _targetPickerY,
                 "Place 재시작 PickerY 전진",
                 ct,
-                BuildPlaceMoveTargetName()).ConfigureAwait(false);
+                BuildPlaceMoveTargetName(),
+                forceMove: true).ConfigureAwait(false);
         }
 
         private async Task<int> MoveOutputStageYPickerXAndPickerZToPlaceByModeAsync(BinStageAxis yAxis, CancellationToken ct)

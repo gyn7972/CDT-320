@@ -717,7 +717,8 @@ namespace QMC.CDT320.Sequencing
                 targets,
                 "place picker Y/T before synchronized arrival",
                 ct,
-                BuildPlaceMoveTargetName()).ConfigureAwait(false);
+                BuildPlaceMoveTargetName(),
+                forceMove: true).ConfigureAwait(false);
         }
 
         private static bool RequiresContiPlaceForceMove(BaseAxis axis, double target)

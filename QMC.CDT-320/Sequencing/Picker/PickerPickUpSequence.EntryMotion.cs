@@ -434,7 +434,8 @@ namespace QMC.CDT320.Sequencing
                         _targetPickerT,
                         "pick corrected PickerT",
                         ct,
-                        targetName);
+                        targetName,
+                        forceMove: true);
                     pickerMove = JoinPickerEntryMoveResultsAsync(pickerXEntryMove, pickerTMove);
                 }
                 else
@@ -454,7 +455,8 @@ namespace QMC.CDT320.Sequencing
                         pickerTargets,
                         "pick corrected Picker X/T",
                         ct,
-                        targetName);
+                        targetName,
+                        forceMove: true);
                 }
                 Task<int> needleStageMove = MoveNeedleXAndStageYForPickAsync(
                     stage,
@@ -496,7 +498,8 @@ namespace QMC.CDT320.Sequencing
                     _targetPickerY,
                     "pick corrected PickerY",
                     ct,
-                    targetName);
+                    targetName,
+                    forceMove: true);
                 Task entryPreDownMonitor = StartPickUpEntryZPreDownWhenYDepartsAsync(pickYMove, targetName, ct);
                 result = await pickYMove.ConfigureAwait(false);
                 await entryPreDownMonitor.ConfigureAwait(false);
@@ -916,7 +919,8 @@ namespace QMC.CDT320.Sequencing
                     pickerYtTargets,
                     "PickUp ContiNode PickerY/T 동시 발행",
                     ct,
-                    targetName);
+                    targetName,
+                    forceMove: true);
 
                 // R3(follow-entry): 비전 회피가 진행 중이면 follow 진입(+R6 폴백) — 정지 상태면 기존 이동.
                 Task<int> pickerXMoveTask = StartPickUpPickerXEntryMoveTask(
