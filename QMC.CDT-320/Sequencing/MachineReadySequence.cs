@@ -47,6 +47,11 @@ namespace QMC.CDT320.Sequencing
         private readonly List<ReadyStep> _steps;
         private int _completedStepCount;
 
+        // [Ready 4축 동시 진행 2026-08-18, 팀장님 지시] Step1에서 선행 시작한 Input/Output VisionX Avoid Task와
+        // 그 시작 시각. Step5에서 join하고, 중단 시 RunAsync finally에서 드레인한다.
+        private Task<int> _readyVisionXAvoidTask;
+        private System.Diagnostics.Stopwatch _readyVisionXAvoidWatch;
+
         public MachineReadySequence(CDT320_Machine machine)
             : this(machine, null)
         {
@@ -77,7 +82,8 @@ namespace QMC.CDT320.Sequencing
 
             AddReadyStep(steps, ReadyStepId.InputStageNeedleEjectZAvoid, "InputStage Needle/Eject Z Avoid", MoveInputStageNeedleEjectZAvoidAsync);
             AddReadyStep(steps, ReadyStepId.UpperHeadMoveSafetyCheck, "Upper Head Move Safety Check", CheckUpperHeadMoveSafetyAsync);
-            // 현재 기준: Ready 복귀는 Picker Z/Y를 먼저 빼고 Input/Output VisionX를 Avoid로 이동한다.
+            // 현재 기준(팀장님 승인 2026-08-18): 비전X는 Ready 시작에 니들Z/이젝트핀Z와 동시 출발하고
+            // 완료 확인만 이 슬롯에서 한다(픽커 Z/Y 선행 순서 폐지). 핀 완료 대기는 Step1 유지 — 피더 복구 전 하강 보장.
             AddReadyStep(steps, ReadyStepId.PickerZAvoid, "Front/Rear Picker Z Avoid", MoveFrontRearPickerZAxesAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerYAvoid, "Front/Rear Picker Y Avoid", MoveFrontRearPickerYAxesAvoidAsync);
             AddReadyStep(steps, ReadyStepId.OutputVisionXAvoid, "Input/Output VisionX Avoid", MoveInputOutputVisionXOnlyAvoidAsync);
@@ -136,6 +142,9 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                // [Ready 4축 동시 진행 2026-08-18] 정상 완료·스텝 실패·취소·예외 4개 반환 경로를 모두 덮는다.
+                // MotionGuard using 스코프 안이라 가드 밖에서 카메라가 움직이는 상태로 빠져나가지 않는다.
+                await DrainReadyVisionXAvoidTaskAsync("RunAsync 종료").ConfigureAwait(false);
             }
             }
         }
@@ -347,11 +356,181 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // [Ready 4축 동시 진행 2026-08-18] Input/Output VisionX Avoid 이동을 백그라운드로 함께 시작한다.
+        // 기존 함수(MoveInput/OutputStageVisionXOnlyAvoidAsync)를 그대로 재사용하므로 이동/속도 코드는 신설하지 않는다.
+        // 인터락 평가는 각 함수 호출 시점(= 이 메서드 안, Step1)에 동기적으로 끝난다.
+        private void StartReadyVisionXAvoidTask(CancellationToken ct)
+        {
+            if (_readyVisionXAvoidTask != null)
+                return;
+
+            // [팀장님 지시 2026-08-18] 피더 상태를 먼저 확인해서 통과하면 Step1에 출발시키고,
+            // 아니면 출발시키지 않는다(= Step5에서 기존대로 이동한다).
+            // 피더 인터락은 손대지 않는다 — VisionX와 피더는 실제 기구 간섭이 있으므로
+            // 조건 미충족 상태로 발행하면 안 된다.
+            string blockReason;
+            if (!CanStartReadyVisionXAvoidEarly(out blockReason))
+            {
+                LogStep("VisionX 선행 출발 보류 — Step5에서 이동합니다. reason=" + blockReason);
+                return;
+            }
+
+            _readyVisionXAvoidWatch = System.Diagnostics.Stopwatch.StartNew();
+
+            Task<int> outputTask = MoveOutputStageVisionXOnlyAvoidAsync(ct);
+            Task<int> inputTask = MoveInputStageVisionXOnlyAvoidAsync(ct);
+
+            _readyVisionXAvoidTask = WhenAllFirstNonZeroAsync(outputTask, inputTask);
+
+            // 중단 경로에서 끝까지 await되지 않아도 UnobservedTaskException이 나지 않도록 예외를 관찰한다.
+            _readyVisionXAvoidTask.ContinueWith(
+                t => { var _ = t.Exception; },
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
+        }
+
+        // [팀장님 지시 2026-08-18] Step1 선행 출발 가능 여부 판정.
+        // Input/OutputVisionX 이동 인터락이 요구하는 피더 조건(FeederY 정지 + Avoid Dog ON + Lift Down)을
+        // 그대로 읽어서 확인만 한다. 인터락 규칙 자체는 수정하지 않는다.
+        // 한쪽이라도 미충족이면 두 축 모두 보류하고 Step5에서 이동한다.
+        private bool CanStartReadyVisionXAvoidEarly(out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputFeederUnit inputFeeder = _machine != null ? _machine.InputFeederUnit : null;
+                if (inputFeeder != null)
+                {
+                    if (inputFeeder.FeederY == null || inputFeeder.Recipe == null)
+                    {
+                        reason = "InputFeeder 상태를 확인할 수 없음";
+                        return false;
+                    }
+
+                    if (inputFeeder.FeederY.IsMoving)
+                    {
+                        reason = "InputFeederY 이동 중";
+                        return false;
+                    }
+
+                    if (!inputFeeder.IsWaferFeederAvoidPositionCheck())
+                    {
+                        reason = "InputFeeder Avoid Dog(X090) OFF, feederYActual=" +
+                            inputFeeder.FeederY.ActualPosition.ToString("0.###");
+                        return false;
+                    }
+
+                    if (!inputFeeder.IsWaferFeederDown())
+                    {
+                        reason = "InputFeeder Lift Down 미감지";
+                        return false;
+                    }
+                }
+
+                OutputFeederUnit outputFeeder = _machine != null ? _machine.OutputFeederUnit : null;
+                if (outputFeeder != null)
+                {
+                    if (outputFeeder.FeederY == null || outputFeeder.Recipe == null)
+                    {
+                        reason = "OutputFeeder 상태를 확인할 수 없음";
+                        return false;
+                    }
+
+                    if (outputFeeder.FeederY.IsMoving)
+                    {
+                        reason = "OutputFeederY 이동 중";
+                        return false;
+                    }
+
+                    if (!outputFeeder.IsBinFeederAvoidPositionCheck())
+                    {
+                        reason = "OutputFeeder Avoid Dog(X091) OFF, feederYActual=" +
+                            outputFeeder.FeederY.ActualPosition.ToString("0.###");
+                        return false;
+                    }
+
+                    if (!outputFeeder.IsFeederDown())
+                    {
+                        reason = "OutputFeeder Lift Down 미감지";
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "피더 상태 확인 예외: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static async Task<int> WhenAllFirstNonZeroAsync(Task<int> outputTask, Task<int> inputTask)
+        {
+            int[] results = await Task.WhenAll(outputTask, inputTask).ConfigureAwait(false);
+            if (results[0] != 0)
+                return results[0];
+            return results[1];
+        }
+
+        // [Ready 4축 동시 진행 2026-08-18] Step5 join 전에 시퀀스가 중단되면 선행 Task가 고아로 남는다.
+        // MotionGuard 스코프를 벗어나기 전에 완료를 관찰하고 정리한다. 예외는 삼키고 로그만 남긴다
+        // (상위 실패가 주 오류이고, 각 이동 함수에 자체 대기 타임아웃이 있어 무한 대기는 없다).
+        private async Task DrainReadyVisionXAvoidTaskAsync(string reason)
+        {
+            Task<int> pending = _readyVisionXAvoidTask;
+            if (pending == null)
+                return;
+
+            _readyVisionXAvoidTask = null;
+
+            try
+            {
+                int result = await pending.ConfigureAwait(false);
+                LogStep("Ready 중단 정리 — 선행 VisionX Task 완료 관찰. reason=" + (reason ?? string.Empty) +
+                    ", result=" + result +
+                    ", elapsedMs=" + (_readyVisionXAvoidWatch != null ? _readyVisionXAvoidWatch.ElapsedMilliseconds : -1));
+            }
+            catch (Exception ex)
+            {
+                LogStep("Ready 중단 정리 — 선행 VisionX Task 완료 관찰. reason=" + (reason ?? string.Empty) +
+                    ", exception=" + ex.Message +
+                    ", elapsedMs=" + (_readyVisionXAvoidWatch != null ? _readyVisionXAvoidWatch.ElapsedMilliseconds : -1));
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> MoveInputOutputVisionXOnlyAvoidAsync(CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
+
+                // [Ready 4축 동시 진행 2026-08-18] Step1에서 선행 시작한 Task가 있으면 새 이동을 발행하지 않고
+                // 완료만 확인(join)한다. 없으면(단독 호출·재진입 방어) 기존대로 생성해서 대기한다.
+                Task<int> pending = _readyVisionXAvoidTask;
+                if (pending != null)
+                {
+                    try
+                    {
+                        int joinResult = await pending.ConfigureAwait(false);
+                        long elapsedMs = _readyVisionXAvoidWatch != null ? _readyVisionXAvoidWatch.ElapsedMilliseconds : -1;
+                        LogStep("선행 시작된 VisionX Avoid 완료 확인. elapsedMs=" + elapsedMs +
+                            ", result=" + joinResult);
+                        return joinResult;
+                    }
+                    finally
+                    {
+                        _readyVisionXAvoidTask = null;
+                    }
+                }
 
                 LogStep("InputStage VisionX / OutputStage VisionX 동시 Avoid 이동 시작.");
 
@@ -867,21 +1046,36 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
+
+                // [Ready 4축 동시 진행 2026-08-18, 팀장님 지시] 비전X 2축을 가장 먼저 백그라운드로 출발시킨다.
+                // InputStageUnit이 null이라 아래에서 Skip하더라도 OutputStageUnit은 별개 유닛이므로
+                // 시작은 반드시 여기서 수행한다(각 함수가 자체적으로 null-Skip 한다).
+                StartReadyVisionXAvoidTask(ct);
+
                 var unit = _machine != null ? _machine.InputStageUnit : null;
                 if (unit == null)
                     return Skip("InputStageUnit");
 
-                LogStep("InputStage NeedleZ/EjectPinZ Ready 선행 Avoid 이동 시작.");
+                // 각 축의 target 수치는 하위 MoveInputStageAxisAvoidAsync 가 축별로 로그에 남긴다.
+                LogStep(_readyVisionXAvoidTask != null
+                    ? "Ready 4축 동시 출발. ejectPinZ/needleZ 병렬 발행 + Input/OutputVisionX 백그라운드 시작."
+                    : "Ready 핀 2축 병렬 출발. VisionX는 피더 조건 미충족으로 Step5에서 이동합니다.");
 
-                int result = await MoveInputStageEjectPinZAvoidAsync(unit, ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                // 핀 2축은 병렬 발행하되 이 스텝에서 완료를 기다린다.
+                // (Step2 피더 복구/ExpanderZ 복구가 스테이지를 움직이므로 핀은 그전에 내려와 있어야 한다.)
+                var pinWatch = System.Diagnostics.Stopwatch.StartNew();
+                Task<int> ejectPinTask = MoveInputStageEjectPinZAvoidAsync(unit, ct);
+                Task<int> needleTask = MoveInputStageNeedleZAvoidAsync(unit, ct);
+                int[] pinResults = await Task.WhenAll(ejectPinTask, needleTask).ConfigureAwait(false);
+                pinWatch.Stop();
 
-                result = await MoveInputStageNeedleZAvoidAsync(unit, ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                if (pinResults[0] != 0)
+                    return pinResults[0];
+                if (pinResults[1] != 0)
+                    return pinResults[1];
 
-                LogStep("InputStage NeedleZ/EjectPinZ Ready 선행 Avoid 이동 완료.");
+                LogStep("핀 2축 Avoid 완료. elapsedMs=" + pinWatch.ElapsedMilliseconds +
+                    ", visionXPending=" + (_readyVisionXAvoidTask != null));
                 return 0;
             }
             catch (OperationCanceledException)

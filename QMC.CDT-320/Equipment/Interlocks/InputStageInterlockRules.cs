@@ -675,6 +675,8 @@ namespace QMC.CDT320.Interlocks
                         "InputVisionX 이동 불가: InputFeederY가 이동 중입니다.",
                         out reason);
 
+                // [완화 철회 2026-08-18] InputVisionX와 피더는 실제 기구 간섭이 있다(팀장님 확인).
+                // 2026-08-18 C안으로 잠시 풀었던 Avoid Dog/Down 차단을 원복한다. 다시 풀지 말 것.
                 if (!feeder.IsWaferFeederAvoidPositionCheck())
                     return MotionGuardRuleHelpers.Block(
                         "InputVisionX",
@@ -1746,11 +1748,16 @@ namespace QMC.CDT320.Interlocks
             //   WaferY(H17) / NeedleX(L17) 2건뿐이며 InputVisionX는 없다(EjectPinZ와 동일 유형).
             //   주의 — 완화 조합은 (WaferStageY / EjectPinZ / NeedleZ) × InputVisionX 3개다.
             //          WaferStageT / ExpanderZ는 그대로 차단된다.
-            if ((IsEjectPinZMove(movingName) || IsNeedleZMove(movingName)) &&
+            // 추가(팀장님 지시 2026-08-18, Ready 4축 동시 진행 C안): ExpanderZ도 예외에 넣는다.
+            //   사유 — Ready에서 InputVisionX를 시퀀스 시작에 출발시키면 Step2 ExpanderZ 자동복구가
+            //          "InputVisionX is moving."으로 차단돼 Ready가 실패한다(READY-INPUT-STAGE-EXPANDER-Z).
+            //   주의 — 위 2026-07-27 주석의 "WaferStageT / ExpanderZ는 그대로 차단된다"는 이 지시로 폐지된다.
+            //          WaferStageT는 여전히 차단이다. 되돌리려면 아래 IsExpanderZMove 항만 제거하면 된다.
+            if ((IsEjectPinZMove(movingName) || IsNeedleZMove(movingName) || IsExpanderZMove(movingName)) &&
                 IsMovingExcept(stage.CameraX, movingName, "InputVisionX", "CameraX"))
             {
                 QMC.Common.Log.Write("Main", "INTERLOCK", "MotionGuard",
-                    movingName + " 이동 허용: InputVisionX 이동 중이지만 예외 적용(사용자 승인 2026-07-27). cameraActual=" +
+                    movingName + " 이동 허용: InputVisionX 이동 중이지만 예외 적용(사용자 승인 2026-07-27, ExpanderZ 추가 2026-08-18). cameraActual=" +
                     (stage.CameraX != null ? stage.CameraX.ActualPosition.ToString("F3") : "-") + " - Check");
             }
             else if (!IsNeedleXMove(movingName) &&
@@ -1789,6 +1796,15 @@ namespace QMC.CDT320.Interlocks
         private static bool IsNeedleZMove(string movingName)
         {
             return string.Equals(movingName, "NeedleZ", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        // 인터락 기준: 현재 이동 대상이 ExpanderZ(WaferExpandingZ/InputExpandingZ)인지 판단한다.
+        // 이름 후보는 이 파일 상단 IsMoving(request, "WaferExpandingZ", "InputExpandingZ", "ExpanderZ")와 동일하게 맞춘다.
+        private static bool IsExpanderZMove(string movingName)
+        {
+            return string.Equals(movingName, "ExpanderZ", System.StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(movingName, "WaferExpandingZ", System.StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(movingName, "InputExpandingZ", System.StringComparison.OrdinalIgnoreCase);
         }
 
         // 인터락 기준: 현재 이동 대상이 EjectPinZ(NeedlePinZ)인지 판단한다.

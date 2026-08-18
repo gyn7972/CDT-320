@@ -536,6 +536,8 @@ namespace QMC.CDT320.Interlocks
                         "OutputVisionX 이동 불가: OutputFeederY가 이동 중입니다.",
                         out reason);
 
+                // [완화 철회 2026-08-18] OutputVisionX와 피더는 실제 기구 간섭이 있다(팀장님 확인).
+                // 2026-08-18 C안으로 잠시 풀었던 Avoid Dog/Down 차단을 원복한다. 다시 풀지 말 것.
                 if (!feeder.IsBinFeederAvoidPositionCheck())
                     return MotionGuardRuleHelpers.Block(
                         "OutputVisionX",
