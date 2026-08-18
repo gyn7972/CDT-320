@@ -2760,14 +2760,17 @@ namespace QMC.CDT320.Ajin
                 IsFeederVisionRetreatAxis() && hardwareLimitSearchDirection > 0;
             bool expectedInitializeSoftLimitNegative =
                 IsFeederVisionRetreatAxis() && hardwareLimitSearchDirection < 0;
+            // To do: [소프트리밋 정지 재발 제거 2026-08-18] 정지 상태 위치 절을 삭제하고 이동 방향 절만 유지한다.
+            // 기존 조건: 위치가 리밋 밖이면 정지 중에도 알람이 떠서, 알람 리셋 후 상태감시(50ms) 한 틱 만에
+            //            재발했고, ResetAlarmAsync 사후 검사가 이를 "리셋 중 새 알람"으로 잡아 리셋 자체가 실패했다.
+            // 현재 기준: +리밋은 큰(+) 방향 이동 중일 때, -리밋은 작은(-) 방향 이동 중일 때만 알람.
+            //            정지 상태·리밋 안쪽 복귀 이동은 알람 없음. 목표 검사(CheckSoftLimitTarget)와 물리 PEL/MEL은 유지.
             bool rawSoftLimitPositive = !softLimitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
-                !expectedInitializeSoftLimitPositive &&
-                ((ActualPosition >= Setup.SoftLimitPlus - softLimitTolerance && statusMotionDirection > 0) ||
-                 ActualPosition > Setup.SoftLimitPlus + softLimitTolerance);
+                ActualPosition >= Setup.SoftLimitPlus - softLimitTolerance && statusMotionDirection > 0 &&
+                !expectedInitializeSoftLimitPositive;
             bool rawSoftLimitNegative = !softLimitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
-                !expectedInitializeSoftLimitNegative &&
-                ((ActualPosition <= Setup.SoftLimitMinus + softLimitTolerance && statusMotionDirection < 0) ||
-                 ActualPosition < Setup.SoftLimitMinus - softLimitTolerance);
+                ActualPosition <= Setup.SoftLimitMinus + softLimitTolerance && statusMotionDirection < 0 &&
+                !expectedInitializeSoftLimitNegative;
             bool expectedInitializeLimitPositive = hardwareLimitSearchDirection > 0 && pel;
             bool expectedInitializeLimitNegative = hardwareLimitSearchDirection < 0 && mel;
             bool rawHardLimitPositive = !limitAlarmSuppressed && pel && !expectedInitializeLimitPositive;
@@ -3124,6 +3127,27 @@ namespace QMC.CDT320.Ajin
                     {
                         QMC.Common.Log.Write("Motion", "SYSTEM", "AX-SOFT-LIMIT-HOME-BYPASS",
                             Name + " 원점복귀 리밋 이탈 구간이라 소프트리밋 목표 검사를 면제합니다. " +
+                            "actual=" + ActualPosition.ToString("0.###") +
+                            ", target=" + targetPos.ToString("0.###") +
+                            ", minus=" + Setup.SoftLimitMinus.ToString("0.###") +
+                            ", plus=" + Setup.SoftLimitPlus.ToString("0.###") +
+                            ", axisNo=" + AxisNo + " - Check");
+                    }
+
+                    return 0;
+                }
+
+                // To do: [초기화 소프트리밋 보류 2026-08-18] 초기화 중인 축은 목표 소프트리밋 검사를 면제한다.
+                // 기존 조건: 초기화 내 이동(HOME 후 PC Offset·Avoid 등)의 목표가 리밋 밖이면
+                //            AX-SOFT-LIMIT-P/N으로 거부됐다.
+                // 현재 기준: 축별 초기화 보류 플래그(BeginInitializeHomePreparation) 또는 홈서치 중에만
+                //            면제하고, 리밋 밖 목표는 수치를 로그로 남긴다(일반 운전 이동에는 영향 없음).
+                if (Volatile.Read(ref _initializeHomePreparationActive) != 0 || _isHomeSearching)
+                {
+                    if (targetPos > Setup.SoftLimitPlus || targetPos < Setup.SoftLimitMinus)
+                    {
+                        QMC.Common.Log.Write("Motion", "SYSTEM", "AX-SOFT-LIMIT-INIT-BYPASS",
+                            Name + " 초기화 중인 축이라 소프트리밋 목표 검사를 면제합니다. " +
                             "actual=" + ActualPosition.ToString("0.###") +
                             ", target=" + targetPos.ToString("0.###") +
                             ", minus=" + Setup.SoftLimitMinus.ToString("0.###") +

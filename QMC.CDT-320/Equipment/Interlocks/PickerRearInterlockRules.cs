@@ -144,12 +144,19 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
+            // To do: [PickerX 인터락 Avoid/Home 허용 2026-08-18, 사용자 지시] Avoid 또는 0 이하(홈 원점)면 통과.
+            // 기존 조건: Avoid 위치만 통과라, 초기화 직후 엔코더 0에 정지한 리프터가 PickerX HOME을 차단했다.
             if (inputCassette.InputLifterZ.IsMoving ||
-                !inputCassette.IsWaferLifterZInAvoidPosition())
+                !inputCassette.IsWaferLifterZInAvoidOrHomePosition())
             {
                 return MotionGuardRuleHelpers.Block(
                     "RearPickerX",
-                    "RearPickerX 이동 불가: InputCassette가 정지된 Avoid 위치가 아닙니다.",
+                    "RearPickerX 이동 불가: InputCassette가 정지된 Avoid/Home(0 이하) 위치가 아닙니다." +
+                    " actual=" + inputCassette.InputLifterZ.ActualPosition.ToString("0.###") +
+                    ", avoid=" + (inputCassette.Recipe != null
+                        ? inputCassette.Recipe.AvoidPosition.ToString("0.###")
+                        : "-") +
+                    ", moving=" + inputCassette.InputLifterZ.IsMoving,
                     out reason);
             }
 
@@ -163,11 +170,16 @@ namespace QMC.CDT320.Interlocks
             }
 
             if (outputCassette.OutputLifterZ.IsMoving ||
-                !outputCassette.IsBinLifterZInAvoidPosition())
+                !outputCassette.IsBinLifterZInAvoidOrHomePosition())
             {
                 return MotionGuardRuleHelpers.Block(
                     "RearPickerX",
-                    "RearPickerX 이동 불가: OutputCassette가 정지된 Avoid 위치가 아닙니다.",
+                    "RearPickerX 이동 불가: OutputCassette가 정지된 Avoid/Home(0 이하) 위치가 아닙니다." +
+                    " actual=" + outputCassette.OutputLifterZ.ActualPosition.ToString("0.###") +
+                    ", avoid=" + (outputCassette.Recipe != null
+                        ? outputCassette.Recipe.AvoidPosition.ToString("0.###")
+                        : "-") +
+                    ", moving=" + outputCassette.OutputLifterZ.IsMoving,
                     out reason);
             }
 

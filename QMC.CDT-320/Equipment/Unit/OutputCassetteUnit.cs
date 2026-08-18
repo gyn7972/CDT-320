@@ -647,6 +647,15 @@ namespace QMC.CDT320
             return IsBinLifterZInPosition(Recipe.AvoidPosition);
         }
 
+        public bool IsBinLifterZInAvoidOrHomePosition()
+        {
+            if (IsBinLifterZInAvoidPosition())
+                return true;
+
+            return OutputLifterZ != null &&
+                   OutputLifterZ.ActualPosition <= OutputLifterZ.Config.InPositionTolerance;
+        }
+
         public bool IsBinLifterZInSlotPosition(int slotIndex)
         {
             return IsBinLifterZInSlotPosition(ResolveActiveCassette(), slotIndex);

@@ -705,6 +705,19 @@ namespace QMC.CDT320
             return IsWaferLifterZInPosition(Recipe.AvoidPosition, ResolveWaferLifterZInPositionTolerance());
         }
 
+        // To do: [PickerX 인터락 Avoid/Home 허용 2026-08-18, 사용자 지시] PickerX 이동 인터락 전용 판정.
+        // 기존 조건: Avoid 위치만 통과라, 엔코더 0(홈 원점)에 정지한 리프터가 PickerX HOME을 차단했다.
+        // 현재 기준: Avoid 위치 또는 0 이하(홈 원점, 톨러런스 가산)면 통과.
+        //           Avoid "도달" 검증용 기존 IsWaferLifterZInAvoidPosition 호출부(시퀀스)는 그대로 둔다.
+        public bool IsWaferLifterZInAvoidOrHomePosition()
+        {
+            if (IsWaferLifterZInAvoidPosition())
+                return true;
+
+            return InputLifterZ != null &&
+                   InputLifterZ.ActualPosition <= ResolveWaferLifterZInPositionTolerance();
+        }
+
         // To do: level(1단/2단) 대응. 기본 1단(기존 호출부 호환).
         public bool IsWaferLifterZInSlotPosition(int slotIndex, int level = 1)
         {

@@ -1732,7 +1732,7 @@ namespace QMC.CDT320.Initialization
             bool pickerYHomeGateEntered = false;
             PickerYHomeServoRestoreState pickerYServoState = null;
             AjinAxis homePreparationAxis = null;
-            bool homePreparationActive = false;
+            AjinAxis softLimitHoldAxis = null;
             bool servoOffIssuedByThisCall = false;
             bool servoWasOnBeforePreparation = false;
             bool servoHoldAttempted = false;
@@ -1755,6 +1755,23 @@ namespace QMC.CDT320.Initialization
                         "Axis initialize skipped: already homed in current initialize sequence. axis=" +
                         axis.Name + " - Ok");
                     return 0;
+                }
+
+                // To do: [초기화 소프트리밋 보류 2026-08-18] 정의만 있고 호출부가 없던
+                //        BeginInitializeHomePreparation을 초기화 구간에 연결한다.
+                // 기존 조건: HOME 준비(ServoOff→Reset→ServoOn)~후속 이동 구간에서 리밋 밖 축의
+                //            소프트리밋 알람이 재발해 초기화가 취소됐다(억제 플래그가 죽은 코드였다).
+                // 현재 기준: 이 축의 초기화 전 구간에서 소프트리밋 상태 알람과 목표 검사를 보류한다.
+                //            (EjectPinZ 변위감지 모니터는 되살리지 않는다 — homePreparationAxis는 그대로 null)
+                softLimitHoldAxis = axis as AjinAxis;
+                if (softLimitHoldAxis != null)
+                {
+                    softLimitHoldAxis.BeginInitializeHomePreparation();
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "초기화 구간 소프트리밋 보류 시작. axis=" + axis.Name +
+                        ", actual=" + axis.ActualPosition.ToString(
+                            "0.###",
+                            System.Globalization.CultureInfo.InvariantCulture) + " - Start");
                 }
 
                 bool isPickerYHome = IsPickerYHomeAxis(axis);
@@ -1801,25 +1818,36 @@ namespace QMC.CDT320.Initialization
                 {
                     // Brake가 없는 EjectPinZ는 Servo OFF 시 실제 하강하므로 공용 HOME 준비의
                     // ServoOff -> ResetAlarm -> ServoOn 순서를 사용하지 않습니다.
-                    // 현재 Servo가 이미 ON이고 Alarm이 없을 때만 기존 MotionGuard HOME으로 진입합니다.
+                    // To do: [초기화 소프트리밋 보류 2026-08-18, 사용자 지시] 차단만 하던 준비를 복구로 바꾼다.
+                    // 기존 조건: Servo ON + Alarm OFF가 아니면 자동 복구 없이 초기화를 차단했다.
+                    // 현재 기준: Alarm이 있으면 Servo OFF 없이 AlarmReset만 수행하고, Servo가 OFF면
+                    //            ServoOn 후 진행한다. 복구 후에도 미충족이면 기존대로 차단한다.
+                    axis.UpdateStatus();
+                    bool ejectPinZAlarmResetIssued = axis.IsAlarm;
+                    bool ejectPinZServoOnIssued = !axis.IsServoOn;
+                    if (ejectPinZAlarmResetIssued)
+                        axis.ResetAlarm();
                     axis.ServoOn();
                     axis.UpdateStatus();
                     if (!axis.IsServoOn || axis.IsAlarm)
                     {
                         return FailInitializePreparation(
-                            "EjectPinZ HOME 시작 차단: Servo ON 및 Axis Alarm OFF 상태가 필요합니다. " +
+                            "EjectPinZ HOME 시작 차단: AlarmReset/ServoOn 복구 후에도 Servo ON, Alarm OFF를 만족하지 못했습니다. " +
                             "servo=" + (axis.IsServoOn ? "ON" : "OFF") +
                             ", alarm=" + axis.IsAlarm +
                             ", alarmCode=" + axis.AlarmCode +
+                            ", alarmResetIssued=" + ejectPinZAlarmResetIssued +
+                            ", servoOnIssued=" + ejectPinZServoOnIssued +
                             ", actual=" + axis.ActualPosition.ToString(
                                 "0.###",
-                                System.Globalization.CultureInfo.InvariantCulture) +
-                            ". 자동 AlarmReset/ServoOn은 수행하지 않습니다.");
+                                System.Globalization.CultureInfo.InvariantCulture));
                     }
 
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
-                        "EjectPinZ HOME preparation keeps Servo ON and skips ServoOff/ResetAlarm/ServoOn. " +
-                        "servo=ON, alarm=False, actual=" + axis.ActualPosition.ToString(
+                        "EjectPinZ HOME preparation keeps Servo energized (no ServoOff). " +
+                        "alarmResetIssued=" + ejectPinZAlarmResetIssued +
+                        ", servoOnIssued=" + ejectPinZServoOnIssued +
+                        ", actual=" + axis.ActualPosition.ToString(
                             "0.###",
                             System.Globalization.CultureInfo.InvariantCulture) + " - Ok");
                 }
@@ -2044,8 +2072,12 @@ namespace QMC.CDT320.Initialization
             }
             finally
             {
-                if (homePreparationActive && homePreparationAxis != null)
-                    homePreparationAxis.EndInitializeHomePreparation();
+                if (softLimitHoldAxis != null)
+                {
+                    softLimitHoldAxis.EndInitializeHomePreparation();
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "초기화 구간 소프트리밋 보류 해제. axis=" + softLimitHoldAxis.Name + " - Ok");
+                }
 
                 if (pickerYServoState != null && !pickerYServoState.Restored &&
                     !IsInitializeCancelledOrAlarm(cancellationToken))
@@ -2430,6 +2462,17 @@ namespace QMC.CDT320.Initialization
                         "PickerYPair 초기화 후 Avoid 이동에 필요한 Front/Rear PickerY teaching 정보가 없습니다.");
                 }
 
+                // To do: [초기화 소프트리밋 보류 2026-08-18] 페어 리밋서치·HOME 구간에서 Front/Rear
+                //        PickerY의 소프트리밋 상태 알람과 목표 검사를 보류한다.
+                // 기존 조건: 서치 방향 소프트리밋 예외가 비전X(Feeder Vision) 축 한정이라, PickerY가
+                //            서치 중 리밋을 넘으면 상태 알람으로 페어 초기화가 취소됐다.
+                frontY.BeginInitializeHomePreparation();
+                rearY.BeginInitializeHomePreparation();
+                QMC.Common.Log.Write("Main", "SYSTEM", "PickerYPairInitialize",
+                    "PickerY 페어 초기화 소프트리밋 보류 시작. front=" +
+                    frontY.ActualPosition.ToString("0.###") +
+                    ", rear=" + rearY.ActualPosition.ToString("0.###") + " - Start");
+
                 // Pair 두 축 자체의 정지 확인을 유지하고, 외부 간섭축만 이름으로 구분한다.
                 var interferenceAxes = ResolvePickerYPairStopAxisNames(frontY, rearY);
                 int stopResult = await StopAxesAndWaitUntilStoppedAsync(
@@ -2655,6 +2698,15 @@ namespace QMC.CDT320.Initialization
                     frontY.ReleaseInitializeHardwareLimitSearch();
                 if (rearY != null)
                     rearY.ReleaseInitializeHardwareLimitSearch();
+                if (frontY != null)
+                    frontY.EndInitializeHomePreparation();
+                if (rearY != null)
+                    rearY.EndInitializeHomePreparation();
+                if (frontY != null || rearY != null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "PickerYPairInitialize",
+                        "PickerY 페어 초기화 소프트리밋 보류 해제. - Ok");
+                }
             }
         }
 
