@@ -23,7 +23,7 @@ namespace QMC.CDT320.Sequencing
         public double BottomShotPickerY;     // Bottom 촬영 시점 PickerY 지령
         public double CocEccentricX;   // cX = BottomShotPickerX − RotationCenterPickerX
         public double CocEccentricY;   // cY = BottomShotPickerY − RotationCenterPickerY
-        public double Rot90Y;          // o'y(90) = 90도 회전 후 다이중심의 기계 Y 변위(= cY + OffsetX − cX)
+        public double Rot90Y;          // o'y(90) = 90도 회전 후 다이중심의 기계 Y 변위(= cY − OffsetX + cX)
         public double DeltaY4;         // 콜렛Cal FinalPickerY(현재) − FinalPickerY(4번), 마지막 1회 가산
         public double Front0Y;
         public double Front90Y;
@@ -66,12 +66,14 @@ namespace QMC.CDT320.Sequencing
     //   비전이 주는 OffsetX/OffsetY는 이미지 프레임이므로 기계 프레임에서 다이 중심은 (OffsetX, −OffsetY).
     //   0도식의 −OffsetY는 감산이 아니라 이 이미지→기계 환산이다.
     //
-    // [회전 방정식] 회전중심 c=(cX,cY) 기준 CCW θ 회전 후 다이 중심의 기계 Y
-    //   o'y(θ) = cY + (OffsetX − cX)·sinθ + (−OffsetY − cY)·cosθ
+    // [회전 방정식] 회전중심 c=(cX,cY) 기준 CW θ 회전 후 다이 중심의 기계 Y
+    //   o'y(θ) = cY − (OffsetX − cX)·sinθ + (−OffsetY − cY)·cosθ
     //     θ=0  ⇒ −OffsetY             (회전중심이 완전히 소거된다 — 0도식이 COC 없이 성립하는 이유)
-    //     θ=90 ⇒ cY + (OffsetX − cX)  (OffsetY는 cos90=0으로 소거되고 X성분으로 넘어간다)
-    //   회전 방향이 CCW인 근거: T 널링 루프가 targetT = actualT − theta (ThetaMoveGain=1, 실장비 수렴)
-    //   이므로 T+ = 이미지 각도+ = 화면상 CW이고, 기계 프레임은 Y가 반전돼 회전 감각이 뒤집혀 CCW가 된다.
+    //     θ=90 ⇒ cY − (OffsetX − cX)  (OffsetY는 cos90=0으로 소거되고 X성분으로 넘어간다)
+    //   회전 방향 CW는 실장비 관측으로 확정(2026-08-18, 팀장님: 물리적으로 시계방향 회전).
+    //   최초에는 T 널링 루프(targetT = actualT − theta)로부터 "T+ = 이미지 각도+ = 화면상 CW"라고 보고
+    //   기계 프레임 Y 반전을 적용해 CCW로 추정했으나, 그 전제(비전 각도 부호 규약)가 반대였다.
+    //   ※ cY 항의 부호는 회전 방향과 무관하다(0도 ΔY4 상쇄로 독립 확정). 방향은 (OffsetX − cX) 항만 좌우한다.
     //
     //   cX = Bottom 촬영 PickerX − Config.ColletRotationCenterX[콜렛]
     //   cY = Bottom 촬영 PickerY − Config.ColletRotationCenterY[콜렛]
@@ -199,13 +201,13 @@ namespace QMC.CDT320.Sequencing
                     cocEccentricY = bottomShotPickerY - rotationCenterPickerY;
                 }
 
-                // 기계 프레임(X = 이미지X, Y = −이미지Y)에서 회전중심 c 기준 CCW 90도 회전의 Y성분.
-                //   o'y(θ) = cY + (OffsetX − cX)·sinθ + (−OffsetY − cY)·cosθ
+                // 기계 프레임(X = 이미지X, Y = −이미지Y)에서 회전중심 c 기준 CW 90도 회전의 Y성분.
+                //   o'y(θ) = cY − (OffsetX − cX)·sinθ + (−OffsetY − cY)·cosθ
                 //   θ=0  ⇒ −OffsetY            (회전중심 소거 — 0도식과 일치하는 교차검증)
-                //   θ=90 ⇒ cY + (OffsetX − cX) (OffsetY는 cos90=0으로 소거되고 X성분으로 넘어감)
+                //   θ=90 ⇒ cY − (OffsetX − cX) (OffsetY는 cos90=0으로 소거되고 X성분으로 넘어감)
                 // 회전중심을 못 쓰면 d=0(다이가 회전축 위) 가정 ⇒ 각도 무관하게 −OffsetY.
                 double rot90Y = rotationCenterUsed
-                    ? cocEccentricY + (offsetX - cocEccentricX)
+                    ? cocEccentricY - (offsetX - cocEccentricX)
                     : -offsetY;
 
                 if (double.IsNaN(rot90Y) || double.IsInfinity(rot90Y))

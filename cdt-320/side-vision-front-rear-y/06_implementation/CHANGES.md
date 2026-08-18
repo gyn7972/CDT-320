@@ -18,32 +18,38 @@
 **0도식의 `−OffsetY`는 감산이 아니라 이미지→기계 환산이다.** 이전 판은 이걸 감산으로 오해해서
 같은 자리에 기계 프레임 값인 `rot90Y`를 `−rot90Y`로 넣었다.
 
-### 회전 방정식 (회전중심 c=(cX,cY) 기준 CCW θ)
+### 회전 방정식 (회전중심 c=(cX,cY) 기준 CW θ)
 ```
-o'y(θ) = cY + (OffsetX − cX)·sinθ + (−OffsetY − cY)·cosθ
+o'y(θ) = cY − (OffsetX − cX)·sinθ + (−OffsetY − cY)·cosθ
 
 θ=0  ⇒ −OffsetY               ← 회전중심이 완전히 소거. 0도식이 COC 없이 성립하는 이유(교차검증)
-θ=90 ⇒ cY + (OffsetX − cX)    ← OffsetY는 cos90=0으로 소거되고 X성분으로 넘어감
+θ=90 ⇒ cY − (OffsetX − cX)    ← OffsetY는 cos90=0으로 소거되고 X성분으로 넘어감
 ```
-**회전 방향이 CCW인 근거(실험 아님, 코드 근거):** T 널링 루프가
-`targetT = actualT − theta × ThetaMoveGain`(gain=1, 실장비 수렴 확인, ColletCalibrationSequence.cs:1020)
-⇒ Δ(이미지각) = ΔT ⇒ T+ = 이미지각+ = 화면상 CW. 기계 프레임은 Y가 반전돼 회전 감각이 뒤집혀 **CCW**.
+**회전 방향 = CW (2026-08-18 실장비 관측으로 확정, 팀장님: 물리적으로 시계방향 회전).**
+최초에는 T 널링 루프(`targetT = actualT − theta × ThetaMoveGain`, gain=1, ColletCalibrationSequence.cs:1020)에서
+"T+ = 이미지각+ = 화면상 CW"로 보고 기계 프레임 Y 반전을 적용해 CCW로 추정했으나,
+그 전제(비전의 각도 부호 규약)가 반대였다. 1차 배포는 CCW로 나갔고 Rear 1·2번이 남아 CW로 정정.
+
+**중요: `cY` 항의 부호는 회전 방향과 무관하다.** 0도 ΔY4 상쇄로 독립 확정된다.
+회전 방향이 좌우하는 것은 `(OffsetX − cX)` 휘둘림 항 하나뿐이다.
 
 ### 최종식
 ```
 0도:  Front = P_F − DieSizeY/2 − OffsetY + ΔY4   /  Rear = P_R + DieSizeY/2 − OffsetY + ΔY4
 90도: Front = P_F − DieSizeX/2 + rot90Y + ΔY4   /  Rear = P_R + DieSizeX/2 + rot90Y + ΔY4
 
-rot90Y = rotationCenterUsed ? cY + (OffsetX − cX) : −OffsetY
+rot90Y = rotationCenterUsed ? cY − (OffsetX − cX) : −OffsetY   (CW, 2026-08-18 실장비 관측 확정)
 rotationCenterUsed = COC VALID && Bottom 측정 프레임 확보
 ```
 폴백은 `d=0`(다이가 회전축 위에 있다) 가정 — 회전해도 위치가 안 변하므로 각도 무관 `−OffsetY`.
 `c=(0,0)`(회전축이 광축에 있다) 가정은 실제로 축이 ΔY4만큼 벗어나 있어 틀린다.
 
 ### 원인과 크기
-이전 판은 `−rot90Y_CW = −cY + (OffsetX−cX)`, 정답은 `+rot90Y_CCW = +cY + (OffsetX−cX)`.
-**소비 부호 오류와 회전방향 오류가 휘둘림 항에서 서로 상쇄돼, 순수하게 `cY` 부호만 뒤집혀 있었다.**
-차이 = `2cY`. Bottom 촬영 Y가 P4 고정이라 `cY ≈ −ΔY4`이므로 오차 = `2ΔY4`.
+원래 코드는 `−rot90Y = −cY + (OffsetX−cX)`, 정답은 `+rot90Y = +cY − (OffsetX−cX)`.
+지배적 오차는 **`cY` 부호 반전**이며 차이 = `2cY`. Bottom 촬영 Y가 P4 고정이라 `cY ≈ −ΔY4`,
+따라서 오차 = `2ΔY4`. 이것이 Rear 1·2번 90도 이탈의 주원인이었다.
+휘둘림 항 `(OffsetX−cX)`은 별개의 작은 항(0.1mm대)이며 회전 방향으로 결정된다 — 1차에 CCW로
+나갔다가 잔여 증상이 남아 2차에 CW로 정정.
 
 Rear 실값(`EquipmentData\Config\CalibrationData.json` + `PickerRearUnit.json`, fixedY=−31.978):
 
@@ -60,14 +66,12 @@ Front 최대는 콜렛 3번 0.81mm(무증상이었으나 임계 근처) → 수�
 Rear만 = Rear 콜렛 Y 장착 산포(0.784mm)가 Front(0.405mm)의 1.9배.
 
 ### 변경 파일
-- **SideVisionYTargetCalculator.cs**: `rot90Y` 정의를 CCW 삼항식으로 교체, 소비를 `−rot90Y`→`+rot90Y`.
-  헤더 주석에 프레임 규약·회전 방정식 전개·CCW 근거 기록. `Rot90Y` 필드 주석 정정.
+- **SideVisionYTargetCalculator.cs**: `rot90Y` 정의를 회전중심 기준 삼항식으로 교체, 소비를 `−rot90Y`→`+rot90Y`.
+  회전 방향은 CW(`cY − (OffsetX − cX)`). 헤더 주석에 프레임 규약·회전 방정식 전개·CW 확정 경위 기록.
+  `Rot90Y` 필드 주석 정정.
+- **PickerTransferTypes.cs**: `BottomVisionOffset.OffsetX/Y`가 이미지 프레임임을 명시.
+  `PixelToMmOffsetY`(픽셀 입력)는 기계 프레임을 반환하므로 혼용 금지 주석 추가.
 - 0도식·호출부·데이터 스키마는 무변경.
-
-### 미확정 (정직하게)
-휘둘림 항 `(OffsetX − cX)`의 부호는 "비전이 각도를 이미지 좌표계 atan2(화면상 CW가 +)로 보고한다"는
-가정에 의존한다. 이 가정이 틀리면 그 항만 부호가 반대가 되며, 크기는 0.1mm대라 이번 증상과는 무관.
-`cY` 부호 정정은 이 가정과 무관하게 확정(0도 상쇄 증거로도 동일 결론).
 
 ---
 
@@ -144,9 +148,8 @@ Rear만 = Rear 콜렛 Y 장착 산포(0.784mm)가 Front(0.405mm)의 1.9배.
    Rear 2번 기준 기대값: `cocEccentric=(≈0, +0.768)`, `rot90Y ≈ +0.77`, `deltaY4 ≈ −0.784`,
    그리고 `Rear90Y`가 `Rear0Y`와 0.1mm 이내로 붙어야 한다(다이가 회전축 위에 있으므로).
    콜렛 1~4의 `Rear0Y` 산포가 ±0.02인데 `Rear90Y`만 벌어지면 아직 90도 항에 문제가 남은 것.
-2. **휘둘림 항 부호(CW/CCW 잔여 검증)** — 수정 후 잔차가 콜렛별 `(OffsetX − cX)`와
-   **같은 부호로 비례**하면 CCW(현재 구현)가 맞고, **반대 부호로 비례**하면 CW로 뒤집어야 한다.
-   크기는 0.1~0.2mm대이므로 초점이 잡힌 뒤 정밀 조정 단계에서 판정하면 된다.
+2. **휘둘림 항 부호** — CW로 확정 적용됨(실장비 관측). 잔차가 여전히 콜렛별 `(OffsetX − cX)`에
+   비례해 남으면 이 항을 재검토할 것. 크기는 0.1~0.2mm대.
 3. **소프트리밋** — 목표가 티칭Y 대비 최대 ±(DieSize/2 + 7mm + |ΔY4| + |편심|) 이탈.
    FrontSideVisionY0 / RearSideVisionY0 여유 확인.
 4. **ProcessY 재티칭 전제** — 콜렛(4번) 중심면 초점 기준. 다이 면 기준 구티칭이면 DieSize/2 이중 반영.
