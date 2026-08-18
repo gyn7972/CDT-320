@@ -326,7 +326,7 @@ namespace QMC.CDT320.Interlocks
             if (frontPicker == null ||
                 frontPicker.PickerX == null ||
                 frontPicker.Recipe == null ||
-                frontPicker.Recipe.PickerX == null)
+                frontPicker.Config.PickerX == null)
             {
                 return MotionGuardRuleHelpers.Block(
                     "InputLifterZ",
@@ -334,7 +334,7 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
-            double target = frontPicker.Recipe.PickerX.AvoidPosition;
+            double target = frontPicker.Config.PickerX.AvoidPosition;
             if (!frontPicker.IsFrontPickerAxisInTeachingPosition(
                 PickerAxis.PickerX,
                 "AvoidPosition"))
@@ -360,7 +360,7 @@ namespace QMC.CDT320.Interlocks
             if (rearPicker == null ||
                 rearPicker.PickerX == null ||
                 rearPicker.Recipe == null ||
-                rearPicker.Recipe.PickerX == null)
+                rearPicker.Config.PickerX == null)
             {
                 return MotionGuardRuleHelpers.Block(
                     "InputLifterZ",
@@ -368,7 +368,7 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
-            double target = rearPicker.Recipe.PickerX.AvoidPosition;
+            double target = rearPicker.Config.PickerX.AvoidPosition;
 
             if (!rearPicker.IsRearPickerAxisInTeachingPosition(
                 PickerAxis.PickerX,

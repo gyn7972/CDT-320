@@ -132,9 +132,9 @@ namespace QMC.CDT320.Calibration
                     }
 
                     machine.PickerFrontUnit.Recipe.EnsurePositionObjects();
-                    machine.PickerFrontUnit.Recipe.ColletRotationCenterX[index] = centerX;
-                    machine.PickerFrontUnit.Recipe.ColletRotationCenterY[index] = centerY;
-                    machine.PickerFrontUnit.Recipe.ColletRotationCenterValid[index] = true;
+                    machine.PickerFrontUnit.Config.ColletRotationCenterX[index] = centerX;
+                    machine.PickerFrontUnit.Config.ColletRotationCenterY[index] = centerY;
+                    machine.PickerFrontUnit.Config.ColletRotationCenterValid[index] = true;
                 }
                 else
                 {
@@ -145,9 +145,9 @@ namespace QMC.CDT320.Calibration
                     }
 
                     machine.PickerRearUnit.Recipe.EnsurePositionObjects();
-                    machine.PickerRearUnit.Recipe.ColletRotationCenterX[index] = centerX;
-                    machine.PickerRearUnit.Recipe.ColletRotationCenterY[index] = centerY;
-                    machine.PickerRearUnit.Recipe.ColletRotationCenterValid[index] = true;
+                    machine.PickerRearUnit.Config.ColletRotationCenterX[index] = centerX;
+                    machine.PickerRearUnit.Config.ColletRotationCenterY[index] = centerY;
+                    machine.PickerRearUnit.Config.ColletRotationCenterValid[index] = true;
                 }
 
                 if (!machine.SaveRecipe(recipeName))

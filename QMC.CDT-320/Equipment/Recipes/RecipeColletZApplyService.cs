@@ -76,10 +76,10 @@ namespace QMC.CDT320.Recipes
         {
             int updated = 0;
             unit.Recipe.EnsurePositionObjects();
-            updated += ApplySet(unit.Recipe.PickerZ0, delta);
-            updated += ApplySet(unit.Recipe.PickerZ1, delta);
-            updated += ApplySet(unit.Recipe.PickerZ2, delta);
-            updated += ApplySet(unit.Recipe.PickerZ3, delta);
+            updated += ApplySet(unit.Config.PickerZ0, delta);
+            updated += ApplySet(unit.Config.PickerZ1, delta);
+            updated += ApplySet(unit.Config.PickerZ2, delta);
+            updated += ApplySet(unit.Config.PickerZ3, delta);
             return updated;
         }
 
@@ -87,10 +87,10 @@ namespace QMC.CDT320.Recipes
         {
             int updated = 0;
             unit.Recipe.EnsurePositionObjects();
-            updated += ApplySet(unit.Recipe.PickerZ0, delta);
-            updated += ApplySet(unit.Recipe.PickerZ1, delta);
-            updated += ApplySet(unit.Recipe.PickerZ2, delta);
-            updated += ApplySet(unit.Recipe.PickerZ3, delta);
+            updated += ApplySet(unit.Config.PickerZ0, delta);
+            updated += ApplySet(unit.Config.PickerZ1, delta);
+            updated += ApplySet(unit.Config.PickerZ2, delta);
+            updated += ApplySet(unit.Config.PickerZ3, delta);
             return updated;
         }
 

@@ -1272,10 +1272,10 @@ namespace QMC.CDT320.Initialization
                 {
                     if (_machine.PickerFrontUnit == null ||
                         _machine.PickerFrontUnit.Recipe == null ||
-                        _machine.PickerFrontUnit.Recipe.PickerY == null)
+                        _machine.PickerFrontUnit.Config.PickerY == null)
                         return false;
 
-                    targetPosition = _machine.PickerFrontUnit.Recipe.PickerY.AvoidPosition;
+                    targetPosition = _machine.PickerFrontUnit.Config.PickerY.AvoidPosition;
                     targetName = "FrontPickerY.Avoid";
                     return true;
                 }
@@ -1284,10 +1284,10 @@ namespace QMC.CDT320.Initialization
                 {
                     if (_machine.PickerRearUnit == null ||
                         _machine.PickerRearUnit.Recipe == null ||
-                        _machine.PickerRearUnit.Recipe.PickerY == null)
+                        _machine.PickerRearUnit.Config.PickerY == null)
                         return false;
 
-                    targetPosition = _machine.PickerRearUnit.Recipe.PickerY.AvoidPosition;
+                    targetPosition = _machine.PickerRearUnit.Config.PickerY.AvoidPosition;
                     targetName = "RearPickerY.Avoid";
                     return true;
                 }
@@ -1296,10 +1296,10 @@ namespace QMC.CDT320.Initialization
                 {
                     if (_machine.PickerFrontUnit == null ||
                         _machine.PickerFrontUnit.Recipe == null ||
-                        _machine.PickerFrontUnit.Recipe.PickerX == null)
+                        _machine.PickerFrontUnit.Config.PickerX == null)
                         return false;
 
-                    targetPosition = _machine.PickerFrontUnit.Recipe.PickerX.AvoidPosition;
+                    targetPosition = _machine.PickerFrontUnit.Config.PickerX.AvoidPosition;
                     targetName = "FrontPickerX.Avoid";
                     return true;
                 }
@@ -1308,10 +1308,10 @@ namespace QMC.CDT320.Initialization
                 {
                     if (_machine.PickerRearUnit == null ||
                         _machine.PickerRearUnit.Recipe == null ||
-                        _machine.PickerRearUnit.Recipe.PickerX == null)
+                        _machine.PickerRearUnit.Config.PickerX == null)
                         return false;
 
-                    targetPosition = _machine.PickerRearUnit.Recipe.PickerX.AvoidPosition;
+                    targetPosition = _machine.PickerRearUnit.Config.PickerX.AvoidPosition;
                     targetName = "RearPickerX.Avoid";
                     return true;
                 }
@@ -2174,12 +2174,12 @@ namespace QMC.CDT320.Initialization
             if (_machine.PickerFrontUnit == null ||
                 _machine.PickerFrontUnit.PickerY == null ||
                 _machine.PickerFrontUnit.Recipe == null ||
-                _machine.PickerFrontUnit.Recipe.PickerY == null)
+                _machine.PickerFrontUnit.Config.PickerY == null)
                 return 0;
 
             return await MoveAxisTeachingAsync(
                 _machine.PickerFrontUnit.PickerY,
-                _machine.PickerFrontUnit.Recipe.PickerY.AvoidPosition,
+                _machine.PickerFrontUnit.Config.PickerY.AvoidPosition,
                 "FrontPickerY.Avoid",
                 0.0,
                 cancellationToken).ConfigureAwait(false);
@@ -2192,12 +2192,12 @@ namespace QMC.CDT320.Initialization
             if (_machine.PickerRearUnit == null ||
                 _machine.PickerRearUnit.PickerY == null ||
                 _machine.PickerRearUnit.Recipe == null ||
-                _machine.PickerRearUnit.Recipe.PickerY == null)
+                _machine.PickerRearUnit.Config.PickerY == null)
                 return 0;
 
             return await MoveAxisTeachingAsync(
                 _machine.PickerRearUnit.PickerY,
-                _machine.PickerRearUnit.Recipe.PickerY.AvoidPosition,
+                _machine.PickerRearUnit.Config.PickerY.AvoidPosition,
                 "RearPickerY.Avoid",
                 0.0,
                 cancellationToken).ConfigureAwait(false);
@@ -2236,9 +2236,9 @@ namespace QMC.CDT320.Initialization
                 }
 
                 if (_machine.PickerFrontUnit.Recipe == null ||
-                    _machine.PickerFrontUnit.Recipe.PickerY == null ||
+                    _machine.PickerFrontUnit.Config.PickerY == null ||
                     _machine.PickerRearUnit.Recipe == null ||
-                    _machine.PickerRearUnit.Recipe.PickerY == null)
+                    _machine.PickerRearUnit.Config.PickerY == null)
                 {
                     return FailInitializePreparation(
                         "PickerYPair 시뮬레이션 초기화 후 Avoid 이동에 필요한 Front/Rear PickerY teaching 정보가 없습니다.");
@@ -2422,9 +2422,9 @@ namespace QMC.CDT320.Initialization
                 }
 
                 if (_machine.PickerFrontUnit.Recipe == null ||
-                    _machine.PickerFrontUnit.Recipe.PickerY == null ||
+                    _machine.PickerFrontUnit.Config.PickerY == null ||
                     _machine.PickerRearUnit.Recipe == null ||
-                    _machine.PickerRearUnit.Recipe.PickerY == null)
+                    _machine.PickerRearUnit.Config.PickerY == null)
                 {
                     return FailInitializePreparation(
                         "PickerYPair 초기화 후 Avoid 이동에 필요한 Front/Rear PickerY teaching 정보가 없습니다.");

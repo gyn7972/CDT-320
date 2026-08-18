@@ -316,12 +316,12 @@ namespace QMC.CDT320.Interlocks
                 {
                     if (machine.PickerFrontUnit == null ||
                         machine.PickerFrontUnit.Recipe == null ||
-                        machine.PickerFrontUnit.Recipe.PickerY == null)
+                        machine.PickerFrontUnit.Config.PickerY == null)
                         return false;
                 }
                 else if (machine.PickerRearUnit == null ||
                          machine.PickerRearUnit.Recipe == null ||
-                         machine.PickerRearUnit.Recipe.PickerY == null)
+                         machine.PickerRearUnit.Config.PickerY == null)
                 {
                     return false;
                 }

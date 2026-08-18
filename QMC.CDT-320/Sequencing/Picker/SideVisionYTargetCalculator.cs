@@ -17,8 +17,8 @@ namespace QMC.CDT320.Sequencing
         public double OffsetYmm;       // Bottom MRESULT bottom_offset_y_mm (미적용 시 0)
         public bool OffsetApplied;     // false면 (0,0)으로 기하항+ΔY4만 반영
         public bool RotationCenterUsed;      // true=COC 회전 적용, false=회전중심 미사용 폴백
-        public double RotationCenterPickerX; // Recipe.ColletRotationCenterX[콜렛] (PickerX 기계좌표)
-        public double RotationCenterPickerY; // Recipe.ColletRotationCenterY[콜렛] (PickerY 기계좌표)
+        public double RotationCenterPickerX; // Config.ColletRotationCenterX[콜렛] (PickerX 기계좌표)
+        public double RotationCenterPickerY; // Config.ColletRotationCenterY[콜렛] (PickerY 기계좌표)
         public double BottomShotPickerX;     // Bottom 촬영 시점 PickerX 지령
         public double BottomShotPickerY;     // Bottom 촬영 시점 PickerY 지령
         public double CocEccentricX;   // cX = BottomShotPickerX − RotationCenterPickerX
@@ -62,9 +62,9 @@ namespace QMC.CDT320.Sequencing
     // 확정식(2026-07-29, 회전중심 소스 정정 2026-08-17):
     //   ΔY4  = 콜렛Cal FinalPickerY(현재 콜렛) − FinalPickerY(4번 콜렛)  — 마지막에 1회만 가산
     //
-    //   [회전중심 유효(Recipe.ColletRotationCenterValid=true) + Bottom 측정 프레임 확보]
-    //     cX   = Bottom 촬영 PickerX − Recipe.ColletRotationCenterX[콜렛]
-    //     cY   = Bottom 촬영 PickerY − Recipe.ColletRotationCenterY[콜렛]
+    //   [회전중심 유효(Config.ColletRotationCenterValid=true) + Bottom 측정 프레임 확보]
+    //     cX   = Bottom 촬영 PickerX − Config.ColletRotationCenterX[콜렛]
+    //     cY   = Bottom 촬영 PickerY − Config.ColletRotationCenterY[콜렛]
     //     rotY = cY − (OffsetX − cX)    ← CW 90도 회전 (x,y)→(y,−x)를 회전중심 c 기준으로 적용한 Y성분
     //   Recipe의 ColletRotationCenterX/Y는 "그 콜렛의 회전축이 Bottom 카메라 광축에 오는 PickerXY 기계좌표"다.
     //   따라서 (Bottom 촬영 PickerXY − 그 값) = 촬영 프레임에서 회전축이 카메라축으로부터 벗어난 편심량이며,
@@ -265,18 +265,18 @@ namespace QMC.CDT320.Sequencing
                     if (machine == null || machine.PickerFrontUnit == null || machine.PickerFrontUnit.Recipe == null)
                         return false;
                     machine.PickerFrontUnit.Recipe.EnsurePositionObjects();
-                    centerX = machine.PickerFrontUnit.Recipe.ColletRotationCenterX;
-                    centerY = machine.PickerFrontUnit.Recipe.ColletRotationCenterY;
-                    valid = machine.PickerFrontUnit.Recipe.ColletRotationCenterValid;
+                    centerX = machine.PickerFrontUnit.Config.ColletRotationCenterX;
+                    centerY = machine.PickerFrontUnit.Config.ColletRotationCenterY;
+                    valid = machine.PickerFrontUnit.Config.ColletRotationCenterValid;
                 }
                 else
                 {
                     if (machine == null || machine.PickerRearUnit == null || machine.PickerRearUnit.Recipe == null)
                         return false;
                     machine.PickerRearUnit.Recipe.EnsurePositionObjects();
-                    centerX = machine.PickerRearUnit.Recipe.ColletRotationCenterX;
-                    centerY = machine.PickerRearUnit.Recipe.ColletRotationCenterY;
-                    valid = machine.PickerRearUnit.Recipe.ColletRotationCenterValid;
+                    centerX = machine.PickerRearUnit.Config.ColletRotationCenterX;
+                    centerY = machine.PickerRearUnit.Config.ColletRotationCenterY;
+                    valid = machine.PickerRearUnit.Config.ColletRotationCenterValid;
                 }
 
                 if (centerX == null || centerY == null || valid == null ||

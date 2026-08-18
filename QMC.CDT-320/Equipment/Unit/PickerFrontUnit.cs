@@ -264,6 +264,25 @@ namespace QMC.CDT320
         [DataMember] public int VisionInspectionSettleMs { get; set; } = 0; // 실제 비전 검사 트리거 전 안정화 대기 시간입니다. 시뮬/비전 미사용에서는 적용하지 않습니다.
         [DataMember] public int SideInspectionTurnSettleMs { get; set; } = 0; // Side 0/90도 전환 후 안정화 대기 시간입니다. 시뮬/비전 미사용에서는 적용하지 않습니다.
 
+        // [티칭 위치 Config 이관 2026-08-18, 팀장님 지시] 축별 티칭 위치 세트를 Recipe에서 Config로 옮겼다.
+        // 근거: Avoid/Pick/Bottom/Side/Place는 전부 기구 좌표라 제품(레시피)이 바뀌어도 변하지 않는다.
+        //       콜렛 교체 위치(ColletExchange*)가 이미 같은 이유로 Config에 있었고, 이제 일관된다.
+        // 기존 레시피 값은 2026-08-18 실장비에서 1회 이관 완료했고, 이관 코드는 재실행 사고를 막기 위해
+        // 확인 직후 제거했다(팀장님 지시). 이후 티칭은 이 Config가 유일한 출처다.
+        [DataMember] public PickerAxisPositionSet PickerX { get; set; } = new PickerAxisPositionSet(); // FrontPickerX 축의 Avoid/Pick/Inspect/Place 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerY { get; set; } = new PickerAxisPositionSet(); // FrontPickerY 축의 Avoid/Pick/Inspect/Place 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerT0 { get; set; } = new PickerAxisPositionSet(); // Picker0 T축의 Pick/검사/Place 회전 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerZ0 { get; set; } = new PickerAxisPositionSet(); // Picker0 Z축의 Pick/검사/Place 높이 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerT1 { get; set; } = new PickerAxisPositionSet(); // Picker1 T축의 Pick/검사/Place 회전 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerZ1 { get; set; } = new PickerAxisPositionSet(); // Picker1 Z축의 Pick/검사/Place 높이 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerT2 { get; set; } = new PickerAxisPositionSet(); // Picker2 T축의 Pick/검사/Place 회전 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerZ2 { get; set; } = new PickerAxisPositionSet(); // Picker2 Z축의 Pick/검사/Place 높이 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerT3 { get; set; } = new PickerAxisPositionSet(); // Picker3 T축의 Pick/검사/Place 회전 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerZ3 { get; set; } = new PickerAxisPositionSet(); // Picker3 Z축의 Pick/검사/Place 높이 티칭 위치 세트입니다.
+        [DataMember] public double[] ColletRotationCenterX { get; set; } = new double[4]; // Collet별 회전 중심의 PickerX 기계 좌표입니다.
+        [DataMember] public double[] ColletRotationCenterY { get; set; } = new double[4]; // Collet별 회전 중심의 PickerY 기계 좌표입니다.
+        [DataMember] public bool[] ColletRotationCenterValid { get; set; } = new bool[4]; // Collet별 회전 중심 좌표의 유효 상태입니다.
+
         [Category("PickUp")]
         [DisplayName("PickUp Z Motion Mode")]
         public PickerPickUpZMotionMode PickUpZMotionMode { get { return EnsurePickUpConfig().MotionMode; } set { EnsurePickUpConfig().MotionMode = value; } }
@@ -468,6 +487,68 @@ namespace QMC.CDT320
                 VisionInspectionSettleMs = 0;
             if (SideInspectionTurnSettleMs < 0)
                 SideInspectionTurnSettleMs = 0;
+
+            EnsurePositionObjects();
+        }
+
+        /// <summary>
+        /// [티칭 위치 Config 이관 2026-08-18] 축별 위치 세트/COC 배열의 null·길이를 보정한다.
+        /// 기존 PickerFrontRecipe.EnsurePositionObjects와 동일 규약(구버전 호환 복제 포함).
+        /// </summary>
+        public void EnsurePositionObjects()
+        {
+            if (PickerX == null) PickerX = new PickerAxisPositionSet();
+            if (PickerY == null) PickerY = new PickerAxisPositionSet();
+            if (PickerT0 == null) PickerT0 = new PickerAxisPositionSet();
+            if (PickerZ0 == null) PickerZ0 = new PickerAxisPositionSet();
+            // 구버전 호환: 개별 T/Z 세트가 없으면 기존 T0/Z0 값을 복제해 동작을 보존한다.
+            if (PickerT1 == null) PickerT1 = PickerT0.Clone();
+            if (PickerT2 == null) PickerT2 = PickerT0.Clone();
+            if (PickerT3 == null) PickerT3 = PickerT0.Clone();
+            if (PickerZ1 == null) PickerZ1 = PickerZ0.Clone();
+            if (PickerZ2 == null) PickerZ2 = PickerZ0.Clone();
+            if (PickerZ3 == null) PickerZ3 = PickerZ0.Clone();
+            PickerX.EnsureArrays();
+            PickerY.EnsureArrays();
+            PickerT0.EnsureArrays();
+            PickerZ0.EnsureArrays();
+            PickerT1.EnsureArrays();
+            PickerT2.EnsureArrays();
+            PickerT3.EnsureArrays();
+            PickerZ1.EnsureArrays();
+            PickerZ2.EnsureArrays();
+            PickerZ3.EnsureArrays();
+            ColletRotationCenterX = EnsureDoubleArrayLength(ColletRotationCenterX, 4);
+            ColletRotationCenterY = EnsureDoubleArrayLength(ColletRotationCenterY, 4);
+            ColletRotationCenterValid = EnsureBoolArrayLength(ColletRotationCenterValid, 4);
+        }
+
+        private static double[] EnsureDoubleArrayLength(double[] source, int length)
+        {
+            if (source != null && source.Length == length)
+                return source;
+
+            double[] next = new double[length];
+            if (source != null)
+            {
+                for (int i = 0; i < Math.Min(source.Length, length); i++)
+                    next[i] = source[i];
+            }
+            return next;
+        }
+
+        private static bool[] EnsureBoolArrayLength(bool[] source, int length)
+        {
+            if (source != null && source.Length == length)
+                return source;
+
+            bool[] next = new bool[length];
+            if (source != null)
+            {
+                for (int i = 0; i < Math.Min(source.Length, length); i++)
+                    next[i] = source[i];
+            }
+            return next;
         }
 
         private PickerPickUpMotionConfig EnsurePickUpConfig()
@@ -3687,19 +3768,21 @@ namespace QMC.CDT320
             else if (positionName.StartsWith("DiePlacePosition", StringComparison.OrdinalIgnoreCase)) set.DiePlacePosition = SetIndexedPosition(set.DiePlacePosition, ExtractIndex(positionName), position);
         }
 
+        // [티칭 위치 Config 이관 2026-08-18] 티칭 위치의 단일 출처는 Config다(기구 좌표이므로 레시피와 무관).
+        // 레시피 → Config 1회 이관은 2026-08-18 실장비에서 완료 확인 후 제거했다(재실행 사고 방지).
         private PickerAxisPositionSet GetPositionSet(PickerAxis axis)
         {
-            Recipe.EnsurePositionObjects();
-            if (axis == PickerAxis.PickerX) return Recipe.PickerX;
-            if (axis == PickerAxis.PickerY) return Recipe.PickerY;
-            if (axis == PickerAxis.PickerT0) return Recipe.PickerT0;
-            if (axis == PickerAxis.PickerT1) return Recipe.PickerT1;
-            if (axis == PickerAxis.PickerT2) return Recipe.PickerT2;
-            if (axis == PickerAxis.PickerT3) return Recipe.PickerT3;
-            if (axis == PickerAxis.PickerZ1) return Recipe.PickerZ1;
-            if (axis == PickerAxis.PickerZ2) return Recipe.PickerZ2;
-            if (axis == PickerAxis.PickerZ3) return Recipe.PickerZ3;
-            return Recipe.PickerZ0;
+            Config.EnsurePositionObjects();
+            if (axis == PickerAxis.PickerX) return Config.PickerX;
+            if (axis == PickerAxis.PickerY) return Config.PickerY;
+            if (axis == PickerAxis.PickerT0) return Config.PickerT0;
+            if (axis == PickerAxis.PickerT1) return Config.PickerT1;
+            if (axis == PickerAxis.PickerT2) return Config.PickerT2;
+            if (axis == PickerAxis.PickerT3) return Config.PickerT3;
+            if (axis == PickerAxis.PickerZ1) return Config.PickerZ1;
+            if (axis == PickerAxis.PickerZ2) return Config.PickerZ2;
+            if (axis == PickerAxis.PickerZ3) return Config.PickerZ3;
+            return Config.PickerZ0;
         }
 
         private static void SetIndexedPosition(PickerAxisPositionSet set, string positionArrayName, int index, double value)

@@ -973,9 +973,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
 
                 host.Machine.PickerFrontUnit.Recipe.EnsurePositionObjects();
-                host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterX[index] = centerX;
-                host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterY[index] = centerY;
-                host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterValid[index] = true;
+                host.Machine.PickerFrontUnit.Config.ColletRotationCenterX[index] = centerX;
+                host.Machine.PickerFrontUnit.Config.ColletRotationCenterY[index] = centerY;
+                host.Machine.PickerFrontUnit.Config.ColletRotationCenterValid[index] = true;
             }
             else
             {
@@ -986,9 +986,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
 
                 host.Machine.PickerRearUnit.Recipe.EnsurePositionObjects();
-                host.Machine.PickerRearUnit.Recipe.ColletRotationCenterX[index] = centerX;
-                host.Machine.PickerRearUnit.Recipe.ColletRotationCenterY[index] = centerY;
-                host.Machine.PickerRearUnit.Recipe.ColletRotationCenterValid[index] = true;
+                host.Machine.PickerRearUnit.Config.ColletRotationCenterX[index] = centerX;
+                host.Machine.PickerRearUnit.Config.ColletRotationCenterY[index] = centerY;
+                host.Machine.PickerRearUnit.Config.ColletRotationCenterValid[index] = true;
             }
 
             bool saved = host.SaveMachineRecipe(host.ActiveRecipeName);
@@ -1747,17 +1747,17 @@ namespace QMC.CDT_320.Ui.Dialogs
                 {
                     if (host.Machine.PickerFrontUnit == null || host.Machine.PickerFrontUnit.Recipe == null)
                         return false;
-                    centerX = host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterX;
-                    centerY = host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterY;
-                    centerValid = host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterValid;
+                    centerX = host.Machine.PickerFrontUnit.Config.ColletRotationCenterX;
+                    centerY = host.Machine.PickerFrontUnit.Config.ColletRotationCenterY;
+                    centerValid = host.Machine.PickerFrontUnit.Config.ColletRotationCenterValid;
                 }
                 else
                 {
                     if (host.Machine.PickerRearUnit == null || host.Machine.PickerRearUnit.Recipe == null)
                         return false;
-                    centerX = host.Machine.PickerRearUnit.Recipe.ColletRotationCenterX;
-                    centerY = host.Machine.PickerRearUnit.Recipe.ColletRotationCenterY;
-                    centerValid = host.Machine.PickerRearUnit.Recipe.ColletRotationCenterValid;
+                    centerX = host.Machine.PickerRearUnit.Config.ColletRotationCenterX;
+                    centerY = host.Machine.PickerRearUnit.Config.ColletRotationCenterY;
+                    centerValid = host.Machine.PickerRearUnit.Config.ColletRotationCenterValid;
                 }
 
                 if (centerX == null || centerY == null || centerValid == null ||

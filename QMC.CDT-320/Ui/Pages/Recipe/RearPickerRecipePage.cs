@@ -313,14 +313,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 int index = i;
                 string name = "PICKER " + (index + 1) + " COC";
-                optionItems.Add(InGroup(Describe(AxisDouble(name + " X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe,
-                    () => unit.Recipe.ColletRotationCenterX[index], v => unit.Recipe.ColletRotationCenterX[index] = v),
+                optionItems.Add(InGroup(Describe(AxisDouble(name + " X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Config,
+                    () => unit.Config.ColletRotationCenterX[index], v => unit.Config.ColletRotationCenterX[index] = v),
                     "선택 Collet의 회전 중심 PickerX 기계 좌표입니다."), rotationCenterGroup));
-                optionItems.Add(InGroup(Describe(AxisDouble(name + " Y", PickerAxis.PickerY, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe,
-                    () => unit.Recipe.ColletRotationCenterY[index], v => unit.Recipe.ColletRotationCenterY[index] = v),
+                optionItems.Add(InGroup(Describe(AxisDouble(name + " Y", PickerAxis.PickerY, AxisUnitConverter.Millimeter, ParameterGridScope.Config,
+                    () => unit.Config.ColletRotationCenterY[index], v => unit.Config.ColletRotationCenterY[index] = v),
                     "선택 Collet의 회전 중심 PickerY 기계 좌표입니다."), rotationCenterGroup));
-                optionItems.Add(InGroup(ParameterGridItem.Bool(name + " VALID", ParameterGridScope.Recipe,
-                    () => unit.Recipe.ColletRotationCenterValid[index], v => unit.Recipe.ColletRotationCenterValid[index] = v), rotationCenterGroup));
+                optionItems.Add(InGroup(ParameterGridItem.Bool(name + " VALID", ParameterGridScope.Config,
+                    () => unit.Config.ColletRotationCenterValid[index], v => unit.Config.ColletRotationCenterValid[index] = v), rotationCenterGroup));
             }
 
             const string pickerSettingGroup = "K_PICKER_SETTING";
@@ -718,8 +718,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             groupList.Add(posItem);
 
+            // [티칭 위치 Config 이관 2026-08-18] 저장소가 Config로 옮겨졌으므로 스코프 표시도 Config다.
             string unitName = DisplayUnitFor(axis, displayUnit);
-            ParameterGridItem item = ParameterGridItem.Double(memberDisplay, unitName, ParameterGridScope.Recipe,
+            ParameterGridItem item = ParameterGridItem.Double(memberDisplay, unitName, ParameterGridScope.Config,
                 () => ToAxisDisplay(unit.GetPickerTeachingPosition(axis, positionName), axis),
                 v => SetPosition(axis, positionName, FromAxisDisplay(v, axis)));
             item.UnitGetter = () => DisplayUnitFor(axis, displayUnit);
@@ -1632,16 +1633,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private PickerAxisPositionSet GetPositionSet(PickerAxis axis)
         {
-            if (axis == PickerAxis.PickerX) return unit.Recipe.PickerX;
-            if (axis == PickerAxis.PickerY) return unit.Recipe.PickerY;
-            if (axis == PickerAxis.PickerT0) return unit.Recipe.PickerT0;
-            if (axis == PickerAxis.PickerT1) return unit.Recipe.PickerT1;
-            if (axis == PickerAxis.PickerT2) return unit.Recipe.PickerT2;
-            if (axis == PickerAxis.PickerT3) return unit.Recipe.PickerT3;
-            if (axis == PickerAxis.PickerZ1) return unit.Recipe.PickerZ1;
-            if (axis == PickerAxis.PickerZ2) return unit.Recipe.PickerZ2;
-            if (axis == PickerAxis.PickerZ3) return unit.Recipe.PickerZ3;
-            return unit.Recipe.PickerZ0;
+            if (axis == PickerAxis.PickerX) return unit.Config.PickerX;
+            if (axis == PickerAxis.PickerY) return unit.Config.PickerY;
+            if (axis == PickerAxis.PickerT0) return unit.Config.PickerT0;
+            if (axis == PickerAxis.PickerT1) return unit.Config.PickerT1;
+            if (axis == PickerAxis.PickerT2) return unit.Config.PickerT2;
+            if (axis == PickerAxis.PickerT3) return unit.Config.PickerT3;
+            if (axis == PickerAxis.PickerZ1) return unit.Config.PickerZ1;
+            if (axis == PickerAxis.PickerZ2) return unit.Config.PickerZ2;
+            if (axis == PickerAxis.PickerZ3) return unit.Config.PickerZ3;
+            return unit.Config.PickerZ0;
         }
 
         private BaseAxis GetAxis(PickerAxis axis)

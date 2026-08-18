@@ -1987,16 +1987,16 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (_calibrationSide == VisionFocusPickerSide.Front)
             {
                 FrontPicker.Recipe.EnsurePositionObjects();
-                FrontPicker.Recipe.ColletRotationCenterX[_colletIndex] = centerX;
-                FrontPicker.Recipe.ColletRotationCenterY[_colletIndex] = centerY;
-                FrontPicker.Recipe.ColletRotationCenterValid[_colletIndex] = true;
+                FrontPicker.Config.ColletRotationCenterX[_colletIndex] = centerX;
+                FrontPicker.Config.ColletRotationCenterY[_colletIndex] = centerY;
+                FrontPicker.Config.ColletRotationCenterValid[_colletIndex] = true;
             }
             else
             {
                 RearPicker.Recipe.EnsurePositionObjects();
-                RearPicker.Recipe.ColletRotationCenterX[_colletIndex] = centerX;
-                RearPicker.Recipe.ColletRotationCenterY[_colletIndex] = centerY;
-                RearPicker.Recipe.ColletRotationCenterValid[_colletIndex] = true;
+                RearPicker.Config.ColletRotationCenterX[_colletIndex] = centerX;
+                RearPicker.Config.ColletRotationCenterY[_colletIndex] = centerY;
+                RearPicker.Config.ColletRotationCenterValid[_colletIndex] = true;
             }
 
             string recipeName = Context.Controller.ActiveRecipeName;
