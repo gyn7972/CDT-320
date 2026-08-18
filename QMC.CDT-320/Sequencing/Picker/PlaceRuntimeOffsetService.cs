@@ -7,8 +7,12 @@ namespace QMC.CDT320.Sequencing
 {
     /// <summary>
     /// Place 런타임 오프셋 실시간 보정 서비스.
-    /// Place → Bin 비전 후검사 결과(X/Y/T 오프셋)를 LowPassFilter(EMA)로 누적해
+    /// Place → Bin 비전 후검사 결과(X/Y/T 오프셋)를 누적해
     /// 다음 Place 목표 좌표 계산에 반영하는 폐루프 보정의 상태 보관소다.
+    /// - 갱신식(2026-08-18 팀장님 지시): 폐루프 측정값은 보정 적용 후 잔차(m)이므로 X/Y는
+    ///   잔차 적분(F += α·m — 잔차 0 수렴)으로 갱신한다. 잔차를 EMA(F += α(m−F))에 그대로
+    ///   넣으면 오차 절반에서 평형이 생겨 폐루프에 부적합. T는 적용 부호 확정 전까지 기존
+    ///   EMA 유지(부호 확정 시 부호 반전과 적분 전환을 세트로 적용 예정).
     /// - 필터 단위: PickerSide(Front/Rear) × PickerNo(1~4) = 8세트, 각 X/Y/T 3채널 독립.
     /// - 필터 상태는 비전 측정 부호 그대로(raw) 저장하고, 부호 변환(X:−, Y:−, T:−)은
     ///   적용 지점(DieCoordinateTransformService.CalculatePlaceTarget)에서 수행한다.
@@ -300,9 +304,10 @@ namespace QMC.CDT320.Sequencing
                         return;
                     }
 
-                    acceptedX = AcceptChannelLocked(set.X, measuredX, _outlierLimitXyMm, "X", side, pickerNo, dieId);
-                    acceptedY = AcceptChannelLocked(set.Y, measuredY, _outlierLimitXyMm, "Y", side, pickerNo, dieId);
-                    acceptedT = AcceptChannelLocked(set.T, measuredT, _outlierLimitTDeg, "T", side, pickerNo, dieId);
+                    // X/Y는 잔차 적분, T는 적용 부호 확정 전까지 기존 EMA 유지(2026-08-18 팀장님 지시).
+                    acceptedX = AcceptChannelLocked(set.X, measuredX, _outlierLimitXyMm, "X", side, pickerNo, dieId, true);
+                    acceptedY = AcceptChannelLocked(set.Y, measuredY, _outlierLimitXyMm, "Y", side, pickerNo, dieId, true);
+                    acceptedT = AcceptChannelLocked(set.T, measuredT, _outlierLimitTDeg, "T", side, pickerNo, dieId, false);
 
                     if (acceptedX)
                         set.ClampLatchedX = ClampChannelLocked(set.X, _clampLimitXyMm, set.ClampLatchedX, "X", side, pickerNo);
@@ -336,7 +341,8 @@ namespace QMC.CDT320.Sequencing
                     ", measuredT=" + F(measuredT) + "(accepted=" + acceptedT + ")" +
                     ", filteredX=" + F(filteredX) +
                     ", filteredY=" + F(filteredY) +
-                    ", filteredT=" + F(filteredT));
+                    ", filteredT=" + F(filteredT) +
+                    ", updateMode=XY:integral,T:ema");
             }
             catch (Exception ex)
             {
@@ -569,9 +575,14 @@ namespace QMC.CDT320.Sequencing
             string channel,
             PickerSequenceSide side,
             int pickerNo,
-            string dieId)
+            string dieId,
+            bool integrateResidual)
         {
-            double deviation = Math.Abs(measured - filter.Value);
+            // 잔차 적분 모드(2026-08-18): measured는 잔차이므로 이상치도 잔차 크기로 판정한다.
+            // 기존 |measured−F|를 유지하면 적분으로 F가 커진 뒤 정상 잔차(≈0)까지 전부 기각된다.
+            double deviation = integrateResidual
+                ? Math.Abs(measured)
+                : Math.Abs(measured - filter.Value);
             if (deviation >= outlierLimit)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
@@ -585,7 +596,8 @@ namespace QMC.CDT320.Sequencing
                 return false;
             }
 
-            filter.Update(measured);
+            // 적분: 전체 오차 재구성(F+m)을 EMA에 입력하면 F += α·m 이 된다(필터 클래스 무수정).
+            filter.Update(integrateResidual ? filter.Value + measured : measured);
             return true;
         }
 

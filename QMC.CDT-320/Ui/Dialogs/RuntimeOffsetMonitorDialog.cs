@@ -22,8 +22,10 @@ namespace QMC.CDT_320.Ui.Dialogs
     ///   Y는 런타임이 StageY(+), 기구가 PickerY(+)로 서로 다른 축 — 실장비 이관 검증(2026-08-16)에서
     ///   두 축의 물리 + 방향이 같음이 확인되어 기구Y′ = 기구Y − 필터Y 로 확정.
     ///   근거·재검증 조건은 PickApplyYSign 주석 참조.
-    /// T 기구 보정(2026-08-16 신설, 팀장님 지시): 런타임 T(감산)와 같은 PickerT 축에 가산(+)으로
-    ///   들어가므로 Pick/Place 모두 기구T′ = 기구T − 필터T 로 이관식이 코드 확정된다.
+    /// T 기구 보정(2026-08-16 신설, 팀장님 지시): 기구T는 PickerT에 가산(+).
+    ///   Pick: 런타임 T도 가산(2026-08-18 실장비 발산 확인으로 감산→가산 정정, 기구 적용은
+    ///     가산 유지 확정) — 같은 방향이라 기구T′ = 기구T + 필터T 로 이관.
+    ///   Place: 런타임 T 감산 현행 유지(부호 확정 대기) — 기구T′ = 기구T − 필터T 유지.
     /// 이관·리셋은 운전/초기화 중 금지(CanApplyMechanicalOffset), 필터 설정 변경과 달리 게이트 유지.
     /// </summary>
     public partial class RuntimeOffsetMonitorDialog : Form
@@ -431,7 +433,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             DialogResult answer = QMC.Common.MessageDialog.Show(
                 "Pick 런타임 보정값을 Pick 기구 오프셋으로 이관합니다.\n" +
                 "적용식: 기구X = 기구X + 필터X, 기구Y = 기구Y " + (PickApplyYSign >= 0.0 ? "+" : "−") +
-                " 필터Y, 기구T = 기구T − 필터T.\n" +
+                " 필터Y, 기구T = 기구T + 필터T.\n" +
                 "이관한 채널의 필터는 0으로 초기화됩니다.\n\n" +
                 preview + "\n계속하시겠습니까?",
                 "PICK RUNTIME OFFSET",
@@ -467,10 +469,10 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 // 런타임 X와 기구 X는 같은 진입점(PickerX/NeedleX)에 같은 부호(+)로 들어가므로
                 // 총합 불변 이관은 가산이다. Y는 축이 달라 부호 파라미터(PickApplyYSign)를 곱한다.
-                // T는 런타임(감산)·기구(가산)가 같은 PickerT 축이라 감산 이관이 코드 확정(2026-08-16 신설).
+                // T는 런타임·기구 모두 PickerT 가산(2026-08-18 런타임 감산→가산 정정)이라 가산 이관.
                 double requestedX = beforeX + row.X;
                 double requestedY = beforeY + PickApplyYSign * row.Y;
-                double requestedT = beforeT - row.T;
+                double requestedT = beforeT + row.T;
 
                 // SetMechanicalOffset*은 설정 한계(X/Y: LimitMm, T: LimitTDeg)로 자동 클램프한다.
                 config.SetMechanicalOffsetX(pickerIndex, requestedX);

@@ -6,8 +6,12 @@ namespace QMC.CDT320.Sequencing
 {
     /// <summary>
     /// Picker Z 런타임 오프셋 실시간 보정 서비스 (Z 단채널).
-    /// Side 검사 FrontSide 비전 0도(ch0) 촬영의 center_offset_mm를 LowPassFilter(EMA)로 누적해
+    /// Side 검사 FrontSide 비전 0도(ch0) 촬영의 center_offset_mm를 누적해
     /// Pick Z·Place Z·Bottom 검사 Z·Side 검사 Z 4곳의 이동 목표에서 감산하는 폐루프 보정의 상태 보관소다.
+    /// - 갱신식(2026-08-18 팀장님 지시): 폐루프 측정값은 보정 적용 후 잔차(m)이므로
+    ///   잔차 적분(F += α·m — 잔차 0 수렴)으로 갱신한다. 잔차를 EMA(F += α(m−F))에 그대로
+    ///   넣으면 오차 절반에서 평형이 생겨 폐루프에 부적합. 주의: 적분은 적용 방향이 반대면
+    ///   지수 발산하므로, 실장비 방향 검증(§5-3) 전 Enable 금지 원칙은 기존 그대로 유지한다.
     /// - 소스: FRONTSIDE raw의 ch0_side_item_center_offset_mm만 사용. RearSide·ch1(90도)은
     ///   사용하지 않는다(팀장님 확정 2026-08-14).
     /// - 필터 단위: PickerSide(Front/Rear) × PickerNo(1~4) = 8세트, Z 1채널.
@@ -278,6 +282,7 @@ namespace QMC.CDT320.Sequencing
                     ", die=" + (dieId ?? string.Empty) +
                     ", measuredZ=" + F(measuredZ) + "(accepted=" + acceptedZ + ")" +
                     ", filteredZ=" + F(filteredZ) +
+                    ", updateMode=integral" +
                     ", enabled=" + _useCorrection);
             }
             catch (Exception ex)
@@ -529,7 +534,9 @@ namespace QMC.CDT320.Sequencing
             int pickerNo,
             string dieId)
         {
-            double deviation = Math.Abs(input - filter.Value);
+            // 잔차 적분 모드(2026-08-18): input은 잔차이므로 이상치도 잔차 크기로 판정한다.
+            // 기존 |input−F|를 유지하면 적분으로 F가 커진 뒤 정상 잔차(≈0)까지 전부 기각된다.
+            double deviation = Math.Abs(input);
             if (deviation >= outlierLimit)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "PickerZRuntimeOffset",
@@ -542,7 +549,8 @@ namespace QMC.CDT320.Sequencing
                 return false;
             }
 
-            filter.Update(input);
+            // 적분: 전체 오차 재구성(F+m)을 EMA에 입력하면 F += α·m 이 된다(필터 클래스 무수정).
+            filter.Update(filter.Value + input);
             return true;
         }
 

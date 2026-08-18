@@ -98,14 +98,15 @@ namespace QMC.CDT320.Sequencing
             // Input Vision Y 보정은 PickerY가 아니라 StageY를 반대 방향으로 이동해 Die를 고정 Pick Y에 맞춘다.
             // Pick 런타임 보정(pickRuntimeOffset*)은 Bottom 검사 LowPassFilter 출력(raw)이다.
             // 기존 조건(~2026-07-29): 전 채널 감산으로 상쇄.
-            // 현재 기준(사용자 실장비 확인 2026-07-30 최종): X/Y 가산, T 감산.
+            // 현재 기준: X/Y 가산(2026-07-30 실장비 확정), T 가산(2026-08-18 실장비 확정 —
+            //   forceMove로 T가 실제 발행되자 감산 적용이 발산함을 확인, 감산→가산 정정).
             //   (Y는 감산 복귀 시험까지 거쳐 가산으로 확정 — P4 기준 델타는 전처리 쪽에서 감산으로 정정)
             // X는 피커·니들 정렬 유지를 위해 PickerX와 NeedleX 양쪽에 동일하게 적용한다.
             result.StageY = inputStageY + needleYToVisionYOffset - alignOffsetY + pickRuntimeOffsetY;
             result.PickerX = inputVisionX + inputVisionToPickerX + pickerAlignOffsetX + alignOffsetX + pickRuntimeOffsetX;
             // Collet T offset은 Picker T 홈 기준 보정에 이미 반영되므로 Pick 이동식에는 다시 더하지 않는다.
             // result.PickerT = pickerTTeaching + pickerAlignOffsetT + colletTOffset + alignOffsetT;
-            result.PickerT = pickerTTeaching + pickerAlignOffsetT + alignOffsetT - pickRuntimeOffsetT;
+            result.PickerT = pickerTTeaching + pickerAlignOffsetT + alignOffsetT + pickRuntimeOffsetT;
             result.PickerZ = pickerZTeaching;
             result.NeedleX = inputVisionX + alignOffsetX - needleXToVisionXOffset + pickRuntimeOffsetX;
             // PickerY는 Die별 Vision Y와 무관하게 Picker별 고정 Pick 위치를 유지한다.
@@ -117,7 +118,7 @@ namespace QMC.CDT320.Sequencing
                 "stageY = inputStageY(" + F(inputStageY) + ") + needleYToVisionYOffset(" + F(needleYToVisionYOffset) + ") - alignOffsetY(" + F(alignOffsetY) + ") + pickRuntimeOffsetY(" + F(pickRuntimeOffsetY) + ") = " + F(result.StageY) +
                 " [cameraOffset=(" + F(cameraOffsetX) + "," + F(cameraOffsetY) + ") applied once inside InputVisionToPicker (PickerX/PickerY only); alignOffset is raw camera delta]" +
                 " / pickerX = inputVisionX(" + F(inputVisionX) + ") + inputVisionToPickerX(" + F(inputVisionToPickerX) + ") + pickerAlignOffsetX(" + F(pickerAlignOffsetX) + ") + alignOffsetX(" + F(alignOffsetX) + ") + pickRuntimeOffsetX(" + F(pickRuntimeOffsetX) + ") = " + F(result.PickerX) +
-                " / pickerT = pickerTTeaching(" + F(pickerTTeaching) + ") + pickerAlignOffsetT(" + F(pickerAlignOffsetT) + ") + alignOffsetT(" + F(alignOffsetT) + ") - pickRuntimeOffsetT(" + F(pickRuntimeOffsetT) + ") = " + F(result.PickerT) +
+                " / pickerT = pickerTTeaching(" + F(pickerTTeaching) + ") + pickerAlignOffsetT(" + F(pickerAlignOffsetT) + ") + alignOffsetT(" + F(alignOffsetT) + ") + pickRuntimeOffsetT(" + F(pickRuntimeOffsetT) + ") = " + F(result.PickerT) +
                 " / needleX = inputVisionX(" + F(inputVisionX) + ") + alignOffsetX(" + F(alignOffsetX) + ") - needleXToVisionXOffset(" + F(needleXToVisionXOffset) + ") + pickRuntimeOffsetX(" + F(pickRuntimeOffsetX) + ") = " + F(result.NeedleX) +
                 " / pickerY = inputVisionToPickerY(" + F(inputVisionToPickerY) + ") + needleYToVisionYOffset(" + F(needleYToVisionYOffset) + ") + pickerAlignOffsetY(" + F(pickerAlignOffsetY) + ") = " + F(result.PickerY) +
                 " / pickerZ = " + F(result.PickerZ) +
@@ -130,8 +131,8 @@ namespace QMC.CDT320.Sequencing
 
         // PickUp 기구 보정은 Needle/Stage의 1:1 좌표 관계를 유지하기 위해
         // X는 PickerX와 NeedleX에 동일 적용하고 Y는 PickerY에만 적용한다.
-        // T는 PickerT에 가산(+) — 런타임 T(감산)와 같은 축이라 이관식(기구T′=기구T−필터T)이
-        // 코드로 확정된다(T 기구 보정 신설 2026-08-16, 팀장님 지시).
+        // T는 PickerT에 가산(+) — 런타임 T도 가산(2026-08-18 감산→가산 정정, 기구 적용은 가산
+        // 유지 확정)으로 같은 방향이라 이관식은 기구T′=기구T+필터T(T 기구 보정 신설 2026-08-16).
         public static PickCoordinateResult ApplyPickMechanicalOffsets(
             PickCoordinateResult result,
             double pickMechanicalOffsetX,
