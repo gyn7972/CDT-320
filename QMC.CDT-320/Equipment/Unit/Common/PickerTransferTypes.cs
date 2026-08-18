@@ -58,8 +58,8 @@ namespace QMC.CDT320
         [DataMember] public double[] MechanicalOffsetX { get; set; } =
             new double[] { LegacyPickUpMechanicalOffsetXmm, LegacyPickUpMechanicalOffsetXmm, LegacyPickUpMechanicalOffsetXmm, LegacyPickUpMechanicalOffsetXmm };
         [DataMember] public double[] MechanicalOffsetY { get; set; } = new double[MechanicalOffsetPickerCount];
-        // PickerT 축 기구 보정(deg) — 이동식에서 PickerT에 가산(+). 런타임 T(감산)와 같은 축이라
-        // 이관식은 기구T′ = 기구T − 필터T 로 코드 확정(2026-08-16).
+        // PickerT 축 기구 보정(deg) — 이동식에서 PickerT에 가산(+). Pick 런타임 T도 가산(2026-08-18
+        // 실장비 정정)이라 이관식은 기구T′ = 기구T + 필터T.
         [DataMember] public double[] MechanicalOffsetT { get; set; } = new double[MechanicalOffsetPickerCount];
         [DataMember] public int TransferContiCoordinate { get; set; } = 2;
         [DataMember] public int TransferContiTimeoutMs { get; set; } = 5000;
@@ -684,6 +684,8 @@ namespace QMC.CDT320
         public double BottomItemOffsetY { get; set; }
         public bool HasBottomItemOffsetX { get; set; }
         public bool HasBottomItemOffsetY { get; set; }
+        // Place T 다이별 보상(2026-08-19): Bottom MRESULT 각도가 OffsetT에 확정 이관됐는지 여부.
+        public bool HasBottomMResultT { get; set; }
         public bool BottomItemOffsetXPass { get; set; }
         public bool BottomItemOffsetYPass { get; set; }
         public bool HasBottomItemOffsetXPass { get; set; }

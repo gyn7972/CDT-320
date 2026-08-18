@@ -68,11 +68,23 @@ namespace QMC.CDT320.Sequencing
 
             // FINAL RESULT의 bottom_item_offset_x/y만 Place 보정에 정확히 한 번 사용합니다.
             // 기존 MRESULT OffsetY는 계속 Side Vision 전용이며 이 계산에 혼용하지 않습니다.
+            // T(팀장님 지시 2026-08-19): Bottom MRESULT 각도(OffsetT — 검증 시점에 MResult에서 확정
+            // 이관)를 다이별 Place T 보상으로 감산 적용한다(01:26 실장비 재확정: s_bin=+1이라 가산은
+            // 다이 오차를 상쇄가 아닌 2배로 만든다 — 부호는 CalculatePlaceTarget이 담당).
+            double bottomMResultT = _currentBottomPlaceResult != null ? _currentBottomPlaceResult.OffsetT : 0.0;
+            if (autoRun && _currentBottomPlaceResult != null && !_currentBottomPlaceResult.HasBottomMResultT)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " Bottom MRESULT T 확정값이 없어 저장/FINAL OffsetT(" + bottomMResultT.ToString("F4") +
+                    ")로 Place T 보상을 진행합니다. side=" + Side +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", die=" + dieId + " - Check");
+            }
             VisionOffset bottomOffset = new VisionOffset
             {
                 X = _currentBottomPlaceResult != null ? _currentBottomPlaceResult.BottomItemOffsetX : 0.0,
                 Y = _currentBottomPlaceResult != null ? _currentBottomPlaceResult.BottomItemOffsetY : 0.0,
-                R = 0.0,
+                R = bottomMResultT,
                 IsValid = true
             };
             string bottomOffsetReason = _currentBottomPlaceResult != null
@@ -113,9 +125,9 @@ namespace QMC.CDT320.Sequencing
             }
 
             // Place 런타임 보정: Enable일 때만 필터 상태를 적용하고, Disable이면 0을 전달한다
-            // (Disable이어도 필터 학습·저장은 Bin 후검사 경로에서 계속된다).
-            // 부호 반영(X:-, Y:-, T:-)은 DieCoordinateTransformService.CalculatePlaceTarget이 담당한다.
-            // (Y는 2026-07-29 사용자 실장비 확인으로 가산→감산 정정 — 전 채널 감산.)
+            // (Disable이면 학습·저장도 중지 — 2026-08-19 적분 무한누적 방지).
+            // 부호 반영(전 채널 감산 — X/Y 2026-07-29 확정, T 2026-08-19 01:26 실장비 재확정)은
+            // DieCoordinateTransformService.CalculatePlaceTarget이 담당한다.
             bool placeRuntimeEnabled = PlaceRuntimeOffsetService.IsEnabled;
             double placeRuntimeOffsetX = 0.0;
             double placeRuntimeOffsetY = 0.0;

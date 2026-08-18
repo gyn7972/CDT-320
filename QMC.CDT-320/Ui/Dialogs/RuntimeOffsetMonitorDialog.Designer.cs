@@ -293,7 +293,7 @@
             this.lblStatus.Name = "lblStatus";
             this.lblStatus.Size = new System.Drawing.Size(878, 30);
             this.lblStatus.TabIndex = 3;
-            this.lblStatus.Text = "이관식: PLACE 기구 = 기구 − 필터(X/Y/T), PICK 기구 = 기구 + 필터X − 필터Y − 필터T. 이관 채널 필터는 0으로 초기화. 리셋은 8세트 전체 0.";
+            this.lblStatus.Text = "이관식: PLACE 기구 = 기구 − 필터(X/Y/T), PICK 기구 = 기구 + 필터X − 필터Y + 필터T. 이관 채널 필터는 0으로 초기화. 리셋은 8세트 전체 0.";
             this.lblStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // timerRefresh

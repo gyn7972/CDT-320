@@ -482,7 +482,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 items.Add(InGroup(Describe(ParameterGridItem.Double(pickerName + " PICKUP MECHANICAL T", "deg (0.000)", ParameterGridScope.Config,
                     () => ResolveLivePickUpConfig().GetMechanicalOffsetT(index),
                     v => SetPickUpMechanicalOffsetT(ResolveLivePickUpConfig(), index, v)),
-                    "PickUp 목표의 PickerT에 더하는 Picker별 T 기구 보정입니다(2026-08-16 신설). 런타임 T 필터 이관은 기구T = 기구T − 필터T 입니다."), groupKey));
+                    "PickUp 목표의 PickerT에 더하는 Picker별 T 기구 보정입니다(2026-08-16 신설). 런타임 T 필터 이관은 기구T = 기구T + 필터T 입니다(2026-08-18 가산 정정)."), groupKey));
             }
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpZMotionMode>("PICKUP Z MOTION MODE", "mode", ParameterGridScope.Config, () => ResolveLivePickUpConfig().MotionMode, v => ResolveLivePickUpConfig().MotionMode = v),
                 "PickUp Z 동작 방식을 선택합니다.\r\nDetailed: Needle/Eject 준비, 진공, PrePick, 저속 접촉, 동기 상승, 안전 복귀 순서로 동작합니다.\r\nSimpleZDownVacuumUp: PickerZ 하강, 진공 ON, PickerZ 상승만 수행하는 단순 모드입니다."), groupKey));

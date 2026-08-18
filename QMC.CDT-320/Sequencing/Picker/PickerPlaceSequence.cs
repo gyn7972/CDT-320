@@ -1270,11 +1270,19 @@ namespace QMC.CDT320.Sequencing
             }
 
             InspectionMeasurement raw = FindInspectionMeasurement(bottomRecord, "BottomVisionRaw");
+            // 선택 항목(2026-08-19): 재개 시 Place T 보상 복원용 MRESULT 각도(BottomAlignOffsetT).
+            // 구버전 기록엔 없을 수 있으므로 필수 목록(위 null 검사)에는 넣지 않는다 — 없으면 T 무보정.
+            InspectionMeasurement storedAlignOffsetT = FindInspectionMeasurement(bottomRecord, "BottomAlignOffsetT");
+            bool hasStoredAlignOffsetT = storedAlignOffsetT != null &&
+                !double.IsNaN(storedAlignOffsetT.Value) &&
+                !double.IsInfinity(storedAlignOffsetT.Value);
             result = new BottomVisionOffset
             {
                 PickerNo = _currentPickerNo,
                 BottomItemOffsetX = offsetX.Value,
                 BottomItemOffsetY = offsetY.Value,
+                OffsetT = hasStoredAlignOffsetT ? storedAlignOffsetT.Value : 0.0,
+                HasBottomMResultT = hasStoredAlignOffsetT,
                 HasBottomItemOffsetX = true,
                 HasBottomItemOffsetY = true,
                 BottomItemOffsetXPass = true,

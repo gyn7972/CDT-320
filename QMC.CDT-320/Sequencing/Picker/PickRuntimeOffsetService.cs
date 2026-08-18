@@ -21,8 +21,9 @@ namespace QMC.CDT320.Sequencing
     /// - 필터 상태는 전처리 후 측정 부호 그대로(raw) 저장하고, 적용 부호(X/Y 가산 2026-07-30
     ///   확정, T 가산 2026-08-18 확정 — forceMove로 T가 실발행되자 감산이 발산함을 확인해 정정)는
     ///   적용 지점(DieCoordinateTransformService.CalculatePickTarget)에서 수행한다.
-    /// - Enable/Disable(UsePickRuntimeOffset): Disable이어도 필터 갱신(학습)·저장은 계속하며
-    ///   적용만 중지한다 — Enable 판정은 적용 지점(PickerPickUpSequence)에서 GetOffset 사용 여부로 결정.
+    /// - Enable/Disable(UsePickRuntimeOffset): Disable이면 적용과 학습을 모두 중지한다
+    ///   (2026-08-19 팀장님 지시 — 적분 갱신은 미적용 상태에서 학습하면 무한 누적·클램프 알람.
+    ///    EMA 시절 "학습 계속" 설계 폐기). Enable 판정은 적용 지점에서 GetOffset 사용 여부로 결정.
     /// - 발산 방지: 갱신 후 상태값을 X/Y ±0.50mm, T ±0.5°로 클램프하고 한계 도달 시 Warning을 1회 발생
     ///   (한계 미만 복귀 시 재무장하는 래치).
     /// - 검사 시퀀스 스레드(갱신)와 픽업 시퀀스 스레드(조회)가 다르므로 lock으로 보호한다.
@@ -332,6 +333,12 @@ namespace QMC.CDT320.Sequencing
                             ", pickerNo=" + pickerNo + ", die=" + (dieId ?? string.Empty) + " - Failed");
                         return;
                     }
+
+                    // Disable 중 학습 중지(2026-08-19 팀장님 지시): 잔차 적분은 보정이 적용되지 않으면
+                    // 잔차가 줄지 않아 무한 누적 → 클램프 알람이 뜬다. 적용 꺼짐이면 학습·저장도 멈춘다.
+                    // (EMA 시절 "Disable이어도 학습 계속" 설계는 적분 전환으로 폐기.)
+                    if (!_useCorrection)
+                        return;
 
                     // 전 채널 잔차 적분(2026-08-18 팀장님 지시 — T는 적용 부호 가산 확정과 함께 적분 전환).
                     acceptedX = AcceptChannelLocked(set.X, offsetX, _outlierLimitXyMm, "X", side, pickerNo, dieId, true);

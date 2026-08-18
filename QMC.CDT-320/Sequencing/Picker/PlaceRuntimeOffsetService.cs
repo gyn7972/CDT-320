@@ -9,18 +9,21 @@ namespace QMC.CDT320.Sequencing
     /// Place 런타임 오프셋 실시간 보정 서비스.
     /// Place → Bin 비전 후검사 결과(X/Y/T 오프셋)를 누적해
     /// 다음 Place 목표 좌표 계산에 반영하는 폐루프 보정의 상태 보관소다.
-    /// - 갱신식(2026-08-18 팀장님 지시): 폐루프 측정값은 보정 적용 후 잔차(m)이므로 X/Y는
+    /// - 갱신식(2026-08-18 팀장님 지시): 폐루프 측정값은 보정 적용 후 잔차(m)이므로 전 채널을
     ///   잔차 적분(F += α·m — 잔차 0 수렴)으로 갱신한다. 잔차를 EMA(F += α(m−F))에 그대로
-    ///   넣으면 오차 절반에서 평형이 생겨 폐루프에 부적합. T는 적용 부호 확정 전까지 기존
-    ///   EMA 유지(부호 확정 시 부호 반전과 적분 전환을 세트로 적용 예정).
+    ///   넣으면 오차 절반에서 평형이 생겨 폐루프에 부적합.
+    ///   (T는 2026-08-19 적용 부호 가산 확정(로그 판정)과 함께 적분 전환 — 전환 전 학습값이
+    ///    남아 있으면 첫 잔차가 이상치 한계를 넘어 전 샘플 기각으로 고착될 수 있으니
+    ///    재가동 전 T 리셋 필수.)
     /// - 필터 단위: PickerSide(Front/Rear) × PickerNo(1~4) = 8세트, 각 X/Y/T 3채널 독립.
-    /// - 필터 상태는 비전 측정 부호 그대로(raw) 저장하고, 부호 변환(X:−, Y:−, T:−)은
+    /// - 필터 상태는 비전 측정 부호 그대로(raw) 저장하고, 부호 변환(전 채널 감산 — X/Y 2026-07-29
+    ///   확정, T는 2026-08-19 01:26 실장비 재확정: 가산 적용 시 bin각·필터 동반 램프로 반증됨)은
     ///   적용 지점(DieCoordinateTransformService.CalculatePlaceTarget)에서 수행한다.
-    ///   (Y는 가산이었으나 2026-07-29 사용자 실장비 확인으로 감산 정정 — 전 채널 감산.)
-    /// - Enable/Disable(UsePlaceRuntimeOffset): Disable이어도 필터 갱신(학습)·저장은 계속하며
-    ///   적용만 중지한다 — Enable 판정은 적용 지점(PickerPlaceSequence)에서 GetOffset 사용 여부로 결정.
-    /// - 발산 방지: 갱신 후 상태값을 X/Y ±0.50mm, T ±0.5°로 클램프하고 한계 도달 시 Warning을 1회 발생
-    ///   (한계 미만 복귀 시 재무장하는 래치) — Pick 보정과 동일 정책.
+    /// - Enable/Disable(UsePlaceRuntimeOffset): Disable이면 적용과 학습을 모두 중지한다
+    ///   (2026-08-19 팀장님 지시 — 적분 갱신은 미적용 상태에서 학습하면 무한 누적·클램프 알람.
+    ///    EMA 시절 "학습 계속" 설계 폐기). Enable 판정은 적용 지점에서 GetOffset 사용 여부로 결정.
+    /// - 발산 방지: 갱신 후 상태값을 설정 한계(기본 X/Y ±0.50mm, T ±1.0°)로 클램프하고 한계 도달 시
+    ///   Warning을 1회 발생(한계 미만 복귀 시 재무장하는 래치) — Pick 보정과 동일 정책.
     /// - 검사 큐 스레드에서 갱신, 시퀀스 스레드에서 조회하므로 lock으로 보호한다.
     /// </summary>
     internal static class PlaceRuntimeOffsetService
@@ -304,10 +307,17 @@ namespace QMC.CDT320.Sequencing
                         return;
                     }
 
-                    // X/Y는 잔차 적분, T는 적용 부호 확정 전까지 기존 EMA 유지(2026-08-18 팀장님 지시).
+                    // Disable 중 학습 중지(2026-08-19 팀장님 지시): 잔차 적분은 보정이 적용되지 않으면
+                    // 잔차가 줄지 않아 무한 누적 → 클램프 알람이 뜬다. 적용 꺼짐이면 학습·저장도 멈춘다.
+                    // (EMA 시절 "Disable이어도 학습 계속" 설계는 적분 전환으로 폐기.)
+                    if (!_useCorrection)
+                        return;
+
+                    // 전 채널 잔차 적분(2026-08-19 팀장님 승인). T 적용 부호는 감산 재확정(01:26 실장비) —
+                    // 갱신식(적분)과 무관하게 부호는 적용 지점 담당.
                     acceptedX = AcceptChannelLocked(set.X, measuredX, _outlierLimitXyMm, "X", side, pickerNo, dieId, true);
                     acceptedY = AcceptChannelLocked(set.Y, measuredY, _outlierLimitXyMm, "Y", side, pickerNo, dieId, true);
-                    acceptedT = AcceptChannelLocked(set.T, measuredT, _outlierLimitTDeg, "T", side, pickerNo, dieId, false);
+                    acceptedT = AcceptChannelLocked(set.T, measuredT, _outlierLimitTDeg, "T", side, pickerNo, dieId, true);
 
                     if (acceptedX)
                         set.ClampLatchedX = ClampChannelLocked(set.X, _clampLimitXyMm, set.ClampLatchedX, "X", side, pickerNo);
@@ -342,7 +352,7 @@ namespace QMC.CDT320.Sequencing
                     ", filteredX=" + F(filteredX) +
                     ", filteredY=" + F(filteredY) +
                     ", filteredT=" + F(filteredT) +
-                    ", updateMode=XY:integral,T:ema");
+                    ", updateMode=XYT:integral");
             }
             catch (Exception ex)
             {

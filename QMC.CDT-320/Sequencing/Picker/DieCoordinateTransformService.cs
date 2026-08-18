@@ -218,16 +218,16 @@ namespace QMC.CDT320.Sequencing
             double mapStageY = outputStageBaseY + receiveTargetY + outputCameraToPickerY;
             double mapPickerX = outputVisionProcessX + receiveTargetX + outputVisionToPickerX + pickerAlignOffsetX;
 
-            // Place 보정 — Bottom 검사 보정은 이동축 기준으로 X/T/StageY 모두 감산 방향,
-            // 런타임 보정(placeRuntimeOffset*)은 Bin 후검사 LowPassFilter 출력(raw)이다.
-            // 기존 조건(~2026-07-29): Y만 "스테이지 이동 방향 정의상 가산"으로 두었다.
-            // 현재 기준(사용자 실장비 확인 2026-07-29): X/Y/T 전 채널 감산 — Y 가산이 실측과
-            //   반대 방향으로 확인되어 감산으로 정정한다.
+            // Place 보정 — Bottom 검사 보정은 이동축 기준으로 X/StageY 감산 방향(2026-07-29 실장비 확정),
+            // 런타임 보정(placeRuntimeOffset*)은 Bin 후검사 필터 출력(raw)이다.
             // (UsePlaceRuntimeOffset=false면 0이 전달되지만 항은 수식에 항상 유지한다)
             // Place Y 기구 보정은 PickerY 티칭을 바꾸지 않고 선택된 GOOD/NG OutputStageY에만 더한다.
             double placeCorrectionY = -bottomOffsetY - placeRuntimeOffsetY + placeMechanicalOffsetY;
             double placeCorrectionX = -bottomOffsetX - placeRuntimeOffsetX + placeMechanicalOffsetX;
-            // T 기구 보정(신설 2026-08-16)은 런타임 T와 같은 PickerT 축에 가산 — 이관은 기구T′=기구T−필터T.
+            // T 부호(2026-08-19 01:26 실장비 확정): PickerT 가산 → bin각 증가(s_bin=+1).
+            //   가산 적용 직후 bin각·필터T가 동반 램프(+0.1→+0.9/분, 클램프 도달)해 가산이 반증됨 —
+            //   bottom T·런타임 T 모두 감산이 상쇄 방향(bin각=bottom각+상수, k=+1은 유지).
+            //   기구T는 가산 유지(공통 오프셋 상쇄값은 음수로 설정), 이관은 기구T′=기구T−필터T로 정합.
             double placeCorrectionT = -bottomOffsetT - placeRuntimeOffsetT + placeMechanicalOffsetT;
 
             result.OutputStageY = mapStageY + placeCorrectionY;

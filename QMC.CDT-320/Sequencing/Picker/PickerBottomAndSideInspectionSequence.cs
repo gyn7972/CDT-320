@@ -55,6 +55,11 @@ namespace QMC.CDT320.Sequencing
             // Bottom 촬영 명령 시점의 PickerX CommandPosition.
             // Side 90도 회전 중심 편심(Bottom 촬영 PickerXY − Recipe.ColletRotationCenterXY) 계산에 사용한다.
             public double BottomShotPickerXCommand;
+            // Bottom 촬영 명령 시점의 PickerT CommandPosition과 다이별 align T 스냅샷(2026-08-19 신설).
+            // 촬영 T(존 T0)가 다이별 align T를 실은 채 찍히므로(캐리), 측정각에서 이 캐리를 차감하는
+            // T 전처리(Y 전처리와 동일 패턴)에 사용한다 — 미차감 시 Place 보상이 캐리를 반대로 각인.
+            public double BottomShotPickerTCommand;
+            public double BottomShotAlignOffsetT;
             public bool SideCorrectionValid;
             public double SideBottomOffsetXmm;
             public double SideBottomOffsetYmm;
@@ -1294,12 +1299,16 @@ namespace QMC.CDT320.Sequencing
                         }
                     }
 
+                    // forceMove(2026-08-19 03시 팀장님 확인): 허용치(0.5°) 내 스킵으로 T가 픽 보정각
+                    // (−0.2~−0.45)에 남은 채 촬영되어 bottom각에 다이별 촬영각 아티팩트가 실렸다 —
+                    // 촬영 T는 미소각이라도 반드시 T0로 복귀시킨다.
                     result = await MovePickerAxisAndVerifyAsync(
                         GetPickerTAxis(target.PickerIndex),
                         target.T0,
                         "Bottom/Side 통합 Bottom T",
                         ct,
-                        BuildBottomTargetName(target)).ConfigureAwait(false);
+                        BuildBottomTargetName(target),
+                        forceMove: true).ConfigureAwait(false);
                     if (result != 0)
                     {
                         tactScope.Fail("PICKER-BOTTOM-SIDE-BOTTOM-T", BuildTactDetail(target, "Bottom pitch T move failed. result=" + result));
@@ -1518,6 +1527,10 @@ namespace QMC.CDT320.Sequencing
             target.BottomShotPickerYCommand = bottomShotPickerY != null ? bottomShotPickerY.CommandPosition : 0.0;
             BaseAxis bottomShotPickerX = GetPickerAxis(PickerAxis.PickerX);
             target.BottomShotPickerXCommand = bottomShotPickerX != null ? bottomShotPickerX.CommandPosition : 0.0;
+            // T 전처리용(2026-08-19): 촬영 시점 T 지령과 존 T0에 실린 다이별 align T 스냅샷을 캡처한다.
+            BaseAxis bottomShotPickerT = GetPickerAxis(GetPickerTAxis(target.PickerIndex));
+            target.BottomShotPickerTCommand = bottomShotPickerT != null ? bottomShotPickerT.CommandPosition : 0.0;
+            target.BottomShotAlignOffsetT = ResolvePickerAlignOffsetT(target.PickerIndex);
 
             RegisterVisionDieAddress(target);   // 신형 와이어(die_index/gridx;gridy) 구성용 — 어댑터가 조회
 
@@ -3411,6 +3424,39 @@ namespace QMC.CDT320.Sequencing
                     "pickerNo=" + pickerNo +
                     ", expectedDie=" + dieId +
                     ", currentDie=" + (currentDie != null ? currentDie.DieId : string.Empty) + ".");
+            }
+
+            // [사용자 지시 2026-08-19] Place T 다이별 보상 소스는 FINAL이 아니라 Bottom MRESULT 각도다.
+            // 같은 BottomShot의 MResult라 die/picker 동일성이 보장되며, FINAL 머지/Pass 게이트와
+            // 무관하게 MRESULT 값을 확정 소스로 얹는다(MResult 부재 시 FINAL OffsetT 폴백 유지).
+            // T 촬영각 전처리(2026-08-19 팀장님 가설 확인): 존 T0가 다이별 align T를 실은 채 촬영되므로
+            // 측정각에는 그 캐리가 포함된다 — 캐리를 차감해 순수 다이-콜렛 잔차만 남긴다(Y 전처리와 동일
+            // 패턴). 미차감 시 픽에서 이미 보상된 각을 Place가 한 번 더 빼는 이중 보상이 된다.
+            // 아래 ApplyBottomInspectionResult보다 먼저 대입해 Pick 필터 학습·BottomAlignOffsetT 저장에도
+            // 전처리 값이 실린다.
+            if (bottomShot.MResult != null)
+            {
+                double rawMResultT = bottomShot.MResult.OffsetT;
+                // 촬영각 편차 = 촬영 시점 T 지령 − 카메라 기준각(티칭 존 T = T0 − align 캐리).
+                // 실측 검증(2026-08-19 03시): 촬영 T −0.169/−0.449/−0.325 ↔ rawT +0.107/−0.241/−0.005,
+                // rawT − 편차 = +0.276/+0.208/+0.320 — 다이별 산포가 촬영각 아티팩트임을 확인(s=+1).
+                // 스킵 잔류각·존 캐리 모두 이 식 하나로 자동 차감된다(forceMove 후에도 정합).
+                double shotTCmd = bottomShot.Target != null ? bottomShot.Target.BottomShotPickerTCommand : 0.0;
+                double shotReferenceT = bottomShot.Target != null
+                    ? bottomShot.Target.T0 - bottomShot.Target.BottomShotAlignOffsetT
+                    : 0.0;
+                double shotCarryT = bottomShot.Target != null ? shotTCmd - shotReferenceT : 0.0;
+                double correctedT = rawMResultT - shotCarryT;
+                bottomResult.OffsetT = correctedT;
+                bottomResult.HasBottomMResultT = true;
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Bottom MRESULT T 촬영각 전처리. pickerNo=" + pickerNo +
+                    ", die=" + dieId +
+                    ", rawT=" + rawMResultT.ToString("F4") +
+                    ", shotTCmd=" + shotTCmd.ToString("F4") +
+                    ", shotRefT=" + shotReferenceT.ToString("F4") +
+                    ", shotCarryT=" + shotCarryT.ToString("F4") +
+                    ", correctedT=" + correctedT.ToString("F4") + " - Calc");
             }
 
             if (!bottomShot.FinalResultApplied)

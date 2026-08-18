@@ -25,7 +25,8 @@ namespace QMC.CDT_320.Ui.Dialogs
     /// T 기구 보정(2026-08-16 신설, 팀장님 지시): 기구T는 PickerT에 가산(+).
     ///   Pick: 런타임 T도 가산(2026-08-18 실장비 발산 확인으로 감산→가산 정정, 기구 적용은
     ///     가산 유지 확정) — 같은 방향이라 기구T′ = 기구T + 필터T 로 이관.
-    ///   Place: 런타임 T 감산 현행 유지(부호 확정 대기) — 기구T′ = 기구T − 필터T 유지.
+    ///   Place: 런타임 T는 감산(2026-08-19 01:26 실장비 재확정 — 가산 적용 시 bin각·필터 동반
+    ///     램프로 반증됨, s_bin=+1) — 기구T′ = 기구T − 필터T 로 이관. Pick(가산)과 반대이니 주의.
     /// 이관·리셋은 운전/초기화 중 금지(CanApplyMechanicalOffset), 필터 설정 변경과 달리 게이트 유지.
     /// </summary>
     public partial class RuntimeOffsetMonitorDialog : Form
@@ -294,8 +295,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 double beforeT = config.GetMechanicalOffsetT(pickerIndex);
 
                 // 폐루프 적용식(pickerX = … − runtimeX, outputStageY = … − runtimeY,
-                // pickerT = … − runtimeT)과 같은 방향의 영구 보정이 되도록 감산 이관한다.
-                // (T 기구 보정 2026-08-16 신설 — 런타임 T와 같은 PickerT 축 가산이라 감산 이관 확정)
+                // pickerT = … − runtimeT)과 같은 방향의 영구 보정이 되도록 전 채널 감산 이관한다.
+                // (T 가산 이관은 2026-08-19 01:26 실장비 반증으로 철회 — s_bin=+1, 감산 재확정.)
                 double requestedX = beforeX - row.X;
                 double requestedY = beforeY - row.Y;
                 double requestedT = beforeT - row.T;
@@ -399,6 +400,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     row.Side + " P" + row.PickerNo +
                     " : X " + F(currentX) + " → " + F(currentX - row.X) +
                     " / Y " + F(currentY) + " → " + F(currentY - row.Y) +
+                    // Place T는 감산 이관(2026-08-19 01:26 실장비 재확정) — ApplyPlaceRows와 동일 산식.
                     " / T " + F(currentT) + " → " + F(currentT - row.T));
                 any = true;
             }
@@ -574,7 +576,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     row.Side + " P" + row.PickerNo +
                     " : X " + F(currentX) + " → " + F(currentX + row.X) +
                     " / Y " + F(currentY) + " → " + F(currentY + PickApplyYSign * row.Y) +
-                    " / T " + F(currentT) + " → " + F(currentT - row.T));
+                    // T는 가산 이관(2026-08-18 정정) — 19a55857에서 미리보기 갱신이 누락됐던 것을 정정.
+                    " / T " + F(currentT) + " → " + F(currentT + row.T));
                 any = true;
             }
 

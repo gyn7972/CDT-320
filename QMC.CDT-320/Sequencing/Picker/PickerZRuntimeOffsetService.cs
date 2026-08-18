@@ -17,8 +17,9 @@ namespace QMC.CDT320.Sequencing
     /// - 필터 단위: PickerSide(Front/Rear) × PickerNo(1~4) = 8세트, Z 1채널.
     /// - 필터 상태는 비전 raw 부호 그대로 저장하고, 감산(−)은 적용 지점 4곳에서 수행한다
     ///   (사이클별 이동 목표에만 1회 — 레시피 공정값·AF 확정식에 스며들면 이중 적용이라 금지).
-    /// - Enable/Disable(UsePickerZRuntimeOffset): Disable이어도 필터 갱신(학습)·저장은 계속하며
-    ///   적용만 중지한다. 기본 OFF — 실장비 방향 검증(§5-3) 후 팀장님이 ON.
+    /// - Enable/Disable(UsePickerZRuntimeOffset): Disable이면 적용과 학습을 모두 중지한다
+    ///   (2026-08-19 팀장님 지시 — 적분 갱신은 미적용 학습 시 무한 누적·클램프 알람).
+    ///   기본 OFF — 실장비 방향 검증(§5-3) 후 팀장님이 ON.
     /// - 발산 방지: 갱신 후 상태값을 ±0.3mm(기본)로 클램프하고 한계 도달 시 Warning 1회(래치).
     ///   Z는 충돌 리스크가 있어 XY(±0.5)보다 타이트하다.
     /// - 검사 시퀀스 스레드(갱신)와 픽업/플레이스 시퀀스 스레드(조회)가 다르므로 lock으로 보호한다.
@@ -260,6 +261,11 @@ namespace QMC.CDT320.Sequencing
                             ", pickerNo=" + pickerNo + ", die=" + (dieId ?? string.Empty) + " - Failed");
                         return;
                     }
+
+                    // Disable 중 학습 중지(2026-08-19 팀장님 지시, Pick/Place와 동일): 잔차 적분은 보정
+                    // 미적용 시 무한 누적 → 클램프 알람. 적용 꺼짐이면 학습·저장도 멈춘다.
+                    if (!_useCorrection)
+                        return;
 
                     acceptedZ = AcceptChannelLocked(set.Z, measuredZ, _outlierLimitMm, side, pickerNo, dieId);
                     if (acceptedZ)

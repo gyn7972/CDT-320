@@ -405,6 +405,7 @@ namespace QMC.CDT320.Sequencing
                 ", pickerT=placeTeachingT(" + F(pickerTTeaching) +
                 ")-bottomOffsetT(" + F(bottomOffsetT) +
                 ")-placeRuntimeOffsetT(" + F(placeRuntimeOffsetT) +
+                ")+placeMechanicalOffsetT(" + F(placeMechanicalOffsetT) +
                 ")=" + F(result.PickerT) +
                 ", pickerZ=placeTeachingZ(" + F(pickerZTeaching) +
                 ")=" + F(result.PickerZ) +

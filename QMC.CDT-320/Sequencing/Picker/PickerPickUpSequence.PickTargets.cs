@@ -587,7 +587,7 @@ namespace QMC.CDT320.Sequencing
                 double pickMechanicalOffsetY = pickUpConfig.GetMechanicalOffsetY(_currentPickerIndex);
                 double pickMechanicalOffsetT = pickUpConfig.GetMechanicalOffsetT(_currentPickerIndex);
                 // Pick 런타임 보정: Enable일 때만 필터 상태를 적용하고, Disable이면 0을 전달한다
-                // (Disable이어도 필터 학습·저장은 Bottom 검사 경로에서 계속된다).
+                // (Disable이면 학습·저장도 중지 — 2026-08-19 적분 무한누적 방지).
                 bool pickRuntimeEnabled = PickRuntimeOffsetService.IsEnabled;
                 double pickRuntimeOffsetX = 0.0;
                 double pickRuntimeOffsetY = 0.0;
