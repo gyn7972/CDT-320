@@ -97,7 +97,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Anchor = AnchorStyles.Left | AnchorStyles.Right
             };
             _cmbJogMode.Items.AddRange(new object[] { "Continuous", "Step" });
-            _cmbJogMode.SelectedIndex = 0;
+            // 기본 선택(팀장님 지시 2026-08-18): Step
+            _cmbJogMode.SelectedIndex = 1;
             _cmbJogMode.SelectedIndexChanged += delegate { UpdateActionAvailability(); };
 
             _cmbJogStep = new ComboBox
@@ -106,7 +107,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Anchor = AnchorStyles.Left | AnchorStyles.Right
             };
             _cmbJogStep.Items.AddRange(new object[] { "0.001", "0.005", "0.01", "0.05", "0.1", "0.5", "1.0" });
-            _cmbJogStep.SelectedIndex = 2;
+            // 기본 선택(팀장님 지시 2026-08-18): 1.0
+            _cmbJogStep.SelectedIndex = 6;
+
+            // 기본 선택(팀장님 지시 2026-08-18): Coarse(코스).
+            // Designer에는 기본 선택이 없어 비어 있었고, 그 상태의 실제 적용값은 Fine이었다.
+            if (cmbJogSpeed != null && cmbJogSpeed.Items.Count > 0)
+                cmbJogSpeed.SelectedItem = "Coarse";
 
             jogLayout.SetColumnSpan(cmbJogSpeed, 1);
             jogLayout.Controls.Add(_cmbJogMode, 2, 0);
