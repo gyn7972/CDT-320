@@ -800,28 +800,33 @@ namespace QMC.CDT320.Materials
             // 샘플의 Size와 Vision의 t_foreign(count)는 의미가 다르므로 임의 변환하지 않는다.
             values.Add("");
 
-            // Side foreign_count 4방향: 0도는 Bottom/Top, 90도는 Left/Right로 고객 CSV에 기록한다.
-            // foreign_count는 길이 값이 아니므로 mm -> um 변환 없이 원 수치를 기록한다.
-            values.Add(FormatSideForeignCount(
+            // Side 치핑 4방향(2026-08-19 팀장님 지시): 비전 side_item_max_chipping_depth(mm)를 um으로
+            // 기록한다(기존 foreign_count 기록 폐기 — 비전이 치핑 깊이를 이 키로 전송).
+            // 매핑: Front 0도→Bottom, Rear 90도→Left, Rear 0도→Top, Front 90도→Right.
+            values.Add(FormatSideChippingDepth(
                 side0Record,
-                "Side0Vision_FrontSide_ch0_side_item_foreign_count",
                 "Side0Vision_FrontSide_measure_valid",
-                "Side0Vision_FrontSide_ch0_valid"));
-            values.Add(FormatSideForeignCount(
+                "Side0Vision_FrontSide_ch0_valid",
+                "Side0Vision_FrontSide_ch0_side_item_max_chipping_depth",
+                "Side0Vision_FrontSide_side_item_max_chipping_depth"));
+            values.Add(FormatSideChippingDepth(
                 side90Record,
-                "Side90Vision_RearSide_ch1_side_item_foreign_count",
                 "Side90Vision_RearSide_measure_valid",
-                "Side90Vision_RearSide_ch1_valid"));
-            values.Add(FormatSideForeignCount(
+                "Side90Vision_RearSide_ch1_valid",
+                "Side90Vision_RearSide_ch1_side_item_max_chipping_depth",
+                "Side90Vision_RearSide_side_item_max_chipping_depth"));
+            values.Add(FormatSideChippingDepth(
                 side0Record,
-                "Side0Vision_RearSide_ch0_side_item_foreign_count",
                 "Side0Vision_RearSide_measure_valid",
-                "Side0Vision_RearSide_ch0_valid"));
-            values.Add(FormatSideForeignCount(
+                "Side0Vision_RearSide_ch0_valid",
+                "Side0Vision_RearSide_ch0_side_item_max_chipping_depth",
+                "Side0Vision_RearSide_side_item_max_chipping_depth"));
+            values.Add(FormatSideChippingDepth(
                 side90Record,
-                "Side90Vision_FrontSide_ch1_side_item_foreign_count",
                 "Side90Vision_FrontSide_measure_valid",
-                "Side90Vision_FrontSide_ch1_valid"));
+                "Side90Vision_FrontSide_ch1_valid",
+                "Side90Vision_FrontSide_ch1_side_item_max_chipping_depth",
+                "Side90Vision_FrontSide_side_item_max_chipping_depth"));
 
             // Place 결과: 17열
             values.Add(FormatPlaceMetric(placeRecord, "placement_offset_x_mm", true));
@@ -1202,11 +1207,15 @@ namespace QMC.CDT320.Materials
                 : Format(value);
         }
 
-        private static string FormatSideForeignCount(
+        // Side 치핑 깊이(2026-08-19): measure_valid + 채널 valid 게이트는 기존 foreign_count 기록과
+        // 동일하게 유지하고, 값은 비전 mm 원값을 um으로 변환해 기록한다(Back 치핑과 단위 통일).
+        // 후보 키를 순서대로 조회한다 — 비전이 chN_ 채널 접두를 붙여 보낼지 확정 전이라
+        // (2026-08-19 기준 로그에 키 미출현) 접두형/무접두형 어느 쪽으로 와도 잡히게 한다.
+        private static string FormatSideChippingDepth(
             DieInspectionRecord record,
-            string measurementName,
             string measureValidName,
-            string channelValidName)
+            string channelValidName,
+            params string[] measurementNames)
         {
             if (!IsVisionMeasurementValid(record, measureValidName) ||
                 !IsVisionMeasurementValid(record, channelValidName))
@@ -1214,7 +1223,14 @@ namespace QMC.CDT320.Materials
                 return "";
             }
 
-            return Format(ReadMeasurement(record, measurementName));
+            for (int i = 0; i < measurementNames.Length; i++)
+            {
+                double value = ReadMeasurement(record, measurementNames[i]);
+                if (IsFinite(value))
+                    return FormatMicrometers(value);
+            }
+
+            return "";
         }
 
         private static bool IsVisionMeasurementValid(DieInspectionRecord record, string measurementName)

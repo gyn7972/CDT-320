@@ -299,6 +299,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             PickerZRuntimeOffsetService.SetEnabled(_cbPickerZRuntimeOffset.SelectedIndex == 0);
         }
 
+        // PICKER Z(BottomZ) 런타임 보정 리셋(2026-08-19 팀장님 지시) — PICK/PLACE 리셋과 동일 플로우.
+        private void btnResetPickerZRuntimeOffset_Click(object sender, EventArgs e)
+        {
+            QMC.CDT_320.Ui.Dialogs.RuntimeOffsetMonitorDialog.ResetPickerZRuntimeOffsetsWithConfirm(
+                FindForm() as Form1);
+        }
+
         // 런타임 보정 필터 리셋은 모니터 다이얼로그와 동일 플로우(운전 중 금지 게이트 +
         // 리셋 전 학습값 요약 확인 + 리셋 전 값·실행자 로그)를 공유한다 — 2026-08-16 팀장님 통일 지시.
         private void btnResetPickRuntimeOffset_Click(object sender, EventArgs e)

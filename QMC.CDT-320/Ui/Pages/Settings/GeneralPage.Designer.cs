@@ -32,7 +32,9 @@
         private System.Windows.Forms.Button btnRuntimeOffsetMonitor;
         private System.Windows.Forms.Button btnRuntimeFilterSettings;
         private System.Windows.Forms.Label lblPickerZRuntimeOffset;
+        private System.Windows.Forms.TableLayoutPanel pickerZRuntimeOffsetLayout;
         private System.Windows.Forms.ComboBox _cbPickerZRuntimeOffset;
+        private System.Windows.Forms.Button btnResetPickerZRuntimeOffset;
         private System.Windows.Forms.ComboBox _cbLang;
         private System.Windows.Forms.ComboBox _cbBinArr;
         private System.Windows.Forms.ComboBox _cbVisionMatch;
@@ -102,7 +104,9 @@
             this.btnResetPlaceRuntimeOffset = new System.Windows.Forms.Button();
             this.btnRuntimeOffsetMonitor = new System.Windows.Forms.Button();
             this.lblPickerZRuntimeOffset = new System.Windows.Forms.Label();
+            this.pickerZRuntimeOffsetLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbPickerZRuntimeOffset = new System.Windows.Forms.ComboBox();
+            this.btnResetPickerZRuntimeOffset = new System.Windows.Forms.Button();
             this.grpAjin = new System.Windows.Forms.GroupBox();
             this.ajinLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbAjin = new System.Windows.Forms.CheckBox();
@@ -116,6 +120,7 @@
             this.bodyLayout.SuspendLayout();
             this.pickRuntimeOffsetLayout.SuspendLayout();
             this.placeRuntimeOffsetLayout.SuspendLayout();
+            this.pickerZRuntimeOffsetLayout.SuspendLayout();
             this.grpAjin.SuspendLayout();
             this.ajinLayout.SuspendLayout();
             this.logBtnLayout.SuspendLayout();
@@ -222,7 +227,7 @@
             this.bodyLayout.Controls.Add(this.lblPlaceRuntimeOffset, 0, 13);
             this.bodyLayout.Controls.Add(this.placeRuntimeOffsetLayout, 1, 13);
             this.bodyLayout.Controls.Add(this.lblPickerZRuntimeOffset, 0, 14);
-            this.bodyLayout.Controls.Add(this._cbPickerZRuntimeOffset, 1, 14);
+            this.bodyLayout.Controls.Add(this.pickerZRuntimeOffsetLayout, 1, 14);
             this.bodyLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.bodyLayout.Location = new System.Drawing.Point(0, 0);
             this.bodyLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -718,15 +723,48 @@
             //
             // _cbPickerZRuntimeOffset
             //
+            //
+            // pickerZRuntimeOffsetLayout
+            //
+            this.pickerZRuntimeOffsetLayout.ColumnCount = 2;
+            this.pickerZRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.pickerZRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 110F));
+            this.pickerZRuntimeOffsetLayout.Controls.Add(this._cbPickerZRuntimeOffset, 0, 0);
+            this.pickerZRuntimeOffsetLayout.Controls.Add(this.btnResetPickerZRuntimeOffset, 1, 0);
+            this.pickerZRuntimeOffsetLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pickerZRuntimeOffsetLayout.Location = new System.Drawing.Point(180, 476);
+            this.pickerZRuntimeOffsetLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.pickerZRuntimeOffsetLayout.Name = "pickerZRuntimeOffsetLayout";
+            this.pickerZRuntimeOffsetLayout.RowCount = 1;
+            this.pickerZRuntimeOffsetLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.pickerZRuntimeOffsetLayout.Size = new System.Drawing.Size(649, 34);
+            this.pickerZRuntimeOffsetLayout.TabIndex = 27;
+            //
+            // _cbPickerZRuntimeOffset
+            //
             this._cbPickerZRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbPickerZRuntimeOffset.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbPickerZRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbPickerZRuntimeOffset.Location = new System.Drawing.Point(182, 478);
+            this._cbPickerZRuntimeOffset.Location = new System.Drawing.Point(2, 2);
             this._cbPickerZRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this._cbPickerZRuntimeOffset.Name = "_cbPickerZRuntimeOffset";
-            this._cbPickerZRuntimeOffset.Size = new System.Drawing.Size(645, 23);
-            this._cbPickerZRuntimeOffset.TabIndex = 27;
+            this._cbPickerZRuntimeOffset.Size = new System.Drawing.Size(535, 23);
+            this._cbPickerZRuntimeOffset.TabIndex = 0;
             this._cbPickerZRuntimeOffset.SelectedIndexChanged += new System.EventHandler(this._cbPickerZRuntimeOffset_SelectedIndexChanged);
+            //
+            // btnResetPickerZRuntimeOffset
+            //
+            this.btnResetPickerZRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnResetPickerZRuntimeOffset.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnResetPickerZRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnResetPickerZRuntimeOffset.Location = new System.Drawing.Point(541, 2);
+            this.btnResetPickerZRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
+            this.btnResetPickerZRuntimeOffset.Name = "btnResetPickerZRuntimeOffset";
+            this.btnResetPickerZRuntimeOffset.Size = new System.Drawing.Size(106, 30);
+            this.btnResetPickerZRuntimeOffset.TabIndex = 1;
+            this.btnResetPickerZRuntimeOffset.Text = "RESET";
+            this.btnResetPickerZRuntimeOffset.UseVisualStyleBackColor = true;
+            this.btnResetPickerZRuntimeOffset.Click += new System.EventHandler(this.btnResetPickerZRuntimeOffset_Click);
             // 
             // grpAjin
             // 
@@ -836,6 +874,7 @@
             this.bodyLayout.ResumeLayout(false);
             this.pickRuntimeOffsetLayout.ResumeLayout(false);
             this.placeRuntimeOffsetLayout.ResumeLayout(false);
+            this.pickerZRuntimeOffsetLayout.ResumeLayout(false);
             this.grpAjin.ResumeLayout(false);
             this.ajinLayout.ResumeLayout(false);
             this.ajinLayout.PerformLayout();

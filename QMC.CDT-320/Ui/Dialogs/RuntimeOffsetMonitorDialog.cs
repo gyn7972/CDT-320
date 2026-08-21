@@ -630,6 +630,53 @@ namespace QMC.CDT_320.Ui.Dialogs
             QMC.Common.MessageDialog.Show(label + " 런타임 보정 필터를 초기화했습니다.");
         }
 
+        /// <summary>
+        /// PICKER Z(BottomZ) 런타임 보정 필터(8세트 Z)를 확인 후 전체 리셋한다(2026-08-19 팀장님 지시).
+        /// PICK/PLACE 리셋과 동일 플로우: 운전 중 금지 게이트 + 리셋 전 학습값 요약 확인 + 실행자 로그.
+        /// </summary>
+        internal static void ResetPickerZRuntimeOffsetsWithConfirm(Form1 host)
+        {
+            string blockReason;
+            if (!CanApplyMechanicalOffset(host, out blockReason))
+            {
+                QMC.Common.MessageDialog.Show(blockReason);
+                return;
+            }
+
+            PickerZRuntimeOffsetSnapshot[] rows = PickerZRuntimeOffsetService.GetSnapshot();
+            var builder = new StringBuilder();
+            for (int i = 0; i < rows.Length; i++)
+            {
+                PickerZRuntimeOffsetSnapshot row = rows[i];
+                if (row == null)
+                    continue;
+
+                builder.AppendLine(row.Side + " P" + row.PickerNo + " : Z " + F(row.Z));
+            }
+            string summary = builder.Length > 0 ? builder.ToString() : "(값 없음)";
+
+            DialogResult answer = QMC.Common.MessageDialog.Show(
+                "PICKER Z 런타임 보정 필터(8세트 Z)를 모두 0으로 초기화합니다.\n\n" +
+                "현재 학습값:\n" + summary + "\n계속하시겠습니까?",
+                "PICKER Z RUNTIME OFFSET RESET",
+                MessageBoxButtons.YesNo);
+            if (answer != DialogResult.Yes)
+                return;
+
+            EventLogger.Write(
+                EventKind.Event,
+                "COORD",
+                "PICKERZ-RUNTIME-OFFSET-RESET",
+                "PICKER Z 런타임 보정 필터 전체를 리셋합니다. user=" + UserSession.Name +
+                ", 리셋 전 값=[" + summary.Replace(Environment.NewLine, " / ") + "]");
+
+            PickerZRuntimeOffsetService.ResetAll();
+
+            QMC.Common.Log.Write("Main", UserSession.Name, "RuntimeOffsetReset",
+                "PICKER Z 런타임 보정 필터 전체를 리셋했습니다. - Ok");
+            QMC.Common.MessageDialog.Show("PICKER Z 런타임 보정 필터를 초기화했습니다.");
+        }
+
         private static string BuildSnapshotSummary(RuntimeOffsetSnapshot[] rows)
         {
             if (rows == null || rows.Length == 0)
