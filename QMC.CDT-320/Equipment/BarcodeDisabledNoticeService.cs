@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.Common.Logging;
@@ -14,43 +14,67 @@ namespace QMC.CDT320
     /// </summary>
     internal static class BarcodeDisabledNoticeService
     {
-        private static Form _notice;
+        // [P2 2026-08-22] 인풋/아웃풋 안내를 채널별 창으로 분리한다 — 단일 창이던 시절에는
+        // 인풋 경로의 Close()가 아웃풋 안내까지 닫아버려 공존이 불가능했다.
+        public const string InputChannel = "INPUT";
+        public const string OutputChannel = "OUTPUT";
 
-        public static void Show(string message)
+        private static readonly System.Collections.Generic.Dictionary<string, Form> _notices =
+            new System.Collections.Generic.Dictionary<string, Form>(StringComparer.OrdinalIgnoreCase);
+        // [검토수정 2026-08-22] Show/Close 진입은 시퀀스 스레드, 사전 변이는 UI 스레드(BeginInvoke)라
+        // Dictionary 접근을 전부 락으로 감싼다 — 무락 동시 접근은 열거 예외/무한 루프가 가능하고,
+        // 예외가 삼켜지면 안내창이 조용히 사라진다. (구 단일 참조 필드 시절에는 원자적이라 안전했다)
+        private static readonly object NoticeSync = new object();
+
+        public static void Show(string channel, string message)
         {
+            string key = string.IsNullOrWhiteSpace(channel) ? InputChannel : channel;
             Invoke(() =>
             {
-                if (_notice != null && !_notice.IsDisposed)
-                    return;
+                Form existing;
+                lock (NoticeSync)
+                {
+                    if (_notices.TryGetValue(key, out existing) && existing != null && !existing.IsDisposed)
+                        return;
+                }
 
                 Form owner = ResolveOwner();
                 if (owner == null)
                     return;
 
-                _notice = BuildNotice(message);
-                _notice.FormClosed += (s, e) => _notice = null;
-                _notice.Show(owner);
+                Form notice = BuildNotice(key, message);
+                notice.FormClosed += (s, e) => { lock (NoticeSync) _notices.Remove(key); };
+                lock (NoticeSync)
+                    _notices[key] = notice;
+                notice.Show(owner);
 
                 EventLogger.Write(EventKind.Warning, "SYSTEM", "BARCODE-DISABLED",
-                    "바코드 판독 비활성 안내: " + (message ?? string.Empty).Replace("\r\n", " "));
+                    "바코드 판독 비활성 안내(" + key + "): " + (message ?? string.Empty).Replace("\r\n", " "));
             });
         }
 
-        /// <summary>바코드가 다시 켜졌을 때 안내창을 닫는다.</summary>
-        public static void Close()
+        /// <summary>해당 채널의 바코드가 다시 켜졌을 때 그 채널 안내창만 닫는다.</summary>
+        public static void Close(string channel)
         {
+            string key = string.IsNullOrWhiteSpace(channel) ? InputChannel : channel;
             Invoke(() =>
             {
-                if (_notice != null && !_notice.IsDisposed)
-                    _notice.Close();
+                Form existing;
+                lock (NoticeSync)
+                {
+                    if (!_notices.TryGetValue(key, out existing))
+                        existing = null;
+                }
+                if (existing != null && !existing.IsDisposed)
+                    existing.Close();
             });
         }
 
-        private static Form BuildNotice(string message)
+        private static Form BuildNotice(string channel, string message)
         {
             var form = new Form
             {
-                Text = "BARCODE 판독 비활성",
+                Text = channel + " BARCODE 판독 비활성",
                 FormBorderStyle = FormBorderStyle.SizableToolWindow,
                 ClientSize = new Size(560, 150),
                 MaximizeBox = false,
@@ -92,14 +116,42 @@ namespace QMC.CDT320
             }
         }
 
+        // [2차 검토수정 2026-08-23] 소유자는 메인 폼(Form1)을 고정 사용하고 캐시한다.
+        // 종전 "OpenForms 첫 비안내 폼" 선택은 메인 폼이 OpenForms에서 빠지는 WinForms 특성
+        // (핸들 재생성 시 컬렉션 탈락)과 겹치면 일시 다이얼로그를 소유자로 잡았고, 그 다이얼로그가
+        // 닫힐 때 안내창이 딸려 닫혀 야간 소크런에서 시간당 ~2회 재생성 로그를 만들었다.
+        private static Form _cachedOwner;
+
         private static Form ResolveOwner()
         {
+            Form cached = _cachedOwner;
+            if (cached != null && !cached.IsDisposed)
+                return cached;
+
+            Form fallback = null;
             foreach (Form form in Application.OpenForms)
             {
-                if (form != null && !form.IsDisposed && !ReferenceEquals(form, _notice))
+                if (form == null || form.IsDisposed)
+                    continue;
+
+                bool isNoticeForm;
+                lock (NoticeSync)
+                    isNoticeForm = _notices.ContainsValue(form);
+                if (isNoticeForm)
+                    continue;
+
+                if (form is QMC.CDT_320.Form1)
+                {
+                    _cachedOwner = form;
                     return form;
+                }
+
+                if (fallback == null)
+                    fallback = form;
             }
-            return null;
+
+            // 메인 폼을 못 찾은 순간의 폴백은 캐시하지 않는다 — 다음 호출에서 메인 폼 재탐색.
+            return fallback;
         }
     }
 }

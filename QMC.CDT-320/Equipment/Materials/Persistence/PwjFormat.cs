@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
@@ -102,6 +102,9 @@ namespace QMC.CDT320.Materials.Persistence
         [DataMember(Order = 12)] public string SaveReason { get; set; } = "";
         [DataMember(Order = 13)] public string RecipeName { get; set; } = "";
         [DataMember(Order = 14)] public string LotId { get; set; } = "";
+        /// <summary>[검토수정 2026-08-22] P4 픽업 BIN 선택 — 필드 단위 재조립 경로에서 누락되면 재기동 시 조용히 All로 복귀한다.</summary>
+        [DataMember(Order = 22)] public string PickupBinMode { get; set; } = "All";
+        [DataMember(Order = 23)] public List<int> PickupBinNumbers { get; set; } = new List<int>();
         /// <summary>Cassettes 전체(슬롯 참조 포함)의 canonical 바이트 — 작은 전역 checkpoint(§9).</summary>
         [DataMember(Order = 15)] public string CassettesPayloadBase64 { get; set; } = "";
         [DataMember(Order = 16)] public List<string> OrderedWaferInstanceIds { get; set; } = new List<string>();
@@ -111,6 +114,16 @@ namespace QMC.CDT320.Materials.Persistence
         [DataMember(Order = 20)] public string NormalizedSnapshotSha256 { get; set; } = "";
         /// <summary>이 필드만 빈 값으로 둔 canonical payload 전체의 SHA-256 (§9).</summary>
         [DataMember(Order = 21)] public string ManifestPayloadSha256 { get; set; } = "";
+
+        // [2차 검토수정 2026-08-23] DataContract 역직렬화는 필드 이니셜라이저를 건너뛴다 —
+        // BIN 선택 멤버가 없는(이전 스키마) 파일은 null로 올라오므로 여기서 기본값을 깐다.
+        // (이 계층은 아직 dormant라 필드 추가·digest 확장의 호환 부담이 없는 지금이 적기다.)
+        [OnDeserializing]
+        private void SetDefaultsOnDeserializing(StreamingContext context)
+        {
+            PickupBinMode = "All";
+            PickupBinNumbers = new List<int>();
+        }
     }
 
     [DataContract]

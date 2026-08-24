@@ -934,10 +934,10 @@ namespace QMC.CDT320.Materials
             try
             {
                 usable =
-                    MatchesTypedCloneShape(typeof(MaterialSnapshot), 9) &&
+                    MatchesTypedCloneShape(typeof(MaterialSnapshot), 11) &&
                     MatchesTypedCloneShape(typeof(CassetteMaterial), 10) &&
                     MatchesTypedCloneShape(typeof(CassetteSlotMaterial), 4) &&
-                    MatchesTypedCloneShape(typeof(WaferMaterial), 76) &&
+                    MatchesTypedCloneShape(typeof(WaferMaterial), 77) &&
                     MatchesTypedCloneShape(typeof(OutputReceiveSlotMaterial), 22) &&
                     MatchesTypedCloneShape(typeof(DieMaterial), 28) &&
                     MatchesTypedCloneShape(typeof(DieInspectionRecord), 8) &&
@@ -969,6 +969,17 @@ namespace QMC.CDT320.Materials
                 type.Name + ", expected=" + expectedPropertyCount + ", actual=" + actual +
                 ". 복제 코드에 신규 프로퍼티를 반영한 뒤 기대값을 갱신하십시오. - Check");
             return false;
+        }
+
+        private static List<int> CloneIntList(List<int> source)
+        {
+            if (source == null)
+                return null;
+
+            var clone = new List<int>(source.Count);
+            for (int i = 0; i < source.Count; i++)
+                clone.Add(source[i]);
+            return clone;
         }
 
         private static List<string> CloneStringList(List<string> source)
@@ -1246,6 +1257,7 @@ namespace QMC.CDT320.Materials
                 BarcodeSource = source.BarcodeSource,
                 BarcodeUpdatedAt = source.BarcodeUpdatedAt,
                 BarcodeAttemptCount = source.BarcodeAttemptCount,
+                BarcodeSequencePerformed = source.BarcodeSequencePerformed,
                 WaferInstanceId = source.WaferInstanceId,
                 CassetteLotId = source.CassetteLotId,
                 SourceCassetteId = source.SourceCassetteId,
@@ -1345,7 +1357,9 @@ namespace QMC.CDT320.Materials
                 SavedAt = source.SavedAt,
                 SaveReason = source.SaveReason,
                 RecipeName = source.RecipeName,
-                LotId = source.LotId
+                LotId = source.LotId,
+                PickupBinMode = source.PickupBinMode,
+                PickupBinNumbers = CloneIntList(source.PickupBinNumbers)
             };
 
             if (source.Cassettes == null)

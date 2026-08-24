@@ -1823,6 +1823,10 @@ namespace QMC.CDT320
             {
                 "InputFeederSequence.LoadFromCassette",
                 "InputFeederSequence.LoadToStage",
+                // [2차 검토수정 2026-08-23] 재시작 바코드 복구 전용 키(.BarcodeRecovery 접미사)도 함께
+                // 폐기한다 — 남겨두면 복구 실행이 알람으로 중단된 뒤 READY를 거쳐도 저장된 중간 Step에서
+                // 재개돼 "최초 안전검사부터 시작" 원칙이 복구 경로에서만 깨진다.
+                "InputFeederSequence.LoadToStage.BarcodeRecovery",
                 "InputFeederSequence.UnloadFromStage",
                 "InputFeederSequence.UnloadToCassette",
                 "InputFeederSequence.Exchange",
@@ -1863,6 +1867,10 @@ namespace QMC.CDT320
                     QMC.CDT320.Sequencing.SequenceResumeStore.Clear(
                         "OutputFeederSequence." + kind + "." + side);
                 }
+
+                // 재시작 바코드 복구 전용 키 — 위 stateNames의 인풋 측과 동일 사유.
+                QMC.CDT320.Sequencing.SequenceResumeStore.Clear(
+                    "OutputFeederSequence.LoadToStage." + side + ".BarcodeRecovery");
 
                 foreach (string kind in outputStageKinds)
                 {

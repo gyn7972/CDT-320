@@ -50,8 +50,27 @@ namespace QMC.CDT320.Sequencing
     internal sealed class OutputFeederLoadToStageSequence : OutputFeederSequenceBase<OutputFeederLoadToStageStep>
     {
         public OutputFeederLoadToStageSequence(MachineSequenceContext context)
+            : this(context, false)
+        {
+        }
+
+        // [P2 2026-08-22, 검토수정 2026-08-22 재시작 바코드 게이트] startAtStageBarcodeVerify=true면
+        // Bin이 이미 OutputStage에 있는 재시작 상황용으로, CheckUnit(유닛/피더 이동 준비 검증)을 정상
+        // 통과한 뒤 이적재 전반부를 건너뛰고 VerifyBinTransferredToStage(Ring 재확인) → 바코드 판독 →
+        // Guide/공정 위치 → 데이터 검증 → 카세트 Avoid로 진행한다(UpdateFeederData는 검증+신호뿐이라
+        // 재실행 안전). StartMode=Restart로 호출. InitialStep을 바꾸지 않는 이유와 재개 키 분리는
+        // 인풋(InputFeederLoadToStageSequence) 주석과 동일 — 무검증 모션/재개 오염 방지.
+        internal OutputFeederLoadToStageSequence(MachineSequenceContext context, bool startAtStageBarcodeVerify)
             : base(context, OutputFeederSequenceKind.LoadToStage, "OutputFeederLoadToStageSequence")
         {
+            _startAtStageBarcodeVerify = startAtStageBarcodeVerify;
+        }
+
+        private readonly bool _startAtStageBarcodeVerify;
+
+        protected override string SequenceStateNameSuffix
+        {
+            get { return _startAtStageBarcodeVerify ? ".BarcodeRecovery" : ""; }
         }
 
         protected override OutputFeederLoadToStageStep IdleStep { get { return OutputFeederLoadToStageStep.Idle; } }
@@ -68,7 +87,11 @@ namespace QMC.CDT320.Sequencing
                 {
                     // 유닛 확인
                     case OutputFeederLoadToStageStep.CheckUnit:
-                        return Task.FromResult(CheckUnit(OutputFeederLoadToStageStep.CheckTransferReady));
+                        // [검토수정 2026-08-22] 바코드 복구 진입도 CheckUnit 검증은 그대로 수행하고,
+                        // 다음 스텝만 Ring 전달 재확인으로 건너뛴다(이적재 전반부 생략).
+                        return Task.FromResult(CheckUnit(_startAtStageBarcodeVerify
+                            ? OutputFeederLoadToStageStep.VerifyBinTransferredToStage
+                            : OutputFeederLoadToStageStep.CheckTransferReady));
 
                     // 이송 준비 확인
                     case OutputFeederLoadToStageStep.CheckTransferReady:
@@ -712,6 +735,8 @@ namespace QMC.CDT320.Sequencing
                         return resumeAvoid;
 
                     Options.ExpectedWaferId = wafer.WaferId ?? string.Empty;
+                    // [검토수정 2026-08-22] 생략도 수행으로 확정 — 인풋과 동일 사유(게이트 재발동 방지).
+                    MaterialStateService.MarkWaferBarcodeSequencePerformed(wafer.WaferInstanceId, Name + ":ResumeSkip");
                     WriteLog(Name,
                         "Output Bin barcode already confirmed. scan skipped. side=" + Options.Side +
                         ", waferInstanceId=" + wafer.WaferInstanceId +
@@ -1338,7 +1363,8 @@ namespace QMC.CDT320.Sequencing
             return new string(chars.ToArray());
         }
 
-        private static bool IsUsableBarcode(string value)
+        // [검토수정 2026-08-22] 아웃풋 재시작 게이트(OutputSequence)가 인풋 규칙을 차용하지 않도록 공개.
+        internal static bool IsUsableBarcode(string value)
         {
             string normalized = NormalizeBarcode(value);
             return !string.IsNullOrWhiteSpace(normalized) &&
@@ -1497,6 +1523,15 @@ namespace QMC.CDT320.Sequencing
 
             Context.Bus.Set("OutputFeederEmpty");
             Context.Bus.Set("OutputStageOccupied");
+
+            // [배포 전 최종점검 2026-08-23] 복구 모드도 OutputCassette Avoid 이동을 반드시 수행한다.
+            // 한때 "카세트 무접촉" 원칙으로 생략했다가 인풋 측과 같은 확정 결함으로 되돌렸다:
+            // 복구의 주 시나리오(원 로딩이 바코드 스텝에서 알람)는 리프터가 슬롯 높이에 남은 상태이고,
+            // 픽커 X는 OutputLifterZ가 정지된 Avoid/Home이 아니면 무조건 차단된다
+            // (PickerFront/RearInterlockRules) — 생략하면 Bin 준비 완료 후 픽커가 알람 정지한다.
+            // 동시성 안전은 이 이동 자체의 인터락이 보장한다: 리프터 이동은 양픽커 X Avoid + 피더
+            // 카세트 안전 + Bin 돌출 미감지 선확인(OutputCassetteInterlockRules), 픽커 X는 리프터
+            // IsMoving/비Avoid 시 차단 — 양방향 하드 인터락이라 어느 쪽이 먼저든 fail-closed다.
             CurrentStep = OutputFeederLoadToStageStep.MoveOutputCassetteAvoidPosition;
             return 0;
         }

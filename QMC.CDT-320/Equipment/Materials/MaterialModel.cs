@@ -395,6 +395,28 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        /// <summary>
+        /// [2차 검토수정 2026-08-23] 바코드 판독으로 WaferId가 승격될 때 세션 키를 함께 개명한다.
+        /// 이 세션은 WaferId 문자열로 정렬/매핑 결과의 소유자를 식별하므로, 개명 없이는 재시작 바코드
+        /// 게이트 이후 리뷰 승인(IsStoredInputStageResultModeUsable)이 영구 거부된다.
+        /// </summary>
+        public static void RenameWafer(string previousWaferId, string newWaferId)
+        {
+            string previous = (previousWaferId ?? "").Trim();
+            string next = (newWaferId ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(previous) || string.IsNullOrWhiteSpace(next))
+                return;
+
+            lock (Sync)
+            {
+                if (!string.IsNullOrWhiteSpace(_waferId) &&
+                    string.Equals(_waferId, previous, StringComparison.OrdinalIgnoreCase))
+                {
+                    _waferId = next;
+                }
+            }
+        }
+
         public static bool IsCurrentAlign(string waferId, string alignRunId)
         {
             lock (Sync)
@@ -461,6 +483,23 @@ namespace QMC.CDT320.Materials
         [DataMember] public string BarcodeSource { get; set; } = "";
         [DataMember] public DateTime BarcodeUpdatedAt { get; set; } = DateTime.MinValue;
         [DataMember] public int BarcodeAttemptCount { get; set; }
+        /// <summary>
+        /// [P2 2026-08-22] 바코드 "시퀀스"를 실제로 수행했는지(리더 판독 또는 판독 실패 후 시퀀스 내 수동 입력).
+        /// false면 현재 WaferId는 바코드 미사용 모드의 임의 생성/외부 입력 값이다 — 바코드 모드에서
+        /// 재시작 시 이 플래그가 false이면 바코드 시퀀스부터 다시 수행한다. 출처 구분은 BarcodeSource 참조.
+        /// </summary>
+        [DataMember] public bool BarcodeSequencePerformed { get; set; }
+
+        // [검토수정 2026-08-22] 레거시 역호환 백필: 이 필드 도입 전 상태 파일의 자재는 전부 false로
+        // 역직렬화된다. BarcodeConfirmed는 역사적으로 바코드 시퀀스(TryApplyWaferBarcode)만 세웠으므로
+        // confirmed=true인 자재는 시퀀스를 수행한 것이다 — 백필하지 않으면 배포 첫 가동에서
+        // 재시작 바코드 게이트가 정상 자재에 오발동한다.
+        [OnDeserialized]
+        private void BackfillBarcodeSequencePerformed(StreamingContext ctx)
+        {
+            if (BarcodeConfirmed && !BarcodeSequencePerformed)
+                BarcodeSequencePerformed = true;
+        }
         /// <summary>
         /// 같은 Cassette/Slot 표시 WaferId가 재사용되어도 물리 Wafer 세대를 구분하는 영속 ID.
         /// </summary>
@@ -688,6 +727,10 @@ namespace QMC.CDT320.Materials
         [DataMember] public string SaveReason { get; set; } = "";
         [DataMember] public string RecipeName { get; set; } = "";
         [DataMember] public string LotId { get; set; } = "";
+        /// <summary>[P4 2026-08-22] 픽업 BIN 선택 모드: "All"(기본, 맵의 다이 전부) 또는 "Selected"(지정 bin만).</summary>
+        [DataMember] public string PickupBinMode { get; set; } = "All";
+        /// <summary>[P4 2026-08-22] Selected 모드에서 픽업할 bin 번호 목록. 작업(LOT) 단위 선택 — LOT 완료/레시피 변경 클리어 시 All로 복귀.</summary>
+        [DataMember] public List<int> PickupBinNumbers { get; set; } = new List<int>();
         [DataMember] public List<CassetteMaterial> Cassettes { get; set; } = new List<CassetteMaterial>();
         [DataMember] public List<WaferMaterial> Wafers { get; set; } = new List<WaferMaterial>();
         [DataMember] public List<DieMaterial> Dies { get; set; } = new List<DieMaterial>();

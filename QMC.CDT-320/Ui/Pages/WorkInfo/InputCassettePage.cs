@@ -83,6 +83,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnLoad.Click += async (s, e) => await RunSequenceAction("LIFT WAFER LOADING", LoadAsync);
                 btnUnload.Click += async (s, e) => await RunSequenceAction("LIFT WAFER UNLOADING", UnloadAsync);
                 btnStop.Click += async (s, e) => await StopManualActionAsync();
+                // [P1 2026-08-21] 카세트 교체: 준비(리프터 로딩 위치 이동) -> (작업자 물리 교체)
+                // -> CST CLEAR(데이터 초기화) -> 문 닫고 START 시 매핑부터 재진행(Output 페이지 모델 미러).
+                btnCstExchange.Click += async (s, e) => await RunCstExchangeActionAsync();
+                btnCstClear.Click += (s, e) => CompleteInputCassetteExchange();
 
                 if (cassetteSlotView != null)
                     cassetteSlotView.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Input1, e.SlotIndex);
@@ -316,6 +320,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnMap.Enabled = enabled;
                 btnLoad.Enabled = enabled;
                 btnUnload.Enabled = enabled;
+                if (btnCstExchange != null)
+                    btnCstExchange.Enabled = enabled;
+                if (btnCstClear != null)
+                    btnCstClear.Enabled = enabled;
                 if (btnStop != null)
                     btnStop.Enabled = true;
             }
@@ -523,6 +531,274 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             finally
             {
+            }
+        }
+
+        // [P1 2026-08-21] INPUT CST EXCHANGE 전용 래퍼.
+        // RunSequenceAction을 쓰지 않는 이유: 그 경로는 결과 false에 RaiseWarning(AlarmManager.Raise)을
+        // 걸어 사용자 거부(자동운전 중/자재 있음/취소)까지 알람(전축 정지)으로 승격시킨다.
+        // 교체 준비의 거부는 안내로 끝나야 하므로 알람 없는 전용 흐름으로 감싼다.
+        // 시작 모드도 묻지 않는다 — 교체 준비는 항상 Restart 고정.
+        private async Task RunCstExchangeActionAsync()
+        {
+            const string actionName = "INPUT CST EXCHANGE";
+            IDisposable actionScope = null;
+            string failureMessage = null;
+            string exceptionMessage = null;
+            try
+            {
+                var host = GetHost();
+                if (host == null || host.Controller == null)
+                    return;
+                if (_manualSequenceRunning)
+                    return;
+                if (!CanChangeInputCassetteData(host, actionName))
+                    return;
+                if (!CanPrepareInputCassetteExchange("카세트 교체를 준비할 수 없습니다."))
+                    return;
+                if (QMC.Common.MessageDialog.Show(this,
+                    "INPUT 리프터를 카세트 교체(로딩) 위치로 이동합니다.\r\n" +
+                    "① 리프터가 로딩 위치로 이동\r\n" +
+                    "② 카세트 교체\r\n" +
+                    "③ [CST CLEAR]로 데이터 초기화\r\n\r\n진행할까요?",
+                    "Cassette Exchange", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    return;
+
+                _manualSequenceRunning = true;
+                SetActionButtonsEnabled(false);
+                actionScope = host.Controller.BeginManualActionScope(ManualMotionScopeKind.ProcessSequence, "InputCassettePage:" + actionName);
+                SequenceFailureStore.Clear();
+                WriteEvent("INPUT-CST-EXCHANGE", actionName + " start");
+                bool ok = await PrepareInputCassetteExchangeCoreAsync(host);
+                WriteEvent("INPUT-CST-EXCHANGE", actionName + " result=" + ok);
+                if (!ok)
+                {
+                    failureMessage = SequenceFailureStore.BuildManualFailureMessage(
+                        actionName,
+                        actionName + " failed.\r\nAlarm/Event Log를 확인하세요.");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                WriteEvent("INPUT-CST-EXCHANGE", actionName + " canceled.");
+            }
+            catch (QMC.CDT320.ManualActionBlockedException ex)
+            {
+                // 수동 시작 거부는 장비 이상이 아니므로 알람을 올리지 않는다(알람은 전체 축 EStop 유발).
+                EventLogger.Write(EventKind.Warning, "UI", "INPUT-CST-EXCHANGE-BLOCKED", actionName + " blocked: " + ex.Message);
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    "지금은 수동 동작을 시작할 수 없습니다.\r\n\r\n" + ex.Message,
+                    "Cassette Exchange",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-EXCHANGE-EX", actionName + " failed: " + ex.Message);
+                exceptionMessage = ex.Message;
+            }
+            finally
+            {
+                try
+                {
+                    if (actionScope != null)
+                        actionScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    WriteAlarm("INPUT-CST-EXCHANGE-CLEANUP", "Input Cassette 교체 준비 정리 중 오류: " + ex.Message);
+                }
+                finally
+                {
+                    _manualSequenceRunning = false;
+                    try { SetActionButtonsEnabled(true); } catch (Exception ex) { WriteAlarm("INPUT-CST-BUTTON-RESTORE", "Input Cassette 버튼 복구 실패: " + ex.Message); }
+                    try { RefreshFromMachine(); } catch (Exception ex) { WriteAlarm("INPUT-CST-REFRESH", "Input Cassette 화면 갱신 실패: " + ex.Message); }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(failureMessage))
+                QMC.Common.MessageDialog.Show(this, failureMessage, "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+            if (!string.IsNullOrWhiteSpace(exceptionMessage))
+                QMC.Common.MessageDialog.Show(this, exceptionMessage, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+
+        // 카세트 교체 준비 본체: 서보 ON 보장(LIFTER READY 패턴) -> 수동 조건 확인(기존 LOADING과 동일)
+        // -> 로딩 시퀀스(피더 위치 확인 -> 리프터 로딩 위치 이동, 교체 높이는 별도 티칭 없이
+        // 레시피 로딩 포지션 재사용 — Output 2026-07-26 확정과 동일 정책).
+        private async Task<bool> PrepareInputCassetteExchangeCoreAsync(Form1 host)
+        {
+            var cassette = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
+            var feeder = host != null && host.Machine != null ? host.Machine.InputFeederUnit : null;
+            if (cassette == null || feeder == null)
+            {
+                SequenceFailureStore.Record(
+                    "InputCassettePage.Manual",
+                    "CstExchange",
+                    "PrepareInputCassetteExchangeCoreAsync",
+                    "INPUT-CST-EXCHANGE-UNIT",
+                    LogSource,
+                    "InputCassette/InputFeeder 유닛을 찾을 수 없습니다.");
+                return false;
+            }
+
+            QMC.Common.Log.Write("Main", "SYSTEM", "InputCassetteExchange",
+                "INPUT 카세트 교체 준비를 시작합니다. - Start");
+
+            cassette.InputLifterZ.ServoOn();
+            feeder.FeederY.ServoOn();
+            if (!await WaitAxisServoOnAsync(cassette.InputLifterZ, 2000))
+            {
+                RecordLifterReadyFailure(cassette.InputLifterZ, "InputLifterZ 서보 ON이 확인되지 않았습니다.");
+                return false;
+            }
+
+            if (!ValidateInputCassetteManualCondition(host, false))
+                return false;
+
+            var sequence = CreateInputCassetteSequence(host);
+            int result = await sequence.RunLoadingAsync(
+                host.Controller.ManualOperationToken,
+                BuildCassetteOptions(host, SequenceStartMode.Restart));
+            if (result != 0)
+                return false;
+
+            QMC.Common.Log.Write("Main", "SYSTEM", "InputCassetteExchange",
+                "INPUT 카세트 교체 준비를 완료했습니다. - Ok");
+
+            QMC.Common.MessageDialog.Show(this,
+                "INPUT 카세트가 교체 위치(로딩 포지션)로 이동했습니다.\r\n\r\n" +
+                "① 카세트를 교체하세요.\r\n" +
+                "② 교체 후 [CST CLEAR]로 데이터를 초기화하세요.\r\n" +
+                "③ 문을 닫고 START를 누르면 매핑부터 다시 진행됩니다.",
+                "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return true;
+        }
+
+        // 컨트롤러 상태 가드 — Output CanChangeOutputCassetteData 미러(2026-08-18 지시서 §2-2).
+        private bool CanChangeInputCassetteData(Form1 host, string actionName)
+        {
+            if (host == null || host.Controller == null)
+            {
+                QMC.Common.MessageDialog.Show(this,
+                    "장비 제어기를 확인할 수 없어 Input Cassette 데이터를 변경할 수 없습니다.",
+                    "Cassette Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            MachineController controller = host.Controller;
+            EquipmentStatus status = controller.Status;
+            bool blocked = _manualSequenceRunning ||
+                           controller.IsManualBusy ||
+                           controller.IsSequenceRunning ||
+                           controller.IsReadySequenceRunning ||
+                           status == EquipmentStatus.AutoRunning ||
+                           status == EquipmentStatus.ManualRunning ||
+                           status == EquipmentStatus.Initializing;
+            if (!blocked)
+                return true;
+
+            QMC.Common.MessageDialog.Show(this,
+                actionName + " 작업을 수행할 수 없습니다.\r\n" +
+                "Auto/Manual/초기화/Ready 시퀀스가 완전히 정지된 뒤 다시 시도하세요.\r\n" +
+                "status=" + status +
+                ", sequenceRunning=" + controller.IsSequenceRunning +
+                ", manualBusy=" + controller.IsManualBusy +
+                ", readyRunning=" + controller.IsReadySequenceRunning,
+                "Cassette Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+
+        // 진행 중 자재 가드 — InputFeeder/InputStage에 웨이퍼가 있으면 교체/초기화를 차단한다
+        // (자동 반납은 이번 버튼의 범위 밖 — 반납/제거 후 재시도 안내).
+        private bool CanPrepareInputCassetteExchange(string blockedTitleMessage)
+        {
+            WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder);
+            if (feederWafer != null)
+            {
+                QMC.Common.MessageDialog.Show(this,
+                    "InputFeeder에 진행 중인 Wafer가 있어 " + blockedTitleMessage + "\r\n" +
+                    "Wafer를 원래 카세트로 반납(LIFT WAFER UNLOADING)하거나 제거한 뒤 다시 시도하세요.\r\n" +
+                    "wafer=" + feederWafer.WaferId,
+                    "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+            if (stageWafer != null)
+            {
+                QMC.Common.MessageDialog.Show(this,
+                    "InputStage에 진행 중인 Wafer가 있어 " + blockedTitleMessage + "\r\n" +
+                    "Wafer를 원래 카세트로 반납하거나 제거한 뒤 다시 시도하세요.\r\n" +
+                    "wafer=" + stageWafer.WaferId,
+                    "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            return true;
+        }
+
+        // [P1 2026-08-21] 카세트 교체 완료: INPUT(1단/2단 전체) Material Data만 초기화한다.
+        // 2026-08-18 지시서 확정 스펙 — 기존 공개 API 재사용, 매핑은 여기서 하지 않는다
+        // (초기화가 IsMapped/IsPresent를 내리므로 다음 Auto START에서 매핑이 자동 재수행된다).
+        private void CompleteInputCassetteExchange()
+        {
+            const string actionName = "INPUT CST CLEAR";
+            try
+            {
+                Form1 host = GetHost();
+                if (!CanChangeInputCassetteData(host, actionName))
+                    return;
+                if (!CanPrepareInputCassetteExchange("카세트 데이터를 초기화할 수 없습니다."))
+                    return;
+
+                if (QMC.Common.MessageDialog.Show(this,
+                    "INPUT 카세트(1단/2단 전체)의 Material Data만 초기화합니다.\r\n" +
+                    "(OUTPUT 카세트 데이터는 유지됩니다)\r\n\r\n진행할까요?",
+                    "Cassette Exchange", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    return;
+
+                // 확인창이 떠 있는 동안 상태가 변할 수 있어 가드를 재확인한다(Output 미러).
+                if (!CanChangeInputCassetteData(host, actionName))
+                    return;
+                if (!CanPrepareInputCassetteExchange("카세트 데이터를 초기화할 수 없습니다."))
+                    return;
+
+                string clearReason;
+                if (!MaterialStateService.ClearInputCassetteAllSlotData(out clearReason))
+                {
+                    WriteEvent("INPUT-CST-CST-CLEAR", "blocked. reason=" + clearReason);
+                    QMC.Common.MessageDialog.Show(this,
+                        "INPUT 카세트 Material Data 초기화가 차단되었습니다.\r\n" +
+                        "(저장 파일은 변경되지 않았습니다)\r\n\r\n" + clearReason,
+                        "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!MaterialStateService.TryFlushPendingSave("InputCassetteCstClear"))
+                {
+                    WriteEvent("INPUT-CST-CST-CLEAR", "cleared but save flush failed.");
+                    QMC.Common.MessageDialog.Show(this,
+                        "INPUT 카세트 Material Data는 메모리에서 초기화했지만 저장 파일 갱신에 실패했습니다.\r\n" +
+                        "프로그램을 재시작하지 말고 로그를 확인하십시오.",
+                        "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                WriteEvent("INPUT-CST-CST-CLEAR", "cleared and saved.");
+                RefreshSelectedMaterialDetail();
+                RefreshFromMachine();
+                QMC.Common.MessageDialog.Show(this,
+                    "INPUT 카세트 Material Data를 초기화했습니다.\r\n\r\n" +
+                    "문을 닫고 START를 누르면 매핑부터 다시 진행됩니다.",
+                    "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this,
+                    "카세트 교체 완료 처리 실패:\r\n" + ex.Message,
+                    "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -2410,6 +2686,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (cassette == null || !cassette.IsMapped)
                 return items;
 
+            // [P5 2026-08-24] LOT맵 캐시/BIN 합계 기반 슬롯 다이 수 표시는 삭제 — 맵 파일명=바코드(1:1)라
+            // 바코드를 읽기 전에는 어느 슬롯이 어느 맵인지 알 수 없다. 실측 DieIds 수(맵 적용 후)만 표시한다.
             int count = Math.Min(slotCount, cassette.Slots != null ? cassette.Slots.Count : 0);
             for (int i = 0; i < count; i++)
             {
@@ -2421,10 +2699,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 items[i].HasWafer = hasWafer;
                 items[i].WaferId = hasWafer && wafer != null ? wafer.WaferId : (hasWafer && slot != null ? slot.WaferId : "");
                 items[i].State = hasWafer ? state : WaferMaterialState.Empty;
+                items[i].DieCount = hasWafer && wafer != null && wafer.DieIds != null && wafer.DieIds.Count > 0
+                    ? (int?)wafer.DieIds.Count
+                    : null;
             }
 
             return items;
         }
+
+        // [P5 2026-08-24] ResolveSlotDieCount/LogSlotDieCountFailureOnce 삭제 — LOT맵 캐시 기반
+        // 슬롯 다이 수 표시가 "바코드=파일명" 전환으로 근거를 잃어 실측 DieIds 표시(인라인)로 대체됐다.
 
         private static WaferMaterial ResolveCassetteSlotWafer(MaterialSnapshot snapshot, CassetteMaterialRole role, int slotIndex, CassetteSlotMaterial slot)
         {

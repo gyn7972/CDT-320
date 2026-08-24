@@ -290,6 +290,12 @@ namespace QMC.CDT320.Materials
                 wafer.BarcodeSource = string.IsNullOrWhiteSpace(source) ? "BARCODE" : source.Trim();
                 wafer.BarcodeUpdatedAt = updatedAt;
                 wafer.BarcodeAttemptCount = Math.Max(1, attempts);
+                // [P2 2026-08-22] 이 API의 호출자는 인풋/아웃풋 바코드 시퀀스 2곳뿐이다(Reader/Manual 모두
+                // 시퀀스 내부 경로). 따라서 여기서 "바코드 시퀀스 수행됨"을 원자적으로 함께 기록한다.
+                wafer.BarcodeSequencePerformed = true;
+                // [2차 검토수정 2026-08-23] Hybrid 정렬/매핑 세션은 WaferId 문자열로 키잉된다 — 승격과
+                // 함께 개명하지 않으면 게이트 이후 리뷰 승인이 세션 불일치로 영구 거부된다.
+                InputStageHybridResultSession.RenameWafer(previousWaferId, normalizedBarcode);
                 wafer.UpdatedAt = updatedAt;
                 locationText = location.ToString();
 
@@ -377,6 +383,41 @@ namespace QMC.CDT320.Materials
                 ", location=" + locationText +
                 ", attempts=" + Math.Max(1, attempts) + " - Ok");
             return true;
+        }
+
+        /// <summary>
+        /// [검토수정 2026-08-22] 재개 시 "이미 확인된 바코드 → 스캔 생략" 경로에서 수행 플래그를 확정한다.
+        /// 생략도 시퀀스가 유효 판독값을 재확인하고 통과한 것이므로 수행으로 기록한다 —
+        /// 이걸 세우지 않으면 재시작 바코드 게이트가 같은 자재에 계속 재발동한다(아웃풋은 무한 루프).
+        /// </summary>
+        public static void MarkWaferBarcodeSequencePerformed(string waferInstanceId, string source)
+        {
+            if (string.IsNullOrWhiteSpace(waferInstanceId))
+                return;
+
+            bool changed = false;
+            lock (_stateSync)
+            {
+                WaferMaterial wafer = State != null && State.Wafers != null
+                    ? State.Wafers.FirstOrDefault(w =>
+                        w != null &&
+                        string.Equals(w.WaferInstanceId ?? "", waferInstanceId, StringComparison.OrdinalIgnoreCase))
+                    : null;
+                if (wafer != null && !wafer.BarcodeSequencePerformed)
+                {
+                    wafer.BarcodeSequencePerformed = true;
+                    wafer.UpdatedAt = DateTime.Now;
+                    changed = true;
+                    NotifyAndSave("MarkBarcodeSequencePerformed:" + (string.IsNullOrWhiteSpace(source) ? "-" : source));
+                }
+            }
+
+            if (changed)
+            {
+                QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "MaterialStateService",
+                    "바코드 시퀀스 수행 플래그를 확정했습니다(재개 스캔 생략 경로). instance=" + waferInstanceId +
+                    ", source=" + (source ?? "-") + " - Ok");
+            }
         }
 
         private static string NormalizeBarcodeValue(string value)

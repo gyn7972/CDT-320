@@ -551,6 +551,10 @@ namespace QMC.CDT320.Materials
                     if (state.Dies != null)
                         state.Dies.Clear();
 
+                    // [P4 2026-08-22] BIN 선택은 작업 단위 — 레시피 변경 전체 클리어 시 기본(All)로 복귀.
+                    state.PickupBinMode = PickupBinModeAll;
+                    state.PickupBinNumbers = new List<int>();
+
                     if (state.Cassettes != null)
                     {
                         foreach (CassetteMaterial cassette in state.Cassettes)

@@ -1445,6 +1445,18 @@ namespace QMC.CDT320.Sequencing
                         wafer,
                         out approvalReason))
                     {
+                        // [2차 검토수정 2026-08-23] 승인 완료 재개는 로더 스텝을 통째로 건너뛰어 재시작
+                        // 바코드 게이트 3지점(Align/DieMapping/Review)이 전부 우회된다 — 바코드 사용 모드에서
+                        // 유효 바코드가 없으면 ReviewStage로 강등해 게이트(Review 진입부)가 판독을 보강하게
+                        // 한다. 게이트 조건과 동일 판정(usable)이라 정상 자재는 영향 없다.
+                        if (IsStageBarcodeRecoveryRequired(out _, out string barcodeGateDetail))
+                        {
+                            WriteLog("ResolveStageWaferResumeStep",
+                                "승인 완료 재개지만 유효 바코드가 없어 ReviewStage로 강등합니다(재시작 바코드 게이트). " +
+                                barcodeGateDetail + " - Check");
+                            return InputSequenceAutoStep.ReviewStage;
+                        }
+
                         return InputSequenceAutoStep.Complete;
                     }
 
@@ -3518,7 +3530,7 @@ namespace QMC.CDT320.Sequencing
                 if (!use)
                     NotifyBarcodeDisabledInAuto();
                 else
-                    BarcodeDisabledNoticeService.Close();
+                    BarcodeDisabledNoticeService.Close(BarcodeDisabledNoticeService.InputChannel);
             }
 
             return use;
@@ -3529,6 +3541,7 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 BarcodeDisabledNoticeService.Show(
+                    BarcodeDisabledNoticeService.InputChannel,
                     "INPUT WAFER 바코드 판독이 꺼져 있어 Auto 진행 중 웨이퍼 ID가 바코드로 갱신되지 않습니다.\r\n" +
                     "필요하면 설정 → BARCODE 화면의 'USE BARCODE'를 켜십시오.\r\n" +
                     "테스트 목적이면 이 창을 최소화한 상태로 계속 진행할 수 있습니다.");

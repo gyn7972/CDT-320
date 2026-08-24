@@ -51,6 +51,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 WireRuntimeEvents();
                 InitializeWorkTimeToolTips();
                 HookStateEvents();
+                WireLotIdScannerInput();
                 RefreshLotUi();
                 EnsureRefreshTimer();
             }
@@ -467,6 +468,41 @@ namespace QMC.CDT_320.Ui.Pages.Work
         // ── LOT 관리 (2026-07-27 신규) ─────────────────────────────────────────────
         // LOT 시작/완료는 LotSessionService 하나만 호출한다. 화면은 결과 표시와 버튼 상태만 담당한다.
 
+        // [P1 2026-08-21] 핸드 바코드 스캐너(키보드 웨지)가 LOT ID 끝에 쏘는 Enter 처리.
+        // 경고음 없이 입력을 정규화(고정형 리더와 동일한 STX/ETX/공백 제거)하고
+        // [LOT 시작] 버튼으로 포커스만 옮긴다 — 오스캔 방지를 위해 자동 시작은 하지 않는다.
+        private void WireLotIdScannerInput()
+        {
+            if (txtLotId == null)
+                return;
+
+            txtLotId.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode != Keys.Enter)
+                    return;
+
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+
+                try
+                {
+                    string normalized = QMC.CDT320.VisionComm.BarcodeSerialAdapter.NormalizePayload(txtLotId.Text);
+                    if (!string.Equals(txtLotId.Text, normalized, StringComparison.Ordinal))
+                        txtLotId.Text = normalized;
+                    txtLotId.SelectionStart = txtLotId.TextLength;
+
+                    if (btnLotStart != null && btnLotStart.Enabled)
+                        btnLotStart.Focus();
+                }
+                catch (Exception ex)
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Warning, "UI", "LOT-SCAN-INPUT",
+                        "LOT ID 스캔 입력 처리 실패: " + ex.Message);
+                }
+            };
+        }
+
         private void btnLotStart_Click(object sender, EventArgs e)
         {
             try
@@ -489,6 +525,32 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
 
                 RefreshLotUi();
+
+                // [P5 2026-08-24] 맵 파일명=바코드(1:1)라 LOT 단위 프리페치는 불가 — LOT 시작 시점에는
+                // 폴더 접근만 비차단으로 확인하고, 파일 확보는 웨이퍼 바코드 판독 후 웨이퍼별로 수행한다.
+                QMC.CDT320.Lots.LotWaferMapFetchService.BeginLotStartFolderCheck(
+                    LotSessionService.ActiveLotId,
+                    warning =>
+                    {
+                        try
+                        {
+                            if (IsHandleCreated && !IsDisposed)
+                            {
+                                BeginInvoke((Action)(() =>
+                                    QMC.Common.MessageDialog.Show(this, warning, "LOT 웨이퍼맵",
+                                        MessageBoxButtons.OK, MessageBoxIcon.Warning)));
+                            }
+                        }
+                        catch (Exception marshalEx)
+                        {
+                            // [검토수정 2026-08-22] 이 콜백은 프리페치 실패를 작업자에게 알리는 마지막
+                            // 통로다 — 마샬링 실패까지 삼키면 경고가 소실되므로 로그로 남긴다(AGENTS.md §7).
+                            QMC.Common.Logging.EventLogger.Write(
+                                QMC.Common.Logging.EventKind.Warning, "UI", "LOT-MAP-FETCH",
+                                "프리페치 경고 표시 실패(경고 내용은 LOT-MAP-FETCH 로그 참조): " + marshalEx.Message);
+                        }
+                    });
+
                 QMC.Common.MessageDialog.Show(this,
                     "LOT을 시작했습니다.\r\nLOT ID: " + LotSessionService.ActiveLotId +
                     "\r\n\r\n레시피에도 LOT ID를 기록했습니다.",
@@ -501,6 +563,62 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             finally
             {
+            }
+        }
+
+        // [P4 2026-08-22] 픽업 BIN 선택 — 작업(LOT) 단위. 저장은 MaterialStateService(상태 파일, 재기동 유지),
+        // 적용은 다음 웨이퍼의 맵 적용 시점부터. LOT 완료/레시피 변경 시 자동 ALL 복귀.
+        private void btnBinSelect_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // [검토수정 2026-08-22] BIN 필터는 LOT 네트워크 맵 모드에서만 실제로 적용된다(레시피 맵
+                // 경로에는 필터가 없음). 모드가 꺼진 상태에서 저장을 허용하면 "저장했습니다" 안내와 실제
+                // 동작(전 BIN 픽업)이 어긋나 혼입 사고로 이어진다 — fail-closed로 차단하고 안내한다.
+                if (!QMC.CDT320.Sequencing.InputStageDieMappingSequence.IsLotNetworkWaferMapModeActive())
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "BIN 선택은 LOT 네트워크 웨이퍼맵 모드에서만 적용됩니다.\r\n" +
+                        "설정 → 일반에서 NETWORK WAFER MAP FOLDER 경로와 USE를 켠 뒤 사용하세요.",
+                        "픽업 BIN 선택", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string lotId = MaterialStateService.GetProductionLotId();
+
+                // [P5 2026-08-24] 기준 맵 = 가장 최근 수신한 웨이퍼 맵(바코드=파일명이라 사전 조회 불가).
+                // 첫 웨이퍼 수신 전에는 참조가 없어 목록이 비고, 기본(All)은 그대로 사용 가능하다.
+                QMC.CDT320.Lots.LotWaferMapSlotInfo reference;
+                QMC.CDT320.Lots.LotWaferMapFetchService.TryGetLatestFetchedInfo(out reference);
+
+                string mode;
+                System.Collections.Generic.List<int> bins;
+                MaterialStateService.GetPickupBinSelection(out mode, out bins);
+
+                using (var dialog = new QMC.CDT_320.Ui.Dialogs.BinSelectDialog(lotId, reference, mode, bins))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    string failReason;
+                    if (!MaterialStateService.TrySetPickupBinSelection(
+                        dialog.SelectedMode, dialog.SelectedBins, "BinSelectDialog", out failReason))
+                    {
+                        QMC.Common.MessageDialog.Show(this, "BIN 선택 저장 실패:\r\n" + failReason,
+                            "픽업 BIN 선택", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    QMC.Common.MessageDialog.Show(this,
+                        "픽업 BIN 선택을 저장했습니다: " + MaterialStateService.DescribePickupBinSelection() +
+                        "\r\n\r\n다음 웨이퍼(맵 적용 시점)부터 반영됩니다.",
+                        "픽업 BIN 선택", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, "BIN 선택 실패: " + ex.Message, "픽업 BIN 선택",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 

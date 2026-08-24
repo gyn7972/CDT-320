@@ -225,7 +225,7 @@ namespace QMC.CDT_320.Ui.Controls
 
                 Color backColor = known ? ResolveStateColor(state) : Color.White;
                 Color foreColor = ResolveStateForeColor(state);
-                string text = known ? BuildSlotText(state, item.WaferId) : "-";
+                string text = known ? BuildSlotText(state, item.WaferId, item.DieCount) : "-";
 
                 var label = _slotStateLabels[i];
                 if (label.BackColor != backColor)
@@ -324,12 +324,18 @@ namespace QMC.CDT_320.Ui.Controls
                 : Color.Black;
         }
 
-        private static string BuildSlotText(WaferMaterialState state, string waferId)
+        private static string BuildSlotText(WaferMaterialState state, string waferId, int? dieCount)
         {
             var normalized = WaferMaterialStateText.Normalize(state);
             string stateText = WaferMaterialStateText.ToDisplayName(normalized);
-            return normalized == WaferMaterialState.Empty || string.IsNullOrWhiteSpace(waferId)
-                ? stateText
+            if (normalized == WaferMaterialState.Empty || string.IsNullOrWhiteSpace(waferId))
+                return stateText;
+
+            // [P3 2026-08-22] 다이 수는 값이 있을 때만 꼬리에 붙인다(예: "READY / YZ8WW.02 / 696D").
+            // [2차 검토수정 2026-08-23] 0도 표시한다("0D") — 지정 BIN 모드에서 선택 bin이
+            // 이 웨이퍼에 하나도 없으면 합계가 0인데, 숨기면 "아직 안 읽힘"과 구분되지 않는다.
+            return dieCount.HasValue && dieCount.Value >= 0
+                ? stateText + " / " + waferId + " / " + dieCount.Value + "D"
                 : stateText + " / " + waferId;
         }
     }
@@ -340,6 +346,8 @@ namespace QMC.CDT_320.Ui.Controls
         public bool HasWafer { get; set; }
         public string WaferId { get; set; } = "";
         public WaferMaterialState State { get; set; } = WaferMaterialState.Empty;
+        /// <summary>[P3 2026-08-22] 웨이퍼 다이 수(로딩 전=네트워크 맵, 로딩 후=실제 DieIds). null이면 미표시.</summary>
+        public int? DieCount { get; set; }
     }
 
     public sealed class CassetteSlotSelectedEventArgs : EventArgs

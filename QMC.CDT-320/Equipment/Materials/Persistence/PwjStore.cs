@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -155,6 +155,10 @@ namespace QMC.CDT320.Materials.Persistence
             manifest.SaveReason = snapshot.SaveReason ?? "";
             manifest.RecipeName = snapshot.RecipeName ?? "";
             manifest.LotId = snapshot.LotId ?? "";
+            manifest.PickupBinMode = snapshot.PickupBinMode ?? "All";
+            manifest.PickupBinNumbers = snapshot.PickupBinNumbers != null
+                ? new List<int>(snapshot.PickupBinNumbers)
+                : new List<int>();
             manifest.CassettesPayloadBase64 = Convert.ToBase64String(
                 PwjCanonical.Serialize(snapshot.Cassettes ?? new List<CassetteMaterial>()));
             manifest.TotalWaferCount = snapshot.Wafers != null ? snapshot.Wafers.Count(w => w != null) : 0;
@@ -329,6 +333,13 @@ namespace QMC.CDT320.Materials.Persistence
             builder.Append(manifest.SaveReason).Append('\n');
             builder.Append(manifest.RecipeName).Append('\n');
             builder.Append(manifest.LotId).Append('\n');
+            // [2차 검토수정 2026-08-23] 픽업 BIN 선택도 "무엇을 집을지"를 결정하는 논리 상태다 —
+            // digest에서 빠지면 이 필드만 손상돼도 검증을 통과해 잘못된 bin 선택으로 가동된다.
+            // (dormant 계층이라 기존 파일과의 digest 호환 부담 없음.)
+            builder.Append(manifest.PickupBinMode ?? "All").Append('\n');
+            builder.Append(manifest.PickupBinNumbers != null
+                ? string.Join(",", manifest.PickupBinNumbers)
+                : "").Append('\n');
             builder.Append(manifest.CassettesPayloadBase64).Append('\n');
             foreach (string id in manifest.OrderedWaferInstanceIds)
                 builder.Append(id).Append('\n');
@@ -415,6 +426,10 @@ namespace QMC.CDT320.Materials.Persistence
             snapshot.SaveReason = manifest.SaveReason ?? "";
             snapshot.RecipeName = manifest.RecipeName ?? "";
             snapshot.LotId = manifest.LotId ?? "";
+            snapshot.PickupBinMode = string.IsNullOrWhiteSpace(manifest.PickupBinMode) ? "All" : manifest.PickupBinMode;
+            snapshot.PickupBinNumbers = manifest.PickupBinNumbers != null
+                ? new List<int>(manifest.PickupBinNumbers)
+                : new List<int>();
             snapshot.Cassettes = PwjCanonical.Deserialize<List<CassetteMaterial>>(
                 Convert.FromBase64String(manifest.CassettesPayloadBase64 ?? "")) ?? new List<CassetteMaterial>();
 

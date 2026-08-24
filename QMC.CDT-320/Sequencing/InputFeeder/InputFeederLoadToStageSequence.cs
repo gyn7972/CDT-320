@@ -38,8 +38,28 @@ namespace QMC.CDT320.Sequencing
     internal sealed class InputFeederLoadToStageSequence : InputFeederSequenceBase<InputFeederLoadToStageStep>
     {
         public InputFeederLoadToStageSequence(MachineSequenceContext context)
+            : this(context, false)
+        {
+        }
+
+        // [P2 2026-08-22, 검토수정 2026-08-22 재시작 바코드 게이트] startAtStageBarcodeVerify=true면
+        // 자재가 이미 InputStage에 있는 재시작 상황용으로, CheckUnit(유닛/피더 이동 준비 검증)을 정상
+        // 통과한 뒤 이적재 전반부(피더 이송)를 건너뛰고 VerifyInputStageData → 바코드 판독 → 공정 위치
+        // → 카세트 Avoid → 완료로 진행한다. StartMode=Restart로 호출해야 한다.
+        // 주의: InitialStep은 바꾸지 않는다 — InitialStep을 바꾸면 베이스의 재개 안전검사
+        // (IsStep(CurrentStep, InitialStep) 분기)와 CheckUnit 검증이 동시에 우회되는 무검증 모션 경로가 된다.
+        // 재개 상태 키도 전용 접미사로 분리한다(정상 이적재의 ResumeStep 오염/삭제 방지).
+        internal InputFeederLoadToStageSequence(MachineSequenceContext context, bool startAtStageBarcodeVerify)
             : base(context, InputFeederSequenceKind.LoadToStage, "InputFeederLoadToStageSequence")
         {
+            _startAtStageBarcodeVerify = startAtStageBarcodeVerify;
+        }
+
+        private readonly bool _startAtStageBarcodeVerify;
+
+        protected override string SequenceStateNameSuffix
+        {
+            get { return _startAtStageBarcodeVerify ? ".BarcodeRecovery" : ""; }
         }
 
         protected override InputFeederLoadToStageStep IdleStep { get { return InputFeederLoadToStageStep.Idle; } }
@@ -56,7 +76,11 @@ namespace QMC.CDT320.Sequencing
                 {
                     // 유닛 확인
                     case InputFeederLoadToStageStep.CheckUnit:
-                        return Task.FromResult(CheckUnit(InputFeederLoadToStageStep.CheckTransferReady));
+                        // [검토수정 2026-08-22] 바코드 복구 진입도 CheckUnit 검증은 그대로 수행하고,
+                        // 다음 스텝만 스테이지 데이터 검증으로 건너뛴다(이적재 전반부 생략).
+                        return Task.FromResult(CheckUnit(_startAtStageBarcodeVerify
+                            ? InputFeederLoadToStageStep.VerifyInputStageData
+                            : InputFeederLoadToStageStep.CheckTransferReady));
                     // 이송 준비 확인
                     case InputFeederLoadToStageStep.CheckTransferReady:
                         return Task.FromResult(CheckTransferReady());
@@ -453,7 +477,8 @@ namespace QMC.CDT320.Sequencing
             if (stageWafer == null || stage == null || stage.CurrentWaferMaterial == null)
                 return Fail("IN-FEEDER-STAGE-DATA", "Material", "InputStage wafer data was not found after feeder to stage transfer.");
 
-            if (Feeder.CurrentWaferMaterial != null || MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder) != null)
+            // [P2 2026-08-22] 재시작 바코드 게이트가 이 스텝으로 직접 진입할 수 있어 Feeder null을 방어한다(동작 동일).
+            if ((Feeder != null && Feeder.CurrentWaferMaterial != null) || MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder) != null)
                 return Fail("IN-FEEDER-DATA-CLEAR", "Material", "InputFeeder wafer data remained after feeder to stage transfer.");
 
             CurrentStep = InputFeederLoadToStageStep.RunBarcodeSequence;
@@ -500,6 +525,9 @@ namespace QMC.CDT320.Sequencing
                         return resumeAvoid;
 
                     Options.ExpectedWaferId = wafer.WaferId ?? string.Empty;
+                    // [검토수정 2026-08-22] 생략도 "시퀀스가 유효 판독값을 재확인하고 통과"한 것이므로
+                    // 수행 플래그를 확정한다 — 미확정 시 재시작 바코드 게이트가 이 자재에 계속 재발동한다.
+                    MaterialStateService.MarkWaferBarcodeSequencePerformed(wafer.WaferInstanceId, Name + ":ResumeSkip");
                     WriteLog(Name,
                         "Input Wafer barcode already confirmed. scan skipped. waferInstanceId=" +
                         wafer.WaferInstanceId + ", barcode=" + wafer.BarcodeId + " - Ok");
@@ -1059,7 +1087,8 @@ namespace QMC.CDT320.Sequencing
             return new string(chars.ToArray());
         }
 
-        private static bool IsUsableBarcode(string value)
+        // [P2 2026-08-22] 재시작 바코드 게이트(InputSequence)의 판정에 재사용하도록 internal로 공개.
+        internal static bool IsUsableBarcode(string value)
         {
             string normalized = NormalizeBarcode(value);
             return !string.IsNullOrWhiteSpace(normalized) &&
@@ -1211,6 +1240,15 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
+                // [배포 전 최종점검 2026-08-23] 복구 모드도 InputCassette Avoid 이동을 반드시 수행한다.
+                // 한때 "카세트 무접촉" 원칙으로 생략했다가 반박 검토에서 확정 결함으로 되돌렸다:
+                // 복구의 주 시나리오(원 로딩이 바코드 스텝에서 알람)는 리프터가 슬롯 높이에 남은 상태이고,
+                // 이 스텝이 리프터를 Avoid로 되돌리는 유일한 경로다(READY의 Avoid 스텝은 비활성,
+                // MachineReadySequence.cs:102). 생략하면 승인 재작업까지 끝낸 뒤 픽커 X 무조건 인터락
+                // (PickerFrontInterlockRules: Avoid/Home 아니면 차단)에 걸려 사이클이 정지한다.
+                // 동시성 안전은 이 이동 자체의 인터락이 보장한다: 리프터 이동은 피더 Avoid 정지
+                // 선확인(아래 MoveInputCassetteAvoidPositionAsync), 픽커 X는 리프터 IsMoving/비Avoid 시
+                // 차단(PickerFront/RearInterlockRules) — 양방향 하드 인터락이라 fail-closed다.
                 CurrentStep = InputFeederLoadToStageStep.MoveInputCassetteAvoidPosition;
                 return 0;
             }

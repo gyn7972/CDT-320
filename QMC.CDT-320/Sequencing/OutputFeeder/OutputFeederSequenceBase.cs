@@ -837,10 +837,16 @@ namespace QMC.CDT320.Sequencing
             _resumeStateCompletedAtLogicalCutover = true;
         }
 
+        // [검토수정 2026-08-22] 특수 진입(재시작 바코드 복구 등) 전용 키 접미사 — 인풋 베이스와 동일 사유.
+        protected virtual string SequenceStateNameSuffix
+        {
+            get { return ""; }
+        }
+
         private string SequenceStateName
         {
             // Good/NG가 동일 피더/Kind를 공유하므로 Side를 키에 포함해야 재개 스텝이 반대 side로 섞이지 않는다.
-            get { return SequenceNamePrefix + "." + Kind + "." + (Options != null ? Options.Side.ToString() : "-"); }
+            get { return SequenceNamePrefix + "." + Kind + "." + (Options != null ? Options.Side.ToString() : "-") + SequenceStateNameSuffix; }
         }
 
         protected static async Task<int> AwaitStepWithCancellationAsync(Task<int> stepTask, CancellationToken ct)

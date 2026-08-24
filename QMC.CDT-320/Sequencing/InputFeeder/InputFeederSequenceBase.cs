@@ -406,9 +406,17 @@ namespace QMC.CDT320.Sequencing
             return Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 10000;
         }
 
+        // [검토수정 2026-08-22] 특수 진입(재시작 바코드 복구 등)이 정상 실행과 재개 상태를 공유하면
+        // 서로의 ResumeStep을 오염/삭제한다(복구 실패의 재개점을 정상 로드가 물려받아 이송 전체 스킵 등).
+        // 파생 클래스가 접미사로 자기 전용 키를 쓰게 한다. 기본은 빈 문자열(기존 키 불변).
+        protected virtual string SequenceStateNameSuffix
+        {
+            get { return ""; }
+        }
+
         private string SequenceStateName
         {
-            get { return SequenceNamePrefix + "." + Kind; }
+            get { return SequenceNamePrefix + "." + Kind + SequenceStateNameSuffix; }
         }
 
         protected static async Task<int> AwaitStepWithCancellationAsync(Task<int> stepTask, CancellationToken ct)

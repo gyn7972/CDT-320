@@ -43,6 +43,8 @@ namespace QMC.CDT320.Sequencing
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
         private static string LastSourceInputDieMapFailure = "";
+        // [P4 2026-08-22] LOT 네트워크 맵 실패를 구분 알람 코드로 세우기 위한 부가 정보(비면 기존 코드 사용).
+        private static string LastSourceInputDieMapFailureCode = "";
         private const double AlignPitchCompareToleranceMm = 0.05;
 
         private readonly Dictionary<string, MappedMarkPoint> _mappedPoints = new Dictionary<string, MappedMarkPoint>(StringComparer.OrdinalIgnoreCase);
@@ -243,8 +245,14 @@ namespace QMC.CDT320.Sequencing
                 _sourceMap = ResolveSourceInputDieMap(_wafer, _frameSpec);
                 if (!IsUsableSourceMap(_sourceMap))
                 {
-                    return Fail("IN-STAGE-DIEMAP-SOURCE-MAP", "InputStageDieMappingSequence",
-                        "Input die map is not available. Create and save an input wafer map from Recipe > INPUT MAP CREATE first. " +
+                    return Fail(
+                        string.IsNullOrWhiteSpace(LastSourceInputDieMapFailureCode)
+                            ? "IN-STAGE-DIEMAP-SOURCE-MAP"
+                            : LastSourceInputDieMapFailureCode,
+                        "InputStageDieMappingSequence",
+                        (string.IsNullOrWhiteSpace(LastSourceInputDieMapFailureCode)
+                            ? "Input die map is not available. Create and save an input wafer map from Recipe > INPUT MAP CREATE first. "
+                            : "") +
                         LastSourceInputDieMapFailure);
                 }
 
@@ -1571,8 +1579,14 @@ namespace QMC.CDT320.Sequencing
                 DieMap sourceMap = _sourceMap ?? ResolveSourceInputDieMap(_wafer, _frameSpec);
                 if (!IsUsableSourceMap(sourceMap))
                 {
-                    return Fail("IN-STAGE-DIEMAP-SOURCE-MAP", "InputStageDieMappingSequence",
-                        "Input die map is not available. Create and save an input wafer map from Recipe > INPUT MAP CREATE first. " +
+                    return Fail(
+                        string.IsNullOrWhiteSpace(LastSourceInputDieMapFailureCode)
+                            ? "IN-STAGE-DIEMAP-SOURCE-MAP"
+                            : LastSourceInputDieMapFailureCode,
+                        "InputStageDieMappingSequence",
+                        (string.IsNullOrWhiteSpace(LastSourceInputDieMapFailureCode)
+                            ? "Input die map is not available. Create and save an input wafer map from Recipe > INPUT MAP CREATE first. "
+                            : "") +
                         LastSourceInputDieMapFailure);
                 }
 
@@ -1969,6 +1983,14 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 LastSourceInputDieMapFailure = "";
+                LastSourceInputDieMapFailureCode = "";
+
+                // [P4 2026-08-22] LOT 네트워크 웨이퍼맵 모드: 이 웨이퍼 슬롯의 다운로드 맵을 사용한다.
+                // 모드 ON에서 로트 맵 확보 실패는 레시피/기타 소스로 폴백하지 않는다(잘못된 맵 진행 금지,
+                // 팀장님 확정 — 파일 없음/불일치는 알람 정지).
+                if (IsLotNetworkWaferMapModeActive())
+                    return ResolveLotNetworkInputDieMap(wafer, frameSpec);
+
                 bool recipeMapConfigured = IsRecipeInputDieMapConfigured();
                 DieMap recipeMap = LoadRecipeInputDieMap(frameSpec);
                 if (IsUsableSourceMap(recipeMap))
@@ -2018,6 +2040,197 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        // [P4 2026-08-22] LOT 네트워크 맵 모드 활성 판정: 스위치 ON + 폴더 설정(비면 강제 OFF).
+        // [검토수정 2026-08-22] 예외를 "기능 꺼짐"으로 조용히 바꾸지 않는다 — 흔적 없이 레시피 맵으로
+        // 폴백하면 BIN 필터가 빠진 채 전량 픽업되는데 추적이 불가능하다. 기록 후 안전값(false) 반환.
+        internal static bool IsLotNetworkWaferMapModeActive()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                return settings != null &&
+                       settings.UseLotNetworkWaferMap &&
+                       QMC.CDT320.Lots.LotWaferMapFetchService.IsConfigured;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "SYSTEM", "LOT-MAP-MODE",
+                    "LOT 네트워크 맵 모드 판정 실패 — 안전을 위해 기존 레시피 맵 경로로 동작합니다. error=" + ex.Message);
+                return false;
+            }
+        }
+
+        // [P5 2026-08-24] LOT 네트워크 맵 확보 — 바코드=파일명(1:1, 팀장님 확정):
+        // 바코드 필수 확인 → <폴더>\<바코드> 파일 수신(캐시/원격) → 신선 파싱(공유 객체 변형 금지)
+        // → 피치 대조(오제품 차단) → BIN 선택 필터 → 픽업 순서 부여.
+        // 실패 시 null + 구분 알람 코드/사유를 남긴다(호출자가 해당 코드로 Fail).
+        // 슬롯 번호/LOT ID는 파일 특정에 쓰지 않는다(실측: 구 테스트 파일 번호≠웨이퍼 번호) —
+        // 그래서 2단(Input2) 차단도 함께 해제했다(차단 사유였던 슬롯 번호 규칙 자체가 소멸).
+        private DieMap ResolveLotNetworkInputDieMap(WaferMaterial wafer, TapeFrameSpec frameSpec)
+        {
+            string lotId = MaterialStateService.GetProductionLotId();
+
+            // 바코드가 곧 파일 키다 — 판독 확정값이 없으면 맵을 특정할 수 없다(fail-closed).
+            // UseInputWaferBarcode OFF + 모드 ON 조합의 강제 지점이기도 하다.
+            string barcode = wafer != null && wafer.BarcodeConfirmed ? (wafer.BarcodeId ?? "").Trim() : "";
+            if (string.IsNullOrWhiteSpace(barcode) ||
+                !InputFeederLoadToStageSequence.IsUsableBarcode(barcode))
+            {
+                LastSourceInputDieMapFailureCode = "LOT-MAP-BARCODE-REQUIRED";
+                LastSourceInputDieMapFailure =
+                    "LOT 네트워크 맵 모드는 웨이퍼 바코드가 필수입니다(맵 파일명=바코드). " +
+                    "설정 → BARCODE의 'USE BARCODE'를 켜고 판독(또는 수동 입력) 후 진행하세요. waferId=" +
+                    (wafer != null ? wafer.WaferId : "-") +
+                    ", barcodeConfirmed=" + (wafer != null && wafer.BarcodeConfirmed);
+                return null;
+            }
+
+            QMC.CDT320.Lots.LotWaferMapSlotInfo slotInfo;
+            string fetchReason;
+            if (!QMC.CDT320.Lots.LotWaferMapFetchService.TryFetchWaferMapByBarcode(barcode, out slotInfo, out fetchReason))
+            {
+                LastSourceInputDieMapFailureCode = "LOT-MAP-FILE-MISSING";
+                LastSourceInputDieMapFailure =
+                    "이 웨이퍼의 맵 파일을 확보하지 못했습니다. barcode=" + barcode +
+                    ", lot=" + (string.IsNullOrWhiteSpace(lotId) ? "-" : lotId) +
+                    ", reason=" + fetchReason +
+                    " — 네트워크 폴더에 바코드와 같은 이름의 파일이 있는지 확인하세요.";
+                return null;
+            }
+
+            DieMap map;
+            try
+            {
+                // 캐시된 통계가 아니라 로컬 캐시 파일을 매번 새로 파싱한다 — 웨이퍼별 사본이라
+                // BIN 필터로 IsTarget을 바꿔도 원본/타 웨이퍼에 영향이 없다.
+                map = DieMapGenerator.LoadWaferMapTextOrThrow(slotInfo.LocalPath);
+            }
+            catch (Exception ex)
+            {
+                LastSourceInputDieMapFailureCode = "LOT-MAP-FILE-MISSING";
+                LastSourceInputDieMapFailure =
+                    "LOT 웨이퍼맵 파싱에 실패했습니다. file=" + slotInfo.LocalPath + ", error=" + ex.Message;
+                return null;
+            }
+
+            if (!IsUsableSourceMap(map))
+            {
+                LastSourceInputDieMapFailureCode = "LOT-MAP-FILE-MISSING";
+                LastSourceInputDieMapFailure =
+                    "LOT 웨이퍼맵이 비어 있습니다. file=" + slotInfo.LocalPath;
+                return null;
+            }
+
+            // 피치 대조(오제품 차단) — 외부맵은 그리드 좌표계가 프레임과 달라 그리드 검증은 설계상
+            // 건너뛰므로(IsRecipeInputDieMapMatchedToFrame 참조) 피치로 잡는다.
+            // [실측 2026-08-22] 맵 헤더 피치의 의미가 팹마다 다르다: YZ8XRD(JMB 제품)=다이 크기
+            // 그대로(8.120), 갭 포함 중심간격이 아님. 그래서 "중심간격(크기+갭) 또는 다이 크기" 중
+            // 어느 한쪽과 일치하면 통과시킨다 — 오제품(예: 10.878 vs 8.12/8.32)은 둘 다 어긋나 차단된다.
+            // 허용치는 기존 정렬 피치 비교 상수(AlignPitchCompareToleranceMm)를 재사용한다.
+            if (frameSpec != null)
+            {
+                double frameCenterStepX = DieMapGenerator.CalculateCenterStep(frameSpec.DieSizeX, frameSpec.PitchX);
+                double frameCenterStepY = DieMapGenerator.CalculateCenterStep(frameSpec.DieSizeY, frameSpec.PitchY);
+                bool xOk = map.PitchX <= 0.0 ||
+                           (frameCenterStepX > 0.0 && Math.Abs(map.PitchX - frameCenterStepX) <= AlignPitchCompareToleranceMm) ||
+                           (frameSpec.DieSizeX > 0.0 && Math.Abs(map.PitchX - frameSpec.DieSizeX) <= AlignPitchCompareToleranceMm);
+                bool yOk = map.PitchY <= 0.0 ||
+                           (frameCenterStepY > 0.0 && Math.Abs(map.PitchY - frameCenterStepY) <= AlignPitchCompareToleranceMm) ||
+                           (frameSpec.DieSizeY > 0.0 && Math.Abs(map.PitchY - frameSpec.DieSizeY) <= AlignPitchCompareToleranceMm);
+                if (!xOk || !yOk)
+                {
+                    LastSourceInputDieMapFailureCode = "LOT-MAP-FRAME-MISMATCH";
+                    LastSourceInputDieMapFailure =
+                        "LOT 웨이퍼맵의 다이 피치가 레시피 제품과 다릅니다(다른 제품 맵 의심). " +
+                        "mapPitch=(" + map.PitchX.ToString("F3") + "," + map.PitchY.ToString("F3") + ")" +
+                        ", frameCenterStep=(" + frameCenterStepX.ToString("F3") + "," + frameCenterStepY.ToString("F3") + ")" +
+                        ", frameDieSize=(" + frameSpec.DieSizeX.ToString("F3") + "," + frameSpec.DieSizeY.ToString("F3") + ")" +
+                        ", file=" + slotInfo.LocalPath;
+                    return null;
+                }
+            }
+
+            // [P5 2026-08-24] 파일 특정은 이미 바코드=파일명으로 끝났다. 헤더 내부 ID는 파일명과
+            // 다른 사례가 실측 확인돼(구 테스트 파일) 기록만 남긴다 — 불일치가 반복 관찰되면
+            // 팹 데이터 이상 신호이므로 로그로 추적한다(알람 판정 금지 정책 유지).
+            string internalMapId = (slotInfo.InternalMapId ?? "").Trim();
+            if (!string.IsNullOrWhiteSpace(internalMapId) &&
+                !string.Equals(internalMapId, barcode, StringComparison.OrdinalIgnoreCase))
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "SYSTEM", "LOT-MAP-BARCODE-CHECK",
+                    "맵 헤더 내부 ID가 파일명(바코드)과 다릅니다(기록만 — 파일 특정은 파일명 기준). " +
+                    "mapInternalId=" + internalMapId + ", barcode=" + barcode +
+                    ", lot=" + (string.IsNullOrWhiteSpace(lotId) ? "-" : lotId));
+            }
+
+            int filteredOut = ApplyPickupBinSelectionFilter(map);
+
+            // [검토수정 2026-08-22] 선택 BIN이 이 웨이퍼에 하나도 없으면 "0개 픽업으로 조용히 완주"가
+            // 아니라 알람으로 세운다 — 작업자가 선택을 확인하고 가야 한다(fail-closed).
+            if (filteredOut > 0 && !HasAnyTargetEntry(map))
+            {
+                LastSourceInputDieMapFailureCode = "LOT-MAP-BIN-NO-TARGET";
+                LastSourceInputDieMapFailure =
+                    "BIN 선택 필터 적용 후 이 웨이퍼에 픽업 대상 다이가 없습니다. barcode=" + barcode +
+                    ", lot=" + (string.IsNullOrWhiteSpace(lotId) ? "-" : lotId) +
+                    ", binSelection=" + MaterialStateService.DescribePickupBinSelection() +
+                    " — [BIN] 선택을 확인하세요.";
+                return null;
+            }
+
+            QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "InputStageDieMappingSequence",
+                "LOT 네트워크 웨이퍼맵 적용. barcode=" + barcode +
+                ", lot=" + (string.IsNullOrWhiteSpace(lotId) ? "-" : lotId) +
+                ", mapInternalId=" + (string.IsNullOrWhiteSpace(internalMapId) ? "-" : internalMapId) +
+                ", dies=" + (map.Entries != null ? map.Entries.Count : 0) +
+                ", binSelection=" + MaterialStateService.DescribePickupBinSelection() +
+                ", binFilteredOut=" + filteredOut + " - Ok");
+
+            return ApplyInputPickupSequence(map);
+        }
+
+        // [검토수정 2026-08-22] 필터 후 픽업 대상 존재 여부.
+        private static bool HasAnyTargetEntry(DieMap map)
+        {
+            if (map == null || map.Entries == null)
+                return false;
+
+            foreach (DieMapEntry entry in map.Entries)
+            {
+                if (entry != null && entry.IsTarget)
+                    return true;
+            }
+
+            return false;
+        }
+
+        // [P4 2026-08-22] BIN 선택 필터: Selected 모드면 선택 bin 외 다이를 SKIP(IsTarget=false) 처리한다.
+        // All 모드면 무동작(기존 동작 동일). 반환값 = 이번에 제외된 다이 수.
+        private static int ApplyPickupBinSelectionFilter(DieMap map)
+        {
+            HashSet<int> selectedBins;
+            if (!MaterialStateService.IsPickupBinFilterActive(out selectedBins))
+                return 0;
+
+            if (map == null || map.Entries == null)
+                return 0;
+
+            int filteredOut = 0;
+            foreach (DieMapEntry entry in map.Entries)
+            {
+                if (entry == null || !entry.IsTarget)
+                    continue;
+
+                if (!selectedBins.Contains(entry.BinCode))
+                {
+                    entry.IsTarget = false;
+                    filteredOut++;
+                }
+            }
+
+            return filteredOut;
         }
 
         private static bool IsRecipeInputDieMapConfigured()

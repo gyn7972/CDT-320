@@ -21,11 +21,15 @@ namespace QMC.CDT320.Sequencing
 
             // Mapping 완료 후 다른 sequence가 확인할 수 있도록 cassette mapped bus를 올린다.
             Context.Bus.Set("InputCassetteMapped");
+
             _autoStep = InputSequenceAutoStep.ResolveSlot;
             return 0;
         }
 
         // [2] ResolveSlot: Processing 중인 slot을 우선 사용하고, 없으면 다음 Ready slot을 선택한다.
+        // [P5 2026-08-24] 매핑 직후 LOT 맵 전수 게이트는 삭제했다 — 맵 파일명이 바코드(1:1)라
+        // 바코드를 읽기 전에는 슬롯별 파일 존재를 확인할 방법이 없다(팀장님 확정). 파일 확보의
+        // 확정 판정은 웨이퍼별 맵 적용 시점(ResolveLotNetworkInputDieMap)의 알람이 담당한다.
         private int ExecuteStepResolveSlot()
         {
             _autoSlotIndex = ResolveCurrentOrNextInputSlot();

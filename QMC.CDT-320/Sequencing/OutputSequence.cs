@@ -248,6 +248,13 @@ namespace QMC.CDT320.Sequencing
                 if (!ValidateOutputSupplyConsistency(out consistencyReason))
                     return Fail("OUT-SLOT-CONSISTENCY", "OutputSequence", consistencyReason);
 
+                // [P2 2026-08-22 재시작 바코드 게이트] 스테이지에 이미 올라온 Bin이 바코드 시퀀스를
+                // 거치지 않았으면(이적재~바코드 사이 알람 후 재시작) 어떤 액션보다 먼저 판독을 보강한다.
+                // 조건이 아니면 데이터 조회 2건뿐인 무부작용 검사다.
+                int stageBarcodeGate = await EnsureOutputStageBarcodeAfterRestartAsync(ct, bFine, moveTimeoutMs).ConfigureAwait(false);
+                if (stageBarcodeGate != 0)
+                    return stageBarcodeGate;
+
                 OutputSequenceAutoAction action = ResolveNextOutputAction();
                 Context.LogPublic("[OUTPUT] next action=" + action);
 
@@ -2412,6 +2419,177 @@ namespace QMC.CDT320.Sequencing
 
         #region Options·Material 보조
 
+        // [P2 2026-08-22] 재시작 바코드 게이트: Good/NG 스테이지에 있는 Bin 중 "바코드 시퀀스 미수행"
+        // 상태를 찾아 이적재 후반부(Ring 재확인 -> 판독 -> 공정 위치)를 재사용해 보강한다.
+        private async Task<int> EnsureOutputStageBarcodeAfterRestartAsync(CancellationToken ct, bool bFine, int moveTimeoutMs)
+        {
+            // 수동/Step 실행 경로(ExecuteStepAsync)도 이 메서드를 공유하므로 게이트는 Auto에서만 발동한다 —
+            // 수동 조작 중 예고 없는 바코드 복구 모션을 만들지 않는다(인풋 게이트도 동일하게 Auto 한정).
+            if (Mode != SequenceRunMode.Auto)
+                return 0;
+
+            int result = await EnsureOutputStageBarcodeForSideAsync(BinSide.Good, ct, bFine, moveTimeoutMs).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            return await EnsureOutputStageBarcodeForSideAsync(BinSide.Ng, ct, bFine, moveTimeoutMs).ConfigureAwait(false);
+        }
+
+        private async Task<int> EnsureOutputStageBarcodeForSideAsync(BinSide side, CancellationToken ct, bool bFine, int moveTimeoutMs)
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            if (settings == null || !settings.UseOutputBinBarcode)
+                return 0;
+
+            MaterialLocationKind stageLocation = side == BinSide.Ng
+                ? MaterialLocationKind.OutputStageNg
+                : MaterialLocationKind.OutputStageGood;
+            WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(stageLocation);
+            if (wafer == null)
+                return 0;
+
+            // [검토수정 2026-08-22] 통과 조건은 "유효 판독값"이다 — performed까지 AND로 요구하면
+            // 구버전 상태 파일(플래그 전부 false)의 확인된 Bin에서 게이트가 무한 재발동한다(인풋 게이트 주석 참조).
+            bool usable = wafer.BarcodeConfirmed &&
+                          OutputFeederLoadToStageSequence.IsUsableBarcode(wafer.BarcodeId);
+            if (usable)
+                return 0;
+
+            // [검토수정 2026-08-22] OutputFeeder에 Bin이 있는 것은 정상 재개 상태(ResumeOccupiedFeeder
+            // 대상)다. 복구 진입 스텝(VerifyBinTransferredToStage)은 피더 Ring OFF를 기대하므로 이 상태에서
+            // 게이트를 돌리면 매 재시작마다 OUT-FEEDER-STAGE-RING 알람이 난다 — 피더가 비워질 때까지
+            // 게이트를 미룬다(플래너가 피더부터 처리하고, 다음 사이클에 게이트가 다시 평가된다).
+            if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder) != null)
+            {
+                NotifyOutputBarcodeGateDeferredThrottled(side,
+                    "OutputFeeder에 Bin이 있어 피더 처리 후로 미룹니다");
+                return 0;
+            }
+
+            // [배포 전 최종점검 2026-08-23] 게이트 진입을 "무기한 대기 금지" 구조로 재설계했다.
+            // 직전 설계(코디네이터 로더 lease 경유)는 양픽커 리소스를 무한 루프로 획득 대기하는데,
+            // 재시작 직후 픽커는 스테이지 Ready 신호(이 게이트가 끝나야 세워짐)를 리소스를 쥔 채
+            // 기다리므로 순환 대기 교착이 됐다(반박 검토 확정 — CycleStop도 드레인 유예 때문에 못 끊고,
+            // 대기 로그는 최소 로그 정책에서 탈락해 무로그 정지가 된다). 원래 씌우려던 픽커 회피
+            // 게이트(ExecuteWithOutputPickerAvoidGateAsync)도 Auto에선 무기한 대기라 같은 순환이 물리
+            // 위치 기준으로 재발한다. 이제 게이트는 어떤 경합에서도 기계를 세울 수 없다:
+            //  - 픽커 전체 Avoid 정지 "즉시 판정" → 아니면 보류(스로틀 경고 후 다음 사이클 재평가),
+            //  - Place/Stage lease는 30초 유한 → 실패 시 보류,
+            //  - 해당 side Ready 신호 다운 후 복구 실행: 픽커 place 진입은 신호(Auto 필수 조건)에서
+            //    차단되고 영역 배타는 픽커 place 경로와 동일한 lease가 보장한다.
+            // 지배 시나리오(READY가 픽커 Z/Y/T/X를 Avoid로 파킹, 신규 Bus라 Ready 신호 다운)에서는
+            // 첫 사이클에 즉시 실행된다. 보류가 지속되면 스로틀 경고가 계속 남아 추적 가능하다.
+            string pickerIdleReason;
+            if (!AreOutputPickersAvoidAndStopped(out pickerIdleReason))
+            {
+                NotifyOutputBarcodeGateDeferredThrottled(side,
+                    "픽커가 전체 Avoid 정지 상태가 아닙니다(" + pickerIdleReason + ") — 픽커 유휴 시 재시도");
+                return 0;
+            }
+
+            int interlockResult = CheckOutputWorkInterlocksBeforeExecute(
+                "StageBarcodeRecovery." + side,
+                side,
+                false,
+                true);
+            if (interlockResult != 0)
+                return interlockResult;
+
+            // lease는 반드시 "진짜 유한" 획득을 쓴다 — AcquireOutputPlaceAreaAsync 계열
+            // (AcquireResourceForRunAsync)은 Auto에서 무한 재시도 루프라 null을 돌려줄 수 없어
+            // 아래 보류 분기가 죽은 코드가 되고, 게이트가 플래너 루프를 붙잡는다(최종 반박 검토 지적).
+            // raiseAlarmOnTimeout=false — 획득 실패는 알람이 아니라 보류(다음 사이클 재시도)다.
+            using (SequenceResourceLease placeLease = await Context.Resources
+                .AcquireAsync(SequenceResourceKind.OutputPlaceArea,
+                    "OutputStageBarcodeRecovery." + side, 30000, ct, false).ConfigureAwait(false))
+            {
+                if (placeLease == null)
+                {
+                    NotifyOutputBarcodeGateDeferredThrottled(side,
+                        "Output Place Area 점유 실패(30초) — 점유 해제 후 재시도");
+                    return 0;
+                }
+
+                using (SequenceResourceLease stageLease = await Context.Resources
+                    .AcquireAsync(side == BinSide.Ng
+                            ? SequenceResourceKind.OutputNgStageArea
+                            : SequenceResourceKind.OutputGoodStageArea,
+                        "OutputStageBarcodeRecovery." + side + ":" + side, 30000, ct, false).ConfigureAwait(false))
+                {
+                    if (stageLease == null)
+                    {
+                        NotifyOutputBarcodeGateDeferredThrottled(side,
+                            "Output Stage Area 점유 실패(30초) — 점유 해제 후 재시도");
+                        return 0;
+                    }
+
+                    // lease 확보 사이(수 ms~수 초)에 픽커가 인풋 측 동작을 시작했을 수 있다 — 재확인.
+                    if (!AreOutputPickersAvoidAndStopped(out pickerIdleReason))
+                    {
+                        NotifyOutputBarcodeGateDeferredThrottled(side,
+                            "lease 확보 후 픽커가 동작 중입니다(" + pickerIdleReason + ") — 픽커 유휴 시 재시도");
+                        return 0;
+                    }
+
+                    ResetOutputStageReadyForStore(side);
+
+                    // 최소 로그 정책에서도 남도록 레벨 지정 로그 사용(가시성 — P2 지시서 §3-B-3 대칭).
+                    QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "OutputSequence",
+                        "재시작 바코드 게이트 발동 — " + side + " Stage Bin의 바코드 시퀀스를 수행합니다. " +
+                        "sequencePerformed=" + wafer.BarcodeSequencePerformed +
+                        ", barcodeConfirmed=" + wafer.BarcodeConfirmed +
+                        ", barcodeId=" + (string.IsNullOrWhiteSpace(wafer.BarcodeId) ? "-" : wafer.BarcodeId) +
+                        ", waferId=" + (wafer.WaferId ?? "-") + " - Start");
+
+                    // 복구 동안 OutputLoaderActive를 직접 세운다 — 코디네이터 미경유 경로라 이 신호가
+                    // 없으면 (1) 픽커 신규 사이클이 복구 중 시작될 수 있고 (2) 픽커의 스테이지 교체
+                    // 정체 타이머(120초)가 복구(특히 작업자 다이얼로그) 동안 흘러 허위
+                    // PICKER-OUTPUT-HANDOFF-TIMEOUT 알람이 쌓인다. finally 해제 보장 — 신호가 잔존하면
+                    // 픽커 시작이 영구 차단되므로 어떤 예외/정지 경로에서도 반드시 내린다.
+                    Context.Bus.Set(OutputLoaderActiveSignal);
+                    try
+                    {
+                        var sequence = new OutputFeederSequence(Context);
+                        OutputFeederSequenceOptions options =
+                            BuildFeederOptions(0, 0, side, bFine, moveTimeoutMs, SequenceStartMode.Restart);
+                        int result = await SequenceTrace.ChildAsync("OutputFeederSequence", "StageBarcodeRecovery",
+                            () => sequence.RunStageBarcodeRecoveryAsync(ct, options),
+                            "side=" + side).ConfigureAwait(false);
+                        if (result != 0)
+                            return Fail("SEQ-OUT-STAGE-BARCODE", "OutputFeeder",
+                                "재시작 바코드 판독 실패. side=" + side + ", result=" + result);
+
+                        QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "OutputSequence",
+                            "재시작 바코드 게이트 완료. side=" + side + " - Ok");
+                        return 0;
+                    }
+                    finally
+                    {
+                        Context.Bus.Reset(OutputLoaderActiveSignal);
+                    }
+                }
+            }
+        }
+
+        // [2차 검토수정 2026-08-23] 보류 로그가 사이클마다 쌓이지 않게 side별 60초 스로틀.
+        // [배포 전 최종점검 2026-08-23] 사유를 받아 보류 원인(피더 점유/픽커 동작/lease 실패)을 구분 기록.
+        private static DateTime _lastBarcodeGateDeferLogGoodUtc = DateTime.MinValue;
+        private static DateTime _lastBarcodeGateDeferLogNgUtc = DateTime.MinValue;
+        private void NotifyOutputBarcodeGateDeferredThrottled(BinSide side, string reason)
+        {
+            DateTime last = side == BinSide.Ng ? _lastBarcodeGateDeferLogNgUtc : _lastBarcodeGateDeferLogGoodUtc;
+            if ((DateTime.UtcNow - last).TotalSeconds < 60.0)
+                return;
+
+            if (side == BinSide.Ng)
+                _lastBarcodeGateDeferLogNgUtc = DateTime.UtcNow;
+            else
+                _lastBarcodeGateDeferLogGoodUtc = DateTime.UtcNow;
+
+            QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "OutputSequence",
+                "재시작 바코드 게이트 보류 — " + reason + ". side=" + side + " - Wait");
+        }
+
         private OutputFeederSequenceOptions BuildFeederOptions(
             int slotIndex,
             int nextSlotIndex,
@@ -2430,11 +2608,36 @@ namespace QMC.CDT320.Sequencing
             options.ExpectedWaferId = ResolveExpectedOutputWaferId(side, options.CassetteRole, slotIndex);
             options.FineMove = bFine;
             options.MoveTimeoutMs = moveTimeoutMs > 0 ? moveTimeoutMs : options.MoveTimeoutMs;
-            AppSettings settings = AppSettingsStore.Current;
-            options.UseBarcode = settings != null && settings.UseOutputBinBarcode;
+            options.UseBarcode = ResolveOutputBarcodeUse();
             options.RunMode = Mode;
             options.StartMode = startMode;
             return options;
+        }
+
+        // [P2 2026-08-22] 인풋(ResolveInputBarcodeUse)과 대칭: Auto 운전 중 바코드가 꺼져 있으면
+        // 모달리스 안내창을 띄운다(알람 아님, 진행 차단 없음). 켜져 있으면 안내를 닫는다.
+        private bool ResolveOutputBarcodeUse()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            bool use = settings != null && settings.UseOutputBinBarcode;
+
+            if (Mode == SequenceRunMode.Auto)
+            {
+                if (!use)
+                {
+                    BarcodeDisabledNoticeService.Show(
+                        BarcodeDisabledNoticeService.OutputChannel,
+                        "OUTPUT BIN 바코드 판독이 꺼져 있어 Auto 진행 중 Bin ID가 바코드로 갱신되지 않습니다.\r\n" +
+                        "필요하면 설정 → BARCODE 화면의 'USE OUTPUT BIN BARCODE'를 켜십시오.\r\n" +
+                        "테스트 목적이면 이 창을 최소화한 상태로 계속 진행할 수 있습니다.");
+                }
+                else
+                {
+                    BarcodeDisabledNoticeService.Close(BarcodeDisabledNoticeService.OutputChannel);
+                }
+            }
+
+            return use;
         }
 
         private static string ResolveExpectedOutputWaferId(BinSide side, CassetteMaterialRole cassetteRole, int slotIndex)

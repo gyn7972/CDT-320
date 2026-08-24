@@ -341,6 +341,8 @@ namespace QMC.CDT320.Lots
 
                 // 사용자 확정 정책: LOT ID를 지우는 정상 경로는 명시적인 LOT 완료뿐이다.
                 MaterialStateService.SetProductionLotId("", "LotComplete");
+                // [P4 2026-08-22] BIN 선택은 작업(LOT) 단위 — LOT 완료 시 기본(All)로 복귀한다.
+                MaterialStateService.ResetPickupBinSelectionToAll("LotComplete");
                 ClearCompletedLotIdFromRecipe(lot.RecipeName, lotId);
 
                 string message = "LOT을 완료했습니다. lot=" + lotId +

@@ -13,6 +13,21 @@ namespace QMC.CDT320.Sequencing
         // [9] ReviewStage: Align/Die Mapping 결과를 표시하고 작업자의 진행/재실행 결정을 기다린다.
         private async Task<int> ExecuteStepReviewStageAsync(CancellationToken ct)
         {
+            // [검토수정 2026-08-22] 재개가 ReviewStage로 직행(정렬+다이맵 보유)한 웨이퍼도 바코드 게이트
+            // 커버 — 리뷰/픽업 전에 ID를 확정해 임의 생성 ID가 다이 이력에 남는 것을 막는다.
+            int reviewBarcodeGate = await EnsureStageBarcodeBeforeStageWorkAsync("ReviewStage", ct).ConfigureAwait(false);
+            if (reviewBarcodeGate != 0)
+                return reviewBarcodeGate;
+
+            // [2차 검토수정 2026-08-23] 복구가 실제 수행됐으면(판독 모션 발생) 리뷰로 직행하지 않고
+            // 정렬부터 재실행한다 — 복구 꼬리가 스테이지/니들 자세를 바꾸므로 자세·세타 표시·세션을
+            // Align→DieMapping 재실행으로 재정립한 뒤 리뷰를 받는다.
+            if (_stageBarcodeRecoveryPerformedAtLastGate)
+            {
+                RestartWaferAlignAfterBarcodeRecovery("ReviewStage");
+                return 0;
+            }
+
             InputStageUnit stage = Context != null && Context.Machine != null
                 ? Context.Machine.InputStageUnit
                 : null;

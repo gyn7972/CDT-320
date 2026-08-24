@@ -96,6 +96,19 @@ namespace QMC.CDT320
         /// <summary>NLV-5201 판독 시작 명령. 빈 문자열이면 기본 Z 명령을 사용합니다.</summary>
         [DataMember] public string OutputBarcodeTriggerCommand { get; set; } = "";
 
+        // ── LOT 웨이퍼맵 네트워크 수신 (P3 2026-08-22) ──
+        /// <summary>
+        /// LOT 웨이퍼맵 파일(&lt;LOT_ID&gt;.&lt;슬롯 2자리&gt;)이 있는 네트워크 공유 폴더(UNC).
+        /// 비어 있으면 네트워크 수신 기능 전체가 꺼진다(기존 동작 무변경).
+        /// </summary>
+        [DataMember] public string NetworkWaferMapFolder { get; set; } = "";
+
+        /// <summary>
+        /// [P4 2026-08-22] LOT 네트워크 웨이퍼맵을 실제 다이맵으로 사용(시퀀스 적용).
+        /// OFF면 기존 레시피 맵 방식 그대로. ON이어도 폴더 미설정이면 강제 OFF로 동작한다.
+        /// </summary>
+        [DataMember] public bool UseLotNetworkWaferMap { get; set; } = false;
+
         // ── Simulator link — auto connect ──
         [DataMember] public bool   SimulatorAutoConnect { get; set; } = false;
 
@@ -234,6 +247,7 @@ namespace QMC.CDT320
         [OnDeserialized]
         internal void OnDeserialized(StreamingContext ctx)
         {
+            if (NetworkWaferMapFolder == null) NetworkWaferMapFolder = "";
             int legacyBaud = BarcodeSerialBaud > 0 ? BarcodeSerialBaud : 9600;
             if (WaferBarcodeSerialBaud <= 0) WaferBarcodeSerialBaud = legacyBaud;
             if (BinBarcodeSerialBaud <= 0) BinBarcodeSerialBaud = legacyBaud;

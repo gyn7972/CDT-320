@@ -55,6 +55,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private ActionButton btnLoad;
         private ActionButton btnUnload;
         private ActionButton btnStop;
+        private ActionButton btnCstExchange;
+        private ActionButton btnCstClear;
         private GroupBox grpDataOnly;
         private TableLayoutPanel dataOnlyLayout;
         private Label lblDataOnlyWarning;
@@ -111,6 +113,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnLoad = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnUnload = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnCstExchange = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnCstClear = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.materialDetailView = new QMC.CDT_320.Ui.Controls.MaterialDetailView();
             this.grpDataOnly = new System.Windows.Forms.GroupBox();
             this.dataOnlyLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -659,13 +663,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // actionBar
             // 
-            this.actionBar.ColumnCount = 2;
-            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.actionBar.ColumnCount = 3;
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.34F));
             this.actionBar.Controls.Add(this.btnMap, 0, 0);
             this.actionBar.Controls.Add(this.btnLoad, 1, 0);
+            this.actionBar.Controls.Add(this.btnCstExchange, 2, 0);
             this.actionBar.Controls.Add(this.btnUnload, 0, 1);
             this.actionBar.Controls.Add(this.btnStop, 1, 1);
+            this.actionBar.Controls.Add(this.btnCstClear, 2, 1);
             this.actionBar.Dock = System.Windows.Forms.DockStyle.Top;
             this.actionBar.Location = new System.Drawing.Point(3, 23);
             this.actionBar.Margin = new System.Windows.Forms.Padding(0);
@@ -747,6 +754,36 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnStop.Size = new System.Drawing.Size(406, 40);
             this.btnStop.TabIndex = 3;
             this.btnStop.Text = "STOP";
+            //
+            // btnCstExchange
+            //
+            this.btnCstExchange.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnCstExchange.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnCstExchange.BadgeText = "ACTION";
+            this.btnCstExchange.BorderColor = System.Drawing.Color.Empty;
+            this.btnCstExchange.BorderWidth = 0;
+            this.btnCstExchange.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnCstExchange.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnCstExchange.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnCstExchange.ForeColor = System.Drawing.Color.White;
+            this.btnCstExchange.Name = "btnCstExchange";
+            this.btnCstExchange.TabIndex = 4;
+            this.btnCstExchange.Text = "CST EXCHANGE";
+            //
+            // btnCstClear
+            //
+            this.btnCstClear.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnCstClear.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnCstClear.BadgeText = "ACTION";
+            this.btnCstClear.BorderColor = System.Drawing.Color.Empty;
+            this.btnCstClear.BorderWidth = 0;
+            this.btnCstClear.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnCstClear.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnCstClear.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnCstClear.ForeColor = System.Drawing.Color.White;
+            this.btnCstClear.Name = "btnCstClear";
+            this.btnCstClear.TabIndex = 5;
+            this.btnCstClear.Text = "CST CLEAR";
             // 
             // materialDetailView
             // 

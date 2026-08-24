@@ -103,6 +103,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 _cbAjin.Checked = cfg.UseAjin;
                 _tbIrq.Text = cfg.AjinIrqNo.ToString();
 
+                // [P3 2026-08-22] LOT 웨이퍼맵 네트워크 폴더(UNC). 비어 있으면 수신 기능 전체 꺼짐.
+                _tbNetworkWaferMapFolder.Text = cfg.NetworkWaferMapFolder ?? "";
+                // [P4 2026-08-22] LOT 네트워크 맵을 실제 다이맵으로 사용(시퀀스 적용) 스위치.
+                _cbUseLotNetworkWaferMap.Checked = cfg.UseLotNetworkWaferMap;
+
                 // 런타임 보정 사용 유무는 AppSettings가 아니라 각 보정 스토어(JSON)에 저장된다.
                 _cbPickRuntimeOffset.SelectedIndex = PickRuntimeOffsetService.IsEnabled ? 0 : 1;
                 _cbPlaceRuntimeOffset.SelectedIndex = PlaceRuntimeOffsetService.IsEnabled ? 0 : 1;
@@ -149,6 +154,100 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 "장비 동작 중에는 " + (settingName ?? "운전 모드") +
                 " 설정을 변경할 수 없습니다. 동작을 정지한 뒤 다시 시도하십시오.");
             return true;
+        }
+
+        // [P4 2026-08-22] LOT 네트워크 맵 사용 스위치 — 즉시 저장.
+        private void _cbUseLotNetworkWaferMap_CheckedChanged(object sender, EventArgs e)
+        {
+            if (_loadingSettings)
+                return;
+
+            AppSettingsStore.Current.UseLotNetworkWaferMap = _cbUseLotNetworkWaferMap.Checked;
+            AppSettingsStore.Save();
+
+            if (!_cbUseLotNetworkWaferMap.Checked)
+            {
+                ResetPickupBinSelectionOnLotMapModeOff("UseLotNetworkWaferMap=OFF");
+            }
+            // [P5 2026-08-24] 맵 파일명=바코드(1:1)라 이 모드는 인풋 바코드 판독이 필수다.
+            // 저장은 허용하되(설정 순서 자유) 바코드가 꺼져 있으면 즉시 안내한다 —
+            // 강제는 런타임 알람(LOT-MAP-BARCODE-REQUIRED)이 담당한다.
+            else if (!AppSettingsStore.Current.UseInputWaferBarcode)
+            {
+                QMC.Common.MessageDialog.Show(this,
+                    "LOT 네트워크 웨이퍼맵 모드는 웨이퍼 바코드 판독이 필수입니다(맵 파일명 = 바코드).\r\n" +
+                    "현재 INPUT WAFER 바코드가 꺼져 있습니다 — 설정 → BARCODE에서 'USE BARCODE'를 켜세요.\r\n" +
+                    "켜지 않으면 Auto 진행 시 맵 적용 단계에서 알람 정지합니다.",
+                    "LOT 웨이퍼맵", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        // [P3 2026-08-22] 네트워크 웨이퍼맵 폴더 — 포커스 이탈 시 저장(기존 즉시 저장 컨벤션 미러).
+        private void _tbNetworkWaferMapFolder_Leave(object sender, EventArgs e)
+        {
+            if (_loadingSettings)
+                return;
+
+            string value = (_tbNetworkWaferMapFolder.Text ?? "").Trim();
+            if (string.Equals(AppSettingsStore.Current.NetworkWaferMapFolder ?? "", value, StringComparison.Ordinal))
+                return;
+
+            AppSettingsStore.Current.NetworkWaferMapFolder = value;
+            AppSettingsStore.Save();
+
+            if (string.IsNullOrWhiteSpace(value))
+                ResetPickupBinSelectionOnLotMapModeOff("NetworkWaferMapFolder=EMPTY");
+        }
+
+        // [2차 검토수정 2026-08-23] LOT 네트워크 맵 모드가 꺼지는 전환에서 BIN 선택을 All로 복귀.
+        // 남겨두면 필터가 상태 파일에 보이지 않게 잔존하다가 몇 주 뒤 모드를 다시 켠 순간
+        // 이전 LOT의 Selected 필터가 무경고로 되살아나 다이를 조용히 걸러낸다.
+        // Reset은 다음 웨이퍼의 맵 적용부터 반영되는 확장(All) 방향 변경이라 진행 중 시퀀스에 안전하다.
+        private void ResetPickupBinSelectionOnLotMapModeOff(string trigger)
+        {
+            try
+            {
+                QMC.CDT320.Materials.MaterialStateService.ResetPickupBinSelectionToAll(
+                    "LotNetworkMapModeOff:" + trigger);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "GeneralPage",
+                    "LOT 맵 모드 해제 시 BIN 선택 초기화 실패: " + ex.Message + " - Fail");
+            }
+        }
+
+        // [P3 2026-08-22] [연결 확인]: 폴더 존재+목록 조회를 타임아웃 안에 시도하고 결과를 알린다.
+        // UNC 단절 시 UI가 얼지 않도록 백그라운드에서 검사한다.
+        private async void btnNetworkWaferMapCheck_Click(object sender, EventArgs e)
+        {
+            _tbNetworkWaferMapFolder_Leave(sender, e);
+
+            btnNetworkWaferMapCheck.Enabled = false;
+            try
+            {
+                string detail = "";
+                bool ok = await System.Threading.Tasks.Task.Run(() =>
+                {
+                    string checkDetail;
+                    bool result = QMC.CDT320.Lots.LotWaferMapFetchService.TryCheckFolderAccessible(out checkDetail);
+                    detail = checkDetail;
+                    return result;
+                });
+
+                QMC.Common.MessageDialog.Show(this,
+                    (ok ? "네트워크 웨이퍼맵 폴더에 접근할 수 있습니다.\r\n" : "네트워크 웨이퍼맵 폴더에 접근할 수 없습니다.\r\n") + detail,
+                    "연결 확인", MessageBoxButtons.OK, ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, "연결 확인 실패: " + ex.Message, "연결 확인",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnNetworkWaferMapCheck.Enabled = true;
+            }
         }
 
         private void _cbLang_SelectedIndexChanged(object sender, EventArgs e)

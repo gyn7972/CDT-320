@@ -190,6 +190,12 @@
     <Compile Include="Ui\Dialogs\EnumPickerDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\BinSelectDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\BinSelectDialog.Designer.cs">
+      <DependentUpon>BinSelectDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\BarcodeRecoveryDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -539,6 +545,7 @@
     <Compile Include="Equipment\Materials\MaterialStateCompactor.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.CassetteMapping.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.BinSelection.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.Clear.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.DieOps.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.InputPick.cs" />
@@ -570,6 +577,7 @@
     <Compile Include="Equipment\Lots\Lot.cs" />
     <Compile Include="Equipment\Lots\LotSessionService.cs" />
     <Compile Include="Equipment\Lots\LotStorage.cs" />
+    <Compile Include="Equipment\Lots\LotWaferMapFetchService.cs" />
     <!-- Equipment / Interlocks (Stage 3 ??5 + Stage 8 ??5 추�?, �?15) -->
     <Compile Include="Equipment\Interlocks\Common\ExtendedInterlocks.cs" />
     <Compile Include="Equipment\Interlocks\Common\ExtendedInterlocks2.cs" />

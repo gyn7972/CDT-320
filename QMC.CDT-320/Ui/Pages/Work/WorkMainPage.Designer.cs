@@ -103,6 +103,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Button btnLotStart;
         private Button btnLotComplete;
         private Button btnLotHistory;
+        private Button btnBinSelect;
         private Panel workInfoProjectTile;
         private Panel workInfoBinQtyTile;
         private Panel workInfoPickFailTile;
@@ -193,6 +194,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnLotStart = new System.Windows.Forms.Button();
             this.btnLotComplete = new System.Windows.Forms.Button();
             this.btnLotHistory = new System.Windows.Forms.Button();
+            this.btnBinSelect = new System.Windows.Forms.Button();
             this.workInfoProjectTile = new System.Windows.Forms.Panel();
             this.lblProject = new System.Windows.Forms.Label();
             this.lblProjectCaption = new System.Windows.Forms.Label();
@@ -883,18 +885,20 @@ namespace QMC.CDT_320.Ui.Pages.Work
             // 
             // lotInputPanel
             // 
-            this.lotInputPanel.ColumnCount = 5;
+            this.lotInputPanel.ColumnCount = 6;
             this.workInfoBody.SetColumnSpan(this.lotInputPanel, 4);
             this.lotInputPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 60F));
             this.lotInputPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.lotInputPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 92F));
             this.lotInputPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 92F));
             this.lotInputPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 72F));
+            this.lotInputPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 72F));
             this.lotInputPanel.Controls.Add(this.lblLotIdCaption, 0, 0);
             this.lotInputPanel.Controls.Add(this.txtLotId, 1, 0);
             this.lotInputPanel.Controls.Add(this.btnLotStart, 2, 0);
             this.lotInputPanel.Controls.Add(this.btnLotComplete, 3, 0);
             this.lotInputPanel.Controls.Add(this.btnLotHistory, 4, 0);
+            this.lotInputPanel.Controls.Add(this.btnBinSelect, 5, 0);
             this.lotInputPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lotInputPanel.Location = new System.Drawing.Point(3, 3);
             this.lotInputPanel.Margin = new System.Windows.Forms.Padding(0, 0, 0, 3);
@@ -974,6 +978,19 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnLotHistory.Text = "이력";
             this.btnLotHistory.UseVisualStyleBackColor = false;
             this.btnLotHistory.Click += new System.EventHandler(this.btnLotHistory_Click);
+            //
+            // btnBinSelect
+            //
+            this.btnBinSelect.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+            this.btnBinSelect.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnBinSelect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnBinSelect.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnBinSelect.ForeColor = System.Drawing.Color.White;
+            this.btnBinSelect.Margin = new System.Windows.Forms.Padding(3, 2, 0, 2);
+            this.btnBinSelect.Name = "btnBinSelect";
+            this.btnBinSelect.Text = "BIN";
+            this.btnBinSelect.UseVisualStyleBackColor = false;
+            this.btnBinSelect.Click += new System.EventHandler(this.btnBinSelect_Click);
             // 
             // workInfoProjectTile
             // 

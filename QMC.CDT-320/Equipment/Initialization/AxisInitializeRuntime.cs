@@ -1818,34 +1818,54 @@ namespace QMC.CDT320.Initialization
                 {
                     // Brake가 없는 EjectPinZ는 Servo OFF 시 실제 하강하므로 공용 HOME 준비의
                     // ServoOff -> ResetAlarm -> ServoOn 순서를 사용하지 않습니다.
-                    // To do: [초기화 소프트리밋 보류 2026-08-18, 사용자 지시] 차단만 하던 준비를 복구로 바꾼다.
-                    // 기존 조건: Servo ON + Alarm OFF가 아니면 자동 복구 없이 초기화를 차단했다.
-                    // 현재 기준: Alarm이 있으면 Servo OFF 없이 AlarmReset만 수행하고, Servo가 OFF면
-                    //            ServoOn 후 진행한다. 복구 후에도 미충족이면 기존대로 차단한다.
+                    // 기존 조건(~2026-08-21): ServoOn 발행 직후 대기 없이 즉시 판정해, 서보 인게이지가
+                    //            끝나기 전에 servo=OFF로 읽혀 초기화가 차단됐다(INIT-PREP 15:23 실사례 —
+                    //            병렬 HOME이던 NeedleZ까지 동반 실패해 NeedleZ 서보 문제로 오인됨).
+                    // 현재 기준(2026-08-21 팀장님 지시): Alarm이 있으면 AlarmReset만 수행하고 ServoOn 발행
+                    //            후 10ms 간격 폴링으로 Servo ON을 확인한다. 타임아웃(2000ms) 초과 또는
+                    //            축 알람 발생 시에만 기존 경로(INIT-PREP 알람)로 차단한다.
                     axis.UpdateStatus();
                     bool ejectPinZAlarmResetIssued = axis.IsAlarm;
                     bool ejectPinZServoOnIssued = !axis.IsServoOn;
                     if (ejectPinZAlarmResetIssued)
                         axis.ResetAlarm();
                     axis.ServoOn();
-                    axis.UpdateStatus();
-                    if (!axis.IsServoOn || axis.IsAlarm)
+
+                    const int ejectPinZServoOnTimeoutMs = 2000;
+                    var ejectPinZServoOnWatch = System.Diagnostics.Stopwatch.StartNew();
+                    while (true)
                     {
-                        return FailInitializePreparation(
-                            "EjectPinZ HOME 시작 차단: AlarmReset/ServoOn 복구 후에도 Servo ON, Alarm OFF를 만족하지 못했습니다. " +
-                            "servo=" + (axis.IsServoOn ? "ON" : "OFF") +
-                            ", alarm=" + axis.IsAlarm +
-                            ", alarmCode=" + axis.AlarmCode +
-                            ", alarmResetIssued=" + ejectPinZAlarmResetIssued +
-                            ", servoOnIssued=" + ejectPinZServoOnIssued +
-                            ", actual=" + axis.ActualPosition.ToString(
-                                "0.###",
-                                System.Globalization.CultureInfo.InvariantCulture));
+                        axis.UpdateStatus();
+                        if (axis.IsServoOn && !axis.IsAlarm)
+                            break;
+
+                        // [검토수정 2026-08-22] IsAlarm을 즉시 실패 조건으로 두면 AlarmReset 직후 드라이브의
+                        // 래치된 ALM 출력(해제까지 수십 ms)을 UpdateStatus가 재독해 첫 반복(waitedMs=0)에서
+                        // 차단된다 — 정확히 이 수정이 살리려던 "알람 리셋 후 폴링" 케이스가 무력화된다.
+                        // 알람은 타임아웃까지 폴링을 계속하고, 그때도 지속되면(진짜 알람) 아래에서 차단한다.
+                        if (ejectPinZServoOnWatch.ElapsedMilliseconds >= ejectPinZServoOnTimeoutMs)
+                        {
+                            return FailInitializePreparation(
+                                "EjectPinZ HOME 시작 차단: Servo ON 확인 실패(타임아웃 또는 축 알람). " +
+                                "timeoutMs=" + ejectPinZServoOnTimeoutMs +
+                                ", waitedMs=" + ejectPinZServoOnWatch.ElapsedMilliseconds +
+                                ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                                ", alarm=" + axis.IsAlarm +
+                                ", alarmCode=" + axis.AlarmCode +
+                                ", alarmResetIssued=" + ejectPinZAlarmResetIssued +
+                                ", servoOnIssued=" + ejectPinZServoOnIssued +
+                                ", actual=" + axis.ActualPosition.ToString(
+                                    "0.###",
+                                    System.Globalization.CultureInfo.InvariantCulture));
+                        }
+
+                        await Task.Delay(10, cancellationToken).ConfigureAwait(false);
                     }
 
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
                         "EjectPinZ HOME preparation keeps Servo energized (no ServoOff). " +
-                        "alarmResetIssued=" + ejectPinZAlarmResetIssued +
+                        "servoOnWaitedMs=" + ejectPinZServoOnWatch.ElapsedMilliseconds +
+                        ", alarmResetIssued=" + ejectPinZAlarmResetIssued +
                         ", servoOnIssued=" + ejectPinZServoOnIssued +
                         ", actual=" + axis.ActualPosition.ToString(
                             "0.###",
