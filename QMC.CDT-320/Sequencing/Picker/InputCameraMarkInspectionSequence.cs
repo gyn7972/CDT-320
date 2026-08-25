@@ -342,6 +342,7 @@ namespace QMC.CDT320.Sequencing
                 // head 티켓이 해소되지 않는 정체 구간이 무로그였다(실측 2026-08-10 12:12 / 08-11 16:37).
                 // 60초 경과 시 항상 남는 Warning 으로 head/queue 상태를 남긴다(100초 타임아웃 전 1회).
                 bool longWaitNotified = false;
+                bool loaderDeferLogged = false;
 
                 while (true)
                 {
@@ -359,6 +360,35 @@ namespace QMC.CDT320.Sequencing
                         }
 
                         return 0;
+                    }
+
+                    // [실장비 2026-08-25, 팀장님 승인] 로더 작업 창(Bin/웨이퍼 교체) 동안 FIFO 시계 유예:
+                    // NG Bin 교체 중에는 head 티켓 픽커가 교체 핸드오프 대기에 정상적으로 묶여 선행검사를
+                    // 진행할 수 없다 — 다단 교체 배치는 100초를 넘는 게 정상이라 시계가 계속 돌면
+                    // 오탐 타임아웃이 난다(실측 2026-08-25 11:11:33, ticket 7/8 + NG 교체 82초+ 진행 중).
+                    // 픽커 정체 타이머(120초)가 OutputLoaderActive 중 유예되는 기존 패턴과 동일하게,
+                    // 로더 신호가 켜져 있는 동안 시작 시각을 갱신해 교체 종료 후 신선한 예산으로 재기산한다.
+                    // 진짜 티켓 데드락(로더 비활성 상호양보)은 기존대로 100초에 잡히고, 교체 자체의 행은
+                    // 각 교체 스텝의 타임아웃/알람이 담당하며, CycleStop은 이 루프에서 매 반복 확인된다.
+                    bool loaderWindowActive = Context != null && Context.Bus != null &&
+                        (Context.Bus.IsSet("OutputLoaderActive") || Context.Bus.IsSet("InputLoaderActive"));
+                    if (loaderWindowActive)
+                    {
+                        if (!loaderDeferLogged)
+                        {
+                            loaderDeferLogged = true;
+                            QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "InputCameraMarkInspectionSequence",
+                                Name + " 선행검사 FIFO 대기 시계를 유예합니다 — 로더 작업(교체) 진행 중. side=" + Side +
+                                ", elapsedBeforeDeferMs=" + (long)(DateTime.UtcNow - start).TotalMilliseconds +
+                                ", " + headDetail + " - Wait");
+                        }
+
+                        start = DateTime.UtcNow;
+                    }
+                    else if (loaderDeferLogged)
+                    {
+                        // 로더 창이 닫히면 다음 창에서 다시 1회 로그되도록 래치를 푼다(신선한 예산으로 재기산 중).
+                        loaderDeferLogged = false;
                     }
 
                     if (!waitLogged)

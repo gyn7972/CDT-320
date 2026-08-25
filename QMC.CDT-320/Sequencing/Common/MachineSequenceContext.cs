@@ -64,6 +64,20 @@ namespace QMC.CDT320.Sequencing
         private int _cycleStopRequested;
         private CancellationTokenSource _cycleStopCts = new CancellationTokenSource();
 
+        // [정지 무한유예 상한 2026-08-25, 사용자 승인] drain 보류는 "픽커가 들고 있는 제품을 배출할
+        // 때까지" 정지를 미루는 정책인데 상한이 없었다. 배출이 진행될 수 없는 상황(선행검사 교착,
+        // 픽커 자재 잔류 등)에서는 정지 버튼이 영원히 먹지 않는다(2026-08-25 11:20 실측 — 정지 후
+        // 무한 대기, 로그도 완전 무음). 요청 시각부터 상한을 두어 초과 시 보류를 끝내고 경계 정지로
+        // 합류하고, 보류 중에는 주기적으로 경고를 남겨 "왜 안 서는지"가 로그에 보이게 한다.
+        // 상한을 3분으로 둔 이유: 정상 드레인(보유 4다이 검사·Place)은 물론 Bin 교체가 낀 드레인까지
+        // 정상 완료될 여유를 주되, 그보다 길어지면 진행 불가로 보고 정지를 우선한다.
+        // 상한 초과로 정지해도 제품은 픽커에 남을 뿐이며, 재시작 시 재개 판정이 보유 Die를 Bottom
+        // 검사부터 다시 태운다(PickerProcessSequence 재개 로직).
+        private const int CycleStopDrainDeferLimitMs = 180000;
+        private const int CycleStopDrainDeferNotifyIntervalMs = 30000;
+        private long _cycleStopRequestedAtUtcTicks;
+        private long _cycleStopDrainNotifiedAtUtcTicks;
+
         /// <summary>현재 자동 시퀀스가 사이클 경계에서 정지해야 하는지 여부입니다.</summary>
         public bool IsCycleStopRequested
         {
@@ -85,6 +99,8 @@ namespace QMC.CDT320.Sequencing
         public void ResetCycleStopRequest()
         {
             Interlocked.Exchange(ref _cycleStopRequested, 0);
+            Interlocked.Exchange(ref _cycleStopRequestedAtUtcTicks, 0);
+            Interlocked.Exchange(ref _cycleStopDrainNotifiedAtUtcTicks, 0);
             Bus.Reset("CycleStopRequested");
 
             // 다음 Auto 실행이 이전 정지 요청을 물려받지 않도록 새 토큰으로 교체한다.
@@ -98,6 +114,8 @@ namespace QMC.CDT320.Sequencing
         public void RequestCycleStop()
         {
             Interlocked.Exchange(ref _cycleStopRequested, 1);
+            // 첫 요청 시각만 기록한다(중복 요청으로 상한이 뒤로 밀리지 않게).
+            Interlocked.CompareExchange(ref _cycleStopRequestedAtUtcTicks, DateTime.UtcNow.Ticks, 0);
             Bus.Set("CycleStopRequested");
 
             // 경계 폴링은 다음 Step으로 넘어갈 때만 동작한다. 운영자 확인창처럼 이미 대기 중인 지점은
@@ -132,16 +150,72 @@ namespace QMC.CDT320.Sequencing
             throw new SequenceStopException(reason);
         }
 
-        /// <summary>CYCLE STOP 요청이 있어도 현재 공정을 안전 경계까지 drain해야 하면 정지를 보류합니다.</summary>
+        /// <summary>
+        /// CYCLE STOP 요청이 있어도 현재 공정을 안전 경계까지 drain해야 하면 정지를 보류합니다.
+        /// 단, 보류에는 상한(<see cref="CycleStopDrainDeferLimitMs"/>)이 있어 초과하면 정지를 우선합니다.
+        /// </summary>
         public void StopIfCycleStopRequested(string boundaryName, bool allowDrain, string drainReason)
         {
             if (!IsCycleStopRequested)
                 return;
 
-            if (allowDrain)
+            if (allowDrain && !HasDrainDeferLimitExpired(boundaryName, drainReason))
                 return;
 
             StopIfCycleStopRequested(boundaryName);
+        }
+
+        /// <summary>
+        /// [정지 무한유예 상한 2026-08-25] drain 보류 상한 초과 여부를 판정한다.
+        /// 미초과면 주기 경고만 남기고 false(보류 유지), 초과면 경고를 남기고 true(정지 진행)를 돌려준다.
+        /// </summary>
+        private bool HasDrainDeferLimitExpired(string boundaryName, string drainReason)
+        {
+            long startedTicks = Interlocked.Read(ref _cycleStopRequestedAtUtcTicks);
+            if (startedTicks <= 0)
+                return false;   // 요청 시각을 모르면 기존 동작(보류)을 유지한다.
+
+            double elapsedMs = (DateTime.UtcNow - new DateTime(startedTicks, DateTimeKind.Utc)).TotalMilliseconds;
+            if (elapsedMs < CycleStopDrainDeferLimitMs)
+            {
+                NotifyDrainDeferIfNeeded(boundaryName, drainReason, elapsedMs);
+                return false;
+            }
+
+            QMC.Common.Logging.EventLogger.Write(
+                QMC.Common.Logging.EventKind.Warning,
+                "SYSTEM",
+                "CYCLE-STOP-DRAIN-DEFER-TIMEOUT",
+                "CYCLE STOP drain 보류가 상한을 초과해 정지를 우선합니다. 보유 제품은 픽커에 남으며 " +
+                "재시작 시 보유 Die 검사부터 재개됩니다. boundary=" + (boundaryName ?? "-") +
+                ", drainReason=" + (drainReason ?? "-") +
+                ", elapsedSec=" + ((int)(elapsedMs / 1000.0)) +
+                ", limitSec=" + (CycleStopDrainDeferLimitMs / 1000));
+            return true;
+        }
+
+        /// <summary>[정지 무한유예 상한 2026-08-25] 보류 중임을 주기적으로 알린다(기존에는 무로그였다).</summary>
+        private void NotifyDrainDeferIfNeeded(string boundaryName, string drainReason, double elapsedMs)
+        {
+            long nowTicks = DateTime.UtcNow.Ticks;
+            long lastTicks = Interlocked.Read(ref _cycleStopDrainNotifiedAtUtcTicks);
+            if (lastTicks > 0 &&
+                (new DateTime(nowTicks, DateTimeKind.Utc) - new DateTime(lastTicks, DateTimeKind.Utc)).TotalMilliseconds
+                    < CycleStopDrainDeferNotifyIntervalMs)
+                return;
+
+            if (Interlocked.CompareExchange(ref _cycleStopDrainNotifiedAtUtcTicks, nowTicks, lastTicks) != lastTicks)
+                return;   // 다른 스레드가 방금 알렸다.
+
+            QMC.Common.Logging.EventLogger.Write(
+                QMC.Common.Logging.EventKind.Warning,
+                "SYSTEM",
+                "CYCLE-STOP-DRAIN-DEFER-WAIT",
+                "CYCLE STOP 요청을 보유 제품 배출(drain) 완료까지 보류하고 있습니다. boundary=" +
+                (boundaryName ?? "-") +
+                ", drainReason=" + (drainReason ?? "-") +
+                ", elapsedSec=" + ((int)(elapsedMs / 1000.0)) +
+                ", limitSec=" + (CycleStopDrainDeferLimitMs / 1000));
         }
 
         /// <summary>장비 컨트롤러의 공개 로그 브리지로 메시지를 출력합니다.</summary>

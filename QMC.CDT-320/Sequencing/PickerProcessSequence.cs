@@ -750,7 +750,10 @@ namespace QMC.CDT320.Sequencing
                     MaterialStateService.HasInputStagePickReservationForPickerLocation(PickerLocationKind);
                 bool hasRemainingInputPickWork = hasReadyInputPickTarget || hasInputPickReservationForSide;
                 int emptyEnabledPickerCount = enabled.Count - occupiedCount;
-                WriteLog("PickerProcessSequence",
+                // [진단 가시성 2026-08-25, 사용자 승인] 재개 판정 근거는 "픽커가 왜 PickUp/Bottom/Place로
+                // 갔는지"를 사후 추적하는 유일한 단서인데 4-인자 WriteLog라 운영 최소 로그 정책에서 파일에
+                // 남지 않았다(2026-08-25 정지 미완료 원인 추적 실패). 항상 남는 레벨로 올린다.
+                QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "PickerProcessSequence",
                     Name + " Picker 공정 시작 스텝 판단. side=" + Side +
                     ", runMode=" + (Options != null ? Options.RunMode.ToString() : "null") +
                     ", enabledPickerCount=" + enabled.Count +
@@ -770,7 +773,8 @@ namespace QMC.CDT320.Sequencing
                 {
                     _resumePartialPickUpWithoutMarkPermission = false;
                     CurrentStep = PickerProcessStep.RunInputCameraMarkInspection;
-                    WriteLog("PickerProcessSequence",
+                    // [진단 가시성 2026-08-25] 선택된 재개 분기도 항상 남긴다.
+                    QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "PickerProcessSequence",
                         Name + " Picker에 Die가 없어 InputCamera Mark 검사부터 시작합니다. side=" + Side +
                         ", enabledPickerCount=" + enabled.Count + " - Check");
                     return 0;
@@ -795,7 +799,8 @@ namespace QMC.CDT320.Sequencing
                     _keepPickerYForwardForContinuousPlace = false;
                     _resumePartialPickUpWithoutMarkPermission = false;
                     CurrentStep = PickerProcessStep.RunPlace;
-                    WriteLog("PickerProcessSequence",
+                    // [진단 가시성 2026-08-25] 선택된 재개 분기도 항상 남긴다.
+                    QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "PickerProcessSequence",
                         Name + " Picker 위 target Die가 모두 Place 가능 상태라 Place부터 재개합니다. " +
                         "Place 도중 알람/정지 후 재시작 케이스로 판단하여 Bottom/Side 재검사를 생략하고, " +
                         "PickerY Avoid 정리 후 Picker X/T를 Place 위치로 먼저 이동한 다음 PickerY 전진을 허용합니다. " +
@@ -869,7 +874,8 @@ namespace QMC.CDT320.Sequencing
 
                 _forceBottomInspectionBeforeSideResume = forceBottomAndSideFromFirst;
                 CurrentStep = PickerProcessStep.RunBottomInspection;
-                WriteLog("PickerProcessSequence",
+                // [진단 가시성 2026-08-25] 선택된 재개 분기도 항상 남긴다.
+                QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "PickerProcessSequence",
                     Name + " Picker가 Die를 가지고 있어 기존 Good/NG/검사 record와 관계없이 Bottom 검사부터 재개합니다. " +
                     "Skip/비대상 Die만 제외하고, Picker 위 target Die는 Bottom/Side를 다시 측정한 뒤 Place합니다. side=" + Side +
                     ", occupiedPickerCount=" + occupiedCount +
@@ -958,25 +964,85 @@ namespace QMC.CDT320.Sequencing
                 _dynamicWaitAdvanceMoveTask = null;
                 _dynamicWaitAdvanceTarget = 0.0;
                 InputCameraPreInspectionWaitResult waitResult;
+                bool yieldedForOppositePreInspection = false;
                 using (CancellationTokenSource dynamicWaitCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
                 {
                     Task dynamicWaitMonitor = RunDynamicPickUpWaitAdvanceMonitorAsync(dynamicWaitCts.Token, ct);
+                    bool dynamicWaitMonitorStopped = false;
                     try
                     {
-                        waitResult =
-                            await InputCameraPreInspectionCoordinator.WaitForPermissionOrCompletionAsync(
+                        Task<InputCameraPreInspectionWaitResult> permissionWaitTask =
+                            InputCameraPreInspectionCoordinator.WaitForPermissionOrCompletionAsync(
                                 Context,
                                 Side,
                                 BuildChildSequenceOptions(),
                                 ct,
-                                Name + ":PickUpReady").ConfigureAwait(false);
+                                Name + ":PickUpReady");
+
+                        // [선행검사 교착 양보 2026-08-25, 사용자 승인] 허가가 상한 시간 안에 오지 않으면
+                        // 이 픽커가 먼저 물러난다. 2026-08-25 11:16~11:20 실측 교착이 정확히 이 구조였다 —
+                        // 한쪽은 Input 작업존 '예약'을 쥔 채, 다른 쪽은 Input X 존을 '물리 점유'한 채 서로의
+                        // 선행검사를 막고, 둘 다 자기 허가를 기다려 아무도 비켜주지 않았다(FIFO 티켓만 증가).
+                        // 한쪽이 존과 예약을 비우면 상대 선행검사가 통과하고 내 허가도 이어서 나온다.
+                        // 대기 토큰은 건드리지 않는다 — 진행 중인 선행검사 Task를 취소하지 않기 위해서다.
+                        // 양보는 배치당 1회만 하고 그 뒤에는 같은 대기를 그대로 이어간다.
+                        while (!permissionWaitTask.IsCompleted)
+                        {
+                            ct.ThrowIfCancellationRequested();
+
+                            Task completed = await Task.WhenAny(
+                                permissionWaitTask,
+                                Task.Delay(PickUpPermissionYieldTimeoutMs, ct)).ConfigureAwait(false);
+                            if (ReferenceEquals(completed, permissionWaitTask))
+                                break;
+                            if (yieldedForOppositePreInspection)
+                                continue;
+
+                            // 후퇴 직후 재전진하지 않도록 동적 선행 이동을 먼저 멈추고 회수한다.
+                            dynamicWaitCts.Cancel();
+                            try { await dynamicWaitMonitor.ConfigureAwait(false); } catch { }
+                            await JoinDynamicPickUpWaitAdvanceAsync("허가 대기 양보").ConfigureAwait(false);
+                            dynamicWaitMonitorStopped = true;
+
+                            // 양보 후퇴 실패는 치명 처리하지 않는다 — 양보는 교착을 푸는 기회적 조치이고,
+                            // 정상이지만 느린 대기(선행검사가 실제로 진행 중)에서 후퇴가 공유레일 간격 등으로
+                            // 막혔다고 운전을 알람으로 세우면 기존 동작을 후퇴시키는 회귀가 된다.
+                            // 실패해도 기존 보호(FIFO/카메라존 타임아웃, 정지 유예 상한)는 그대로 동작한다.
+                            int yieldResult = await YieldPickUpPermissionWaitAsync(ct).ConfigureAwait(false);
+                            if (yieldResult != 0)
+                            {
+                                QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "PickerProcessSequence",
+                                    Name + " 선행검사 허가 대기 양보 후퇴가 완료되지 않았습니다. 대기를 그대로 이어갑니다. " +
+                                    "side=" + Side + ", result=" + yieldResult + " - Check");
+                            }
+
+                            yieldedForOppositePreInspection = true;
+                        }
+
+                        waitResult = await permissionWaitTask.ConfigureAwait(false);
                     }
                     finally
                     {
-                        dynamicWaitCts.Cancel();
-                        try { await dynamicWaitMonitor.ConfigureAwait(false); } catch { }
+                        if (!dynamicWaitMonitorStopped)
+                        {
+                            dynamicWaitCts.Cancel();
+                            try { await dynamicWaitMonitor.ConfigureAwait(false); } catch { }
+                        }
                         await JoinDynamicPickUpWaitAdvanceAsync("허가 대기 종료").ConfigureAwait(false);
                     }
+                }
+
+                // 양보로 PickUp phase를 반납했으면 PickUp 진행 전에 다시 확보한다.
+                // 후퇴가 도중에 실패하면 phase를 반납하지 않으므로(물리적으로 존에 남은 채 예약만 푸는
+                // 위험 상태를 만들지 않기 위해) 실제 반납 여부를 lease로 확인해 재진입한다.
+                if (yieldedForOppositePreInspection && _phaseLease == null)
+                {
+                    readyResult = await EnterOrTransitionPickerPhaseAsync(
+                        PickerProcessPhase.PickUp,
+                        "InputCameraMarkInspectionAfterYield",
+                        ct).ConfigureAwait(false);
+                    if (readyResult != 0)
+                        return readyResult;
                 }
 
                 if (ShouldBlockNewPickForWaferCompletion())
@@ -1165,6 +1231,64 @@ namespace QMC.CDT320.Sequencing
 
         // 허가 대기 세션 동안 200ms 주기로 게이트를 판정하고 충족 시 1회 선행 이동을 발행한다.
         // monitorCt = 대기 종료 시 취소(모니터 전용), moveCt = 시퀀스 토큰(이동은 완주 허용).
+        // [선행검사 교착 양보 2026-08-25, 사용자 승인] 허가 대기 양보 임계 시간.
+        // 정상 선행검사 1회보다는 길고, FIFO head 타임아웃(100초)보다는 짧게 잡아 교착이면
+        // 그보다 먼저 스스로 풀리게 한다. 이미 Avoid에 있으면 각 이동이 스킵되어 비용은 없다.
+        private const int PickUpPermissionYieldTimeoutMs = 30000;
+
+        /// <summary>
+        /// [선행검사 교착 양보 2026-08-25] 허가 대기가 길어질 때 Input 존과 작업영역을 비워
+        /// 상대 선행검사가 통과할 수 있게 한다.
+        /// 존 차단 판정은 (a) PickerX 위치로 결정되는 존 활성(IsRequestedZoneActive)과
+        /// (b) 작업영역 예약 두 가지이므로, X Avoid 복귀와 phase 반납을 함께 수행해야 실제로 풀린다.
+        /// 후퇴는 Z→Y→X 순의 기존 안전 순서를 그대로 따르고, 각 이동은 인터락 검증을 정상 통과해야 한다.
+        /// </summary>
+        private async Task<int> YieldPickUpPermissionWaitAsync(CancellationToken ct)
+        {
+            QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "PickerProcessSequence",
+                Name + " InputCamera 선행검사 허가 대기가 길어져 Input 존/작업영역을 양보합니다. " +
+                "상대 선행검사가 통과해야 내 허가도 나옵니다. side=" + Side +
+                ", timeoutSec=" + (PickUpPermissionYieldTimeoutMs / 1000) + " - Yield");
+
+            int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                "선행검사 허가 대기 양보 전 PickerZ 전체 Avoid",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            double yAvoid = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+            result = await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerY,
+                yAvoid,
+                "선행검사 허가 대기 양보 PickerY Avoid",
+                ct,
+                "AvoidPosition;PickerPhase=PickUpPermissionYield").ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            double xAvoid = GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
+            result = await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerX,
+                xAvoid,
+                "선행검사 허가 대기 양보 PickerX Avoid",
+                ct,
+                "AvoidPosition;PickerPhase=PickUpPermissionYield").ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            // 물리 존을 비운 뒤 작업영역 예약(=phase)까지 반납해야 상대 선행검사의 존 승인이 열린다.
+            ReleasePickerProcessPhase("PickUpPermissionYield");
+
+            QMC.Common.Logging.EventLogger.Write(
+                QMC.Common.Logging.EventKind.Warning,
+                "SYSTEM",
+                "PICKER-PICKUP-YIELD-WAIT-LONG",
+                "InputCamera 선행검사 허가 대기가 길어져 Picker가 Input 존/작업영역을 양보했습니다. " +
+                "side=" + Side +
+                ", timeoutSec=" + (PickUpPermissionYieldTimeoutMs / 1000));
+            return 0;
+        }
+
         private async Task RunDynamicPickUpWaitAdvanceMonitorAsync(CancellationToken monitorCt, CancellationToken moveCt)
         {
             HashSet<string> loggedReasons = new HashSet<string>();

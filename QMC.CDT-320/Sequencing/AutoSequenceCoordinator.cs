@@ -99,135 +99,135 @@ namespace QMC.CDT320.Sequencing
                 "Run",
                 _options != null ? _options.Mode.ToString() : ""))
             {
-            if (_active.Count == 0)
-            {
-                _ctx.LogPublic("[SEQ] 실행할 활성 유닛이 없습니다.");
-                tactScope.Skip("실행할 활성 유닛이 없습니다.");
-                return;
-            }
+                if (_active.Count == 0)
+                {
+                    _ctx.LogPublic("[SEQ] 실행할 활성 유닛이 없습니다.");
+                    tactScope.Skip("실행할 활성 유닛이 없습니다.");
+                    return;
+                }
 
-            ResetCoordinatorRunState();
+                ResetCoordinatorRunState();
 
-            // §4: 이번 run의 크로스-픽커 첫 전진 우선순위 상태를 초기화한다(신규 시작/재시작 순서 게이트).
-            PickerFirstForwardSequencer.BeginRun();
-            // Input die vision Wait 재시도 카운터 초기화(사용자 확정 2026-07-29) — 자동 운전 시작 시점.
-            InputDieVisionWaitRetryStore.ClearAll("AutoStart");
-            PickerFirstForwardSequencer.ConfigureActiveSides(
-                IsPickerSideActive(PickerSequenceSide.Front),
-                IsPickerSideActive(PickerSequenceSide.Rear));
-            ConfigureRestartPickerDrain();
-            await RestorePendingOutputPostPlaceInspectionAsync(ct).ConfigureAwait(false);
+                // §4: 이번 run의 크로스-픽커 첫 전진 우선순위 상태를 초기화한다(신규 시작/재시작 순서 게이트).
+                PickerFirstForwardSequencer.BeginRun();
+                // Input die vision Wait 재시도 카운터 초기화(사용자 확정 2026-07-29) — 자동 운전 시작 시점.
+                InputDieVisionWaitRetryStore.ClearAll("AutoStart");
+                PickerFirstForwardSequencer.ConfigureActiveSides(
+                    IsPickerSideActive(PickerSequenceSide.Front),
+                    IsPickerSideActive(PickerSequenceSide.Rear));
+                ConfigureRestartPickerDrain();
+                await RestorePendingOutputPostPlaceInspectionAsync(ct).ConfigureAwait(false);
 
-            CancellationTokenSource childrenCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            _childrenCts = childrenCts;
-            CancellationToken childrenToken = childrenCts.Token;
-            var unitTasks = new List<Task>();
-            foreach (var sequence in _active.Values)
-                unitTasks.Add(Task.Run(() => sequence.RunAsync(childrenToken), childrenToken));
+                CancellationTokenSource childrenCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                _childrenCts = childrenCts;
+                CancellationToken childrenToken = childrenCts.Token;
+                var unitTasks = new List<Task>();
+                foreach (var sequence in _active.Values)
+                    unitTasks.Add(Task.Run(() => sequence.RunAsync(childrenToken), childrenToken));
 
-            CancellationTokenSource waferMonitorCts = null;
-            Task waferMonitorTask = null;
-            if (_ctx.WaferCompletion.Enabled)
-            {
-                waferMonitorCts = CancellationTokenSource.CreateLinkedTokenSource(childrenToken);
-                CancellationToken waferMonitorToken = waferMonitorCts.Token;
-                waferMonitorTask = Task.Run(
-                    () => _ctx.WaferCompletion.RunMonitorAsync(waferMonitorToken),
-                    waferMonitorToken);
-            }
+                CancellationTokenSource waferMonitorCts = null;
+                Task waferMonitorTask = null;
+                if (_ctx.WaferCompletion.Enabled)
+                {
+                    waferMonitorCts = CancellationTokenSource.CreateLinkedTokenSource(childrenToken);
+                    CancellationToken waferMonitorToken = waferMonitorCts.Token;
+                    waferMonitorTask = Task.Run(
+                        () => _ctx.WaferCompletion.RunMonitorAsync(waferMonitorToken),
+                        waferMonitorToken);
+                }
 
-            // Input Vision Prefetch 러너: Auto + VisionConfig 플래그 ON + 픽커 유닛 활성 시에만 기동.
-            // 촬영 오버랩(픽커 Bottom/Place 중 선행검사) 기동 판단 전용 루프 — waferMonitor와 동일한 배선 패턴.
-            CancellationTokenSource prefetchCts = null;
-            Task prefetchTask = null;
-            bool prefetchFrontActive = IsPickerSideActive(PickerSequenceSide.Front);
-            bool prefetchRearActive = IsPickerSideActive(PickerSequenceSide.Rear);
-            if (_options != null &&
-                _options.Mode == SequenceRunMode.Auto &&
-                (prefetchFrontActive || prefetchRearActive) &&
-                InputVisionPrefetchRunner.IsEnabled(_ctx))
-            {
-                prefetchCts = CancellationTokenSource.CreateLinkedTokenSource(childrenToken);
-                CancellationToken prefetchToken = prefetchCts.Token;
-                prefetchTask = Task.Run(
-                    () => InputVisionPrefetchRunner.RunAsync(_ctx, prefetchFrontActive, prefetchRearActive, prefetchToken),
-                    prefetchToken);
-                _ctx.LogPublic("[SEQ] Input Vision Prefetch 러너를 시작합니다. front=" + prefetchFrontActive +
-                               ", rear=" + prefetchRearActive);
-            }
+                // Input Vision Prefetch 러너: Auto + VisionConfig 플래그 ON + 픽커 유닛 활성 시에만 기동.
+                // 촬영 오버랩(픽커 Bottom/Place 중 선행검사) 기동 판단 전용 루프 — waferMonitor와 동일한 배선 패턴.
+                CancellationTokenSource prefetchCts = null;
+                Task prefetchTask = null;
+                bool prefetchFrontActive = IsPickerSideActive(PickerSequenceSide.Front);
+                bool prefetchRearActive = IsPickerSideActive(PickerSequenceSide.Rear);
+                if (_options != null &&
+                    _options.Mode == SequenceRunMode.Auto &&
+                    (prefetchFrontActive || prefetchRearActive) &&
+                    InputVisionPrefetchRunner.IsEnabled(_ctx))
+                {
+                    prefetchCts = CancellationTokenSource.CreateLinkedTokenSource(childrenToken);
+                    CancellationToken prefetchToken = prefetchCts.Token;
+                    prefetchTask = Task.Run(
+                        () => InputVisionPrefetchRunner.RunAsync(_ctx, prefetchFrontActive, prefetchRearActive, prefetchToken),
+                        prefetchToken);
+                    _ctx.LogPublic("[SEQ] Input Vision Prefetch 러너를 시작합니다. front=" + prefetchFrontActive +
+                                   ", rear=" + prefetchRearActive);
+                }
 
-            _ctx.LogPublic("[SEQ] Run start (unitTasks=" + unitTasks.Count +
-                           ", waferCompletionMonitor=" + (waferMonitorTask != null) + ")");
-            QMC.Common.Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
-                "Coordinator run start. unitTasks=" + unitTasks.Count +
-                ", waferCompletionMonitor=" + (waferMonitorTask != null) + " - Start");
-            try
-            {
-                await WaitUnitsWithWaferMonitorAsync(
-                    unitTasks,
-                    waferMonitorTask,
-                    childrenToken).ConfigureAwait(false);
-                _ctx.LogPublic("[SEQ] Run complete");
-                tactScope.Complete();
-            }
-            catch (SequenceStopException)
-            {
-                _ctx.LogPublic("[SEQ] Run stopped");
-                tactScope.Stop("", "시퀀스가 Cycle Stop 경계에서 정지되었습니다.");
-                await AwaitPendingAfterCycleStopAsync(unitTasks, false).ConfigureAwait(false);
-                await WaitInputVisionPrefetchRunnerAfterCycleStopAsync(
-                    prefetchTask,
-                    childrenToken).ConfigureAwait(false);
-                await CompleteNormalCycleStopDrainAsync(childrenToken).ConfigureAwait(false);
-                throw;
-            }
-            catch (OperationCanceledException) when (
-                _ctx != null &&
-                _ctx.IsCycleStopRequested &&
-                _options != null &&
-                _options.Mode == SequenceRunMode.Auto &&
-                !ct.IsCancellationRequested &&
-                _ctx.Controller != null &&
-                _ctx.Controller.Status != EquipmentStatus.Alarm)
-            {
-                _ctx.LogPublic("[SEQ] Cycle Stop용 중단 가능 대기가 깨어나 최종 drain 경로로 전환됩니다.");
-                tactScope.Stop("", "Cycle Stop 대기 해제 후 최종 drain을 수행합니다.");
-                await AwaitPendingAfterCycleStopAsync(unitTasks, false).ConfigureAwait(false);
-                await WaitInputVisionPrefetchRunnerAfterCycleStopAsync(
-                    prefetchTask,
-                    childrenToken).ConfigureAwait(false);
-                await CompleteNormalCycleStopDrainAsync(childrenToken).ConfigureAwait(false);
-                throw new SequenceStopException(
-                    "CYCLE STOP 요청으로 중단 가능 대기를 해제하고 검사·저장·전축 정지 배리어를 완료했습니다.");
-            }
-            catch (OperationCanceledException)
-            {
-                _ctx.LogPublic("[SEQ] Run canceled");
-                tactScope.Cancel("시퀀스가 취소되었습니다.");
-                AbortChildren();
-                await AwaitPendingAfterAbortAsync(unitTasks).ConfigureAwait(false);
-                throw;
-            }
-            catch (Exception ex)
-            {
-                tactScope.Fail("", ex.Message);
-                throw;
-            }
-            finally
-            {
-                await StopInputVisionPrefetchRunnerAsync(
-                    prefetchCts,
-                    prefetchTask).ConfigureAwait(false);
+                _ctx.LogPublic("[SEQ] Run start (unitTasks=" + unitTasks.Count +
+                               ", waferCompletionMonitor=" + (waferMonitorTask != null) + ")");
+                QMC.Common.Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                    "Coordinator run start. unitTasks=" + unitTasks.Count +
+                    ", waferCompletionMonitor=" + (waferMonitorTask != null) + " - Start");
+                try
+                {
+                    await WaitUnitsWithWaferMonitorAsync(
+                        unitTasks,
+                        waferMonitorTask,
+                        childrenToken).ConfigureAwait(false);
+                    _ctx.LogPublic("[SEQ] Run complete");
+                    tactScope.Complete();
+                }
+                catch (SequenceStopException)
+                {
+                    _ctx.LogPublic("[SEQ] Run stopped");
+                    tactScope.Stop("", "시퀀스가 Cycle Stop 경계에서 정지되었습니다.");
+                    await AwaitPendingAfterCycleStopAsync(unitTasks, false).ConfigureAwait(false);
+                    await WaitInputVisionPrefetchRunnerAfterCycleStopAsync(
+                        prefetchTask,
+                        childrenToken).ConfigureAwait(false);
+                    await CompleteNormalCycleStopDrainAsync(childrenToken).ConfigureAwait(false);
+                    throw;
+                }
+                catch (OperationCanceledException) when (
+                    _ctx != null &&
+                    _ctx.IsCycleStopRequested &&
+                    _options != null &&
+                    _options.Mode == SequenceRunMode.Auto &&
+                    !ct.IsCancellationRequested &&
+                    _ctx.Controller != null &&
+                    _ctx.Controller.Status != EquipmentStatus.Alarm)
+                {
+                    _ctx.LogPublic("[SEQ] Cycle Stop용 중단 가능 대기가 깨어나 최종 drain 경로로 전환됩니다.");
+                    tactScope.Stop("", "Cycle Stop 대기 해제 후 최종 drain을 수행합니다.");
+                    await AwaitPendingAfterCycleStopAsync(unitTasks, false).ConfigureAwait(false);
+                    await WaitInputVisionPrefetchRunnerAfterCycleStopAsync(
+                        prefetchTask,
+                        childrenToken).ConfigureAwait(false);
+                    await CompleteNormalCycleStopDrainAsync(childrenToken).ConfigureAwait(false);
+                    throw new SequenceStopException(
+                        "CYCLE STOP 요청으로 중단 가능 대기를 해제하고 검사·저장·전축 정지 배리어를 완료했습니다.");
+                }
+                catch (OperationCanceledException)
+                {
+                    _ctx.LogPublic("[SEQ] Run canceled");
+                    tactScope.Cancel("시퀀스가 취소되었습니다.");
+                    AbortChildren();
+                    await AwaitPendingAfterAbortAsync(unitTasks).ConfigureAwait(false);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    tactScope.Fail("", ex.Message);
+                    throw;
+                }
+                finally
+                {
+                    await StopInputVisionPrefetchRunnerAsync(
+                        prefetchCts,
+                        prefetchTask).ConfigureAwait(false);
 
-                await StopWaferCompletionMonitorAsync(
-                    waferMonitorCts,
-                    waferMonitorTask).ConfigureAwait(false);
+                    await StopWaferCompletionMonitorAsync(
+                        waferMonitorCts,
+                        waferMonitorTask).ConfigureAwait(false);
 
-                if (_childrenCts == childrenCts)
-                    _childrenCts = null;
+                    if (_childrenCts == childrenCts)
+                        _childrenCts = null;
 
-                childrenCts.Dispose();
-            }
+                    childrenCts.Dispose();
+                }
             }
         }
 

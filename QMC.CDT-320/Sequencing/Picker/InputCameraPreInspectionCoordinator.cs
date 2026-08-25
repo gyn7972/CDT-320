@@ -240,7 +240,9 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 if (context != null && context.IsCycleStopRequested)
                 {
-                    WriteLog("InputCameraPreInspectionCoordinator",
+                    // [진단 가시성 2026-08-25, 사용자 승인] 정지 감지 로그가 4-인자 WriteLog라 운영 최소
+                    // 로그 정책에서 버려져, 정지 직후 "각 대기가 정지를 봤는지"를 로그로 확인할 수 없었다.
+                    QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "InputCameraPreInspectionCoordinator",
                         side + " InputCamera 선행검사 대기 중 CYCLE STOP 요청 감지. " +
                         "reason=" + (reason ?? "-") + " - CycleStop");
                     context.StopIfCycleStopRequested("InputCameraPreInspectionCoordinator.Wait:" + side);
