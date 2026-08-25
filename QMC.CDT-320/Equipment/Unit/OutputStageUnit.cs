@@ -2731,12 +2731,30 @@ namespace QMC.CDT320
                     fwd
                         ? cylinder.OutBwd != null && cylinder.OutBwd.IsOn
                         : cylinder.OutFwd != null && cylinder.OutFwd.IsOn;
+                // [정착 이력 보완 2026-08-25 팀장님 승인] 센서 우회 모드 실린더는 인터락
+                // (OutputStageInterlockRules.VerifyNgBinClampCommandBackFallback)이 DI 대신
+                // 정식 명령 정착 이력(IsCommandStateSettled)을 요구한다. 이력은 앱 재시작 시
+                // 소실되므로, 이미 목표 상태라도 이력이 없으면 스킵하지 않고 정식 명령을 1회
+                // 발행해 이력을 만든다(우회모드+이력없음일 때만 +settleMs, 정상 경로 무변경).
+                bool needSettleHistory =
+                    AjinFactory.IsFaultySensorCommandFallbackActive(cylinder) &&
+                    !cylinder.IsCommandStateSettled(fwd);
                 if (already &&
+                    !needSettleHistory &&
                     (!forceCommandWhenOppositeOutputActive ||
                      !oppositeOutputActive))
                     return 0;
 
                 ct.ThrowIfCancellationRequested();
+
+                // 계측(2026-08-25): 이미 목표 상태인데도 정착 이력이 없어 스킵을 생략한 경우만 1줄.
+                // 정상 경로(우회 모드 아님 또는 이력 있음)에서는 이 로그가 나오지 않아야 한다.
+                if (already && needSettleHistory)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageCylinderCommand",
+                        description + " 이미 목표 상태이나 센서 우회 모드 정착 이력이 없어 정식 명령을 발행합니다." +
+                        " direction=" + (fwd ? "Fwd" : "Bwd") + ", already=true, settled=false - Check");
+                }
 
                 // 진단: 실제로 실린더를 구동하는 시점에 호출 경로를 남긴다.
                 // 이 경로에는 SequenceTrace가 없어, 인터락 차단 시 "누가 명령했는지"를 로그로 특정할 수 없었다.
