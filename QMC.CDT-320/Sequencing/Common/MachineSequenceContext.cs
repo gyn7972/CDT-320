@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using QMC.Common.Diagnostics.TactTime;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -69,14 +70,20 @@ namespace QMC.CDT320.Sequencing
         // 픽커 자재 잔류 등)에서는 정지 버튼이 영원히 먹지 않는다(2026-08-25 11:20 실측 — 정지 후
         // 무한 대기, 로그도 완전 무음). 요청 시각부터 상한을 두어 초과 시 보류를 끝내고 경계 정지로
         // 합류하고, 보류 중에는 주기적으로 경고를 남겨 "왜 안 서는지"가 로그에 보이게 한다.
-        // 상한을 3분으로 둔 이유: 정상 드레인(보유 4다이 검사·Place)은 물론 Bin 교체가 낀 드레인까지
-        // 정상 완료될 여유를 주되, 그보다 길어지면 진행 불가로 보고 정지를 우선한다.
-        // 상한 초과로 정지해도 제품은 픽커에 남을 뿐이며, 재시작 시 재개 판정이 보유 Die를 Bottom
-        // 검사부터 다시 태운다(PickerProcessSequence 재개 로직).
-        private const int CycleStopDrainDeferLimitMs = 180000;
+        // [진행 조건 전환 2026-08-25, 사용자 지시] 기준을 "경과 시간"에서 "배출 진행 여부"로 바꿨다.
+        // 고정 시간 상한은 Bin 교체가 낀 정상 드레인을 도중에 끊어 제품을 픽커에 남길 수 있다.
+        // 진행 지표 = 픽커가 들고 있는 target Die 개수. 개수가 줄면(=배출 진행) 무진행 타이머를
+        // 리셋해 얼마가 걸리든 끝까지 기다리고, 개수가 멈춰 있으면 진행 불가로 보고 정지를 우선한다.
+        // 절대 상한은 지표가 계속 요동칠 때를 대비한 최후 방어선으로만 남긴다.
+        private const int CycleStopDrainNoProgressLimitMs = 45000;
+        private const int CycleStopDrainAbsoluteLimitMs = 600000;
+        private const int CycleStopDrainProgressSampleIntervalMs = 1000;
         private const int CycleStopDrainDeferNotifyIntervalMs = 30000;
         private long _cycleStopRequestedAtUtcTicks;
         private long _cycleStopDrainNotifiedAtUtcTicks;
+        private long _cycleStopDrainProgressAtUtcTicks;
+        private long _cycleStopDrainProgressSampledAtUtcTicks;
+        private int _cycleStopDrainHeldDieCount = -1;
 
         /// <summary>현재 자동 시퀀스가 사이클 경계에서 정지해야 하는지 여부입니다.</summary>
         public bool IsCycleStopRequested
@@ -101,6 +108,9 @@ namespace QMC.CDT320.Sequencing
             Interlocked.Exchange(ref _cycleStopRequested, 0);
             Interlocked.Exchange(ref _cycleStopRequestedAtUtcTicks, 0);
             Interlocked.Exchange(ref _cycleStopDrainNotifiedAtUtcTicks, 0);
+            Interlocked.Exchange(ref _cycleStopDrainProgressAtUtcTicks, 0);
+            Interlocked.Exchange(ref _cycleStopDrainProgressSampledAtUtcTicks, 0);
+            Interlocked.Exchange(ref _cycleStopDrainHeldDieCount, -1);
             Bus.Reset("CycleStopRequested");
 
             // 다음 Auto 실행이 이전 정지 요청을 물려받지 않도록 새 토큰으로 교체한다.
@@ -175,10 +185,23 @@ namespace QMC.CDT320.Sequencing
             if (startedTicks <= 0)
                 return false;   // 요청 시각을 모르면 기존 동작(보류)을 유지한다.
 
-            double elapsedMs = (DateTime.UtcNow - new DateTime(startedTicks, DateTimeKind.Utc)).TotalMilliseconds;
-            if (elapsedMs < CycleStopDrainDeferLimitMs)
+            DateTime nowUtc = DateTime.UtcNow;
+            double elapsedMs = (nowUtc - new DateTime(startedTicks, DateTimeKind.Utc)).TotalMilliseconds;
+
+            int heldDieCount = SampleDrainProgress(nowUtc);
+            long progressTicks = Interlocked.Read(ref _cycleStopDrainProgressAtUtcTicks);
+            if (progressTicks <= 0)
             {
-                NotifyDrainDeferIfNeeded(boundaryName, drainReason, elapsedMs);
+                Interlocked.CompareExchange(ref _cycleStopDrainProgressAtUtcTicks, nowUtc.Ticks, 0);
+                progressTicks = Interlocked.Read(ref _cycleStopDrainProgressAtUtcTicks);
+            }
+
+            double noProgressMs = (nowUtc - new DateTime(progressTicks, DateTimeKind.Utc)).TotalMilliseconds;
+            if (noProgressMs < CycleStopDrainNoProgressLimitMs &&
+                elapsedMs < CycleStopDrainAbsoluteLimitMs)
+            {
+                // 배출이 진행 중이면(보유 수량이 줄고 있으면) 얼마가 걸리든 계속 기다린다.
+                NotifyDrainDeferIfNeeded(boundaryName, drainReason, elapsedMs, noProgressMs, heldDieCount);
                 return false;
             }
 
@@ -186,16 +209,79 @@ namespace QMC.CDT320.Sequencing
                 QMC.Common.Logging.EventKind.Warning,
                 "SYSTEM",
                 "CYCLE-STOP-DRAIN-DEFER-TIMEOUT",
-                "CYCLE STOP drain 보류가 상한을 초과해 정지를 우선합니다. 보유 제품은 픽커에 남으며 " +
-                "재시작 시 보유 Die 검사부터 재개됩니다. boundary=" + (boundaryName ?? "-") +
+                "CYCLE STOP drain 보류를 종료하고 정지를 우선합니다. 보유 제품 배출이 진행되지 않습니다. " +
+                "보유 제품은 픽커에 남으며 재시작 시 보유 Die 검사부터 재개됩니다. boundary=" +
+                (boundaryName ?? "-") +
                 ", drainReason=" + (drainReason ?? "-") +
+                ", heldDieCount=" + heldDieCount +
+                ", noProgressSec=" + ((int)(noProgressMs / 1000.0)) +
+                ", noProgressLimitSec=" + (CycleStopDrainNoProgressLimitMs / 1000) +
                 ", elapsedSec=" + ((int)(elapsedMs / 1000.0)) +
-                ", limitSec=" + (CycleStopDrainDeferLimitMs / 1000));
+                ", absoluteLimitSec=" + (CycleStopDrainAbsoluteLimitMs / 1000));
             return true;
         }
 
+        /// <summary>
+        /// [진행 조건 전환 2026-08-25] 배출 진행 지표(픽커 보유 target Die 개수)를 표본 주기로 갱신하고,
+        /// 값이 바뀌었으면(=배출이 진행됐으면) 무진행 타이머를 리셋한다.
+        /// 폴링 루프에서 매번 자재 lock을 잡지 않도록 표본 주기(1초) 안에서는 마지막 값을 재사용한다.
+        /// </summary>
+        private int SampleDrainProgress(DateTime nowUtc)
+        {
+            long lastSampledTicks = Interlocked.Read(ref _cycleStopDrainProgressSampledAtUtcTicks);
+            if (lastSampledTicks > 0 &&
+                (nowUtc - new DateTime(lastSampledTicks, DateTimeKind.Utc)).TotalMilliseconds
+                    < CycleStopDrainProgressSampleIntervalMs)
+            {
+                return Interlocked.CompareExchange(ref _cycleStopDrainHeldDieCount, 0, 0);
+            }
+
+            Interlocked.Exchange(ref _cycleStopDrainProgressSampledAtUtcTicks, nowUtc.Ticks);
+            int heldDieCount = ResolvePickerHeldTargetDieCount();
+            if (Interlocked.Exchange(ref _cycleStopDrainHeldDieCount, heldDieCount) != heldDieCount)
+                Interlocked.Exchange(ref _cycleStopDrainProgressAtUtcTicks, nowUtc.Ticks);
+
+            return heldDieCount;
+        }
+
+        /// <summary>
+        /// [진행 조건 전환 2026-08-25] Front/Rear 픽커가 들고 있는 target Die 개수(0~8).
+        /// 조회 실패 시 -1을 돌려주며, 값이 계속 -1이면 진행 없음으로 보아 무진행 상한에서 정지한다
+        /// (정지가 되는 방향이 안전 방향이다).
+        /// </summary>
+        private static int ResolvePickerHeldTargetDieCount()
+        {
+            try
+            {
+                int count = 0;
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    DieMaterial frontDie = MaterialStateService.GetDieAtPicker(
+                        MaterialLocationKind.PickerFront, pickerNo);
+                    if (frontDie != null && frontDie.IsInputTarget)
+                        count++;
+
+                    DieMaterial rearDie = MaterialStateService.GetDieAtPicker(
+                        MaterialLocationKind.PickerRear, pickerNo);
+                    if (rearDie != null && rearDie.IsInputTarget)
+                        count++;
+                }
+
+                return count;
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+
         /// <summary>[정지 무한유예 상한 2026-08-25] 보류 중임을 주기적으로 알린다(기존에는 무로그였다).</summary>
-        private void NotifyDrainDeferIfNeeded(string boundaryName, string drainReason, double elapsedMs)
+        private void NotifyDrainDeferIfNeeded(
+            string boundaryName,
+            string drainReason,
+            double elapsedMs,
+            double noProgressMs,
+            int heldDieCount)
         {
             long nowTicks = DateTime.UtcNow.Ticks;
             long lastTicks = Interlocked.Read(ref _cycleStopDrainNotifiedAtUtcTicks);
@@ -214,8 +300,10 @@ namespace QMC.CDT320.Sequencing
                 "CYCLE STOP 요청을 보유 제품 배출(drain) 완료까지 보류하고 있습니다. boundary=" +
                 (boundaryName ?? "-") +
                 ", drainReason=" + (drainReason ?? "-") +
+                ", heldDieCount=" + heldDieCount +
                 ", elapsedSec=" + ((int)(elapsedMs / 1000.0)) +
-                ", limitSec=" + (CycleStopDrainDeferLimitMs / 1000));
+                ", noProgressSec=" + ((int)(noProgressMs / 1000.0)) +
+                ", noProgressLimitSec=" + (CycleStopDrainNoProgressLimitMs / 1000));
         }
 
         /// <summary>장비 컨트롤러의 공개 로그 브리지로 메시지를 출력합니다.</summary>
