@@ -620,7 +620,8 @@ namespace QMC.CDT320.Sequencing
                     out coordinateReason,
                     pickRuntimeOffsetX,
                     pickRuntimeOffsetY,
-                    pickRuntimeOffsetT))
+                    pickRuntimeOffsetT,
+                    applyColletEccentricCompensation: true))
                 {
                     return Fail("PICKER-PICKUP-COORD-OFFSET", Name,
                         "Input pick coordinate target resolve failed. " +

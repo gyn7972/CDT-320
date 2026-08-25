@@ -50,6 +50,8 @@ namespace QMC.CDT320
         public const double DefaultMechanicalOffsetLimitTDeg = 1.0;
         public const double MaximumMechanicalOffsetLimitTDeg = 2.0;
         public const double LegacyPickUpMechanicalOffsetXmm = 0.020;
+        // 콜렛 편심 보상 ΔP 성분별 크기 한계(mm) — 콜렛 캘 FineAlignMaxXyMoveMm 기본값(0.2)과 동일 선례.
+        public const double DefaultColletEccentricCompensationLimitMm = 0.2;
 
         [DataMember] public PickerPickUpZMotionMode MotionMode { get; set; } = PickerPickUpZMotionMode.Detailed;
         [DataMember] public PickerPickUpTransferMotionMode TransferMotionMode { get; set; } = PickerPickUpTransferMotionMode.Default;
@@ -61,6 +63,10 @@ namespace QMC.CDT320
         // PickerT 축 기구 보정(deg) — 이동식에서 PickerT에 가산(+). Pick 런타임 T도 가산(2026-08-18
         // 실장비 정정)이라 이관식은 기구T′ = 기구T + 필터T.
         [DataMember] public double[] MechanicalOffsetT { get; set; } = new double[MechanicalOffsetPickerCount];
+        // 콜렛 회전중심·콜렛원점 편심 픽업 XY 보상 스위치(2026-08-25 팀장님 지시). 기본 Off —
+        // 실장비 부호 확정 1런 전까지 켜지 않는다. 자동 픽업+수동 맵 이동에만 적용(캘·레시피 이동은 무보상).
+        [DataMember] public bool UsePickRotationCenterCompensation { get; set; } = false;
+        [DataMember] public double ColletEccentricCompensationLimitMm { get; set; } = DefaultColletEccentricCompensationLimitMm;
         [DataMember] public int TransferContiCoordinate { get; set; } = 2;
         [DataMember] public int TransferContiTimeoutMs { get; set; } = 5000;
         [DataMember] public double TransferContiMaxTravelDistance { get; set; } = 45.0;
@@ -131,6 +137,8 @@ namespace QMC.CDT320
             PreDownNeedleWorkRadiusMm = 130.0;
             PickUpDynamicWaitMode = false;
             DynamicWaitExtraMarginMm = 0.0;
+            UsePickRotationCenterCompensation = false;
+            ColletEccentricCompensationLimitMm = DefaultColletEccentricCompensationLimitMm;
         }
 
         [OnDeserialized]
@@ -149,6 +157,8 @@ namespace QMC.CDT320
                 MechanicalOffsetLimitMm);
             MechanicalOffsetY = EnsureMechanicalOffsetArray(MechanicalOffsetY, 0.0, MechanicalOffsetLimitMm);
             MechanicalOffsetT = EnsureMechanicalOffsetArray(MechanicalOffsetT, 0.0, MechanicalOffsetTLimitDeg);
+            ColletEccentricCompensationLimitMm =
+                NormalizeColletEccentricCompensationLimit(ColletEccentricCompensationLimitMm);
 
             if (PickerZSyncLiftDistance <= 0.0 && SyncLiftDistance > 0.0)
                 PickerZSyncLiftDistance = SyncLiftDistance;
@@ -238,6 +248,14 @@ namespace QMC.CDT320
             if (limit > MaximumMechanicalOffsetLimitMm)
                 return MaximumMechanicalOffsetLimitMm;
             return limit;
+        }
+
+        // 콜렛 편심 보상 한계 정규화 — 0 이하·NaN·Infinity는 기본값(0.2)으로 복원한다(지시서 §3-4).
+        public static double NormalizeColletEccentricCompensationLimit(double limit)
+        {
+            if (double.IsNaN(limit) || double.IsInfinity(limit) || limit <= 0.0)
+                return DefaultColletEccentricCompensationLimitMm;
+            return Math.Round(limit, 3, MidpointRounding.AwayFromZero);
         }
 
         public static double NormalizeMechanicalOffset(double value, double limit)

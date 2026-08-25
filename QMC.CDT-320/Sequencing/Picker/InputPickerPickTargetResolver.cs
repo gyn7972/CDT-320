@@ -47,7 +47,9 @@ namespace QMC.CDT320.Sequencing
                 0.0,
                 0.0,
                 0.0,
-                logFormula);
+                logFormula,
+                // 수동 맵 확인 위치가 실제 픽 위치와 일치하도록 편심 보상도 opt-in(2026-08-25 팀장님 확정).
+                applyColletEccentricCompensation: true);
         }
 
         public static bool TryResolveInputCameraToBottomOffsets(

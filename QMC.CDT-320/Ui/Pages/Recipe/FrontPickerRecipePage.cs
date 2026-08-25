@@ -484,6 +484,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     v => SetPickUpMechanicalOffsetT(ResolveLivePickUpConfig(), index, v)),
                     "PickUp 목표의 PickerT에 더하는 Picker별 T 기구 보정입니다(2026-08-16 신설). 런타임 T 필터 이관은 기구T = 기구T + 필터T 입니다(2026-08-18 가산 정정)."), groupKey));
             }
+            items.Add(InGroup(Describe(ParameterGridItem.Bool("PICKUP COLLET ECCENTRIC COMP USE", ParameterGridScope.Config,
+                () => ResolveLivePickUpConfig().UsePickRotationCenterCompensation,
+                v => ResolveLivePickUpConfig().UsePickRotationCenterCompensation = v),
+                "콜렛 회전중심·콜렛원점 편심 픽업 XY 보상(2026-08-25 신설)입니다. ΔP=(I-R(Δθ))·(C-O)를 자동 픽업과 수동 맵 이동의 PickerX/PickerY에 가산합니다.\r\n" +
+                "회전중심 Valid·콜렛 캘 Valid·캘 세대 정합·각도(|Δθ|≈180°±5°)·크기 게이트를 전부 통과할 때만 적용되고, 아니면 보상 0으로 동작합니다(PICK-COC-COMP 로그).\r\n" +
+                "ON 직전 Pick 런타임 필터 X/Y 리셋이 필요합니다. 기본 OFF — 실장비 부호 확정 1런 전까지 켜지 마십시오."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP COLLET ECCENTRIC COMP LIMIT", "mm (0.000)", ParameterGridScope.Config,
+                () => ResolveLivePickUpConfig().ColletEccentricCompensationLimitMm,
+                v => ResolveLivePickUpConfig().ColletEccentricCompensationLimitMm = PickerPickUpMotionConfig.NormalizeColletEccentricCompensationLimit(v)),
+                "콜렛 편심 보상 ΔP의 X/Y 성분별 절대값 한계입니다. 초과하면 보상 0 + Warning 로그로 방호합니다(측정 불량/구값 방지). 기본 0.200 mm(콜렛 캘 FineAlign 한계 선례)."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpZMotionMode>("PICKUP Z MOTION MODE", "mode", ParameterGridScope.Config, () => ResolveLivePickUpConfig().MotionMode, v => ResolveLivePickUpConfig().MotionMode = v),
                 "PickUp Z 동작 방식을 선택합니다.\r\nDetailed: Needle/Eject 준비, 진공, PrePick, 저속 접촉, 동기 상승, 안전 복귀 순서로 동작합니다.\r\nSimpleZDownVacuumUp: PickerZ 하강, 진공 ON, PickerZ 상승만 수행하는 단순 모드입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpTransferMotionMode>("PICKUP TRANSFER MODE", "mode", ParameterGridScope.Config, () => ResolveLivePickUpConfig().TransferMotionMode, v => ResolveLivePickUpConfig().TransferMotionMode = v),

@@ -157,10 +157,20 @@ namespace QMC.CDT320.Calibration
                     return -1;
                 }
 
+                // 회전중심 실사용 저장소는 픽커 유닛 Config인데 SaveRecipe는 Recipe만 영속한다 —
+                // 앱 재시작 직후 픽 편심 보상이 구값을 읽지 않도록 장비 설정도 함께 저장한다(2026-08-25 팀장님 지시).
+                if (!machine.SaveSettings())
+                {
+                    message = "회전 중심 장비 설정(SaveSettings) 저장에 실패했습니다. recipe=" + recipeName +
+                              ", side=" + side + ", colletNo=" + colletNo;
+                    return -1;
+                }
+
                 message = "회전 중심 Recipe 저장 완료. recipe=" + recipeName +
                           ", side=" + side + ", colletNo=" + colletNo +
                           ", centerX=" + centerX.ToString("F6") +
-                          ", centerY=" + centerY.ToString("F6");
+                          ", centerY=" + centerY.ToString("F6") +
+                          ", settingsSaved=true";
                 Log.Write("Calibration", "SYSTEM", "AutoColletSaveCoc", message + " - Ok");
                 return 0;
             }
