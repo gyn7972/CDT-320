@@ -617,9 +617,19 @@ namespace QMC.CDT320.Interlocks
             if (goodZ == null || outputStage.Recipe == null || outputStage.Recipe.GoodStageZ == null)
                 return MotionGuardRuleHelpers.Block(movingName, movingName + " 이동 불가: OutputGoodStageZ 정보를 확인할 수 없습니다.", out reason);
 
-            // 현재 기준: OutputGoodStageZ가 이동 중이면 Picker Output 진입을 차단한다.
-            if (goodZ.IsMoving)
-                return MotionGuardRuleHelpers.Block(movingName, movingName + " 이동 불가: OutputGoodStageZ가 이동 중입니다.", out reason);
+            // 현재 기준: OutputGoodStageZ가 "상승" 이동 중이면 Picker Output 진입/이동을 차단한다.
+            // [NG 라우팅 정밀화 2026-08-25 2차] 하강(Command ≤ Actual — 픽커에서 멀어지는 안전 방향)
+            // 이동은 간섭이 생기지 않으므로 차단하지 않는다. Stage Z 쪽 규칙의 기존 "안전 방향
+            // 하강이면 PickerZ 조건 미적용" 원칙과 대칭이다(03:01 Critical 실측, Front와 동일 수정).
+            // 상승 중 차단은 유지한다(하강한 픽커 밑에서 스테이지가 올라오는 실위험 방어).
+            if (goodZ.IsMoving &&
+                goodZ.CommandPosition > goodZ.ActualPosition + ResolveAxisTolerance(goodZ))
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: OutputGoodStageZ가 상승 이동 중입니다. actual=" +
+                    goodZ.ActualPosition.ToString("0.###") +
+                    ", command=" + goodZ.CommandPosition.ToString("0.###"),
+                    out reason);
 
             double process = outputStage.Recipe.GoodStageZ.ProcessPosition;
             // 현재 기준: OutputGoodStageZ ActualPosition이 ProcessPos 이하이면 Output 진입을 허용한다.
@@ -1311,7 +1321,19 @@ namespace QMC.CDT320.Interlocks
 
             OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
             // 현재 기준: Output/Unknown 존에서 RearPickerZ 이동 전 OutputGoodStageZ는 ProcessPos 이하 위치여야 한다.
+            // [NG 라우팅 정밀화 2026-08-25] 0/Avoid로의 Z 상승 복귀는 어느 존에서든 GoodStageZ와
+            // 간섭이 없는 안전 방향이므로 이 조건을 적용하지 않는다 — 존 태그가 없는 AvoidPosition
+            // 복귀(픽업 후 상승)가 Unknown 존으로 분류되어, NG 라우팅에서 잦아진 GoodStageZ 이동
+            // (Process↔Avoid)과 겹치면 차단되던 과잉을 해소한다(2026-08-25 02:49 Critical 실측, Front 대칭).
+            // 하강/작업 이동 검사는 기존 그대로 유지한다(Output 존 GoodZ 이동 중 하강 차단 = 실위험 방어).
+            // [NG 라우팅 정밀화 2026-08-25 3차] 존 태그 없는 Z 명령(픽업 하강 등)이 Unknown 존으로
+            // 분류되어 이 검사에 과잉 적용되던 것을, 픽커의 "물리적 존" 판정으로 좁힌다 — 픽커가
+            // Output 존에 실제로 없으면(인풋 픽업 등) GoodStageZ와 기구 간섭이 불가능하므로 비적용
+            // (10:40 Critical 실측: Rear 인풋 픽업 Z 하강이 Front Place의 GoodZ 선행 상승에 차단).
+            // Output 존이거나 존 판단 불가면 기존 검사 유지(02:29 실위험 방어 보존).
             if (RequiresOutputStageZSafeForPickerY(targetZone) &&
+                PickerZoneInterlockRules.IsPickerInOutputZoneOrUnknown(machine, false) &&
+                !IsRearPickerZRetreatToSafeTarget(request) &&
                 !VerifyGoodStageZAtOrBelowProcess(outputStage, movingName, out reason))
                 return false;
 
@@ -1369,6 +1391,34 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 기준: RearPickerZ 목표가 Home/0 또는 Z Avoid 위치 복귀 목표인지 판단한다.
+        // [NG 라우팅 정밀화 2026-08-25] 이동 요청이 "해당 Z축의 0/Avoid 상승 복귀"인지 판정한다.
+        // 판정 불가(축 해석 실패 등)면 false — 기존 GoodStageZ 검사가 그대로 적용된다(fail-closed).
+        private static bool IsRearPickerZRetreatToSafeTarget(MotionGuardRuleContext request)
+        {
+            try
+            {
+                PickerRearUnit picker = request != null && request.Machine != null
+                    ? request.Machine.PickerRearUnit
+                    : null;
+                if (picker == null)
+                    return false;
+
+                PickerAxis zAxis;
+                if (!TryResolveMovingZAxis(request.MovingName, out zAxis))
+                    return false;
+
+                BaseAxis zItem = ResolveRearPickerAxis(picker, zAxis);
+                if (zItem == null)
+                    return false;
+
+                return IsRearPickerZSafeRetreatTarget(request, picker, zAxis, zItem);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private static bool IsRearPickerZSafeRetreatTarget(MotionGuardRuleContext request, PickerRearUnit picker, PickerAxis zAxis, BaseAxis zItem)
         {
             if (request == null)

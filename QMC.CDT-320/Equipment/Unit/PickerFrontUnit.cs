@@ -1175,7 +1175,18 @@ namespace QMC.CDT320
                 ct.ThrowIfCancellationRequested();
 
                 if (IsVisionBypassed())
-                    return SimulateBottomInspectionResult(pickerNo);
+                {
+                    BottomVisionOffset simulated = SimulateBottomInspectionResult(pickerNo);
+                    // [NG 라우팅 시뮬 테스트 2026-08-25] 최종 판정에만 설정 확률로 NG 주입.
+                    // MRESULT/보정값은 무변경 — place 보정 검증은 통과하고 NG Stage 라우팅만 발동한다.
+                    if (simulated != null && QMC.CDT320.VisionComm.AutoVisionRequestService.ShouldInjectSimulatedNg())
+                    {
+                        simulated.IsOk = false;
+                        Log.Write("Main", "VISION", "SimulatedNgInject",
+                            Name + " 시뮬 Bottom 최종 판정 NG 주입. pickerNo=" + pickerNo + " - Check");
+                    }
+                    return simulated;
+                }
                 if (vision == null)
                     return null;
 
@@ -1472,7 +1483,17 @@ namespace QMC.CDT320
                 ct.ThrowIfCancellationRequested();
 
                 if (IsVisionBypassed())
-                    return SimulateSideInspectionResult(pickerNo);
+                {
+                    SideVisionResult simulated = SimulateSideInspectionResult(pickerNo);
+                    // [NG 라우팅 시뮬 테스트 2026-08-25] Side 최종 판정에만 설정 확률로 NG 주입.
+                    if (simulated != null && QMC.CDT320.VisionComm.AutoVisionRequestService.ShouldInjectSimulatedNg())
+                    {
+                        simulated.Side1Ok = false;
+                        Log.Write("Main", "VISION", "SimulatedNgInject",
+                            Name + " 시뮬 Side 최종 판정 NG 주입. pickerNo=" + pickerNo + " - Check");
+                    }
+                    return simulated;
+                }
 
                 if (vision == null)
                 {

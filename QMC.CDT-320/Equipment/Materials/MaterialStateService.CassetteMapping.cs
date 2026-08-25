@@ -1566,6 +1566,7 @@ namespace QMC.CDT320.Materials
             if (wafer == null)
                 return;
 
+            wafer.InputResultFileSessionStartedAt = null;
             wafer.HasInputStageAlignResult = false;
             wafer.InputStageAlignResultMode = string.Empty;
             wafer.InputStageAlignResultRunId = string.Empty;

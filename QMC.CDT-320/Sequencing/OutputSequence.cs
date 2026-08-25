@@ -546,6 +546,30 @@ namespace QMC.CDT320.Sequencing
                 requestReason = (requestReason ?? string.Empty) +
                                 ";MaterialRecipeChange:" + materialRecipeName + "->" + requestRecipeName;
             }
+
+            // [실장비 2026-08-24, 팀장님 승인] "RecipeChange:" 전체 교체 요청 강등:
+            // 다른 레시피 적용은 장비 비움 확인 후에만 성공하고 그 시점에 Material Recipe 문맥도
+            // 새 레시피로 갱신된다(RecipeApplyEmptyMachine). 따라서 자재 문맥이 이미 요청 레시피와
+            // 같으면 지금 스테이지/피더의 Bin은 전부 '새 레시피에서 로드된 자재'라 회수할 이전 레시피
+            // 자재가 존재할 수 없다. 그런데 요청은 전체 교체가 완주해야만 해제돼, 완주 실패(알람/정지)
+            // 시 START마다 빈 Bin 언로드가 무한 반복됐다(실측 2026-08-24: 12:17 JMB 적용 → 14시 수동
+            // Bin 로드 → 15:23/16:00/16:09 회수 반복, 작업자 ALARM 중단). 이 경우 회수 없이 기존
+            // "자재 유지 + 재매핑/요청 완료" 경로로 보낸다. 진짜 교체가 필요한 경우(상태 파일 자재
+            // 레시피 ≠ 활성 레시피)는 materialRecipeChanged가 참이라 기존대로 회수한다.
+            if (recipeChange && !materialRecipeChanged &&
+                !string.IsNullOrWhiteSpace(materialRecipeName) &&
+                string.Equals(
+                    materialRecipeName,
+                    (requestRecipeName ?? string.Empty).Trim(),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "OutputSequence",
+                    "Recipe 변경 전체 교체 요청을 회수 없이 완료 경로로 강등합니다 — 자재 Recipe 문맥이 이미 " +
+                    "요청 Recipe와 같아 회수 대상(이전 레시피 자재)이 없습니다. reason=" + requestReason +
+                    ", materialRecipe=" + materialRecipeName +
+                    ", requestRecipe=" + requestRecipeName + " - Check");
+                recipeChange = false;
+            }
             if (!recipeChange && HasOutputActiveMaterial())
             {
                 if (outputMapped)

@@ -171,6 +171,38 @@ namespace QMC.CDT320.Sequencing
             return defaultVisionInspectionTimeoutMs;
         }
 
+        /// <summary>
+        /// [비전 작업자 확인 2026-08-25] Bottom/Side "최종 판정 RESULT" 대기 전용 타임아웃.
+        /// RouteByInspectionResult 로트에서만 작업자 확인 보류 상한(AppSettings, 기본 120초)을 쓰고,
+        /// 그 외(ForceGoodStage 등)는 기존 12초를 그대로 반환해 비전 유실 감지 지연 회귀를 막는다.
+        /// MRESULT/촬영 시작/EPD 대기에는 절대 사용하지 않는다(축 진행 게이트 — 즉시 수신 필수).
+        /// </summary>
+        protected int ResolveVisionFinalResultTimeout()
+        {
+            try
+            {
+                OutputStageUnit outputStage = Context != null && Context.Machine != null
+                    ? Context.Machine.OutputStageUnit
+                    : null;
+                OutputStageResultRoutingMode routingMode = outputStage != null && outputStage.Config != null
+                    ? outputStage.Config.ResultRoutingMode
+                    : OutputStageResultRoutingMode.ForceGoodStage;
+                if (routingMode != OutputStageResultRoutingMode.RouteByInspectionResult)
+                    return ResolveVisionInspectionTimeout();
+
+                AppSettings settings = AppSettingsStore.Current;
+                int timeoutSec = settings != null ? settings.VisionOperatorConfirmTimeoutSec : 120;
+                if (timeoutSec <= 0)
+                    timeoutSec = 120;
+                timeoutSec = Math.Max(12, Math.Min(600, timeoutSec));
+                return timeoutSec * 1000;
+            }
+            catch
+            {
+                return ResolveVisionInspectionTimeout();
+            }
+        }
+
         protected int ResolveMoveTimeout()
         {
             if (CalibrationMotion != null)

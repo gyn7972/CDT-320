@@ -252,6 +252,19 @@ namespace QMC.CDT320.Sequencing
                     ", owner=" + request.Owner + " - Check");
                 return 0;
             }
+            // [사용자 지시 2026-08-25] Output camera 후검사는 Good Stage만 수행한다 — NG Stage
+            // 배치분은 등록하지 않는다. NG Y가 후검사 위치로 이동하지 않으므로 Place와의 스테이지
+            // 경합이 줄고 택트도 개선된다. (모든 등록 경로가 이 Enqueue를 지나므로 여기 한 곳에서
+            // 거른다. NG 슬롯은 IsOutputInspectionDone=false로 남지만 이 플래그는 복원 재등록과
+            // UI 표시에만 쓰이고, 복원 경로도 NG 사이드를 스캔하지 않도록 함께 수정했다.)
+            if (request.OutputSide == BinSide.Ng)
+            {
+                Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                    "NG Stage 배치는 Output camera 후검사를 생략합니다(사용자 지시 2026-08-25 — Good만 검사). die=" +
+                    request.DieId +
+                    ", owner=" + request.Owner + " - Skip");
+                return 0;
+            }
             request.ReceiveTarget = CloneReceiveTarget(request.ReceiveTarget);
             Interlocked.Increment(ref _pendingOrRunning);
             _queue.Enqueue(request);
@@ -698,13 +711,8 @@ namespace QMC.CDT320.Sequencing
                         fineMove,
                         moveTimeoutMs,
                         ct);
-                    restored += EnqueuePendingMaterialInspectionsForSide(
-                        BinSide.Ng,
-                        MaterialLocationKind.OutputStageNg,
-                        owner,
-                        fineMove,
-                        moveTimeoutMs,
-                        ct);
+                    // [사용자 지시 2026-08-25] 후검사는 Good Stage만 — NG 사이드 미검사 슬롯은
+                    // 복원 대상에서 제외한다(Enqueue의 NG 필터와 한 쌍).
                 }
                 finally
                 {

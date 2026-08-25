@@ -39,6 +39,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         public WorkMainPage()
         {
             InitializeComponent();
+            InitializeReworkSelector();
             bool designerMode = IsDesignerMode();
 
             BindDesignerMetricLabels();
@@ -67,6 +68,50 @@ namespace QMC.CDT_320.Ui.Pages.Work
             _rearColletUseValues[1] = lblRearCollet2Designer;
             _rearColletUseValues[2] = lblRearCollet3Designer;
             _rearColletUseValues[3] = lblRearCollet4Designer;
+        }
+
+        private void InitializeReworkSelector()
+        {
+            if (cmbReworkCount == null)
+                return;
+
+            cmbReworkCount.BeginUpdate();
+            try
+            {
+                cmbReworkCount.Items.Clear();
+                for (int value = LotSessionService.MinReworkCount;
+                     value <= LotSessionService.MaxReworkCount;
+                     value++)
+                {
+                    cmbReworkCount.Items.Add(value);
+                }
+
+                cmbReworkCount.SelectedItem = LotSessionService.DefaultReworkCount;
+            }
+            finally
+            {
+                cmbReworkCount.EndUpdate();
+            }
+        }
+
+        private int GetSelectedReworkCount()
+        {
+            if (cmbReworkCount != null && cmbReworkCount.SelectedItem is int)
+                return (int)cmbReworkCount.SelectedItem;
+
+            return LotSessionService.DefaultReworkCount;
+        }
+
+        private void SetSelectedReworkCount(int value)
+        {
+            if (cmbReworkCount == null)
+                return;
+
+            int normalized = value >= LotSessionService.MinReworkCount &&
+                             value <= LotSessionService.MaxReworkCount
+                ? value
+                : LotSessionService.DefaultReworkCount;
+            cmbReworkCount.SelectedItem = normalized;
         }
 
         protected override void Dispose(bool disposing)
@@ -516,8 +561,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
 
                 string lotId = txtLotId.Text;
+                int reworkCount = GetSelectedReworkCount();
                 string reason;
-                if (!LotSessionService.TryStartLot(host.Machine, host.ActiveRecipeName, lotId, out reason))
+                if (!LotSessionService.TryStartLot(
+                    host.Machine,
+                    host.ActiveRecipeName,
+                    lotId,
+                    reworkCount,
+                    out reason))
                 {
                     QMC.Common.MessageDialog.Show(this, reason, "LOT 시작",
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -553,6 +604,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 QMC.Common.MessageDialog.Show(this,
                     "LOT을 시작했습니다.\r\nLOT ID: " + LotSessionService.ActiveLotId +
+                    "\r\nRework: " + LotSessionService.ActiveReworkCount +
                     "\r\n\r\n레시피에도 LOT ID를 기록했습니다.",
                     "LOT 시작", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
@@ -644,8 +696,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
 
                 string activeLotId = LotSessionService.ActiveLotId;
+                int activeReworkCount = LotSessionService.ActiveReworkCount;
                 if (QMC.Common.MessageDialog.Show(this,
                         "LOT 완료하시겠습니까?\r\n\r\nLOT ID: " + activeLotId +
+                        "\r\nRework: " + activeReworkCount +
                         "\r\n완료 후에는 새 LOT을 시작해야 자동 운전이 가능합니다.",
                         "LOT 완료", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;
@@ -660,7 +714,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 RefreshLotUi();
                 QMC.Common.MessageDialog.Show(this,
-                    "LOT을 완료했습니다.\r\nLOT ID: " + activeLotId,
+                    "LOT을 완료했습니다.\r\nLOT ID: " + activeLotId +
+                    "\r\nRework: " + activeReworkCount,
                     "LOT 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
@@ -702,7 +757,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             try
             {
-                if (txtLotId == null || btnLotStart == null || btnLotComplete == null)
+                if (txtLotId == null || btnLotStart == null || btnLotComplete == null ||
+                    cmbReworkCount == null)
                     return;
 
                 bool active = LotSessionService.IsLotActive;
@@ -710,6 +766,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 txtLotId.Enabled = !active;
                 btnLotStart.Enabled = !active;
                 btnLotComplete.Enabled = active;
+                cmbReworkCount.Enabled = !active;
                 btnLotStart.BackColor = active
                     ? Color.FromArgb(150, 150, 150)
                     : Color.FromArgb(21, 128, 61);
@@ -718,13 +775,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     : Color.FromArgb(150, 150, 150);
 
                 if (active)
+                {
                     txtLotId.Text = LotSessionService.ActiveLotId;
+                    SetSelectedReworkCount(LotSessionService.ActiveReworkCount);
+                }
                 else
+                {
                     // LOT 완료 후 이전 ID가 입력창에 남아 활성 LOT처럼 보이지 않게 생산 LOT 상태와 맞춘다.
                     txtLotId.Text = MaterialStateService.GetProductionLotId();
+                    SetSelectedReworkCount(LotSessionService.DefaultReworkCount);
+                }
             }
-            catch
+            catch (Exception ex)
             {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning, "UI", "LOT-REWORK-REFRESH",
+                    "LOT/Rework 화면 상태 갱신 실패: " + ex.Message);
             }
             finally
             {

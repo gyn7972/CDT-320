@@ -50,6 +50,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private TableLayoutPanel workTimeActionPanel;
         private Label lblProjectCaption;
         private Label lblProject;
+        private Label lblReworkCaption;
+        private ComboBox cmbReworkCount;
         private Label lblPickFailCaption;
         private Label lblPickFail;
         private Label lblBinQtyCaption;
@@ -105,6 +107,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Button btnLotHistory;
         private Button btnBinSelect;
         private Panel workInfoProjectTile;
+        private TableLayoutPanel workInfoProjectLayout;
         private Panel workInfoBinQtyTile;
         private Panel workInfoPickFailTile;
         private Panel workInfoPlaceFailTile;
@@ -196,8 +199,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnLotHistory = new System.Windows.Forms.Button();
             this.btnBinSelect = new System.Windows.Forms.Button();
             this.workInfoProjectTile = new System.Windows.Forms.Panel();
+            this.workInfoProjectLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblProject = new System.Windows.Forms.Label();
             this.lblProjectCaption = new System.Windows.Forms.Label();
+            this.lblReworkCaption = new System.Windows.Forms.Label();
+            this.cmbReworkCount = new System.Windows.Forms.ComboBox();
             this.workInfoBinQtyTile = new System.Windows.Forms.Panel();
             this.lblBinQty = new System.Windows.Forms.Label();
             this.lblBinQtyCaption = new System.Windows.Forms.Label();
@@ -316,6 +322,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoBody.SuspendLayout();
             this.lotInputPanel.SuspendLayout();
             this.workInfoProjectTile.SuspendLayout();
+            this.workInfoProjectLayout.SuspendLayout();
             this.workInfoBinQtyTile.SuspendLayout();
             this.workInfoPickFailTile.SuspendLayout();
             this.workInfoPlaceFailTile.SuspendLayout();
@@ -997,8 +1004,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoProjectTile.BackColor = System.Drawing.Color.White;
             this.workInfoProjectTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.workInfoBody.SetColumnSpan(this.workInfoProjectTile, 4);
-            this.workInfoProjectTile.Controls.Add(this.lblProject);
-            this.workInfoProjectTile.Controls.Add(this.lblProjectCaption);
+            this.workInfoProjectTile.Controls.Add(this.workInfoProjectLayout);
             this.workInfoProjectTile.Dock = System.Windows.Forms.DockStyle.Fill;
             this.workInfoProjectTile.Location = new System.Drawing.Point(6, 39);
             this.workInfoProjectTile.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
@@ -1006,32 +1012,82 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoProjectTile.Padding = new System.Windows.Forms.Padding(8, 1, 8, 1);
             this.workInfoProjectTile.Size = new System.Drawing.Size(803, 38);
             this.workInfoProjectTile.TabIndex = 1;
-            // 
+            //
+            // workInfoProjectLayout
+            //
+            this.workInfoProjectLayout.ColumnCount = 4;
+            this.workInfoProjectLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 148F));
+            this.workInfoProjectLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.workInfoProjectLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
+            this.workInfoProjectLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 64F));
+            this.workInfoProjectLayout.Controls.Add(this.lblProjectCaption, 0, 0);
+            this.workInfoProjectLayout.Controls.Add(this.lblProject, 1, 0);
+            this.workInfoProjectLayout.Controls.Add(this.lblReworkCaption, 2, 0);
+            this.workInfoProjectLayout.Controls.Add(this.cmbReworkCount, 3, 0);
+            this.workInfoProjectLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoProjectLayout.Location = new System.Drawing.Point(8, 1);
+            this.workInfoProjectLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.workInfoProjectLayout.Name = "workInfoProjectLayout";
+            this.workInfoProjectLayout.RowCount = 1;
+            this.workInfoProjectLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.workInfoProjectLayout.Size = new System.Drawing.Size(785, 34);
+            this.workInfoProjectLayout.TabIndex = 0;
+            //
             // lblProject
             // 
             this.lblProject.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblProject.Font = new System.Drawing.Font("Consolas", 11F, System.Drawing.FontStyle.Bold);
             this.lblProject.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.lblProject.Location = new System.Drawing.Point(156, 1);
+            this.lblProject.Location = new System.Drawing.Point(148, 0);
+            this.lblProject.Margin = new System.Windows.Forms.Padding(0);
             this.lblProject.Name = "lblProject";
-            this.lblProject.Size = new System.Drawing.Size(637, 34);
+            this.lblProject.Size = new System.Drawing.Size(503, 34);
             this.lblProject.TabIndex = 0;
             this.lblProject.Text = "--";
             this.lblProject.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblProjectCaption
             // 
-            this.lblProjectCaption.Dock = System.Windows.Forms.DockStyle.Left;
+            this.lblProjectCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblProjectCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
             this.lblProjectCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(85)))));
-            this.lblProjectCaption.Location = new System.Drawing.Point(8, 1);
+            this.lblProjectCaption.Location = new System.Drawing.Point(0, 0);
+            this.lblProjectCaption.Margin = new System.Windows.Forms.Padding(0);
             this.lblProjectCaption.Name = "lblProjectCaption";
             this.lblProjectCaption.Size = new System.Drawing.Size(148, 34);
             this.lblProjectCaption.TabIndex = 1;
             this.lblProjectCaption.Tag = "i18n:work.workInfo.project";
             this.lblProjectCaption.Text = "프로젝트 이름";
             this.lblProjectCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
+            // lblReworkCaption
+            //
+            this.lblReworkCaption.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblReworkCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblReworkCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(85)))));
+            this.lblReworkCaption.Location = new System.Drawing.Point(651, 0);
+            this.lblReworkCaption.Margin = new System.Windows.Forms.Padding(0);
+            this.lblReworkCaption.Name = "lblReworkCaption";
+            this.lblReworkCaption.Size = new System.Drawing.Size(70, 34);
+            this.lblReworkCaption.TabIndex = 1;
+            this.lblReworkCaption.Tag = "i18n:work.workInfo.rework";
+            this.lblReworkCaption.Text = "Rework";
+            this.lblReworkCaption.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            //
+            // cmbReworkCount
+            //
+            this.cmbReworkCount.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+            this.cmbReworkCount.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbReworkCount.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.cmbReworkCount.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.cmbReworkCount.FormattingEnabled = true;
+            this.cmbReworkCount.Location = new System.Drawing.Point(725, 5);
+            this.cmbReworkCount.Margin = new System.Windows.Forms.Padding(4, 0, 0, 0);
+            this.cmbReworkCount.MaxDropDownItems = 20;
+            this.cmbReworkCount.Name = "cmbReworkCount";
+            this.cmbReworkCount.Size = new System.Drawing.Size(60, 23);
+            this.cmbReworkCount.TabIndex = 2;
+            //
             // workInfoBinQtyTile
             // 
             this.workInfoBinQtyTile.BackColor = System.Drawing.Color.White;
@@ -2262,6 +2318,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lotInputPanel.ResumeLayout(false);
             this.lotInputPanel.PerformLayout();
             this.workInfoProjectTile.ResumeLayout(false);
+            this.workInfoProjectLayout.ResumeLayout(false);
             this.workInfoBinQtyTile.ResumeLayout(false);
             this.workInfoPickFailTile.ResumeLayout(false);
             this.workInfoPlaceFailTile.ResumeLayout(false);

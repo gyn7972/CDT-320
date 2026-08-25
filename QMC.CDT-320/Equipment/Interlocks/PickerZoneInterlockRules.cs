@@ -247,14 +247,23 @@ namespace QMC.CDT320.Interlocks
                         "OutputGoodStageZ Process 위치를 확인할 수 없습니다.",
                         out reason);
 
-                if (outputGoodStageZ.IsMoving)
-                    return MotionGuardRuleHelpers.Block(
-                        movingName,
-                        "OutputGoodStageZ가 이동 중이므로 Picker X 이동을 시작할 수 없습니다.",
-                        out reason);
-
+                // [NG 라우팅 정밀화 2026-08-25] Process 이하 구간(현재·목표 모두 ≤ Process+tol)의
+                // GoodStageZ 이동은 픽커 경로와 기구 간섭이 없으므로(사용자 확정 물리 기준) Picker X
+                // 이동을 막지 않는다 — OutputStageInterlockRules의 "X 이동 중에도 Process 이하 GoodZ
+                // 이동 허용" 완화(02:09)와 대칭인 역방향이다(03:04 Critical 실측: NG 라우팅의 GoodZ
+                // Avoid 하강 중 반대편 픽업 X 발행이 차단). Process 초과 구간 이동 중이면 기존대로 차단.
                 double outputProcessPosition = outputStage.Recipe.GoodStageZ.ProcessPosition;
                 double outputStageTolerance = ResolveTolerance(outputGoodStageZ);
+                if (outputGoodStageZ.IsMoving &&
+                    (outputGoodStageZ.ActualPosition > outputProcessPosition + outputStageTolerance ||
+                     outputGoodStageZ.CommandPosition > outputProcessPosition + outputStageTolerance))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "OutputGoodStageZ가 Process 초과 구간에서 이동 중이므로 Picker X 이동을 시작할 수 없습니다. actual=" +
+                        outputGoodStageZ.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", command=" + outputGoodStageZ.CommandPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", process=" + outputProcessPosition.ToString("0.###", CultureInfo.InvariantCulture),
+                        out reason);
                 if (outputGoodStageZ.ActualPosition > outputProcessPosition + outputStageTolerance)
                     return MotionGuardRuleHelpers.Block(
                         movingName,
@@ -1052,6 +1061,85 @@ namespace QMC.CDT320.Interlocks
         private static bool IsAxisMoving(BaseAxis axis)
         {
             return axis != null && axis.IsMoving;
+        }
+
+        // [NG 라우팅 인터락 확대 2026-08-25, 사용자 지시] 해당 존에 있는 픽커의 PickerZ가
+        // "정지 상태로 0 미만(하강 잔류)"이면 스테이지(Good/NG Y·Z) 이동을 차단한다.
+        // 하강 "이동 중"인 Z는 차단하지 않는다 — 같은 스테이지 연속 배치의 StageY+PickerZ 동기
+        // 도착(기존 검증 설계, 사용자 유지 확인)은 살리고, "잔류 팁 위/옆에서 스테이지가 움직이는"
+        // 간섭만 막는다. 수동 전용이던 VerifyPickerZSafeForZoneStageYMove의 자동 운전판이다.
+        public static bool VerifyNoPickerZParkedBelowZeroInZone(
+            CDT320_Machine machine,
+            PickerWorkZone zone,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (machine == null)
+                    return true;
+
+                for (int side = 0; side < 2; side++)
+                {
+                    bool isFront = side == 0;
+                    PickerZoneTransportState state = ResolvePickerZoneTransportState(
+                        machine, isFront, zone, null, string.Empty);
+                    if (state == null)
+                        continue;
+                    if (!state.IsRequestedZoneActive && !state.UnknownUnsafe)
+                        continue;
+
+                    string pickerName = isFront ? "FrontPicker" : "RearPicker";
+                    PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+                    for (int i = 0; i < zAxes.Length; i++)
+                    {
+                        BaseAxis axis = GetPickerZ(machine, isFront, zAxes[i]);
+                        if (axis == null)
+                            continue;
+
+                        double tolerance = ResolveTolerance(axis);
+                        if (!axis.IsMoving && axis.ActualPosition < -tolerance)
+                            return MotionGuardRuleHelpers.Block(
+                                movingName,
+                                movingName + " 이동 불가: " + pickerName + zAxes[i] +
+                                "가 하강 잔류 상태(정지, 0 미만)입니다. actual=" +
+                                axis.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture),
+                                out reason);
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "PickerZ 하강 잔류 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+        }
+
+        // [NG 라우팅 정밀화 2026-08-25 3차] 지정 픽커가 Output 존에 실제로 있는지(또는 존 판단이
+        // 불가하여 보수적으로 있다고 봐야 하는지) 판정한다. Feeder/StageY 규칙의 기존 존 판정 선례
+        // (VerifyPickerZAtOrAboveZeroForZoneStageZMove — 존이 판별되고 해당 존이 아니면 조건 비적용)를
+        // 그대로 따른다. 픽커 Z 이동의 GoodStageZ 조건이 존 태그 없는 명령(픽업 Z 등)을 Unknown으로
+        // 과잉 적용해, 인풋 픽업이 반대편 Place의 GoodZ 상승에 차단되는 문제의 해소용(10:40 Critical 실측).
+        public static bool IsPickerInOutputZoneOrUnknown(CDT320_Machine machine, bool isFront)
+        {
+            try
+            {
+                PickerZoneTransportState state = ResolvePickerZoneTransportState(
+                    machine, isFront, PickerWorkZone.Output, null, string.Empty);
+                if (state == null)
+                    return false;   // 선례(:VerifyPickerZAtOrAboveZeroForZoneStageZMove state=null → 통과)와 동일
+
+                return state.IsRequestedZoneActive || state.UnknownUnsafe;
+            }
+            catch
+            {
+                return true;   // 예외 시에는 기존 검사를 그대로 적용한다(fail-safe).
+            }
         }
 
         // 인터락 기준: Picker 존 운송 차단 판단에 필요한 현재/목표/점유/Unknown 상태를 계산한다.

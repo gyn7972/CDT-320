@@ -18,11 +18,16 @@ namespace QMC.CDT320.Lots
     [DataContract]
     public class Lot
     {
+        public const int MinReworkCount = 1;
+        public const int MaxReworkCount = 20;
+        public const int DefaultReworkCount = 1;
+
         [DataMember] public string   LotID         { get; set; } = "";
         [DataMember] public string   RecipeName    { get; set; } = "";
         [DataMember] public LotState State         { get; set; } = LotState.Open;
         [DataMember] public DateTime StartedAt     { get; set; } = DateTime.Now;
         [DataMember] public DateTime? FinishedAt   { get; set; }
+        [DataMember] public int      ReworkCount   { get; set; } = DefaultReworkCount;
 
         [DataMember] public int      TotalDies     { get; set; } = 0;
         [DataMember] public int      ProcessedDies { get; set; } = 0;
@@ -39,6 +44,20 @@ namespace QMC.CDT320.Lots
 
         public TimeSpan Duration
             => (FinishedAt ?? DateTime.Now) - StartedAt;
+
+        public static int NormalizeReworkCount(int value)
+        {
+            return value >= MinReworkCount && value <= MaxReworkCount
+                ? value
+                : DefaultReworkCount;
+        }
+
+        // 구버전 LOT JSON에는 ReworkCount가 없으므로 역직렬화 시작 전에 기본값을 보장한다.
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext context)
+        {
+            ReworkCount = DefaultReworkCount;
+        }
 
         public void RecordDie(int binCode, bool isGood)
         {

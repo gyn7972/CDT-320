@@ -504,6 +504,10 @@ namespace QMC.CDT320.Materials
         /// 같은 Cassette/Slot 표시 WaferId가 재사용되어도 물리 Wafer 세대를 구분하는 영속 ID.
         /// </summary>
         [DataMember] public string WaferInstanceId { get; set; } = Guid.NewGuid().ToString("N");
+        /// <summary>현재 물리 Input Wafer의 고객 결과 파일명에 사용하는 최초 작업 시각.</summary>
+        [DataMember] public DateTime? InputResultFileSessionStartedAt { get; set; }
+        /// <summary>현재 물리 Output Bin의 고객 결과 파일명에 사용하는 최초 작업 시각.</summary>
+        [DataMember] public DateTime? OutputResultFileSessionStartedAt { get; set; }
         [DataMember] public string CassetteLotId { get; set; } = "";
         [DataMember] public string SourceCassetteId { get; set; } = "";
         [DataMember] public CassetteMaterialRole SourceCassetteRole { get; set; } = CassetteMaterialRole.Input1;
@@ -602,6 +606,8 @@ namespace QMC.CDT320.Materials
             BarcodeUpdatedAt = DateTime.MinValue;
             BarcodeAttemptCount = 0;
             WaferInstanceId = "";
+            InputResultFileSessionStartedAt = null;
+            OutputResultFileSessionStartedAt = null;
             SourceCassetteSlotPosition = double.NaN;
             CurrentCassetteSlotPosition = double.NaN;
             InputMapApprovalHashAtMapping = "";
@@ -629,8 +635,10 @@ namespace QMC.CDT320.Materials
         [DataMember] public string DieId { get; set; } = Guid.NewGuid().ToString("N").Substring(0, 12);
         [DataMember] public string WaferID_Input { get; set; } = "";
         [DataMember] public string InputWaferInstanceId { get; set; } = "";
+        [DataMember] public DateTime? InputResultFileSessionStartedAt { get; set; }
         [DataMember] public string WaferID_Output { get; set; } = "";
         [DataMember] public string OutputWaferInstanceId { get; set; } = "";
+        [DataMember] public DateTime? OutputResultFileSessionStartedAt { get; set; }
         [DataMember] public int Input_BinCode { get; set; }
         [DataMember] public bool IsInputTarget { get; set; } = true;
         [DataMember] public int Output_BinCode { get; set; }
@@ -660,6 +668,8 @@ namespace QMC.CDT320.Materials
         {
             InputWaferInstanceId = "";
             OutputWaferInstanceId = "";
+            InputResultFileSessionStartedAt = null;
+            OutputResultFileSessionStartedAt = null;
             Wafer_IndexX = -1;
             Wafer_IndexY = -1;
             Wafer_OriginalIndexX = -1;

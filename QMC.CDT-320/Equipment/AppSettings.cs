@@ -67,6 +67,22 @@ namespace QMC.CDT320
         /// 모션과 IO의 Simulation 상태는 변경하지 않는다.</summary>
         [DataMember] public bool   UseRealVisionInSimulation { get; set; } = true;
 
+        /// <summary>
+        /// [비전 작업자 확인 2026-08-25] NG 라우팅(RouteByInspectionResult) 로트에서 비전 PC가
+        /// NG 판정 최종 RESULT를 작업자 확인 동안 보류할 수 있는 상한(초). 이 시간을 넘기면
+        /// 기존 RESULT-MISSING 알람으로 정지한다. RouteByInspectionResult 모드의 최종 RESULT
+        /// 대기에만 적용되고 MRESULT/촬영 시작/ForceGoodStage 로트는 기존 12초 그대로다.
+        /// 안전 범위 12~600초.
+        /// </summary>
+        [DataMember] public int VisionOperatorConfirmTimeoutSec { get; set; } = 120;
+
+        /// <summary>
+        /// [NG 라우팅 시뮬 테스트 2026-08-25] 비전 바이패스(시뮬)에서 Bottom/Side "최종 판정"에
+        /// NG를 주입할 확률(%). 0=꺼짐(기존 동작 무변경), 100=전부 NG. 판정만 뒤집고 보정값은
+        /// 유효하게 유지되어 NG Stage 라우팅 경로를 시뮬로 검증할 수 있다. 실비전에는 영향 없음.
+        /// </summary>
+        [DataMember] public int SimulationVisionNgRatePercent { get; set; } = 0;
+
         /// <summary>뷰어 측정 스케일 계수 — 표시 mm/px = 저장 스케일(mm/px) × 이 계수.
         /// Vision 이 뷰어 이미지를 다운스케일(원본→표시)하면 표시 1px 가 더 넓어지므로 계수=원본폭/표시폭(예 5120/1600=3.2)로 보정한다.
         /// 기본 1.0 = 저장 스케일 그대로(다운스케일 없음/풀해상도). 계수 ≤ 0 이면 자동(표시폭 meta.Width에서 산출). 향후 다운스케일 파라미터화 시 이 값에 반영.</summary>
@@ -265,6 +281,10 @@ namespace QMC.CDT320
             OutputBarcodeRetryStepMm = Math.Min(100.000, OutputBarcodeRetryStepMm);
             InputBarcodeTriggerCommand = InputBarcodeTriggerCommand ?? "";
             OutputBarcodeTriggerCommand = OutputBarcodeTriggerCommand ?? "";
+            // 구버전 설정 파일(필드 없음 → 0 역직렬화) 포함 안전 범위 클램프.
+            if (VisionOperatorConfirmTimeoutSec <= 0) VisionOperatorConfirmTimeoutSec = 120;
+            VisionOperatorConfirmTimeoutSec = Math.Max(12, Math.Min(600, VisionOperatorConfirmTimeoutSec));
+            SimulationVisionNgRatePercent = Math.Max(0, Math.Min(100, SimulationVisionNgRatePercent));
         }
 
         public bool BypassHardware => SimulationMode;

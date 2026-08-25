@@ -252,6 +252,10 @@ namespace QMC.CDT320.Materials
                     cassetteRole,
                     slotNumber,
                     previousLocation);
+                CloseResultFileSessionForCassetteReturnNoLock(
+                    wafer,
+                    cassetteRole,
+                    previousLocation);
 
                 SequenceTrace.MaterialChange(
                     "PutWaferInCassette",

@@ -1012,9 +1012,19 @@ namespace QMC.CDT320.Sequencing
                 ", mechanicalOffsetY=" + _placeMechanicalOffsetYSnapshot.ToString("F3") +
                 ", mechanicalOffsetT=" + _placeMechanicalOffsetTSnapshot.ToString("F3") + " - Start");
 
+            // [비전 작업자 확인 2026-08-25] 라우팅 모드에서는 비전 PC가 NG 판정 최종 RESULT를
+            // 작업자 확인 동안 보류할 수 있다(상한 = AppSettings 설정값, 초과 시 기존 알람).
+            // 이때만 (a) CYCLE STOP 토큰을 함께 관찰해 정지 버튼이 보류 대기를 즉시 깨우고
+            // (재시작 시 판정 미확정 다이는 Bottom 검사부터 자동 재개 — PickerProcessSequence 참조),
+            // (b) 10초 경과 후 10초 간격 부저 1회로 작업자를 호출한다.
+            // ForceGoodStage 등 다른 모드는 기존 링크(ct만)·기존 대기 그대로다(동작 무변경).
+            bool routeByInspection =
+                ResolveOutputStageResultRoutingMode() == OutputStageResultRoutingMode.RouteByInspectionResult;
+
             int bottomResult;
-            using (CancellationTokenSource bottomGateCancellation =
-                CancellationTokenSource.CreateLinkedTokenSource(ct))
+            using (CancellationTokenSource bottomGateCancellation = routeByInspection
+                ? Context.CreateCycleStopLinkedSource(ct)
+                : CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
                 Task<int> bottomWaitTask = WaitBottomFinalBeforePlaceMoveAsync(
                     _currentPickerNo,
@@ -1039,7 +1049,27 @@ namespace QMC.CDT320.Sequencing
                     }
                 }
 
-                bottomResult = await bottomWaitTask.ConfigureAwait(false);
+                try
+                {
+                    bottomResult = routeByInspection
+                        ? await OperatorAttentionNotifier.AwaitWithAttentionAsync(
+                            bottomWaitTask,
+                            Context,
+                            Name + " Bottom 최종 판정(작업자 확인) 대기 pickerNo=" + _currentPickerNo,
+                            10000,
+                            10000).ConfigureAwait(false)
+                        : await bottomWaitTask.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested &&
+                                                         Context.IsCycleStopRequested)
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " CYCLE STOP 요청으로 Bottom 최종 판정 보류 대기를 즉시 해제하고 안전 정지합니다. " +
+                        "pickerNo=" + _currentPickerNo +
+                        ", die=" + _currentDie.DieId + " - Stop");
+                    Context.StopIfCycleStopRequested("PickerPlaceSequence.WaitBottomFinalBeforePlaceMove");
+                    throw;
+                }
             }
             ct.ThrowIfCancellationRequested();
             if (bottomResult != 0)
@@ -1085,8 +1115,10 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 int inspectionResult;
+                // [비전 작업자 확인 2026-08-25] 이 게이트는 라우팅 모드 전용이므로 항상
+                // CYCLE STOP 링크 + 작업자 호출 알림을 적용한다(위 Bottom 게이트와 동일 규칙).
                 using (CancellationTokenSource inspectionGateCancellation =
-                    CancellationTokenSource.CreateLinkedTokenSource(ct))
+                    Context.CreateCycleStopLinkedSource(ct))
                 {
                     Task<int> inspectionWaitTask = WaitInspectionResultsBeforePlaceDownAsync(
                         _currentPickerNo,
@@ -1107,7 +1139,25 @@ namespace QMC.CDT320.Sequencing
                         }
                     }
 
-                    inspectionResult = await inspectionWaitTask.ConfigureAwait(false);
+                    try
+                    {
+                        inspectionResult = await OperatorAttentionNotifier.AwaitWithAttentionAsync(
+                            inspectionWaitTask,
+                            Context,
+                            Name + " Bottom/Side 최종 판정(작업자 확인) 대기 pickerNo=" + _currentPickerNo,
+                            10000,
+                            10000).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested &&
+                                                             Context.IsCycleStopRequested)
+                    {
+                        WriteLog("PickerPlaceSequence",
+                            Name + " CYCLE STOP 요청으로 Bottom/Side 최종 판정 보류 대기를 즉시 해제하고 안전 정지합니다. " +
+                            "pickerNo=" + _currentPickerNo +
+                            ", die=" + _currentDie.DieId + " - Stop");
+                        Context.StopIfCycleStopRequested("PickerPlaceSequence.WaitInspectionResultsBeforePlaceDown");
+                        throw;
+                    }
                 }
                 ct.ThrowIfCancellationRequested();
                 if (inspectionResult != 0)

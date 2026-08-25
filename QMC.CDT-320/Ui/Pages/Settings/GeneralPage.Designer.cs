@@ -40,6 +40,10 @@
         private System.Windows.Forms.CheckBox _cbUseLotNetworkWaferMap;
         private System.Windows.Forms.TextBox _tbNetworkWaferMapFolder;
         private System.Windows.Forms.Button btnNetworkWaferMapCheck;
+        private System.Windows.Forms.Label lblVisionOperatorConfirmTimeout;
+        private System.Windows.Forms.TextBox _tbVisionOperatorConfirmTimeoutSec;
+        private System.Windows.Forms.Label lblSimulationVisionNgRate;
+        private System.Windows.Forms.TextBox _tbSimulationVisionNgRatePercent;
         private System.Windows.Forms.ComboBox _cbLang;
         private System.Windows.Forms.ComboBox _cbBinArr;
         private System.Windows.Forms.ComboBox _cbVisionMatch;
@@ -117,6 +121,10 @@
             this._cbUseLotNetworkWaferMap = new System.Windows.Forms.CheckBox();
             this._tbNetworkWaferMapFolder = new System.Windows.Forms.TextBox();
             this.btnNetworkWaferMapCheck = new System.Windows.Forms.Button();
+            this.lblVisionOperatorConfirmTimeout = new System.Windows.Forms.Label();
+            this._tbVisionOperatorConfirmTimeoutSec = new System.Windows.Forms.TextBox();
+            this.lblSimulationVisionNgRate = new System.Windows.Forms.Label();
+            this._tbSimulationVisionNgRatePercent = new System.Windows.Forms.TextBox();
             this.grpAjin = new System.Windows.Forms.GroupBox();
             this.ajinLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbAjin = new System.Windows.Forms.CheckBox();
@@ -151,7 +159,7 @@
             this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
             this.rootLayout.RowCount = 5;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 585F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 659F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 100F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -240,11 +248,17 @@
             this.bodyLayout.Controls.Add(this.pickerZRuntimeOffsetLayout, 1, 14);
             this.bodyLayout.Controls.Add(this.lblNetworkWaferMapFolder, 0, 15);
             this.bodyLayout.Controls.Add(this.networkWaferMapLayout, 1, 15);
+            this.bodyLayout.Controls.Add(this.lblVisionOperatorConfirmTimeout, 0, 16);
+            this.bodyLayout.Controls.Add(this._tbVisionOperatorConfirmTimeoutSec, 1, 16);
+            this.bodyLayout.Controls.Add(this.lblSimulationVisionNgRate, 0, 17);
+            this.bodyLayout.Controls.Add(this._tbSimulationVisionNgRatePercent, 1, 17);
             this.bodyLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.bodyLayout.Location = new System.Drawing.Point(0, 0);
             this.bodyLayout.Margin = new System.Windows.Forms.Padding(0);
             this.bodyLayout.Name = "bodyLayout";
-            this.bodyLayout.RowCount = 16;
+            this.bodyLayout.RowCount = 18;
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
@@ -830,6 +844,44 @@
             this.btnNetworkWaferMapCheck.Text = "연결 확인";
             this.btnNetworkWaferMapCheck.UseVisualStyleBackColor = true;
             this.btnNetworkWaferMapCheck.Click += new System.EventHandler(this.btnNetworkWaferMapCheck_Click);
+            //
+            // lblVisionOperatorConfirmTimeout
+            //
+            this.lblVisionOperatorConfirmTimeout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblVisionOperatorConfirmTimeout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblVisionOperatorConfirmTimeout.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblVisionOperatorConfirmTimeout.Margin = new System.Windows.Forms.Padding(2);
+            this.lblVisionOperatorConfirmTimeout.Name = "lblVisionOperatorConfirmTimeout";
+            this.lblVisionOperatorConfirmTimeout.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblVisionOperatorConfirmTimeout.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblVisionOperatorConfirmTimeout.Text = "VISION OPERATOR CONFIRM TIMEOUT (SEC)";
+            //
+            // _tbVisionOperatorConfirmTimeoutSec
+            //
+            this._tbVisionOperatorConfirmTimeoutSec.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._tbVisionOperatorConfirmTimeoutSec.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._tbVisionOperatorConfirmTimeoutSec.Margin = new System.Windows.Forms.Padding(2);
+            this._tbVisionOperatorConfirmTimeoutSec.Name = "_tbVisionOperatorConfirmTimeoutSec";
+            this._tbVisionOperatorConfirmTimeoutSec.Leave += new System.EventHandler(this._tbVisionOperatorConfirmTimeoutSec_Leave);
+            //
+            // lblSimulationVisionNgRate
+            //
+            this.lblSimulationVisionNgRate.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblSimulationVisionNgRate.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblSimulationVisionNgRate.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblSimulationVisionNgRate.Margin = new System.Windows.Forms.Padding(2);
+            this.lblSimulationVisionNgRate.Name = "lblSimulationVisionNgRate";
+            this.lblSimulationVisionNgRate.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblSimulationVisionNgRate.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblSimulationVisionNgRate.Text = "SIM VISION NG RATE (%)";
+            //
+            // _tbSimulationVisionNgRatePercent
+            //
+            this._tbSimulationVisionNgRatePercent.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._tbSimulationVisionNgRatePercent.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._tbSimulationVisionNgRatePercent.Margin = new System.Windows.Forms.Padding(2);
+            this._tbSimulationVisionNgRatePercent.Name = "_tbSimulationVisionNgRatePercent";
+            this._tbSimulationVisionNgRatePercent.Leave += new System.EventHandler(this._tbSimulationVisionNgRatePercent_Leave);
             //
             // grpAjin
             //

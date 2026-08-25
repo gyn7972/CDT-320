@@ -1274,6 +1274,32 @@ namespace QMC.CDT320.VisionComm
             return BuildInspectionResult(channel, inspector, index, true, "SIMULATION:VisionResult");
         }
 
+        /// <summary>
+        /// [NG 라우팅 시뮬 테스트 2026-08-25] 비전 바이패스의 "최종 판정" 결과에 설정 확률
+        /// (AppSettings.SimulationVisionNgRatePercent, 기본 0=꺼짐)로 NG를 주입할지 결정한다.
+        /// 판정만 뒤집고 보정값/measure_valid 계열은 호출부가 건드리지 않으므로 place 보정 검증은
+        /// 그대로 통과한다 — 알람이 아니라 NG Stage 라우팅 자체를 시뮬로 검증하는 것이 목적.
+        /// 실비전 경로에서는 호출되지 않는다(IsVisionBypassed 분기 내부 전용).
+        /// </summary>
+        public static bool ShouldInjectSimulatedNg()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                int rate = settings != null ? settings.SimulationVisionNgRatePercent : 0;
+                if (rate <= 0)
+                    return false;
+                if (rate >= 100)
+                    return true;
+                lock (SimVisionRandomLock)
+                    return SimVisionRandom.Next(100) < rate;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private static InspectionResultDto BuildBypassInspectionResult(AutoVisionChannel channel, string inspector, int index)
         {
             return BuildInspectionResult(channel, inspector, index, ShouldSimulateVisionOffset(), BypassReason());

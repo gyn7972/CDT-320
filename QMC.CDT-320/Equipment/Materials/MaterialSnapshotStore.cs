@@ -937,9 +937,9 @@ namespace QMC.CDT320.Materials
                     MatchesTypedCloneShape(typeof(MaterialSnapshot), 11) &&
                     MatchesTypedCloneShape(typeof(CassetteMaterial), 10) &&
                     MatchesTypedCloneShape(typeof(CassetteSlotMaterial), 4) &&
-                    MatchesTypedCloneShape(typeof(WaferMaterial), 77) &&
+                    MatchesTypedCloneShape(typeof(WaferMaterial), 79) &&
                     MatchesTypedCloneShape(typeof(OutputReceiveSlotMaterial), 22) &&
-                    MatchesTypedCloneShape(typeof(DieMaterial), 28) &&
+                    MatchesTypedCloneShape(typeof(DieMaterial), 30) &&
                     MatchesTypedCloneShape(typeof(DieInspectionRecord), 8) &&
                     MatchesTypedCloneShape(typeof(InspectionMeasurement), 7) &&
                     MatchesTypedCloneShape(typeof(InspectionAlignmentSnapshot), 11) &&
@@ -1123,8 +1123,10 @@ namespace QMC.CDT320.Materials
                 DieId = source.DieId,
                 WaferID_Input = source.WaferID_Input,
                 InputWaferInstanceId = source.InputWaferInstanceId,
+                InputResultFileSessionStartedAt = source.InputResultFileSessionStartedAt,
                 WaferID_Output = source.WaferID_Output,
                 OutputWaferInstanceId = source.OutputWaferInstanceId,
+                OutputResultFileSessionStartedAt = source.OutputResultFileSessionStartedAt,
                 Input_BinCode = source.Input_BinCode,
                 IsInputTarget = source.IsInputTarget,
                 Output_BinCode = source.Output_BinCode,
@@ -1259,6 +1261,8 @@ namespace QMC.CDT320.Materials
                 BarcodeAttemptCount = source.BarcodeAttemptCount,
                 BarcodeSequencePerformed = source.BarcodeSequencePerformed,
                 WaferInstanceId = source.WaferInstanceId,
+                InputResultFileSessionStartedAt = source.InputResultFileSessionStartedAt,
+                OutputResultFileSessionStartedAt = source.OutputResultFileSessionStartedAt,
                 CassetteLotId = source.CassetteLotId,
                 SourceCassetteId = source.SourceCassetteId,
                 SourceCassetteRole = source.SourceCassetteRole,

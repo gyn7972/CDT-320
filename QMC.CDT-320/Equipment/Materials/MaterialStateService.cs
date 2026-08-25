@@ -381,6 +381,443 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        /// <summary>
+        /// Input 고객 결과 파일명의 기준 시각을 물리 Wafer 단위로 한 번만 확정한다.
+        /// 레거시 상태에는 필드가 없으므로 같은 Wafer instance의 기존 Die 이력 중
+        /// 가장 이른 Pick 시작 시각을 복구해 재시작 전 파일명을 그대로 사용한다.
+        /// </summary>
+        internal static DateTime ResolveInputResultFileSessionStartedAt(
+            DieMaterial die,
+            DateTime candidate)
+        {
+            if (die == null)
+                throw new ArgumentNullException("die");
+
+            bool stateChanged = false;
+            bool sessionCreated = false;
+            DateTime resolved;
+            string waferId = "";
+            string waferInstanceId = "";
+            lock (_stateSync)
+            {
+                DieMaterial stateDie = ResolveResultFileSessionDieNoLock(die);
+                if (IsValidResultFileSessionTime(stateDie.InputResultFileSessionStartedAt))
+                {
+                    resolved = stateDie.InputResultFileSessionStartedAt.Value;
+                }
+                else
+                {
+                    WaferMaterial wafer = ResolveInputResultFileWaferNoLock(stateDie, ref stateChanged);
+                    waferId = wafer.WaferId ?? "";
+                    waferInstanceId = EnsureWaferInstanceIdNoLock(wafer);
+
+                    if (IsValidResultFileSessionTime(wafer.InputResultFileSessionStartedAt))
+                    {
+                        resolved = wafer.InputResultFileSessionStartedAt.Value;
+                    }
+                    else
+                    {
+                        resolved = ResolveEarliestInputResultFileSessionNoLock(
+                            wafer,
+                            NormalizeResultFileSessionTime(candidate));
+                        wafer.InputResultFileSessionStartedAt = resolved;
+                        wafer.UpdatedAt = DateTime.Now;
+                        sessionCreated = true;
+                    }
+
+                    stateDie.InputResultFileSessionStartedAt = resolved;
+                    stateDie.UpdatedAt = DateTime.Now;
+                    stateChanged = true;
+                }
+            }
+
+            if (stateChanged)
+                NotifyAndSave("InputResultFileSessionStart");
+            if (sessionCreated)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input 결과 파일 세션 시각을 확정했습니다. wafer=" + waferId +
+                    ", instance=" + waferInstanceId +
+                    ", startedAt=" + resolved.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture) +
+                    " - Ok");
+            }
+
+            return resolved;
+        }
+
+        /// <summary>
+        /// Output 고객 결과 파일명의 기준 시각을 물리 Bin 단위로 한 번만 확정한다.
+        /// 레거시 상태에는 필드가 없으므로 같은 Bin instance에 배정된 기존 Die의
+        /// 가장 이른 Pick 시각을 복구한다.
+        /// </summary>
+        internal static DateTime ResolveOutputResultFileSessionStartedAt(
+            WaferMaterial outputWafer,
+            DieMaterial die,
+            DateTime candidate)
+        {
+            if (outputWafer == null)
+                throw new ArgumentNullException("outputWafer");
+            if (die == null)
+                throw new ArgumentNullException("die");
+
+            bool stateChanged = false;
+            bool sessionCreated = false;
+            DateTime resolved;
+            string waferId = "";
+            string waferInstanceId = "";
+            lock (_stateSync)
+            {
+                DieMaterial stateDie = ResolveResultFileSessionDieNoLock(die);
+                if (IsValidResultFileSessionTime(stateDie.OutputResultFileSessionStartedAt))
+                {
+                    resolved = stateDie.OutputResultFileSessionStartedAt.Value;
+                }
+                else
+                {
+                    WaferMaterial wafer = ResolveOutputResultFileWaferNoLock(outputWafer);
+                    waferId = wafer.WaferId ?? "";
+                    waferInstanceId = EnsureWaferInstanceIdNoLock(wafer);
+
+                    if (IsValidResultFileSessionTime(wafer.OutputResultFileSessionStartedAt))
+                    {
+                        resolved = wafer.OutputResultFileSessionStartedAt.Value;
+                    }
+                    else
+                    {
+                        resolved = ResolveEarliestOutputResultFileSessionNoLock(
+                            wafer,
+                            NormalizeResultFileSessionTime(candidate));
+                        wafer.OutputResultFileSessionStartedAt = resolved;
+                        wafer.UpdatedAt = DateTime.Now;
+                        sessionCreated = true;
+                    }
+
+                    stateDie.OutputResultFileSessionStartedAt = resolved;
+                    stateDie.UpdatedAt = DateTime.Now;
+                    stateChanged = true;
+                }
+            }
+
+            if (stateChanged)
+                NotifyAndSave("OutputResultFileSessionStart");
+            if (sessionCreated)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Output 결과 파일 세션 시각을 확정했습니다. bin=" + waferId +
+                    ", instance=" + waferInstanceId +
+                    ", startedAt=" + resolved.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture) +
+                    " - Ok");
+            }
+
+            return resolved;
+        }
+
+        private static DieMaterial ResolveResultFileSessionDieNoLock(DieMaterial requestedDie)
+        {
+            if (State == null || State.Dies == null)
+                throw new InvalidOperationException("결과 파일 세션을 확인할 Die Material 상태가 없습니다.");
+
+            string dieId = (requestedDie.DieId ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(dieId))
+                throw new InvalidOperationException("결과 파일 세션을 확인할 Die ID가 없습니다.");
+
+            List<DieMaterial> matches;
+            Dictionary<string, List<DieMaterial>> index = GetDieByIdIndexNoLock();
+            if (!index.TryGetValue(dieId, out matches) || matches == null || matches.Count != 1)
+            {
+                throw new InvalidOperationException(
+                    "결과 파일 세션의 물리 Die를 고유하게 확인할 수 없습니다. die=" +
+                    dieId + ", candidates=" + (matches != null ? matches.Count : 0));
+            }
+            return matches[0];
+        }
+
+        private static WaferMaterial ResolveInputResultFileWaferNoLock(
+            DieMaterial die,
+            ref bool stateChanged)
+        {
+            if (State == null || State.Wafers == null)
+                throw new InvalidOperationException("Input 결과 파일 세션을 확인할 Material 상태가 없습니다.");
+
+            string instanceId = (die.InputWaferInstanceId ?? "").Trim();
+            if (!string.IsNullOrWhiteSpace(instanceId))
+            {
+                List<WaferMaterial> instanceMatches = State.Wafers
+                    .Where(wafer =>
+                        wafer != null &&
+                        string.Equals(
+                            wafer.WaferInstanceId ?? "",
+                            instanceId,
+                            StringComparison.OrdinalIgnoreCase))
+                    .Take(2)
+                    .ToList();
+                if (instanceMatches.Count == 1)
+                    return instanceMatches[0];
+                if (instanceMatches.Count > 1)
+                {
+                    throw new InvalidOperationException(
+                        "Input 결과 파일 세션의 Wafer instance가 중복되었습니다. instance=" + instanceId);
+                }
+                throw new InvalidOperationException(
+                    "Input 결과 파일 세션의 Wafer instance를 찾을 수 없습니다. wafer=" +
+                    (die.WaferID_Input ?? "") + ", instance=" + instanceId);
+            }
+
+            string waferId = (die.WaferID_Input ?? "").Trim();
+            List<WaferMaterial> displayMatches = State.Wafers
+                .Where(wafer =>
+                    wafer != null &&
+                    string.Equals(
+                        wafer.WaferId ?? "",
+                        waferId,
+                        StringComparison.OrdinalIgnoreCase))
+                .Take(2)
+                .ToList();
+            if (displayMatches.Count != 1)
+            {
+                throw new InvalidOperationException(
+                    "Input 결과 파일 세션의 물리 Wafer를 고유하게 확인할 수 없습니다. wafer=" +
+                    waferId + ", instance=" + instanceId + ", candidates=" + displayMatches.Count);
+            }
+
+            WaferMaterial resolved = displayMatches[0];
+            string resolvedInstanceId = EnsureWaferInstanceIdNoLock(resolved);
+            if (!string.Equals(
+                die.InputWaferInstanceId ?? "",
+                resolvedInstanceId,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                die.InputWaferInstanceId = resolvedInstanceId;
+                die.UpdatedAt = DateTime.Now;
+                stateChanged = true;
+            }
+            return resolved;
+        }
+
+        private static WaferMaterial ResolveOutputResultFileWaferNoLock(WaferMaterial requestedWafer)
+        {
+            if (State == null || State.Wafers == null)
+                throw new InvalidOperationException("Output 결과 파일 세션을 확인할 Material 상태가 없습니다.");
+
+            string instanceId = EnsureWaferInstanceIdNoLock(requestedWafer);
+            List<WaferMaterial> instanceMatches = State.Wafers
+                .Where(wafer =>
+                    wafer != null &&
+                    string.Equals(
+                        wafer.WaferInstanceId ?? "",
+                        instanceId,
+                        StringComparison.OrdinalIgnoreCase))
+                .Take(2)
+                .ToList();
+            if (instanceMatches.Count == 1)
+                return instanceMatches[0];
+            if (instanceMatches.Count > 1)
+            {
+                throw new InvalidOperationException(
+                    "Output 결과 파일 세션의 Bin instance가 중복되었습니다. instance=" + instanceId);
+            }
+            throw new InvalidOperationException(
+                "Output 결과 파일 세션의 Bin instance를 찾을 수 없습니다. bin=" +
+                (requestedWafer.WaferId ?? "") + ", instance=" + instanceId);
+        }
+
+        private static DateTime ResolveEarliestInputResultFileSessionNoLock(
+            WaferMaterial wafer,
+            DateTime fallback)
+        {
+            DateTime earliest = fallback;
+            if (State == null || State.Dies == null)
+                return earliest;
+
+            string instanceId = EnsureWaferInstanceIdNoLock(wafer);
+            bool previousSessionClosed = State.Dies.Any(die =>
+                die != null &&
+                string.Equals(
+                    die.InputWaferInstanceId ?? "",
+                    instanceId,
+                    StringComparison.OrdinalIgnoreCase) &&
+                IsValidResultFileSessionTime(die.InputResultFileSessionStartedAt));
+            if (previousSessionClosed)
+                return earliest;
+
+            foreach (DieMaterial die in State.Dies)
+            {
+                if (die == null ||
+                    !string.Equals(
+                        die.InputWaferInstanceId ?? "",
+                        instanceId,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                DateTime dieStartedAt = ResolveInputResultFileCandidateNoLock(die);
+                if (IsValidResultFileSessionTime(dieStartedAt) && dieStartedAt < earliest)
+                    earliest = dieStartedAt;
+            }
+            return earliest;
+        }
+
+        private static DateTime ResolveEarliestOutputResultFileSessionNoLock(
+            WaferMaterial wafer,
+            DateTime fallback)
+        {
+            DateTime earliest = fallback;
+            if (State == null || State.Dies == null)
+                return earliest;
+
+            string instanceId = EnsureWaferInstanceIdNoLock(wafer);
+            bool previousSessionClosed = State.Dies.Any(die =>
+                die != null &&
+                string.Equals(
+                    die.OutputWaferInstanceId ?? "",
+                    instanceId,
+                    StringComparison.OrdinalIgnoreCase) &&
+                IsValidResultFileSessionTime(die.OutputResultFileSessionStartedAt));
+            if (previousSessionClosed)
+                return earliest;
+
+            foreach (DieMaterial die in State.Dies)
+            {
+                if (die == null ||
+                    !string.Equals(
+                        die.OutputWaferInstanceId ?? "",
+                        instanceId,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !IsValidResultFileSessionTime(die.PickedAt))
+                {
+                    continue;
+                }
+
+                if (die.PickedAt < earliest)
+                    earliest = die.PickedAt;
+            }
+            return earliest;
+        }
+
+        private static DateTime ResolveInputResultFileCandidateNoLock(DieMaterial die)
+        {
+            if (die == null)
+                return DateTime.MinValue;
+
+            DieInspectionRecord inputVision = FindResultFileInspectionNoLock(die, "InputPickVision");
+            if (inputVision != null && IsValidResultFileSessionTime(inputVision.CreatedAt))
+                return inputVision.CreatedAt;
+
+            DieInspectionRecord pickUp = FindResultFileInspectionNoLock(die, "PickUp");
+            if (pickUp != null && IsValidResultFileSessionTime(pickUp.CreatedAt))
+                return pickUp.CreatedAt;
+
+            return IsValidResultFileSessionTime(die.PickedAt)
+                ? die.PickedAt
+                : DateTime.MinValue;
+        }
+
+        private static DieInspectionRecord FindResultFileInspectionNoLock(
+            DieMaterial die,
+            string inspectionType)
+        {
+            if (die == null || die.Inspections == null)
+                return null;
+
+            return die.Inspections.FirstOrDefault(record =>
+                record != null &&
+                string.Equals(
+                    record.InspectionType,
+                    inspectionType,
+                    StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// 정상 완료 또는 수동 언로딩으로 Wafer/Bin이 Cassette에 복귀할 때 현재 세션을 닫는다.
+        /// 이미 처리된 Die에는 세션 시각을 남겨 언로딩 직후 도착하는 후행 Place/중복 결과가
+        /// 새 파일로 갈라지지 않고 원래 파일을 갱신하도록 한다.
+        /// </summary>
+        private static void CloseResultFileSessionForCassetteReturnNoLock(
+            WaferMaterial wafer,
+            CassetteMaterialRole cassetteRole,
+            MaterialLocation previousLocation)
+        {
+            if (wafer == null || previousLocation == null)
+                return;
+
+            bool inputReturn = !IsOutputCassetteRole(cassetteRole) &&
+                (previousLocation.Kind == MaterialLocationKind.InputStage ||
+                 previousLocation.Kind == MaterialLocationKind.InputFeeder);
+            bool outputReturn = IsOutputCassetteRole(cassetteRole) &&
+                (previousLocation.Kind == MaterialLocationKind.OutputStageGood ||
+                 previousLocation.Kind == MaterialLocationKind.OutputStageNg ||
+                 previousLocation.Kind == MaterialLocationKind.OutputFeeder);
+            if (!inputReturn && !outputReturn)
+                return;
+
+            string instanceId = EnsureWaferInstanceIdNoLock(wafer);
+            DateTime? sessionStartedAt = inputReturn
+                ? wafer.InputResultFileSessionStartedAt
+                : wafer.OutputResultFileSessionStartedAt;
+            if (IsValidResultFileSessionTime(sessionStartedAt) &&
+                State != null &&
+                State.Dies != null)
+            {
+                foreach (DieMaterial die in State.Dies)
+                {
+                    if (die == null)
+                        continue;
+
+                    if (inputReturn)
+                    {
+                        if (!string.Equals(
+                                die.InputWaferInstanceId ?? "",
+                                instanceId,
+                                StringComparison.OrdinalIgnoreCase) ||
+                            IsValidResultFileSessionTime(die.InputResultFileSessionStartedAt) ||
+                            !IsValidResultFileSessionTime(ResolveInputResultFileCandidateNoLock(die)))
+                        {
+                            continue;
+                        }
+                        die.InputResultFileSessionStartedAt = sessionStartedAt.Value;
+                    }
+                    else
+                    {
+                        DieInspectionRecord placeRecord =
+                            FindResultFileInspectionNoLock(die, "OutputPlaceVision");
+                        if (!string.Equals(
+                                die.OutputWaferInstanceId ?? "",
+                                instanceId,
+                                StringComparison.OrdinalIgnoreCase) ||
+                            IsValidResultFileSessionTime(die.OutputResultFileSessionStartedAt) ||
+                            placeRecord == null)
+                        {
+                            continue;
+                        }
+                        die.OutputResultFileSessionStartedAt = sessionStartedAt.Value;
+                    }
+                    die.UpdatedAt = DateTime.Now;
+                }
+            }
+
+            if (inputReturn)
+                wafer.InputResultFileSessionStartedAt = null;
+            else
+                wafer.OutputResultFileSessionStartedAt = null;
+            wafer.UpdatedAt = DateTime.Now;
+        }
+
+        private static bool IsValidResultFileSessionTime(DateTime value)
+        {
+            return value > new DateTime(2000, 1, 1);
+        }
+
+        private static bool IsValidResultFileSessionTime(DateTime? value)
+        {
+            return value.HasValue && IsValidResultFileSessionTime(value.Value);
+        }
+
+        private static DateTime NormalizeResultFileSessionTime(DateTime value)
+        {
+            return IsValidResultFileSessionTime(value) ? value : DateTime.Now;
+        }
+
         public static bool IsSameWaferInstance(WaferMaterial left, WaferMaterial right)
         {
             if (left == null || right == null)

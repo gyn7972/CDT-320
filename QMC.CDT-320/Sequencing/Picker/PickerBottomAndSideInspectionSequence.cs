@@ -35,6 +35,10 @@ namespace QMC.CDT320.Sequencing
         private bool _parallelFirstSideEnabled;
         private bool _inspectionFixedYConfigured;
         private double _inspectionFixedY;
+        // [비전 작업자 확인 2026-08-25] 최종 판정 RESULT 대기 타임아웃은 배치에서 첫 사용 시 1회
+        // 조회해 고정한다(PickerPlaceSequence의 라우팅 모드 배치 스냅샷과 동일 원칙 — 운전 중 설정
+        // 변경으로 place/검사 대기가 어긋나는 것을 방지). MRESULT/촬영 시작 대기에는 쓰지 않는다.
+        private int _finalResultTimeoutMsSnapshot = -1;
         private CancellationTokenSource _deferredResultCancellation;
         private SequenceResourceLease _inspectionAreaLease;
         private IDisposable _bottomProcessAreaScope;
@@ -338,6 +342,7 @@ namespace QMC.CDT320.Sequencing
             _parallelFirstSideEnabled = false;
             _inspectionFixedYConfigured = false;
             _inspectionFixedY = 0.0;
+            _finalResultTimeoutMsSnapshot = -1;
 
             _pickedPickerIndexes.AddRange(BuildLoadedPickerIndexesInRunOrder("PickerBottomAndSideInspectionSequence"));
             RemoveSkippedPickerTargets();
@@ -3134,10 +3139,23 @@ namespace QMC.CDT320.Sequencing
         // 현재 기준: Side 결과를 timeout까지 기다리며, null이면 상위에서 알람 정지한다.
         private async Task<SideVisionResult> WaitSideInspectionResultAsync(InspectionTarget target, CancellationToken ct)
         {
-            int timeoutMs = ResolveVisionInspectionTimeout();
+            return await WaitSideInspectionResultAsync(target, ResolveVisionInspectionTimeout(), ct).ConfigureAwait(false);
+        }
+
+        private async Task<SideVisionResult> WaitSideInspectionResultAsync(InspectionTarget target, int timeoutMs, CancellationToken ct)
+        {
             return Side == PickerSequenceSide.Front
                 ? await FrontPicker.WaitSideInspectionResultAsync(target.PickerNo, timeoutMs, ct).ConfigureAwait(false)
                 : await RearPicker.WaitSideInspectionResultAsync(target.PickerNo, timeoutMs, ct).ConfigureAwait(false);
+        }
+
+        // [비전 작업자 확인 2026-08-25] 최종 판정 RESULT 전용 대기 상한 — 라우팅 모드에서만
+        // 작업자 확인 보류 상한(설정값)이고, 그 외 모드는 기존 12초가 그대로 반환된다.
+        private int ResolveFinalResultTimeoutSnapshot()
+        {
+            if (_finalResultTimeoutMsSnapshot <= 0)
+                _finalResultTimeoutMsSnapshot = ResolveVisionFinalResultTimeout();
+            return _finalResultTimeoutMsSnapshot;
         }
 
         private void EnsureDeferredFinalResultLifetime(CancellationToken ct)
@@ -3179,7 +3197,9 @@ namespace QMC.CDT320.Sequencing
                 if (shot == null || shot.Target == null)
                     return null;
 
-                int timeoutMs = ResolveVisionInspectionTimeout();
+                // [비전 작업자 확인 2026-08-25] 최종 판정 RESULT는 라우팅 모드에서 작업자 확인 동안
+                // 보류될 수 있어 전용 상한(설정값)으로 기다린다. MRESULT 대기는 기존 12초 그대로다.
+                int timeoutMs = ResolveFinalResultTimeoutSnapshot();
                 BottomVisionOffset result = Side == PickerSequenceSide.Front
                     ? await FrontPicker.WaitBottomInspectionFinalResultAsync(shot.Target.PickerNo, timeoutMs, ct).ConfigureAwait(false)
                     : await RearPicker.WaitBottomInspectionFinalResultAsync(shot.Target.PickerNo, timeoutMs, ct).ConfigureAwait(false);
@@ -3506,7 +3526,12 @@ namespace QMC.CDT320.Sequencing
                 if (target == null)
                     return null;
 
-                return await WaitSideInspectionResultAsync(target, ct).ConfigureAwait(false);
+                // [비전 작업자 확인 2026-08-25] Side 최종 판정 RESULT도 라우팅 모드에서 보류될 수
+                // 있어 전용 상한(설정값)으로 기다린다. 실패 정리 드레인 폴백은 기존 12초 그대로다.
+                return await WaitSideInspectionResultAsync(
+                    target,
+                    ResolveFinalResultTimeoutSnapshot(),
+                    ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

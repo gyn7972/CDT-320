@@ -18,19 +18,47 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputGoodStageY", "GoodBinY", "GoodStage_StageY"))
+            {
+                // [인터락 확대 2026-08-25, 사용자 지시] Output 존 픽커 Z가 하강 잔류(정지, 0 미만)면
+                // 스테이지 이동 금지 — 잔류 팁과의 간섭 방지. 동기 도착의 Z "이동 중"은 차단하지 않는다.
+                if (!PickerZoneInterlockRules.VerifyNoPickerZParkedBelowZeroInZone(
+                        request.Machine, PickerWorkZone.Output, "OutputGoodStageY", out reason))
+                    return false;
+
                 return VerifyBinGoodY(request, out reason);
+            }
 
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputGoodStageZ", "GoodBinZ", "GoodStage_StageZ"))
             {
-                if (!PickerZoneInterlockRules.VerifyPickerXStoppedForClearanceMechanismMove(
-                    request.Machine, "OutputGoodStageZ", out reason))
+                // [NG 라우팅 인터락 완화 2026-08-25, 사용자 승인] 현재·목표가 모두 Process 이하인
+                // GoodStageZ 이동(Process↔Avoid 구간)은 픽커 X 경로와 기구 간섭이 없으므로
+                // 픽커 X 정지 요구를 생략하고, Process 초과 상승만 기존대로 정지를 요구한다.
+                // 근거: NG 라우팅 Place의 상대 Good Z Avoid 이동이 반대편 픽커 픽업 X 이동과
+                // 병렬 발행되어 전역 규칙에 차단됨(2026-08-25 02:05/02:09 Critical 2회 실측).
+                // MachineReady의 기존 안전 개념("Z가 Process 초과일 때만 상부 이동 위험")과 일치.
+                if (!IsGoodStageZMoveWithinProcessEnvelope(request) &&
+                    !PickerZoneInterlockRules.VerifyPickerXStoppedForClearanceMechanismMove(
+                        request.Machine, "OutputGoodStageZ", out reason))
+                    return false;
+
+                // [인터락 확대 2026-08-25, 사용자 지시] Output 존 픽커 Z 하강 잔류 중에는 GoodStageZ의
+                // 하강 이동도 금지한다(기존 상승 차단에 더해 전방향) — 잔류 팁과의 간섭 방지.
+                if (!PickerZoneInterlockRules.VerifyNoPickerZParkedBelowZeroInZone(
+                        request.Machine, PickerWorkZone.Output, "OutputGoodStageZ", out reason))
                     return false;
 
                 return VerifyBinGoodZ(request, out reason);
             }
 
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputNGStageY", "NgBinY", "NgStage_StageY"))
+            {
+                // [인터락 확대 2026-08-25, 사용자 지시] Output 존 픽커 Z 하강 잔류 중 NG Stage Y 이동 금지.
+                if (!PickerZoneInterlockRules.VerifyNoPickerZParkedBelowZeroInZone(
+                        request.Machine, PickerWorkZone.Output, "OutputNGStageY", out reason))
+                    return false;
+
                 return VerifyBinNgY(request, out reason);
+            }
 
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputVisionX", "OutputCameraX", "BinCameraX"))
                 return VerifyBinVisionX(request, out reason);
@@ -1211,6 +1239,37 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             return VerifyGoodBinGuideDown(outputStage, movingName, out reason);
+        }
+
+        // [NG 라우팅 인터락 완화 2026-08-25] GoodStageZ 이동이 "Process 이하 범위"에 머무는지 판정한다.
+        // 현재 위치와 목표가 모두 Process(+툴러런스) 이하일 때만 true — 이 구간은 픽커 X가 이동
+        // 중이어도 기구 간섭이 없어 픽커 X 정지 요구를 생략한다(사용자 확정: "Process에서 마이너스로
+        // 움직이는 건 괜찮고, Process까지 움직이는 건 문제없다"). 정보를 확인할 수 없거나 현재 위치가
+        // 이미 Process를 넘어 있으면 false — 기존 차단(픽커 X 정지 요구)을 그대로 유지한다(fail-closed).
+        private static bool IsGoodStageZMoveWithinProcessEnvelope(MotionGuardRuleContext request)
+        {
+            try
+            {
+                OutputStageUnit outputStage = request != null && request.Machine != null
+                    ? request.Machine.OutputStageUnit
+                    : null;
+                BaseAxis goodZ = outputStage != null && outputStage.GoodStage != null
+                    ? outputStage.GoodStage.StageZ
+                    : null;
+                if (goodZ == null || outputStage.Recipe == null || outputStage.Recipe.GoodStageZ == null)
+                    return false;
+
+                double process = outputStage.Recipe.GoodStageZ.ProcessPosition;
+                double tolerance = goodZ.Config != null && goodZ.Config.InPositionTolerance > 0.0
+                    ? goodZ.Config.InPositionTolerance
+                    : 0.05;
+                double limit = process + tolerance;
+                return goodZ.ActualPosition <= limit && request.TargetValue <= limit;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         // 절대 인터락: GoodStageZ의 실제 상승 명령은 목표가 Avoid여도 NG Stage exact Avoid를 요구한다.

@@ -108,6 +108,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 // [P4 2026-08-22] LOT 네트워크 맵을 실제 다이맵으로 사용(시퀀스 적용) 스위치.
                 _cbUseLotNetworkWaferMap.Checked = cfg.UseLotNetworkWaferMap;
 
+                // [비전 작업자 확인 2026-08-25] NG 라우팅 로트에서 비전 NG RESULT 작업자 확인 대기 상한(초).
+                _tbVisionOperatorConfirmTimeoutSec.Text = cfg.VisionOperatorConfirmTimeoutSec.ToString();
+                // [NG 라우팅 시뮬 테스트 2026-08-25] 시뮬 최종 판정 NG 주입 확률(%). 0=꺼짐.
+                _tbSimulationVisionNgRatePercent.Text = cfg.SimulationVisionNgRatePercent.ToString();
+
                 // 런타임 보정 사용 유무는 AppSettings가 아니라 각 보정 스토어(JSON)에 저장된다.
                 _cbPickRuntimeOffset.SelectedIndex = PickRuntimeOffsetService.IsEnabled ? 0 : 1;
                 _cbPlaceRuntimeOffset.SelectedIndex = PlaceRuntimeOffsetService.IsEnabled ? 0 : 1;
@@ -370,6 +375,54 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             int value;
             if (!int.TryParse(_tbIrq.Text, out value)) return;
             AppSettingsStore.Current.AjinIrqNo = value;
+            AppSettingsStore.Save();
+        }
+
+        // [비전 작업자 확인 2026-08-25] NG 라우팅 로트에서 비전 NG RESULT 작업자 확인 대기 상한(초).
+        // 포커스 이탈 시 12~600초로 클램프해 저장한다. 잘못된 입력은 저장값으로 되돌린다.
+        private void _tbVisionOperatorConfirmTimeoutSec_Leave(object sender, EventArgs e)
+        {
+            if (_loadingSettings)
+                return;
+
+            int value;
+            if (!int.TryParse((_tbVisionOperatorConfirmTimeoutSec.Text ?? "").Trim(), out value))
+            {
+                _tbVisionOperatorConfirmTimeoutSec.Text =
+                    AppSettingsStore.Current.VisionOperatorConfirmTimeoutSec.ToString();
+                return;
+            }
+
+            value = Math.Max(12, Math.Min(600, value));
+            _tbVisionOperatorConfirmTimeoutSec.Text = value.ToString();
+            if (AppSettingsStore.Current.VisionOperatorConfirmTimeoutSec == value)
+                return;
+
+            AppSettingsStore.Current.VisionOperatorConfirmTimeoutSec = value;
+            AppSettingsStore.Save();
+        }
+
+        // [NG 라우팅 시뮬 테스트 2026-08-25] 시뮬 최종 판정 NG 주입 확률(%). 0~100 클램프,
+        // 잘못된 입력은 저장값으로 되돌린다. 실비전 경로에는 영향 없음(바이패스 분기 전용).
+        private void _tbSimulationVisionNgRatePercent_Leave(object sender, EventArgs e)
+        {
+            if (_loadingSettings)
+                return;
+
+            int value;
+            if (!int.TryParse((_tbSimulationVisionNgRatePercent.Text ?? "").Trim(), out value))
+            {
+                _tbSimulationVisionNgRatePercent.Text =
+                    AppSettingsStore.Current.SimulationVisionNgRatePercent.ToString();
+                return;
+            }
+
+            value = Math.Max(0, Math.Min(100, value));
+            _tbSimulationVisionNgRatePercent.Text = value.ToString();
+            if (AppSettingsStore.Current.SimulationVisionNgRatePercent == value)
+                return;
+
+            AppSettingsStore.Current.SimulationVisionNgRatePercent = value;
             AppSettingsStore.Save();
         }
 

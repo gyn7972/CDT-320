@@ -38,9 +38,14 @@ namespace QMC.CDT320.Lots
 
         public static Lot OpenLot(string lotId, string recipeName, int totalDies)
         {
+            return OpenLot(lotId, recipeName, totalDies, Lot.DefaultReworkCount);
+        }
+
+        public static Lot OpenLot(string lotId, string recipeName, int totalDies, int reworkCount)
+        {
             Lot lot;
             string error;
-            if (!TryOpenLot(lotId, recipeName, totalDies, out lot, out error))
+            if (!TryOpenLot(lotId, recipeName, totalDies, reworkCount, out lot, out error))
                 throw new InvalidOperationException(error);
 
             return lot;
@@ -57,8 +62,32 @@ namespace QMC.CDT320.Lots
             out Lot openedLot,
             out string error)
         {
+            return TryOpenLot(
+                lotId,
+                recipeName,
+                totalDies,
+                Lot.DefaultReworkCount,
+                out openedLot,
+                out error);
+        }
+
+        public static bool TryOpenLot(
+            string lotId,
+            string recipeName,
+            int totalDies,
+            int reworkCount,
+            out Lot openedLot,
+            out string error)
+        {
             openedLot = null;
             error = "";
+
+            if (reworkCount < Lot.MinReworkCount || reworkCount > Lot.MaxReworkCount)
+            {
+                error = "Rework 값은 " + Lot.MinReworkCount + "~" + Lot.MaxReworkCount +
+                        " 범위여야 합니다. value=" + reworkCount;
+                return false;
+            }
 
             string normalized = string.IsNullOrWhiteSpace(lotId)
                 ? "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss")
@@ -82,7 +111,8 @@ namespace QMC.CDT320.Lots
                         RecipeName = recipeName ?? "",
                         StartedAt = DateTime.Now,
                         State = LotState.Open,
-                        TotalDies = totalDies
+                        TotalDies = totalDies,
+                        ReworkCount = reworkCount
                     };
                     added = _lots.TryAdd(normalized, lot);
                     if (!added && !_lots.TryGetValue(normalized, out lot))
@@ -94,6 +124,7 @@ namespace QMC.CDT320.Lots
 
                 string previousRecipeName = lot.RecipeName;
                 int previousTotalDies = lot.TotalDies;
+                int previousReworkCount = lot.ReworkCount;
                 LotState previousState = lot.State;
                 DateTime? previousFinishedAt = lot.FinishedAt;
 
@@ -109,6 +140,7 @@ namespace QMC.CDT320.Lots
 
                 lot.RecipeName = recipeName ?? lot.RecipeName;
                 lot.TotalDies = totalDies;
+                lot.ReworkCount = reworkCount;
                 if (lot.State == LotState.Open)
                     lot.State = LotState.Running;
 
@@ -124,6 +156,7 @@ namespace QMC.CDT320.Lots
                 {
                     lot.RecipeName = previousRecipeName;
                     lot.TotalDies = previousTotalDies;
+                    lot.ReworkCount = previousReworkCount;
                     if (added)
                     {
                         // 이력 파일만 Running으로 남으면 다음 기동 때 잘못된 복구 후보가 된다.
@@ -366,6 +399,7 @@ namespace QMC.CDT320.Lots
 
                         if (lot == null || string.IsNullOrEmpty(lot.LotID)) continue;
                         if (lot.BinDistribution == null) lot.BinDistribution = new Dictionary<int, int>();
+                        lot.ReworkCount = Lot.NormalizeReworkCount(lot.ReworkCount);
 
                         _lots[lot.LotID] = lot;
                     }

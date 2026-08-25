@@ -31,6 +31,10 @@ namespace QMC.CDT320.Lots
     /// </summary>
     public static class LotSessionService
     {
+        public const int MinReworkCount = Lot.MinReworkCount;
+        public const int MaxReworkCount = Lot.MaxReworkCount;
+        public const int DefaultReworkCount = Lot.DefaultReworkCount;
+
         /// <summary>현재 진행 중인 LOT이 있는지 여부.</summary>
         public static bool IsLotActive
         {
@@ -45,6 +49,40 @@ namespace QMC.CDT320.Lots
                 Lot lot = LotStorage.ActiveLot;
                 return lot != null ? (lot.LotID ?? "") : "";
             }
+        }
+
+        /// <summary>현재 진행 중인 LOT의 Rework 값. 활성 LOT이 없으면 기본값 1.</summary>
+        public static int ActiveReworkCount
+        {
+            get
+            {
+                Lot lot = LotStorage.ActiveLot;
+                return lot != null
+                    ? Lot.NormalizeReworkCount(lot.ReworkCount)
+                    : DefaultReworkCount;
+            }
+        }
+
+        /// <summary>
+        /// 비동기 결과 저장 요청을 만들 때 LOT의 Rework 값을 확정한다.
+        /// LOT 완료와 파일 쓰기가 겹쳐도 완료된 LOT 이력에서 같은 값을 찾을 수 있다.
+        /// </summary>
+        public static int ResolveReworkCount(string lotId)
+        {
+            string normalized = string.IsNullOrWhiteSpace(lotId) ? "" : lotId.Trim();
+            Lot activeLot = LotStorage.ActiveLot;
+            if (activeLot != null &&
+                (normalized.Length == 0 ||
+                 string.Equals(activeLot.LotID ?? "", normalized, StringComparison.Ordinal)))
+            {
+                return Lot.NormalizeReworkCount(activeLot.ReworkCount);
+            }
+
+            Lot storedLot;
+            if (normalized.Length > 0 && LotStorage.Lots.TryGetValue(normalized, out storedLot) && storedLot != null)
+                return Lot.NormalizeReworkCount(storedLot.ReworkCount);
+
+            return DefaultReworkCount;
         }
 
         /// <summary>
@@ -136,7 +174,8 @@ namespace QMC.CDT320.Lots
                 // 복원된 활성 LOT ID를 새 Material 상태에 다시 연결한다.
                 SynchronizeActiveLotToMaterial("LotRestore");
 
-                string message = "재시작 전 진행 중이던 LOT을 복구했습니다. lot=" + ActiveLotId;
+                string message = "재시작 전 진행 중이던 LOT을 복구했습니다. lot=" + ActiveLotId +
+                                 ", rework=" + ActiveReworkCount;
                 Log.Write("Main", "SYSTEM", "LotRestore", message + " - Ok");
                 EventLogger.Write(EventKind.Event, "LOT", "LOT-RESTORE", message);
                 return true;
@@ -215,6 +254,21 @@ namespace QMC.CDT320.Lots
             string lotId,
             out string reason)
         {
+            return TryStartLot(
+                machine,
+                activeRecipeName,
+                lotId,
+                DefaultReworkCount,
+                out reason);
+        }
+
+        public static bool TryStartLot(
+            CDT320_Machine machine,
+            string activeRecipeName,
+            string lotId,
+            int reworkCount,
+            out string reason)
+        {
             reason = "";
             try
             {
@@ -223,6 +277,13 @@ namespace QMC.CDT320.Lots
                 if (normalized.Length == 0)
                 {
                     reason = "LOT ID를 입력하세요.";
+                    return false;
+                }
+
+                if (reworkCount < MinReworkCount || reworkCount > MaxReworkCount)
+                {
+                    reason = "Rework 값은 " + MinReworkCount + "~" + MaxReworkCount +
+                             " 범위에서 선택하세요.";
                     return false;
                 }
 
@@ -274,7 +335,13 @@ namespace QMC.CDT320.Lots
                     : (activeRecipeName ?? "");
                 Lot openedLot;
                 string storageError;
-                if (!LotStorage.TryOpenLot(normalized, recipeName, totalDies, out openedLot, out storageError))
+                if (!LotStorage.TryOpenLot(
+                    normalized,
+                    recipeName,
+                    totalDies,
+                    reworkCount,
+                    out openedLot,
+                    out storageError))
                 {
                     // 활성 LOT 포인터까지 저장되지 않았으면 Material/Recipe 반영도 원래 값으로 되돌린다.
                     MaterialStateService.SetProductionLotId(previousMaterialLotId, "LotStartRollback");
@@ -295,7 +362,8 @@ namespace QMC.CDT320.Lots
 
                 string message = "LOT을 시작했습니다. lot=" + normalized +
                                  ", recipe=" + (string.IsNullOrEmpty(recipeName) ? "(없음)" : recipeName) +
-                                 ", totalDies=" + totalDies;
+                                 ", totalDies=" + totalDies +
+                                 ", rework=" + reworkCount;
                 Log.Write("Main", "SYSTEM", "LotStart", message + " - Ok");
                 EventLogger.Write(EventKind.Event, "LOT", "LOT-START", message);
                 return true;
@@ -346,6 +414,7 @@ namespace QMC.CDT320.Lots
                 ClearCompletedLotIdFromRecipe(lot.RecipeName, lotId);
 
                 string message = "LOT을 완료했습니다. lot=" + lotId +
+                                 ", rework=" + Lot.NormalizeReworkCount(lot.ReworkCount) +
                                  ", 처리=" + lot.ProcessedDies +
                                  ", GOOD=" + lot.GoodCount +
                                  ", NG=" + lot.NgCount +

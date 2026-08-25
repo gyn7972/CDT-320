@@ -405,9 +405,49 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
+            // [사용자 지시 2026-08-25] 픽커 Z 하강 잔류 중 Good/NG 스테이지 이동 금지 — 스테이지
+            // 전환/상대 이동이 실제로 필요한 경우에만, 이동 발행 전에 이전 픽커 Z 지연 복귀를 먼저
+            // 완료한다. 같은 사이드 연속 배치(상대 이미 Avoid·GoodZ 이미 자리)는 스테이지 이동이
+            // 없으므로 복귀를 당기지 않는다(택트 보존 — 같은 스테이지 Y+Z 동기 도착 유지, 사용자 확인).
+            if (IsOutputStageTransitionMoveExpected())
+            {
+                int transitionRetreatResult = await CompletePendingContiRetreatIfNeededAsync(
+                    "스테이지 전환/상대 이동 전 이전 픽커 Z 안전 복귀",
+                    ct).ConfigureAwait(false);
+                if (transitionRetreatResult != 0)
+                    return transitionRetreatResult;
+            }
+
             result = await MoveOppositeOutputStageToAvoidForPlaceAsync(ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
+
+            // [NG 라우팅 Z 전환 순서 교정 2026-08-25, 사용자 승인] NG 다이가 GoodStageZ를 Avoid로
+            // 내려놓은 뒤 Good 다이가 오면, 기존 순서(픽커 접근·Z 사전 하강 → Z Process 상승)가
+            // 역순이라 "PickerZ 하강 상태에서 Stage Z 상승 금지" 인터락에 차단됐다(02:29 Critical 실측
+            // — 스테이지가 하강한 픽커 밑에서 올라오는 실충돌 위험을 인터락이 옳게 막은 것).
+            // GoodZ가 Process가 아닌 Good 다이에서만: ① 이전 픽커 Z 지연 복귀를 먼저 완료하고
+            // (하강 잔류 픽커 Z가 상승 인터락에 걸리지 않게), ② 픽커 접근 시작 전에 GoodZ를
+            // Process로 선행 상승한다. GoodZ가 이미 Process면(연속 Good, ForceGoodStage 로트 전체)
+            // 이 블록은 실행되지 않아 기존 동작·택트 무변경. Good→NG 전환(GoodZ 하강)은 인터락이
+            // 하강을 검사하지 않으므로(안전 방향 통과 규칙) 별도 조치가 필요 없다.
+            if (_currentOutputSide == BinSide.Good && !IsGoodStageZAtProcessPosition())
+            {
+                int retreatResult = await CompletePendingContiRetreatIfNeededAsync(
+                    "Good Stage Z Process 선행 상승 전 이전 픽커 Z 안전 복귀",
+                    ct).ConfigureAwait(false);
+                if (retreatResult != 0)
+                    return retreatResult;
+
+                result = await EnsureOutputStageZReadyForPlaceAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                WriteLog("PickerPlaceSequence",
+                    Name + " NG→Good 전환: 픽커 접근 전에 Good Stage Z를 Process로 선행 상승했습니다. " +
+                    "die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo + " - Ok");
+            }
 
             if (IsPickerMotionOnlyTestMode())
             {
@@ -757,6 +797,23 @@ namespace QMC.CDT320.Sequencing
                     "Place 전 상대 Good Stage Z Avoid 이동 실패. result=" + goodZResult +
                     ", " + OutputStage.DescribeOutputStageInterlockState(_currentOutputSide));
 
+            // [NG 라우팅 순서 교정 2026-08-25] GoodStageY 이동의 절대 인터락 조건은 "NG Stage가
+            // Avoid 위치"다. 직전 혼합 배치/후검사가 NG Y를 작업 위치에 둔 채 끝난 경우, GoodY
+            // Avoid 이동을 발행하기 전에 NG Y를 먼저 Avoid로 이동시킨다(11:00 Critical 실측 —
+            // 혼합 배치 다음의 첫 NG 다이에서 차단). GoodY가 이미 Avoid면 GoodY 이동 자체가
+            // 스킵되므로 NG Y 선행 회피도 하지 않는다(NG 연속 배치 택트 보존). NG Y는 이후
+            // 수령 위치 이동 단계에서 다시 진입한다.
+            if (!IsGoodStageYAtAvoidPosition() && !OutputStage.IsNgStageInAvoidPosition())
+            {
+                int ngPreAvoidResult = await AwaitStepWithCancellationAsync(
+                    OutputStage.MoveNgStageToAvoidAndVerifyAsync(ResolveTimeout(), Options.FineMove, ct),
+                    ct).ConfigureAwait(false);
+                if (ngPreAvoidResult != 0)
+                    return Fail("PICKER-PLACE-OPP-STAGE-NG-PRE-AVOID", "OutputStage",
+                        "GoodStageY Avoid 이동 전 NG Stage 선행 Avoid 이동 실패. result=" + ngPreAvoidResult +
+                        ", " + OutputStage.DescribeOutputStageInterlockState(_currentOutputSide));
+            }
+
             double goodYAvoid = OutputStage.Recipe.GoodStageY.AvoidPosition;
             int goodYResult = await MoveOutputStageAxisAndVerifyAsync(
                 BinStageAxis.GoodBinY,
@@ -767,6 +824,84 @@ namespace QMC.CDT320.Sequencing
                 return goodYResult;
 
             return 0;
+        }
+
+        // [사용자 지시 2026-08-25] 이번 다이의 Place 준비에서 Good/NG 스테이지의 전환/상대 이동이
+        // 실제로 발행될지 판정한다. 판단 불가면 true — 이전 픽커 Z 복귀를 우선한다(안전 방향).
+        private bool IsOutputStageTransitionMoveExpected()
+        {
+            try
+            {
+                if (OutputStage == null)
+                    return true;
+
+                if (_currentOutputSide == BinSide.Good)
+                    return !OutputStage.IsNgStageInAvoidPosition() || !IsGoodStageZAtProcessPosition();
+
+                return !OutputStage.IsGoodStageZAtAvoid() || !IsGoodStageYAtAvoidPosition();
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        // [사용자 지시 2026-08-25] GoodStageY가 Avoid 위치에 있는지 판정한다(전환 이동 예상 판정용).
+        private bool IsGoodStageYAtAvoidPosition()
+        {
+            try
+            {
+                if (OutputStage == null || OutputStage.Recipe == null ||
+                    OutputStage.GoodStage == null || OutputStage.GoodStage.StageY == null)
+                    return false;
+
+                OutputStage.Recipe.EnsurePositionObjects();
+                if (OutputStage.Recipe.GoodStageY == null)
+                    return false;
+
+                BaseAxis goodY = OutputStage.GoodStage.StageY;
+                double tolerance = goodY.Config != null && goodY.Config.InPositionTolerance > 0.0
+                    ? goodY.Config.InPositionTolerance
+                    : 0.05;
+                return OutputStage.IsStageAxisInPosition(
+                    BinStageAxis.GoodBinY,
+                    OutputStage.Recipe.GoodStageY.AvoidPosition,
+                    tolerance);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // [NG 라우팅 Z 전환 순서 교정 2026-08-25] GoodStageZ가 Process 위치에 있는지 판정한다.
+        // 판정 불가(유닛/레시피 없음)면 false — 상위에서 선행 상승 블록이 실행되며, 그 경로의
+        // EnsureOutputStageZReadyForPlaceAsync가 이미 위치면 이동 없이 검증만 하므로 무해하다.
+        private bool IsGoodStageZAtProcessPosition()
+        {
+            try
+            {
+                if (OutputStage == null || OutputStage.Recipe == null ||
+                    OutputStage.GoodStage == null || OutputStage.GoodStage.StageZ == null)
+                    return false;
+
+                OutputStage.Recipe.EnsurePositionObjects();
+                if (OutputStage.Recipe.GoodStageZ == null)
+                    return false;
+
+                BaseAxis goodZ = OutputStage.GoodStage.StageZ;
+                double tolerance = goodZ.Config != null && goodZ.Config.InPositionTolerance > 0.0
+                    ? goodZ.Config.InPositionTolerance
+                    : 0.05;
+                return OutputStage.IsStageAxisInPosition(
+                    BinStageAxis.GoodBinZ,
+                    OutputStage.Recipe.GoodStageZ.ProcessPosition,
+                    tolerance);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         // 현재 기준(사용자 승인 2026-07-25, M8): 확인과 예약을 원자화한다.

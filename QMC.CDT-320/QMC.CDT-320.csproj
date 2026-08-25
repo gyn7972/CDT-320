@@ -429,6 +429,7 @@
     <Compile Include="Sequencing\Common\SequenceStopException.cs" />
     <Compile Include="Sequencing\Common\SequenceFailureStore.cs" />
     <Compile Include="Sequencing\Common\MachineSequenceContext.cs" />
+    <Compile Include="Sequencing\Common\OperatorAttentionNotifier.cs" />
     <Compile Include="Sequencing\Common\WaferCompletionRunCoordinator.cs" />
     <Compile Include="Sequencing\Common\LowPassFilter.cs" />
     <Compile Include="Sequencing\Common\SequenceLog.cs" />

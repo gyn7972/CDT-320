@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common;
+using QMC.CDT320.Lots;
 using QMC.CDT320.Recipes;
 
 namespace QMC.CDT320.Materials
@@ -30,14 +31,7 @@ namespace QMC.CDT320.Materials
         private static readonly Encoding Utf8WithoutBom = new UTF8Encoding(false);
         private static readonly object QueueSyncRoot = new object();
         private static readonly object FileSyncRoot = new object();
-        private static readonly object SessionSyncRoot = new object();
         private static readonly Queue<WriteRequest> PendingItems = new Queue<WriteRequest>();
-        private static readonly Dictionary<string, DateTime> InputSessionStarts =
-            new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
-        private static readonly Dictionary<string, DateTime> InputDieSessionStarts =
-            new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
-        private static readonly Dictionary<string, DateTime> OutputSessionStarts =
-            new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, RecipeMetadataCacheEntry> RecipeMetadataCache =
             new Dictionary<string, RecipeMetadataCacheEntry>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, HashSet<string>> RawLineCache =
@@ -66,11 +60,8 @@ namespace QMC.CDT320.Materials
                 lotId = MaterialStateService.GetProductionLotId();
                 DateTime eventAt = ResolveEventTime(bottomRecord.UpdatedAt);
                 DateTime firstPickAt = ResolveInputPickStart(die, eventAt);
-                DateTime sessionStartedAt = ResolveInputSessionStart(
-                    recipeName,
-                    lotId,
-                    die,
-                    firstPickAt);
+                DateTime sessionStartedAt =
+                    MaterialStateService.ResolveInputResultFileSessionStartedAt(die, firstPickAt);
                 string inputWaferId = string.IsNullOrWhiteSpace(die.WaferID_Input)
                     ? "UNKNOWN_INPUT_WAFER"
                     : die.WaferID_Input.Trim();
@@ -117,6 +108,7 @@ namespace QMC.CDT320.Materials
                     return;
 
                 lotId = MaterialStateService.GetProductionLotId();
+                int reworkCount = LotSessionService.ResolveReworkCount(lotId);
                 DieInspectionRecord placeRecord = FindInspection(die, "OutputPlaceVision");
                 if (placeRecord == null)
                     return;
@@ -126,11 +118,10 @@ namespace QMC.CDT320.Materials
                 string inputWaferId = string.IsNullOrWhiteSpace(die.WaferID_Input)
                     ? "UNKNOWN_INPUT_WAFER"
                     : die.WaferID_Input.Trim();
-                DateTime inputSessionStartedAt = ResolveInputSessionStart(
-                    recipeName,
-                    lotId,
-                    die,
-                    ResolveInputPickStart(die, eventAt));
+                DateTime inputSessionStartedAt =
+                    MaterialStateService.ResolveInputResultFileSessionStartedAt(
+                        die,
+                        ResolveInputPickStart(die, eventAt));
                 string inputStem = SafeFileName(inputWaferId) + "_" +
                     inputSessionStartedAt.ToString("yyyyMMddHH", CultureInfo.InvariantCulture);
                 string inputDir = Path.Combine(MaterialSnapshotStore.RootDir, "INPUT");
@@ -157,17 +148,18 @@ namespace QMC.CDT320.Materials
                     });
                 }
 
-                string outputSessionKey = BuildOutputSessionKey(recipeName, lotId, outputWafer);
-                DateTime outputSessionStartedAt = ResolveSessionStart(
-                    OutputSessionStarts,
-                    outputSessionKey,
-                    IsValidDateTime(die.PickedAt) ? die.PickedAt : eventAt);
+                DateTime outputSessionStartedAt =
+                    MaterialStateService.ResolveOutputResultFileSessionStartedAt(
+                        outputWafer,
+                        die,
+                        IsValidDateTime(die.PickedAt) ? die.PickedAt : eventAt);
 
                 Enqueue(new WriteRequest
                 {
                     Place = BuildPlacePayload(
                         recipeName,
                         lotId,
+                        reworkCount,
                         outputSide,
                         outputWafer,
                         die,
@@ -858,6 +850,7 @@ namespace QMC.CDT320.Materials
         private static PlaceWritePayload BuildPlacePayload(
             string recipeName,
             string lotId,
+            int reworkCount,
             QMC.CDT320.BinSide outputSide,
             WaferMaterial outputWafer,
             DieMaterial die,
@@ -921,6 +914,7 @@ namespace QMC.CDT320.Materials
             {
                 RecipeName = recipeName ?? "",
                 LotId = lotId ?? "",
+                ReworkCount = Lot.NormalizeReworkCount(reworkCount),
                 OutputSide = outputSide,
                 OutputWaferId = outputWaferId,
                 OutputCassetteId = outputWafer.OutputCassetteId ?? "",
@@ -964,7 +958,7 @@ namespace QMC.CDT320.Materials
                 placeCassetteId,
                 metadata.ColletModelNumber,
                 metadata.ColletIdNumber,
-                1
+                place.ReworkCount
             };
 
             return CsvLine(values);
@@ -1406,113 +1400,6 @@ namespace QMC.CDT320.Materials
             return ResolveEventTime(fallback);
         }
 
-        private static DateTime ResolveSessionStart(
-            Dictionary<string, DateTime> sessions,
-            string key,
-            DateTime candidate)
-        {
-            lock (SessionSyncRoot)
-            {
-                DateTime existing;
-                if (sessions.TryGetValue(key, out existing))
-                    return existing;
-
-                DateTime resolved = ResolveEventTime(candidate);
-                sessions[key] = resolved;
-                return resolved;
-            }
-        }
-
-        private static DateTime ResolveInputSessionStart(
-            string recipeName,
-            string lotId,
-            DieMaterial die,
-            DateTime candidate)
-        {
-            lock (SessionSyncRoot)
-            {
-                string dieSessionKey = BuildInputDieSessionKey(die);
-                DateTime existing;
-                if (InputDieSessionStarts.TryGetValue(dieSessionKey, out existing))
-                    return existing;
-
-                string waferSessionKey = BuildInputSessionKey(recipeName, lotId, die);
-                if (!InputSessionStarts.TryGetValue(waferSessionKey, out existing))
-                {
-                    existing = ResolveEventTime(candidate);
-                    InputSessionStarts[waferSessionKey] = existing;
-                }
-
-                InputDieSessionStarts[dieSessionKey] = existing;
-                return existing;
-            }
-        }
-
-        private static string BuildInputDieSessionKey(DieMaterial die)
-        {
-            if (die == null)
-                return "UNKNOWN:0";
-
-            DateTime pickedAt = IsValidDateTime(die.PickedAt)
-                ? die.PickedAt
-                : die.CreatedAt;
-            return (die.DieId ?? "UNKNOWN") + ":" +
-                pickedAt.Ticks.ToString(CultureInfo.InvariantCulture);
-        }
-
-        private static string BuildInputSessionKey(
-            string recipeName,
-            string lotId,
-            DieMaterial die)
-        {
-            string generation = ResolveInputWaferGeneration(die);
-            return (recipeName ?? "") + "\u001f" +
-                (lotId ?? "") + "\u001f" +
-                (die != null ? die.WaferID_Input ?? "" : "") + "\u001f" +
-                generation;
-        }
-
-        private static string ResolveInputWaferGeneration(DieMaterial die)
-        {
-            try
-            {
-                string instanceId = die != null ? die.InputWaferInstanceId : "";
-                if (!string.IsNullOrWhiteSpace(instanceId))
-                    return instanceId;
-
-                string waferId = die != null ? die.WaferID_Input : "";
-                WaferMaterial wafer = MaterialStateService.State != null &&
-                    MaterialStateService.State.Wafers != null
-                    ? MaterialStateService.State.Wafers.FirstOrDefault(w =>
-                        w != null &&
-                        string.Equals(w.WaferId, waferId, StringComparison.OrdinalIgnoreCase))
-                    : null;
-                if (wafer == null)
-                    return "0";
-
-                return wafer.InputStageProcessingGeneration.ToString(CultureInfo.InvariantCulture) +
-                    ":" + wafer.CreatedAt.Ticks.ToString(CultureInfo.InvariantCulture);
-            }
-            catch (Exception ex)
-            {
-                LogFailure("INPUT-RESULT-SESSION-CONTEXT", die != null ? die.DieId : "", ex);
-                return "0";
-            }
-        }
-
-        private static string BuildOutputSessionKey(
-            string recipeName,
-            string lotId,
-            WaferMaterial outputWafer)
-        {
-            return (recipeName ?? "") + "\u001f" +
-                (lotId ?? "") + "\u001f" +
-                (outputWafer != null ? outputWafer.WaferId ?? "" : "") + "\u001f" +
-                (outputWafer != null
-                    ? MaterialStateService.EnsureWaferInstanceId(outputWafer)
-                    : "0");
-        }
-
         private static string CsvLine(IList<object> values)
         {
             return string.Join(",", values.Select(Csv));
@@ -1652,6 +1539,7 @@ namespace QMC.CDT320.Materials
         {
             public string RecipeName { get; set; }
             public string LotId { get; set; }
+            public int ReworkCount { get; set; }
             public QMC.CDT320.BinSide OutputSide { get; set; }
             public string OutputWaferId { get; set; }
             public string OutputCassetteId { get; set; }
