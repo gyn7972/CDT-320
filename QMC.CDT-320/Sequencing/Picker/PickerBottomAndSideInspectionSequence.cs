@@ -95,6 +95,10 @@ namespace QMC.CDT320.Sequencing
             public BottomVisionOffset ValidatedPlaceResult;
             public double ValidatedPlaceCorrectionLimitMm;
             public bool FinalGateTactRecorded;
+            // [Good 선배출·NG 유예 2026-08-25] 고객 결과 파일 enqueue 1회 보장 — NG 유예 다이는
+            // 최종 판정 게이트를 2회(Good 패스 유예 판단 + NG 패스 재확인) 통과하므로 무가드면
+            // 같은 다이가 결과 CSV에 2줄 기록된다(FinalGateTactRecorded와 동일 패턴).
+            public bool FinalResultEnqueued;
             public DateTime InspectStartedAt;
         }
 
@@ -3679,7 +3683,12 @@ namespace QMC.CDT320.Sequencing
                     ", side90Done=" + HasInspectionResult(currentDie, "Side90") + ".");
             }
 
-            EnqueueFinalBottomAndSideResult(currentDie);
+            // [Good 선배출·NG 유예 2026-08-25] 유예 NG 다이의 게이트 재통과 시 결과 CSV 중복 기록 방지.
+            if (!bottomShot.FinalResultEnqueued)
+            {
+                EnqueueFinalBottomAndSideResult(currentDie);
+                bottomShot.FinalResultEnqueued = true;
+            }
 
             if (!bottomShot.FinalGateTactRecorded)
             {

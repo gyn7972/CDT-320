@@ -117,8 +117,28 @@ namespace QMC.CDT320.Sequencing
         {
             _pickerCursor++;
 
-            if (_pickerCursor >= _pickedPickerIndexes.Count)
+            // [Good 선배출·NG 유예 2026-08-25 팀장님 지시] 활성 목록은 패스에 따라 다르다
+            // (Good 패스=적재 픽커 전체, NG 패스=유예 목록).
+            IList<int> activePickerList = _placeRoutingPass == BinSide.Ng
+                ? _deferredNgPickerIndexes
+                : (IList<int>)_pickedPickerIndexes;
+            if (_pickerCursor >= activePickerList.Count)
             {
+                // Good 패스 소진 후 유예 NG가 있으면 배치를 끝내지 않고 스테이지 전환
+                // (전 픽커 Z Avoid 검증 + VisionX 재계산 후퇴 + Good 정리 + NgY 선행 정렬)
+                // 1회를 거쳐 NG 패스로 이어간다.
+                if (_placeRoutingPass == BinSide.Good && _deferredNgPickerIndexes.Count > 0)
+                {
+                    _placeRoutingPass = BinSide.Ng;
+                    _pickerCursor = 0;
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Good 선배출 패스 완료 — 유예 NG 패스로 전환합니다. " +
+                        "goodPlaced=" + _goodPassPlacedCount +
+                        ", deferredNgCount=" + _deferredNgPickerIndexes.Count + " - Check");
+                    CurrentStep = PickerPlaceStep.TransitionOutputStageForNgPass;
+                    return 0;
+                }
+
                 CurrentStep = PickerPlaceStep.MovePickerToAvoidAfterPlace;
                 return 0;
             }

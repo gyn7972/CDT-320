@@ -24,6 +24,9 @@
         UpdateMaterialToOutputStage,
         RecoverOutputStageAfterPlace,
         SelectNextPickerOrComplete,
+        // [Good 선배출·NG 유예 2026-08-25 팀장님 지시] Good 전량 배출 후 유예 NG 패스 진입 전
+        // 스테이지 전환 1회(전 픽커 Z Avoid 검증 + VisionX 재계산 후퇴 + Good 정리 + NgY 선행 정렬).
+        TransitionOutputStageForNgPass,
         MovePickerToAvoidAfterPlace,
         Complete,
         Error

@@ -48,6 +48,18 @@ namespace QMC.CDT320.Sequencing
         private BottomVisionOffset _currentBottomPlaceResult;
         private bool _resultRoutingModeCaptured;
         private OutputStageResultRoutingMode _resultRoutingModeSnapshot = OutputStageResultRoutingMode.ForceGoodStage;
+        // [Good 선배출·NG 유예 2026-08-25 팀장님 지시] RouteByInspectionResult 배치를
+        // Good 패스 → (스테이지 전환 1회) → NG 패스로 나눈다. Good 패스에서 NG 판정 다이는
+        // 스테이지/픽커 이동 없이 유예 목록에 넣고 다음 픽커로 진행하며, Good 전량 배출 후
+        // TransitionOutputStageForNgPass 스텝(전 픽커 Z Avoid 검증 + VisionX 재계산 후퇴 +
+        // Good 스테이지 정리 + NgY Process 선행 정렬)을 거쳐 유예 다이를 배출한다.
+        // ForceGoodStage 모드에서는 유예 분기가 실행되지 않아 완전 무변경이다.
+        private BinSide _placeRoutingPass = BinSide.Good;
+        private readonly List<int> _deferredNgPickerIndexes = new List<int>();
+        private int _goodPassPlacedCount;
+        // _targetPickerX를 만든 마지막 Good 배출 픽커 인덱스 — 전환 VisionX 재계산의 근사 base.
+        // (_currentPickerIndex는 마지막 "반복" 픽커라 배치가 NG로 끝나면 base가 어긋난다.)
+        private int _lastGoodPlacedPickerIndex = -1;
         private bool _placeCorrectionConfigCaptured;
         private double _placeMechanicalOffsetXSnapshot;
         private double _placeMechanicalOffsetYSnapshot;
@@ -589,6 +601,11 @@ namespace QMC.CDT320.Sequencing
                     Log.Write("PickerPlaceSequence", Name + " Place 완료 후 다음 피커 또는 완료 선택 시작. side=" + Side + ", step=" + CurrentStep);
                     return Task.FromResult(SelectNextPickerOrComplete());
 
+                // [Good 선배출·NG 유예 2026-08-25] Good 전량 배출 후 NG 패스 진입 전 스테이지 전환 1회
+                case PickerPlaceStep.TransitionOutputStageForNgPass:
+                    Log.Write("PickerPlaceSequence", Name + " Good→NG 패스 스테이지 전환 시작. side=" + Side + ", step=" + CurrentStep);
+                    return TransitionOutputStageForNgPassAsync(ct);
+
                 // Place 완료 후 피커 전체 어보이드 복귀
                 case PickerPlaceStep.MovePickerToAvoidAfterPlace:
                     Log.Write("PickerPlaceSequence", Name + " Place 완료 후 피커 전체 어보이드 복귀 시작. side=" + Side + ", step=" + CurrentStep);
@@ -661,6 +678,11 @@ namespace QMC.CDT320.Sequencing
             _pickedPickerIndexes.AddRange(BuildLoadedPickerIndexesInRunOrder("PickerPlaceSequence"));
 
             _pickerCursor = 0;
+            // [Good 선배출·NG 유예 2026-08-25] 배치 시작 시 패스 상태 초기화.
+            _placeRoutingPass = BinSide.Good;
+            _deferredNgPickerIndexes.Clear();
+            _goodPassPlacedCount = 0;
+            _lastGoodPlacedPickerIndex = -1;
 
             if (_pickedPickerIndexes.Count == 0)
             {
@@ -872,13 +894,17 @@ namespace QMC.CDT320.Sequencing
 
         private int SelectNextPicker()
         {
-            if (_pickerCursor >= _pickedPickerIndexes.Count)
+            // [Good 선배출·NG 유예 2026-08-25] NG 패스에서는 유예 목록에서 픽커를 선택한다.
+            IList<int> activePickerList = _placeRoutingPass == BinSide.Ng
+                ? _deferredNgPickerIndexes
+                : (IList<int>)_pickedPickerIndexes;
+            if (_pickerCursor >= activePickerList.Count)
             {
                 CurrentStep = PickerPlaceStep.Complete;
                 return 0;
             }
 
-            _currentPickerIndex = _pickedPickerIndexes[_pickerCursor];
+            _currentPickerIndex = activePickerList[_pickerCursor];
             _currentPickerNo = ToPickerNo(_currentPickerIndex);
             _currentDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, _currentPickerNo);
             _receiveTarget = null;

@@ -70,12 +70,42 @@ namespace QMC.CDT320.Sequencing
                     "검사 결과별 출력 Stage 분기 전에 Die result가 확정되지 않았습니다. die=" +
                     _currentDie.DieId + ", pickerNo=" + _currentPickerNo + ".");
 
+            // [Good 선배출·NG 유예 2026-08-25 팀장님 지시] Good 패스에서 NG 판정 다이는 스테이지/픽커
+            // 이동 없이 유예 목록에 넣고 다음 픽커로 진행한다(택트 무손실 — 이 다이의 결과 대기는
+            // 위 게이트에서 이미 끝났고, 검증된 Bottom FINAL 보정값은 BottomShot에 캐시되어 NG 패스
+            // 재방문 시 재사용된다). 사이드 전환은 Good 전량 배출 후 전환 스텝에서 1회만 수행한다.
+            // [적대적 검증 반영 2026-08-25] Auto 전용 — 수동/스텝 실행은 기존 다이별 순서를 그대로
+            // 유지한다(스텝 절차·순서 기대 불변, 검증 확정 minor).
+            if (Options != null && Options.RunMode == SequenceRunMode.Auto &&
+                _placeRoutingPass == BinSide.Good && _currentOutputSide == BinSide.Ng)
+            {
+                if (!_deferredNgPickerIndexes.Contains(_currentPickerIndex))
+                    _deferredNgPickerIndexes.Add(_currentPickerIndex);
+                WriteLog("PickerPlaceSequence",
+                    Name + " NG 판정 다이를 Good 선배출 패스에서 유예합니다(스테이지/픽커 이동 없음). " +
+                    "die=" + _currentDie.DieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", deferredNgCount=" + _deferredNgPickerIndexes.Count + " - Check");
+                CurrentStep = PickerPlaceStep.SelectNextPickerOrComplete;
+                return 0;
+            }
+            // 방어: NG 패스의 다이는 유예 시점에 NG로 확정된 결과다 — Good으로 바뀌어 있으면
+            // Material 상태가 흔들린 것이므로 진행하지 않는다.
+            if (_placeRoutingPass == BinSide.Ng && _currentOutputSide != BinSide.Ng)
+            {
+                return Fail("PICKER-PLACE-NG-PASS-RESULT-CHANGED", "Material",
+                    "NG 유예 패스의 Die 결과가 유예 시점과 다릅니다. die=" + _currentDie.DieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", dieResult=" + _currentDie.Result + ".");
+            }
+
             WriteLog("PickerPlaceSequence",
                 Name + " 검사 결과에 따라 출력 Stage를 결정했습니다. " +
                 "die=" + _currentDie.DieId +
                 ", pickerNo=" + _currentPickerNo +
                 ", dieResult=" + _currentDie.Result +
-                ", outputSide=" + _currentOutputSide + " - Ok");
+                ", outputSide=" + _currentOutputSide +
+                ", routingPass=" + _placeRoutingPass + " - Ok");
             CurrentStep = PickerPlaceStep.VerifyOutputStageReady;
             return 0;
         }
@@ -86,6 +116,14 @@ namespace QMC.CDT320.Sequencing
             {
                 bool safeWaitPositionPrepared = false;
                 bool fullAvoidPrepared = false;
+                // [공급 교착 해소 2026-08-25 팀장님 지시] 스테이지 미준비(빈 없음/공급 필요) 대기가
+                // 임계시간을 넘으면 보유 lease를 양보한다 — Place가 OutputPlaceArea/StageArea를 쥔 채
+                // ready를 기다리는 동안 공급 시퀀스(OutputSupply/Store, OutputSequence.cs:1817/1947/2042/2177)는
+                // 같은 lease를 Auto 무한 재시도로 기다려 순환 대기 교착이 된다(08-23 바코드 게이트 교정
+                // 주석에 기록된 교착 클래스 — 게이트만 교정되고 이 대기는 남아 있었다).
+                bool notReadyLeaseYielded = false;
+                DateTime notReadyWaitStartedUtc = DateTime.MinValue;
+                const int notReadyLeaseYieldThresholdMs = 5000;
                 if (ForceSafeYBeforeFirstPlaceMove)
                 {
                     int waitSafeResult = await MovePickerToSafeYBeforeOutputStageReadyWaitAsync(ct).ConfigureAwait(false);
@@ -243,6 +281,62 @@ namespace QMC.CDT320.Sequencing
                         }
 
                         safeWaitPositionPrepared = true;
+                    }
+                    // [공급 교착 해소 2026-08-25 팀장님 지시] 미준비(수령 완료가 아닌 not-ready = 빈 없음/
+                    // 공급 필요/Ready 신호 다운) 대기가 임계시간을 넘고 lease를 보유 중이면 1회 양보한다.
+                    // 양보 세트는 검증된 full-wait 분기와 동일 조합(handoff/부모 work zone 제외 — 공급
+                    // 경로는 OutputPlaceArea+사이드 StageArea만 필요하므로 사이클 구성요소만 최소 반환):
+                    // 픽커 전체 Avoid(다이 보유 상태) → Conti 상태 정리 → lease 3종 반환 → 후검사 배치
+                    // 종료(대기 중 후검사 진행 허용). 이후 lease 없이 폴링을 계속하고, ready가 열리면
+                    // 성공 분기의 BeginOutputPostPlaceInspectionBatch와 다음 스텝(MoveOutputStageAvoidPosition)의
+                    // null 가드가 배치·lease를 기존 경로로 재개·재획득한다(ForceSafeYBeforeFirstPlaceMove로
+                    // 안전 재진입). 임계 미만의 일시 not-ready는 기존과 동일하게 lease 보유 대기(택트 보존).
+                    // 체인 순서 유의: 안전 Y 확보(safeWaitPositionPrepared) 분기 뒤에 두어 기존 첫 반복의
+                    // 안전 Y 정리가 그대로 선행된다.
+                    else if (!stageReceiveComplete &&
+                             !notReadyLeaseYielded &&
+                             (_outputPlaceLease != null || _outputStageLease != null || _outputFeederLease != null))
+                    {
+                        if (notReadyWaitStartedUtc == DateTime.MinValue)
+                            notReadyWaitStartedUtc = DateTime.UtcNow;
+
+                        if ((DateTime.UtcNow - notReadyWaitStartedUtc).TotalMilliseconds >= notReadyLeaseYieldThresholdMs)
+                        {
+                            const string yieldDescription = "OutputStage 준비(공급) 대기 lease 양보 — 보유 Die Picker 전체 Avoid";
+                            bool hadPlaceLease = _outputPlaceLease != null;
+                            bool hadStageLease = _outputStageLease != null;
+                            bool hadFeederLease = _outputFeederLease != null;
+
+                            int yieldAvoidResult = await MovePickerToAvoidAfterPlaceFastAsync(
+                                yieldDescription,
+                                ct).ConfigureAwait(false);
+                            if (yieldAvoidResult != 0)
+                                return yieldAvoidResult;
+
+                            _currentPlaceZSafeReturnCompleted = true;
+                            ClearPendingContiRetreat();
+                            ForceSafeYBeforeFirstPlaceMove = true;
+                            KeepPickerYForwardDuringPlaceReadyWait = false;
+                            ReleaseOutputPlaceArea();
+                            ReleaseOutputStageArea();
+                            ReleaseOutputFeederArea();
+                            EndOutputPostPlaceInspectionBatch();
+
+                            safeWaitPositionPrepared = true;
+                            notReadyLeaseYielded = true;
+                            // 최소 로그 정책에서도 남도록 레벨 지정 — 무로그 정지 방지(08-23 교훈).
+                            QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "PickerPlaceSequence",
+                                Name + " OutputStage 미준비 대기가 " + notReadyLeaseYieldThresholdMs +
+                                "ms를 넘어 보유 lease를 양보했습니다(공급/복구 시퀀스 진행 허용, 이후 lease 없이 대기). " +
+                                "side=" + Side +
+                                ", outputSide=" + _currentOutputSide +
+                                ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                                ", pickerNo=" + _currentPickerNo +
+                                ", hadPlaceLease=" + hadPlaceLease +
+                                ", hadStageLease=" + hadStageLease +
+                                ", hadFeederLease=" + hadFeederLease +
+                                ", reason=" + reason + " - Check");
+                        }
                     }
 
                     WriteLog("PickerPlaceSequence", Name + " Place 대기: " + detail + " - Wait");
@@ -449,6 +543,38 @@ namespace QMC.CDT320.Sequencing
                     ", pickerNo=" + _currentPickerNo + " - Ok");
             }
 
+            // [Good 선배출·NG 유예 2026-08-25 팀장님 지시] NG 다이 진입 전 NgY Process 기준 선행 정렬.
+            // VerifyOutputStageReady(NG 수령 준비) 통과 후 시점이라 공급 시퀀스와의 lease 순환 대기가
+            // 없고, MoveOpposite(GoodZ↓·NgY 선행 회피 가드·GoodY Avoid)가 직전에 완료된 상태다.
+            // 여기서 NgY를 Process 기준까지 도착 검증으로 정렬해 두면 이후 Conti StageY 이동은
+            // 슬롯 오프셋 수준만 남아, NgY 대행정(≈618mm)과 픽커 Z 사전하강(ContiXYMidRatio 트리거)이
+            // 겹치던 2026-08-25 니어미스 창이 소멸한다. 이미 Process 부근이면(연속 NG) 무동작.
+            // NG Clamp Lift Up은 MoveStageAxis NgY 공통 관문이 자동 확보한다. 정지 재시작으로 NG부터
+            // 시작하는 배치도 이 블록이 같은 방식으로 방어한다.
+            if (_currentOutputSide == BinSide.Ng && !IsNgStageYAtProcessBasePosition())
+            {
+                int ngRetreatResult = await CompletePendingContiRetreatIfNeededAsync(
+                    "NG Stage Y Process 선행 정렬 전 이전 픽커 Z 안전 복귀",
+                    ct).ConfigureAwait(false);
+                if (ngRetreatResult != 0)
+                    return ngRetreatResult;
+
+                int ngPreAlignResult = await MoveOutputStageAxisAndVerifyAsync(
+                    BinStageAxis.NgBinY,
+                    OutputStage.Recipe.NGStageY.ProcessPosition,
+                    "NG 진입 전 NG Stage Y Process 선행 정렬",
+                    ct,
+                    BuildOutputStagePlaceMoveTargetName("NgYProcessPreAlign")).ConfigureAwait(false);
+                if (ngPreAlignResult != 0)
+                    return ngPreAlignResult;
+
+                WriteLog("PickerPlaceSequence",
+                    Name + " NG 진입 전 NG Stage Y를 Process 기준 위치로 선행 정렬했습니다. " +
+                    "die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", ngY=" + DescribeStageAxisActual(BinStageAxis.NgBinY) + " - Ok");
+            }
+
             if (IsPickerMotionOnlyTestMode())
             {
                 WriteLog("PickerPlaceSequence",
@@ -532,15 +658,20 @@ namespace QMC.CDT320.Sequencing
                 double currentOffsetX;
                 double currentOffsetY;
                 string currentOffsetReason;
-                if (_pickedPickerIndexes != null &&
+                // [Good 선배출·NG 유예 2026-08-25] 잔여 배치 근사는 현재 패스의 활성 목록 기준이다 —
+                // NG 패스에서 _pickedPickerIndexes를 그대로 돌면 이미 배출된 픽커의 유령 목표가 섞인다.
+                IList<int> plannedBatchList = _placeRoutingPass == BinSide.Ng
+                    ? _deferredNgPickerIndexes
+                    : (IList<int>)_pickedPickerIndexes;
+                if (plannedBatchList != null &&
                     TryResolveOutputVisionToPickerOffsets(_currentPickerIndex, out currentOffsetX, out currentOffsetY, out currentOffsetReason))
                 {
-                    for (int i = _pickerCursor + 1; i < _pickedPickerIndexes.Count; i++)
+                    for (int i = _pickerCursor + 1; i < plannedBatchList.Count; i++)
                     {
                         double itemOffsetX;
                         double itemOffsetY;
                         string itemOffsetReason;
-                        if (TryResolveOutputVisionToPickerOffsets(_pickedPickerIndexes[i], out itemOffsetX, out itemOffsetY, out itemOffsetReason))
+                        if (TryResolveOutputVisionToPickerOffsets(plannedBatchList[i], out itemOffsetX, out itemOffsetY, out itemOffsetReason))
                             plannedPickerTargets.Add(_targetPickerX - currentOffsetX + itemOffsetX);
                     }
                 }
@@ -874,6 +1005,36 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // [Good 선배출·NG 유예 2026-08-25] NgStageY가 Process 기준 위치에 있는지 판정한다
+        // (NG 진입 전 선행 정렬 필요 여부 판정용). 판정 불가면 false — 선행 정렬 블록이 실행되며,
+        // 이미 위치면 MoveStageAxis가 이동 없이 통과하므로 무해하다.
+        private bool IsNgStageYAtProcessBasePosition()
+        {
+            try
+            {
+                if (OutputStage == null || OutputStage.Recipe == null ||
+                    OutputStage.NgStage == null || OutputStage.NgStage.StageY == null)
+                    return false;
+
+                OutputStage.Recipe.EnsurePositionObjects();
+                if (OutputStage.Recipe.NGStageY == null)
+                    return false;
+
+                BaseAxis ngY = OutputStage.NgStage.StageY;
+                double tolerance = ngY.Config != null && ngY.Config.InPositionTolerance > 0.0
+                    ? ngY.Config.InPositionTolerance
+                    : 0.05;
+                return OutputStage.IsStageAxisInPosition(
+                    BinStageAxis.NgBinY,
+                    OutputStage.Recipe.NGStageY.ProcessPosition,
+                    tolerance);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         // [NG 라우팅 Z 전환 순서 교정 2026-08-25] GoodStageZ가 Process 위치에 있는지 판정한다.
         // 판정 불가(유닛/레시피 없음)면 false — 상위에서 선행 상승 블록이 실행되며, 그 경로의
         // EnsureOutputStageZReadyForPlaceAsync가 이미 위치면 이동 없이 검증만 하므로 무해하다.
@@ -901,6 +1062,241 @@ namespace QMC.CDT320.Sequencing
             catch
             {
                 return false;
+            }
+        }
+
+        // [Good 선배출·NG 유예 2026-08-25 팀장님 지시] Good 전량 배출 완료 후 NG 패스 진입 전 1회 실행.
+        // 근거(2026-08-25 실장비 니어미스): 전환 다이의 Conti가 NgY 대행정(Avoid 884.81→Process 267.077,
+        // 약 618mm)과 픽커 Z 사전하강(ContiXYMidRatio 트리거)을 겹쳐 수행해, 하강 중인 픽커 밑을 NG 빈
+        // 구조물이 횡단하는 창이 있었다(자동 StageY 인터락은 Conti 오버랩 보존을 위해 픽커 Z를 의도적으로
+        // 면제 — 시퀀스 게이트가 유일한 방어).
+        // [적대적 검증 반영 2026-08-25] 이 스텝은 스테이지를 움직이지 않고 lease도 새로 잡지 않는다.
+        //  - 여기서 스테이지 이동/lease 획득을 하면 NG 스테이지 준비 확인(VerifyOutputStageReady) 전에
+        //    OutputPlaceArea/OutputNgStageArea를 쥔 채 대기하게 되어 NG 빈 공급 시퀀스와 순환 대기
+        //    교착이 생기고(검증 확정 critical), GoodY Avoid 직접 발행은 MoveOpposite의 NgY 선행 회피
+        //    가드(11:00 Critical 교정)를 우회해 혼합→전부NG 배치 연쇄에서 인터락 차단된다(검증 확정 major).
+        //  - 따라서 여기서는 ① 전 픽커 Z Avoid 완료·검증 ② Good 사이드 stage lease 반환(NG lease
+        //    획득은 첫 NG 다이의 기존 경로가 준비 확인 후 수행) ③ VisionX 재계산 후퇴 기동(place lease
+        //    보유 시에만 — 전부 NG 배치는 다이별 회피 경로가 담당)만 수행하고, Good 스테이지 정리
+        //    (GoodZ↓·NgY 선행 회피·GoodY Avoid)와 NgY Process 선행 정렬은 첫 NG 다이의
+        //    MoveOutputStageAvoidPosition(검증된 다이별 경로)이 준비 확인 후 수행한다. VisionX 이동은
+        //    그 스테이지 전환 이동들과 자연 병행되며 join은 기존 다이별 회피 기동 전 정리 지점이 담당한다.
+        private async Task<int> TransitionOutputStageForNgPassAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (OutputStage == null || OutputStage.Recipe == null)
+                return Fail("PICKER-PLACE-NGPASS-UNIT", "OutputStage",
+                    "NG 패스 전환에 필요한 OutputStage/Recipe를 찾을 수 없습니다.");
+            OutputStage.Recipe.EnsurePositionObjects();
+
+            WriteLog("PickerPlaceSequence",
+                Name + " Good→NG 패스 전환을 시작합니다(스테이지 정렬은 첫 NG 다이 경로가 준비 확인 후 수행). " +
+                "deferredNgCount=" + _deferredNgPickerIndexes.Count +
+                ", goodPlaced=" + _goodPassPlacedCount +
+                ", goodZ=" + DescribeStageAxisActual(BinStageAxis.GoodBinZ) +
+                ", goodY=" + DescribeStageAxisActual(BinStageAxis.GoodBinY) +
+                ", ngY=" + DescribeStageAxisActual(BinStageAxis.NgBinY) +
+                ", visionX=" + DescribeStageAxisActual(BinStageAxis.VisionX) + " - Start");
+
+            // ① 전 픽커 Z Avoid 완료 + 검증 (지연 상승 태스크 join 포함) — 이후 스테이지 전환 이동의 전제.
+            int zResult = await JoinAllPickerZAtAvoidWithRecoveryAsync(
+                "NG 패스 전환 전 전 픽커 Z Avoid 확보", ct).ConfigureAwait(false);
+            if (zResult != 0)
+                return zResult;
+            ClearPendingContiRetreat();
+
+            // ② Good 사이드 stage lease 반환 — 첫 NG 다이의 MoveOutputStageAvoidPosition이
+            //    준비 확인 후 OutputNgStageArea를 새로 획득한다(사이드 불일치 해소, 교착 방지).
+            ReleaseOutputStageArea();
+
+            // ③ VisionX 재계산 후퇴(B안, 팀장님 확정): 유예 NG 픽커들의 진입 X 근사 목표로 필요 후퇴를
+            //    재계산하고, 현 위치가 이미 그 이상 후퇴면 무이동(간섭 없음), 부족하면 즉시 기동해
+            //    첫 NG 다이의 스테이지 전환 이동과 병행시킨다. 계산 불가 시 전체 Avoid 폴백(fail-safe).
+            //    place lease 미보유(전부 NG 배치)면 이전 배치 후검사의 VisionX 사용과 경합할 수 있어
+            //    기동하지 않는다 — 첫 NG 다이의 기존 회피 경로(유휴 대기+lease 후)가 정확 좌표로 수행.
+            if (_outputPlaceLease != null)
+            {
+                int priorRetreatJoin = await JoinOutputVisionRetreatMoveTaskAsync(
+                    "NG 패스 전환 회피 기동 전 이전 Task 정리", ct).ConfigureAwait(false);
+                if (priorRetreatJoin != 0)
+                    return priorRetreatJoin;
+
+                double requiredVisionX;
+                string visionDetail;
+                ResolveNgPassTransitionVisionRetreatTarget(out requiredVisionX, out visionDetail);
+
+                BaseAxis visionAxis = OutputStage.OutputCameraX;
+                if (visionAxis != null)
+                {
+                    visionAxis.UpdateStatus();
+                    if (visionAxis.IsMoving)
+                    {
+                        // 소유자 없는 잔여 이동이면 정지 대기 후 판정(이동 중 재명령 금지 — AXM 거부 방지).
+                        int stopResult = await WaitOutputVisionXStoppedQuietAsync(
+                            "NG 패스 전환 회피 판정 전", ct).ConfigureAwait(false);
+                        if (stopResult != 0)
+                            return stopResult;
+                        visionAxis.UpdateStatus();
+                    }
+                }
+
+                double visionActual = visionAxis != null ? visionAxis.ActualPosition : double.NaN;
+                double visionTolerance = visionAxis != null && visionAxis.Config != null && visionAxis.Config.InPositionTolerance > 0.0
+                    ? visionAxis.Config.InPositionTolerance
+                    : 0.05;
+                // 후퇴 방향은 +X(전체 Avoid가 Process보다 큼). 현 위치 확인 불가면 이동(보수적).
+                bool visionMoveNeeded = double.IsNaN(visionActual) ||
+                                        visionActual < requiredVisionX - visionTolerance;
+                if (visionMoveNeeded)
+                {
+                    // 기동 이후 이 함수에는 await가 없다 — 실패/취소로 Task가 미조인 잔존하는 창 없음.
+                    _outputVisionRetreatTarget = requiredVisionX;
+                    _outputVisionRetreatMoveTask = RunOwnOutputVisionRetreatAsync(requiredVisionX, ct);
+                    WriteLog("PickerPlaceSequence",
+                        Name + " NG 패스 전환: VisionX 재계산 후퇴를 기동했습니다(첫 NG 다이 스테이지 전환과 병행). " +
+                        "required=" + requiredVisionX.ToString("F6") +
+                        ", actual=" + (double.IsNaN(visionActual) ? "-" : visionActual.ToString("F6")) +
+                        ", detail=" + visionDetail + " - Start");
+                }
+                else
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " NG 패스 전환: VisionX 현 위치가 요구 후퇴 이상이라 이동하지 않습니다(간섭 없음). " +
+                        "required=" + requiredVisionX.ToString("F6") +
+                        ", actual=" + visionActual.ToString("F6") +
+                        ", detail=" + visionDetail + " - Check");
+                }
+            }
+            else
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " NG 패스 전환: place lease 미보유(전부 NG 배치) — VisionX 전환 후퇴 기동을 생략하고 " +
+                    "첫 NG 다이의 기존 회피 경로에 맡깁니다. - Check");
+            }
+
+            WriteLog("PickerPlaceSequence",
+                Name + " Good→NG 패스 전환 완료 — 유예 NG 배출을 시작합니다. " +
+                "deferredNgCount=" + _deferredNgPickerIndexes.Count + " - Ok");
+
+            CurrentStep = PickerPlaceStep.SelectNextPicker;
+            return 0;
+        }
+
+        // [Good 선배출·NG 유예 2026-08-25] 전환 시 VisionX 필요 후퇴 목표(B안) — 유예 NG 픽커들의
+        // 진입 X 근사(마지막 Good 목표 기준 픽커 오프셋 피치 차, 다이별 배치 근사식과 동일)로
+        // 최소 후퇴를 재계산한다. 근사/계산 불가 시 전체 Avoid 폴백(항상 충분 — fail-safe).
+        private void ResolveNgPassTransitionVisionRetreatTarget(out double target, out string detail)
+        {
+            double fullAvoid = OutputStage.Recipe.VisionX.AvoidPosition;
+            target = fullAvoid;
+            detail = "전체 Avoid 폴백";
+            try
+            {
+                PickerPlaceMotionConfig placeConfig = ResolvePlaceMotionConfig();
+                bool useMinimalRetreat =
+                    Options != null && Options.RunMode == SequenceRunMode.Auto &&
+                    placeConfig != null &&
+                    IsCoordinatedPlaceMotionMode(placeConfig.MotionMode);
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                    Context != null ? Context.Machine : null);
+                if (!useMinimalRetreat || service == null)
+                {
+                    detail = "최소 회피 조건 미충족(mode/service) — 전체 Avoid 폴백";
+                    return;
+                }
+
+                // [적대적 검증 반영 2026-08-25] 근사 base는 _targetPickerX를 만든 "마지막 Good 배출
+                // 픽커"의 오프셋이어야 한다. _currentPickerIndex는 마지막 반복 픽커(보통 유예 NG 픽커)라
+                // 배치가 Good으로 끝나지 않으면 픽커 피치 수 배만큼 어긋난다(검증 확정 major).
+                var plannedPickerTargets = new List<double>();
+                double baseOffsetX;
+                double baseOffsetY;
+                string baseOffsetReason;
+                if (_goodPassPlacedCount > 0 &&
+                    _lastGoodPlacedPickerIndex >= 0 &&
+                    TryResolveOutputVisionToPickerOffsets(_lastGoodPlacedPickerIndex, out baseOffsetX, out baseOffsetY, out baseOffsetReason))
+                {
+                    for (int i = 0; i < _deferredNgPickerIndexes.Count; i++)
+                    {
+                        double itemOffsetX;
+                        double itemOffsetY;
+                        string itemOffsetReason;
+                        if (TryResolveOutputVisionToPickerOffsets(_deferredNgPickerIndexes[i], out itemOffsetX, out itemOffsetY, out itemOffsetReason))
+                            plannedPickerTargets.Add(_targetPickerX - baseOffsetX + itemOffsetX);
+                    }
+                }
+
+                if (plannedPickerTargets.Count == 0)
+                {
+                    detail = "유예 픽커 진입 X 근사 불가(goodPlaced=" + _goodPassPlacedCount + ") — 전체 Avoid 폴백";
+                    return;
+                }
+
+                var planned = new Dictionary<SharedRailXAxis, IList<double>>();
+                planned[Side == PickerSequenceSide.Front
+                    ? SharedRailXAxis.FrontPickerX
+                    : SharedRailXAxis.RearPickerX] = plannedPickerTargets;
+
+                double dynamicTarget;
+                string dynamicDetail;
+                if (service.TryResolveMinimalVisionRetreatTarget(
+                        OutputStage.OutputCameraX,
+                        fullAvoid,
+                        planned,
+                        (service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0) +
+                        VisionIndependentRetreatCoordinator.RetreatTargetExtraMarginMm,
+                        out dynamicTarget,
+                        out dynamicDetail))
+                {
+                    target = dynamicTarget;
+                    detail = dynamicDetail;
+                }
+                else
+                {
+                    detail = dynamicDetail + " 전체 Avoid로 대체합니다.";
+                }
+            }
+            catch (Exception ex)
+            {
+                target = fullAvoid;
+                detail = "재계산 예외(" + ex.Message + ") — 전체 Avoid 폴백";
+            }
+        }
+
+        // [Good 선배출·NG 유예 2026-08-25] 전환 계측용 — 스테이지 축 실측 위치 문자열(축 없으면 "-").
+        private string DescribeStageAxisActual(BinStageAxis axis)
+        {
+            try
+            {
+                if (OutputStage == null || !OutputStage.HasStageAxis(axis))
+                    return "-";
+
+                BaseAxis item = null;
+                switch (axis)
+                {
+                    case BinStageAxis.GoodBinY:
+                        item = OutputStage.GoodStage != null ? OutputStage.GoodStage.StageY : null;
+                        break;
+                    case BinStageAxis.GoodBinZ:
+                        item = OutputStage.GoodStage != null ? OutputStage.GoodStage.StageZ : null;
+                        break;
+                    case BinStageAxis.NgBinY:
+                        item = OutputStage.NgStage != null ? OutputStage.NgStage.StageY : null;
+                        break;
+                    case BinStageAxis.VisionX:
+                        item = OutputStage.OutputCameraX;
+                        break;
+                }
+
+                if (item == null)
+                    return "-";
+                item.UpdateStatus();
+                return item.ActualPosition.ToString("F3");
+            }
+            catch
+            {
+                return "-";
             }
         }
 

@@ -683,6 +683,14 @@ namespace QMC.CDT320.Sequencing
                 ", inspectionResult=" + _currentDie.Result +
                 ", preserveInspectionResult=" + preserveInspectionResult + " - Ok");
 
+            // [Good 선배출·NG 유예 2026-08-25] 전환 시 VisionX 재계산 근사(_targetPickerX 기준)의
+            // 유효성 판정·base 픽커 확정에 사용 — Good 패스에서 실제 배출된 다이 수와 그 픽커 인덱스.
+            if (_currentOutputSide == BinSide.Good)
+            {
+                _goodPassPlacedCount++;
+                _lastGoodPlacedPickerIndex = _currentPickerIndex;
+            }
+
             if (Context != null && Context.Controller != null)
             {
                 Context.Controller.RecordAutoDiePlacedForStats(_currentOutputSide);
