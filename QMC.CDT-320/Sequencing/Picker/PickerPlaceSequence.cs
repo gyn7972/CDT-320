@@ -1014,17 +1014,20 @@ namespace QMC.CDT320.Sequencing
 
             // [비전 작업자 확인 2026-08-25] 라우팅 모드에서는 비전 PC가 NG 판정 최종 RESULT를
             // 작업자 확인 동안 보류할 수 있다(상한 = AppSettings 설정값, 초과 시 기존 알람).
-            // 이때만 (a) CYCLE STOP 토큰을 함께 관찰해 정지 버튼이 보류 대기를 즉시 깨우고
-            // (재시작 시 판정 미확정 다이는 Bottom 검사부터 자동 재개 — PickerProcessSequence 참조),
-            // (b) 10초 경과 후 10초 간격 부저 1회로 작업자를 호출한다.
-            // ForceGoodStage 등 다른 모드는 기존 링크(ct만)·기존 대기 그대로다(동작 무변경).
+            // 이때 10초 경과 후 10초 간격 부저 1회로 작업자를 호출한다.
+            //
+            // [정지 회귀 원복 2026-08-25] 이 게이트에 CYCLE STOP 토큰을 링크했다가 되돌렸다.
+            // 링크하면 정지 버튼이 Place 게이트 대기를 즉시 깨워 Place가 "제품을 든 채" 중단되고,
+            // 그 결과 픽커에 다이가 남은 상태로 정지해 OutputSequence가 오지 않을 배출을 계속
+            // 기다렸다(2026-08-25 실측). 정지는 "픽커가 제품을 내려놓고" 완료되어야 하므로
+            // 이 대기는 정지로 깨우지 않는다 — 정지는 Place 완료 후 다음 경계에서 처리된다.
+            // 대기가 무한이 되지는 않는다: 최종 RESULT 대기에는 타임아웃 상한이 있다.
             bool routeByInspection =
                 ResolveOutputStageResultRoutingMode() == OutputStageResultRoutingMode.RouteByInspectionResult;
 
             int bottomResult;
-            using (CancellationTokenSource bottomGateCancellation = routeByInspection
-                ? Context.CreateCycleStopLinkedSource(ct)
-                : CancellationTokenSource.CreateLinkedTokenSource(ct))
+            using (CancellationTokenSource bottomGateCancellation =
+                CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
                 Task<int> bottomWaitTask = WaitBottomFinalBeforePlaceMoveAsync(
                     _currentPickerNo,
@@ -1049,27 +1052,14 @@ namespace QMC.CDT320.Sequencing
                     }
                 }
 
-                try
-                {
-                    bottomResult = routeByInspection
-                        ? await OperatorAttentionNotifier.AwaitWithAttentionAsync(
-                            bottomWaitTask,
-                            Context,
-                            Name + " Bottom 최종 판정(작업자 확인) 대기 pickerNo=" + _currentPickerNo,
-                            10000,
-                            10000).ConfigureAwait(false)
-                        : await bottomWaitTask.ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (!ct.IsCancellationRequested &&
-                                                         Context.IsCycleStopRequested)
-                {
-                    WriteLog("PickerPlaceSequence",
-                        Name + " CYCLE STOP 요청으로 Bottom 최종 판정 보류 대기를 즉시 해제하고 안전 정지합니다. " +
-                        "pickerNo=" + _currentPickerNo +
-                        ", die=" + _currentDie.DieId + " - Stop");
-                    Context.StopIfCycleStopRequested("PickerPlaceSequence.WaitBottomFinalBeforePlaceMove");
-                    throw;
-                }
+                bottomResult = routeByInspection
+                    ? await OperatorAttentionNotifier.AwaitWithAttentionAsync(
+                        bottomWaitTask,
+                        Context,
+                        Name + " Bottom 최종 판정(작업자 확인) 대기 pickerNo=" + _currentPickerNo,
+                        10000,
+                        10000).ConfigureAwait(false)
+                    : await bottomWaitTask.ConfigureAwait(false);
             }
             ct.ThrowIfCancellationRequested();
             if (bottomResult != 0)
@@ -1115,10 +1105,11 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 int inspectionResult;
-                // [비전 작업자 확인 2026-08-25] 이 게이트는 라우팅 모드 전용이므로 항상
-                // CYCLE STOP 링크 + 작업자 호출 알림을 적용한다(위 Bottom 게이트와 동일 규칙).
+                // [비전 작업자 확인 2026-08-25] 이 게이트는 라우팅 모드 전용이라 작업자 호출 알림을 적용한다.
+                // [정지 회귀 원복 2026-08-25] CYCLE STOP 링크는 제거했다 — 위 Bottom 게이트와 같은 이유로,
+                // 정지로 이 대기를 깨우면 Place가 제품을 든 채 중단되어 픽커에 다이가 남는다.
                 using (CancellationTokenSource inspectionGateCancellation =
-                    Context.CreateCycleStopLinkedSource(ct))
+                    CancellationTokenSource.CreateLinkedTokenSource(ct))
                 {
                     Task<int> inspectionWaitTask = WaitInspectionResultsBeforePlaceDownAsync(
                         _currentPickerNo,
@@ -1139,25 +1130,12 @@ namespace QMC.CDT320.Sequencing
                         }
                     }
 
-                    try
-                    {
-                        inspectionResult = await OperatorAttentionNotifier.AwaitWithAttentionAsync(
-                            inspectionWaitTask,
-                            Context,
-                            Name + " Bottom/Side 최종 판정(작업자 확인) 대기 pickerNo=" + _currentPickerNo,
-                            10000,
-                            10000).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException) when (!ct.IsCancellationRequested &&
-                                                             Context.IsCycleStopRequested)
-                    {
-                        WriteLog("PickerPlaceSequence",
-                            Name + " CYCLE STOP 요청으로 Bottom/Side 최종 판정 보류 대기를 즉시 해제하고 안전 정지합니다. " +
-                            "pickerNo=" + _currentPickerNo +
-                            ", die=" + _currentDie.DieId + " - Stop");
-                        Context.StopIfCycleStopRequested("PickerPlaceSequence.WaitInspectionResultsBeforePlaceDown");
-                        throw;
-                    }
+                    inspectionResult = await OperatorAttentionNotifier.AwaitWithAttentionAsync(
+                        inspectionWaitTask,
+                        Context,
+                        Name + " Bottom/Side 최종 판정(작업자 확인) 대기 pickerNo=" + _currentPickerNo,
+                        10000,
+                        10000).ConfigureAwait(false);
                 }
                 ct.ThrowIfCancellationRequested();
                 if (inspectionResult != 0)

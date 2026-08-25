@@ -950,6 +950,16 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
+                // [정지 드레인 2026-08-25, 사용자 승인] 정지 요청 + 보유 제품이면 신규 PickUp을 포기하고
+                // 보유분 배출(Bottom→Side→Place→후검사)로 바로 넘어간다.
+                // 기존에는 이 단계의 정지 체크가 drain 유예 대상이 아니라(ShouldDeferCycleStopForActivePickerDrain이
+                // RunInputCameraMarkInspection을 제외) 픽업 허가 대기에서 예외로 시퀀스가 끊겼고, 그 결과
+                // 제품을 픽커에 든 채 정지했다. OutputSequence는 오지 않을 드레인을 계속 기다렸다
+                // (2026-08-25 실측: CYCLE-STOP-DRAIN-DEFER-WAIT가 OutputSequence.WaitReceiveComplete에서 반복).
+                // 배출 단계로 넘어가면 이후 경계들은 drain 유예 대상이라 Place·후검사까지 정상 완료된다.
+                if (TryRedirectToHeldDieDrainOnCycleStop("BeforeInputCameraMarkInspection"))
+                    return 0;
+
                 int readyResult = await EnterOrTransitionPickerPhaseAsync(
                     PickerProcessPhase.PickUp,
                     "InputCameraMarkInspection",
@@ -1089,6 +1099,11 @@ namespace QMC.CDT320.Sequencing
             }
             catch (SequenceStopException)
             {
+                // [정지 드레인 2026-08-25] 허가 대기 도중 정지가 들어온 경우에도 보유 제품이 있으면
+                // 시퀀스를 끊지 않고 배출 단계로 전환한다(제품을 든 채 정지하지 않게 한다).
+                if (TryRedirectToHeldDieDrainOnCycleStop("OnPickUpPermissionWaitStop"))
+                    return 0;
+
                 throw;
             }
             catch (Exception ex)
@@ -1196,6 +1211,20 @@ namespace QMC.CDT320.Sequencing
             }
             catch (SequenceStopException)
             {
+                // [정지 드레인 2026-08-25, 사용자 승인] PickUp 내부(Input die vision 준비, 카메라 존/FIFO
+                // 대기 등)의 정지 체크는 전부 drain 유예가 없는 1-인자라, 이미 제품을 든 상태에서 정지가
+                // 들어오면 여기서 시퀀스가 끊겨 제품이 픽커에 남은 채 정지했다(2026-08-25 12:23 실측).
+                // 보유 제품이 있으면 남은 픽업을 포기하고 배출(Bottom→Side→Place→후검사)로 전환한다.
+                if (TryRedirectToHeldDieDrainOnCycleStop("OnPickUpStop"))
+                {
+                    _pickUpSequence = null;
+                    _resumePartialPickUpWithoutMarkPermission = false;
+                    // 중단된 PickUp은 Z 잔류 여부를 보증하지 못하므로 Bottom 진입의 전 Z Avoid 생략을
+                    // 해제한다(Bottom 첫 스텝이 잔류 Z를 정상 경로로 회수하게 한다).
+                    _pickerZStageSafeConfirmedByPickUp = false;
+                    return 0;
+                }
+
                 throw;
             }
             catch (Exception ex)
@@ -1231,6 +1260,39 @@ namespace QMC.CDT320.Sequencing
 
         // 허가 대기 세션 동안 200ms 주기로 게이트를 판정하고 충족 시 1회 선행 이동을 발행한다.
         // monitorCt = 대기 종료 시 취소(모니터 전용), moveCt = 시퀀스 토큰(이동은 완주 허용).
+        /// <summary>
+        /// [정지 드레인 2026-08-25, 사용자 승인] CYCLE STOP 요청 상태에서 이 픽커가 제품을 들고 있으면
+        /// 신규 PickUp을 포기하고 보유분 배출(Bottom 검사부터)로 전환한다.
+        /// 정지는 "픽커가 제품을 내려놓고" 완료되어야 하며, 배출 단계로 넘어간 뒤의 경계들은
+        /// ShouldDeferCycleStopForActivePickerDrain으로 유예되므로 Place와 후검사까지 정상 완료된다.
+        /// 전환했으면 true(호출부는 즉시 return), 아니면 false.
+        /// </summary>
+        private bool TryRedirectToHeldDieDrainOnCycleStop(string boundary)
+        {
+            if (Context == null || !Context.IsCycleStopRequested)
+                return false;
+            if (Options != null && Options.RunMode != SequenceRunMode.Auto)
+                return false;
+            if (IsAlarmStopActive())
+                return false;
+            if (!HasTargetDieOnThisPicker())
+                return false;
+
+            // 재개 판정(보유 Die → Bottom부터)과 동일한 플래그 구성을 사용한다.
+            _forceBottomInspectionBeforeSideResume =
+                (Options == null || Options.RunMode == SequenceRunMode.Auto) &&
+                IsBottomAndSidePipelineModeEnabled();
+            _resumePartialPickUpWithoutMarkPermission = false;
+            CurrentStep = PickerProcessStep.RunBottomInspection;
+
+            QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "PickerProcessSequence",
+                Name + " CYCLE STOP 요청 상태에서 보유 제품이 있어 신규 PickUp을 포기하고 배출을 시작합니다. " +
+                "Bottom/Side 검사 후 Place와 후검사까지 마친 뒤 정지합니다. side=" + Side +
+                ", boundary=" + (boundary ?? "-") +
+                ", forceBottomAndSideFromFirst=" + _forceBottomInspectionBeforeSideResume + " - Drain");
+            return true;
+        }
+
         // [선행검사 교착 양보 2026-08-25, 사용자 승인] 허가 대기 양보 임계 시간.
         // 정상 선행검사 1회보다는 길고, FIFO head 타임아웃(100초)보다는 짧게 잡아 교착이면
         // 그보다 먼저 스스로 풀리게 한다. 이미 Avoid에 있으면 각 이동이 스킵되어 비용은 없다.
