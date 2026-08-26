@@ -32,6 +32,9 @@
             public const string DieFinder = "DieFinder";
             public const string ScaleFinder = "ScaleFinder";
             public const string PlacementInspector = "PlacementInspector";
+            /// <summary>[카메라 바코드 2026-08-26] BIN 카메라 2샷 바코드 판독 도구 —
+            /// 프로토콜: 비전PC_BIN바코드_2샷판독_프로토콜_수정지시_프롬프트_2026-08-26.md.</summary>
+            public const string BinBarcodeReader = "BinBarcodeReader";
         }
 
         public static class BottomInspection

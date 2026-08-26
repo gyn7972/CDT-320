@@ -93,6 +93,13 @@ namespace QMC.CDT320
         [DataMember] public bool   UseInputWaferBarcode { get; set; } = false;
         /// <summary>Output Bin 로딩 중 바코드 읽기 사용 여부.</summary>
         [DataMember] public bool   UseOutputBinBarcode { get; set; } = false;
+        /// <summary>[카메라 바코드 2026-08-26] Output Bin 바코드 판독 소스 — false=시리얼 리더(기존),
+        /// true=BIN 카메라 2샷(티칭±오프셋, 비전 PC BinBarcodeReader 디코드).</summary>
+        [DataMember] public bool   OutputBarcodeUseCamera { get; set; } = false;
+        /// <summary>카메라 2샷 판독 시 바코드 티칭 위치 기준 StageY ± 샷 오프셋(mm). 기본 5.</summary>
+        [DataMember] public double OutputBarcodeCameraShotOffsetMm { get; set; } = 5.000;
+        /// <summary>카메라 2샷 판독 시 2샷 EPD 완료 후 집계 RESULT 대기 상한(ms).</summary>
+        [DataMember] public int    OutputBarcodeCameraResultTimeoutMs { get; set; } = 5000;
         /// <summary>Stage 43 — Wafer Barcode 시리얼 포트 번호.</summary>
         [DataMember] public int    WaferBarcodeSerialPort { get; set; } = 4;
         /// <summary>Stage 43 — Bin Barcode 시리얼 포트 번호.</summary>
@@ -237,6 +244,9 @@ namespace QMC.CDT320
             UseRealVisionInSimulation = true;
             UseInputWaferBarcode = false;
             UseOutputBinBarcode = false;
+            OutputBarcodeUseCamera = false;
+            OutputBarcodeCameraShotOffsetMm = 5.000;
+            OutputBarcodeCameraResultTimeoutMs = 5000;
             WaferBarcodeSerialPort = 4;
             BinBarcodeSerialPort = 6;
             BarcodeSerialBaud = 9600;
@@ -279,6 +289,11 @@ namespace QMC.CDT320
                 OutputBarcodeRetryStepMm = 1.000;
             InputBarcodeRetryStepMm = Math.Min(100.000, InputBarcodeRetryStepMm);
             OutputBarcodeRetryStepMm = Math.Min(100.000, OutputBarcodeRetryStepMm);
+            if (double.IsNaN(OutputBarcodeCameraShotOffsetMm) || double.IsInfinity(OutputBarcodeCameraShotOffsetMm) ||
+                OutputBarcodeCameraShotOffsetMm <= 0)
+                OutputBarcodeCameraShotOffsetMm = 5.000;
+            OutputBarcodeCameraShotOffsetMm = Math.Min(50.000, OutputBarcodeCameraShotOffsetMm);
+            OutputBarcodeCameraResultTimeoutMs = Math.Max(500, Math.Min(60000, OutputBarcodeCameraResultTimeoutMs));
             InputBarcodeTriggerCommand = InputBarcodeTriggerCommand ?? "";
             OutputBarcodeTriggerCommand = OutputBarcodeTriggerCommand ?? "";
             // 구버전 설정 파일(필드 없음 → 0 역직렬화) 포함 안전 범위 클램프.

@@ -113,12 +113,17 @@ namespace QMC.CDT320.VisionComm
             string operation,
             string resultTiming,
             string groupId,
-            bool requireMaterialContext)
+            bool requireMaterialContext,
+            string headOverride = null)
         {
             Channel = channel;
             Camera = VisionCameraNames.FromChannel(channel);
             Finder = finder ?? string.Empty;
-            Head = fb == 0 ? "FRONT" : fb == 1 ? "REAR" : string.Empty;
+            // [카메라 바코드 2026-08-26] headOverride — 픽커 fb가 아닌 문맥(예: BIN 바코드의 GOOD/NG
+            // 스테이지 사이드)을 HEAD 필드로 보낼 때 사용. 기존 호출부(미지정)는 완전 무변경.
+            Head = !string.IsNullOrWhiteSpace(headOverride)
+                ? headOverride
+                : fb == 0 ? "FRONT" : fb == 1 ? "REAR" : string.Empty;
             HeadIndex = headIndex;
             DieIndex = dieIndex;
             GridX = gridX;
@@ -337,7 +342,15 @@ namespace QMC.CDT320.VisionComm
                  string.Equals(Camera, VisionCameraNames.RearSide, StringComparison.OrdinalIgnoreCase)) &&
                 VisionChannel != 0 && VisionChannel != 1)
                 return Fail("Side CHANNEL은 0 또는 1이어야 합니다. channel=" + VisionChannel, out reason);
-            if (!string.Equals(Camera, VisionCameraNames.FrontSide, StringComparison.OrdinalIgnoreCase) &&
+            // [카메라 바코드 2026-08-26] BIN 바코드 판독은 Side 검사와 동일하게 CHANNEL을 샷 인덱스
+            // (0=+오프셋 샷, 1=−오프셋 샷)로 쓴다 — 이 조합만 0/1 허용, 나머지 비SIDE는 기존대로 0 강제.
+            bool binBarcodeTwoShot =
+                string.Equals(Camera, VisionCameraNames.Bin, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(Finder, VisionToolIds.Bin.BinBarcodeReader, StringComparison.Ordinal);
+            if (binBarcodeTwoShot && VisionChannel != 0 && VisionChannel != 1)
+                return Fail("BIN 바코드 2샷 CHANNEL은 0 또는 1이어야 합니다. channel=" + VisionChannel, out reason);
+            if (!binBarcodeTwoShot &&
+                !string.Equals(Camera, VisionCameraNames.FrontSide, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(Camera, VisionCameraNames.RearSide, StringComparison.OrdinalIgnoreCase) &&
                 VisionChannel != 0)
                 return Fail("WAFER/BOTTOM/BIN CHANNEL은 0이어야 합니다. channel=" + VisionChannel, out reason);
@@ -484,7 +497,8 @@ namespace QMC.CDT320.VisionComm
                     VisionToolIds.Bin.ReticleFinder,
                     VisionToolIds.Bin.DieFinder,
                     VisionToolIds.Bin.ScaleFinder,
-                    VisionToolIds.Bin.PlacementInspector);
+                    VisionToolIds.Bin.PlacementInspector,
+                    VisionToolIds.Bin.BinBarcodeReader);
             }
             return false;
         }
@@ -540,7 +554,9 @@ namespace QMC.CDT320.VisionComm
                         VisionToolIds.RearSide.ChippingInspector);
                 }
                 if (string.Equals(camera, VisionCameraNames.Bin, StringComparison.OrdinalIgnoreCase))
-                    return IsAny(finder, VisionToolIds.Bin.PlacementInspector);
+                    return IsAny(finder,
+                        VisionToolIds.Bin.PlacementInspector,
+                        VisionToolIds.Bin.BinBarcodeReader);
             }
 
             return false;
