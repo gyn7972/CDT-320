@@ -812,9 +812,11 @@ namespace QMC.CDT320.Sequencing
                     if (feederSafe != 0)
                         return feederSafe;
 
-                    double stageBaseTarget = Options.Side == BinSide.Ng
-                        ? Stage.Recipe.NGStageY.BarcodePosition
-                        : Stage.Recipe.GoodStageY.BarcodePosition;
+                    // [바코드 위치 Config 이관 2026-08-26] 판독 위치는 유닛 깔때기(GetStageTeachingPosition)로
+                    // 읽는다 — Config 우선, 0(미티칭)이면 구 Recipe 값 폴백.
+                    double stageBaseTarget = Stage.GetStageTeachingPosition(
+                        Options.Side == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY,
+                        "Barcode");
                     string targetReason;
                     if (!ValidateOutputBarcodeStageYTargets(
                         Options.Side,
@@ -831,7 +833,7 @@ namespace QMC.CDT320.Sequencing
                             Options.Side + ", " + targetReason);
                     }
 
-                    double visionTarget = Stage.Recipe.VisionX.BarcodePosition;
+                    double visionTarget = Stage.GetStageTeachingPosition(BinStageAxis.VisionX, "Barcode");
                     int visionMove = await Stage.MoveVisionXToTargetAndVerifyAsync(
                         visionTarget,
                         ResolveTimeout(),

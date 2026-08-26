@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
@@ -136,6 +137,14 @@ namespace QMC.CDT320
         }
         /// <summary>콜렛 클리닝 대기 시간입니다.</summary>
         [DataMember] public int ColletCleaningTimeoutMs { get; set; } = 10000;
+
+        // [바코드 위치 Config 이관 2026-08-26 팀장님 지시] Good/NG Y·VisionX 바코드 판독 위치는
+        // 기구 좌표라 레시피가 바뀌어도 변하지 않으므로 Recipe(StageAxisPositions.BarcodePosition)에서
+        // Config로 옮겼다. 0(미티칭)이면 활성 Recipe의 구 값을 폴백으로 읽고(GetStageTeachingPosition
+        // 깔때기), TEACH 또는 값 입력 시 Config에 저장되어 폴백이 끝난다.
+        [DataMember] public double GoodStageYBarcodePosition { get; set; }
+        [DataMember] public double NGStageYBarcodePosition { get; set; }
+        [DataMember] public double VisionXBarcodePosition { get; set; }
     }
 
     /// <summary>출력 스테이지 축별 위치 레시피입니다.</summary>
@@ -2544,8 +2553,62 @@ namespace QMC.CDT320
             if (string.Equals(positionName, "Process", StringComparison.OrdinalIgnoreCase)) return positions.ProcessPosition;
             if (string.Equals(positionName, "Unload", StringComparison.OrdinalIgnoreCase)) return positions.UnloadPosition;
             if (string.Equals(positionName, "Reticle", StringComparison.OrdinalIgnoreCase)) return positions.ReticlePosition;
-            if (string.Equals(positionName, "Barcode", StringComparison.OrdinalIgnoreCase)) return positions.BarcodePosition;
+            if (string.Equals(positionName, "Barcode", StringComparison.OrdinalIgnoreCase)) return GetBarcodeTeachingPosition(axis, positions);
             throw new ArgumentException("Unknown stage teaching position: " + positionName, "positionName");
+        }
+
+        // [바코드 위치 Config 이관 2026-08-26 팀장님 지시] Barcode 위치의 단일 읽기 깔때기 —
+        // Config 우선, 0(미티칭)이면 구 저장소(Recipe.BarcodePosition) 폴백. UI 표시(그리드 getter)와
+        // 시퀀스 실사용이 모두 이 깔때기를 타므로 표시값=사용값이 항상 일치한다.
+        // 폴백 사용 사실은 축당 1회만 로그한다(그리드 갱신 타이머가 반복 호출하므로 도배 방지).
+        private readonly object _barcodeFallbackLogLock = new object();
+        private readonly HashSet<BinStageAxis> _barcodeConfigFallbackLogged = new HashSet<BinStageAxis>();
+
+        private double GetBarcodeTeachingPosition(BinStageAxis axis, StageAxisPositions recipePositions)
+        {
+            double configValue;
+            switch (axis)
+            {
+                case BinStageAxis.GoodBinY: configValue = Config != null ? Config.GoodStageYBarcodePosition : 0.0; break;
+                case BinStageAxis.NgBinY: configValue = Config != null ? Config.NGStageYBarcodePosition : 0.0; break;
+                case BinStageAxis.VisionX: configValue = Config != null ? Config.VisionXBarcodePosition : 0.0; break;
+                default: configValue = 0.0; break;
+            }
+
+            if (configValue != 0.0)
+                return configValue;
+
+            double recipeValue = recipePositions != null ? recipePositions.BarcodePosition : 0.0;
+            if (recipeValue != 0.0)
+            {
+                bool firstFallback;
+                lock (_barcodeFallbackLogLock)
+                {
+                    firstFallback = _barcodeConfigFallbackLogged.Add(axis);
+                }
+                if (firstFallback)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageBarcodePos",
+                        "바코드 위치 Config 미티칭(0) — 구 Recipe 값을 폴백으로 사용합니다. axis=" + axis +
+                        ", recipeValue=" + recipeValue.ToString("F3") +
+                        " (TEACH 또는 값 입력 시 Config로 확정) - Check");
+                }
+            }
+            return recipeValue;
+        }
+
+        // [바코드 위치 Config 이관 2026-08-26] Barcode 위치의 단일 쓰기 깔때기 — 이관 대상 3축은
+        // Config에 기록하고, 그 외 축(대상 아님·UI 미노출)은 기존 저장소를 유지한다.
+        private void SetBarcodeTeachingPosition(BinStageAxis axis, StageAxisPositions recipePositions, double position)
+        {
+            if (Config != null && axis == BinStageAxis.GoodBinY)
+                Config.GoodStageYBarcodePosition = position;
+            else if (Config != null && axis == BinStageAxis.NgBinY)
+                Config.NGStageYBarcodePosition = position;
+            else if (Config != null && axis == BinStageAxis.VisionX)
+                Config.VisionXBarcodePosition = position;
+            else if (recipePositions != null)
+                recipePositions.BarcodePosition = position;
         }
 
         public bool ValidateStageTeachingComplete(BinSide side)
@@ -3094,7 +3157,7 @@ namespace QMC.CDT320
             else if (string.Equals(positionName, "Process", StringComparison.OrdinalIgnoreCase)) positions.ProcessPosition = position;
             else if (string.Equals(positionName, "Unload", StringComparison.OrdinalIgnoreCase)) positions.UnloadPosition = position;
             else if (string.Equals(positionName, "Reticle", StringComparison.OrdinalIgnoreCase)) positions.ReticlePosition = position;
-            else if (string.Equals(positionName, "Barcode", StringComparison.OrdinalIgnoreCase)) positions.BarcodePosition = position;
+            else if (string.Equals(positionName, "Barcode", StringComparison.OrdinalIgnoreCase)) SetBarcodeTeachingPosition(axis, positions, position);
             else throw new ArgumentException("Unknown stage teaching position: " + positionName, "positionName");
         }
 

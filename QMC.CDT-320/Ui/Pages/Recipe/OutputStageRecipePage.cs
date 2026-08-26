@@ -362,11 +362,73 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 header.Description = "Vision Cal Position";
             items.Add(header);
 
+            // [바코드 위치 Config 이관 2026-08-26 팀장님 지시] Barcode 판독 위치는 기구 좌표라
+            // Config 스코프로 분리한다 — getter는 유닛 깔때기(Config 우선, 0이면 구 Recipe 폴백)를
+            // 타서 표시값=시퀀스 실사용값이 일치하고, setter/TEACH는 Config에 기록된다.
+            if (string.Equals(kind, "Barcode", StringComparison.OrdinalIgnoreCase))
+            {
+                if (goodY) items.Add(BarcodeMember("GOOD Y", groupKey, kindLabel, _outputStageUnit.GoodStage.StageY, BinStageAxis.GoodBinY,
+                    v => _outputStageUnit.Config.GoodStageYBarcodePosition = v));
+                if (ng) items.Add(BarcodeMember("NG Y", groupKey, kindLabel, _outputStageUnit.NgStage.StageY, BinStageAxis.NgBinY,
+                    v => _outputStageUnit.Config.NGStageYBarcodePosition = v));
+                if (vision) items.Add(BarcodeMember("VISION X", groupKey, kindLabel, _outputStageUnit.OutputCameraX, BinStageAxis.VisionX,
+                    v => _outputStageUnit.Config.VisionXBarcodePosition = v));
+                AddBarcodeCameraSettingItems(items, groupKey);
+                return;
+            }
+
             // LoadRecipe/LoadSettings가 Recipe 객체를 교체하므로 지역 캡처 대신 매 호출 시 라이브 Recipe를 따라간다.
             if (goodY) items.Add(StageMember("GOOD Y", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageY, () => _outputStageUnit.Recipe.GoodStageY));
             if (goodZ) items.Add(StageMember("GOOD Z", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageZ, () => _outputStageUnit.Recipe.GoodStageZ));
             if (ng) items.Add(StageMember("NG Y", groupKey, kindLabel, kind, _outputStageUnit.NgStage.StageY, () => _outputStageUnit.Recipe.NGStageY));
             if (vision) items.Add(StageMember("VISION X", groupKey, kindLabel, kind, _outputStageUnit.OutputCameraX, () => _outputStageUnit.Recipe.VisionX));
+        }
+
+        // [바코드 위치 Config 이관 2026-08-26] Barcode 위치 그리드 행 — Config 스코프, MOVE/TEACH 유지.
+        private ParameterGridItem BarcodeMember(string axisLabel, string groupKey, string kindLabel, BaseAxis axis, BinStageAxis binAxis, Action<double> configSetter)
+        {
+            var item = AxisDouble(axisLabel, ParameterGridScope.Config, axis,
+                () => _outputStageUnit.GetStageTeachingPosition(binAxis, "Barcode"),
+                configSetter);
+            item.Key = axisLabel + " " + kindLabel;   // 이동/티칭 조회는 전체 이름(Key)으로 파싱
+            item.GroupKey = groupKey;
+            item.SupportsTeaching = true;             // 행에 MOVE/TEACH 버튼 표시(티칭 포지션)
+            return item;
+        }
+
+        // [카메라 바코드 2026-08-26 팀장님 지시] 판독 소스·카메라 파라미터를 BARCODE POSITION 그룹에 노출.
+        // 저장소는 AppSettings(Config\settings.json) — 유닛 Config/Recipe가 아니므로 setter에서 즉시
+        // AppSettingsStore.Save()로 영속한다(그리드 공통 저장 SaveCurrentSettingsData는 유닛 설정만 저장).
+        private void AddBarcodeCameraSettingItems(List<ParameterGridItem> items, string groupKey)
+        {
+            ParameterGridItem useCamera = ParameterGridItem.Bool("BARCODE USE CAMERA", ParameterGridScope.Config,
+                () => AppSettingsStore.Current != null && AppSettingsStore.Current.OutputBarcodeUseCamera,
+                v => SaveBarcodeCameraAppSetting(s => s.OutputBarcodeUseCamera = v));
+            useCamera.GroupKey = groupKey;
+            useCamera.Description = "Output Bin 바코드 판독 소스입니다.\r\nOFF = 시리얼 리더(기존 경로 그대로), ON = BIN 카메라 2샷(바코드 티칭 위치 ± 샷 오프셋 촬영 후 비전 PC BinBarcodeReader 디코드).\r\n바코드 사용 자체의 ON/OFF는 Settings > Device의 Output 바코드 사용 체크와 별개입니다.";
+            items.Add(useCamera);
+
+            ParameterGridItem shotOffset = ParameterGridItem.Double("BARCODE CAMERA SHOT OFFSET", "mm (0.000)", ParameterGridScope.Config,
+                () => AppSettingsStore.Current != null ? AppSettingsStore.Current.OutputBarcodeCameraShotOffsetMm : 5.0,
+                v => SaveBarcodeCameraAppSetting(s => s.OutputBarcodeCameraShotOffsetMm =
+                    double.IsNaN(v) || double.IsInfinity(v) || v <= 0.0 ? 5.000 : Math.Min(50.000, v)));
+            shotOffset.GroupKey = groupKey;
+            shotOffset.Description = "카메라 2샷 판독 시 바코드 티칭 위치 기준 StageY ± 샷 오프셋(mm)입니다. 기본 5.000, 허용 범위 0 초과 ~ 50(범위 밖 입력은 클램프).";
+            items.Add(shotOffset);
+
+            ParameterGridItem resultTimeout = ParameterGridItem.Int("BARCODE CAMERA RESULT TIMEOUT", "ms", ParameterGridScope.Config,
+                () => AppSettingsStore.Current != null ? AppSettingsStore.Current.OutputBarcodeCameraResultTimeoutMs : 5000,
+                v => SaveBarcodeCameraAppSetting(s => s.OutputBarcodeCameraResultTimeoutMs = Math.Max(500, Math.Min(60000, v))));
+            resultTimeout.GroupKey = groupKey;
+            resultTimeout.Description = "카메라 2샷 EPD 완료 후 집계 RESULT 대기 상한(ms)입니다. 기본 5000, 허용 범위 500 ~ 60000(범위 밖 입력은 클램프).";
+            items.Add(resultTimeout);
+        }
+
+        private static void SaveBarcodeCameraAppSetting(Action<AppSettings> apply)
+        {
+            AppSettings settings = AppSettingsStore.Current ?? AppSettingsStore.Load();
+            apply(settings);
+            AppSettingsStore.Save();
         }
 
         private ParameterGridItem StageMember(string axisLabel, string groupKey, string kindLabel, string kind, BaseAxis axis, Func<StageAxisPositions> set)
@@ -385,8 +447,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 case "Unload": getter = () => set().UnloadPosition; setter = v => set().UnloadPosition = v; break;
                 // Reticle 위치 레시피 연결
                 case "Reticle": getter = () => set().ReticlePosition; setter = v => set().ReticlePosition = v; break;
-                // Barcode 판독 위치 레시피 연결
-                case "Barcode": getter = () => set().BarcodePosition; setter = v => set().BarcodePosition = v; break;
+                // Barcode 판독 위치는 Config 이관(2026-08-26)으로 BarcodeMember 경로만 사용한다.
                 default: getter = () => 0.0; setter = v => { }; break;
             }
 
@@ -868,7 +929,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 _outputStageUnit.TeachStageAxisPosition(axis, positionName);
-                SaveCurrentRecipeData();
+                // [바코드 위치 Config 이관 2026-08-26] Config 스코프 티칭(Barcode)은 Recipe가 아니라
+                // 장비 설정으로 영속해야 한다 — 항목 스코프 기준으로 저장 경로를 분기한다.
+                if (e.Item != null && e.Item.Scope != ParameterGridScope.Recipe)
+                    SaveCurrentSettingsData();
+                else
+                    SaveCurrentRecipeData();
                 RefreshView();
             }
             catch (Exception ex)
