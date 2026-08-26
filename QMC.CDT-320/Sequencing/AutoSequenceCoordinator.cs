@@ -89,7 +89,7 @@ namespace QMC.CDT320.Sequencing
 
         #region Coordinator 실행 수명주기
 
-        /// <summary>활성 유닛 시퀀스를 병렬로 실행하고 모든 유닛 종료를 대기합니다.</summary>
+        /// <summary>활성 유닛 시퀀스를 병렬로 실행하고 모든 유닛 종료를 대기합니다 .</summary>
         public async Task RunAsync(CancellationToken ct)
         {
             using (TactTimeScope tactScope = _ctx.Tact.BeginScope(
