@@ -280,6 +280,10 @@ namespace QMC.CDT320.Sequencing
         /// Y 전처리(P4 기준 콜렛Cal 환산) → 채널별 이상치 검사 → 필터 갱신 → 클램프+워닝 → 저장 → 로그.
         /// 현재 픽커 또는 4번 픽커 콜렛Cal 레코드가 없거나 Valid가 아니면 샘플 전체를 폐기한다.
         /// </summary>
+        // 촬영각 분기 밴드(deg): 티칭 Δθ가 0°±5°면 무변환, ±180°±5°면 회전중심 기준 반전 변환,
+        // 그 외 각도는 검증되지 않은 프레임이라 샘플을 폐기한다.
+        private const double ShootAngleBandDeg = 5.0;
+
         public static void OnBottomInspectionOffset(
             PickerSequenceSide side,
             int pickerNo,
@@ -287,6 +291,11 @@ namespace QMC.CDT320.Sequencing
             double rawOffsetY,
             double offsetT,
             double capturedPickerYCommand,
+            double capturedPickerXCommand,
+            double rotationCenterX,
+            double rotationCenterY,
+            bool rotationCenterUsable,
+            double shootDeltaThetaTeachingDeg,
             double colletCalY,
             bool colletCalValid,
             double basePicker4ColletCalY,
@@ -307,13 +316,64 @@ namespace QMC.CDT320.Sequencing
                     return;
                 }
 
+                // [촬영각 프레임 변환 2026-08-25 팀장님 지시] 부호가 실장비 확정된 이 폐루프
+                // (0도 픽업/0도 촬영 기준)는 그대로 두고, 티칭이 픽업각과 180° 다른 각도로 촬영하는
+                // 레시피(0도 픽업/180도 촬영)에서는 비전 Offset을 회전중심 기준 −Δθ 회전시켜
+                // "픽업각에서 찍었을 가상 raw"로 되돌린 뒤 같은 루프(전처리·필터 무수정)에 넣는다.
+                // 분기(티칭 Δθ = Pick T − Bottom T, ±360 정규화):
+                //   |Δθ| ≤ 5°         → 무변환(기존 경로와 완전 동일)
+                //   ||Δθ|−180°| ≤ 5°  → m′ = 2·(촬영지령 − 회전중심C) − m  (R(±180)=−I라 회전방향 무관,
+                //                        편심도 이 항이 함께 흡수되어 필터가 학습한다)
+                //   그 외 각도         → 샘플 폐기(비검증 각도 프레임 학습 방지)
+                // 프레임 주의(BottomVisionOffset 주석): 비전 Offset은 이미지 프레임 mm(X=기계 동일,
+                // Y=기계 반대), 촬영지령·C는 기계 프레임 — 기계로 환산해 변환 후 이미지로 되돌린다.
+                double deltaThetaTeaching = NormalizeDegreesPlusMinus180(shootDeltaThetaTeachingDeg);
+                bool shotAtPickAngle = Math.Abs(deltaThetaTeaching) <= ShootAngleBandDeg;
+                bool shotAtOppositeAngle = Math.Abs(Math.Abs(deltaThetaTeaching) - 180.0) <= ShootAngleBandDeg;
+                double effectiveOffsetX = offsetX;
+                double effectiveRawOffsetY = rawOffsetY;
+                string shootFrame = "pickAngle";
+                double axisFromCameraMachX = 0.0;
+                double axisFromCameraMachY = 0.0;
+                if (!shotAtPickAngle)
+                {
+                    if (!shotAtOppositeAngle)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "PickRuntimeOffset",
+                            "촬영각 티칭이 픽업각 0°/180° 밴드를 벗어나 Pick 런타임 오프셋 샘플을 폐기했습니다. side=" + side +
+                            ", pickerNo=" + pickerNo +
+                            ", die=" + (dieId ?? string.Empty) +
+                            ", deltaThetaTeaching=" + F(deltaThetaTeaching) + " - Check");
+                        return;
+                    }
+
+                    if (!rotationCenterUsable)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "PickRuntimeOffset",
+                            "180° 촬영인데 회전중심(COC)이 유효하지 않아 Pick 런타임 오프셋 샘플을 폐기했습니다" +
+                            "(무변환 학습은 반대 프레임이라 금지). side=" + side +
+                            ", pickerNo=" + pickerNo +
+                            ", die=" + (dieId ?? string.Empty) +
+                            ", deltaThetaTeaching=" + F(deltaThetaTeaching) + " - Check");
+                        return;
+                    }
+
+                    shootFrame = "oppositeAngle";
+                    axisFromCameraMachX = capturedPickerXCommand - rotationCenterX;
+                    axisFromCameraMachY = capturedPickerYCommand - rotationCenterY;
+                    double measuredMachX = offsetX;
+                    double measuredMachY = -rawOffsetY;
+                    effectiveOffsetX = 2.0 * axisFromCameraMachX - measuredMachX;
+                    effectiveRawOffsetY = -(2.0 * axisFromCameraMachY - measuredMachY);
+                }
+
                 // Y 전처리 — 기존 조건(~2026-07-30): 편차 = 촬영시점 PickerY 지령 − 콜렛Cal Y, preprocessedY = raw − 편차.
                 // 현재 기준(사용자 지시 2026-07-30 최종): Bottom 촬영 Y는 P4 기준 고정(통합검사 07-28 승인)이므로
                 //   촬영시점 지령 대신 콜렛Cal 고정값으로 환산해 순수 "Die가 콜렛 기준으로 틀어진 양"만 학습한다:
                 //   preprocessedY = rawOffsetY − (현재 픽커 콜렛Cal Y − 4번 픽커 콜렛Cal Y).
                 //   (가산 시험 결과 실장비 확인으로 델타 감산 확정. capturedPickerYCommand는 진단 로그 전용.)
                 double colletYDeltaFromP4 = colletCalY - basePicker4ColletCalY;
-                double preprocessedY = rawOffsetY - colletYDeltaFromP4;
+                double preprocessedY = effectiveRawOffsetY - colletYDeltaFromP4;
 
                 double filteredX;
                 double filteredY;
@@ -341,7 +401,7 @@ namespace QMC.CDT320.Sequencing
                         return;
 
                     // 전 채널 잔차 적분(2026-08-18 팀장님 지시 — T는 적용 부호 가산 확정과 함께 적분 전환).
-                    acceptedX = AcceptChannelLocked(set.X, offsetX, _outlierLimitXyMm, "X", side, pickerNo, dieId, true);
+                    acceptedX = AcceptChannelLocked(set.X, effectiveOffsetX, _outlierLimitXyMm, "X", side, pickerNo, dieId, true);
                     acceptedY = AcceptChannelLocked(set.Y, preprocessedY, _outlierLimitXyMm, "Y", side, pickerNo, dieId, true);
                     acceptedT = AcceptChannelLocked(set.T, offsetT, _outlierLimitTDeg, "T", side, pickerNo, dieId, true);
 
@@ -372,8 +432,15 @@ namespace QMC.CDT320.Sequencing
                     "Pick 런타임 오프셋 필터 갱신. side=" + side +
                     ", pickerNo=" + pickerNo +
                     ", die=" + (dieId ?? string.Empty) +
-                    ", measuredX=" + F(offsetX) + "(accepted=" + acceptedX + ")" +
+                    ", shootFrame=" + shootFrame +
+                    ", deltaThetaTeaching=" + F(deltaThetaTeaching) +
+                    ", rotationCenter=(" + F(rotationCenterX) + "," + F(rotationCenterY) + ")(usable=" + rotationCenterUsable + ")" +
+                    ", capturedPickerXCommand=" + F(capturedPickerXCommand) +
+                    ", axisFromCameraMach=(" + F(axisFromCameraMachX) + "," + F(axisFromCameraMachY) + ")" +
+                    ", measuredX=" + F(offsetX) +
+                    ", effectiveX=" + F(effectiveOffsetX) + "(accepted=" + acceptedX + ")" +
                     ", rawOffsetY=" + F(rawOffsetY) +
+                    ", effectiveRawY=" + F(effectiveRawOffsetY) +
                     ", capturedPickerYCommand=" + F(capturedPickerYCommand) +
                     ", colletCalY=" + F(colletCalY) +
                     ", basePicker4ColletCalY=" + F(basePicker4ColletCalY) +
@@ -910,6 +977,17 @@ namespace QMC.CDT320.Sequencing
         private static string F(double value)
         {
             return value.ToString("F6");
+        }
+
+        // 티칭 각도차를 (−180, 180]로 정규화한다 — 0°/180° 촬영각 분기 판정용.
+        private static double NormalizeDegreesPlusMinus180(double degrees)
+        {
+            double normalized = degrees % 360.0;
+            if (normalized > 180.0)
+                normalized -= 360.0;
+            else if (normalized <= -180.0)
+                normalized += 360.0;
+            return normalized;
         }
     }
 }

@@ -92,9 +92,7 @@ namespace QMC.CDT320.Sequencing
             bool logFormula = true,
             double pickRuntimeOffsetX = 0.0,
             double pickRuntimeOffsetY = 0.0,
-            double pickRuntimeOffsetT = 0.0,
-            double colletEccentricCompX = 0.0,
-            double colletEccentricCompY = 0.0)
+            double pickRuntimeOffsetT = 0.0)
         {
             PickCoordinateResult result = new PickCoordinateResult();
             // Input Vision Y 보정은 PickerY가 아니라 StageY를 반대 방향으로 이동해 Die를 고정 Pick Y에 맞춘다.
@@ -105,9 +103,7 @@ namespace QMC.CDT320.Sequencing
             //   (Y는 감산 복귀 시험까지 거쳐 가산으로 확정 — P4 기준 델타는 전처리 쪽에서 감산으로 정정)
             // X는 피커·니들 정렬 유지를 위해 PickerX와 NeedleX 양쪽에 동일하게 적용한다.
             result.StageY = inputStageY + needleYToVisionYOffset - alignOffsetY + pickRuntimeOffsetY;
-            // 콜렛 편심 보상 ΔP(티칭 Δθ 기준)는 콜렛만 움직이므로 PickerX/PickerY에만 가산한다 —
-            // StageY/NeedleX 무변경(2026-08-25 팀장님 확정).
-            result.PickerX = inputVisionX + inputVisionToPickerX + pickerAlignOffsetX + alignOffsetX + pickRuntimeOffsetX + colletEccentricCompX;
+            result.PickerX = inputVisionX + inputVisionToPickerX + pickerAlignOffsetX + alignOffsetX + pickRuntimeOffsetX;
             // Collet T offset은 Picker T 홈 기준 보정에 이미 반영되므로 Pick 이동식에는 다시 더하지 않는다.
             // result.PickerT = pickerTTeaching + pickerAlignOffsetT + colletTOffset + alignOffsetT;
             result.PickerT = pickerTTeaching + pickerAlignOffsetT + alignOffsetT + pickRuntimeOffsetT;
@@ -115,17 +111,16 @@ namespace QMC.CDT320.Sequencing
             result.NeedleX = inputVisionX + alignOffsetX - needleXToVisionXOffset + pickRuntimeOffsetX;
             // PickerY는 Die별 Vision Y와 무관하게 Picker별 고정 Pick 위치를 유지한다.
             double pickerYOffset = pickerAlignOffsetY;
-            result.PickerY = inputVisionToPickerY + needleYToVisionYOffset + pickerYOffset + colletEccentricCompY;
+            result.PickerY = inputVisionToPickerY + needleYToVisionYOffset + pickerYOffset;
             result.NeedleZ = needleZTeaching;
             result.EjectPinZ = ejectPinZTeaching;
             result.Formula =
                 "stageY = inputStageY(" + F(inputStageY) + ") + needleYToVisionYOffset(" + F(needleYToVisionYOffset) + ") - alignOffsetY(" + F(alignOffsetY) + ") + pickRuntimeOffsetY(" + F(pickRuntimeOffsetY) + ") = " + F(result.StageY) +
                 " [cameraOffset=(" + F(cameraOffsetX) + "," + F(cameraOffsetY) + ") applied once inside InputVisionToPicker (PickerX/PickerY only); alignOffset is raw camera delta]" +
-                " / pickerX = inputVisionX(" + F(inputVisionX) + ") + inputVisionToPickerX(" + F(inputVisionToPickerX) + ") + pickerAlignOffsetX(" + F(pickerAlignOffsetX) + ") + alignOffsetX(" + F(alignOffsetX) + ") + pickRuntimeOffsetX(" + F(pickRuntimeOffsetX) + ") + colletEccentricCompX(" + F(colletEccentricCompX) + ") = " + F(result.PickerX) +
+                " / pickerX = inputVisionX(" + F(inputVisionX) + ") + inputVisionToPickerX(" + F(inputVisionToPickerX) + ") + pickerAlignOffsetX(" + F(pickerAlignOffsetX) + ") + alignOffsetX(" + F(alignOffsetX) + ") + pickRuntimeOffsetX(" + F(pickRuntimeOffsetX) + ") = " + F(result.PickerX) +
                 " / pickerT = pickerTTeaching(" + F(pickerTTeaching) + ") + pickerAlignOffsetT(" + F(pickerAlignOffsetT) + ") + alignOffsetT(" + F(alignOffsetT) + ") + pickRuntimeOffsetT(" + F(pickRuntimeOffsetT) + ") = " + F(result.PickerT) +
                 " / needleX = inputVisionX(" + F(inputVisionX) + ") + alignOffsetX(" + F(alignOffsetX) + ") - needleXToVisionXOffset(" + F(needleXToVisionXOffset) + ") + pickRuntimeOffsetX(" + F(pickRuntimeOffsetX) + ") = " + F(result.NeedleX) +
-                " / pickerY = inputVisionToPickerY(" + F(inputVisionToPickerY) + ") + needleYToVisionYOffset(" + F(needleYToVisionYOffset) + ") + pickerAlignOffsetY(" + F(pickerAlignOffsetY) + ") + colletEccentricCompY(" + F(colletEccentricCompY) + ") = " + F(result.PickerY) +
-                " [colletEccentricComp=teachingDeltaTheta 기준(런타임 T 미반영), PickerX/PickerY에만 가산]" +
+                " / pickerY = inputVisionToPickerY(" + F(inputVisionToPickerY) + ") + needleYToVisionYOffset(" + F(needleYToVisionYOffset) + ") + pickerAlignOffsetY(" + F(pickerAlignOffsetY) + ") = " + F(result.PickerY) +
                 " / pickerZ = " + F(result.PickerZ) +
                 " / needleZ = " + F(result.NeedleZ) +
                 " / ejectPinZ = " + F(result.EjectPinZ);

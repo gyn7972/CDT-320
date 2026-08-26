@@ -2005,7 +2005,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "COC 회전 중심 Recipe 저장에 실패했습니다. recipe=" + (recipeName ?? string.Empty));
 
             // 회전중심 실사용 저장소는 픽커 유닛 Config인데 SaveRecipe는 Recipe만 영속한다 —
-            // 앱 재시작 직후 픽 편심 보상이 구값을 읽지 않도록 장비 설정도 함께 저장한다(2026-08-25 팀장님 지시).
+            // 앱 재시작 직후 소비자(Side 90° Y 절대식, 바텀 Offset 촬영각 프레임 변환)가 구값을
+            // 읽지 않도록 장비 설정도 함께 저장한다(2026-08-25 팀장님 지시).
             if (!Context.Machine.SaveSettings())
                 return Fail("COLLET-CAL-COC-SETTINGS-SAVE", Name,
                     "COC 회전 중심 장비 설정(SaveSettings) 저장에 실패했습니다. side=" + _calibrationSide +

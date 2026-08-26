@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using QMC.CDT320.Calibration;
-using QMC.Common.Logging;
+﻿using QMC.CDT320.Calibration;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -37,8 +34,7 @@ namespace QMC.CDT320.Sequencing
             out string reason,
             double pickRuntimeOffsetX = 0.0,
             double pickRuntimeOffsetY = 0.0,
-            double pickRuntimeOffsetT = 0.0,
-            bool applyColletEccentricCompensation = false)
+            double pickRuntimeOffsetT = 0.0)
         {
             target = null;
             reason = string.Empty;
@@ -74,8 +70,7 @@ namespace QMC.CDT320.Sequencing
                 logFormula,
                 pickRuntimeOffsetX,
                 pickRuntimeOffsetY,
-                pickRuntimeOffsetT,
-                applyColletEccentricCompensation);
+                pickRuntimeOffsetT);
             return true;
         }
 
@@ -97,8 +92,7 @@ namespace QMC.CDT320.Sequencing
             bool logFormula,
             double pickRuntimeOffsetX = 0.0,
             double pickRuntimeOffsetY = 0.0,
-            double pickRuntimeOffsetT = 0.0,
-            bool applyColletEccentricCompensation = false)
+            double pickRuntimeOffsetT = 0.0)
         {
             double cameraOffsetX;
             double cameraOffsetY;
@@ -115,19 +109,6 @@ namespace QMC.CDT320.Sequencing
             // Collet T offset은 Picker T 홈 기준 보정에 이미 반영되므로 Pick 이동식에는 다시 더하지 않는다.
             // double appliedColletT = colletT;
             double appliedColletT = 0.0;
-
-            // 콜렛 편심 보상은 자동 픽업·수동 맵 이동만 opt-in(true)이고 캘·레시피 이동은 무보상 명목 좌표를 유지한다.
-            double colletEccentricCompX = 0.0;
-            double colletEccentricCompY = 0.0;
-            if (applyColletEccentricCompensation)
-            {
-                ResolveColletEccentricCompensation(
-                    machine,
-                    side,
-                    pickerIndex,
-                    out colletEccentricCompX,
-                    out colletEccentricCompY);
-            }
 
             PickCoordinateResult result = DieCoordinateTransformService.CalculatePickTarget(
                 sequenceName,
@@ -164,9 +145,7 @@ namespace QMC.CDT320.Sequencing
                 logFormula,
                 pickRuntimeOffsetX,
                 pickRuntimeOffsetY,
-                pickRuntimeOffsetT,
-                colletEccentricCompX,
-                colletEccentricCompY);
+                pickRuntimeOffsetT);
 
             WriteCoordinateLog(
                 "InputPickTarget",
@@ -190,9 +169,6 @@ namespace QMC.CDT320.Sequencing
                 ", pickRuntimeOffsetX=" + F(pickRuntimeOffsetX) +
                 ", pickRuntimeOffsetY=" + F(pickRuntimeOffsetY) +
                 ", pickRuntimeOffsetT=" + F(pickRuntimeOffsetT) +
-                ", colletEccentricCompRequested=" + applyColletEccentricCompensation +
-                ", colletEccentricCompX=" + F(colletEccentricCompX) +
-                ", colletEccentricCompY=" + F(colletEccentricCompY) +
                 ", finalStageY=" + F(result.StageY) +
                 ", finalPickerX=" + F(result.PickerX) +
                 ", finalPickerY=" + F(result.PickerY) +
@@ -435,227 +411,6 @@ namespace QMC.CDT320.Sequencing
                 ")=" + F(result.PickerZ) +
                 " - Calc");
             return result;
-        }
-
-        // ===== 콜렛 회전중심·콜렛원점 편심 픽업 XY 보상 (2026-08-25 팀장님 지시) =====
-        // 물리: 콜렛 캘(원점 O)은 바텀 촬영각 상태에서 측정된 좌표라, 픽업각에서는 콜렛 중심이
-        // 회전중심 C 둘레 원호만큼 이동해 있다. ΔP=(I−R(Δθ))·(C−O)를 픽 목표 PickerX/PickerY에
-        // 가산해 원인 단계에서 제거한다(|Δθ|≈180°에서 ΔP=2(C−O)).
-        // 프레임: T+ 지령=물리 CW(2026-08-18 실장비 확정) → R(θ)=[[cos,+sin],[−sin,cos]].
-        //   비180° 일반화는 R의 X행 sin 부호가 실장비 미검증이라 각도 게이트로 차단한다.
-        // Δθ는 티칭값만 사용: PickPosition − BottomPosition(존 DieBottomPosition의 T 매핑,
-        //   CalibrationCoordinateService.ResolveZonePositionName과 동일). 런타임 T(±0.45°)는
-        //   |e| 수십 µm에서 sin(0.45°)≈0.008배라 무시. record.MeasuredTPosition은 T홈 제로 이전
-        //   좌표계라 프레임이 섞이므로 사용 금지.
-        // 편심은 반드시 레코드 조합 C−O로 계산한다 — RotationCenterPixel 잔차 방식은 구C−신C
-        //   오염이라 금지.
-        // 부호 유보: 2(C−O) 방향은 실장비 보상 OFF/ON 1런으로 확정하고, 반대로 확인되면 팀장님
-        //   보고 후 부호만 뒤집는다(구조 변경 금지).
-        private const double ColletEccentricMaxDeltaThetaDeviationDeg = 5.0;
-        private static readonly object ColletEccentricLogLock = new object();
-        // 폴백 사유 도배 방지(지시서 §5-3): 콜렛(side+picker)당 마지막 폴백 사유를 기억해
-        // 상태가 바뀔 때만 1줄 남긴다. 보상 적용으로 복귀하면 상태를 지워 재폴백 시 다시 남긴다.
-        private static readonly Dictionary<string, string> ColletEccentricLastFallbackReasons =
-            new Dictionary<string, string>();
-
-        private static void ResolveColletEccentricCompensation(
-            CDT320_Machine machine,
-            PickerSequenceSide side,
-            int pickerIndex,
-            out double compX,
-            out double compY)
-        {
-            compX = 0.0;
-            compY = 0.0;
-
-            double centerX = 0.0;
-            double centerY = 0.0;
-            double originX = 0.0;
-            double originY = 0.0;
-            double eccentricX = 0.0;
-            double eccentricY = 0.0;
-            double thetaPickTeaching = 0.0;
-            double thetaCalTeaching = 0.0;
-            double deltaTheta = 0.0;
-            double candidateX = 0.0;
-            double candidateY = 0.0;
-            double limit = PickerPickUpMotionConfig.DefaultColletEccentricCompensationLimitMm;
-            string gateReason = null;
-
-            try
-            {
-                PickerPickUpMotionConfig pickUp = null;
-                double[] rotationCenterX = null;
-                double[] rotationCenterY = null;
-                bool[] rotationCenterValid = null;
-                if (machine == null)
-                {
-                    gateReason = "machine-null";
-                }
-                else if (side == PickerSequenceSide.Front &&
-                         machine.PickerFrontUnit != null && machine.PickerFrontUnit.Config != null)
-                {
-                    pickUp = machine.PickerFrontUnit.Config.PickUp;
-                    rotationCenterX = machine.PickerFrontUnit.Config.ColletRotationCenterX;
-                    rotationCenterY = machine.PickerFrontUnit.Config.ColletRotationCenterY;
-                    rotationCenterValid = machine.PickerFrontUnit.Config.ColletRotationCenterValid;
-                }
-                else if (side == PickerSequenceSide.Rear &&
-                         machine.PickerRearUnit != null && machine.PickerRearUnit.Config != null)
-                {
-                    pickUp = machine.PickerRearUnit.Config.PickUp;
-                    rotationCenterX = machine.PickerRearUnit.Config.ColletRotationCenterX;
-                    rotationCenterY = machine.PickerRearUnit.Config.ColletRotationCenterY;
-                    rotationCenterValid = machine.PickerRearUnit.Config.ColletRotationCenterValid;
-                }
-                else
-                {
-                    gateReason = "picker-unit-null";
-                }
-
-                if (gateReason == null && pickUp == null)
-                    gateReason = "pickup-config-null";
-                if (gateReason == null && !pickUp.UsePickRotationCenterCompensation)
-                    gateReason = "disabled";
-                if (gateReason == null)
-                    limit = PickerPickUpMotionConfig.NormalizeColletEccentricCompensationLimit(
-                        pickUp.ColletEccentricCompensationLimitMm);
-                if (gateReason == null &&
-                    (rotationCenterX == null || rotationCenterY == null || rotationCenterValid == null ||
-                     pickerIndex < 0 ||
-                     pickerIndex >= rotationCenterX.Length ||
-                     pickerIndex >= rotationCenterY.Length ||
-                     pickerIndex >= rotationCenterValid.Length))
-                    gateReason = "rotation-center-array-invalid";
-                if (gateReason == null && !rotationCenterValid[pickerIndex])
-                    gateReason = "rotation-center-invalid";
-
-                ColletCalibrationRecord record = null;
-                if (gateReason == null)
-                {
-                    record = machine.VisionUnit != null &&
-                             machine.VisionUnit.Config != null &&
-                             machine.VisionUnit.Config.CalibrationData != null &&
-                             machine.VisionUnit.Config.CalibrationData.Collet != null
-                        ? machine.VisionUnit.Config.CalibrationData.Collet.GetRecord(
-                            ToVisionFocusPickerSide(side), pickerIndex + 1)
-                        : null;
-                    if (record == null)
-                        gateReason = "collet-record-null";
-                }
-
-                // 콜렛 캘 Valid 게이트(2026-08-25 팀장님 승인 확장): 미캘 레코드는 UpdatedAt이
-                // 안전 초기값(2000-01-01)이라 세대 게이트를 통과해 버리므로 Valid를 함께 본다.
-                if (gateReason == null && !record.Valid)
-                    gateReason = "collet-cal-invalid";
-                // 캘 세대 정합: 콜렛 캘만 재실행하고 COC를 안 돌리면 O만 갱신되어 e=C−O가 세대
-                // 혼합으로 오염된다. COC 저장 시각이 콜렛 캘 저장 시각 이상일 때만 통과.
-                if (gateReason == null && record.RotationCenterUpdatedAt < record.UpdatedAt)
-                    gateReason = "calibration-generation-mismatch";
-
-                if (gateReason == null)
-                {
-                    centerX = rotationCenterX[pickerIndex];
-                    centerY = rotationCenterY[pickerIndex];
-                    originX = record.FinalPickerX;
-                    originY = record.FinalPickerY;
-                    eccentricX = centerX - originX;
-                    eccentricY = centerY - originY;
-
-                    PickerAxis tAxis = CalibrationCoordinateService.ResolvePickerTAxis(pickerIndex);
-                    thetaPickTeaching = InputPickerPickTargetResolver.ResolvePickerTeachingPosition(
-                        machine, side, tAxis, "PickPosition");
-                    thetaCalTeaching = InputPickerPickTargetResolver.ResolvePickerTeachingPosition(
-                        machine, side, tAxis, "BottomPosition");
-                    deltaTheta = NormalizeDegreesPlusMinus180(thetaPickTeaching - thetaCalTeaching);
-                    if (Math.Abs(Math.Abs(deltaTheta) - 180.0) > ColletEccentricMaxDeltaThetaDeviationDeg)
-                        gateReason = "delta-theta-out-of-band";
-                }
-
-                if (gateReason == null)
-                {
-                    double rad = deltaTheta * Math.PI / 180.0;
-                    double cos = Math.Cos(rad);
-                    double sin = Math.Sin(rad);
-                    candidateX = (1.0 - cos) * eccentricX - sin * eccentricY;
-                    candidateY = sin * eccentricX + (1.0 - cos) * eccentricY;
-                    if (Math.Abs(candidateX) > limit || Math.Abs(candidateY) > limit)
-                        gateReason = "magnitude-over-limit";
-                }
-            }
-            catch (Exception ex)
-            {
-                gateReason = "exception:" + ex.GetType().Name;
-            }
-
-            string values =
-                "side=" + side +
-                ", pickerNo=" + ToPickerNo(pickerIndex) +
-                ", C=(" + F(centerX) + "," + F(centerY) + ")" +
-                ", O=(" + F(originX) + "," + F(originY) + ")" +
-                ", e=C-O=(" + F(eccentricX) + "," + F(eccentricY) + ")" +
-                ", thetaPickTeach=" + F(thetaPickTeaching) +
-                ", thetaCalTeach=" + F(thetaCalTeaching) +
-                ", deltaTheta=" + F(deltaTheta) + "(티칭 기준, ±360 정규화)" +
-                ", deltaP=(" + F(candidateX) + "," + F(candidateY) + ")" +
-                ", limit=" + F(limit);
-
-            if (gateReason == null)
-            {
-                compX = candidateX;
-                compY = candidateY;
-                ClearColletEccentricFallbackState(side, pickerIndex);
-                EventLogger.Write(EventKind.Event, "COORD", "PICK-COC-COMP",
-                    "콜렛 편심 픽 보상 적용. " + values + ", gate=pass, formula=deltaP=(I-R(deltaTheta))*(C-O)");
-            }
-            else
-            {
-                WriteColletEccentricFallbackLog(side, pickerIndex, gateReason, values);
-            }
-        }
-
-        private static void WriteColletEccentricFallbackLog(
-            PickerSequenceSide side,
-            int pickerIndex,
-            string gateReason,
-            string values)
-        {
-            string key = side + ":" + pickerIndex;
-            lock (ColletEccentricLogLock)
-            {
-                string lastReason;
-                if (ColletEccentricLastFallbackReasons.TryGetValue(key, out lastReason) &&
-                    string.Equals(lastReason, gateReason, StringComparison.Ordinal))
-                    return;
-                ColletEccentricLastFallbackReasons[key] = gateReason;
-            }
-
-            // 크기 게이트 초과는 측정 불량/구값 방호라 Warning으로 승격한다(지시서 §2 게이트 5).
-            EventKind kind = string.Equals(gateReason, "magnitude-over-limit", StringComparison.Ordinal)
-                ? EventKind.Warning
-                : EventKind.Event;
-            EventLogger.Write(kind, "COORD", "PICK-COC-COMP",
-                "콜렛 편심 픽 보상 0 폴백. reason=" + gateReason + ", " + values +
-                " (같은 사유 반복은 콜렛당 상태 변화 시에만 기록)");
-        }
-
-        private static void ClearColletEccentricFallbackState(PickerSequenceSide side, int pickerIndex)
-        {
-            string key = side + ":" + pickerIndex;
-            lock (ColletEccentricLogLock)
-            {
-                ColletEccentricLastFallbackReasons.Remove(key);
-            }
-        }
-
-        private static double NormalizeDegreesPlusMinus180(double degrees)
-        {
-            double normalized = degrees % 360.0;
-            if (normalized > 180.0)
-                normalized -= 360.0;
-            else if (normalized <= -180.0)
-                normalized += 360.0;
-            return normalized;
         }
 
         private static PickerCalibrationOffset ResolveColletOffset(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)

@@ -1876,6 +1876,49 @@ namespace QMC.CDT320.Sequencing
                     Side == PickerSequenceSide.Front ? VisionFocusPickerSide.Front : VisionFocusPickerSide.Rear,
                     ToPickerIndex(4));
 
+                // 촬영각 프레임 변환 재료(2026-08-25 팀장님 지시): 회전중심 C는 실사용 저장소인
+                // 픽커 유닛 Config에서 읽고, 세대 정합(콜렛 캘 재실행 후 COC 미실행 방지)은
+                // 레코드 시각(RotationCenterUpdatedAt ≥ UpdatedAt)으로 판정한다.
+                double rotationCenterX = 0.0;
+                double rotationCenterY = 0.0;
+                bool rotationCenterUsable = false;
+                int colletIndex = target.PickerIndex;
+                if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
+                {
+                    double[] rcx = FrontPicker.Config.ColletRotationCenterX;
+                    double[] rcy = FrontPicker.Config.ColletRotationCenterY;
+                    bool[] rcv = FrontPicker.Config.ColletRotationCenterValid;
+                    if (rcx != null && rcy != null && rcv != null &&
+                        colletIndex >= 0 && colletIndex < rcx.Length && colletIndex < rcy.Length && colletIndex < rcv.Length)
+                    {
+                        rotationCenterX = rcx[colletIndex];
+                        rotationCenterY = rcy[colletIndex];
+                        rotationCenterUsable = rcv[colletIndex];
+                    }
+                }
+                else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null)
+                {
+                    double[] rcx = RearPicker.Config.ColletRotationCenterX;
+                    double[] rcy = RearPicker.Config.ColletRotationCenterY;
+                    bool[] rcv = RearPicker.Config.ColletRotationCenterValid;
+                    if (rcx != null && rcy != null && rcv != null &&
+                        colletIndex >= 0 && colletIndex < rcx.Length && colletIndex < rcy.Length && colletIndex < rcv.Length)
+                    {
+                        rotationCenterX = rcx[colletIndex];
+                        rotationCenterY = rcy[colletIndex];
+                        rotationCenterUsable = rcv[colletIndex];
+                    }
+                }
+
+                rotationCenterUsable = rotationCenterUsable &&
+                    collet != null && collet.Valid &&
+                    collet.RotationCenterUpdatedAt >= collet.UpdatedAt;
+
+                PickerAxis shootTAxis = GetPickerTAxis(target.PickerIndex);
+                double shootDeltaThetaTeachingDeg =
+                    GetPickerTeachingPosition(shootTAxis, "PickPosition") -
+                    GetPickerTeachingPosition(shootTAxis, "BottomPosition");
+
                 PickRuntimeOffsetService.OnBottomInspectionOffset(
                     Side,
                     target.PickerNo,
@@ -1883,6 +1926,11 @@ namespace QMC.CDT320.Sequencing
                     result.OffsetY,
                     result.OffsetT,
                     target.BottomShotPickerYCommand,
+                    target.BottomShotPickerXCommand,
+                    rotationCenterX,
+                    rotationCenterY,
+                    rotationCenterUsable,
+                    shootDeltaThetaTeachingDeg,
                     collet != null ? collet.FinalPickerY : 0.0,
                     collet != null && collet.Valid,
                     basePicker4Collet != null ? basePicker4Collet.FinalPickerY : 0.0,
