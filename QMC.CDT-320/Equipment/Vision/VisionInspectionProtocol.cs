@@ -342,13 +342,15 @@ namespace QMC.CDT320.VisionComm
                  string.Equals(Camera, VisionCameraNames.RearSide, StringComparison.OrdinalIgnoreCase)) &&
                 VisionChannel != 0 && VisionChannel != 1)
                 return Fail("Side CHANNEL은 0 또는 1이어야 합니다. channel=" + VisionChannel, out reason);
-            // [카메라 바코드 2026-08-26] BIN 바코드 판독은 Side 검사와 동일하게 CHANNEL을 샷 인덱스
-            // (0=+오프셋 샷, 1=−오프셋 샷)로 쓴다 — 이 조합만 0/1 허용, 나머지 비SIDE는 기존대로 0 강제.
+            // [카메라 바코드 2026-08-26] BIN/WAFER 바코드 판독은 Side 검사와 동일하게 CHANNEL을 샷
+            // 인덱스(0=+오프셋 샷, 1=−오프셋 샷)로 쓴다 — 이 조합만 0/1 허용, 나머지 비SIDE는 기존대로 0 강제.
             bool binBarcodeTwoShot =
-                string.Equals(Camera, VisionCameraNames.Bin, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(Finder, VisionToolIds.Bin.BinBarcodeReader, StringComparison.Ordinal);
+                (string.Equals(Camera, VisionCameraNames.Bin, StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(Finder, VisionToolIds.Bin.BinBarcodeReader, StringComparison.Ordinal)) ||
+                (string.Equals(Camera, VisionCameraNames.Wafer, StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(Finder, VisionToolIds.Wafer.WaferBarcodeReader, StringComparison.Ordinal));
             if (binBarcodeTwoShot && VisionChannel != 0 && VisionChannel != 1)
-                return Fail("BIN 바코드 2샷 CHANNEL은 0 또는 1이어야 합니다. channel=" + VisionChannel, out reason);
+                return Fail("바코드 2샷 CHANNEL은 0 또는 1이어야 합니다. channel=" + VisionChannel, out reason);
             if (!binBarcodeTwoShot &&
                 !string.Equals(Camera, VisionCameraNames.FrontSide, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(Camera, VisionCameraNames.RearSide, StringComparison.OrdinalIgnoreCase) &&
@@ -461,7 +463,8 @@ namespace QMC.CDT320.VisionComm
                     VisionToolIds.Wafer.FirstReferenceFinder,
                     VisionToolIds.Wafer.SecondReferenceFinder,
                     VisionToolIds.Wafer.DieFinder,
-                    VisionToolIds.Wafer.ScaleFinder);
+                    VisionToolIds.Wafer.ScaleFinder,
+                    VisionToolIds.Wafer.WaferBarcodeReader);
             }
             if (string.Equals(camera, VisionCameraNames.Bottom, StringComparison.OrdinalIgnoreCase))
             {
@@ -539,6 +542,9 @@ namespace QMC.CDT320.VisionComm
 
             if (string.Equals(operation, VisionInspectionOperations.Inspect, StringComparison.OrdinalIgnoreCase))
             {
+                // [카메라 바코드 2026-08-27] WAFER INSPECT는 바코드 판독 도구만 허용.
+                if (string.Equals(camera, VisionCameraNames.Wafer, StringComparison.OrdinalIgnoreCase))
+                    return IsAny(finder, VisionToolIds.Wafer.WaferBarcodeReader);
                 if (string.Equals(camera, VisionCameraNames.Bottom, StringComparison.OrdinalIgnoreCase))
                     return IsAny(finder, VisionToolIds.BottomInspection.SurfaceInspector);
                 if (string.Equals(camera, VisionCameraNames.FrontSide, StringComparison.OrdinalIgnoreCase))
@@ -919,6 +925,10 @@ namespace QMC.CDT320.VisionComm
                     return string.Equals(profile, "BIN_BARCODE", StringComparison.OrdinalIgnoreCase);
                 return string.Equals(profile, "PLACEMENT_POSE", StringComparison.OrdinalIgnoreCase);
             }
+            // [카메라 바코드 2026-08-27] WAFER INSPECT는 바코드 판독뿐 — WAFER_BARCODE 프로파일 전용.
+            if (string.Equals(request.Camera, VisionCameraNames.Wafer, StringComparison.OrdinalIgnoreCase))
+                return string.Equals(request.Finder, VisionToolIds.Wafer.WaferBarcodeReader, StringComparison.Ordinal) &&
+                       string.Equals(profile, "WAFER_BARCODE", StringComparison.OrdinalIgnoreCase);
             return false;
         }
 
@@ -1047,14 +1057,21 @@ namespace QMC.CDT320.VisionComm
                 !string.Equals(status, "FAIL", StringComparison.OrdinalIgnoreCase))
                 return ValidationFail("Inspection RESULT STATUS는 PASS/FAIL이어야 합니다. status=" + status, out error);
 
-            // [카메라 바코드 2026-08-27] BIN_BARCODE는 공통 measure_valid/fail_code 규약보다 먼저 처리한다 —
-            // 이 프로파일의 실패 표현은 fail_reason 키(프로토콜 문서 §2-3)이고 fail_code/fail_message를
-            // 쓰지 않으므로, 공통 measure_valid=0 분기에 태우면 FAIL 응답이 INVALID_PAYLOAD가 된다.
+            // [카메라 바코드 2026-08-27] BIN_BARCODE/WAFER_BARCODE는 공통 measure_valid/fail_code 규약보다
+            // 먼저 처리한다 — 이 프로파일의 실패 표현은 fail_reason 키(프로토콜 문서 §2-3)이고 fail_code/
+            // fail_message를 쓰지 않으므로, 공통 measure_valid=0 분기에 태우면 FAIL 응답이 INVALID_PAYLOAD가 된다.
             if (string.Equals(request.Camera, VisionCameraNames.Bin, StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(request.Finder, VisionToolIds.Bin.BinBarcodeReader, StringComparison.Ordinal))
             {
                 if (!string.Equals(profile, "BIN_BARCODE", StringComparison.OrdinalIgnoreCase))
                     return ValidationFail("BIN 바코드 RESULT profile이 올바르지 않습니다. profile=" + profile, out error);
+                return TryValidateBinBarcodeResult(response, status, out error);
+            }
+            if (string.Equals(request.Camera, VisionCameraNames.Wafer, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(request.Finder, VisionToolIds.Wafer.WaferBarcodeReader, StringComparison.Ordinal))
+            {
+                if (!string.Equals(profile, "WAFER_BARCODE", StringComparison.OrdinalIgnoreCase))
+                    return ValidationFail("WAFER 바코드 RESULT profile이 올바르지 않습니다. profile=" + profile, out error);
                 return TryValidateBinBarcodeResult(response, status, out error);
             }
 
@@ -1092,9 +1109,9 @@ namespace QMC.CDT320.VisionComm
             return ValidationFail("지원하지 않는 Inspection CAMERA입니다. camera=" + request.Camera, out error);
         }
 
-        // [카메라 바코드 2026-08-27] BIN_BARCODE RESULT 페이로드 검증 — 프로토콜 문서 §2-3 기준:
-        // PASS = measure_valid=1 + barcode 비어있지 않음. FAIL = fail_reason 필수(barcode 빈 값 허용).
-        // decoded_shot/shot_count/symbology/score는 정보성 키라 하드 요구하지 않는다(로그로만 소비).
+        // [카메라 바코드 2026-08-27] BIN_BARCODE/WAFER_BARCODE RESULT 페이로드 검증(키 규약 동일) —
+        // 프로토콜 문서 §2-3 기준: PASS = measure_valid=1 + barcode 비어있지 않음. FAIL = fail_reason 필수
+        // (barcode 빈 값 허용). decoded_shot/shot_count/symbology/score는 정보성 키라 하드 요구하지 않는다.
         private static bool TryValidateBinBarcodeResult(VisionProtocolResponse response, string status, out string error)
         {
             error = string.Empty;

@@ -541,6 +541,13 @@ namespace QMC.CDT320.Sequencing
                     : 3000;
                 int retryCount = Math.Max(0, settings.InputBarcodeRetryCount);
                 double retryStepMm = Math.Abs(settings.InputBarcodeRetryStepMm);
+                // [카메라 바코드 2026-08-27 팀장님 지시] 판독 소스 옵션(Output 미러) — false=시리얼 리더(기존),
+                // true=WAFER 카메라 2샷(티칭±오프셋 촬영 → 비전 PC WaferBarcodeReader 디코드).
+                bool useCameraBarcode = settings.InputBarcodeUseCamera;
+                double cameraShotOffsetMm = Math.Abs(settings.InputBarcodeCameraShotOffsetMm);
+                int cameraResultTimeoutMs = settings.InputBarcodeCameraResultTimeoutMs > 0
+                    ? settings.InputBarcodeCameraResultTimeoutMs
+                    : 5000;
                 int totalAttempts = 0;
                 string lastFailure = string.Empty;
 
@@ -548,11 +555,14 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    IBarcodeReader reader = Context != null && Context.Machine != null
+                    IBarcodeReader reader = !useCameraBarcode && Context != null && Context.Machine != null
                         ? Context.Machine.WaferBarcodeReader
                         : null;
                     string readerFailure;
-                    if (!TryEnsureInputBarcodeReaderReady(reader, out readerFailure))
+                    bool sourceReady = useCameraBarcode
+                        ? TryEnsureInputBarcodeVisionReady(out readerFailure)
+                        : TryEnsureInputBarcodeReaderReady(reader, out readerFailure);
+                    if (!sourceReady)
                     {
                         // Reader가 연결되지 않은 경우에는 어떤 축도 움직이지 않고 작업자 복구를 받는다.
                         BarcodeRecoveryResponse unavailableResponse = await RequestInputBarcodeRecoveryAsync(
@@ -602,6 +612,7 @@ namespace QMC.CDT320.Sequencing
                         stageBaseTarget,
                         retryCount,
                         retryStepMm,
+                        useCameraBarcode ? cameraShotOffsetMm : 0.0,
                         out targetReason))
                     {
                         return Fail("IN-BARCODE-STAGE-Y-TEACH", stage.Name,
@@ -648,6 +659,34 @@ namespace QMC.CDT320.Sequencing
                         ct.ThrowIfCancellationRequested();
 
                         double offset = ResolveBarcodeRetryOffset(attemptIndex, retryStepMm);
+
+                        // [카메라 바코드 2026-08-27] 카메라 모드: 시도당 2샷 쌍(티칭+retry오프셋 기준
+                        // +샷오프셋/−샷오프셋)을 비전에 보내고 집계 RESULT의 barcode를 회수한다(Output 미러).
+                        // 이동 실패 등 하드 실패는 즉시 시퀀스 실패, 디코드 실패는 기존
+                        // 재시도/복구 다이얼로그 흐름으로 합류한다.
+                        if (useCameraBarcode)
+                        {
+                            totalAttempts++;
+                            CameraBarcodeReadOutcome camOutcome = await ReadInputBarcodeByCameraPairAsync(
+                                stage,
+                                wafer,
+                                stageBaseTarget + offset,
+                                cameraShotOffsetMm,
+                                readTimeoutMs,
+                                cameraResultTimeoutMs,
+                                totalAttempts,
+                                ct).ConfigureAwait(false);
+                            if (camOutcome.HardFailResult != 0)
+                                return camOutcome.HardFailResult;
+
+                            barcode = camOutcome.Barcode;
+                            if (IsUsableBarcode(barcode))
+                                break;
+
+                            lastFailure = camOutcome.Failure;
+                            continue;
+                        }
+
                         double stageTarget = stageBaseTarget + offset;
                         if (!IsInputStageAxisReadyAt(stage, WaferStageAxis.WaferY, stageTarget))
                         {
@@ -1029,11 +1068,131 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // ── [카메라 바코드 2026-08-27 팀장님 지시] WAFER 카메라 2샷 판독(Output BIN 미러) ────────
+        // 프로토콜: 비전PC_BIN바코드_2샷판독_프로토콜_수정지시_프롬프트_2026-08-26.md (WAFER 확장).
+        // CHANNEL=샷 인덱스(0=+오프셋/1=−오프셋), 두 샷 같은 group_id, EPD 후 WaferY 이동,
+        // ch1 EPD 후 집계 RESULT(profile=WAFER_BARCODE) 1회 수신.
+
+        private sealed class CameraBarcodeReadOutcome
+        {
+            /// <summary>0이 아니면 하드 실패(축 이동 등) — 시퀀스가 이 값을 그대로 반환한다.</summary>
+            public int HardFailResult;
+            public string Barcode = string.Empty;
+            public string Failure = string.Empty;
+        }
+
+        private static bool TryEnsureInputBarcodeVisionReady(out string reason)
+        {
+            // 프로토콜 공용부(BinBarcodeCameraReader)로 위임 — 수동 테스트 UI와 공유.
+            return QMC.CDT320.VisionComm.BinBarcodeCameraReader.IsVisionReady(
+                QMC.CDT320.VisionComm.AutoVisionChannel.Wafer, out reason);
+        }
+
+        /// <summary>티칭+retry 오프셋 기준 WaferY [+샷오프셋 → ch0 촬영/EPD → −샷오프셋 → ch1 촬영/EPD]
+        /// 2샷을 보내고 집계 RESULT의 barcode를 회수한다. 디코드 실패/EPD 실패/RESULT 타임아웃은
+        /// soft 실패(Failure 사유만 채움 — 기존 재시도·복구 다이얼로그 흐름으로 합류)이고,
+        /// WaferY 이동 실패만 하드 실패(HardFailResult)로 즉시 시퀀스를 세운다.</summary>
+        private async Task<CameraBarcodeReadOutcome> ReadInputBarcodeByCameraPairAsync(
+            InputStageUnit stage,
+            WaferMaterial wafer,
+            double pairBaseTarget,
+            double shotOffsetMm,
+            int epdTimeoutMs,
+            int resultTimeoutMs,
+            int attemptNo,
+            CancellationToken ct)
+        {
+            var outcome = new CameraBarcodeReadOutcome();
+            string groupId = QMC.CDT320.VisionComm.BinBarcodeCameraReader.NewGroupId();
+            string waferId = wafer != null ? (wafer.WaferId ?? string.Empty) : string.Empty;
+
+            QMC.CDT320.VisionComm.VisionRequestHandle lastHandle = null;
+            for (int shot = 0; shot <= 1; shot++)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                double shotTarget = shot == 0
+                    ? pairBaseTarget + shotOffsetMm
+                    : pairBaseTarget - shotOffsetMm;
+                if (!IsInputStageAxisReadyAt(stage, WaferStageAxis.WaferY, shotTarget))
+                {
+                    int stageMove = await AwaitStepWithCancellationAsync(
+                        stage.MoveInputStageAxis(WaferStageAxis.WaferY, shotTarget, Options.FineMove),
+                        ct).ConfigureAwait(false);
+                    if (stageMove != 0 || !IsInputStageAxisReadyAt(stage, WaferStageAxis.WaferY, shotTarget))
+                    {
+                        outcome.HardFailResult = await FailInputBarcodeWithAvoidRecoveryAsync(
+                            stage,
+                            "IN-BARCODE-STAGE-Y",
+                            "Input Wafer 카메라 바코드 StageY 샷 위치 이동/확인 실패. attempt=" + attemptNo +
+                            ", shot=" + shot +
+                            ", target=" + shotTarget.ToString("F3") +
+                            ", result=" + stageMove + ", " +
+                            BuildStageAxisState(stage, WaferStageAxis.WaferY, shotTarget)).ConfigureAwait(false);
+                        return outcome;
+                    }
+                }
+
+                // 샷 요청/EPD는 프로토콜 공용부로 위임(수동 테스트 UI와 동일 코드).
+                QMC.CDT320.VisionComm.VisionRequestHandle handle =
+                    await QMC.CDT320.VisionComm.BinBarcodeCameraReader.SendShotAsync(
+                        QMC.CDT320.VisionComm.AutoVisionChannel.Wafer,
+                        QMC.CDT320.VisionComm.VisionToolIds.Wafer.WaferBarcodeReader,
+                        "WAFER", shot, groupId, waferId, epdTimeoutMs, ct).ConfigureAwait(false);
+                if (handle == null)
+                {
+                    outcome.Failure = "WAFER 카메라 바코드 샷 요청/EPD 실패. attempt=" + attemptNo +
+                        ", shot=" + shot + ", groupId=" + groupId;
+                    return outcome;
+                }
+
+                lastHandle = handle;
+                WriteLog(Name,
+                    "Input Wafer 카메라 바코드 샷 EPD 완료. attempt=" + attemptNo +
+                    ", shot=" + shot +
+                    ", waferY=" + shotTarget.ToString("F3") +
+                    ", requestToEpdMs=" + handle.RequestToExposureDoneMs.ToString("F1") +
+                    ", groupId=" + groupId + " - Ok");
+            }
+
+            // 집계 RESULT 회수/정규화는 프로토콜 공용부로 위임.
+            QMC.CDT320.VisionComm.BinBarcodeCameraResult result =
+                await QMC.CDT320.VisionComm.BinBarcodeCameraReader.WaitAggregateResultAsync(
+                    lastHandle, resultTimeoutMs, ct).ConfigureAwait(false);
+            if (string.Equals(result.FailReason, "RESULT_TIMEOUT", StringComparison.Ordinal) &&
+                string.IsNullOrEmpty(result.Status))
+            {
+                outcome.Failure = "WAFER 카메라 바코드 집계 RESULT 미수신(타임아웃/오류). attempt=" + attemptNo +
+                    ", timeoutMs=" + resultTimeoutMs + ", groupId=" + groupId;
+                return outcome;
+            }
+
+            WriteLog(Name,
+                "Input Wafer 카메라 바코드 집계 RESULT 수신. attempt=" + attemptNo +
+                ", status=" + (string.IsNullOrEmpty(result.Status) ? "-" : result.Status) +
+                ", barcode=" + (string.IsNullOrEmpty(result.Barcode) ? "-" : result.Barcode) +
+                ", decodedShot=" + (string.IsNullOrEmpty(result.DecodedShot) ? "-" : result.DecodedShot) +
+                ", failReason=" + (string.IsNullOrWhiteSpace(result.FailReason) ? "-" : result.FailReason) +
+                ", groupId=" + groupId + (result.Pass ? " - Ok" : " - Check"));
+
+            if (result.Pass && IsUsableBarcode(result.Barcode))
+            {
+                outcome.Barcode = result.Barcode;
+                return outcome;
+            }
+
+            outcome.Failure = "WAFER 카메라 바코드 디코드 실패. attempt=" + attemptNo +
+                ", status=" + (string.IsNullOrEmpty(result.Status) ? "-" : result.Status) +
+                ", failReason=" + (string.IsNullOrWhiteSpace(result.FailReason) ? "-" : result.FailReason);
+            return outcome;
+        }
+
         private static bool ValidateInputBarcodeStageYTargets(
             BaseAxis stageY,
             double baseTarget,
             int retryCount,
             double retryStepMm,
+            double extraShotOffsetMm,
             out string reason)
         {
             reason = string.Empty;
@@ -1047,15 +1206,27 @@ namespace QMC.CDT320.Sequencing
             for (int attemptIndex = 0; attemptIndex < scanCount; attemptIndex++)
             {
                 double offset = ResolveBarcodeRetryOffset(attemptIndex, Math.Abs(retryStepMm));
-                double target = baseTarget + offset;
-                if (stageY.Setup.SoftLimitEnabled &&
-                    (target < stageY.Setup.SoftLimitMinus || target > stageY.Setup.SoftLimitPlus))
+                // [카메라 바코드 2026-08-27] 카메라 2샷 모드는 시도 기준 위치에서 ±샷오프셋 두 위치를
+                // 실제로 방문하므로, 소프트리밋 사전 검증도 그 두 위치까지 포함한다(리더 모드=0).
+                double[] targets = extraShotOffsetMm > 0.0
+                    ? new[]
+                    {
+                        baseTarget + offset + extraShotOffsetMm,
+                        baseTarget + offset - extraShotOffsetMm
+                    }
+                    : new[] { baseTarget + offset };
+                foreach (double target in targets)
                 {
-                    reason = "attempt=" + (attemptIndex + 1) +
-                        ", target=" + target.ToString("F3") +
-                        ", softLimitMinus=" + stageY.Setup.SoftLimitMinus.ToString("F3") +
-                        ", softLimitPlus=" + stageY.Setup.SoftLimitPlus.ToString("F3");
-                    return false;
+                    if (stageY.Setup.SoftLimitEnabled &&
+                        (target < stageY.Setup.SoftLimitMinus || target > stageY.Setup.SoftLimitPlus))
+                    {
+                        reason = "attempt=" + (attemptIndex + 1) +
+                            ", target=" + target.ToString("F3") +
+                            ", shotOffsetMm=" + extraShotOffsetMm.ToString("F3") +
+                            ", softLimitMinus=" + stageY.Setup.SoftLimitMinus.ToString("F3") +
+                            ", softLimitPlus=" + stageY.Setup.SoftLimitPlus.ToString("F3");
+                        return false;
+                    }
                 }
             }
 

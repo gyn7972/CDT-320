@@ -6,9 +6,10 @@ using QMC.CDT320.Materials;
 namespace QMC.CDT320.VisionComm
 {
     /// <summary>
-    /// [카메라 바코드 2026-08-27] BIN 카메라 2샷 바코드 판독 프로토콜 공용부 — 샷 요청(EPD까지)과
-    /// 집계 RESULT(profile=BIN_BARCODE) 회수/정규화만 담당한다. 축 이동·재시도·복구는 호출자
-    /// (자동: OutputFeederLoadToStageSequence, 수동 테스트: OutputStageRecipePage MANUAL ACTION) 책임.
+    /// [카메라 바코드 2026-08-27] 카메라 2샷 바코드 판독 프로토콜 공용부 — 샷 요청(EPD까지)과
+    /// 집계 RESULT(profile=BIN_BARCODE/WAFER_BARCODE) 회수/정규화만 담당한다. 축 이동·재시도·복구는
+    /// 호출자(자동: Output/InputFeederLoadToStageSequence, 수동 테스트: Output/InputStageRecipePage
+    /// MANUAL ACTION) 책임. 기본 시그니처는 BIN 고정, 채널/도구 지정 오버로드로 WAFER(인풋)도 공용.
     /// 와이어 규약: 비전PC_BIN바코드_2샷판독_프로토콜_수정지시_프롬프트_2026-08-26.md (리포 루트).
     /// </summary>
     public sealed class BinBarcodeCameraResult
@@ -26,19 +27,25 @@ namespace QMC.CDT320.VisionComm
         /// <summary>BIN Vision 명령 채널 연결 확인(카메라 바코드 모드 전제).</summary>
         public static bool IsVisionReady(out string reason)
         {
+            return IsVisionReady(AutoVisionChannel.Bin, out reason);
+        }
+
+        /// <summary>지정 Vision 명령 채널 연결 확인(카메라 바코드 모드 전제) — 인풋은 Wafer 채널.</summary>
+        public static bool IsVisionReady(AutoVisionChannel channel, out string reason)
+        {
             reason = string.Empty;
             try
             {
-                VisionTcpClient client = VisionCommandService.ResolveInspectionClient(AutoVisionChannel.Bin);
+                VisionTcpClient client = VisionCommandService.ResolveInspectionClient(channel);
                 if (client != null && client.IsConnected)
                     return true;
 
-                reason = "BIN 카메라 Vision 명령 채널이 연결되어 있지 않습니다(카메라 바코드 모드).";
+                reason = channel + " 카메라 Vision 명령 채널이 연결되어 있지 않습니다(카메라 바코드 모드).";
                 return false;
             }
             catch (Exception ex)
             {
-                reason = "BIN 카메라 Vision 연결 확인 예외. error=" + ex.Message;
+                reason = channel + " 카메라 Vision 연결 확인 예외. error=" + ex.Message;
                 return false;
             }
         }
@@ -51,7 +58,24 @@ namespace QMC.CDT320.VisionComm
         /// <summary>샷 1회 요청 — 반환 시점에 EPD 수신 완료(핸들러는 이후 StageY를 움직여도 된다).
         /// null이면 요청/EPD 실패. headSide="GOOD"/"NG"(스테이지 사이드), shot=0(+오프셋)/1(−오프셋),
         /// 두 샷은 같은 groupId를 써야 비전이 한 그룹으로 누적한다.</summary>
+        public static Task<VisionRequestHandle> SendShotAsync(
+            string headSide,
+            int shot,
+            string groupId,
+            string waferId,
+            int epdTimeoutMs,
+            CancellationToken ct)
+        {
+            return SendShotAsync(
+                AutoVisionChannel.Bin, VisionToolIds.Bin.BinBarcodeReader,
+                headSide, shot, groupId, waferId, epdTimeoutMs, ct);
+        }
+
+        /// <summary>채널/판독 도구 지정 오버로드 — 인풋 웨이퍼 바코드는
+        /// (AutoVisionChannel.Wafer, VisionToolIds.Wafer.WaferBarcodeReader, headSide="WAFER").</summary>
         public static async Task<VisionRequestHandle> SendShotAsync(
+            AutoVisionChannel channel,
+            string finder,
             string headSide,
             int shot,
             string groupId,
@@ -65,9 +89,9 @@ namespace QMC.CDT320.VisionComm
             string lotId = MaterialStateService.GetProductionLotId();
 
             var shotContext = new VisionInspectionRequestContext(
-                AutoVisionChannel.Bin,
-                VisionToolIds.Bin.BinBarcodeReader,
-                -1,                     // fb 미사용 — HEAD는 headOverride(GOOD/NG)
+                channel,
+                finder,
+                -1,                     // fb 미사용 — HEAD는 headOverride(GOOD/NG/WAFER)
                 1,                      // HEAD_INDEX 고정 1 (프로토콜 §2-1)
                 0, 0, 0,                // DIE_INDEX, GRID_X, GRID_Y
                 shot,                   // CHANNEL = 샷 인덱스

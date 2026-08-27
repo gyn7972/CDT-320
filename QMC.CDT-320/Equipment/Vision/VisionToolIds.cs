@@ -24,6 +24,9 @@
             public const string SecondReferenceFinder = "SecondReferenceFinder";
             public const string DieFinder = "DieFinder";
             public const string ScaleFinder = "ScaleFinder";
+            /// <summary>[카메라 바코드 2026-08-27] WAFER 카메라 2샷 바코드 판독 도구 — BIN
+            /// BinBarcodeReader와 동일 규약(프로파일 WAFER_BARCODE), 인풋 웨이퍼(링) 바코드용.</summary>
+            public const string WaferBarcodeReader = "WaferBarcodeReader";
         }
 
         public static class Bin

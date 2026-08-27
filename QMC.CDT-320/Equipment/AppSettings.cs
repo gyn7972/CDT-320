@@ -93,6 +93,13 @@ namespace QMC.CDT320
         [DataMember] public bool   UseInputWaferBarcode { get; set; } = false;
         /// <summary>Output Bin 로딩 중 바코드 읽기 사용 여부.</summary>
         [DataMember] public bool   UseOutputBinBarcode { get; set; } = false;
+        /// <summary>[카메라 바코드 2026-08-27] Input Wafer 바코드 판독 소스 — false=시리얼 리더(기존),
+        /// true=WAFER 카메라 2샷(티칭±오프셋, 비전 PC WaferBarcodeReader 디코드). Output과 동일 규약.</summary>
+        [DataMember] public bool   InputBarcodeUseCamera { get; set; } = false;
+        /// <summary>Input 카메라 2샷 판독 시 바코드 티칭 위치 기준 WaferY ± 샷 오프셋(mm). 기본 5.</summary>
+        [DataMember] public double InputBarcodeCameraShotOffsetMm { get; set; } = 5.000;
+        /// <summary>Input 카메라 2샷 판독 시 2샷 EPD 완료 후 집계 RESULT 대기 상한(ms).</summary>
+        [DataMember] public int    InputBarcodeCameraResultTimeoutMs { get; set; } = 5000;
         /// <summary>[카메라 바코드 2026-08-26] Output Bin 바코드 판독 소스 — false=시리얼 리더(기존),
         /// true=BIN 카메라 2샷(티칭±오프셋, 비전 PC BinBarcodeReader 디코드).</summary>
         [DataMember] public bool   OutputBarcodeUseCamera { get; set; } = false;
@@ -251,6 +258,9 @@ namespace QMC.CDT320
             UseRealVisionInSimulation = true;
             UseInputWaferBarcode = false;
             UseOutputBinBarcode = false;
+            InputBarcodeUseCamera = false;
+            InputBarcodeCameraShotOffsetMm = 5.000;
+            InputBarcodeCameraResultTimeoutMs = 5000;
             OutputBarcodeUseCamera = false;
             OutputBarcodeCameraShotOffsetMm = 5.000;
             OutputBarcodeCameraResultTimeoutMs = 5000;
@@ -303,6 +313,11 @@ namespace QMC.CDT320
                 OutputBarcodeCameraShotOffsetMm = 5.000;
             OutputBarcodeCameraShotOffsetMm = Math.Min(50.000, OutputBarcodeCameraShotOffsetMm);
             OutputBarcodeCameraResultTimeoutMs = Math.Max(500, Math.Min(60000, OutputBarcodeCameraResultTimeoutMs));
+            if (double.IsNaN(InputBarcodeCameraShotOffsetMm) || double.IsInfinity(InputBarcodeCameraShotOffsetMm) ||
+                InputBarcodeCameraShotOffsetMm <= 0)
+                InputBarcodeCameraShotOffsetMm = 5.000;
+            InputBarcodeCameraShotOffsetMm = Math.Min(50.000, InputBarcodeCameraShotOffsetMm);
+            InputBarcodeCameraResultTimeoutMs = Math.Max(500, Math.Min(60000, InputBarcodeCameraResultTimeoutMs));
             InputBarcodeTriggerCommand = InputBarcodeTriggerCommand ?? "";
             OutputBarcodeTriggerCommand = OutputBarcodeTriggerCommand ?? "";
             // 구버전 설정 파일(필드 없음 → 0 역직렬화) 포함 안전 범위 클램프.

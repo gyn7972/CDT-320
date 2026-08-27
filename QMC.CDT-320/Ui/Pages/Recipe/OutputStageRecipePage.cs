@@ -574,7 +574,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             bool useCamera = settings.OutputBarcodeUseCamera;
 
             // 1) VisionX → Barcode 티칭 위치 (자동 시퀀스 공통부 미러 — 공유레일 클리어 가드 포함)
-            int r = await MoveVisionSequenceAsync("Barcode").ConfigureAwait(true);
+            // [바코드 테스트 속도 2026-08-27 팀장님 지시] VisionX는 조그 속도(FINE 10mm/s) 대신
+            // 수동 시퀀스 속도(%)로 이동 — 원거리(수백 mm) 이동이 너무 느린 문제 해소.
+            int r = await MoveVisionBarcodeWithManualSequenceSpeedAsync().ConfigureAwait(true);
             if (r != 0)
                 return r;
 
@@ -995,6 +997,38 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 positionName,
                 jogAxisMoveControl.SelectedSpeedType,
                 jogSpeedControl.SpeedPercent);
+        }
+
+        // [바코드 테스트 속도 2026-08-27 팀장님 지시] 바코드 테스트 전용 VisionX 이동 — 가드는
+        // MoveVisionSequenceAsync와 동일(HOME END + 공유레일 클리어)하되, 속도만 조그 대신
+        // 수동 시퀀스 속도(%)(DefaultVelocity × ManualSequencePercent, Manual Sequence 화면에서 조정)로
+        // 이동한다. 이동 자체는 자동 바코드 경로와 같은 MoveVisionXToTargetAndVerifyAsync 재사용.
+        // 다른 VISION AVOID/PROCESS/RETICLE 버튼은 기존 조그 속도 유지.
+        private async Task<int> MoveVisionBarcodeWithManualSequenceSpeedAsync()
+        {
+            const string title = "VISION BARCODE";
+            if (_outputStageUnit == null)
+                return -1;
+
+            string reason;
+            if (!_outputStageUnit.IsStageAxisHomeDone(BinStageAxis.VisionX))
+                return AbortSeq(title, BinStageAxis.VisionX + " 원점복귀 필요");
+            if (!CheckVisionXClear(out reason))
+                return AbortSeq(title, "VISION X 전 " + reason);
+
+            double target = _outputStageUnit.GetStageTeachingPosition(BinStageAxis.VisionX, "Barcode");
+            QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageRecipePage",
+                title + " VisionX 수동 시퀀스 속도 이동. target=" + target.ToString("F3") +
+                ", manualSequencePercent=" + MotionSpeedScale.ManualSequencePercent.ToString("0.###") + " - Start");
+            int r;
+            using (MotionSpeedScale.BeginManualSequenceScale())
+            {
+                r = await _outputStageUnit.MoveVisionXToTargetAndVerifyAsync(
+                    target, 60000, false, System.Threading.CancellationToken.None).ConfigureAwait(true);
+            }
+            if (r != 0)
+                return AbortSeq(title, "VISION X 이동 실패 (공유레일 확인). result=" + r);
+            return 0;
         }
 
         private Task<int> MoveStageAxisWithSelectedSpeedAsync(BinStageAxis axis, double target)

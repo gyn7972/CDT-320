@@ -469,6 +469,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     ManualActionItem.Create("READY POSITION", () => ConfirmAndRunAsync("READY POSITION", MoveReadySequenceAsync)),
                     ManualActionItem.Create("PROCESS POSITION", () => ConfirmAndRunAsync("PROCESS POSITION", MoveProcessSequenceAsync)),
                     ManualActionItem.Create("RETICLE POSITION", () => ConfirmAndRunAsync("RETICLE POSITION", MoveReticleSequenceAsync)),
+                    // [바코드 테스트 2026-08-27 팀장님 지시] Output GOOD BARCODE READ와 동일한 단독 판독 테스트.
+                    ManualActionItem.Create("BARCODE READ", () => ConfirmAndRunAsync("BARCODE READ", ReadWaferBarcodeManualAsync)),
                     //ManualActionItem.Create("PICK TEST", () => ConfirmAndRunAsync("PICK TEST", PickTestAsync))
                 });
             }
@@ -1062,6 +1064,161 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
 
         // 마지막 시퀀스 중단 사유 — 실행 래퍼(ConfirmAndRunAsync)의 실패 팝업에 합쳐서 표시
+        // ── [바코드 테스트 2026-08-27 팀장님 지시] MANUAL ACTION 바코드 판독 (Output GOOD READ 미러) ──
+        // 자동 시퀀스(InputFeederLoadToStageSequence.RunBarcodeSequence)와 동일 순서를 수동으로 1회:
+        // NeedleZ/EjectPinZ Avoid → ExpanderZ Process(평면 이동 인터락 유지 — 자동 경로 IN-BARCODE-STAGE-Z
+        // 미러) → WAFER Y → Barcode 티칭(Config 깔때기) → VISION X → Barcode 티칭 → 판독 소스 분기:
+        //   [리더]  WaferBarcodeReader(시리얼) 현 위치 1회 판독
+        //   [카메라] WaferY 티칭+샷오프셋 → ch0 샷/EPD → 티칭−샷오프셋 → ch1 샷/EPD →
+        //            집계 RESULT(WAFER_BARCODE) 회수 — 프로토콜 공용부(BinBarcodeCameraReader) 공용.
+        // 이동/전제 실패만 AbortStage(공통 실패 처리), 판독 실패는 결과 다이얼로그로 종결(1회 테스트).
+        private async Task<int> ReadWaferBarcodeManualAsync()
+        {
+            const string title = "BARCODE READ";
+            if (_InputStageUnit == null)
+                return -1;
+
+            CDT320_Machine machine = FindMachine();
+            string reason;
+            int r;
+
+            // 0) NeedleZ/EjectPinZ는 무조건 Avoid로 후퇴(평면 이동 전 공통 선행 — 기존 수동 시퀀스 패턴).
+            if ((r = await MoveNeedleAndEjectZAsync(StagePositionKind.Avoid, title)) != 0)
+                return r;
+
+            // 1) ExpanderZ → Process 높이(자동 바코드 경로 미러 — StageY/CameraX 평면 이동 인터락 유지).
+            double expanderZTarget = _InputStageUnit.Recipe != null && _InputStageUnit.Recipe.WaferZ != null
+                ? _InputStageUnit.Recipe.WaferZ.ProcessPosition
+                : 0.0;
+            r = await _InputStageUnit.MoveInputStageAxis(WaferStageAxis.WaferExpandingZ, expanderZTarget, false).ConfigureAwait(true);
+            if (r != 0)
+                return AbortStage(title, "EXPANDER Z Process 이동 실패. result=" + r);
+
+            // 2) WAFER Y → Barcode 티칭(Config 깔때기 — 표시값=사용값).
+            if (!CheckStagePlaneInterlock(machine, false, out reason))
+                return AbortStage(title, "WAFER Y 전 " + reason);
+            if (await StepMoveKindAsync(StagePositionKind.Barcode, "WAFER Y") != 0)
+                return AbortStage(title, "WAFER Y Barcode 이동 실패");
+
+            // 3) VISION X → Barcode 티칭.
+            // [바코드 테스트 속도 2026-08-27 팀장님 지시] VisionX는 조그 속도(FINE 10mm/s) 대신
+            // 수동 시퀀스 속도(%)(DefaultVelocity × ManualSequencePercent, Manual Sequence 화면에서
+            // 조정)로 이동 — 원거리 이동이 너무 느린 문제 해소. 이동 경로는 자동 바코드 시퀀스와
+            // 동일한 MoveInputStageAxis(bFine=false), 목표는 Config 깔때기(표시값=사용값).
+            double visionBarcodeTarget = _InputStageUnit.GetBarcodeTeachingPosition(WaferStageAxis.VisionX);
+            QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRecipePage",
+                title + " VisionX 수동 시퀀스 속도 이동. target=" + visionBarcodeTarget.ToString("F3") +
+                ", manualSequencePercent=" + MotionSpeedScale.ManualSequencePercent.ToString("0.###") + " - Start");
+            using (MotionSpeedScale.BeginManualSequenceScale())
+            {
+                r = await _InputStageUnit.MoveInputStageAxis(
+                    WaferStageAxis.VisionX, visionBarcodeTarget, false).ConfigureAwait(true);
+            }
+            if (r != 0)
+                return AbortStage(title, "VISION X Barcode 이동 실패. result=" + r);
+
+            AppSettings settings = AppSettingsStore.Current ?? new AppSettings();
+            if (settings.InputBarcodeUseCamera)
+                return await ReadWaferBarcodeByCameraManualAsync(title, settings).ConfigureAwait(true);
+
+            // 4) 시리얼 리더 1회 판독.
+            IBarcodeReader reader = machine != null ? machine.WaferBarcodeReader : null;
+            if (reader == null)
+                return AbortStage(title, "Input Wafer barcode reader가 구성되지 않았습니다.");
+
+            try
+            {
+                if (!reader.IsConnected && (!reader.TryOpen() || !reader.IsConnected))
+                    return AbortStage(title, "barcode reader 연결 실패. reader=" + reader.ReaderName);
+
+                int timeoutMs = settings.InputBarcodeReadTimeoutMs > 0
+                    ? settings.InputBarcodeReadTimeoutMs
+                    : 3000;
+                string value = await reader.ReadAsync(timeoutMs).ConfigureAwait(true);
+                bool ok = !string.IsNullOrWhiteSpace(value);
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRecipePage",
+                    title + " 리더 판독 결과. reader=" + reader.ReaderName +
+                    ", barcode=" + (ok ? value : "-") + (ok ? " - Ok" : " - Check"));
+                QMC.Common.MessageDialog.Show(this,
+                    ok
+                        ? title + " 성공 (리더)\r\nbarcode = " + value
+                        : title + " 판독 실패/타임아웃 (리더)\r\nreader = " + reader.ReaderName +
+                          ", timeoutMs = " + timeoutMs,
+                    title, MessageBoxButtons.OK, ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return AbortStage(title, "리더 판독 예외: " + ex.Message);
+            }
+        }
+
+        // [카메라 바코드 2026-08-27] Output ReadBinBarcodeByCameraManualAsync 미러(WAFER 채널) —
+        // WaferY 샷 이동은 기존 수동 단일 경로 MoveAxisAsync(HOME 가드·속도 선택 포함) 재사용.
+        private async Task<int> ReadWaferBarcodeByCameraManualAsync(string title, AppSettings settings)
+        {
+            string visionReason;
+            if (!QMC.CDT320.VisionComm.BinBarcodeCameraReader.IsVisionReady(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.Wafer, out visionReason))
+                return AbortStage(title, visionReason);
+
+            StageTeachingPosition basePosition = FindKindPosition(StagePositionKind.Barcode, "WAFER Y");
+            if (basePosition == null)
+                return AbortStage(title, "WAFER Y Barcode 티칭 항목을 찾을 수 없습니다.");
+            double baseY = basePosition.GetValue(_InputStageUnit);   // Config 깔때기(0→구 Recipe 폴백)
+            double shotOffsetMm = Math.Abs(settings.InputBarcodeCameraShotOffsetMm);
+            int epdTimeoutMs = settings.InputBarcodeReadTimeoutMs > 0
+                ? settings.InputBarcodeReadTimeoutMs
+                : 3000;
+            int resultTimeoutMs = settings.InputBarcodeCameraResultTimeoutMs > 0
+                ? settings.InputBarcodeCameraResultTimeoutMs
+                : 5000;
+
+            string groupId = QMC.CDT320.VisionComm.BinBarcodeCameraReader.NewGroupId();
+            QMC.CDT320.VisionComm.VisionRequestHandle lastHandle = null;
+            for (int shot = 0; shot <= 1; shot++)
+            {
+                double shotTarget = shot == 0 ? baseY + shotOffsetMm : baseY - shotOffsetMm;
+                int moveResult = await MoveAxisAsync(_InputStageUnit.StageY, shotTarget).ConfigureAwait(true);
+                if (moveResult != 0)
+                    return AbortStage(title, "WAFER Y 샷 위치 이동 실패. shot=" + shot +
+                        ", target=" + shotTarget.ToString("F3"));
+
+                QMC.CDT320.VisionComm.VisionRequestHandle handle =
+                    await QMC.CDT320.VisionComm.BinBarcodeCameraReader.SendShotAsync(
+                        QMC.CDT320.VisionComm.AutoVisionChannel.Wafer,
+                        QMC.CDT320.VisionComm.VisionToolIds.Wafer.WaferBarcodeReader,
+                        "WAFER", shot, groupId, string.Empty, epdTimeoutMs,
+                        System.Threading.CancellationToken.None).ConfigureAwait(true);
+                if (handle == null)
+                    return AbortStage(title, "샷 요청/EPD 실패. shot=" + shot + ", groupId=" + groupId);
+
+                lastHandle = handle;
+            }
+
+            QMC.CDT320.VisionComm.BinBarcodeCameraResult result =
+                await QMC.CDT320.VisionComm.BinBarcodeCameraReader.WaitAggregateResultAsync(
+                    lastHandle, resultTimeoutMs,
+                    System.Threading.CancellationToken.None).ConfigureAwait(true);
+
+            QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRecipePage",
+                title + " 카메라 2샷 판독 결과. status=" + (string.IsNullOrEmpty(result.Status) ? "-" : result.Status) +
+                ", barcode=" + (string.IsNullOrEmpty(result.Barcode) ? "-" : result.Barcode) +
+                ", decodedShot=" + (string.IsNullOrEmpty(result.DecodedShot) ? "-" : result.DecodedShot) +
+                ", failReason=" + (string.IsNullOrWhiteSpace(result.FailReason) ? "-" : result.FailReason) +
+                ", groupId=" + result.GroupId + (result.Pass ? " - Ok" : " - Check"));
+
+            QMC.Common.MessageDialog.Show(this,
+                result.Pass
+                    ? title + " 성공 (카메라 2샷)\r\nbarcode = " + result.Barcode +
+                      "\r\ndecodedShot = " + result.DecodedShot
+                    : title + " 판독 실패 (카메라 2샷)\r\nstatus = " +
+                      (string.IsNullOrEmpty(result.Status) ? "-" : result.Status) +
+                      "\r\nfailReason = " + (string.IsNullOrWhiteSpace(result.FailReason) ? "-" : result.FailReason),
+                title, MessageBoxButtons.OK, result.Pass ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            return 0;
+        }
+
         private string _lastAbortReason;
 
         private int AbortStage(string title, string message)
@@ -1684,7 +1841,47 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     item.SupportsTeaching = true;      // 행에 MOVE/TEACH 버튼 표시
                     items.Add(item);
                 }
+
+                // [카메라 바코드 2026-08-27 팀장님 지시] GOOD(Output)와 동일 — 판독 소스·카메라
+                // 파라미터를 BARCODE POSITION 그룹에 함께 노출한다.
+                if (kind == StagePositionKind.Barcode)
+                    AddBarcodeCameraSettingItems(items, groupKey);
             }
+        }
+
+        // [카메라 바코드 2026-08-27] Output AddBarcodeCameraSettingItems 미러(Input 키) — 저장소는
+        // AppSettings(Config\settings.json)이고 유닛 Config/Recipe가 아니므로 setter에서 즉시
+        // AppSettingsStore.Save()로 영속한다(그리드 공통 저장 경로는 유닛 설정만 저장).
+        private void AddBarcodeCameraSettingItems(List<ParameterGridItem> items, string groupKey)
+        {
+            ParameterGridItem useCamera = ParameterGridItem.Bool("BARCODE USE CAMERA", ParameterGridScope.Config,
+                () => AppSettingsStore.Current != null && AppSettingsStore.Current.InputBarcodeUseCamera,
+                v => SaveBarcodeCameraAppSetting(s => s.InputBarcodeUseCamera = v));
+            useCamera.GroupKey = groupKey;
+            useCamera.Description = "Input Wafer 바코드 판독 소스입니다.\r\nOFF = 시리얼 리더(기존 경로 그대로), ON = WAFER 카메라 2샷(바코드 티칭 위치 ± 샷 오프셋 촬영 후 비전 PC WaferBarcodeReader 디코드).\r\n바코드 사용 자체의 ON/OFF는 Settings > Device의 Input 바코드 사용 체크와 별개입니다.";
+            items.Add(useCamera);
+
+            ParameterGridItem shotOffset = ParameterGridItem.Double("BARCODE CAMERA SHOT OFFSET", "mm (0.000)", ParameterGridScope.Config,
+                () => AppSettingsStore.Current != null ? AppSettingsStore.Current.InputBarcodeCameraShotOffsetMm : 5.0,
+                v => SaveBarcodeCameraAppSetting(s => s.InputBarcodeCameraShotOffsetMm =
+                    double.IsNaN(v) || double.IsInfinity(v) || v <= 0.0 ? 5.000 : Math.Min(50.000, v)));
+            shotOffset.GroupKey = groupKey;
+            shotOffset.Description = "카메라 2샷 판독 시 바코드 티칭 위치 기준 WaferY ± 샷 오프셋(mm)입니다. 기본 5.000, 허용 범위 0 초과 ~ 50(범위 밖 입력은 클램프).";
+            items.Add(shotOffset);
+
+            ParameterGridItem resultTimeout = ParameterGridItem.Int("BARCODE CAMERA RESULT TIMEOUT", "ms", ParameterGridScope.Config,
+                () => AppSettingsStore.Current != null ? AppSettingsStore.Current.InputBarcodeCameraResultTimeoutMs : 5000,
+                v => SaveBarcodeCameraAppSetting(s => s.InputBarcodeCameraResultTimeoutMs = Math.Max(500, Math.Min(60000, v))));
+            resultTimeout.GroupKey = groupKey;
+            resultTimeout.Description = "카메라 2샷 EPD 완료 후 집계 RESULT 대기 상한(ms)입니다. 기본 5000, 허용 범위 500 ~ 60000(범위 밖 입력은 클램프).";
+            items.Add(resultTimeout);
+        }
+
+        private static void SaveBarcodeCameraAppSetting(Action<AppSettings> apply)
+        {
+            AppSettings settings = AppSettingsStore.Current ?? AppSettingsStore.Load();
+            apply(settings);
+            AppSettingsStore.Save();
         }
 
         private IEnumerable<ParameterGridItem> BuildWaitItems()
