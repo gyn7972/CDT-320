@@ -142,6 +142,114 @@ namespace QMC.CDT320.Motion.SharedRailX
 
         // follow-entry/return-follow 공통: (후행축, 선행축) 페어의 팔로잉 파라미터를 설정에서 조회한다.
         // direction = 후행축의 페어 접근 부호(TowardSign — 부호까지 설정에서 도출, 하드코딩 금지),
+        // [팔로잉 시작 게이트 이식 2026-08-27, 팀장님 승인] 원본: InputVisionXPrePositionCoordinator(2026-07-30).
+        // 후행축이 선행축 가속 구간에 즉시 추종하며 오버라이드가 연발되는 문제(100% 굉음, 2026-08-27
+        // 20:52 InputVisionX AX-5 서보 트립)를 완화한다 — ①선행축이 게이트 거리 이상 실제 이동 AND
+        // ②후행축 첫 명령 예상 이동량이 전진 게이트 거리 이상일 때 출발한다. ②는 "가야 할 목표와
+        // 따라갈 위치의 차이 확인"(팀장님 2026-08-27)으로, 후퇴성 첫 명령(음수 이동량)을 자연 차단한다.
+        // 지연 전용: 선행 정지·타임아웃이면 현행처럼 그대로 진입하며, 팔로잉 진행 자체를 막지 않는다.
+        // 게이트 거리는 픽커 Setup의 INPUT/OUTPUT SAFETY OFFSET 설정값(0 이하 = 게이트 비활성).
+        private const int FollowStartGateWaitTimeoutMs = 1000; // 100% 기준 — 내부에서 속도 스케일 역수 확장
+        private const int FollowStartGatePollIntervalMs = 10;
+
+        public static async Task WaitFollowStartGateAsync(
+            BaseAxis trailingAxis,
+            BaseAxis leadingAxis,
+            double trailingTargetPosition,
+            int direction,
+            double homeGap,
+            double safetyGap,
+            double gateDistanceMm,
+            string logTag,
+            string contextDescription,
+            CancellationToken ct)
+        {
+            if (gateDistanceMm <= 0.0 || trailingAxis == null || leadingAxis == null)
+                return;
+            if (direction != 1 && direction != -1)
+                return;
+
+            int timeoutMs = MotionSpeedScale.ScaleDefaultTimeoutMs(FollowStartGateWaitTimeoutMs);
+            double leadingStartActual = leadingAxis.ActualPosition;
+            DateTime beginUtc = DateTime.UtcNow;
+            bool waitLogged = false;
+
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                double leadingActualNow = leadingAxis.ActualPosition;
+                double trailingActualNow = trailingAxis.ActualPosition;
+                // bound/firstCommand 식은 FollowMoveAsync Phase 1과 동일(원본 게이트도 동일 미러).
+                double boundNow = direction > 0
+                    ? leadingActualNow + homeGap - safetyGap
+                    : leadingActualNow - homeGap + safetyGap;
+                double firstCommandNow = direction > 0
+                    ? Math.Min(trailingTargetPosition, boundNow)
+                    : Math.Max(trailingTargetPosition, boundNow);
+                double firstMoveNow = direction > 0
+                    ? firstCommandNow - trailingActualNow
+                    : trailingActualNow - firstCommandNow;
+                double leadingDepartureNow = direction > 0
+                    ? leadingActualNow - leadingStartActual
+                    : leadingStartActual - leadingActualNow;
+                int waitedMs = (int)(DateTime.UtcNow - beginUtc).TotalMilliseconds;
+
+                if (leadingDepartureNow >= gateDistanceMm && firstMoveNow >= gateDistanceMm)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", logTag,
+                        contextDescription + " 팔로잉 시작 게이트 통과(선행 이동+첫 명령 이동량 확보). " +
+                        "gateDistance=" + gateDistanceMm.ToString("F3") +
+                        ", leading=" + leadingAxis.Name +
+                        ", leadingActual=" + leadingActualNow.ToString("F3") +
+                        ", leadingDeparture=" + leadingDepartureNow.ToString("F3") +
+                        ", trailingActual=" + trailingActualNow.ToString("F3") +
+                        ", firstMove=" + firstMoveNow.ToString("F3") +
+                        ", waitedMs=" + waitedMs + " - Ok");
+                    return;
+                }
+
+                // 선행축이 움직이지 않으면 추격 상황이 아니다 — 현행처럼 즉시 진입(지연 전용 원칙).
+                if (!leadingAxis.IsMoving)
+                {
+                    if (waitLogged)
+                        QMC.Common.Log.Write("Main", "SYSTEM", logTag,
+                            contextDescription + " 팔로잉 시작 게이트 해제(선행축 정지 — 현행 진입). " +
+                            "gateDistance=" + gateDistanceMm.ToString("F3") +
+                            ", leadingDeparture=" + leadingDepartureNow.ToString("F3") +
+                            ", firstMove=" + firstMoveNow.ToString("F3") +
+                            ", waitedMs=" + waitedMs + " - Check");
+                    return;
+                }
+
+                if (waitedMs >= timeoutMs)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", logTag,
+                        contextDescription + " 팔로잉 시작 게이트 타임아웃 — 현행대로 진입합니다. " +
+                        "gateDistance=" + gateDistanceMm.ToString("F3") +
+                        ", leadingDeparture=" + leadingDepartureNow.ToString("F3") +
+                        ", firstMove=" + firstMoveNow.ToString("F3") +
+                        ", timeoutMs=" + timeoutMs + " - Check");
+                    return;
+                }
+
+                if (!waitLogged)
+                {
+                    waitLogged = true;
+                    QMC.Common.Log.Write("Main", "SYSTEM", logTag,
+                        contextDescription + " 팔로잉 시작 게이트 대기(선행 이동/첫 명령 이동량). " +
+                        "gateDistance=" + gateDistanceMm.ToString("F3") +
+                        ", leading=" + leadingAxis.Name +
+                        ", leadingActual=" + leadingActualNow.ToString("F3") +
+                        ", leadingDeparture=" + leadingDepartureNow.ToString("F3") +
+                        ", leadingMoving=" + leadingAxis.IsMoving +
+                        ", firstMove=" + firstMoveNow.ToString("F3") + " - Wait");
+                }
+
+                await Task.Delay(FollowStartGatePollIntervalMs, ct).ConfigureAwait(false);
+            }
+        }
+
         // homeGap = 페어 HomeClearance, safetyGap = (페어 SafetyDistance, 미지정 시 축 설정 폴백) + extraClearance.
         // 간격 공식 정합: FollowMoveAsync의 direction>0 → (선행+homeGap)−후행 / direction<0 → (후행+homeGap)−선행은
         // CalculatePairClearance의 페어 간격식과 동일 구조다.

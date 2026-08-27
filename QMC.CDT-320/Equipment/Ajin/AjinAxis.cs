@@ -858,6 +858,10 @@ namespace QMC.CDT320.Ajin
         // -4(정지 경합)가 되는 교착이므로, 내부 재발행 없이 즉시 실패해 호출자 폴백(R6)에
         // 위임한다(사용자 확정 2026-07-27, Q2=①).
         private const int FollowMoveEarlyStopErrorCode = -23;
+        // [최초 명령 후퇴 가드 2026-08-27, 팀장님 승인] 최초 명령이 후행축 현재 위치 대비 safetyGap을
+        // 초과해 뒤로 가는 경우(선행-후행 기하 역전 — 정지/재기동 경계에서 관측, 2026-08-25 리어픽커
+        // 대후퇴) 발행 대신 거부하는 전용 에러코드. 호출부 폴백(일반 이동)이 이어받는다.
+        private const int FollowMoveFirstRetreatErrorCode = -25;
 
         // 규칙 2(2026-07-25): 팔로잉 명령은 속도·가속·감속을 한 세트로 명시 전달한다.
         // 기존 조건: MoveAbsoluteAsync(command, velocity) 2인자 호출 — 가감속 스케일 여부를
@@ -1155,6 +1159,8 @@ namespace QMC.CDT320.Ajin
                 // 경계는 선행축 실측만의 함수(사용자 정의). 후행축 위치는 개입하지 않는다.
                 // 간격이 이미 safetyGap 미만이면 command가 현재 위치보다 뒤가 되어 후퇴 명령이
                 // 나간다 — 안전거리를 회복하는 방향이므로 허용(사용자 확인 2026-07-27).
+                // 단, 후퇴 허용은 safetyGap 이내로 한정한다(2026-08-27 가드) — 초과는 선행축이
+                // 후행축보다 뒤에 있는 기하 역전이므로 아래에서 -25로 발행을 거부한다.
                 double firstLeadingActual = leadingAxis.ActualPosition;
                 double firstBound = direction > 0
                     ? firstLeadingActual + homeGap - safetyGap
@@ -1174,6 +1180,41 @@ namespace QMC.CDT320.Ajin
                         ", clamped=" + firstConstrained.ToString("F3") +
                         ", " + firstConstraintDetail + " - Check");
                     firstCommand = firstConstrained;
+                }
+
+                // [최초 명령 후퇴 가드 2026-08-27, 팀장님 승인] 제약 클램프까지 반영된 최종 firstCommand가
+                // 후행축 진입 위치 대비 safetyGap을 초과해 뒤로 가면 발행하지 않는다. 정당한 안전회복
+                // 후퇴는 인터락 하한 때문에 구조적으로 safetyGap 미만이므로 전량 보존된다. 초과는
+                // 기하 역전(예: 정지/재기동 후 픽커가 아웃풋 깊이 남고 비전이 후검사 위치에 있는 상태의
+                // Place 재진입, 2026-08-25 실측 161mm 후퇴)이며, 거부 시 호출부 폴백(일반 이동, 공유레일
+                // 대기 게이트 경유)이 안전하게 이어받는다.
+                double firstBackwardExcursion = direction > 0
+                    ? entryActual - firstCommand
+                    : firstCommand - entryActual;
+                if (firstBackwardExcursion > safetyGap)
+                {
+                    QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-GUARD-FIRST-RETREAT",
+                        Name + " 팔로잉 최초 명령이 후퇴 한도를 초과해 발행을 거부합니다(기하 역전). " +
+                        "entryActual=" + entryActual.ToString("F3") +
+                        ", firstCommand=" + firstCommand.ToString("F3") +
+                        ", firstBound=" + firstBound.ToString("F3") +
+                        ", leadingActual=" + firstLeadingActual.ToString("F3") +
+                        ", excursion=" + firstBackwardExcursion.ToString("F3") +
+                        ", safetyGap=" + safetyGap.ToString("F3") +
+                        ", homeGap=" + homeGap.ToString("F3") +
+                        ", direction=" + direction +
+                        ", trailingTarget=" + trailingTargetPosition.ToString("F3") +
+                        ", leading=" + leadingAxis.Name +
+                        ", constraintClamped=" + (firstConstraintDetail != null) +
+                        ", trailingTargetName=" + (trailingTargetName ?? "<null>") + " - Fail");
+                    return FailMotion(FollowMoveFirstRetreatErrorCode, "FOLLOW MOVE",
+                        "팔로잉 최초 명령 후퇴 한도 초과(기하 역전) — 발행 거부. " +
+                        "entryActual=" + entryActual.ToString("F3") +
+                        ", firstCommand=" + firstCommand.ToString("F3") +
+                        ", excursion=" + firstBackwardExcursion.ToString("F3") +
+                        ", safetyGap=" + safetyGap.ToString("F3") +
+                        ", leading=" + leadingAxis.Name,
+                        trailingTargetPosition, true);
                 }
 
                 // ③ lastCommanded 시드 = 최초 이동의 명령 좌표(사용자 지시 2026-07-27).

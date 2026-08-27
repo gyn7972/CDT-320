@@ -3002,7 +3002,35 @@ namespace QMC.CDT320.Sequencing
                 return -1;
             }
 
-            int timeoutMs = service.Config != null ? service.Config.VisionFollowEntryTimeoutMs : 15000;
+            // [팔로잉 시작 게이트 2026-08-27, 팀장님 승인] 2026-08-27 20:52 InputVisionX AX-5 서보 트립
+            // 경로 — 선행 픽커 가속 구간 즉시 추종의 오버라이드 연발을 게이트로 완화한다.
+            // 거리 = 선행 픽커 유닛의 INPUT SAFETY OFFSET(0 이하 = 비활성). 지연 전용.
+            double gateDistanceMm = 0.0;
+            var gateMachine = Context != null ? Context.Machine : null;
+            if (gateMachine != null && gateMachine.PickerFrontUnit != null &&
+                ReferenceEquals(leadingPickerX, gateMachine.PickerFrontUnit.PickerX))
+                gateDistanceMm = gateMachine.PickerFrontUnit.Setup != null
+                    ? gateMachine.PickerFrontUnit.Setup.InputSafetyOffset : 0.0;
+            else if (gateMachine != null && gateMachine.PickerRearUnit != null &&
+                ReferenceEquals(leadingPickerX, gateMachine.PickerRearUnit.PickerX))
+                gateDistanceMm = gateMachine.PickerRearUnit.Setup != null
+                    ? gateMachine.PickerRearUnit.Setup.InputSafetyOffset : 0.0;
+            await SharedRailXMotionService.WaitFollowStartGateAsync(
+                stage.CameraX,
+                leadingPickerX,
+                target,
+                direction,
+                homeGap,
+                safetyGap,
+                gateDistanceMm,
+                "InputDieVisionPrepareSequence",
+                Name + " Input die vision 준비 VisionX",
+                ct).ConfigureAwait(false);
+
+            // C2(2026-07-26 미러, 2026-08-27 보완): 타임아웃은 100% 기준 설정값이므로 속도 스케일
+            // 역수로 확장한다(저속 오탐 -21 방지) — 기존 누락분.
+            int timeoutMs = MotionSpeedScale.ScaleDefaultTimeoutMs(
+                service.Config != null ? service.Config.VisionFollowEntryTimeoutMs : 15000);
             // 현재 기준: follow의 명령/오버라이드 경로는 축 레이어 자동 스케일이 없으므로 여기서 1회 스케일.
             double trailingVelocity = MotionSpeedScale.ApplyDefaultVelocityScale(
                 stage.CameraX.Config != null ? stage.CameraX.Config.GetRawDefaultVelocity() : 0.0);

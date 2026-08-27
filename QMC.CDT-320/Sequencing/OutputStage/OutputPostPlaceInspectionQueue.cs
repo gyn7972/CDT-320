@@ -2671,6 +2671,30 @@ namespace QMC.CDT320.Sequencing
                 return -1;
             }
 
+            // [팔로잉 시작 게이트 2026-08-27, 팀장님 승인] 거리 = 선행 픽커 유닛의 OUTPUT SAFETY OFFSET
+            // (0 이하 = 비활성). 지연 전용 — 통과/해제/타임아웃 모두 아래 팔로잉으로 그대로 진행한다.
+            double gateDistanceMm = 0.0;
+            var gateMachine = _context != null ? _context.Machine : null;
+            if (gateMachine != null && gateMachine.PickerFrontUnit != null &&
+                ReferenceEquals(leadingPickerX, gateMachine.PickerFrontUnit.PickerX))
+                gateDistanceMm = gateMachine.PickerFrontUnit.Setup != null
+                    ? gateMachine.PickerFrontUnit.Setup.OutputSafetyOffset : 0.0;
+            else if (gateMachine != null && gateMachine.PickerRearUnit != null &&
+                ReferenceEquals(leadingPickerX, gateMachine.PickerRearUnit.PickerX))
+                gateDistanceMm = gateMachine.PickerRearUnit.Setup != null
+                    ? gateMachine.PickerRearUnit.Setup.OutputSafetyOffset : 0.0;
+            await SharedRailXMotionService.WaitFollowStartGateAsync(
+                stage.OutputCameraX,
+                leadingPickerX,
+                targetVisionX,
+                direction,
+                homeGap,
+                safetyGap,
+                gateDistanceMm,
+                "OutputPostPlaceInspection",
+                "Output camera 후검사 VisionX",
+                ct).ConfigureAwait(false);
+
             // C2(2026-07-26): 타임아웃은 100% 기준 설정값이므로 속도 스케일 역수로 확장한다(저속 오탐 -21 방지).
             int timeoutMs = MotionSpeedScale.ScaleDefaultTimeoutMs(
                 service.Config != null ? service.Config.VisionFollowEntryTimeoutMs : 15000);

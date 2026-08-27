@@ -843,6 +843,20 @@ namespace QMC.CDT320.Sequencing
                 return -1;
             }
 
+            // [팔로잉 시작 게이트 2026-08-27, 팀장님 승인] 거리 = INPUT SAFETY OFFSET(0 이하 = 비활성).
+            // 지연 전용 — 통과/해제/타임아웃 모두 아래 팔로잉으로 그대로 진행한다.
+            await SharedRailXMotionService.WaitFollowStartGateAsync(
+                pickerX,
+                visionX,
+                _targetPickerX,
+                direction,
+                homeGap,
+                safetyGap,
+                GetOwnPickerFollowGateDistanceMm(inputSide: true),
+                "PickerPickUpSequence",
+                Name + " PickUp 피커X",
+                ct).ConfigureAwait(false);
+
             // C2(2026-07-26): 타임아웃은 100% 기준 설정값이므로 속도 스케일 역수로 확장한다
             // (5% 스케일에서 최소회피 ~330mm ≈ 6.6초 → 기존 15초는 통과하지만, 전체 Avoid급
             // 장거리 회피/저속 조합의 오탐 -21 → R6 폴백 빈발을 차단).

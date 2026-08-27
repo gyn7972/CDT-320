@@ -3959,6 +3959,22 @@ namespace QMC.CDT320.Sequencing
             return null;
         }
 
+        // [팔로잉 시작 게이트 2026-08-27, 팀장님 승인] 게이트 거리 = 자기 픽커 Setup의
+        // INPUT/OUTPUT SAFETY OFFSET(레시피 SAFETY SETTING). 그간 미사용이던 필드의 첫 실사용 —
+        // 0 이하(기본값 0 포함) = 게이트 비활성.
+        protected double GetOwnPickerFollowGateDistanceMm(bool inputSide)
+        {
+            if (Side == PickerSequenceSide.Front)
+            {
+                if (FrontPicker != null && FrontPicker.Setup != null)
+                    return inputSide ? FrontPicker.Setup.InputSafetyOffset : FrontPicker.Setup.OutputSafetyOffset;
+                return 0.0;
+            }
+            if (RearPicker != null && RearPicker.Setup != null)
+                return inputSide ? RearPicker.Setup.InputSafetyOffset : RearPicker.Setup.OutputSafetyOffset;
+            return 0.0;
+        }
+
         protected double GetPickerTeachingPosition(PickerAxis axis, string positionName)
         {
             if (Side == PickerSequenceSide.Front)
