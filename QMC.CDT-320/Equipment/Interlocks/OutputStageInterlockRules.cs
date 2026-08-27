@@ -136,7 +136,8 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageY 자동 이동을 차단한다.
-            if (!VerifyNgClampSafeForStageMove(stage, "OutputGoodStageY", out reason))
+            // (예외: NG Stage가 Avoid 위치면 생략 — 2026-08-27 팀장님 지시)
+            if (!VerifyNgClampSafeForGoodStageMove(stage, "OutputGoodStageY", out reason))
                 return false;
 
             // 인터락 조건: Picker/Feeder 등 Output transport 점유 상태가 해제되어 있는지 확인한다.
@@ -350,7 +351,8 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
             // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageZ 홈 이동을 차단한다.
-            if (!VerifyNgClampSafeForStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
+            // (예외: NG Stage가 Avoid 위치면 생략 — 2026-08-27 팀장님 지시)
+            if (!VerifyNgClampSafeForGoodStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
                 return false;
 
             // OutputFeeder 상태 — 세 조건 개별 확인.
@@ -374,7 +376,8 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             CDT320_Machine machine = request != null ? request.Machine : null;
             // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageZ 수동 이동을 차단한다.
-            if (!VerifyNgClampSafeForStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
+            // (예외: NG Stage가 Avoid 위치면 생략 — 2026-08-27 팀장님 지시. 자동 GoodStageZ도 이 경로 경유)
+            if (!VerifyNgClampSafeForGoodStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
                 return false;
 
             // 인터락 조건: GoodStageZ 비Avoid 이동이 NG/Guide와 간섭 없는지 확인한다.
@@ -798,7 +801,8 @@ namespace QMC.CDT320.Interlocks
                     return false;
 
                 // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageY 수동 이동을 차단한다.
-                if (!VerifyNgClampSafeForStageMove(outputStage, "OutputGoodStageY", out reason))
+                // (예외: NG Stage가 Avoid 위치면 생략 — 2026-08-27 팀장님 지시)
+                if (!VerifyNgClampSafeForGoodStageMove(outputStage, "OutputGoodStageY", out reason))
                     return false;
 
                 // OutputFeederY가 Home(0) 또는 Avoid 위치여야 홈 이동 가능.
@@ -851,7 +855,8 @@ namespace QMC.CDT320.Interlocks
                     return false;
 
                 // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageY 홈 이동을 차단한다.
-                if (!VerifyNgClampSafeForStageMove(outputStage, "OutputGoodStageY", out reason))
+                // (예외: NG Stage가 Avoid 위치면 생략 — 2026-08-27 팀장님 지시)
+                if (!VerifyNgClampSafeForGoodStageMove(outputStage, "OutputGoodStageY", out reason))
                     return false;
 
                 // OutputFeederY가 Avoid 위치여야 이동 가능.
@@ -1437,6 +1442,42 @@ namespace QMC.CDT320.Interlocks
             finally
             {
             }
+        }
+
+        // [GOOD-NG 인터락 예외 2026-08-27 팀장님 지시] GOOD 축(GoodStageY/GoodStageZ) 이동 전용
+        // NG Clamp Lift 검사 — NG Stage가 Avoid 위치에 있으면 NG 스테이지 전체(클램프 리프트 포함)가
+        // GOOD 가동 영역 밖에 물러나 있어 GOOD이 어떻게 움직여도 기구 간섭이 없으므로,
+        // NG Clamp Lift Up 미충족(센서 이상 포함)이어도 이동을 허용한다.
+        // NgY 자체 이동 경로(VerifyNgStageYAbsoluteGuard 등)와 초기화 경로는 현행 유지(팀장님 확정).
+        private static long _lastNgClampGoodMoveExemptLogTicks;
+
+        private static bool VerifyNgClampSafeForGoodStageMove(OutputStageUnit outputStage, string movingName, out string reason)
+        {
+            if (VerifyNgClampSafeForStageMove(outputStage, movingName, out reason))
+                return true;
+
+            if (outputStage == null || !outputStage.IsNgStageInAvoidPosition())
+                return false;
+
+            // 계측: 예외 허용이 실제 차단을 대체한 경우만, 10초 스로틀로 1줄(연속 이동 로그 홍수 방지).
+            try
+            {
+                long now = System.DateTime.UtcNow.Ticks;
+                if (now - System.Threading.Interlocked.Read(ref _lastNgClampGoodMoveExemptLogTicks) >
+                    System.TimeSpan.TicksPerSecond * 10)
+                {
+                    System.Threading.Interlocked.Exchange(ref _lastNgClampGoodMoveExemptLogTicks, now);
+                    QMC.Common.Log.Write("Main", "INTERLOCK", "OutputStageInterlock",
+                        movingName + " NG Clamp Lift 조건 미충족이나 NG Stage가 Avoid 위치라 GOOD 이동 예외 허용" +
+                        "(2026-08-27 팀장님 지시). skippedReason=" + reason + " - Check");
+                }
+            }
+            catch
+            {
+            }
+
+            reason = string.Empty;
+            return true;
         }
 
         // 인터락 항목: NG Stage Clamp/Unclamp 상태와 관계없이 Clamp Lift Up만 확인한다.
