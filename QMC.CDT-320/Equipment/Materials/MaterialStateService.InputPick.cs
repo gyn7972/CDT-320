@@ -3481,6 +3481,95 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        /// <summary>
+        /// [검사 재실행 2026-08-27 팀장님 지시] 픽커 헤드(1~4)에 물려 있는(아직 Place 전) 다이들의
+        /// Bottom/Side 검사 데이터만 삭제해 재검사 가능 상태로 되돌립니다. 픽업 이력/위치/맵 정보는
+        /// 유지합니다. Result를 Unknown으로 리셋하므로 NG 래치(기존 NG면 재검사 OK여도 NG 유지)가
+        /// 풀리고, Place는 검사 흐름 미완료 차단으로 재검사 전 진행이 안전하게 막힙니다.
+        /// </summary>
+        public static bool ClearPickerHeadInspectionData(
+            MaterialLocationKind pickerLocation,
+            string reason,
+            out string message,
+            out List<string> clearedDieIds)
+        {
+            message = string.Empty;
+            clearedDieIds = new List<string>();
+            try
+            {
+                if (pickerLocation != MaterialLocationKind.PickerFront &&
+                    pickerLocation != MaterialLocationKind.PickerRear)
+                {
+                    message = "픽커 위치가 아닙니다. location=" + pickerLocation;
+                    return false;
+                }
+
+                var targets = new List<DieMaterial>();
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    DieMaterial die = GetDieAtPicker(pickerLocation, pickerNo);
+                    if (die != null)
+                        targets.Add(die);
+                }
+
+                if (targets.Count == 0)
+                {
+                    message = "픽커에 물려 있는 Die가 없습니다.";
+                    return false;
+                }
+
+                var auditLines = new List<string>();
+                lock (_stateSync)
+                {
+                    foreach (DieMaterial die in targets)
+                    {
+                        auditLines.Add("die=" + die.DieId +
+                            ", previousResult=" + die.Result +
+                            ", bottom=" + (die.Inspections != null && die.Inspections.Any(x => x != null && string.Equals(x.InspectionType, "Bottom", StringComparison.OrdinalIgnoreCase))) +
+                            ", side0=" + (die.Inspections != null && die.Inspections.Any(x => x != null && string.Equals(x.InspectionType, "Side0", StringComparison.OrdinalIgnoreCase))) +
+                            ", side90=" + (die.Inspections != null && die.Inspections.Any(x => x != null && string.Equals(x.InspectionType, "Side90", StringComparison.OrdinalIgnoreCase))));
+
+                        if (die.Inspections != null)
+                        {
+                            die.Inspections.RemoveAll(x =>
+                                x != null &&
+                                (string.Equals(x.InspectionType, "Bottom", StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(x.InspectionType, "Side0", StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(x.InspectionType, "Side90", StringComparison.OrdinalIgnoreCase)));
+                        }
+
+                        die.Result = DieResult.Unknown;
+                        if (die.NgCodes != null)
+                            die.NgCodes.Clear();
+                        die.UpdatedAt = DateTime.Now;
+                        clearedDieIds.Add(die.DieId);
+                        // 맵 엔트리 동기화(SyncActiveInputMapEntryNoLock)는 의도적으로 생략 —
+                        // IsTarget/BinCode까지 덮어써 픽업 완료 표시를 훼손할 수 있고,
+                        // 맵 표시는 재검사 완료 시 기존 반영 경로가 다시 갱신한다.
+                    }
+                }
+
+                NotifyAndSave("ClearPickerHeadInspectionData");
+                Log.Write("Main", "MATERIAL", "ClearPickerHeadInspection",
+                    "픽커 헤드 Die의 Bottom/Side 검사 데이터를 삭제했습니다(재검사 대기). location=" + pickerLocation +
+                    ", count=" + clearedDieIds.Count +
+                    ", reason=" + (reason ?? "") +
+                    ", " + string.Join(" | ", auditLines) + " - Ok");
+                message = "Die " + clearedDieIds.Count + "개의 Bottom/Side 검사 데이터를 삭제했습니다.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                message = "검사 데이터 삭제 실패: " + ex.Message;
+                Log.Write("Main", "MATERIAL", "ClearPickerHeadInspection",
+                    message + ", location=" + pickerLocation + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static void ResetInputPickCompletionHistory(string dieId, string reason)
         {
             string message;

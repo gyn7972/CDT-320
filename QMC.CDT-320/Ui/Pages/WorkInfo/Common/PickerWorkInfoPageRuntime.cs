@@ -272,6 +272,90 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 int headNo = i + 1;
                 button.Click += (s, e) => SelectHead(headNo);
             }
+
+            // [검사 재실행 2026-08-27 팀장님 지시] BOTTOM/SIDE CLEAR — 픽커 헤드에 물려 있는
+            // (아직 Place 전) 다이들의 Bottom/Side 검사 데이터를 삭제해 재검사 가능 상태로 되돌린다.
+            if (_headDieDetailView != null)
+                _headDieDetailView.ClearInspectionDataRequested += (s, e) => ClearHeadInspectionData();
+        }
+
+        // Bottom/Side 검사 데이터 삭제 → 이후 BOTTOM/SIDE 버튼으로 재검사(대상=물린 다이 전부,
+        // 결과는 Upsert 교체). Result=Unknown 리셋으로 NG 래치(기존 NG면 재검사 OK여도 NG 유지)가
+        // 풀리고, Place는 검사 흐름 미완료 차단이 있어 재검사 전 진행이 안전하게 막힌다.
+        private void ClearHeadInspectionData()
+        {
+            try
+            {
+                Form1 host = _getHost();
+                var controller = host != null ? host.Controller : null;
+                if (controller != null &&
+                    (controller.Status == EquipmentStatus.AutoRunning ||
+                     controller.Status == EquipmentStatus.Initializing ||
+                     controller.IsSequenceRunning ||
+                     controller.IsManualBusy))
+                {
+                    QMC.Common.MessageDialog.Show(_owner,
+                        "장비 동작 중에는 검사 데이터를 삭제할 수 없습니다.\r\nAuto/Manual 동작을 정지한 뒤 다시 시도하세요.",
+                        SideName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                MaterialLocationKind location = _side == PickerSequenceSide.Front
+                    ? MaterialLocationKind.PickerFront
+                    : MaterialLocationKind.PickerRear;
+
+                var targetLines = new System.Text.StringBuilder();
+                int targetCount = 0;
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    DieMaterial die = MaterialStateService.GetDieAtPicker(location, pickerNo);
+                    if (die == null)
+                        continue;
+
+                    targetCount++;
+                    targetLines.AppendLine("HEAD #" + pickerNo + " : " + die.DieId + " (Result=" + die.Result + ")");
+                }
+
+                if (targetCount == 0)
+                {
+                    QMC.Common.MessageDialog.Show(_owner,
+                        "픽커에 물려 있는 Die가 없습니다.",
+                        SideName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DialogResult confirm = QMC.Common.MessageDialog.Show(_owner,
+                    SideName + " 헤드 Die " + targetCount + "개의 BOTTOM/SIDE 검사 데이터를 삭제하시겠습니까?\r\n" +
+                    "삭제 후 BOTTOM/SIDE 버튼으로 재검사할 수 있으며, 재검사 완료 전에는 PLACE가 차단됩니다.\r\n\r\n" +
+                    targetLines,
+                    SideName + " 검사 데이터 삭제", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                string message;
+                System.Collections.Generic.List<string> clearedDies;
+                bool cleared = MaterialStateService.ClearPickerHeadInspectionData(
+                    location,
+                    LogCode + ":ManualInspectionClear",
+                    out message,
+                    out clearedDies);
+
+                MaterialStateService.TryFlushPendingSave(SideName + "InspectionClear");
+                RefreshHeadDieDetail();
+
+                QMC.Common.MessageDialog.Show(_owner,
+                    message + (cleared ? "\r\nBOTTOM → SIDE 버튼으로 재검사를 진행하세요." : string.Empty),
+                    SideName + " 검사 데이터 삭제", MessageBoxButtons.OK,
+                    cleared ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", LogCode,
+                    "헤드 Die 검사 데이터 삭제 실패: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(_owner,
+                    "검사 데이터 삭제 실패:\r\n" + ex.Message,
+                    SideName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void SelectHead(int headNo)

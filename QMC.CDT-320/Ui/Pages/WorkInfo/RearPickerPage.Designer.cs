@@ -1905,6 +1905,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.headDieDetailView.Margin = new System.Windows.Forms.Padding(0);
             this.headDieDetailView.Name = "headDieDetailView";
             this.headDieDetailView.ShowProcessTestDataButton = false;
+            this.headDieDetailView.ShowInspectionClearButton = true;
             this.headDieDetailView.Size = new System.Drawing.Size(836, 718);
             this.headDieDetailView.TabIndex = 1;
             // 

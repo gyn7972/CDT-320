@@ -14,6 +14,7 @@ namespace QMC.CDT_320.Ui.Controls
         private Button btnCreateData;
         private Button btnClearData;
         private Button btnClearAllData;
+        private Button btnClearInspectionData;
         private DataGridViewTextBoxColumn colName;
         private DataGridViewTextBoxColumn colValue;
 
@@ -42,6 +43,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.btnCreateProcessTestData = new System.Windows.Forms.Button();
             this.btnClearData = new System.Windows.Forms.Button();
             this.btnClearAllData = new System.Windows.Forms.Button();
+            this.btnClearInspectionData = new System.Windows.Forms.Button();
             this.grpMaterialDetail.SuspendLayout();
             this.materialLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridMaterial)).BeginInit();
@@ -125,6 +127,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.materialButtonLayout.Controls.Add(this.btnCreateProcessTestData);
             this.materialButtonLayout.Controls.Add(this.btnClearData);
             this.materialButtonLayout.Controls.Add(this.btnClearAllData);
+            this.materialButtonLayout.Controls.Add(this.btnClearInspectionData);
             this.materialButtonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.materialButtonLayout.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
             this.materialButtonLayout.Location = new System.Drawing.Point(3, 443);
@@ -198,6 +201,22 @@ namespace QMC.CDT_320.Ui.Controls
             this.btnClearAllData.Text = "DATA ALL CLEAR";
             this.btnClearAllData.UseVisualStyleBackColor = false;
             this.btnClearAllData.Click += new System.EventHandler(this.btnClearAllData_Click);
+            //
+            // btnClearInspectionData
+            //
+            this.btnClearInspectionData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(160)))), ((int)(((byte)(96)))), ((int)(((byte)(16)))));
+            this.btnClearInspectionData.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnClearInspectionData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnClearInspectionData.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnClearInspectionData.ForeColor = System.Drawing.Color.White;
+            this.btnClearInspectionData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.btnClearInspectionData.Name = "btnClearInspectionData";
+            this.btnClearInspectionData.Size = new System.Drawing.Size(170, 30);
+            this.btnClearInspectionData.TabIndex = 4;
+            this.btnClearInspectionData.Text = "BOTTOM/SIDE CLEAR";
+            this.btnClearInspectionData.UseVisualStyleBackColor = false;
+            this.btnClearInspectionData.Visible = false;
+            this.btnClearInspectionData.Click += new System.EventHandler(this.btnClearInspectionData_Click);
             // 
             // MaterialDetailView
             // 

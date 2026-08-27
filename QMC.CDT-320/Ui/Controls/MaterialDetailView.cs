@@ -12,6 +12,8 @@ namespace QMC.CDT_320.Ui.Controls
         public event EventHandler ClearDataRequested;
         public event EventHandler ClearAllDataRequested;
         public event EventHandler CreateProcessTestDataRequested;
+        /// <summary>[검사 재실행 2026-08-27] Bottom/Side 검사 데이터 삭제 요청(픽커 헤드 화면 전용 버튼).</summary>
+        public event EventHandler ClearInspectionDataRequested;
 
         // 직전에 표시한 내용의 signature. 동일하면 그리드 전체 재구성을 생략한다.
         private string _lastSignature;
@@ -29,6 +31,18 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 if (btnCreateProcessTestData != null)
                     btnCreateProcessTestData.Visible = value;
+            }
+        }
+
+        /// <summary>[검사 재실행 2026-08-27] BOTTOM/SIDE 검사 데이터 삭제 버튼 표시 여부(기본 false —
+        /// 픽커 헤드 화면에서만 켠다).</summary>
+        public bool ShowInspectionClearButton
+        {
+            get { return btnClearInspectionData != null && btnClearInspectionData.Visible; }
+            set
+            {
+                if (btnClearInspectionData != null)
+                    btnClearInspectionData.Visible = value;
             }
         }
 
@@ -146,6 +160,13 @@ namespace QMC.CDT_320.Ui.Controls
         private void btnClearAllData_Click(object sender, EventArgs e)
         {
             var handler = ClearAllDataRequested;
+            if (handler != null)
+                handler(this, EventArgs.Empty);
+        }
+
+        private void btnClearInspectionData_Click(object sender, EventArgs e)
+        {
+            var handler = ClearInspectionDataRequested;
             if (handler != null)
                 handler(this, EventArgs.Empty);
         }
