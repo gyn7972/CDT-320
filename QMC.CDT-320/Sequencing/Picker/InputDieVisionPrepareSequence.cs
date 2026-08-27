@@ -3221,6 +3221,13 @@ namespace QMC.CDT320.Sequencing
                 {
                     bool preInspection = IsInputCameraPreInspectionMode();
 
+                    // [IN-STAGE-MOVE 4152 재발 방지 2026-08-27, 팀장님 승인] 검사 위치 이동 전
+                    // 독립 회피 인수 + 무알람 정지 확인 — 이동 중 축 재명령(보드 4152 거부) 금지.
+                    int retreatSync = await AdoptRetreatAndWaitInputVisionXStoppedAsync(
+                        stage, item, target, description, ct).ConfigureAwait(false);
+                    if (retreatSync != 0)
+                        return retreatSync;
+
                     while (true)
                     {
                         ct.ThrowIfCancellationRequested();
@@ -3293,6 +3300,97 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        // [IN-STAGE-MOVE 4152 재발 방지 2026-08-27, 팀장님 승인] 검사 위치 VisionX 이동 직전 가드.
+        // 배경(실장비 2026-08-27 14:12/14:14/14:19 3건): 선행검사가 배치 마지막 EPD 직후 비동기로
+        // 띄운 InputVisionX 독립 회피가 아직 주행 중일 때, RESULT 미수신→Die Wait 반환→재검사
+        // 준비 재진입(79ms 경합)이 같은 축에 검사 위치 이동을 재명령 → AXM 4152(ERROR_IN_MOTION)
+        // 거부 → 가짜 축 알람 → 전축 비상정지.
+        // 픽업 시퀀스의 07-26 수정(세션 인수 + 무알람 정지 대기)과 동일 패턴:
+        // 1) 같은 side의 독립 회피 세션은 인수해 제거하고 Task 종료까지 합류한다(잔존 세션의
+        //    낡은 목표가 B1 Peek 판정을 오염하는 것도 함께 차단).
+        // 2) 세션 유무·side와 무관하게 IsMoving 해제를 무알람 폴링으로 확인한 뒤에만 명령한다 —
+        //    반대 side 회피/기타 잔류 이동도 물리적으로 같은 축이므로 정지 확인은 전원 대상.
+        // 정지 확인 실패(시간 초과) 시 명령을 내지 않고 Fail 처리한다(이동 중 재명령 금지 원칙).
+        private async Task<int> AdoptRetreatAndWaitInputVisionXStoppedAsync(
+            InputStageUnit stage,
+            BaseAxis visionX,
+            double target,
+            string description,
+            CancellationToken ct)
+        {
+            if (visionX == null)
+                return 0;
+
+            Task<int> adoptedTask;
+            double adoptedTarget;
+            bool adoptedCompleted;
+            if (VisionIndependentRetreatCoordinator.TryAdoptInput(
+                Side, out adoptedTask, out adoptedTarget, out adoptedCompleted))
+            {
+                WriteLog("InputDieVisionPrepareSequence",
+                    Name + " " + description + " 이동 전 독립 회피 세션을 인수했습니다(이동 중 재명령 방지). " +
+                    "retreatTarget=" + adoptedTarget.ToString("F6") +
+                    ", taskCompleted=" + adoptedCompleted +
+                    ", nextTarget=" + target.ToString("F6") + " - Check");
+                try
+                {
+                    // 회피 이동 종료까지 합류 — Task 완료가 실제 축 정지를 보장하지 않으므로
+                    // (07-26 실장비 확인) 최종 판정은 아래 IsMoving 폴링이 담당한다.
+                    await AwaitStepWithCancellationAsync(adoptedTask, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " " + description + " 인수한 독립 회피 Task 예외를 관찰했습니다(정지 확인으로 진행). " +
+                        "error=" + ex.Message + " - Check");
+                }
+            }
+
+            int timeoutMs = MotionSpeedScale.ScaleDefaultTimeoutMs(ResolveTimeout());
+            DateTime start = DateTime.UtcNow;
+            bool waitLogged = false;
+            while (visionX.IsMoving)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (!waitLogged)
+                {
+                    waitLogged = true;
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " " + description + " 이동 전 InputVisionX 정지를 기다립니다(이동 중 재명령 방지). " +
+                        "actual=" + visionX.ActualPosition.ToString("F6") +
+                        ", command=" + visionX.CommandPosition.ToString("F6") +
+                        ", nextTarget=" + target.ToString("F6") + " - Wait");
+                }
+
+                if ((DateTime.UtcNow - start).TotalMilliseconds >= timeoutMs)
+                {
+                    return Fail("INPUT-DIE-VISION-PREPARE-VISIONX-BUSY", stage != null ? stage.Name : "InputStageUnit",
+                        description + " 이동 전 InputVisionX 정지 확인이 시간 초과되어 명령을 내지 않습니다. " +
+                        "actual=" + visionX.ActualPosition.ToString("F6") +
+                        ", command=" + visionX.CommandPosition.ToString("F6") +
+                        ", nextTarget=" + target.ToString("F6") +
+                        ", timeoutMs=" + timeoutMs);
+                }
+
+                await Task.Delay(10).ConfigureAwait(false);
+            }
+
+            if (waitLogged)
+            {
+                WriteLog("InputDieVisionPrepareSequence",
+                    Name + " " + description + " 이동 전 InputVisionX 정지 확인 완료. " +
+                    "elapsedMs=" + (int)(DateTime.UtcNow - start).TotalMilliseconds +
+                    ", actual=" + visionX.ActualPosition.ToString("F6") + " - Ok");
+            }
+
+            return 0;
         }
 
         private async Task<int> WaitInputVisionXSharedRailClearAsync(
