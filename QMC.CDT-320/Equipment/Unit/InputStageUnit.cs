@@ -101,6 +101,15 @@ namespace QMC.CDT320
 
         [DataMember] public double PickUpNeedleSeparateSpeedPercent { get; set; } = 1.0;
 
+        // [바코드 위치 Config 이관 2026-08-27 팀장님 지시] WaferY·VisionX 바코드 판독 위치는
+        // 기구 좌표라 레시피가 바뀌어도 변하지 않으므로 Recipe(StageAxisPositions.BarcodePosition)에서
+        // Config로 옮겼다(Output 스테이지 이관과 동일 규약). 0(미티칭)이면 활성 Recipe의 구 값을
+        // 폴백으로 읽고(GetBarcodeTeachingPosition 깔때기), TEACH 또는 값 입력 시 Config에 저장되어
+        // 폴백이 끝난다.
+        [DataMember] public double WaferYBarcodePosition { get; set; }
+
+        [DataMember] public double VisionXBarcodePosition { get; set; }
+
         // Legacy values are kept only for reading old config files.
         [DataMember] public double PickUpNeedleSeparateVelocity { get; set; }
         [DataMember] public double PickUpNeedleSeparateAcc { get; set; } = 100.0;
@@ -321,6 +330,75 @@ namespace QMC.CDT320
     {
         private const double DefaultEstimatedPitchX = 0.15;
         private const double DefaultEstimatedPitchY = 0.15;
+
+        // [바코드 위치 Config 이관 2026-08-27 팀장님 지시] Barcode 위치의 단일 읽기 깔때기 —
+        // Config 우선, 0(미티칭)이면 구 저장소(Recipe.BarcodePosition) 폴백(Output 스테이지 이관과
+        // 동일 규약). UI 표시(그리드 getter)와 시퀀스 실사용이 모두 이 깔때기를 타므로
+        // 표시값=사용값이 항상 일치한다. 폴백 사용 사실은 축당 1회만 로그한다(그리드 갱신
+        // 타이머가 반복 호출하므로 도배 방지).
+        private readonly object _barcodeFallbackLogLock = new object();
+        private readonly HashSet<WaferStageAxis> _barcodeConfigFallbackLogged = new HashSet<WaferStageAxis>();
+
+        public double GetBarcodeTeachingPosition(WaferStageAxis axis)
+        {
+            double configValue;
+            switch (axis)
+            {
+                case WaferStageAxis.WaferY: configValue = Config != null ? Config.WaferYBarcodePosition : 0.0; break;
+                case WaferStageAxis.VisionX: configValue = Config != null ? Config.VisionXBarcodePosition : 0.0; break;
+                default: configValue = 0.0; break;
+            }
+
+            if (configValue != 0.0)
+                return configValue;
+
+            StageAxisPositions recipePositions = ResolveBarcodeRecipePositions(axis);
+            double recipeValue = recipePositions != null ? recipePositions.BarcodePosition : 0.0;
+            if (recipeValue != 0.0)
+            {
+                bool firstFallback;
+                lock (_barcodeFallbackLogLock)
+                {
+                    firstFallback = _barcodeConfigFallbackLogged.Add(axis);
+                }
+                if (firstFallback)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageBarcodePos",
+                        "바코드 위치 Config 미티칭(0) — 구 Recipe 값을 폴백으로 사용합니다. axis=" + axis +
+                        ", recipeValue=" + recipeValue.ToString("F3") +
+                        " (TEACH 또는 값 입력 시 Config로 확정) - Check");
+                }
+            }
+            return recipeValue;
+        }
+
+        // [바코드 위치 Config 이관 2026-08-27] Barcode 위치의 단일 쓰기 깔때기 — 이관 대상 2축은
+        // Config에 기록하고, 그 외 축(대상 아님·UI 미노출)은 기존 저장소를 유지한다.
+        public void SetBarcodeTeachingPosition(WaferStageAxis axis, double position)
+        {
+            if (Config != null && axis == WaferStageAxis.WaferY)
+                Config.WaferYBarcodePosition = position;
+            else if (Config != null && axis == WaferStageAxis.VisionX)
+                Config.VisionXBarcodePosition = position;
+            else
+            {
+                StageAxisPositions recipePositions = ResolveBarcodeRecipePositions(axis);
+                if (recipePositions != null)
+                    recipePositions.BarcodePosition = position;
+            }
+        }
+
+        private StageAxisPositions ResolveBarcodeRecipePositions(WaferStageAxis axis)
+        {
+            if (Recipe == null)
+                return null;
+            switch (axis)
+            {
+                case WaferStageAxis.WaferY: return Recipe.WaferY;
+                case WaferStageAxis.VisionX: return Recipe.VisionX;
+                default: return null;
+            }
+        }
 
         private static double ResolveAxisVelocity(BaseAxis axis)
         {

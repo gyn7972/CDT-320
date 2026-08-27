@@ -56,6 +56,42 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             public Func<InputStageUnit, StageAxisPositions> PositionSetGetter { get; private set; }
             public Func<StageAxisPositions, double> Getter { get; private set; }
             public Action<StageAxisPositions, double> Setter { get; private set; }
+
+            // [바코드 위치 Config 이관 2026-08-27 팀장님 지시] Barcode 항목은 Recipe 세트 대신
+            // 유닛 깔때기(Config 우선·구 Recipe 폴백)를 탄다 — 지정 시 값 접근·그리드 스코프·
+            // TEACH 저장 경로가 전부 Config 기준으로 동작한다.
+            public Func<InputStageUnit, double> ConfigGetter { get; private set; }
+            public Action<InputStageUnit, double> ConfigSetter { get; private set; }
+            public bool IsConfigScope { get { return ConfigGetter != null && ConfigSetter != null; } }
+
+            public StageTeachingPosition WithConfigAccessors(
+                Func<InputStageUnit, double> configGetter,
+                Action<InputStageUnit, double> configSetter)
+            {
+                ConfigGetter = configGetter;
+                ConfigSetter = configSetter;
+                return this;
+            }
+
+            public double GetValue(InputStageUnit unit)
+            {
+                if (ConfigGetter != null)
+                    return ConfigGetter(unit);
+                StageAxisPositions set = PositionSetGetter(unit);
+                return set != null ? Getter(set) : 0.0;
+            }
+
+            public void SetValue(InputStageUnit unit, double value)
+            {
+                if (ConfigSetter != null)
+                {
+                    ConfigSetter(unit, value);
+                    return;
+                }
+                StageAxisPositions set = PositionSetGetter(unit);
+                if (set != null)
+                    Setter(set, value);
+            }
         }
 
         private static readonly StageTeachingPosition[] TeachingPositions = CreateTeachingPositions();
@@ -187,9 +223,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 case StagePositionKind.Ready:
                     AddTeachingPosition(positions, axis, kind, set => set.ReadyPosition, (set, value) => set.ReadyPosition = value);
                     break;
-                // Barcode 판독 위치 레시피 항목 추가
+                // [바코드 위치 Config 이관 2026-08-27 팀장님 지시] Barcode 판독 위치는 기구 좌표라
+                // Config 스코프 — 유닛 깔때기(Config 우선, 0이면 구 Recipe 폴백)를 타도록 접근자를 지정한다.
                 case StagePositionKind.Barcode:
-                    AddTeachingPosition(positions, axis, kind, set => set.BarcodePosition, (set, value) => set.BarcodePosition = value);
+                    {
+                        WaferStageAxis barcodeAxis;
+                        if (string.Equals(axis.AxisLabel, "WAFER Y", StringComparison.OrdinalIgnoreCase))
+                            barcodeAxis = WaferStageAxis.WaferY;
+                        else if (string.Equals(axis.AxisLabel, "VISION X", StringComparison.OrdinalIgnoreCase))
+                            barcodeAxis = WaferStageAxis.VisionX;
+                        else
+                        {
+                            // 이관 대상(WAFER Y/VISION X) 외 축은 기존 Recipe 저장소를 유지한다.
+                            AddTeachingPosition(positions, axis, kind, set => set.BarcodePosition, (set, value) => set.BarcodePosition = value);
+                            break;
+                        }
+
+                        AddTeachingPosition(positions, axis, kind, set => set.BarcodePosition, (set, value) => set.BarcodePosition = value);
+                        positions[positions.Count - 1].WithConfigAccessors(
+                            unit => unit.GetBarcodeTeachingPosition(barcodeAxis),
+                            (unit, value) => unit.SetBarcodeTeachingPosition(barcodeAxis, value));
+                    }
                     break;
                 // Reticle 위치 레시피 항목 추가
                 case StagePositionKind.Reticle:
@@ -642,7 +696,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 TeachPosition(position);
-                SaveCurrentRecipeData();
+                // [바코드 위치 Config 이관 2026-08-27] Config 스코프 티칭(Barcode)은 Recipe가 아니라
+                // 장비 설정으로 영속해야 한다 — 항목 스코프 기준으로 저장 경로를 분기한다.
+                if (position != null && position.IsConfigScope)
+                    SaveCurrentSettingsData();
+                else
+                    SaveCurrentRecipeData();
                 RefreshView();
             }
             catch (Exception ex)
@@ -687,7 +746,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 TeachPosition(position);
-                SaveCurrentRecipeData();
+                // [바코드 위치 Config 이관 2026-08-27] Config 스코프 티칭(Barcode)은 Recipe가 아니라
+                // 장비 설정으로 영속해야 한다 — 항목 스코프 기준으로 저장 경로를 분기한다.
+                if (position != null && position.IsConfigScope)
+                    SaveCurrentSettingsData();
+                else
+                    SaveCurrentRecipeData();
                 RefreshView();
             }
             catch (Exception ex)
@@ -744,7 +808,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (positionSet == null || axis == null)
                     return -1;
 
-                return await MoveAxisAsync(axis, position.Getter(positionSet));
+                // Barcode(Config 이관) 항목은 GetValue가 유닛 깔때기(Config 우선·구 Recipe 폴백)를 탄다.
+                return await MoveAxisAsync(axis, position.GetValue(_InputStageUnit));
             }
             catch
             {
@@ -1136,8 +1201,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (waferY == null)
                 return await StepMoveKindAsync(kind, "NEEDLE X") == 0 ? 0 : AbortStage(title, "NEEDLE X 이동 실패");
 
-            double targetNeedleX = needleX.Getter(needleX.PositionSetGetter(_InputStageUnit));
-            double targetStageY = waferY.Getter(waferY.PositionSetGetter(_InputStageUnit));
+            double targetNeedleX = needleX.GetValue(_InputStageUnit);
+            double targetStageY = waferY.GetValue(_InputStageUnit);
 
             bool moveNeedleXFirst;
             string reason;
@@ -1403,7 +1468,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (positionSet == null || axis == null)
                     return;
 
-                position.Setter(positionSet, axis.ActualPosition);
+                position.SetValue(_InputStageUnit, axis.ActualPosition);
                 EventLogger.Write(EventKind.Event, "UI", "INPUT-STAGE", position.DisplayName + " taught=" + axis.ActualPosition.ToString("F3", CultureInfo.InvariantCulture));
             }
             catch (Exception ex)
@@ -1608,9 +1673,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                     StageTeachingPosition captured = position;
                     BaseAxis axis = captured.AxisGetter(unit);
-                    ParameterGridItem item = AxisDouble(captured.AxisLabel, ParameterGridScope.Recipe, axis,
-                        () => captured.Getter(captured.PositionSetGetter(unit)),
-                        v => captured.Setter(captured.PositionSetGetter(unit), v));
+                    // Barcode(Config 이관 2026-08-27) 항목은 스코프 표기·값 접근 모두 Config 기준.
+                    ParameterGridItem item = AxisDouble(captured.AxisLabel,
+                        captured.IsConfigScope ? ParameterGridScope.Config : ParameterGridScope.Recipe,
+                        axis,
+                        () => captured.GetValue(unit),
+                        v => captured.SetValue(unit, v));
                     item.Key = captured.DisplayName;   // 더블클릭/메뉴 티칭 조회는 원래 이름(DisplayName)으로 매칭
                     item.GroupKey = groupKey;
                     item.SupportsTeaching = true;      // 행에 MOVE/TEACH 버튼 표시
