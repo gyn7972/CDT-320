@@ -477,7 +477,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     ManualActionItem.Create("NG UNLOAD POSITION", () => ConfirmAndRunAsync("NG UNLOAD POSITION", () => MoveBinSequenceAsync(BinSide.Ng, "Unload"))),
                     ManualActionItem.Create("VISION AVOID POSITION", () => ConfirmAndRunAsync("VISION AVOID POSITION", () => MoveVisionSequenceAsync("Avoid"))),
                     ManualActionItem.Create("VISION PROCESS POSITION", () => ConfirmAndRunAsync("VISION PROCESS POSITION", () => MoveVisionSequenceAsync("Process"))),
-                    ManualActionItem.Create("VISION RETICLE POSITION", () => ConfirmAndRunAsync("VISION RETICLE POSITION", () => MoveVisionSequenceAsync("Reticle")))
+                    ManualActionItem.Create("VISION RETICLE POSITION", () => ConfirmAndRunAsync("VISION RETICLE POSITION", () => MoveVisionSequenceAsync("Reticle"))),
+                    // [카메라 바코드 테스트 2026-08-27 팀장님 지시] 바코드 판독 단독 테스트 —
+                    // BARCODE USE CAMERA 옵션에 따라 카메라 2샷 또는 시리얼 리더로 읽는다.
+                    ManualActionItem.Create("GOOD BARCODE READ", () => ConfirmAndRunAsync("GOOD BARCODE READ", () => ReadBinBarcodeManualAsync(BinSide.Good))),
+                    ManualActionItem.Create("NG BARCODE READ", () => ConfirmAndRunAsync("NG BARCODE READ", () => ReadBinBarcodeManualAsync(BinSide.Ng)))
                 });
             }
             catch (Exception ex)
@@ -550,6 +554,136 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         // 마지막 시퀀스 중단 사유 — 실행 래퍼(ConfirmAndRunAsync)의 실패 팝업에 합쳐서 표시
         private string _lastAbortReason;
+
+        // ── [카메라 바코드 테스트 2026-08-27 팀장님 지시] MANUAL ACTION 바코드 판독 ─────────────
+        // 자동 시퀀스(OutputFeederLoadToStageSequence.RunBarcodeSequence)와 동일 순서를 수동으로 1회:
+        // VisionX → Barcode 티칭(리더/카메라 공통, 자동 경로 미러) → StageY → Barcode 티칭 →
+        //   [리더]  현 위치에서 BinBarcodeReader.ReadAsync 1회
+        //   [카메라] StageY 티칭+샷오프셋 → ch0 샷/EPD → 티칭−샷오프셋 → ch1 샷/EPD →
+        //            집계 RESULT(BIN_BARCODE) 회수 — 프로토콜 공용부(BinBarcodeCameraReader) 사용.
+        // 이동은 전부 기존 수동 이동 시퀀스/헬퍼(MoveBinSequenceAsync·MoveStageAxisWithSelectedSpeedAsync,
+        // 가드·속도 선택 포함) 재사용 — 신규 이동 코드 없음. 판독 결과는 다이얼로그로 표시하고 0을
+        // 반환한다(이동/전제 실패만 AbortSeq로 공통 실패 처리).
+        private async Task<int> ReadBinBarcodeManualAsync(BinSide side)
+        {
+            string title = (side == BinSide.Ng ? "NG" : "GOOD") + " BARCODE READ";
+            if (_outputStageUnit == null)
+                return -1;
+
+            AppSettings settings = AppSettingsStore.Current ?? new AppSettings();
+            bool useCamera = settings.OutputBarcodeUseCamera;
+
+            // 1) VisionX → Barcode 티칭 위치 (자동 시퀀스 공통부 미러 — 공유레일 클리어 가드 포함)
+            int r = await MoveVisionSequenceAsync("Barcode").ConfigureAwait(true);
+            if (r != 0)
+                return r;
+
+            // 2) StageY → Barcode 티칭 위치 (홈/클램프/피더/반대편 Z 가드 포함)
+            r = await MoveBinSequenceAsync(side, "Barcode").ConfigureAwait(true);
+            if (r != 0)
+                return r;
+
+            if (!useCamera)
+                return await ReadBinBarcodeByReaderManualAsync(side, title, settings).ConfigureAwait(true);
+
+            return await ReadBinBarcodeByCameraManualAsync(side, title, settings).ConfigureAwait(true);
+        }
+
+        private async Task<int> ReadBinBarcodeByReaderManualAsync(BinSide side, string title, AppSettings settings)
+        {
+            var host = FindHostForm();
+            IBarcodeReader reader = host != null && host.Machine != null
+                ? host.Machine.BinBarcodeReader
+                : null;
+            if (reader == null)
+                return AbortSeq(title, "Output Bin barcode reader가 구성되지 않았습니다.");
+
+            try
+            {
+                if (!reader.IsConnected && (!reader.TryOpen() || !reader.IsConnected))
+                    return AbortSeq(title, "barcode reader 연결 실패. reader=" + reader.ReaderName);
+
+                int timeoutMs = settings.OutputBarcodeReadTimeoutMs > 0
+                    ? settings.OutputBarcodeReadTimeoutMs
+                    : 3000;
+                string value = await reader.ReadAsync(timeoutMs).ConfigureAwait(true);
+                bool ok = !string.IsNullOrWhiteSpace(value);
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageRecipePage",
+                    title + " 리더 판독 결과. reader=" + reader.ReaderName +
+                    ", barcode=" + (ok ? value : "-") + (ok ? " - Ok" : " - Check"));
+                QMC.Common.MessageDialog.Show(this,
+                    ok
+                        ? title + " 성공 (리더)\r\nbarcode = " + value
+                        : title + " 판독 실패/타임아웃 (리더)\r\nreader = " + reader.ReaderName +
+                          ", timeoutMs = " + timeoutMs,
+                    title, MessageBoxButtons.OK, ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return AbortSeq(title, "리더 판독 예외: " + ex.Message);
+            }
+        }
+
+        private async Task<int> ReadBinBarcodeByCameraManualAsync(BinSide side, string title, AppSettings settings)
+        {
+            string visionReason;
+            if (!QMC.CDT320.VisionComm.BinBarcodeCameraReader.IsVisionReady(out visionReason))
+                return AbortSeq(title, visionReason);
+
+            BinStageAxis yAxis = BinYAxis(side);
+            double baseY = _outputStageUnit.GetStageTeachingPosition(yAxis, "Barcode");
+            double shotOffsetMm = Math.Abs(settings.OutputBarcodeCameraShotOffsetMm);
+            int epdTimeoutMs = settings.OutputBarcodeReadTimeoutMs > 0
+                ? settings.OutputBarcodeReadTimeoutMs
+                : 3000;
+            int resultTimeoutMs = settings.OutputBarcodeCameraResultTimeoutMs > 0
+                ? settings.OutputBarcodeCameraResultTimeoutMs
+                : 5000;
+
+            string groupId = QMC.CDT320.VisionComm.BinBarcodeCameraReader.NewGroupId();
+            string headSide = side == BinSide.Ng ? "NG" : "GOOD";
+            QMC.CDT320.VisionComm.VisionRequestHandle lastHandle = null;
+            for (int shot = 0; shot <= 1; shot++)
+            {
+                double shotTarget = shot == 0 ? baseY + shotOffsetMm : baseY - shotOffsetMm;
+                int moveResult = await MoveStageAxisWithSelectedSpeedAsync(yAxis, shotTarget).ConfigureAwait(true);
+                if (moveResult != 0)
+                    return AbortSeq(title, "StageY 샷 위치 이동 실패. shot=" + shot +
+                        ", target=" + shotTarget.ToString("F3"));
+
+                QMC.CDT320.VisionComm.VisionRequestHandle handle =
+                    await QMC.CDT320.VisionComm.BinBarcodeCameraReader.SendShotAsync(
+                        headSide, shot, groupId, string.Empty, epdTimeoutMs,
+                        System.Threading.CancellationToken.None).ConfigureAwait(true);
+                if (handle == null)
+                    return AbortSeq(title, "샷 요청/EPD 실패. shot=" + shot + ", groupId=" + groupId);
+
+                lastHandle = handle;
+            }
+
+            QMC.CDT320.VisionComm.BinBarcodeCameraResult result =
+                await QMC.CDT320.VisionComm.BinBarcodeCameraReader.WaitAggregateResultAsync(
+                    lastHandle, resultTimeoutMs,
+                    System.Threading.CancellationToken.None).ConfigureAwait(true);
+
+            QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageRecipePage",
+                title + " 카메라 2샷 판독 결과. status=" + (string.IsNullOrEmpty(result.Status) ? "-" : result.Status) +
+                ", barcode=" + (string.IsNullOrEmpty(result.Barcode) ? "-" : result.Barcode) +
+                ", decodedShot=" + (string.IsNullOrEmpty(result.DecodedShot) ? "-" : result.DecodedShot) +
+                ", failReason=" + (string.IsNullOrWhiteSpace(result.FailReason) ? "-" : result.FailReason) +
+                ", groupId=" + result.GroupId + (result.Pass ? " - Ok" : " - Check"));
+
+            QMC.Common.MessageDialog.Show(this,
+                result.Pass
+                    ? title + " 성공 (카메라 2샷)\r\nbarcode = " + result.Barcode +
+                      "\r\ndecodedShot = " + result.DecodedShot
+                    : title + " 판독 실패 (카메라 2샷)\r\nstatus = " +
+                      (string.IsNullOrEmpty(result.Status) ? "-" : result.Status) +
+                      "\r\nfailReason = " + (string.IsNullOrWhiteSpace(result.FailReason) ? "-" : result.FailReason),
+                title, MessageBoxButtons.OK, result.Pass ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            return 0;
+        }
 
         private int AbortSeq(string title, string message)
         {
@@ -738,14 +872,44 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (r != 0) return r;
             }
 
-            if (side == BinSide.Good && string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase))
+            bool barcodeNgAlreadyAvoid = false;
+            if (side == BinSide.Good &&
+                (string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(kind, "Barcode", StringComparison.OrdinalIgnoreCase)))
             {
+                // [바코드 테스트 2026-08-27 팀장님 지시] GOOD 바코드 촬영도 Process와 동일하게,
+                // NG빈이 촬영 자리를 가리고 있으면 먼저 NG Y를 Avoid로 치운다(이미 Avoid면 무동작).
+                // NgY 이동 절대가드는 GoodZ가 정확한 Avoid/0 이하일 것을 요구하므로, NG 회피가 실제로
+                // 필요할 때만 GoodZ Avoid를 선행한다. NgY가 이미 Avoid면(팀장님 지시 08-27) GoodZ
+                // Avoid 동작 자체를 생략한다 — GoodY 이동은 GoodZ 높이와 무관(자동 Conti가 Z Process
+                // 상태로 Y를 움직이는 기존 설계와 동일)하므로 Z 0↔Process 왕복이 사라진다.
+                if (string.Equals(kind, "Barcode", StringComparison.OrdinalIgnoreCase))
+                {
+                    barcodeNgAlreadyAvoid = _outputStageUnit.IsStageAxisAtPosition(
+                        BinStageAxis.NgBinY, _outputStageUnit.Recipe.NGStageY.AvoidPosition);
+                    if (!barcodeNgAlreadyAvoid)
+                    {
+                        r = await EnsureBinStageZSafeBeforeYAsync(side, title, "대상 GOOD(NG 회피 선행)").ConfigureAwait(true);
+                        if (r != 0) return r;
+                    }
+                }
+
+                // NgY가 이미 Avoid면 헬퍼 내 NgY 이동은 자연 스킵되고, GoodY 이동 인터락이 요구하는
+                // NG Clamp Lift Up 확보만 수행된다.
                 r = await EnsureGoodProcessOppositeStageClearAsync(title).ConfigureAwait(true);
                 if (r != 0) return r;
             }
 
-            r = await EnsureBinStageZSafeBeforeYAsync(side, title, "대상 " + (side == BinSide.Ng ? "NG" : "GOOD")).ConfigureAwait(true);
-            if (r != 0) return r;
+            // [바코드 테스트 2026-08-27] GOOD Barcode에서 NgY가 이미 Avoid면 대상 Z Avoid도 생략
+            // (위 주석과 동일 근거 — Z 왕복 제거). 그 외 kind/side는 기존 그대로.
+            bool skipOwnZAvoidForBarcode = side == BinSide.Good &&
+                string.Equals(kind, "Barcode", StringComparison.OrdinalIgnoreCase) &&
+                barcodeNgAlreadyAvoid;
+            if (!skipOwnZAvoidForBarcode)
+            {
+                r = await EnsureBinStageZSafeBeforeYAsync(side, title, "대상 " + (side == BinSide.Ng ? "NG" : "GOOD")).ConfigureAwait(true);
+                if (r != 0) return r;
+            }
 
             // 3) Y → 종류 위치
             r = await MoveStageTeachingPositionWithSelectedSpeedAsync(BinYAxis(side), kind);
@@ -766,6 +930,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 r = await MoveStageTeachingPositionWithSelectedSpeedAsync(BinStageAxis.GoodBinZ, kind);
                 if (r != 0) return AbortSeq(title, "Z " + kind + " 이동 실패");
+            }
+            else if (side == BinSide.Good &&
+                     string.Equals(kind, "Barcode", StringComparison.OrdinalIgnoreCase))
+            {
+                // [카메라 바코드 테스트 2026-08-27 팀장님 지적] 바코드 촬영 높이는 Process다.
+                // 위 EnsureBinStageZSafeBeforeYAsync가 Y 이동 전 GoodZ를 Avoid(0)로 내리므로,
+                // 그대로 촬영하면 자동 경로(빈 로드 직후 Z 상단 유지)와 높이가 달라 초점이 나간다.
+                // Y 도착 후 GoodZ를 Process 티칭으로 복귀시킨다(NG는 Z축 없음 — 해당 없음).
+                r = await MoveStageTeachingPositionWithSelectedSpeedAsync(BinStageAxis.GoodBinZ, "Process");
+                if (r != 0) return AbortSeq(title, "Z Process 복귀(바코드 촬영 높이) 실패");
             }
 
             // 5) PROCESS: VisionX 동반 이동 (공유레일 → Front/Rear 픽커 Avoid 선행 확인)

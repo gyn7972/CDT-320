@@ -912,7 +912,13 @@ namespace QMC.CDT320.VisionComm
                 string.Equals(request.Camera, VisionCameraNames.RearSide, StringComparison.OrdinalIgnoreCase))
                 return string.Equals(profile, "SIDE_JUDGE", StringComparison.OrdinalIgnoreCase);
             if (string.Equals(request.Camera, VisionCameraNames.Bin, StringComparison.OrdinalIgnoreCase))
+            {
+                // [카메라 바코드 2026-08-27] BinBarcodeReader는 BIN_BARCODE 프로파일 전용 —
+                // 미등록으로 정상 PASS RESULT가 INVALID_PAYLOAD로 버려졌던 실장비 실측(11:08) 수정.
+                if (string.Equals(request.Finder, VisionToolIds.Bin.BinBarcodeReader, StringComparison.Ordinal))
+                    return string.Equals(profile, "BIN_BARCODE", StringComparison.OrdinalIgnoreCase);
                 return string.Equals(profile, "PLACEMENT_POSE", StringComparison.OrdinalIgnoreCase);
+            }
             return false;
         }
 
@@ -1041,6 +1047,17 @@ namespace QMC.CDT320.VisionComm
                 !string.Equals(status, "FAIL", StringComparison.OrdinalIgnoreCase))
                 return ValidationFail("Inspection RESULT STATUS는 PASS/FAIL이어야 합니다. status=" + status, out error);
 
+            // [카메라 바코드 2026-08-27] BIN_BARCODE는 공통 measure_valid/fail_code 규약보다 먼저 처리한다 —
+            // 이 프로파일의 실패 표현은 fail_reason 키(프로토콜 문서 §2-3)이고 fail_code/fail_message를
+            // 쓰지 않으므로, 공통 measure_valid=0 분기에 태우면 FAIL 응답이 INVALID_PAYLOAD가 된다.
+            if (string.Equals(request.Camera, VisionCameraNames.Bin, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(request.Finder, VisionToolIds.Bin.BinBarcodeReader, StringComparison.Ordinal))
+            {
+                if (!string.Equals(profile, "BIN_BARCODE", StringComparison.OrdinalIgnoreCase))
+                    return ValidationFail("BIN 바코드 RESULT profile이 올바르지 않습니다. profile=" + profile, out error);
+                return TryValidateBinBarcodeResult(response, status, out error);
+            }
+
             bool measureValid;
             if (!RequireFlag(response, "measure_valid", out measureValid, out error))
                 return false;
@@ -1073,6 +1090,26 @@ namespace QMC.CDT320.VisionComm
             }
 
             return ValidationFail("지원하지 않는 Inspection CAMERA입니다. camera=" + request.Camera, out error);
+        }
+
+        // [카메라 바코드 2026-08-27] BIN_BARCODE RESULT 페이로드 검증 — 프로토콜 문서 §2-3 기준:
+        // PASS = measure_valid=1 + barcode 비어있지 않음. FAIL = fail_reason 필수(barcode 빈 값 허용).
+        // decoded_shot/shot_count/symbology/score는 정보성 키라 하드 요구하지 않는다(로그로만 소비).
+        private static bool TryValidateBinBarcodeResult(VisionProtocolResponse response, string status, out string error)
+        {
+            error = string.Empty;
+            bool measureValid;
+            if (!RequireFlag(response, "measure_valid", out measureValid, out error))
+                return false;
+
+            if (string.Equals(status, "PASS", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!measureValid)
+                    return ValidationFail("BIN 바코드 PASS 결과는 measure_valid=1이어야 합니다.", out error);
+                return RequireString(response, "barcode", out error);
+            }
+
+            return RequireString(response, "fail_reason", out error);
         }
 
         private static bool TryValidateBottomSurfaceResult(VisionProtocolResponse response, out string error)

@@ -1365,23 +1365,8 @@ namespace QMC.CDT320.Sequencing
 
         private static bool TryEnsureBarcodeVisionReady(out string reason)
         {
-            reason = string.Empty;
-            try
-            {
-                QMC.CDT320.VisionComm.VisionTcpClient client =
-                    QMC.CDT320.VisionComm.VisionCommandService.ResolveInspectionClient(
-                        QMC.CDT320.VisionComm.AutoVisionChannel.Bin);
-                if (client != null && client.IsConnected)
-                    return true;
-
-                reason = "BIN 카메라 Vision 명령 채널이 연결되어 있지 않습니다(카메라 바코드 모드).";
-                return false;
-            }
-            catch (Exception ex)
-            {
-                reason = "BIN 카메라 Vision 연결 확인 예외. error=" + ex.Message;
-                return false;
-            }
+            // [공용화 2026-08-27] 프로토콜 공용부(BinBarcodeCameraReader)로 위임 — 수동 테스트 UI와 공유.
+            return QMC.CDT320.VisionComm.BinBarcodeCameraReader.IsVisionReady(out reason);
         }
 
         /// <summary>티칭+retry 오프셋 기준 StageY [+샷오프셋 → ch0 촬영/EPD → −샷오프셋 → ch1 촬영/EPD]
@@ -1398,12 +1383,8 @@ namespace QMC.CDT320.Sequencing
             CancellationToken ct)
         {
             var outcome = new CameraBarcodeReadOutcome();
-            string groupId = QMC.CDT320.VisionComm.VisionCorrelationIdGenerator.NewGroupId();
+            string groupId = QMC.CDT320.VisionComm.BinBarcodeCameraReader.NewGroupId();
             string headSide = Options.Side == BinSide.Ng ? "NG" : "GOOD";
-            string recipeId = MaterialStateService.State != null
-                ? (MaterialStateService.State.RecipeName ?? string.Empty)
-                : string.Empty;
-            string lotId = MaterialStateService.GetProductionLotId();
             string waferId = wafer != null ? (wafer.WaferId ?? string.Empty) : string.Empty;
 
             QMC.CDT320.VisionComm.VisionRequestHandle lastHandle = null;
@@ -1436,25 +1417,10 @@ namespace QMC.CDT320.Sequencing
                     return outcome;
                 }
 
-                var shotContext = new QMC.CDT320.VisionComm.VisionInspectionRequestContext(
-                    QMC.CDT320.VisionComm.AutoVisionChannel.Bin,
-                    QMC.CDT320.VisionComm.VisionToolIds.Bin.BinBarcodeReader,
-                    -1,                     // fb 미사용 — HEAD는 headOverride(GOOD/NG)
-                    1,                      // HEAD_INDEX 고정 1 (프로토콜 §2-1)
-                    0, 0, 0,                // DIE_INDEX, GRID_X, GRID_Y
-                    shot,                   // CHANNEL = 샷 인덱스
-                    string.Empty,           // dieId 없음
-                    waferId,
-                    recipeId,
-                    lotId,
-                    QMC.CDT320.VisionComm.VisionInspectionOperations.Inspect,
-                    QMC.CDT320.VisionComm.VisionResultTimings.Deferred,
-                    groupId,
-                    false,                  // 바코드 판독 시점의 waferId는 임시값 — 자재 문맥 강제 안 함
-                    headSide);
+                // [공용화 2026-08-27] 샷 요청/EPD는 프로토콜 공용부로 위임(수동 테스트 UI와 동일 코드).
                 QMC.CDT320.VisionComm.VisionRequestHandle handle =
-                    await QMC.CDT320.VisionComm.AutoVisionRequestService.StartInspectionRequestAsync(
-                        shotContext, epdTimeoutMs, ct).ConfigureAwait(false);
+                    await QMC.CDT320.VisionComm.BinBarcodeCameraReader.SendShotAsync(
+                        headSide, shot, groupId, waferId, epdTimeoutMs, ct).ConfigureAwait(false);
                 if (handle == null)
                 {
                     outcome.Failure = "BIN 카메라 바코드 샷 요청/EPD 실패. attempt=" + attemptNo +
@@ -1472,49 +1438,36 @@ namespace QMC.CDT320.Sequencing
                     ", groupId=" + groupId + " - Ok");
             }
 
-            QMC.CDT320.VisionComm.VisionInspectionResult result =
-                await QMC.CDT320.VisionComm.AutoVisionRequestService.WaitInspectionStageAsync(
-                    lastHandle,
-                    QMC.CDT320.VisionComm.VisionInspectionCommands.Result,
-                    resultTimeoutMs,
-                    ct).ConfigureAwait(false);
-            if (result == null)
+            // [공용화 2026-08-27] 집계 RESULT 회수/정규화는 프로토콜 공용부로 위임.
+            QMC.CDT320.VisionComm.BinBarcodeCameraResult result =
+                await QMC.CDT320.VisionComm.BinBarcodeCameraReader.WaitAggregateResultAsync(
+                    lastHandle, resultTimeoutMs, ct).ConfigureAwait(false);
+            if (string.Equals(result.FailReason, "RESULT_TIMEOUT", StringComparison.Ordinal) &&
+                string.IsNullOrEmpty(result.Status))
             {
                 outcome.Failure = "BIN 카메라 바코드 집계 RESULT 미수신(타임아웃/오류). attempt=" + attemptNo +
                     ", timeoutMs=" + resultTimeoutMs + ", groupId=" + groupId;
                 return outcome;
             }
 
-            string rawBarcode = null;
-            string decodedShot = null;
-            string failReasonMeta = null;
-            if (result.Values != null)
-            {
-                result.Values.TryGetValue("barcode", out rawBarcode);
-                result.Values.TryGetValue("decoded_shot", out decodedShot);
-                result.Values.TryGetValue("fail_reason", out failReasonMeta);
-            }
-
-            bool pass = string.Equals(result.Status, "PASS", StringComparison.OrdinalIgnoreCase);
-            string normalized = NormalizeBarcode(rawBarcode);
             WriteLog(Name,
                 "Output Bin 카메라 바코드 집계 RESULT 수신. side=" + Options.Side +
                 ", attempt=" + attemptNo +
-                ", status=" + (result.Status ?? "-") +
-                ", barcode=" + (string.IsNullOrEmpty(normalized) ? "-" : normalized) +
-                ", decodedShot=" + (decodedShot ?? "-") +
-                ", failReason=" + (string.IsNullOrWhiteSpace(failReasonMeta) ? "-" : failReasonMeta) +
-                ", groupId=" + groupId + (pass ? " - Ok" : " - Check"));
+                ", status=" + (string.IsNullOrEmpty(result.Status) ? "-" : result.Status) +
+                ", barcode=" + (string.IsNullOrEmpty(result.Barcode) ? "-" : result.Barcode) +
+                ", decodedShot=" + (string.IsNullOrEmpty(result.DecodedShot) ? "-" : result.DecodedShot) +
+                ", failReason=" + (string.IsNullOrWhiteSpace(result.FailReason) ? "-" : result.FailReason) +
+                ", groupId=" + groupId + (result.Pass ? " - Ok" : " - Check"));
 
-            if (pass && IsUsableBarcode(normalized))
+            if (result.Pass && IsUsableBarcode(result.Barcode))
             {
-                outcome.Barcode = normalized;
+                outcome.Barcode = result.Barcode;
                 return outcome;
             }
 
             outcome.Failure = "BIN 카메라 바코드 디코드 실패. attempt=" + attemptNo +
-                ", status=" + (result.Status ?? "-") +
-                ", failReason=" + (string.IsNullOrWhiteSpace(failReasonMeta) ? "-" : failReasonMeta);
+                ", status=" + (string.IsNullOrEmpty(result.Status) ? "-" : result.Status) +
+                ", failReason=" + (string.IsNullOrWhiteSpace(result.FailReason) ? "-" : result.FailReason);
             return outcome;
         }
 
