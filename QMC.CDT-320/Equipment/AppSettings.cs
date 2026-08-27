@@ -132,6 +132,13 @@ namespace QMC.CDT320
         /// </summary>
         [DataMember] public bool UseLotNetworkWaferMap { get; set; } = false;
 
+        /// <summary>
+        /// [캠택맵 2026-08-27] LOT 네트워크 웨이퍼맵 파일 포맷 — "Rad"(RAD TXT, X= Y= B=) /
+        /// "Camtek"(CAMTEK RowData 행렬). 자동 판별 없이 명시 선택(팀장님 지시).
+        /// 기본 "Rad" = 기존 장비 동작 완전 유지. 레시피 맵 경로에는 적용되지 않는다(LOT 네트워크 전용).
+        /// </summary>
+        [DataMember] public string NetworkWaferMapFormat { get; set; } = "Rad";
+
         // ── Simulator link — auto connect ──
         [DataMember] public bool   SimulatorAutoConnect { get; set; } = false;
 
@@ -274,6 +281,8 @@ namespace QMC.CDT320
         internal void OnDeserialized(StreamingContext ctx)
         {
             if (NetworkWaferMapFolder == null) NetworkWaferMapFolder = "";
+            // [캠택맵 2026-08-27] 구 settings.json(키 없음 → null) 포함 기본 Rad 정규화.
+            if (string.IsNullOrWhiteSpace(NetworkWaferMapFormat)) NetworkWaferMapFormat = "Rad";
             int legacyBaud = BarcodeSerialBaud > 0 ? BarcodeSerialBaud : 9600;
             if (WaferBarcodeSerialBaud <= 0) WaferBarcodeSerialBaud = legacyBaud;
             if (BinBarcodeSerialBaud <= 0) BinBarcodeSerialBaud = legacyBaud;

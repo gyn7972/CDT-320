@@ -40,6 +40,7 @@
         private System.Windows.Forms.CheckBox _cbUseLotNetworkWaferMap;
         private System.Windows.Forms.TextBox _tbNetworkWaferMapFolder;
         private System.Windows.Forms.Button btnNetworkWaferMapCheck;
+        private System.Windows.Forms.ComboBox _cbNetworkWaferMapFormat;
         private System.Windows.Forms.Label lblVisionOperatorConfirmTimeout;
         private System.Windows.Forms.TextBox _tbVisionOperatorConfirmTimeoutSec;
         private System.Windows.Forms.Label lblSimulationVisionNgRate;
@@ -121,6 +122,7 @@
             this._cbUseLotNetworkWaferMap = new System.Windows.Forms.CheckBox();
             this._tbNetworkWaferMapFolder = new System.Windows.Forms.TextBox();
             this.btnNetworkWaferMapCheck = new System.Windows.Forms.Button();
+            this._cbNetworkWaferMapFormat = new System.Windows.Forms.ComboBox();
             this.lblVisionOperatorConfirmTimeout = new System.Windows.Forms.Label();
             this._tbVisionOperatorConfirmTimeoutSec = new System.Windows.Forms.TextBox();
             this.lblSimulationVisionNgRate = new System.Windows.Forms.Label();
@@ -806,13 +808,15 @@
             //
             // networkWaferMapLayout
             //
-            this.networkWaferMapLayout.ColumnCount = 3;
+            this.networkWaferMapLayout.ColumnCount = 4;
             this.networkWaferMapLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 64F));
             this.networkWaferMapLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.networkWaferMapLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 110F));
+            this.networkWaferMapLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 160F));
             this.networkWaferMapLayout.Controls.Add(this._cbUseLotNetworkWaferMap, 0, 0);
             this.networkWaferMapLayout.Controls.Add(this._tbNetworkWaferMapFolder, 1, 0);
             this.networkWaferMapLayout.Controls.Add(this.btnNetworkWaferMapCheck, 2, 0);
+            this.networkWaferMapLayout.Controls.Add(this._cbNetworkWaferMapFormat, 3, 0);
             this.networkWaferMapLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.networkWaferMapLayout.Margin = new System.Windows.Forms.Padding(0);
             this.networkWaferMapLayout.Name = "networkWaferMapLayout";
@@ -844,6 +848,15 @@
             this.btnNetworkWaferMapCheck.Text = "연결 확인";
             this.btnNetworkWaferMapCheck.UseVisualStyleBackColor = true;
             this.btnNetworkWaferMapCheck.Click += new System.EventHandler(this.btnNetworkWaferMapCheck_Click);
+            //
+            // _cbNetworkWaferMapFormat
+            //
+            this._cbNetworkWaferMapFormat.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._cbNetworkWaferMapFormat.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbNetworkWaferMapFormat.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._cbNetworkWaferMapFormat.Margin = new System.Windows.Forms.Padding(2);
+            this._cbNetworkWaferMapFormat.Name = "_cbNetworkWaferMapFormat";
+            this._cbNetworkWaferMapFormat.SelectedIndexChanged += new System.EventHandler(this._cbNetworkWaferMapFormat_SelectedIndexChanged);
             //
             // lblVisionOperatorConfirmTimeout
             //

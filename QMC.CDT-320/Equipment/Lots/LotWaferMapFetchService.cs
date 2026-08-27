@@ -37,7 +37,8 @@ namespace QMC.CDT320.Lots
     ///   LOT 단위 프리페치/전수 확인은 구조적으로 불가 — 관련 API는 P5에서 제거했다.
     /// - 설정(AppSettings.NetworkWaferMapFolder)이 비어 있으면 전 기능 무동작.
     /// - 원격 접근은 전부 타임아웃 래핑(UNC 단절 시 SMB 대기로 스레드가 수십 초 잠기는 것 방어).
-    /// - 파일은 Config\WaferMap 로컬 캐시로 복사 후 기존 파서(DieMapGenerator.LoadWaferMapTextOrThrow)로 읽는다.
+    /// - 파일은 Config\WaferMap 로컬 캐시로 복사 후 설정 포맷의 파서로 읽는다
+    ///   ([캠택맵 2026-08-27] NetworkWaferMapFormat: Rad=LoadWaferMapTextOrThrow / Camtek=LoadCamtekWaferMapTextOrThrow).
     ///   원격 접근 불가 시 로컬 캐시본 폴백(재기동/단절 중 같은 웨이퍼 재처리 대응).
     /// </summary>
     internal static class LotWaferMapFetchService
@@ -69,6 +70,43 @@ namespace QMC.CDT320.Lots
         public static string ResolveLocalCacheDirectory()
         {
             return LocalCacheDirectory;
+        }
+
+        /// <summary>[캠택맵 2026-08-27] 설정(NetworkWaferMapFormat)이 Camtek인지. 기본/그 외 값은 Rad.</summary>
+        public static bool IsCamtekFormatConfigured
+        {
+            get
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                return settings != null &&
+                       string.Equals((settings.NetworkWaferMapFormat ?? "").Trim(), "Camtek",
+                           StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        /// <summary>
+        /// [캠택맵 2026-08-27] LOT 네트워크 맵 공통 파싱 헬퍼 — 설정 포맷에 따라 파서를 고른다
+        /// (자동 판별 없음 = 팀장님 지시). 파싱 실패는 선택 포맷을 명시해 다시 던진다:
+        /// 설정과 실제 파일 포맷이 다른 오설정을 예외 메시지만으로 판별할 수 있게 한다.
+        /// 확장자 기반 판단 금지 — 파일명(=바코드)은 무가공 유지.
+        /// </summary>
+        internal static DieMap LoadConfiguredFormatOrThrow(string path)
+        {
+            bool camtek = IsCamtekFormatConfigured;
+            try
+            {
+                return camtek
+                    ? DieMapGenerator.LoadCamtekWaferMapTextOrThrow(path)
+                    : DieMapGenerator.LoadWaferMapTextOrThrow(path);
+            }
+            catch (ArgumentException) { throw; }
+            catch (FileNotFoundException) { throw; }
+            catch (Exception ex)
+            {
+                throw new InvalidDataException(
+                    "format=" + (camtek ? "Camtek" : "Rad") +
+                    " — 설정과 실제 파일 포맷이 다른지 확인하세요. " + ex.Message, ex);
+            }
         }
 
         /// <summary>설정 화면 [연결 확인]용: 폴더 존재 + 목록 조회를 타임아웃 안에 시도한다.</summary>
@@ -352,7 +390,8 @@ namespace QMC.CDT320.Lots
             DateTime fileWriteUtc = fileStat.LastWriteTimeUtc;
             long fileLength = fileStat.Length;
 
-            DieMap map = DieMapGenerator.LoadWaferMapTextOrThrow(localPath);
+            // [캠택맵 2026-08-27] 설정 포맷(Rad/Camtek)에 따라 파서 선택.
+            DieMap map = LoadConfiguredFormatOrThrow(localPath);
             var info = new LotWaferMapSlotInfo
             {
                 Barcode = barcode,
@@ -384,8 +423,15 @@ namespace QMC.CDT320.Lots
         //  - 1행 [..] 안 첫 토큰 = 팹 내부 웨이퍼 ID(기록용 — 알람 판정 금지)
         //  - BO=(bin 번호 목록) / BN=(같은 순서의 이름 목록) → 번호→이름 사전
         // 실패는 Warning 1줄 남기고 부가정보 없이 진행한다(표시 보조 정보이므로 파싱 실패로 승격하지 않음).
+        // [캠택맵 2026-08-27] Camtek 설정이면 LOT:/WAFER: 헤더를 대신 읽는다(아래 전용 리더).
         private static void ReadHeaderExtras(string path, LotWaferMapSlotInfo info)
         {
+            if (IsCamtekFormatConfigured)
+            {
+                ReadCamtekHeaderExtras(path, info);
+                return;
+            }
+
             try
             {
                 string binOrderLine = null;
@@ -440,6 +486,46 @@ namespace QMC.CDT320.Lots
             {
                 EventLogger.Write(EventKind.Warning, "SYSTEM", "LOT-MAP-FETCH",
                     "웨이퍼맵 헤더 부가정보(BIN 이름/내부 ID) 읽기 실패 — 표시 정보 없이 진행. file=" +
+                    Path.GetFileName(path) + ", error=" + ex.Message);
+            }
+        }
+
+        // [캠택맵 2026-08-27] Camtek 헤더 부가정보: LOT:+WAFER: → InternalMapId = "LOT.WAFER"
+        // (파일명=바코드와의 대조 "기록용" — 기존 알람 판정 금지 정책 그대로).
+        // BinNames는 빈 사전 유지 — 캠택엔 빈 이름 정보가 없어 BIN 선택 다이얼로그는 번호-만 폴백으로 동작.
+        // 실패는 Warning 1줄 남기고 부가정보 없이 진행한다(RAD 리더와 동일 정책).
+        private static void ReadCamtekHeaderExtras(string path, LotWaferMapSlotInfo info)
+        {
+            try
+            {
+                string lot = null;
+                string wafer = null;
+                using (var reader = new StreamReader(path))
+                {
+                    for (int i = 0; i < 80; i++)
+                    {
+                        string line = reader.ReadLine();
+                        if (line == null)
+                            break;
+
+                        string text = line.Trim();
+                        if (lot == null && text.StartsWith("LOT:", StringComparison.OrdinalIgnoreCase))
+                            lot = text.Substring(4).Trim();
+                        else if (wafer == null && text.StartsWith("WAFER:", StringComparison.OrdinalIgnoreCase))
+                            wafer = text.Substring(6).Trim();
+
+                        if (lot != null && wafer != null)
+                            break;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(lot) && !string.IsNullOrWhiteSpace(wafer))
+                    info.InternalMapId = lot + "." + wafer;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "SYSTEM", "LOT-MAP-FETCH",
+                    "캠택 웨이퍼맵 헤더 부가정보(LOT/WAFER) 읽기 실패 — 표시 정보 없이 진행. file=" +
                     Path.GetFileName(path) + ", error=" + ex.Message);
             }
         }

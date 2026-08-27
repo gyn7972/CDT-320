@@ -107,6 +107,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 _tbNetworkWaferMapFolder.Text = cfg.NetworkWaferMapFolder ?? "";
                 // [P4 2026-08-22] LOT 네트워크 맵을 실제 다이맵으로 사용(시퀀스 적용) 스위치.
                 _cbUseLotNetworkWaferMap.Checked = cfg.UseLotNetworkWaferMap;
+                // [캠택맵 2026-08-27] 네트워크 맵 파일 포맷 — 명시 선택(자동 판별 없음). 기본 Rad.
+                _cbNetworkWaferMapFormat.Items.Clear();
+                _cbNetworkWaferMapFormat.Items.Add("RAD TXT (X= Y= B=)");
+                _cbNetworkWaferMapFormat.Items.Add("CAMTEK (RowData)");
+                _cbNetworkWaferMapFormat.SelectedIndex =
+                    string.Equals((cfg.NetworkWaferMapFormat ?? "").Trim(), "Camtek",
+                        StringComparison.OrdinalIgnoreCase) ? 1 : 0;
 
                 // [비전 작업자 확인 2026-08-25] NG 라우팅 로트에서 비전 NG RESULT 작업자 확인 대기 상한(초).
                 _tbVisionOperatorConfirmTimeoutSec.Text = cfg.VisionOperatorConfirmTimeoutSec.ToString();
@@ -185,6 +192,24 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     "켜지 않으면 Auto 진행 시 맵 적용 단계에서 알람 정지합니다.",
                     "LOT 웨이퍼맵", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+        }
+
+        // [캠택맵 2026-08-27] 네트워크 웨이퍼맵 포맷 — 변경 즉시 저장(USE 스위치 저장 패턴 미러) + 변경 로그 1줄.
+        private void _cbNetworkWaferMapFormat_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_loadingSettings)
+                return;
+
+            string value = _cbNetworkWaferMapFormat.SelectedIndex == 1 ? "Camtek" : "Rad";
+            string old = AppSettingsStore.Current.NetworkWaferMapFormat ?? "";
+            if (string.Equals(old, value, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            AppSettingsStore.Current.NetworkWaferMapFormat = value;
+            AppSettingsStore.Save();
+            QMC.Common.Log.Write("Main", "SYSTEM", "GeneralPage",
+                "네트워크 웨이퍼맵 포맷을 변경했습니다. " +
+                (string.IsNullOrWhiteSpace(old) ? "(기본 Rad)" : old) + " → " + value + " - Ok");
         }
 
         // [P3 2026-08-22] 네트워크 웨이퍼맵 폴더 — 포커스 이탈 시 저장(기존 즉시 저장 컨벤션 미러).

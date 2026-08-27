@@ -2105,7 +2105,8 @@ namespace QMC.CDT320.Sequencing
             {
                 // 캐시된 통계가 아니라 로컬 캐시 파일을 매번 새로 파싱한다 — 웨이퍼별 사본이라
                 // BIN 필터로 IsTarget을 바꿔도 원본/타 웨이퍼에 영향이 없다.
-                map = DieMapGenerator.LoadWaferMapTextOrThrow(slotInfo.LocalPath);
+                // [캠택맵 2026-08-27] 설정 포맷(Rad/Camtek)에 따라 파서 선택(공통 헬퍼).
+                map = QMC.CDT320.Lots.LotWaferMapFetchService.LoadConfiguredFormatOrThrow(slotInfo.LocalPath);
             }
             catch (Exception ex)
             {

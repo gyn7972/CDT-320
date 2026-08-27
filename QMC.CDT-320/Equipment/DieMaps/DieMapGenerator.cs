@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using QMC.CDT320.Materials;
 using QMC.Common.Data.Store;
+using QMC.Common.Logging;
 
 namespace QMC.CDT320.DieMaps
 {
@@ -911,6 +912,222 @@ namespace QMC.CDT320.DieMaps
                     DieUid = BuildExternalMapDieUid(frameId, point.X, point.Y)
                 });
             }
+
+            return Normalize(map);
+        }
+
+        // [캠택맵 2026-08-27] RowData 토큰 규약: ___=다이 없음, 숫자=빈코드, @@@=특수 마크 다이.
+        private static readonly Regex CamtekDigitTokenRegex = new Regex(@"^[0-9]{1,9}$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// [캠택맵 2026-08-27] CAMTEK RowData TXT를 진단 가능한 예외와 함께 읽는다(기존 RAD 파서 무수정 신설).
+        /// 헤더 키:값(ROWCT/COLCT 필수, XDIES/YDIES=다이 크기 mm) + RowData: 행렬(ROWCT행 × COLCT토큰).
+        /// 토큰: ___=다이 없음(엔트리 없음), 숫자=빈코드(0 이하는 비대상), @@@=다이 존재+픽업 제외
+        /// (팹 의미 확인 전 안전 기본 — 예약 빈코드 255 직접 기록[팀장님 지시 2026-08-27],
+        /// BIN 선택 필터는 IsTarget=true만 강등하므로 되살아나지 않는다).
+        /// 그리드 1차 규약: col→X(좌→우 = −→+), row→Y(첫 RowData 행=화면 상단), 중심 (COLCT−1)/2,(ROWCT−1)/2
+        /// — 행/열 방향은 코드만으로 확정 불가(미확정), 맵 뷰 육안 검증으로 확정하고 뒤집힘은 변환 부호만 수정한다.
+        /// </summary>
+        public static DieMap LoadCamtekWaferMapTextOrThrow(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                throw new ArgumentException("CAMTEK WaferMap 경로가 비어 있습니다.", nameof(path));
+            if (!File.Exists(path))
+                throw new FileNotFoundException("CAMTEK WaferMap 파일을 찾을 수 없습니다.", path);
+
+            var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var rowDataLines = new List<KeyValuePair<int, string>>();
+            int lineNumber = 0;
+            foreach (string line in File.ReadLines(path))
+            {
+                lineNumber++;
+                string text = (line ?? "").Trim();
+                if (text.Length == 0)
+                    continue;
+
+                int colon = text.IndexOf(':');
+                if (colon <= 0)
+                    continue; // 키:값 형태가 아닌 행은 무시(헤더 외 부가 행 허용).
+
+                string key = text.Substring(0, colon).Trim();
+                string value = text.Substring(colon + 1).Trim();
+                if (key.Equals("RowData", StringComparison.OrdinalIgnoreCase))
+                {
+                    rowDataLines.Add(new KeyValuePair<int, string>(lineNumber, value));
+                    continue;
+                }
+
+                if (!headers.ContainsKey(key))
+                    headers[key] = value;
+            }
+
+            string rawRowCount;
+            string rawColCount;
+            headers.TryGetValue("ROWCT", out rawRowCount);
+            headers.TryGetValue("COLCT", out rawColCount);
+            int rowCount;
+            int colCount;
+            if (!int.TryParse((rawRowCount ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out rowCount) ||
+                rowCount <= 0 ||
+                !int.TryParse((rawColCount ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out colCount) ||
+                colCount <= 0)
+            {
+                throw new InvalidDataException(
+                    "캠택 헤더 ROWCT/COLCT가 없거나 0 이하입니다. ROWCT=" +
+                    (string.IsNullOrWhiteSpace(rawRowCount) ? "없음" : rawRowCount) +
+                    ", COLCT=" + (string.IsNullOrWhiteSpace(rawColCount) ? "없음" : rawColCount));
+            }
+
+            if (rowDataLines.Count != rowCount)
+                throw new InvalidDataException(
+                    "캠택 RowData 행 수가 ROWCT와 다릅니다. ROWCT=" + rowCount + ", RowData 행=" + rowDataLines.Count);
+
+            double pitchX = 1.0;
+            double pitchY = 1.0;
+            bool hasPitch = false;
+            string rawDieX;
+            string rawDieY;
+            headers.TryGetValue("XDIES", out rawDieX);
+            headers.TryGetValue("YDIES", out rawDieY);
+            if (!string.IsNullOrWhiteSpace(rawDieX) || !string.IsNullOrWhiteSpace(rawDieY))
+            {
+                double dieX;
+                double dieY;
+                if (!double.TryParse((rawDieX ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out dieX) ||
+                    dieX <= 0.0 ||
+                    !double.TryParse((rawDieY ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out dieY) ||
+                    dieY <= 0.0)
+                {
+                    throw new InvalidDataException(
+                        "캠택 헤더 XDIES/YDIES 숫자 형식이 잘못되었습니다. XDIES=" +
+                        (string.IsNullOrWhiteSpace(rawDieX) ? "없음" : rawDieX) +
+                        ", YDIES=" + (string.IsNullOrWhiteSpace(rawDieY) ? "없음" : rawDieY));
+                }
+
+                // XDIES/YDIES = 다이 크기(mm). 피치 대조 게이트의 "다이 크기 일치" 분기가 처리한다.
+                pitchX = dieX;
+                pitchY = dieY;
+                hasPitch = true;
+            }
+
+            double centerGridX = Math.Max(0, colCount - 1) / 2.0;
+            string frameId = Path.GetFileNameWithoutExtension(path);
+
+            var map = new DieMap
+            {
+                FrameObjId = string.IsNullOrWhiteSpace(frameId) ? "WAFER-CAMTEK" : frameId,
+                DieMapX = colCount,
+                DieMapY = rowCount,
+                PitchX = pitchX,
+                PitchY = pitchY,
+                // RAD와 동일하게 독립 Die body size는 두지 않는다. 실제 크기는 Recipe → 다이 사양을 사용한다.
+                DieSizeX = 0.0,
+                DieSizeY = 0.0,
+                OuterDiameterMm = Math.Max(colCount * pitchX, rowCount * pitchY),
+                EdgeSkipMode = "ExternalMap",
+                OriginX = -centerGridX * pitchX,
+                OriginY = CalculateCenteredOriginY(rowCount, pitchY),
+                SourceFileName = Path.GetFileName(path),
+                SourceFormat = "CAMTEK RowData",
+                SourcePitchFromFile = hasPitch,
+                CreatedAt = DateTime.Now
+            };
+
+            int index = 0;
+            int markCount = 0;
+            var binCounts = new SortedDictionary<int, int>();
+            for (int row = 0; row < rowDataLines.Count; row++)
+            {
+                int fileLine = rowDataLines[row].Key;
+                string[] tokens = rowDataLines[row].Value
+                    .Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (tokens.Length != colCount)
+                    throw new InvalidDataException(
+                        "캠택 RowData 토큰 수가 COLCT와 다릅니다. COLCT=" + colCount +
+                        ", tokens=" + tokens.Length + ", RowData 행=" + (row + 1) + ", 파일 행=" + fileLine);
+
+                for (int col = 0; col < colCount; col++)
+                {
+                    string token = tokens[col];
+                    if (token == "___")
+                        continue; // 다이 없음.
+
+                    bool mark = token == "@@@";
+                    int bin = 0;
+                    if (!mark)
+                    {
+                        if (!CamtekDigitTokenRegex.IsMatch(token))
+                            throw new InvalidDataException(
+                                "캠택 RowData에 해석할 수 없는 토큰이 있습니다. token='" + token +
+                                "', RowData 행=" + (row + 1) + ", 열=" + (col + 1) + ", 파일 행=" + fileLine);
+                        bin = int.Parse(token, NumberStyles.Integer, CultureInfo.InvariantCulture);
+                        int binSeen;
+                        binCounts.TryGetValue(bin, out binSeen);
+                        binCounts[bin] = binSeen + 1;
+                    }
+                    else
+                    {
+                        markCount++;
+                    }
+
+                    bool target = !mark && bin > 0;
+                    double equipmentGridX = col - centerGridX;
+                    double equipmentGridY = CalculateEquipmentGridY(row, rowCount);
+                    map.Entries.Add(new DieMapEntry
+                    {
+                        Index = index++,
+                        DieMapX = col,
+                        DieMapY = row,
+                        OriginalMapX = col,
+                        OriginalMapY = row,
+                        IsTarget = target,
+                        Result = DieResult.Unknown,
+                        // @@@=비대상 예약 빈코드 255를 파서에서 직접 기록(팀장님 지시 2026-08-27).
+                        // 숫자 bin 0 이하는 RAD와 동일하게 0 → Normalize가 255로 확정.
+                        BinCode = mark ? 255 : (target ? bin : 0),
+                        EquipmentGridX = equipmentGridX,
+                        EquipmentGridY = equipmentGridY,
+                        PosX = equipmentGridX * pitchX,
+                        PosY = equipmentGridY * pitchY,
+                        DieUid = BuildExternalMapDieUid(frameId, col, row)
+                    });
+                }
+            }
+
+            if (map.Entries.Count == 0)
+                throw new InvalidDataException("캠택 RowData에 다이가 하나도 없습니다(전 토큰 ___).");
+
+            map.SourceDeclaredCount = map.Entries.Count; // 캠택 헤더에는 다이 수 선언이 없다 — 실측 수 기록.
+
+            int targetCount = map.Entries.Count(entry => entry.IsTarget);
+            var binSummary = new StringBuilder();
+            foreach (KeyValuePair<int, int> binCount in binCounts)
+            {
+                if (binSummary.Length > 0)
+                    binSummary.Append(",");
+                binSummary.Append(binCount.Key).Append("=").Append(binCount.Value);
+            }
+
+            string headerLot;
+            string headerWafer;
+            string headerFnLoc;
+            string headerBcEqu;
+            headers.TryGetValue("LOT", out headerLot);
+            headers.TryGetValue("WAFER", out headerWafer);
+            headers.TryGetValue("FNLOC", out headerFnLoc);
+            headers.TryGetValue("BCEQU", out headerBcEqu);
+            EventLogger.Write(EventKind.Event, "SYSTEM", "LOT-MAP-FETCH",
+                "캠택 웨이퍼맵 파싱 성공. file=" + Path.GetFileName(path) +
+                ", ROWCT×COLCT=" + rowCount + "x" + colCount +
+                ", 다이=" + map.Entries.Count + "(픽업 대상=" + targetCount + ")" +
+                ", bin={" + binSummary + "}, @@@=" + markCount +
+                ", XDIES/YDIES=" + (hasPitch
+                    ? pitchX.ToString("F4", CultureInfo.InvariantCulture) + "/" + pitchY.ToString("F4", CultureInfo.InvariantCulture)
+                    : "없음(피치 1.0 가정)") +
+                ", LOT=" + (string.IsNullOrWhiteSpace(headerLot) ? "-" : headerLot) +
+                ", WAFER=" + (string.IsNullOrWhiteSpace(headerWafer) ? "-" : headerWafer) +
+                ", FNLOC=" + (string.IsNullOrWhiteSpace(headerFnLoc) ? "-" : headerFnLoc) +
+                ", BCEQU=" + (string.IsNullOrWhiteSpace(headerBcEqu) ? "-" : headerBcEqu));
 
             return Normalize(map);
         }
