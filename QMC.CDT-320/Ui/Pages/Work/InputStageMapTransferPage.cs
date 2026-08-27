@@ -574,6 +574,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     bool mappedActionEnabled = _selectedEntry != null &&
                                                !_manualMoveBusy &&
                                                _mapPositionsAreMachineAbsolute;
+                    // [데이터 이동 게이트 해제 2026-08-27 팀장님 지시] Die 데이터 → Picker 이동은
+                    // 실물이 이미 옮겨진 상태를 데이터로 맞추는 복구 기능 — 모션이 없으므로 맵
+                    // 절대좌표(승인 정합) 조건을 걸지 않는다. 다이 선택 + 수동 이동 중 아님이면 활성
+                    // (장비 동작 중 차단은 실행부 CanEditSelectedDieState가 수행).
+                    bool dataMoveEnabled = _selectedEntry != null && !_manualMoveBusy;
                     if (_gridMoveMenuItem != null)
                         _gridMoveMenuItem.Enabled = visionMoveEnabled;
 
@@ -583,8 +588,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     SetPickerMoveMenuEnabled(_gridPickUpTestRearPickerMenuItems, mappedActionEnabled);
                     SetPickerMoveMenuEnabled(_gridOffsetFrontPickerMenuItems, mappedActionEnabled);
                     SetPickerMoveMenuEnabled(_gridOffsetRearPickerMenuItems, mappedActionEnabled);
-                    UpdatePickerDataMoveMenu(PickerSequenceSide.Front, _gridDataMoveFrontPickerMenuItems, mappedActionEnabled);
-                    UpdatePickerDataMoveMenu(PickerSequenceSide.Rear, _gridDataMoveRearPickerMenuItems, mappedActionEnabled);
+                    UpdatePickerDataMoveMenu(PickerSequenceSide.Front, _gridDataMoveFrontPickerMenuItems, dataMoveEnabled);
+                    UpdatePickerDataMoveMenu(PickerSequenceSide.Rear, _gridDataMoveRearPickerMenuItems, dataMoveEnabled);
                 };
 
                 gridDieList.ContextMenuStrip = _gridMenu;
@@ -737,9 +742,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             try
             {
-                if (!EnsureCurrentInputMapMotionReady("Die 데이터 Picker 이동"))
-                    return;
-
+                // [데이터 이동 게이트 해제 2026-08-27 팀장님 지시] 모션 준비 가드(절대좌표/FINAL APPLY
+                // 정합)를 걸지 않는다 — 실물이 이미 이동한 상태의 데이터 복구가 목적이라 맵 화면
+                // 상태와 무관하게 가능해야 한다. 장비 동작 중 차단(CanEditSelectedDieState)과
+                // Material 존재/픽커 점유 검사는 아래에서 그대로 수행한다.
                 DieMapEntry entry = _selectedEntry;
                 if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
                 {
@@ -814,7 +820,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "Input Die 데이터 Picker 수동 이동 완료. die=" + entry.DieUid +
                     ", map=" + BuildEntryMapText(entry) +
                     ", side=" + side +
-                    ", pickerNo=" + pickerNo + " - Ok");
+                    ", pickerNo=" + pickerNo +
+                    ", mapAbsolute=" + _mapPositionsAreMachineAbsolute + " - Ok");
                 QMC.Common.MessageDialog.Show(this,
                     "Die 데이터를 " + side + " Picker #" + pickerNo + "로 이동했습니다.",
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -1159,8 +1166,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return false;
                 }
 
+                // [네트워크 맵 정합 게이트 스킵 2026-08-27 팀장님 지시] 위 Refresh 게이트와 동일 사유 —
+                // 네트워크 웨이퍼맵 모드에서는 FINAL APPLY 승인맵 대조를 하지 않는다.
                 RecipeProject project = LoadActiveInputRecipeProject();
-                if (project != null && project.MapApprovalVersion > 0)
+                if (project != null && project.MapApprovalVersion > 0 &&
+                    !QMC.CDT320.Sequencing.InputStageDieMappingSequence.IsLotNetworkWaferMapModeActive())
                 {
                     DieMap approved;
                     string reason = "";
@@ -1305,7 +1315,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 RecipeProject activeProject = LoadActiveInputRecipeProject();
                 DieMap approvedRecipeMap;
                 string approvalReason;
-                bool managed = activeProject != null && activeProject.MapApprovalVersion > 0;
+                // [네트워크 맵 정합 게이트 스킵 2026-08-27 팀장님 지시] 네트워크 웨이퍼맵 모드는
+                // 승인맵 대조가 성립하지 않으므로 초기 로드도 비관리(managed=false)로 취급한다.
+                bool managed = activeProject != null && activeProject.MapApprovalVersion > 0 &&
+                               !QMC.CDT320.Sequencing.InputStageDieMappingSequence.IsLotNetworkWaferMapModeActive();
                 if (managed &&
                     (!TryLoadApprovedInputRecipeMap(activeProject, out approvedRecipeMap, out approvalReason) ||
                      mappedWaferMap == null ||
@@ -1490,8 +1503,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     mappedWaferMap = MaterialStateService.BuildDieMapFromWafer(stageWafer);
                 }
 
+                // [네트워크 맵 정합 게이트 스킵 2026-08-27 팀장님 지시] LOT 네트워크 웨이퍼맵 모드는
+                // 웨이퍼마다 맵이 달라 레시피 FINAL APPLY 승인맵과의 정합 대조가 원리적으로 성립하지
+                // 않는다 — 이 게이트가 매핑 완료 맵의 절대좌표 인정을 막아 픽커 메뉴 전체가 죽던 문제
+                // (구 승인 체계와 P4 네트워크 모드의 충돌). 레시피 맵 모드에서는 기존 게이트 유지.
                 RecipeProject activeProject = LoadActiveInputRecipeProject();
-                if (activeProject != null && activeProject.MapApprovalVersion > 0)
+                if (activeProject != null && activeProject.MapApprovalVersion > 0 &&
+                    !QMC.CDT320.Sequencing.InputStageDieMappingSequence.IsLotNetworkWaferMapModeActive())
                 {
                     DieMap approvedRecipeMap;
                     string approvalReason;
