@@ -2309,9 +2309,9 @@ namespace QMC.CDT320
             return await EnsureBinGuideUpAsync(side, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task<int> EnsureBinGuideUpAsync(BinSide side, int timeoutMs, CancellationToken ct)
+        public async Task<int> EnsureBinGuideUpAsync(BinSide side, int timeoutMs, CancellationToken ct, bool forceCommand = false)
         {
-            return await EnsureCylinderStateAsync(ResolveBinGuideLiftCylinder(side), true, timeoutMs, ResolveSideName(side) + " Bin Guide Up", ct).ConfigureAwait(false);
+            return await EnsureCylinderStateAsync(ResolveBinGuideLiftCylinder(side), true, timeoutMs, ResolveSideName(side) + " Bin Guide Up", ct, forceCommand: forceCommand).ConfigureAwait(false);
         }
 
         public async Task<int> EnsureBinGuideDownAsync(BinSide side, int timeoutMs)
@@ -2329,9 +2329,9 @@ namespace QMC.CDT320
             return await EnsureBinGuideClampLiftDownAsync(side, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task<int> EnsureBinGuideClampLiftDownAsync(BinSide side, int timeoutMs, CancellationToken ct)
+        public async Task<int> EnsureBinGuideClampLiftDownAsync(BinSide side, int timeoutMs, CancellationToken ct, bool forceCommand = false)
         {
-            return await EnsureCylinderStateAsync(ResolveBinGuideClampLiftCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Clamp Lift Down", ct).ConfigureAwait(false);
+            return await EnsureCylinderStateAsync(ResolveBinGuideClampLiftCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Clamp Lift Down", ct, forceCommand: forceCommand).ConfigureAwait(false);
         }
 
         public async Task<int> EnsureBinGuideClampLiftUpAsync(BinSide side, int timeoutMs)
@@ -2349,7 +2349,7 @@ namespace QMC.CDT320
             return await EnsureBinGuideUnclampedAsync(side, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task<int> EnsureBinGuideUnclampedAsync(BinSide side, int timeoutMs, CancellationToken ct)
+        public async Task<int> EnsureBinGuideUnclampedAsync(BinSide side, int timeoutMs, CancellationToken ct, bool forceCommand = false)
         {
             return await EnsureCylinderStateAsync(
                 ResolveBinGuideClampCylinder(side),
@@ -2357,7 +2357,8 @@ namespace QMC.CDT320
                 timeoutMs,
                 ResolveSideName(side) + " Bin Guide Unclamp",
                 ct,
-                forceCommandWhenOppositeOutputActive: true).ConfigureAwait(false);
+                forceCommandWhenOppositeOutputActive: true,
+                forceCommand: forceCommand).ConfigureAwait(false);
         }
 
         public async Task<int> EnsureBinGuideClampedAsync(BinSide side, int timeoutMs)
@@ -2775,7 +2776,8 @@ namespace QMC.CDT320
             int timeoutMs,
             string description,
             CancellationToken ct,
-            bool forceCommandWhenOppositeOutputActive = false)
+            bool forceCommandWhenOppositeOutputActive = false,
+            bool forceCommand = false)
         {
             try
             {
@@ -2802,7 +2804,11 @@ namespace QMC.CDT320
                 bool needSettleHistory =
                     AjinFactory.IsFaultySensorCommandFallbackActive(cylinder) &&
                     !cylinder.IsCommandStateSettled(fwd);
+                // [로드 강제 발행 2026-08-27 팀장님 지시] 빈 로딩(수령 준비) 경로는 센서가 이미 목표
+                // 상태라도 실린더 명령을 스킵하지 않고 무조건 정식 발행한다(실물 자세가 센서/기억과
+                // 어긋난 채 클램프 UP 상태로 로딩되는 사고 재발 방지). forceCommand=true 호출만 해당.
                 if (already &&
+                    !forceCommand &&
                     !needSettleHistory &&
                     (!forceCommandWhenOppositeOutputActive ||
                      !oppositeOutputActive))
@@ -2817,6 +2823,15 @@ namespace QMC.CDT320
                     QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageCylinderCommand",
                         description + " 이미 목표 상태이나 센서 우회 모드 정착 이력이 없어 정식 명령을 발행합니다." +
                         " direction=" + (fwd ? "Fwd" : "Bwd") + ", already=true, settled=false - Check");
+                }
+
+                // 계측(2026-08-27): 로드 수령 준비 강제 발행 - 이미 목표 상태인데도 스킵하지 않고
+                // 정식 명령을 발행한 경우만 1줄. 실런 로그에서 강제 발행 여부를 즉시 확인하기 위함.
+                if (already && forceCommand && !needSettleHistory)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageCylinderCommand",
+                        description + " 이미 목표 상태이나 로드 강제 발행 옵션으로 정식 명령을 발행합니다." +
+                        " direction=" + (fwd ? "Fwd" : "Bwd") + ", already=true, force=true - Check");
                 }
 
                 // 진단: 실제로 실린더를 구동하는 시점에 호출 경로를 남긴다.

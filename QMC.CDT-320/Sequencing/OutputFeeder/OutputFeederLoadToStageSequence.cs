@@ -372,7 +372,9 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> EnsureOutputStageGuideUpAsync(CancellationToken ct)
         {
-            int result = await Stage.EnsureBinGuideUpAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+            // 현재 기준(2026-08-27 팀장님 지시): 수령 준비 실린더 명령은 센서가 이미 목표 상태라도
+            //           스킵하지 않고 무조건 정식 발행한다(클램프 UP 상태 로딩 재발 방지).
+            int result = await Stage.EnsureBinGuideUpAsync(Options.Side, ResolveTimeout(), ct, forceCommand: true).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-STAGE-GUIDE-UP", Stage.Name, "Output stage bin guide up failed. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
@@ -388,7 +390,8 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> EnsureOutputStageClampLiftDownAsync(CancellationToken ct)
         {
-            int result = await Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+            // 현재 기준(2026-08-27 팀장님 지시): 수령 준비 실린더 명령은 무조건 정식 발행(스킵 금지).
+            int result = await Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout(), ct, forceCommand: true).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift down failed. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
@@ -406,7 +409,8 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> EnsureOutputStageUnclampAsync(CancellationToken ct)
         {
-            int result = await Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+            // 현재 기준(2026-08-27 팀장님 지시): 수령 준비 실린더 명령은 무조건 정식 발행(스킵 금지).
+            int result = await Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout(), ct, forceCommand: true).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide unclamp failed. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
@@ -427,7 +431,8 @@ namespace QMC.CDT320.Sequencing
             // 기존 조건: GUIDE UP -> CLAMP LIFT DOWN -> UNCLAMP 순서로 확인했다.
             // 현재 기준: 수령 최종 준비 상태 규격(UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP) 순서로 확인한다.
             // To do: 수령 준비 최종 검증 순서를 상태 규격과 일치시킴.
-            int result = await Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+            // 현재 기준(2026-08-27 팀장님 지시): 최종 검증도 실린더 명령을 스킵 없이 무조건 정식 발행 후 센서로 확인한다.
+            int result = await Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout(), ct, forceCommand: true).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-STAGE-RECEIVE-UNCLAMP", Stage.Name,
                     "OutputStage Bin 수령 전 Unclamp 구동 실패. side=" + Options.Side +
@@ -438,7 +443,7 @@ namespace QMC.CDT320.Sequencing
                     "OutputStage Bin 수령 전 Unclamp 상태가 아닙니다. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            result = await Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+            result = await Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout(), ct, forceCommand: true).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-STAGE-RECEIVE-CLAMP-DOWN", Stage.Name,
                     "OutputStage Bin 수령 전 Clamp Lift Down 구동 실패. side=" + Options.Side +
@@ -449,7 +454,7 @@ namespace QMC.CDT320.Sequencing
                     "OutputStage Bin 수령 전 Clamp Lift가 Down 상태가 아닙니다. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            result = await Stage.EnsureBinGuideUpAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+            result = await Stage.EnsureBinGuideUpAsync(Options.Side, ResolveTimeout(), ct, forceCommand: true).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-STAGE-RECEIVE-GUIDE-UP", Stage.Name,
                     "OutputStage Bin 수령 전 Guide Up 구동 실패. side=" + Options.Side +

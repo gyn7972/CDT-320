@@ -582,7 +582,9 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = await Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+                // 현재 기준(2026-08-27 팀장님 지시): 수령 준비 실린더 명령은 센서가 이미 목표 상태라도
+                //           스킵하지 않고 무조건 정식 발행한다(클램프 UP 상태 로딩 재발 방지, 수동 로드 경로 포함).
+                int result = await Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout(), ct, forceCommand: true).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("OUT-STAGE-PREP-UNCLAMP", Stage.Name,
                         "OutputStage Load 준비 중 Unclamp 구동 실패. side=" + Options.Side +
@@ -593,7 +595,7 @@ namespace QMC.CDT320.Sequencing
                         "OutputStage Load 준비 중 Unclamp 상태 확인 실패. side=" + Options.Side +
                         ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-                result = await Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+                result = await Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout(), ct, forceCommand: true).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("OUT-STAGE-PREP-CLAMP-DOWN", Stage.Name,
                         "OutputStage Load 준비 중 Clamp Lift Down 구동 실패. side=" + Options.Side +
@@ -604,7 +606,7 @@ namespace QMC.CDT320.Sequencing
                         "OutputStage Load 준비 중 Clamp Lift Down 상태 확인 실패. side=" + Options.Side +
                         ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-                result = await Stage.EnsureBinGuideUpAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+                result = await Stage.EnsureBinGuideUpAsync(Options.Side, ResolveTimeout(), ct, forceCommand: true).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("OUT-STAGE-PREP-GUIDE-UP", Stage.Name,
                         "OutputStage Load 준비 중 Guide Up 구동 실패. side=" + Options.Side +
