@@ -133,8 +133,32 @@ namespace QMC.CDT320.Sequencing
         }
 
         /// <summary>
+        /// [Cycle Stop 래치 2026-08-27, 팀장님 승인 A안] 자동 운전 run 시작 시 이전 run의 실패
+        /// 래치를 리셋한다. 래치의 목적은 "이번 run의 회피 실패를 Cycle Stop에서 은폐하지 않는 것"
+        /// 인데 수명이 앱 전체라서, 비상정지로 중단된 회피(2026-08-27 4152 사고 잔상)의 실패가
+        /// 이후 모든 정상 Cycle Stop drain을 영구 실패시켰다(14:27:16/14:35:09 재현 확인).
+        /// 리셋 시 이전 래치 내용을 로그 1줄로 남겨 추적성을 유지한다.
+        /// </summary>
+        public static void ResetInputRetreatFailure(string reason)
+        {
+            string previous;
+            lock (Sync)
+            {
+                previous = _inputRetreatFailure;
+                _inputRetreatFailure = string.Empty;
+            }
+
+            if (!string.IsNullOrWhiteSpace(previous))
+            {
+                WriteLog("이전 run의 InputVisionX 독립 회피 실패 래치를 리셋합니다. reason=" + Safe(reason) +
+                         ", previous=" + previous + " - Check");
+            }
+        }
+
+        /// <summary>
         /// 정상 Auto Cycle Stop 최종 배리어에서 등록된 InputVisionX 독립 회피 Task가 끝날 때까지 기다린다.
         /// 진행 중 모션을 취소하지 않으며, 등록 이후 발생한 실패는 성공 정지로 숨기지 않는다.
+        /// 실패 래치의 수명은 run 단위 — 다음 run 시작 시 ResetInputRetreatFailure로 리셋된다.
         /// </summary>
         public static async Task<int> WaitInputRetreatsUntilIdleAsync(
             string reason,
