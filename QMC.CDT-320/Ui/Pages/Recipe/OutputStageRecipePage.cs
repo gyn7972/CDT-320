@@ -902,15 +902,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (r != 0) return r;
             }
 
-            // [바코드 테스트 2026-08-27] GOOD Barcode에서 NgY가 이미 Avoid면 대상 Z Avoid도 생략
-            // (위 주석과 동일 근거 — Z 왕복 제거). 그 외 kind/side는 기존 그대로.
+            // [바코드 테스트 2026-08-27] GOOD Barcode는 대상 Z Avoid를 생략한다 — Y 이동 전에 Z를
+            // Process로 정렬하므로(아래) Avoid 하강이 불필요하고, NgY 회피가 필요했던 케이스는 위
+            // "NG 회피 선행" 블록이 이미 GoodZ Avoid를 수행했다. 그 외 kind/side는 기존 그대로.
             bool skipOwnZAvoidForBarcode = side == BinSide.Good &&
-                string.Equals(kind, "Barcode", StringComparison.OrdinalIgnoreCase) &&
-                barcodeNgAlreadyAvoid;
+                string.Equals(kind, "Barcode", StringComparison.OrdinalIgnoreCase);
             if (!skipOwnZAvoidForBarcode)
             {
                 r = await EnsureBinStageZSafeBeforeYAsync(side, title, "대상 " + (side == BinSide.Ng ? "NG" : "GOOD")).ConfigureAwait(true);
                 if (r != 0) return r;
+            }
+
+            // [바코드 촬영 높이 2026-08-27 팀장님 지시] GOOD 바코드는 Y 이동 전에 GoodZ를 Process로
+            // 정렬한다 — GoodY Barcode 이동 인터락이 GoodZ Avoid∥Process를 요구하므로 어중간한
+            // 높이(빈 수령 직후 Load 등)면 Y가 차단되고(17:18 실측 -11), 판독(촬영) 높이도 어긋난다.
+            // 위에서 NgY Avoid가 확보된 뒤라 GoodZ 상승 절대가드(NG 정확 Avoid 요구)도 통과한다.
+            // 이미 Process면 무동작. 이 선행 정렬로 기존 "Y 도착 후 Z Process 복귀"는 제거.
+            if (side == BinSide.Good && string.Equals(kind, "Barcode", StringComparison.OrdinalIgnoreCase))
+            {
+                r = await MoveStageTeachingPositionWithSelectedSpeedAsync(BinStageAxis.GoodBinZ, "Process");
+                if (r != 0) return AbortSeq(title, "Z Process 정렬(바코드 촬영 높이) 실패");
             }
 
             // 3) Y → 종류 위치
@@ -933,16 +944,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 r = await MoveStageTeachingPositionWithSelectedSpeedAsync(BinStageAxis.GoodBinZ, kind);
                 if (r != 0) return AbortSeq(title, "Z " + kind + " 이동 실패");
             }
-            else if (side == BinSide.Good &&
-                     string.Equals(kind, "Barcode", StringComparison.OrdinalIgnoreCase))
-            {
-                // [카메라 바코드 테스트 2026-08-27 팀장님 지적] 바코드 촬영 높이는 Process다.
-                // 위 EnsureBinStageZSafeBeforeYAsync가 Y 이동 전 GoodZ를 Avoid(0)로 내리므로,
-                // 그대로 촬영하면 자동 경로(빈 로드 직후 Z 상단 유지)와 높이가 달라 초점이 나간다.
-                // Y 도착 후 GoodZ를 Process 티칭으로 복귀시킨다(NG는 Z축 없음 — 해당 없음).
-                r = await MoveStageTeachingPositionWithSelectedSpeedAsync(BinStageAxis.GoodBinZ, "Process");
-                if (r != 0) return AbortSeq(title, "Z Process 복귀(바코드 촬영 높이) 실패");
-            }
+            // (GOOD Barcode의 Z Process 정렬은 Y 이동 전 선행으로 이동 — 2026-08-27 팀장님 지시)
 
             // 5) PROCESS: VisionX 동반 이동 (공유레일 → Front/Rear 픽커 Avoid 선행 확인)
             if (string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase))

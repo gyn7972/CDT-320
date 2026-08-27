@@ -2278,6 +2278,29 @@ namespace QMC.CDT320
             }
         }
 
+        // [바코드 촬영 높이 2026-08-27 팀장님 지시] GOOD 바코드 판독 전 GoodZ Process 정렬용 —
+        // MoveGoodStageZToAvoidAndVerifyAsync 미러(자동 TeachingMove 인터락 컨텍스트 포함 경로).
+        public async Task<int> MoveGoodStageZToProcessAndVerifyAsync(int timeoutMs, bool bFine, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                Recipe.EnsurePositionObjects();
+                return await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.ProcessPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-GOOD-Z-PROCESS-EX", "Good Stage Z process exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> MoveNgStageToAvoidAndVerifyAsync(int timeoutMs, bool bFine = false)
         {
             return await MoveNgStageToAvoidAndVerifyAsync(timeoutMs, bFine, CancellationToken.None).ConfigureAwait(false);

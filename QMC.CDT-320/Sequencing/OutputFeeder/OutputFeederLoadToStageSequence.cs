@@ -838,6 +838,32 @@ namespace QMC.CDT320.Sequencing
                             Options.Side + ", " + targetReason);
                     }
 
+                    // [바코드 촬영 높이 2026-08-27 팀장님 지시] GOOD 바코드는 판독(촬영) 전 GoodZ를
+                    // Process 높이로 정렬한다 — 빈 수령 직후 GoodZ는 Load 높이라 그대로 두면
+                    // GoodY Barcode 이동 인터락(GoodZ Avoid∥Process 요구)에 걸리고 촬영 높이도
+                    // 어긋난다. NG 사이드는 GoodZ Avoid 전제 유지(변경 없음).
+                    if (Options.Side == BinSide.Good)
+                    {
+                        double goodZProcessTarget = Stage.Recipe.GoodStageZ.ProcessPosition;
+                        if (!IsOutputStageAxisReadyAt(BinStageAxis.GoodBinZ, goodZProcessTarget))
+                        {
+                            WriteLog(Name,
+                                "Output Bin 바코드 판독 전 GoodZ Process 정렬. target=" +
+                                goodZProcessTarget.ToString("F3") + " - Start");
+                            int goodZMove = await Stage.MoveGoodStageZToProcessAndVerifyAsync(
+                                ResolveTimeout(),
+                                Options.FineMove,
+                                ct).ConfigureAwait(false);
+                            if (goodZMove != 0 || !IsOutputStageAxisReadyAt(BinStageAxis.GoodBinZ, goodZProcessTarget))
+                            {
+                                return await FailBarcodeWithAvoidRecoveryAsync(
+                                    "OUT-BARCODE-GOOD-Z",
+                                    "Output Bin barcode 전 GoodZ Process 이동/확인 실패. result=" + goodZMove + ", " +
+                                    Stage.BuildStageAxisState(BinStageAxis.GoodBinZ, goodZProcessTarget)).ConfigureAwait(false);
+                            }
+                        }
+                    }
+
                     double visionTarget = Stage.GetStageTeachingPosition(BinStageAxis.VisionX, "Barcode");
                     int visionMove = await Stage.MoveVisionXToTargetAndVerifyAsync(
                         visionTarget,
