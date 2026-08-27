@@ -773,7 +773,33 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return Color.FromArgb(55, 176, 116);
             if (entry.Result == DieResult.NG)
                 return Color.FromArgb(214, 91, 91);
-            return Color.FromArgb(188, 216, 239);
+            // [픽업 BIN 색표시 2026-08-27 팀장님 지시] 검사 전(WAIT) 다이는 BIN별 색으로 구분한다 —
+            // BIN 1은 기존 하늘색 유지, 그 외 BIN은 고정 팔레트(값 기준 안정 배정). 검사 결과가
+            // 나오면 GOOD/NG 상태색이 우선한다(위 분기 유지).
+            return ResolveWaitBinColor(entry.BinCode);
+        }
+
+        // BIN별 WAIT 색 팔레트 — BIN 1=기존 WAIT 하늘색, 그 외는 BIN 값으로 고정 순환 배정
+        // (같은 BIN은 항상 같은 색, 맵/세션 무관 안정). 상태색(GOOD 녹/NG 적/SKIP 회/START 노랑)과
+        // 겹치지 않는 계열로 구성.
+        private static readonly Color[] WaitBinPalette =
+        {
+            Color.FromArgb(196, 156, 222),   // 보라
+            Color.FromArgb(242, 196, 140),   // 살구
+            Color.FromArgb(148, 214, 212),   // 청록
+            Color.FromArgb(232, 172, 196),   // 분홍
+            Color.FromArgb(180, 202, 138),   // 연올리브
+            Color.FromArgb(160, 176, 236),   // 연보라파랑
+            Color.FromArgb(226, 214, 128),   // 겨자
+            Color.FromArgb(178, 156, 136)    // 갈색빛 회
+        };
+
+        private static Color ResolveWaitBinColor(int binCode)
+        {
+            if (binCode <= 1)
+                return Color.FromArgb(188, 216, 239);   // BIN 1(및 미기록 0) = 기존 WAIT 하늘색
+
+            return WaitBinPalette[(binCode - 2) % WaitBinPalette.Length];
         }
 
         private string ResolveMapCellText(DieMapEntry entry)
@@ -805,14 +831,34 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private Tuple<string, Color>[] BuildLegendItems()
         {
-            return new[]
+            // [픽업 BIN 색표시 2026-08-27] 맵에 실제 존재하는 BIN만 WAIT 색 범례로 동적 표시한다
+            // (예: WAIT B1, B125). BIN이 1종뿐이면 기존 "WAIT" 단일 표기를 유지한다.
+            var legend = new List<Tuple<string, Color>>();
+            var waitBins = new SortedSet<int>();
+            if (_dieMap != null && _dieMap.Entries != null)
             {
-                Tuple.Create("WAIT", Color.FromArgb(188, 216, 239)),
-                Tuple.Create("START", Color.FromArgb(245, 190, 52)),
-                Tuple.Create("GOOD", Color.FromArgb(55, 176, 116)),
-                Tuple.Create("NG", Color.FromArgb(214, 91, 91)),
-                Tuple.Create("SKIP", Color.FromArgb(90, 90, 90))
-            };
+                foreach (DieMapEntry entry in _dieMap.Entries)
+                {
+                    if (entry != null && entry.IsTarget)
+                        waitBins.Add(entry.BinCode <= 1 ? 1 : entry.BinCode);
+                }
+            }
+
+            if (waitBins.Count <= 1)
+            {
+                legend.Add(Tuple.Create("WAIT", Color.FromArgb(188, 216, 239)));
+            }
+            else
+            {
+                foreach (int bin in waitBins)
+                    legend.Add(Tuple.Create("WAIT B" + bin, ResolveWaitBinColor(bin)));
+            }
+
+            legend.Add(Tuple.Create("START", Color.FromArgb(245, 190, 52)));
+            legend.Add(Tuple.Create("GOOD", Color.FromArgb(55, 176, 116)));
+            legend.Add(Tuple.Create("NG", Color.FromArgb(214, 91, 91)));
+            legend.Add(Tuple.Create("SKIP", Color.FromArgb(90, 90, 90)));
+            return legend.ToArray();
         }
 
         private void RefreshPickupPreview()

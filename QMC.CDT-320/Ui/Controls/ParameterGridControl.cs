@@ -304,7 +304,11 @@ namespace QMC.CDT_320.Ui.Controls
                 row.Tag = item;
                 row.Cells[colValue.Index] = CreateValueCell(item);
                 row.Cells[colName.Index].ReadOnly = true;
-                row.Cells[colValue.Index].ReadOnly = item.ValueType != ParameterGridValueType.Selection;
+                // [픽업 BIN 필터 2026-08-27] Text 항목도 값 셀 인라인 편집 허용 — 커밋은 기존
+                // grid_CellEndEdit의 Text 분기(CommitRow)가 처리한다(그동안 Text 실사용 항목 0건).
+                row.Cells[colValue.Index].ReadOnly =
+                    item.ValueType != ParameterGridValueType.Selection &&
+                    item.ValueType != ParameterGridValueType.Text;
                 row.Cells[colScope.Index].ReadOnly = true;
                 row.Cells[colUnit.Index].ReadOnly = true;
                 // 접이식 그룹에 속한 멤버는 들여쓰기 + 글머리 기호 → 그룹 없는(원래) 항목과 명확히 구분
@@ -862,11 +866,17 @@ namespace QMC.CDT_320.Ui.Controls
                     return;
 
                 var item = row.Tag as ParameterGridItem;
-                if (item == null || (item.ValueType != ParameterGridValueType.Double && item.ValueType != ParameterGridValueType.Int))
+                if (item == null ||
+                    (item.ValueType != ParameterGridValueType.Double &&
+                     item.ValueType != ParameterGridValueType.Int &&
+                     item.ValueType != ParameterGridValueType.Text))
                     return;
 
+                // [픽업 BIN 필터 2026-08-27] Text 항목도 더블클릭 시 키패드로 입력한다(터치 환경 —
+                // 자유 텍스트 모드: 수식 평가 없이 입력 그대로 커밋, 유효성은 항목 setter가 정규화).
+                bool freeText = item.ValueType == ParameterGridValueType.Text;
                 string currentText = FormatValue(item);
-                using (var dialog = new NumericKeypadDialog(item.DisplayName, currentText, item.GetUnit()))
+                using (var dialog = new NumericKeypadDialog(item.DisplayName, currentText, item.GetUnit(), freeText))
                 {
                     if (dialog.ShowDialog(this) != DialogResult.OK)
                         return;

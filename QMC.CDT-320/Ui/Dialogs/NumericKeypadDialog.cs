@@ -7,6 +7,10 @@ namespace QMC.CDT_320.Ui.Controls
 {
     public partial class NumericKeypadDialog : Form
     {
+        // [픽업 BIN 필터 2026-08-27] 자유 텍스트 모드 — OK 시 수식 평가를 강제하지 않고 입력
+        // 문자열을 그대로 반환한다(Text형 그리드 항목의 터치 입력용, 예: BIN CSV "1" / "1.3").
+        private readonly bool _freeTextMode;
+
         public string ValueText
         {
             get
@@ -27,10 +31,16 @@ namespace QMC.CDT_320.Ui.Controls
         }
 
         public NumericKeypadDialog(string title, string valueText, string unit)
+            : this(title, valueText, unit, false)
+        {
+        }
+
+        public NumericKeypadDialog(string title, string valueText, string unit, bool freeTextMode)
         {
             try
             {
                 InitializeComponent();
+                _freeTextMode = freeTextMode;
                 lblTitle.Text = string.IsNullOrWhiteSpace(title) ? "Parameter" : title;
                 txtValue.Text = valueText ?? string.Empty;
                 lblUnit.Text = unit ?? string.Empty;
@@ -68,6 +78,13 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
+                // 자유 텍스트 모드: 점은 목록 구분자로도 쓰이므로("1.3"=1,3) 중복 제한 없이 입력.
+                if (_freeTextMode)
+                {
+                    ReplaceSelection(".");
+                    return;
+                }
+
                 string current = txtValue.Text ?? string.Empty;
                 int start = txtValue.SelectionStart;
                 int length = txtValue.SelectionLength;
@@ -187,6 +204,9 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
+                if (_freeTextMode)
+                    return;   // 자유 텍스트 모드에서는 수식 평가 없음.
+
                 double result;
                 if (!TryEvaluateExpression(txtValue.Text, out result))
                 {
@@ -211,6 +231,15 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
+                // [픽업 BIN 필터 2026-08-27] 자유 텍스트 모드: 수식 평가 없이 입력값 그대로 반환
+                // (빈 값 허용 — Text 항목의 "필터 해제" 입력). 유효성은 항목 setter가 정규화한다.
+                if (_freeTextMode)
+                {
+                    DialogResult = DialogResult.OK;
+                    Close();
+                    return;
+                }
+
                 double value;
                 if (!TryEvaluateExpression(txtValue.Text, out value))
                 {

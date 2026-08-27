@@ -1744,7 +1744,14 @@ namespace QMC.CDT320.Sequencing
                         ", deltaY=" + anchorRecalculationDeltaY.ToString("F6"));
                 }
 
-                ApplyInputPickupSequence(_dieMap);
+                // [픽업 BIN 필터 2026-08-27] 재적용에서 필터 결과 대상 0이면 "0개 픽업 완주" 대신 정지.
+                if (ApplyInputPickupSequence(_dieMap) == null)
+                {
+                    return Fail("IN-STAGE-DIEMAP-BIN-NO-TARGET", "InputStageDieMappingSequence",
+                        string.IsNullOrWhiteSpace(LastSourceInputDieMapFailure)
+                            ? "픽업 BIN 필터 적용 후 픽업 대상 다이가 없습니다."
+                            : LastSourceInputDieMapFailure);
+                }
                 int orderedCount = CountSequencedTargets(_dieMap);
 
                 WriteLog("InputStageDieMappingSequence",
@@ -2312,6 +2319,35 @@ namespace QMC.CDT320.Sequencing
                 if (map == null)
                     return null;
 
+                // [픽업 BIN 필터 2026-08-27 팀장님 지시] 레시피 BIN 필터를 맵 소스(LOT 네트워크/레시피
+                // 맵/Material/Active) 무관하게 공통 적용한다. LOT [BIN] 선택 필터(네트워크 경로 전용)와는
+                // 순차 강등이라 자연히 교집합. IsTarget=true만 강등하므로 재호출(매핑 재적용)에도 멱등.
+                int recipeFilteredOut = ApplyRecipePickupBinFilter(map, out string recipeFilterCsv);
+                if (recipeFilteredOut > 0 && !HasAnyTargetEntry(map))
+                {
+                    LastSourceInputDieMapFailureCode = "MAP-RECIPE-BIN-NO-TARGET";
+                    LastSourceInputDieMapFailure =
+                        "레시피 픽업 BIN 필터 적용 후 이 웨이퍼에 픽업 대상 다이가 없습니다. " +
+                        "recipeBinFilter=" + recipeFilterCsv +
+                        " — 레시피 PICKUP BIN FILTER 설정을 확인하세요.";
+                    WriteLog("InputStageDieMappingSequence", LastSourceInputDieMapFailure + " - Failed");
+                    return null;
+                }
+
+                if (recipeFilteredOut > 0)
+                {
+                    int remainingTargets = 0;
+                    foreach (DieMapEntry entry in map.Entries)
+                    {
+                        if (entry != null && entry.IsTarget)
+                            remainingTargets++;
+                    }
+                    WriteLog("InputStageDieMappingSequence",
+                        "레시피 픽업 BIN 필터 적용. recipeBinFilter=" + recipeFilterCsv +
+                        ", filteredOut=" + recipeFilteredOut +
+                        ", remainingTargets=" + remainingTargets + " - Ok");
+                }
+
                 PickupSequenceGenerator.ApplySequenceNumbers(map, ResolveInputPickupSubset());
                 return DieMapGenerator.Normalize(map);
             }
@@ -2322,6 +2358,52 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        // [픽업 BIN 필터 2026-08-27] 레시피(InputStage DieMap) CSV 필터 — 지정 BIN 외 다이를
+        // IsTarget=false로 강등한다. 필터 미설정(빈 값/유효 항목 0)이면 무동작. 반환=이번 강등 수.
+        private int ApplyRecipePickupBinFilter(DieMap map, out string filterCsv)
+        {
+            filterCsv = "-";
+            try
+            {
+                if (map == null || map.Entries == null || Stage == null || Stage.Recipe == null || Stage.Recipe.DieMap == null)
+                    return 0;
+
+                System.Collections.Generic.HashSet<int> bins;
+                if (!Stage.Recipe.DieMap.TryGetPickupBinFilter(out bins))
+                    return 0;
+
+                var sortedBins = new List<int>(bins);
+                sortedBins.Sort();
+                filterCsv = string.Join(",", sortedBins);
+                int filteredOut = 0;
+                foreach (DieMapEntry entry in map.Entries)
+                {
+                    if (entry == null || !entry.IsTarget)
+                        continue;
+
+                    if (!bins.Contains(entry.BinCode))
+                    {
+                        entry.IsTarget = false;
+                        filteredOut++;
+                    }
+                }
+
+                return filteredOut;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageDieMappingSequence",
+                    "레시피 픽업 BIN 필터 적용 실패(필터 없이 진행하지 않고 전체 제외). error=" + ex.Message + " - Failed");
+                // fail-closed: 필터 해석 실패를 "전량 픽업"으로 조용히 바꾸지 않는다 — 상위 no-target 검사로 정지.
+                foreach (DieMapEntry entry in map.Entries)
+                {
+                    if (entry != null)
+                        entry.IsTarget = false;
+                }
+                return map.Entries.Count;
             }
         }
 

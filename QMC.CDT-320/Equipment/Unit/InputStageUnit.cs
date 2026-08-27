@@ -266,6 +266,11 @@ namespace QMC.CDT320
         [DataMember] public string VisionTargetId { get; set; } = VisionAlignTargetIds.Center;
         [DataMember] public int VisionRetryCount { get; set; } = 3;
 
+        /// <summary>[픽업 BIN 필터 2026-08-27 팀장님 지시] 픽업 대상 BIN 번호 CSV(예: "1" 또는 "1,3").
+        /// 비어 있으면 전체 픽업(현행 bin&gt;0 규칙 그대로). 맵 소스(LOT 네트워크/레시피 맵) 무관하게
+        /// 맵 적용 공통 깔때기에서 적용되며, LOT [BIN] 선택과는 교집합으로 동작한다.</summary>
+        [DataMember] public string PickupBinFilterCsv { get; set; } = "";
+
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
         {
@@ -283,9 +288,34 @@ namespace QMC.CDT320
             if (string.IsNullOrWhiteSpace(Left.Name)) Left.Name = "Left";
             if (string.IsNullOrWhiteSpace(Right.Name)) Right.Name = "Right";
             if (VisionRetryCount <= 0) VisionRetryCount = 3;
+            if (PickupBinFilterCsv == null) PickupBinFilterCsv = "";
             if (string.IsNullOrWhiteSpace(VisionTargetId) ||
                 string.Equals(VisionTargetId, "DieMapMark", StringComparison.OrdinalIgnoreCase))
                 VisionTargetId = VisionAlignTargetIds.Center;
+        }
+
+        /// <summary>CSV를 유효 BIN 집합으로 파싱한다(양수만·중복 제거). 유효 항목이 없으면
+        /// false = 필터 없음(전체 픽업). 파싱 불가 토큰은 무시한다(UI setter가 정규화 저장).</summary>
+        public bool TryGetPickupBinFilter(out System.Collections.Generic.HashSet<int> bins)
+        {
+            bins = null;
+            if (string.IsNullOrWhiteSpace(PickupBinFilterCsv))
+                return false;
+
+            var parsed = new System.Collections.Generic.HashSet<int>();
+            // 구분자에 '.' 포함 — 숫자 키패드(쉼표 키 없음)로 "1.3"처럼 다중 입력을 허용한다(=1,3).
+            foreach (string token in PickupBinFilterCsv.Split(new[] { ',', ';', ' ', '.' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                int bin;
+                if (int.TryParse(token.Trim(), out bin) && bin > 0)
+                    parsed.Add(bin);
+            }
+
+            if (parsed.Count == 0)
+                return false;
+
+            bins = parsed;
+            return true;
         }
 
         public InputStageDieMapMarkPoint[] Points()

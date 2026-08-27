@@ -1668,6 +1668,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 AddNeedlePickUpSettingItems(items, unit);   // NEEDLE PIN CAL POSITION 바로 아래 배치
                 AddWorkAreaSettingItems(items, unit);
                 AddInputDieVisionSettingItems(items, unit);
+                AddPickupBinSettingItems(items, unit);
                 // 바코드 설정은 설정(Settings) → 바코드 화면 한 곳에서만 관리한다.
                 // (레시피 화면에 있던 BARCODE READ TIMEOUT은 시퀀스가 쓰지 않는 중복 항목이라 제거)
                 items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
@@ -1728,6 +1729,57 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "같은 Die를 Wait(재촬영 대기)로 되돌릴 수 있는 최대 횟수입니다.\r\n" +
                 "이 횟수를 넘기면 해당 Die를 픽업 대상에서 제외하고 경고 알람을 남깁니다.\r\n" +
                 "0이면 재시도 없이 즉시 제외합니다. 카운터는 웨이퍼 교체와 자동 운전 시작 시 초기화됩니다."), groupKey));
+        }
+
+        // [픽업 BIN 필터 2026-08-27 팀장님 지시] 웨이퍼 맵 픽업 대상 BIN 필터 — 레시피 저장
+        // (InputStageDieMapRecipe.PickupBinFilterCsv). 빈 값=전체 픽업(현행 bin>0 규칙), CSV 다중 지원.
+        // 맵 소스(LOT 네트워크/레시피 맵) 무관 공통 적용, LOT [BIN] 선택과는 교집합.
+        private void AddPickupBinSettingItems(List<ParameterGridItem> items, InputStageUnit unit)
+        {
+            const string groupKey = "PICKUP_BIN_SETTING";
+            items.Add(Describe(ParameterGridItem.Header("PICKUP BIN SETTING", groupKey),
+                "웨이퍼 맵에서 픽업할 BIN 번호 필터입니다(레시피 저장, 다음 웨이퍼 맵 적용부터 반영)."));
+
+            var filterItem = new ParameterGridItem
+            {
+                Key = "PICKUP BIN FILTER",
+                DisplayName = "PICKUP BIN FILTER",
+                Unit = "CSV",
+                Scope = ParameterGridScope.Recipe,
+                ValueType = ParameterGridValueType.Text,
+                Getter = () => unit.Recipe != null && unit.Recipe.DieMap != null
+                    ? (unit.Recipe.DieMap.PickupBinFilterCsv ?? string.Empty)
+                    : string.Empty,
+                Setter = value =>
+                {
+                    unit.Recipe.EnsurePositionObjects();
+                    unit.Recipe.DieMap.PickupBinFilterCsv = NormalizePickupBinFilterCsv(Convert.ToString(value));
+                }
+            };
+            items.Add(InGroup(Describe(filterItem,
+                "픽업할 BIN 번호입니다. 예: \"1\" = 1번 빈만 픽업, \"1,3\" = 1·3번 픽업.\r\n" +
+                "값 셀 더블클릭 → 키패드 입력(키패드에는 쉼표가 없어 점으로 구분: \"1.3\" = 1,3번).\r\n" +
+                "비워 두면 전체 픽업(현행 bin>0 규칙 그대로)이며, 저장 시 쉼표 CSV로 정규화됩니다.\r\n" +
+                "LOT 네트워크 맵/레시피 맵 모두에 적용되고, 작업 화면 [BIN] 선택과는 교집합으로 동작합니다.\r\n" +
+                "필터 결과 픽업 대상이 0개면 알람 정지합니다(0개 픽업 완주 금지)."), groupKey));
+        }
+
+        private static string NormalizePickupBinFilterCsv(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return string.Empty;
+
+            var bins = new List<int>();
+            // 구분자에 '.' 포함 — 숫자 키패드(쉼표 키 없음)로 "1.3"처럼 다중 입력을 허용한다(=1,3).
+            // 저장은 항상 쉼표 CSV로 정규화된다.
+            foreach (string token in raw.Split(new[] { ',', ';', ' ', '.' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                int bin;
+                if (int.TryParse(token.Trim(), out bin) && bin > 0 && !bins.Contains(bin))
+                    bins.Add(bin);
+            }
+            bins.Sort();
+            return string.Join(",", bins);
         }
 
         private void AddWorkAreaSettingItems(List<ParameterGridItem> items, InputStageUnit unit)
