@@ -61,12 +61,16 @@ namespace QMC.Common.Logging
         /// 기존 조건: 빌드 구성과 무관하게 ProductionMinimal로 시작하고, 설정 또는 UI로만
         ///           DiagnosticVerbose를 켰으며 제한 시간 후 자동 복귀했다.
         /// 현재 기준(사용자 지시 2026-07-25): DEBUG 빌드는 프로그램 시작과 동시에 진단 상세 로그를
-        ///           활성화하고 만료·해제되지 않는다. RELEASE 빌드는 기존 동작(사용자 조작 + 제한 시간)을
-        ///           그대로 유지한다.
+        ///           활성화하고 만료·해제되지 않는다.
         /// </summary>
         private const bool ForcedDiagnosticVerbose = true;
 #else
-        private const bool ForcedDiagnosticVerbose = false;
+        // [팀장님 지시 2026-08-28] 프로그램 안정화 전까지 RELEASE 빌드도 시작과 동시에 진단 상세
+        // 로그를 강제 활성화한다("명시적 명령이 있을 때까지는 무조건 시작과 동시에 ENABLE" —
+        // 로그 없이는 디버깅 불가). 만료·해제 없음(UI ENABLE/DISABLE·제한 시간보다 우선).
+        // 되돌릴 때는 팀장님 명시 지시 후 이 값만 false로 원복하면 기존 동작(ProductionMinimal
+        // 시작 + 사용자 조작/제한 시간 만료)으로 복귀한다.
+        private const bool ForcedDiagnosticVerbose = true;
 #endif
 
         /// <summary>DEBUG 빌드 강제 활성화 여부. UI가 조작 가능 여부를 판단하는 데 사용한다.</summary>
@@ -151,9 +155,7 @@ namespace QMC.Common.Logging
             }
         }
 
-#if DEBUG
         private static int _forcedVerboseAuditWritten;
-#endif
 
         /// <summary>시작 시(설정 로드 후) 정책 파라미터를 적용한다.</summary>
         public static void Configure(int blackboxCapacity, int blackboxWindowSeconds, string persistCodePrefixesCsv)
@@ -179,20 +181,19 @@ namespace QMC.Common.Logging
                 }
             }
 
-#if DEBUG
             // 강제 활성화 사실을 시작 시 1회만 남긴다. 로그 실패가 시작 경로를 막지 않도록 방어한다.
             try
             {
-                if (System.Threading.Interlocked.Exchange(ref _forcedVerboseAuditWritten, 1) == 0)
+                if (IsDiagnosticVerboseForcedByBuild &&
+                    System.Threading.Interlocked.Exchange(ref _forcedVerboseAuditWritten, 1) == 0)
                 {
                     WriteModeAudit("SYSTEM",
-                        "DEBUG 빌드 — 진단 상세 로그(DiagnosticVerbose)를 프로그램 시작과 동시에 강제 활성화했습니다. 해제 불가.");
+                        "진단 상세 로그(DiagnosticVerbose)를 프로그램 시작과 동시에 강제 활성화했습니다(빌드 강제, 해제 불가 — 팀장님 지시 2026-08-28 안정화 전 상시 활성).");
                 }
             }
             catch
             {
             }
-#endif
         }
 
         /// <summary>진단 상세 모드를 제한 시간으로 활성화한다. 모드 변경 자체를 Audit으로 남긴다.

@@ -165,7 +165,7 @@ namespace QMC.CDT_320.Ui.Controls
             // 실제 정책을 소유한 어셈블리가 노출하는 값을 읽어야 정확하다.
             if (LogPolicy.IsDiagnosticVerboseForcedByBuild)
             {
-                _lblDiagStatus.Text = "현재: 상세 저장 중 (DiagnosticVerbose) — DEBUG 빌드는 시작과 동시에 강제 활성화되며 해제할 수 없습니다";
+                _lblDiagStatus.Text = "현재: 상세 저장 중 (DiagnosticVerbose) — 시작과 동시에 강제 활성화되며 해제할 수 없습니다(안정화 전 상시 활성)";
                 _lblDiagStatus.ForeColor = System.Drawing.Color.FromArgb(230, 88, 31);
                 _btnDiagEnable.Enabled = false;
                 _btnDiagDisable.Enabled = false;
