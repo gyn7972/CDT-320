@@ -9,28 +9,38 @@ namespace QMC.CDT320.Sequencing.Calibration
     /// <summary>
     /// 콜렛 클리닝 자동 트리거 평가/실행 서비스.
     ///
-    /// 실행 시점은 "새 웨이퍼 로딩 완료 후, 첫 Pick 전" 창 하나로 고정한다.
-    /// 이 창에서만 Picker가 유휴이고 NG Bin이 Stage에 있는 것이 보장되며,
-    /// InputLoader lease가 유지되는 동안에는 Picker 신규 공정이 진입하지 못한다.
+    /// [실행 창 변경 2026-08-28 팀장님 지시] 실행 시점은 "GOOD Stage 빈 로딩 완료 후" 창으로
+    /// 고정한다(기존: 인풋 새 웨이퍼 로딩 후 첫 Pick 전). GOOD 빈 로딩 완료 시
+    /// NotifyGoodBinLoaded()가 계수+창 pending을 세우고, OutputSequence가 리소스를 잡기 전
+    /// 안전 지점에서 RunIfGoodBinLoadedWindowAsync()로 소비한다. 픽커가 다이를 보유 중이면
+    /// (빈 교체를 기다리던 Place 물량) 창을 유지한 채 스킵하고 픽커가 비면 실행한다.
     ///
-    /// 트리거 3종(웨이퍼 교체 n회 / 공정 n개 / Auto 시작)은 각각 독립적으로 사용 유무를 가진다.
+    /// 트리거 3종(GOOD 빈 로딩 n회 / 공정 n개 / Auto 시작)은 각각 독립적으로 사용 유무를 가진다.
     /// 카운터는 ColletCleaningTriggerStateStore로 영속화되어 재시작해도 주기가 유지된다.
+    /// (WaferExchangeCount 필드는 직렬화 호환을 위해 이름을 유지하며 GOOD 빈 로딩 횟수를 담는다.)
     /// </summary>
     internal static class ColletCleaningTriggerService
     {
-        /// <summary>웨이퍼 교체 1회를 계수한다(새 wafer가 Stage에 로딩 완료된 시점).</summary>
-        public static void NotifyWaferExchanged()
+        // GOOD 빈 로딩 후 아직 소비되지 않은 실행 창이 있는지(휘발 — 재시작 시 다음 로딩에서 재형성).
+        private static volatile bool _goodBinWindowPending;
+
+        /// <summary>GOOD Stage 빈 로딩 1회를 계수하고 클리닝 실행 창을 연다(로딩 완료 시점 호출).</summary>
+        public static void NotifyGoodBinLoaded()
         {
             try
             {
                 ColletCleaningTriggerState state = ColletCleaningTriggerStateStore.Current;
                 state.WaferExchangeCount = state.WaferExchangeCount + 1;
                 ColletCleaningTriggerStateStore.Save();
+                _goodBinWindowPending = true;
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCleaningTrigger",
+                    "GOOD Stage 빈 로딩 계수 — 콜렛 클리닝 실행 창을 엽니다. goodBinLoadCount=" +
+                    state.WaferExchangeCount + " - Check");
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CLEAN-TRIGGER",
-                    "콜렛 클리닝 웨이퍼 교체 계수 중 예외가 발생했습니다. error=" + ex.Message);
+                    "콜렛 클리닝 GOOD 빈 로딩 계수 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
@@ -128,8 +138,52 @@ namespace QMC.CDT320.Sequencing.Calibration
         }
 
         /// <summary>
+        /// [실행 창 2026-08-28] GOOD 빈 로딩 창(pending)이 열려 있으면 트리거를 평가·실행한다.
+        /// OutputSequence가 액션 리소스를 잡기 전 지점에서 호출해야 하며(클리닝이 자체 lease를
+        /// 잡으므로 데드락 방지), 픽커가 다이를 보유 중이면 창을 유지한 채 스킵한다(픽커가 비는
+        /// 다음 호출에서 실행). 실행하지 않았으면 0, 실행 실패면 시퀀스 결과 코드를 돌려준다.
+        /// </summary>
+        public static async Task<int> RunIfGoodBinLoadedWindowAsync(MachineSequenceContext context, CancellationToken ct)
+        {
+            if (!_goodBinWindowPending)
+                return 0;
+
+            if (AnyPickerHoldsDie())
+            {
+                // 창은 유지 — Place가 끝나 픽커가 비면 다음 호출에서 실행된다(로그는 상태 전이 시 소음 방지 위해 생략).
+                return 0;
+            }
+
+            _goodBinWindowPending = false;
+            return await RunIfTriggeredAsync(context, ct).ConfigureAwait(false);
+        }
+
+        private static bool AnyPickerHoldsDie()
+        {
+            try
+            {
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    if (QMC.CDT320.Materials.MaterialStateService.GetDieAtPicker(
+                            QMC.CDT320.Materials.MaterialLocationKind.PickerFront, pickerNo) != null)
+                        return true;
+                    if (QMC.CDT320.Materials.MaterialStateService.GetDieAtPicker(
+                            QMC.CDT320.Materials.MaterialLocationKind.PickerRear, pickerNo) != null)
+                        return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CLEAN-TRIGGER",
+                    "콜렛 클리닝 픽커 보유 확인 중 예외 — 안전하게 보유 중으로 간주합니다. error=" + ex.Message);
+                return true;
+            }
+        }
+
+        /// <summary>
         /// 트리거 조건을 평가하고 성립하면 콜렛 클리닝을 실행한다.
-        /// 호출자는 반드시 InputLoader lease를 보유한 "웨이퍼 로딩 완료 후 첫 Pick 전" 창에서 호출해야 한다.
         /// 실행하지 않았으면 0, 실행 후 실패면 시퀀스 결과 코드를 그대로 돌려준다.
         /// </summary>
         public static async Task<int> RunIfTriggeredAsync(MachineSequenceContext context, CancellationToken ct)

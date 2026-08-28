@@ -18,7 +18,7 @@ namespace QMC.CDT_320.Ui.Dialogs
     /// 콜렛 클리닝 수동 제어 다이얼로그.
     /// Recipe -> Calibration 화면에서 열며, 선택한 콜렛(Front/Rear x C4~C1)을
     /// "전부 클린 -> 전부 검사 -> NG만 재시도" 순서로 실행한다.
-    /// 자동 실행 조건(웨이퍼 교체 / 공정 횟수 / Auto 시작)도 이 화면에서 설정한다.
+    /// 자동 실행 조건(GOOD 빈 로딩 / 공정 횟수 / Auto 시작)도 이 화면에서 설정한다.
     /// 화면 구성은 COLLET CALIBRATION 다이얼로그와 동일한 디자인 규격을 따른다.
     /// </summary>
     public partial class ColletCleaningControlDialog : Form
@@ -102,10 +102,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             new SettingInfo { Key = SettingKey.DisablePickerOnReplaceAlarm, Name = "Disable On Replace", Unit = "", Options = new[] { "True", "False" },
                 ToolTip = "콜렛 교체 알람이 발생했을 때 해당 Picker만 생산에서 제외하고\r\n" +
                           "나머지 Picker로 계속 운전할지 여부입니다." },
-            new SettingInfo { Key = SettingKey.UseTriggerOnWaferExchange, Name = "Trig Wafer Exchange", Unit = "", Options = new[] { "True", "False" },
-                ToolTip = "자동 운전 중 웨이퍼 교체 횟수를 기준으로 콜렛 클리닝을 실행할지 여부입니다." },
-            new SettingInfo { Key = SettingKey.WaferExchangeInterval, Name = "  Exchange Interval", Unit = "ea", Numeric = true, Integer = true,
-                ToolTip = "웨이퍼 교체 트리거 주기입니다. 교체 n회마다 콜렛 클리닝을 실행합니다." },
+            // [실행 창 변경 2026-08-28 팀장님 지시] 트리거 기준이 인풋 웨이퍼 교체 → GOOD Stage 빈
+            // 로딩으로 바뀌었다(설정 필드명은 직렬화 호환을 위해 WaferExchange 유지, 의미만 변경).
+            new SettingInfo { Key = SettingKey.UseTriggerOnWaferExchange, Name = "Trig Good Bin Load", Unit = "", Options = new[] { "True", "False" },
+                ToolTip = "자동 운전 중 GOOD Stage 빈 로딩 횟수를 기준으로 콜렛 클리닝을 실행할지 여부입니다." },
+            new SettingInfo { Key = SettingKey.WaferExchangeInterval, Name = "  Load Interval", Unit = "ea", Numeric = true, Integer = true,
+                ToolTip = "GOOD 빈 로딩 트리거 주기입니다. 로딩 n회마다 콜렛 클리닝을 실행합니다." },
             new SettingInfo { Key = SettingKey.UseTriggerOnProcessCount, Name = "Trig Process Count", Unit = "", Options = new[] { "True", "False" },
                 ToolTip = "자동 운전 중 공정 처리 수량을 기준으로 콜렛 클리닝을 실행할지 여부입니다." },
             new SettingInfo { Key = SettingKey.ProcessCountInterval, Name = "  Process Interval", Unit = "ea", Numeric = true, Integer = true,

@@ -1153,38 +1153,43 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             await DelayBeforeBottomVisionInspectionAsync(item.ColletNo, ct).ConfigureAwait(false);
 
-            // 판정은 비전이 주는 OK/NG를 그대로 사용한다(Handler는 임계값을 두지 않는다).
-            InspectionResultDto inspection = await AutoVisionRequestService.InspectColletAsync(
-                AutoVisionChannel.BottomInspection,
-                Side == PickerSequenceSide.Front ? "FrontCollet" : "RearCollet",
-                Side == PickerSequenceSide.Front ? 0 : 1,
-                item.ColletNo,
-                0,
-                0,
-                0,
-                0,
-                ResolveVisionInspectionTimeout(),
-                ct).ConfigureAwait(false);
-
-            // 시뮬레이션/드라이런/비전 미사용 환경에서는 통신 실패를 알람으로 올리지 않고 OK로 통과시킨다.
-            // (실기 운전에서는 아래 통신 실패 알람이 그대로 유지된다.)
-            if (inspection == null && IsColletInspectionSimulationAllowed())
+            // [작업자 수동 판정 2026-08-28 팀장님 지시] 판정은 비전 자동 OK/NG가 아니라 작업자가
+            // Bottom Vision 화면을 보고 직접 한다 — 콜렛을 촬영 자세로 유지한 채 확인 다이얼로그를
+            // 띄우고, [예]=깨끗함(OK) / [아니오]=오염(NG, 재클리닝)으로 받는다.
+            // 시뮬레이션/드라이런 환경에서는 다이얼로그 없이 OK로 통과시킨다(기존 정책 유지).
+            InspectionResultDto inspection;
+            if (IsColletInspectionSimulationAllowed())
             {
                 WriteLog(Name,
                     "[Phase2] 시뮬레이션/드라이런 환경이라 콜렛 검사 결과를 OK로 간주합니다. side=" + _cleaningSide +
                     ", colletNo=" + item.ColletNo + " - Skip");
                 inspection = new InspectionResultDto { IsPass = true, Raw = "SIMULATED-OK" };
             }
+            else
+            {
+                bool? operatorJudge = await RequestOperatorColletJudgementAsync(item, ct).ConfigureAwait(false);
+                if (operatorJudge == null)
+                {
+                    // 다이얼로그를 띄우지 못한 경우(호스트 폼 없음 등) — 임의 판정하지 않고 알람 정지.
+                    int hostFailAvoid = await MovePickerZThenYToAvoidAsync(zAxis, "콜렛 검사 판정 실패 후", ct).ConfigureAwait(false);
+                    if (hostFailAvoid != 0)
+                        return hostFailAvoid;
+                    return Fail("COLLET-CLEAN-INSPECT-OPERATOR", Name,
+                        "콜렛 검사 작업자 판정을 진행하지 못했습니다(확인 창 표시 실패). side=" + _cleaningSide +
+                        ", colletNo=" + item.ColletNo);
+                }
+
+                inspection = new InspectionResultDto
+                {
+                    IsPass = operatorJudge.Value,
+                    Raw = operatorJudge.Value ? "OPERATOR-OK" : "OPERATOR-NG"
+                };
+            }
 
             // 검사 후에도 Z Avoid -> Y Avoid 순서로 복귀해야 다음 콜렛의 PickerX 이동이 가능하다.
             int zAvoidResult = await MovePickerZThenYToAvoidAsync(zAxis, "콜렛 검사 후", ct).ConfigureAwait(false);
             if (zAvoidResult != 0)
                 return zAvoidResult;
-
-            if (inspection == null)
-                return Fail("COLLET-CLEAN-INSPECT-COMM", "Vision",
-                    "콜렛 검사 결과를 수신하지 못했습니다(통신 실패). side=" + _cleaningSide +
-                    ", colletNo=" + item.ColletNo);
 
             item.Inspected = true;
             item.InspectionOk = inspection.IsPass;
@@ -1197,6 +1202,56 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ", retryUsed=" + item.RetryUsed +
                 ", raw=" + (inspection.Raw ?? string.Empty) + " - Ok");
             return 0;
+        }
+
+        // [작업자 수동 판정 2026-08-28] 콜렛을 Bottom Vision 촬영 자세로 유지한 채 작업자 확인
+        // 다이얼로그(예=OK/아니오=NG 재클리닝)를 UI 스레드에 띄우고 응답을 기다린다.
+        // 반환: true=OK, false=NG, null=다이얼로그 표시 실패(호스트 폼 없음 등 — 호출자가 알람 처리).
+        // 취소(ct)는 다이얼로그 표시와 무관하게 대기를 깨우고 OperationCanceledException으로 전파된다.
+        private async Task<bool?> RequestOperatorColletJudgementAsync(ColletCleaningItem item, CancellationToken ct)
+        {
+            var host = System.Windows.Forms.Application.OpenForms
+                .Cast<System.Windows.Forms.Form>()
+                .OfType<QMC.CDT_320.Form1>()
+                .FirstOrDefault(form => !form.IsDisposed);
+            if (host == null || host.IsDisposed || !host.IsHandleCreated)
+                return null;
+
+            string sideName = Side == PickerSequenceSide.Front ? "FRONT" : "REAR";
+            string message =
+                "콜렛 클리닝 검사 — 작업자 확인\r\n\r\n" +
+                sideName + " Picker #" + item.ColletNo + " 콜렛이 Bottom Vision 촬영 위치에 있습니다.\r\n" +
+                "Bottom Vision 화면으로 콜렛 상태를 확인하세요.\r\n\r\n" +
+                "깨끗하면 [예], 오염이 남았으면 [아니오](재클리닝)를 누르세요.";
+
+            var completion = new TaskCompletionSource<bool?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            host.BeginInvoke((Action)(() =>
+            {
+                try
+                {
+                    System.Windows.Forms.DialogResult answer = QMC.Common.MessageDialog.Show(
+                        host,
+                        message,
+                        "콜렛 클리닝 검사 (" + sideName + " #" + item.ColletNo + ")",
+                        System.Windows.Forms.MessageBoxButtons.YesNo,
+                        System.Windows.Forms.MessageBoxIcon.Question);
+                    completion.TrySetResult(answer == System.Windows.Forms.DialogResult.Yes);
+                }
+                catch (Exception ex)
+                {
+                    WriteLog(Name,
+                        "콜렛 검사 작업자 확인 창 표시 중 예외. error=" + ex.Message + " - Failed");
+                    completion.TrySetResult(null);
+                }
+            }));
+
+            using (ct.Register(() => completion.TrySetCanceled(ct)))
+            {
+                WriteLog(Name,
+                    "[Phase2] 콜렛 검사 작업자 판정 대기. side=" + _cleaningSide +
+                    ", colletNo=" + item.ColletNo + " - Start");
+                return await completion.Task.ConfigureAwait(false);
+            }
         }
 
         /// <summary>

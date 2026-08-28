@@ -255,6 +255,19 @@ namespace QMC.CDT320.Sequencing
                 if (stageBarcodeGate != 0)
                     return stageBarcodeGate;
 
+                // [콜렛 클리닝 실행 창 2026-08-28 팀장님 지시] GOOD 빈 로딩 완료 후 열린 창을
+                // 액션 리소스 획득 전(데드락 없음) 이 지점에서 소비한다 — 픽커가 다이를 보유 중이면
+                // 창을 유지한 채 스킵하고, 픽커가 비면 트리거 조건(로딩 n회/공정 n개/Auto 시작)을
+                // 평가해 클리닝을 실행한다. 실패는 시퀀스 실패로 전파(내부 Fail이 알람 발행).
+                if (Mode == SequenceRunMode.Auto)
+                {
+                    int cleaningResult = await QMC.CDT320.Sequencing.Calibration.ColletCleaningTriggerService
+                        .RunIfGoodBinLoadedWindowAsync(Context, ct)
+                        .ConfigureAwait(false);
+                    if (cleaningResult != 0)
+                        return cleaningResult;
+                }
+
                 OutputSequenceAutoAction action = ResolveNextOutputAction();
                 Context.LogPublic("[OUTPUT] next action=" + action);
 
@@ -2245,6 +2258,11 @@ namespace QMC.CDT320.Sequencing
             result = await ExecuteWithOutputPickerAvoidGateAsync("OutputSupply.FeederLoadToStage", ct,
                 () => ExecuteFeederLoadToStageAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
             if (result != 0) return result;
+
+            // [콜렛 클리닝 실행 창 2026-08-28 팀장님 지시] GOOD Stage 빈 로딩 완료 계수 —
+            // 실행은 리소스 미보유 지점(ExecuteNextOutputStepAsync 진입부)에서 창을 소비한다.
+            if (Mode == SequenceRunMode.Auto && plan.Side == BinSide.Good)
+                QMC.CDT320.Sequencing.Calibration.ColletCleaningTriggerService.NotifyGoodBinLoaded();
 
             if (plan.Side == BinSide.Ng)
             {
