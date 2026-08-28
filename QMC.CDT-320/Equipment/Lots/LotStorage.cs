@@ -128,14 +128,11 @@ namespace QMC.CDT320.Lots
                 LotState previousState = lot.State;
                 DateTime? previousFinishedAt = lot.FinishedAt;
 
-                // 기존 LOT ID 재사용 동작은 유지하되, 완료/중단 LOT을 활성화하지는 않는다.
+                // 완료/중단 LOT ID도 다시 시작할 수 있다 — 종료 시각을 지우고 같은 이력으로 이어 집계한다.
                 if (lot.State == LotState.Completed || lot.State == LotState.Aborted)
                 {
-                    if (added)
-                        _lots.TryRemove(normalized, out lot);
-
-                    error = "이미 완료되었거나 중단된 LOT ID는 다시 시작할 수 없습니다. lot=" + normalized;
-                    return false;
+                    lot.State = LotState.Open;
+                    lot.FinishedAt = null;
                 }
 
                 lot.RecipeName = recipeName ?? lot.RecipeName;
