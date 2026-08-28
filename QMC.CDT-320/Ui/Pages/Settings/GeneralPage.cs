@@ -105,6 +105,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                 // [P3 2026-08-22] LOT 웨이퍼맵 네트워크 폴더(UNC). 비어 있으면 수신 기능 전체 꺼짐.
                 _tbNetworkWaferMapFolder.Text = cfg.NetworkWaferMapFolder ?? "";
+                // [팀장님 지시 2026-08-28] 완료 웨이퍼 언로드 시 OUTPUT 결과 파일 네트워크 복사 폴더.
+                _tbOutputResultNetworkCopyFolder.Text = cfg.OutputResultNetworkCopyFolder ?? "";
                 // [P4 2026-08-22] LOT 네트워크 맵을 실제 다이맵으로 사용(시퀀스 적용) 스위치.
                 _cbUseLotNetworkWaferMap.Checked = cfg.UseLotNetworkWaferMap;
                 // [캠택맵 2026-08-27] 네트워크 맵 파일 포맷 — 명시 선택(자동 판별 없음). 기본 Rad.
@@ -227,6 +229,21 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             if (string.IsNullOrWhiteSpace(value))
                 ResetPickupBinSelectionOnLotMapModeOff("NetworkWaferMapFolder=EMPTY");
+        }
+
+        // [팀장님 지시 2026-08-28] 완료 웨이퍼 언로드 시 OUTPUT 결과 파일 복사 폴더 — 포커스 이탈 시
+        // 저장(NetworkWaferMapFolder 컨벤션 미러). 비어 있으면 복사 기능 OFF.
+        private void _tbOutputResultNetworkCopyFolder_Leave(object sender, EventArgs e)
+        {
+            if (_loadingSettings)
+                return;
+
+            string value = (_tbOutputResultNetworkCopyFolder.Text ?? "").Trim();
+            if (string.Equals(AppSettingsStore.Current.OutputResultNetworkCopyFolder ?? "", value, StringComparison.Ordinal))
+                return;
+
+            AppSettingsStore.Current.OutputResultNetworkCopyFolder = value;
+            AppSettingsStore.Save();
         }
 
         // [2차 검토수정 2026-08-23] LOT 네트워크 맵 모드가 꺼지는 전환에서 BIN 선택을 All로 복귀.

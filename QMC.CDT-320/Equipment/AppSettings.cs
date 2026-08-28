@@ -146,6 +146,13 @@ namespace QMC.CDT320
         /// </summary>
         [DataMember] public string NetworkWaferMapFormat { get; set; } = "Rad";
 
+        /// <summary>
+        /// [팀장님 지시 2026-08-28] 완료 웨이퍼가 카세트로 반납(언로드)될 때 OUTPUT 결과 파일
+        /// (AK_DT_*.csv + Raw *.txt)을 복사할 네트워크 폴더(UNC). 비어 있으면 복사 기능 전체 OFF.
+        /// 복사 실패는 비정지 알람만 내고 언로드는 계속 진행한다.
+        /// </summary>
+        [DataMember] public string OutputResultNetworkCopyFolder { get; set; } = "";
+
         // ── Simulator link — auto connect ──
         [DataMember] public bool   SimulatorAutoConnect { get; set; } = false;
 
@@ -291,6 +298,7 @@ namespace QMC.CDT320
         internal void OnDeserialized(StreamingContext ctx)
         {
             if (NetworkWaferMapFolder == null) NetworkWaferMapFolder = "";
+            if (OutputResultNetworkCopyFolder == null) OutputResultNetworkCopyFolder = "";
             // [캠택맵 2026-08-27] 구 settings.json(키 없음 → null) 포함 기본 Rad 정규화.
             if (string.IsNullOrWhiteSpace(NetworkWaferMapFormat)) NetworkWaferMapFormat = "Rad";
             int legacyBaud = BarcodeSerialBaud > 0 ? BarcodeSerialBaud : 9600;

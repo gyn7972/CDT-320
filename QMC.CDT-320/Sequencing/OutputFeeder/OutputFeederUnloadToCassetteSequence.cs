@@ -1319,6 +1319,10 @@ namespace QMC.CDT320.Sequencing
                 wafer.SourceCassetteSlotPosition,
                 WaferMaterialState.Finish);
             Feeder.ClearFeederMaterialState();
+            // [팀장님 지시 2026-08-28] 웨이퍼 카세트 반납(언로드) 확정 직후 해당 웨이퍼의 OUTPUT
+            // 결과 파일(CSV+Raw)을 설정된 네트워크 폴더로 백그라운드 복사한다. 실패는 비정지
+            // 알람만 — 언로드 진행 비차단. 설정 경로가 비어 있으면 무동작.
+            VisionInspectionResultFileWriter.CopyOutputWaferResultFilesToNetworkInBackground(wafer.WaferId);
             PublishCassetteDataUpdateAfterCommit();
             CurrentStep = OutputFeederUnloadToCassetteStep.Complete;
             MarkResumeStateCompletedAtLogicalCutover();

@@ -41,6 +41,8 @@
         private System.Windows.Forms.TextBox _tbNetworkWaferMapFolder;
         private System.Windows.Forms.Button btnNetworkWaferMapCheck;
         private System.Windows.Forms.ComboBox _cbNetworkWaferMapFormat;
+        private System.Windows.Forms.Label lblOutputResultNetworkCopyFolder;
+        private System.Windows.Forms.TextBox _tbOutputResultNetworkCopyFolder;
         private System.Windows.Forms.Label lblVisionOperatorConfirmTimeout;
         private System.Windows.Forms.TextBox _tbVisionOperatorConfirmTimeoutSec;
         private System.Windows.Forms.Label lblSimulationVisionNgRate;
@@ -121,6 +123,8 @@
             this.networkWaferMapLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbUseLotNetworkWaferMap = new System.Windows.Forms.CheckBox();
             this._tbNetworkWaferMapFolder = new System.Windows.Forms.TextBox();
+            this.lblOutputResultNetworkCopyFolder = new System.Windows.Forms.Label();
+            this._tbOutputResultNetworkCopyFolder = new System.Windows.Forms.TextBox();
             this.btnNetworkWaferMapCheck = new System.Windows.Forms.Button();
             this._cbNetworkWaferMapFormat = new System.Windows.Forms.ComboBox();
             this.lblVisionOperatorConfirmTimeout = new System.Windows.Forms.Label();
@@ -254,11 +258,14 @@
             this.bodyLayout.Controls.Add(this._tbVisionOperatorConfirmTimeoutSec, 1, 16);
             this.bodyLayout.Controls.Add(this.lblSimulationVisionNgRate, 0, 17);
             this.bodyLayout.Controls.Add(this._tbSimulationVisionNgRatePercent, 1, 17);
+            this.bodyLayout.Controls.Add(this.lblOutputResultNetworkCopyFolder, 0, 18);
+            this.bodyLayout.Controls.Add(this._tbOutputResultNetworkCopyFolder, 1, 18);
             this.bodyLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.bodyLayout.Location = new System.Drawing.Point(0, 0);
             this.bodyLayout.Margin = new System.Windows.Forms.Padding(0);
             this.bodyLayout.Name = "bodyLayout";
-            this.bodyLayout.RowCount = 18;
+            this.bodyLayout.RowCount = 19;
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
@@ -876,6 +883,25 @@
             this._tbVisionOperatorConfirmTimeoutSec.Margin = new System.Windows.Forms.Padding(2);
             this._tbVisionOperatorConfirmTimeoutSec.Name = "_tbVisionOperatorConfirmTimeoutSec";
             this._tbVisionOperatorConfirmTimeoutSec.Leave += new System.EventHandler(this._tbVisionOperatorConfirmTimeoutSec_Leave);
+            //
+            // lblOutputResultNetworkCopyFolder
+            //
+            this.lblOutputResultNetworkCopyFolder.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblOutputResultNetworkCopyFolder.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblOutputResultNetworkCopyFolder.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblOutputResultNetworkCopyFolder.Margin = new System.Windows.Forms.Padding(2);
+            this.lblOutputResultNetworkCopyFolder.Name = "lblOutputResultNetworkCopyFolder";
+            this.lblOutputResultNetworkCopyFolder.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblOutputResultNetworkCopyFolder.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblOutputResultNetworkCopyFolder.Text = "OUTPUT RESULT NETWORK COPY FOLDER";
+            //
+            // _tbOutputResultNetworkCopyFolder
+            //
+            this._tbOutputResultNetworkCopyFolder.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._tbOutputResultNetworkCopyFolder.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._tbOutputResultNetworkCopyFolder.Margin = new System.Windows.Forms.Padding(2);
+            this._tbOutputResultNetworkCopyFolder.Name = "_tbOutputResultNetworkCopyFolder";
+            this._tbOutputResultNetworkCopyFolder.Leave += new System.EventHandler(this._tbOutputResultNetworkCopyFolder_Leave);
             //
             // lblSimulationVisionNgRate
             //

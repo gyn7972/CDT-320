@@ -182,6 +182,156 @@ namespace QMC.CDT320.Materials
         /// 호출 시점까지 enqueue된 검사 결과 파일 요청의 디스크 쓰기가 모두 완료됐는지 확인한다.
         /// 일반 생산 저장은 계속 비동기로 동작하고 정상 Auto Cycle Stop 최종 배리어만 이 fence를 기다린다.
         /// </summary>
+        // [팀장님 지시 2026-08-28] 완료 웨이퍼가 카세트로 반납(언로드)될 때 해당 웨이퍼의 OUTPUT
+        // 결과 파일(AK_DT_{웨이퍼ID}_*.csv + Raw\AK_DT_{웨이퍼ID}_*.txt)을 설정된 네트워크 폴더로
+        // 복사한다. 정책: 실패는 비정지 알람만 내고 언로드는 계속 진행 — 복사 전체를 백그라운드
+        // Task로 수행해 언로드 시퀀스를 지연시키지 않는다. 설정 경로가 비어 있으면 무동작.
+        private const int NetworkCopyFlushTimeoutMs = 10000;
+
+        public static void CopyOutputWaferResultFilesToNetworkInBackground(string outputWaferId)
+        {
+            string targetRoot;
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                targetRoot = settings != null && settings.OutputResultNetworkCopyFolder != null
+                    ? settings.OutputResultNetworkCopyFolder.Trim()
+                    : "";
+            }
+            catch
+            {
+                targetRoot = "";
+            }
+
+            if (string.IsNullOrWhiteSpace(targetRoot) || string.IsNullOrWhiteSpace(outputWaferId))
+                return;
+
+            string safeWaferId = SafeFileName(outputWaferId);
+            Task.Run(async () =>
+            {
+                try
+                {
+                    // 다이별 upsert 기록 큐가 비워질 때까지 대기(파일 완결 보장). 대기 실패여도
+                    // 파일은 항상 유효한 CSV 상태를 유지하므로(원자 교체 기록) 복사는 진행한다.
+                    int flushResult = await WaitUntilFlushedAsync(
+                        "OutputWaferNetworkCopy(" + outputWaferId + ")",
+                        NetworkCopyFlushTimeoutMs,
+                        CancellationToken.None).ConfigureAwait(false);
+
+                    string sourceDir = Path.Combine(MaterialSnapshotStore.RootDir, "OUTPUT");
+                    string sourceRawDir = Path.Combine(sourceDir, "Raw");
+                    string pattern = "AK_DT_" + safeWaferId + "_*";
+
+                    int csvCopied = 0;
+                    int rawCopied = 0;
+                    int failedCount = 0;
+                    string firstError = null;
+
+                    Directory.CreateDirectory(targetRoot);
+                    if (Directory.Exists(sourceDir))
+                    {
+                        foreach (string file in Directory.GetFiles(sourceDir, pattern + ".csv"))
+                        {
+                            try
+                            {
+                                File.Copy(file, Path.Combine(targetRoot, Path.GetFileName(file)), true);
+                                csvCopied++;
+                            }
+                            catch (Exception ex)
+                            {
+                                failedCount++;
+                                if (firstError == null)
+                                    firstError = Path.GetFileName(file) + ": " + ex.Message;
+                            }
+                        }
+                    }
+
+                    if (Directory.Exists(sourceRawDir))
+                    {
+                        string targetRawDir = Path.Combine(targetRoot, "Raw");
+                        bool rawDirReady = true;
+                        try
+                        {
+                            Directory.CreateDirectory(targetRawDir);
+                        }
+                        catch (Exception ex)
+                        {
+                            rawDirReady = false;
+                            failedCount++;
+                            if (firstError == null)
+                                firstError = "Raw 폴더 생성: " + ex.Message;
+                        }
+
+                        if (rawDirReady)
+                        {
+                            foreach (string file in Directory.GetFiles(sourceRawDir, pattern + ".txt"))
+                            {
+                                try
+                                {
+                                    File.Copy(file, Path.Combine(targetRawDir, Path.GetFileName(file)), true);
+                                    rawCopied++;
+                                }
+                                catch (Exception ex)
+                                {
+                                    failedCount++;
+                                    if (firstError == null)
+                                        firstError = "Raw\\" + Path.GetFileName(file) + ": " + ex.Message;
+                                }
+                            }
+                        }
+                    }
+
+                    if (failedCount > 0)
+                    {
+                        // 비정지 알람(운전 계속) — AUTO-VISION-CORRELATED-RESULT 발생 패턴 미러.
+                        QMC.Common.Logging.EventLogger.Write(
+                            QMC.Common.Logging.EventKind.Alarm, "SYSTEM", "OUTPUT-RESULT-NETWORK-COPY-FAIL",
+                            "VisionInspectionResultFileWriter",
+                            "OUTPUT 결과 파일 네트워크 복사 실패 — 언로드는 계속 진행합니다(로컬 원본 보존, 수동 복사 필요). " +
+                            "wafer=" + outputWaferId +
+                            ", failed=" + failedCount +
+                            ", copied=csv " + csvCopied + "/raw " + rawCopied +
+                            ", target=" + targetRoot +
+                            ", firstError=" + (firstError ?? "-"));
+                        return;
+                    }
+
+                    if (csvCopied == 0 && rawCopied == 0)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "OutputResultNetworkCopy",
+                            "OUTPUT 결과 파일 네트워크 복사 — 대상 파일이 없습니다(미작업 복귀 등). " +
+                            "wafer=" + outputWaferId +
+                            ", pattern=" + pattern +
+                            ", target=" + targetRoot + " - Check");
+                        return;
+                    }
+
+                    QMC.Common.Log.Write("Main", "SYSTEM", "OutputResultNetworkCopy",
+                        "OUTPUT 결과 파일 네트워크 복사 완료. wafer=" + outputWaferId +
+                        ", csv=" + csvCopied +
+                        ", raw=" + rawCopied +
+                        ", flushResult=" + flushResult +
+                        ", target=" + targetRoot + " - Ok");
+                }
+                catch (Exception ex)
+                {
+                    try
+                    {
+                        QMC.Common.Logging.EventLogger.Write(
+                            QMC.Common.Logging.EventKind.Alarm, "SYSTEM", "OUTPUT-RESULT-NETWORK-COPY-FAIL",
+                            "VisionInspectionResultFileWriter",
+                            "OUTPUT 결과 파일 네트워크 복사 처리 예외 — 언로드는 계속 진행합니다. " +
+                            "wafer=" + outputWaferId +
+                            ", target=" + targetRoot +
+                            ", error=" + ex.Message);
+                    }
+                    catch
+                    {
+                    }
+                }
+            });
+        }
+
         public static async Task<int> WaitUntilFlushedAsync(
             string reason,
             int timeoutMs,
