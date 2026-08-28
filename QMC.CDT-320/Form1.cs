@@ -2446,6 +2446,9 @@ namespace QMC.CDT_320
                 // 학습값은 재학습 가능한 데이터이므로 실패해도 종료를 막지 않고 로그만 남긴다.
                 SaveRuntimeOffsetsBeforeApplicationExit();
 
+                // [종료 풀 저장 2026-08-28 팀장님 지시] 종료 저장은 SaveMaterialInspectionDetail 설정과
+                // 무관하게 검사 측정값 상세를 전부 포함한다(재시작 시 미기록 다이 측정값 유실 방지).
+                MaterialSnapshotStore.BeginApplicationExitFullSave();
                 bool saved = MaterialStateService.TryFlushPendingSave("ApplicationExit");
                 if (saved)
                 {

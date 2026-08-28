@@ -691,6 +691,18 @@ namespace QMC.CDT320.Sequencing
                 return 0;
             }
 
+            // [측정 데이터 유실 가드 2026-08-28 팀장님 지시] 판정(Good/NG)은 확정인데 검사 측정값이
+            // 비어 있는 다이(크래시/강제종료 재시작 시 상세 미저장 스냅샷 로드로 유실 — 08-27 3다이
+            // 실측)는 Place를 막고 알람 정지한다. 그대로 진행하면 결과 CSV가 공백/행 거부로 깨진다.
+            // 복구 = 픽커 화면 [BOTTOM/SIDE CLEAR]로 측정데이터 삭제 후 BOTTOM/SIDE 재검사.
+            string measurementMissingReason;
+            if (HasMeasurementMissingDieBeforePlace(out measurementMissingReason))
+            {
+                return Fail("PICKER-PLACE-MEASUREMENT-MISSING", "Material",
+                    "측정 데이터가 없습니다. 결과 데이터만 있습니다. 측정데이터 삭제후 다시 측정 하십시요. " +
+                    measurementMissingReason);
+            }
+
             string unknownReason;
             if (HasUnknownResultDieBeforePlace(out unknownReason))
             {
@@ -850,6 +862,73 @@ namespace QMC.CDT320.Sequencing
             return HasInspectionResult(die, "Bottom") &&
                    HasInspectionResult(die, "Side0") &&
                    HasInspectionResult(die, "Side90");
+        }
+
+        // [측정 데이터 유실 가드 2026-08-28] 판정 확정(Good/NG) + Bottom/Side 레코드 존재인데
+        // 세 레코드 모두 측정값(Measurements)이 0개인 다이 = 상세 미저장 스냅샷 재시작 유실 시그니처
+        // (정상 검사·미수신 NG 처리 모두 측정값을 최소 2개 이상 남긴다). 지연 RESULT 정상 흐름은
+        // 이 시점에 레코드 자체가 없어(반영 전) 걸리지 않는다.
+        private bool HasMeasurementMissingDieBeforePlace(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                var missingItems = new List<string>();
+                for (int i = 0; i < _pickedPickerIndexes.Count; i++)
+                {
+                    int pickerNo = ToPickerNo(_pickedPickerIndexes[i]);
+                    DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+                    if (die == null)
+                        continue;
+
+                    if (die.Result != DieResult.Good && die.Result != DieResult.NG)
+                        continue;
+                    if (!IsInspectionFlowComplete(die))
+                        continue;
+
+                    if (HasEmptyMeasurements(die, "Bottom") &&
+                        HasEmptyMeasurements(die, "Side0") &&
+                        HasEmptyMeasurements(die, "Side90"))
+                    {
+                        missingItems.Add("pickerNo=" + pickerNo +
+                            ", die=" + die.DieId +
+                            ", result=" + die.Result);
+                    }
+                }
+
+                if (missingItems.Count == 0)
+                    return false;
+
+                reason = "(재시작으로 검사 측정값이 유실된 Die — 픽커 화면 [BOTTOM/SIDE CLEAR] 후 BOTTOM/SIDE 재검사) " +
+                         string.Join("; ", missingItems);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // 판별 실패는 기존 흐름을 막지 않는다(가드 목적 — 오탐 정지 방지).
+                WriteLog("PickerPlaceSequence",
+                    Name + " 측정 데이터 유실 검사 중 예외(가드 생략). error=" + ex.Message + " - Check");
+                reason = string.Empty;
+                return false;
+            }
+        }
+
+        private static bool HasEmptyMeasurements(DieMaterial die, string inspectionType)
+        {
+            if (die == null || die.Inspections == null)
+                return false;
+
+            for (int i = 0; i < die.Inspections.Count; i++)
+            {
+                DieInspectionRecord record = die.Inspections[i];
+                if (record == null ||
+                    !string.Equals(record.InspectionType, inspectionType, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                return record.Measurements == null || record.Measurements.Count == 0;
+            }
+
+            return false;
         }
 
         private static bool HasInspectionResult(DieMaterial die, string inspectionType)

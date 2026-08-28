@@ -587,6 +587,19 @@ namespace QMC.CDT320.Materials
             return CloneSnapshotForSave(snapshot);
         }
 
+        // [종료 풀 저장 2026-08-28 팀장님 지시] 프로그램 종료 저장은 SaveMaterialInspectionDetail
+        // 설정과 무관하게 측정값 상세를 전부 포함한다 — 상세 미저장 상태로 재시작하면 미기록
+        // 다이(후검사 미완 등)의 측정값이 유실되어 결과 CSV가 공백/행 거부로 깨졌다(08-27 3다이 실측).
+        // 종료 시 1회 켜고 앱이 내려가므로 원복은 불필요하다.
+        private static volatile bool _applicationExitFullSave;
+
+        public static void BeginApplicationExitFullSave()
+        {
+            _applicationExitFullSave = true;
+            Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                "프로그램 종료 저장 모드 — 검사 측정값 상세를 설정과 무관하게 포함해 저장합니다. - Ok");
+        }
+
         /// <summary>
         /// 저장 사본에 검사 측정값 상세를 포함할지 여부. 설정 조회 실패 시에는
         /// 기존 TrimInspectionDetailIfDisabled 와 같은 방향(상세 포함)으로 안전하게 처리한다.
@@ -595,6 +608,9 @@ namespace QMC.CDT320.Materials
         {
             try
             {
+                if (_applicationExitFullSave)
+                    return true;
+
                 AppSettings settings = AppSettingsStore.Current;
                 return settings == null || settings.SaveMaterialInspectionDetail;
             }
@@ -615,6 +631,10 @@ namespace QMC.CDT320.Materials
         {
             try
             {
+                // [종료 풀 저장 2026-08-28] 종료 저장 모드에서는 설정과 무관하게 상세를 유지한다.
+                if (_applicationExitFullSave)
+                    return;
+
                 AppSettings settings = AppSettingsStore.Current;
                 if (settings != null && settings.SaveMaterialInspectionDetail)
                     return;
