@@ -212,7 +212,7 @@
             this.btnClose.Location = new System.Drawing.Point(725, 11);
             this.btnClose.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.btnClose.Name = "btnClose";
-            this.btnClose.Size = new System.Drawing.Size(150, 36);
+            this.btnClose.Size = new System.Drawing.Size(100, 36);
             this.btnClose.TabIndex = 3;
             this.btnClose.Text = "CLOSE";
             this.btnClose.UseVisualStyleBackColor = true;
@@ -225,7 +225,7 @@
             this.btnRefresh.Location = new System.Drawing.Point(569, 11);
             this.btnRefresh.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.btnRefresh.Name = "btnRefresh";
-            this.btnRefresh.Size = new System.Drawing.Size(150, 36);
+            this.btnRefresh.Size = new System.Drawing.Size(100, 36);
             this.btnRefresh.TabIndex = 2;
             this.btnRefresh.Text = "REFRESH";
             this.btnRefresh.UseVisualStyleBackColor = true;
@@ -240,7 +240,7 @@
             this.btnApplyPick.Location = new System.Drawing.Point(413, 11);
             this.btnApplyPick.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.btnApplyPick.Name = "btnApplyPick";
-            this.btnApplyPick.Size = new System.Drawing.Size(150, 36);
+            this.btnApplyPick.Size = new System.Drawing.Size(140, 36);
             this.btnApplyPick.TabIndex = 1;
             this.btnApplyPick.Text = "PICK → 메카 적용";
             this.btnApplyPick.UseVisualStyleBackColor = false;
@@ -255,7 +255,7 @@
             this.btnApplyPlace.Location = new System.Drawing.Point(257, 11);
             this.btnApplyPlace.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.btnApplyPlace.Name = "btnApplyPlace";
-            this.btnApplyPlace.Size = new System.Drawing.Size(150, 36);
+            this.btnApplyPlace.Size = new System.Drawing.Size(140, 36);
             this.btnApplyPlace.TabIndex = 0;
             this.btnApplyPlace.Text = "PLACE → 메카 적용";
             this.btnApplyPlace.UseVisualStyleBackColor = false;
@@ -293,7 +293,7 @@
             this.btnCopyWaferPlace.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnCopyWaferPlace.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.btnCopyWaferPlace.Name = "btnCopyWaferPlace";
-            this.btnCopyWaferPlace.Size = new System.Drawing.Size(150, 36);
+            this.btnCopyWaferPlace.Size = new System.Drawing.Size(130, 36);
             this.btnCopyWaferPlace.TabIndex = 6;
             this.btnCopyWaferPlace.Text = "PLACE 옵셋 2→1";
             this.btnCopyWaferPlace.UseVisualStyleBackColor = true;
