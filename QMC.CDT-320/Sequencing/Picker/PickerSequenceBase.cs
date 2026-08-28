@@ -4452,9 +4452,13 @@ namespace QMC.CDT320.Sequencing
                         ", waitCount=" + waitCount +
                         ", limit=" + waitLimit +
                         ", lastReason=" + (reason ?? string.Empty);
+                    // [워닝 그레이드 2026-08-28 팀장님 지시] 코드명에 "LIMIT"이 들어가면
+                    // AlarmManager.NormalizeSeverity의 축 리밋 안전 규칙(Contains "LIMIT")에 오탐으로
+                    // 걸려 Warning이 Critical로 승격됐다(08-28 14:01 실측). 안전 규칙은 유지하고
+                    // 코드명에서 LIMIT을 제거해 의도대로 Warning으로 발행한다.
                     AlarmManager.Raise(
                         AlarmSeverity.Warning,
-                        "INPUT-DIE-VISION-WAIT-LIMIT",
+                        "INPUT-DIE-VISION-WAIT-OVER",
                         "InputDieVision",
                         alarmMessage);
                     WriteLog(Name, alarmMessage + " - Failed");
