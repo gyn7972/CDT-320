@@ -849,6 +849,14 @@ namespace QMC.CDT320.Ajin
         private const int DefaultAxisMoveTimeoutMs = 300000;
         // 팔로잉 루프 폴링 주기.
         private const int FollowMovePollIntervalMs = 10;
+        // [B안 최소 증분 게이트 2026-08-28, 팀장님 승인] 전진 오버라이드라도 증분이 이 값 미만이면
+        // 발행을 보류한다(최종 발행은 예외) — 10ms ModifyPosition 연발(100% 굉음, 2026-08-27 20:52
+        // InputVisionX AX-5 드라이브 트립)의 완화. 굉음 분석(2026-08-27) 제시값 3~5mm의 보수측.
+        private const double FollowMoveMinOverrideIncrementMm = 3.0;
+        // [B안 2026-08-28] 소증분 보류 상한 — 이 시간 넘게 보류가 이어지면 소증분이라도 발행해
+        // 이동 연장(liveness)을 유지한다(선행 저속 구간에서 후행축이 마지막 발행점에 도달해 정지하는
+        // 조기 정지 -23 빈발 방지, 현행 수준 유지 목적). 완료 타임아웃이 아니므로 속도 스케일 미적용.
+        private const int FollowMoveMinIncrementFlushMs = 100;
         // 타임아웃 전용 에러코드.
         private const int FollowMoveTimeoutErrorCode = -21;
         // 선행축 알람 전용 에러코드.
@@ -1224,6 +1232,8 @@ namespace QMC.CDT320.Ajin
                 long overrideCount = 0;
                 long skipHoldCount = 0;
                 long busyRetryCount = 0;
+                long minIncrementHoldCount = 0;
+                long minIncrementHoldSinceMs = -1;
                 long lastOverrideLogMs = -1;
                 long lastSkipLogMs = -1;
                 long lastConstraintLogMs = -1;
@@ -1358,6 +1368,8 @@ namespace QMC.CDT320.Ajin
                     if (!commandAdvances)
                     {
                         skipHoldCount++;
+                        // 전진 자체가 없으면 소증분 보류 타이머도 리셋한다(B안 2026-08-28).
+                        minIncrementHoldSinceMs = -1;
                         bool skipLogDue = lastSkipLogMs < 0 ||
                             stopwatch.ElapsedMilliseconds - lastSkipLogMs >= 1000;
                         if (skipLogDue)
@@ -1375,10 +1387,45 @@ namespace QMC.CDT320.Ajin
                         continue;
                     }
 
+                    // ③-1 최소 증분 게이트(B안 2026-08-28, 팀장님 승인): 전진이라도 증분이
+                    //     FollowMoveMinOverrideIncrementMm 미만이면 발행을 보류한다. 최종 발행은
+                    //     예외(완주 보장)이고, 보류가 FollowMoveMinIncrementFlushMs 이상 이어지면
+                    //     소증분이라도 발행해 이동 연장을 유지한다(조기 정지 -23 리스크 현행 수준).
+                    bool commandIsFinal = Math.Abs(command - trailingTargetPosition) <= tolerance;
+                    double commandIncrement = direction > 0
+                        ? command - lastCommanded
+                        : lastCommanded - command;
+                    if (!commandIsFinal && commandIncrement < FollowMoveMinOverrideIncrementMm)
+                    {
+                        if (minIncrementHoldSinceMs < 0)
+                            minIncrementHoldSinceMs = stopwatch.ElapsedMilliseconds;
+                        if (stopwatch.ElapsedMilliseconds - minIncrementHoldSinceMs < FollowMoveMinIncrementFlushMs)
+                        {
+                            minIncrementHoldCount++;
+                            bool minIncrementLogDue = lastSkipLogMs < 0 ||
+                                stopwatch.ElapsedMilliseconds - lastSkipLogMs >= 1000;
+                            if (minIncrementLogDue)
+                            {
+                                lastSkipLogMs = stopwatch.ElapsedMilliseconds;
+                                QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-SKIP",
+                                    Name + " 팔로잉 오버라이드 보류(최소 증분 미만). command=" + command.ToString("F3") +
+                                    ", lastCommanded=" + lastCommanded.ToString("F3") +
+                                    ", increment=" + commandIncrement.ToString("F3") +
+                                    ", minIncrement=" + FollowMoveMinOverrideIncrementMm.ToString("F3") +
+                                    ", heldMs=" + (stopwatch.ElapsedMilliseconds - minIncrementHoldSinceMs) +
+                                    ", minIncrementHoldCount=" + minIncrementHoldCount + " - Check");
+                            }
+
+                            await Task.Delay(FollowMovePollIntervalMs, ct).ConfigureAwait(false);
+                            continue;
+                        }
+                        // 보류 상한 초과 — 소증분 플러시 발행(아래 발행 경로로 진행).
+                    }
+                    minIncrementHoldSinceMs = -1;
+
                     // ④ 전 구간 단일 프로파일(Min) — 최종 오버라이드도 동일. 증속 없음.
                     // 존 판정용 이동 의도를 함께 넘긴다 — 중간 세그먼트 좌표는 티칭 존 밖이라
                     // targetName 없이는 목표 존이 Unknown이 되어 -11로 차단된다(2026-07-25 사고).
-                    bool commandIsFinal = Math.Abs(command - trailingTargetPosition) <= tolerance;
                     int overrideResult = TryOverridePosition(
                         command, followVel, followAcc, followDec, trailingTargetName);
 
@@ -1423,6 +1470,7 @@ namespace QMC.CDT320.Ajin
                                 "target=" + trailingTargetPosition.ToString("F3") +
                                 ", overrideCount=" + overrideCount +
                                 ", skipHoldCount=" + skipHoldCount +
+                                ", minIncrementHoldCount=" + minIncrementHoldCount +
                                 ", busyRetryCount=" + busyRetryCount +
                                 ", elapsedMs=" + stopwatch.ElapsedMilliseconds +
                                 ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Ok");
