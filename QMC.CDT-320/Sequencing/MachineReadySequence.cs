@@ -1115,6 +1115,10 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                result = await EnsureInputCassetteReadySafetyAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 LogStep("Ready 상부 헤드/비전/픽커 이동 전 안전 조건 확인 완료.");
                 return 0;
             }
@@ -2092,6 +2096,47 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        // 픽커 X 인터락은 InputLifterZ가 정지된 Avoid/Home(0 이하)일 것을 요구한다.
+        // 리프터가 슬롯 높이에 남아 있으면(로딩 중 정지 등) 알람 대신 Avoid로 내려 복구한다.
+        private async Task<int> EnsureInputCassetteReadySafetyAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                InputCassetteUnit unit = _machine != null ? _machine.InputCassetteUnit : null;
+                if (unit == null)
+                    return Skip("InputCassetteUnit");
+
+                if (unit.InputLifterZ == null)
+                    return Fail("READY-SAFETY-INPUT-CASSETTE-AXIS", "InputCassetteUnit", "Ready 상부 헤드/비전/픽커 이동 전 InputLifterZ 축을 확인할 수 없습니다.");
+
+                double avoid = unit.Recipe != null ? unit.Recipe.AvoidPosition : 0.0;
+                if (!unit.InputLifterZ.IsMoving && unit.IsWaferLifterZInAvoidOrHomePosition())
+                    return 0;
+
+                if (unit.InputLifterZ.IsMoving)
+                    return Fail(
+                        "READY-SAFETY-INPUT-CASSETTE-MOVING",
+                        "InputCassetteUnit",
+                        "Ready InputLifterZ 복구 불가: 축이 아직 이동 중입니다. " +
+                        BuildAxisState("InputLifterZ", unit.InputLifterZ, avoid));
+
+                LogStep("InputLifterZ가 Avoid/Home 밖에 남아 있어 Avoid로 복구를 시작합니다. " +
+                    BuildAxisState("InputLifterZ", unit.InputLifterZ, avoid));
+
+                return await MoveInputCassetteLifterZAvoidAsync(unit, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("READY-SAFETY-INPUT-CASSETTE-EX", "InputCassetteUnit", "Ready InputLifterZ 안전 조건 확인/복구 예외: " + ex.Message);
             }
         }
 
