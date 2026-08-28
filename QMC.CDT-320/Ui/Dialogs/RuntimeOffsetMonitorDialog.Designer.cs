@@ -18,6 +18,7 @@
         private System.Windows.Forms.Button btnApplyPlace;
         private System.Windows.Forms.Button btnResetPick;
         private System.Windows.Forms.Button btnResetPlace;
+        private System.Windows.Forms.Button btnCopyWaferPlace;
         private System.Windows.Forms.Label lblStatus;
         private System.Windows.Forms.Timer timerRefresh;
 
@@ -47,6 +48,7 @@
             this.btnApplyPlace = new System.Windows.Forms.Button();
             this.btnResetPick = new System.Windows.Forms.Button();
             this.btnResetPlace = new System.Windows.Forms.Button();
+            this.btnCopyWaferPlace = new System.Windows.Forms.Button();
             this.lblStatus = new System.Windows.Forms.Label();
             this.timerRefresh = new System.Windows.Forms.Timer(this.components);
             this.rootLayout.SuspendLayout();
@@ -194,6 +196,7 @@
             this.buttonBar.Controls.Add(this.btnApplyPlace);
             this.buttonBar.Controls.Add(this.btnResetPick);
             this.buttonBar.Controls.Add(this.btnResetPlace);
+            this.buttonBar.Controls.Add(this.btnCopyWaferPlace);
             this.buttonBar.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonBar.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
             this.buttonBar.Location = new System.Drawing.Point(11, 643);
@@ -283,6 +286,18 @@
             this.btnResetPlace.Text = "PLACE 리셋";
             this.btnResetPlace.UseVisualStyleBackColor = true;
             this.btnResetPlace.Click += new System.EventHandler(this.btnResetPlace_Click);
+            //
+            // btnCopyWaferPlace
+            //
+            this.btnCopyWaferPlace.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnCopyWaferPlace.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnCopyWaferPlace.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.btnCopyWaferPlace.Name = "btnCopyWaferPlace";
+            this.btnCopyWaferPlace.Size = new System.Drawing.Size(150, 36);
+            this.btnCopyWaferPlace.TabIndex = 6;
+            this.btnCopyWaferPlace.Text = "PLACE 옵셋 2→1";
+            this.btnCopyWaferPlace.UseVisualStyleBackColor = true;
+            this.btnCopyWaferPlace.Click += new System.EventHandler(this.btnCopyWaferPlace_Click);
             //
             // lblStatus
             //

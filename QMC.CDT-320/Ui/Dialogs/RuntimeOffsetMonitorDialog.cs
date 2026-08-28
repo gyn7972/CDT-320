@@ -177,6 +177,47 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        private void btnCopyWaferPlace_Click(object sender, EventArgs e)
+        {
+            if (_busy)
+                return;
+
+            try
+            {
+                _busy = true;
+
+                DialogResult answer = QMC.Common.MessageDialog.Show(
+                    "웨이퍼 옵셋(2번) 현재값을 저장 옵셋(1번)에 덮어써 저장합니다.\n계속하시겠습니까?",
+                    "PLACE 옵셋 2→1 복사",
+                    MessageBoxButtons.YesNo);
+                if (answer != DialogResult.Yes)
+                    return;
+
+                string failReason;
+                if (PlaceRuntimeOffsetService.CopyWaferLoopToSaved(out failReason))
+                {
+                    EventLogger.Write(EventKind.Event, "COORD", "PLACE-RUNTIME-OFFSET-COPY",
+                        "웨이퍼 옵셋(2번)을 저장 옵셋(1번)으로 수동 복사. user=" + UserSession.Name);
+                    QMC.Common.MessageDialog.Show("복사했습니다.");
+                }
+                else
+                {
+                    QMC.Common.MessageDialog.Show("복사하지 못했습니다.\n" + failReason);
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show("PLACE 옵셋 2→1 복사 중 오류가 발생했습니다.\n" + ex.Message);
+                EventLogger.Write(EventKind.Alarm, "UI", "PLACE-RUNTIME-OFFSET-COPY",
+                    "PLACE 옵셋 2→1 복사 실패. error=" + ex.Message);
+            }
+            finally
+            {
+                _busy = false;
+                RefreshValues();
+            }
+        }
+
         private void btnApplyPlace_Click(object sender, EventArgs e)
         {
             if (_busy)

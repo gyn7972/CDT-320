@@ -566,6 +566,57 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        /// <summary>웨이퍼 옵셋(2번) 현재값을 저장 옵셋(1번)에 덮어써 저장한다(수동 확정). 2번 미활성이면 false.</summary>
+        public static bool CopyWaferLoopToSaved(out string failReason)
+        {
+            failReason = "";
+            try
+            {
+                var lines = new StringBuilder();
+                lock (Sync)
+                {
+                    EnsureLoadedLocked();
+                    if (!_waferLoopActive)
+                    {
+                        failReason = "웨이퍼 옵셋(2번)이 아직 활성화되지 않았습니다(현재 웨이퍼 측정값 " +
+                            _waferSampleCount + "/" + WaferLoopSeedSampleCount + "개).";
+                        return false;
+                    }
+
+                    for (int i = 0; i < _filters.Length; i++)
+                    {
+                        FilterSet from = _waferFilters[i];
+                        FilterSet to = _filters[i];
+                        to.X.Reset(from.X.Value);
+                        to.Y.Reset(from.Y.Value);
+                        to.T.Reset(from.T.Value);
+                        to.ClampLatchedX = false;
+                        to.ClampLatchedY = false;
+                        to.ClampLatchedT = false;
+                        to.LastUpdated = DateTime.Now;
+                        lines.Append(i < 4 ? "F" : "R").Append((i % 4) + 1)
+                            .Append(" X=").Append(F(from.X.Value))
+                            .Append(" Y=").Append(F(from.Y.Value))
+                            .Append(" T=").Append(F(from.T.Value)).Append("; ");
+                    }
+
+                    MarkStateChangedLocked();
+                }
+
+                SaveOutsideLock();
+                QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
+                    "웨이퍼 옵셋(2번)을 저장 옵셋(1번)으로 수동 복사했습니다. " + lines + "- Ok");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                failReason = ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
+                    "웨이퍼 옵셋(2번)→저장 옵셋(1번) 복사 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                return false;
+            }
+        }
+
         /// <summary>테스트/재로드용: 다음 접근 시 저장 파일에서 상태를 다시 로드한다.</summary>
         public static void Reload()
         {
