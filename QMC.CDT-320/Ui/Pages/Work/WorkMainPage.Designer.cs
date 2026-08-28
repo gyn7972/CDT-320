@@ -1071,7 +1071,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblReworkCaption.Size = new System.Drawing.Size(70, 34);
             this.lblReworkCaption.TabIndex = 1;
             this.lblReworkCaption.Tag = "i18n:work.workInfo.rework";
-            this.lblReworkCaption.Text = "Rework";
+            this.lblReworkCaption.Text = "DT Count";
             this.lblReworkCaption.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
             // cmbReworkCount

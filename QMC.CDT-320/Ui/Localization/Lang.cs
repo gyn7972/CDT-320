@@ -232,7 +232,7 @@ namespace QMC.CDT_320.Ui.Localization
             A("work.sec.workInfo",    "작업 정보",          "Work Info");
             A("work.sec.workTime",    "작업 시간",          "Work Time");
             A("work.workInfo.project","프로젝트 이름",      "Project Name");
-            A("work.workInfo.rework", "Rework",             "Rework");
+            A("work.workInfo.rework", "DT Count",           "DT Count");
             A("work.workInfo.pickFail","PICK 실패 수량",     "PICK Fail Qty");
             A("work.workInfo.placeFail","PLACE 실패 수량", "PLACE Fail Qty");
             A("work.workInfo.workBinQty","작업 BIN 수량",  "Work BIN Qty");
