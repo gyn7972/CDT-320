@@ -702,6 +702,7 @@ namespace QMC.CDT320.Sequencing
             }
 
             _placedDieId = _currentDie.DieId;
+            _placedWaferInstanceId = _currentDie.InputWaferInstanceId;
             _placedOutputSide = _currentOutputSide;
             _placedReceiveTarget = _receiveTarget;
 
@@ -738,6 +739,7 @@ namespace QMC.CDT320.Sequencing
                     new OutputPostPlaceInspectionRequest
                     {
                         DieId = _placedDieId,
+                        SourceWaferInstanceId = _placedWaferInstanceId,
                         OutputSide = _placedOutputSide,
                         ReceiveTarget = _placedReceiveTarget,
                         HasPlacedDieCameraTarget = true,

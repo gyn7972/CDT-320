@@ -48,6 +48,15 @@ namespace QMC.CDT320.Sequencing
         private static double _cutoffFrequency = 0.05;
         private static FilterSet[] _filters;
 
+        // 웨이퍼 1장용 2차 루프: 웨이퍼 시작 후 측정값 12개까지는 저장 필터(1번)로 적용·학습하고,
+        // 13번째부터는 1번을 복사한 웨이퍼 필터(2번)로 전환해 완료까지 적용·학습한다.
+        // 2번 필터와 카운터는 메모리 전용 — 웨이퍼가 바뀌거나 앱이 재시작되면 1번 체제로 복귀.
+        private const int WaferLoopSeedSampleCount = 12;
+        private static FilterSet[] _waferFilters;
+        private static string _waferKey;
+        private static int _waferSampleCount;
+        private static bool _waferLoopActive;
+
         // [택타임 개선 2026-07-27] Output 후검사마다(다이당 1회) Sync 락을 쥔 채 File.Create + JSON 쓰기를
         // 동기로 수행했다. 저장 내용은 고정 8행뿐이라 병합 저장해도 잃는 정보가 없다.
         // Pick 측(PickRuntimeOffsetService)과 동일한 방식으로 처리한다.
@@ -207,6 +216,20 @@ namespace QMC.CDT320.Sequencing
                         ReclampChannelLocked(set.T, _clampLimitTDeg, side, pickerNo, "T", reclampLines);
                     }
 
+                    for (int i = 0; i < _waferFilters.Length; i++)
+                    {
+                        FilterSet set = _waferFilters[i];
+                        set.X.SetCutoffFrequency(_cutoffFrequency);
+                        set.Y.SetCutoffFrequency(_cutoffFrequency);
+                        set.T.SetCutoffFrequency(_cutoffFrequency);
+
+                        PickerSequenceSide side = i < 4 ? PickerSequenceSide.Front : PickerSequenceSide.Rear;
+                        int pickerNo = (i % 4) + 1;
+                        ReclampChannelLocked(set.X, _clampLimitXyMm, side, pickerNo, "X/wafer", reclampLines);
+                        ReclampChannelLocked(set.Y, _clampLimitXyMm, side, pickerNo, "Y/wafer", reclampLines);
+                        ReclampChannelLocked(set.T, _clampLimitTDeg, side, pickerNo, "T/wafer", reclampLines);
+                    }
+
                     MarkStateChangedLocked();
                 }
 
@@ -242,9 +265,10 @@ namespace QMC.CDT320.Sequencing
 
         /// <summary>
         /// 현재 필터 출력(raw)을 반환한다. 미초기화/범위 밖 인자면 0을 반환한다.
+        /// waferKey(다이 소스 웨이퍼)로 루프를 선택한다 — 전환 전 1번(저장), 전환 후 2번(웨이퍼).
         /// Enable 여부와 무관하게 상태를 반환하며, Enable 판정은 적용 지점에서 한다.
         /// </summary>
-        public static void GetOffset(PickerSequenceSide side, int pickerNo, out double x, out double y, out double t)
+        public static void GetOffset(PickerSequenceSide side, int pickerNo, string waferKey, out double x, out double y, out double t)
         {
             x = 0.0;
             y = 0.0;
@@ -255,7 +279,8 @@ namespace QMC.CDT320.Sequencing
                 lock (Sync)
                 {
                     EnsureLoadedLocked();
-                    FilterSet set = ResolveSetLocked(side, pickerNo);
+                    EnsureWaferContextLocked(waferKey);
+                    FilterSet set = ResolveSetLocked(_waferLoopActive ? _waferFilters : _filters, side, pickerNo);
                     if (set == null)
                         return;
 
@@ -284,7 +309,8 @@ namespace QMC.CDT320.Sequencing
             double measuredX,
             double measuredY,
             double measuredT,
-            string dieId)
+            string dieId,
+            string waferKey)
         {
             try
             {
@@ -294,11 +320,21 @@ namespace QMC.CDT320.Sequencing
                 bool acceptedX;
                 bool acceptedY;
                 bool acceptedT;
+                bool waferLoop;
+                int sampleNo;
 
                 lock (Sync)
                 {
                     EnsureLoadedLocked();
-                    FilterSet set = ResolveSetLocked(side, pickerNo);
+
+                    // Disable 중 학습 중지(2026-08-19 팀장님 지시): 잔차 적분은 보정이 적용되지 않으면
+                    // 잔차가 줄지 않아 무한 누적 → 클램프 알람이 뜬다. 적용 꺼짐이면 학습·저장도 멈춘다.
+                    if (!_useCorrection)
+                        return;
+
+                    EnsureWaferContextLocked(waferKey);
+                    waferLoop = _waferLoopActive;
+                    FilterSet set = ResolveSetLocked(waferLoop ? _waferFilters : _filters, side, pickerNo);
                     if (set == null)
                     {
                         QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
@@ -307,32 +343,35 @@ namespace QMC.CDT320.Sequencing
                         return;
                     }
 
-                    // Disable 중 학습 중지(2026-08-19 팀장님 지시): 잔차 적분은 보정이 적용되지 않으면
-                    // 잔차가 줄지 않아 무한 누적 → 클램프 알람이 뜬다. 적용 꺼짐이면 학습·저장도 멈춘다.
-                    // (EMA 시절 "Disable이어도 학습 계속" 설계는 적분 전환으로 폐기.)
-                    if (!_useCorrection)
-                        return;
-
-                    // 전 채널 잔차 적분(2026-08-19 팀장님 승인). T 적용 부호는 감산 재확정(01:26 실장비) —
-                    // 갱신식(적분)과 무관하게 부호는 적용 지점 담당.
-                    acceptedX = AcceptChannelLocked(set.X, measuredX, _outlierLimitXyMm, "X", side, pickerNo, dieId, true);
-                    acceptedY = AcceptChannelLocked(set.Y, measuredY, _outlierLimitXyMm, "Y", side, pickerNo, dieId, true);
-                    acceptedT = AcceptChannelLocked(set.T, measuredT, _outlierLimitTDeg, "T", side, pickerNo, dieId, true);
+                    string chX = waferLoop ? "X/wafer" : "X";
+                    string chY = waferLoop ? "Y/wafer" : "Y";
+                    string chT = waferLoop ? "T/wafer" : "T";
+                    acceptedX = AcceptChannelLocked(set.X, measuredX, _outlierLimitXyMm, chX, side, pickerNo, dieId, true);
+                    acceptedY = AcceptChannelLocked(set.Y, measuredY, _outlierLimitXyMm, chY, side, pickerNo, dieId, true);
+                    acceptedT = AcceptChannelLocked(set.T, measuredT, _outlierLimitTDeg, chT, side, pickerNo, dieId, true);
 
                     if (acceptedX)
-                        set.ClampLatchedX = ClampChannelLocked(set.X, _clampLimitXyMm, set.ClampLatchedX, "X", side, pickerNo);
+                        set.ClampLatchedX = ClampChannelLocked(set.X, _clampLimitXyMm, set.ClampLatchedX, chX, side, pickerNo);
                     if (acceptedY)
-                        set.ClampLatchedY = ClampChannelLocked(set.Y, _clampLimitXyMm, set.ClampLatchedY, "Y", side, pickerNo);
+                        set.ClampLatchedY = ClampChannelLocked(set.Y, _clampLimitXyMm, set.ClampLatchedY, chY, side, pickerNo);
                     if (acceptedT)
-                        set.ClampLatchedT = ClampChannelLocked(set.T, _clampLimitTDeg, set.ClampLatchedT, "T", side, pickerNo);
+                        set.ClampLatchedT = ClampChannelLocked(set.T, _clampLimitTDeg, set.ClampLatchedT, chT, side, pickerNo);
 
                     if (acceptedX || acceptedY || acceptedT)
                     {
                         set.LastUpdated = DateTime.Now;
-                        MarkStateChangedLocked();
-                        // 다이당 실행되는 핫패스 — 디스크 쓰기를 락 밖 병합 저장으로 넘긴다.
-                        RequestDeferredSave();
+                        // 2번(웨이퍼) 루프는 메모리 전용 — 1번(저장) 갱신만 디스크 저장 대상.
+                        if (!waferLoop)
+                        {
+                            MarkStateChangedLocked();
+                            RequestDeferredSave();
+                        }
                     }
+
+                    _waferSampleCount++;
+                    sampleNo = _waferSampleCount;
+                    if (!_waferLoopActive && _waferSampleCount >= WaferLoopSeedSampleCount)
+                        SeedWaferLoopLocked();
 
                     filteredX = set.X.Value;
                     filteredY = set.Y.Value;
@@ -352,6 +391,8 @@ namespace QMC.CDT320.Sequencing
                     ", filteredX=" + F(filteredX) +
                     ", filteredY=" + F(filteredY) +
                     ", filteredT=" + F(filteredT) +
+                    ", loop=" + (waferLoop ? "Wafer" : "Saved") +
+                    ", waferSample=" + sampleNo +
                     ", updateMode=XYT:integral");
             }
             catch (Exception ex)
@@ -421,6 +462,17 @@ namespace QMC.CDT320.Sequencing
                     set.ClampLatchedX = false;
                     set.ClampLatchedY = false;
                     set.LastUpdated = DateTime.Now;
+
+                    // 이관 후 이중 보정 방지 — 활성 중인 웨이퍼 루프의 X/Y도 함께 0.
+                    FilterSet waferSet = ResolveSetLocked(_waferFilters, side, pickerNo);
+                    if (waferSet != null)
+                    {
+                        waferSet.X.Reset(0.0);
+                        waferSet.Y.Reset(0.0);
+                        waferSet.ClampLatchedX = false;
+                        waferSet.ClampLatchedY = false;
+                    }
+
                     MarkStateChangedLocked();
                 }
 
@@ -452,13 +504,13 @@ namespace QMC.CDT320.Sequencing
                     if (set == null)
                         return;
 
-                    set.X.Reset(0.0);
-                    set.Y.Reset(0.0);
-                    set.T.Reset(0.0);
-                    set.ClampLatchedX = false;
-                    set.ClampLatchedY = false;
-                    set.ClampLatchedT = false;
+                    ResetSetLocked(set);
                     set.LastUpdated = DateTime.Now;
+
+                    FilterSet waferSet = ResolveSetLocked(_waferFilters, side, pickerNo);
+                    if (waferSet != null)
+                        ResetSetLocked(waferSet);
+
                     MarkStateChangedLocked();
                 }
 
@@ -487,14 +539,14 @@ namespace QMC.CDT320.Sequencing
                     EnsureLoadedLocked();
                     for (int i = 0; i < _filters.Length; i++)
                     {
-                        _filters[i].X.Reset(0.0);
-                        _filters[i].Y.Reset(0.0);
-                        _filters[i].T.Reset(0.0);
-                        _filters[i].ClampLatchedX = false;
-                        _filters[i].ClampLatchedY = false;
-                        _filters[i].ClampLatchedT = false;
+                        ResetSetLocked(_filters[i]);
                         _filters[i].LastUpdated = DateTime.Now;
                     }
+
+                    for (int i = 0; i < _waferFilters.Length; i++)
+                        ResetSetLocked(_waferFilters[i]);
+                    _waferSampleCount = 0;
+                    _waferLoopActive = false;
 
                     MarkStateChangedLocked();
                 }
@@ -521,6 +573,7 @@ namespace QMC.CDT320.Sequencing
             {
                 _loaded = false;
                 _filters = null;
+                _waferFilters = null;
             }
         }
 
@@ -541,6 +594,12 @@ namespace QMC.CDT320.Sequencing
             _filters = new FilterSet[8];
             for (int i = 0; i < _filters.Length; i++)
                 _filters[i] = new FilterSet(_cutoffFrequency);
+            _waferFilters = new FilterSet[8];
+            for (int i = 0; i < _waferFilters.Length; i++)
+                _waferFilters[i] = new FilterSet(_cutoffFrequency);
+            _waferKey = null;
+            _waferSampleCount = 0;
+            _waferLoopActive = false;
 
             if (document.Filters != null)
             {
@@ -571,11 +630,62 @@ namespace QMC.CDT320.Sequencing
 
         private static FilterSet ResolveSetLocked(PickerSequenceSide side, int pickerNo)
         {
+            return ResolveSetLocked(_filters, side, pickerNo);
+        }
+
+        private static FilterSet ResolveSetLocked(FilterSet[] filters, PickerSequenceSide side, int pickerNo)
+        {
             if (pickerNo < 1 || pickerNo > 4)
                 return null;
 
             int sideIndex = side == PickerSequenceSide.Front ? 0 : 1;
-            return _filters[sideIndex * 4 + (pickerNo - 1)];
+            return filters[sideIndex * 4 + (pickerNo - 1)];
+        }
+
+        private static void ResetSetLocked(FilterSet set)
+        {
+            set.X.Reset(0.0);
+            set.Y.Reset(0.0);
+            set.T.Reset(0.0);
+            set.ClampLatchedX = false;
+            set.ClampLatchedY = false;
+            set.ClampLatchedT = false;
+        }
+
+        private static void EnsureWaferContextLocked(string waferKey)
+        {
+            string key = waferKey ?? "";
+            if (string.Equals(_waferKey, key, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            bool firstAssign = _waferKey == null;
+            _waferKey = key;
+            _waferSampleCount = 0;
+            _waferLoopActive = false;
+            for (int i = 0; i < _waferFilters.Length; i++)
+                ResetSetLocked(_waferFilters[i]);
+
+            if (!firstAssign)
+                QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
+                    "웨이퍼 변경 — 웨이퍼 옵셋(2번)을 폐기하고 저장 옵셋(1번)으로 복귀합니다. wafer=" + key + " - Ok");
+        }
+
+        private static void SeedWaferLoopLocked()
+        {
+            for (int i = 0; i < _filters.Length; i++)
+            {
+                _waferFilters[i].X.Reset(_filters[i].X.Value);
+                _waferFilters[i].Y.Reset(_filters[i].Y.Value);
+                _waferFilters[i].T.Reset(_filters[i].T.Value);
+                _waferFilters[i].ClampLatchedX = false;
+                _waferFilters[i].ClampLatchedY = false;
+                _waferFilters[i].ClampLatchedT = false;
+                _waferFilters[i].LastUpdated = DateTime.Now;
+            }
+
+            _waferLoopActive = true;
+            QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
+                "측정값 " + WaferLoopSeedSampleCount + "개 도달 — 저장 옵셋(1번)을 웨이퍼 옵셋(2번)으로 복사하고 전환합니다. wafer=" + _waferKey + " - Ok");
         }
 
         private static bool AcceptChannelLocked(

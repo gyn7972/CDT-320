@@ -20,6 +20,9 @@ namespace QMC.CDT320.Sequencing
 
         public string DieId { get; set; } = "";
 
+        // 다이 자신의 소스 웨이퍼 ID — Place 런타임 옵셋의 웨이퍼 단위 루프 전환 키.
+        public string SourceWaferInstanceId { get; set; } = "";
+
         public BinSide OutputSide { get; set; }
 
         public OutputStageReceiveTarget ReceiveTarget { get; set; }
@@ -777,6 +780,7 @@ namespace QMC.CDT320.Sequencing
                     new OutputPostPlaceInspectionRequest
                     {
                         DieId = slot.DieUid,
+                        SourceWaferInstanceId = die != null ? die.InputWaferInstanceId : "",
                         OutputSide = side,
                         PickerNo = die != null ? die.PickedPickerNo : -1,
                         PickerSide = pickerSide,
@@ -1642,7 +1646,8 @@ namespace QMC.CDT320.Sequencing
                     offset.X,
                     offset.Y,
                     offset.R,
-                    request.DieId);
+                    request.DieId,
+                    request.SourceWaferInstanceId);
             }
             Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
                 "Output camera BIN RESULT 반영 완료. die=" + request.DieId +

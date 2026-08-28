@@ -137,6 +137,7 @@ namespace QMC.CDT320.Sequencing
                 PlaceRuntimeOffsetService.GetOffset(
                     Side,
                     _currentPickerNo,
+                    _currentDie != null ? _currentDie.InputWaferInstanceId : "",
                     out placeRuntimeOffsetX,
                     out placeRuntimeOffsetY,
                     out placeRuntimeOffsetT);

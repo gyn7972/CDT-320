@@ -31,6 +31,7 @@ namespace QMC.CDT320.Sequencing
         private double _outputVisionToPickerX;
         private double _outputVisionToPickerY;
         private string _placedDieId = "";
+        private string _placedWaferInstanceId = "";
         private BinSide _placedOutputSide;
         private OutputStageReceiveTarget _placedReceiveTarget;
         private SequenceResourceLease _outputPlaceLease;
@@ -345,6 +346,7 @@ namespace QMC.CDT320.Sequencing
             _currentDie = null;
             _receiveTarget = null;
             _placedDieId = "";
+            _placedWaferInstanceId = "";
             _placedReceiveTarget = null;
             _pickerZPlacedByContiSegmentedPlace = false;
             _currentPlaceZSafeReturnCompleted = false;
@@ -988,6 +990,7 @@ namespace QMC.CDT320.Sequencing
             _currentDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, _currentPickerNo);
             _receiveTarget = null;
             _placedDieId = "";
+            _placedWaferInstanceId = "";
             _placedReceiveTarget = null;
             _pickerZPlacedByContiSegmentedPlace = false;
             _currentPlaceZSafeReturnCompleted = false;
