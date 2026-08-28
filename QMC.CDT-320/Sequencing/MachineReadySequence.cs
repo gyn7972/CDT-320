@@ -1111,7 +1111,7 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                result = CheckGoodStageZReadySafety();
+                result = await EnsureGoodStageZReadySafetyAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -2095,10 +2095,14 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private int CheckGoodStageZReadySafety()
+        // 상부 헤드/비전/픽커가 지나가기 전 GoodStageZ는 Process 이하여야 한다.
+        // 높게 남아 있으면(Place 높이 보정 잔류 등) 알람 대신 Process 위치로 내려 복구한다.
+        private async Task<int> EnsureGoodStageZReadySafetyAsync(CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 OutputStageUnit unit = _machine != null ? _machine.OutputStageUnit : null;
                 if (unit == null)
                     return Skip("OutputStageUnit");
@@ -2112,31 +2116,60 @@ namespace QMC.CDT320.Sequencing
                 BaseAxis axis = unit.GoodStage.StageZ;
                 double process = unit.Recipe.GoodStageZ.ProcessPosition;
                 double tolerance = ResolveAxisTolerance(axis);
-                double limit = process + tolerance;
-                if (axis.ActualPosition > limit)
-                {
+                if (axis.ActualPosition <= process + tolerance)
+                    return 0;
+
+                if (axis.IsMoving)
+                    return Fail(
+                        "READY-SAFETY-GOOD-STAGE-Z-MOVING",
+                        "OutputStageUnit",
+                        "Ready GoodStageZ 복구 불가: 축이 아직 이동 중입니다. " +
+                        BuildAxisState("GoodStageZ", axis, process, tolerance) +
+                        BuildOutputStageFailure(unit));
+
+                LogStep("GoodStageZ가 Process보다 높아 Process 위치로 복구를 시작합니다. " +
+                    BuildAxisState("GoodStageZ", axis, process, tolerance));
+
+                int result = await unit.MoveStageAxis(BinStageAxis.GoodBinZ, process, false).ConfigureAwait(false);
+                if (result != 0)
                     return Fail(
                         "READY-SAFETY-GOOD-STAGE-Z",
                         "OutputStageUnit",
-                        "Ready 상부 헤드/비전/픽커 이동 전 GoodStageZ가 Process 위치보다 높습니다. actual=" +
-                        axis.ActualPosition.ToString("0.###") +
-                        ", process=" + process.ToString("0.###") +
-                        ", plusTolerance=" + tolerance.ToString("0.###") +
-                        ", limit=" + limit.ToString("0.###") +
-                        ", " + BuildAxisState("GoodStageZ", axis, process, tolerance) +
-                        BuildOutputStageFailure(unit) +
-                        // [안내 문구 정정 2026-07-29] CYCLE RUN 경로 안내를 제거하고 제품 조치 방침으로 통일.
-                        " 제품을 조치하고 Material DATA를 확인한 뒤 Ready 바랍니다.");
-                }
+                        "Ready GoodStageZ Process 복구 이동 명령 실패. result=" + result + ". " +
+                        BuildAxisState("GoodStageZ", axis, process, tolerance) +
+                        BuildOutputStageFailure(unit));
 
+                int waitCode = await unit.WaitStageAxisMoveDoneInPosition(
+                    BinStageAxis.GoodBinZ,
+                    process,
+                    ResolveReadyMoveTimeoutMs(axis),
+                    ct).ConfigureAwait(false);
+                if (waitCode != 0)
+                    return Fail(
+                        "READY-SAFETY-GOOD-STAGE-Z",
+                        "OutputStageUnit",
+                        "Ready GoodStageZ Process 복구 이동 완료 확인 실패. waitCode=" + waitCode + ". " +
+                        BuildAxisState("GoodStageZ", axis, process, tolerance) +
+                        BuildOutputStageFailure(unit));
+
+                if (axis.ActualPosition > process + tolerance)
+                    return Fail(
+                        "READY-SAFETY-GOOD-STAGE-Z",
+                        "OutputStageUnit",
+                        "Ready GoodStageZ Process 복구 후에도 위치가 높습니다. " +
+                        BuildAxisState("GoodStageZ", axis, process, tolerance) +
+                        BuildOutputStageFailure(unit));
+
+                LogStep("GoodStageZ Process 복구 완료. " + BuildAxisState("GoodStageZ", axis, process, tolerance));
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                return Fail("READY-SAFETY-GOOD-STAGE-Z-EX", "OutputStageUnit", "Ready GoodStageZ 안전 조건 확인 예외: " + ex.Message);
-            }
-            finally
-            {
+                return Fail("READY-SAFETY-GOOD-STAGE-Z-EX", "OutputStageUnit", "Ready GoodStageZ 안전 조건 확인/복구 예외: " + ex.Message);
             }
         }
 
