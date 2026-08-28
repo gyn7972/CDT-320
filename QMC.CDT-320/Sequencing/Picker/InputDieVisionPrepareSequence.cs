@@ -3002,30 +3002,67 @@ namespace QMC.CDT320.Sequencing
                 return -1;
             }
 
-            // [팔로잉 시작 게이트 2026-08-27, 팀장님 승인] 2026-08-27 20:52 InputVisionX AX-5 서보 트립
-            // 경로 — 선행 픽커 가속 구간 즉시 추종의 오버라이드 연발을 게이트로 완화한다.
-            // 거리 = 선행 픽커 유닛의 INPUT SAFETY OFFSET(0 이하 = 비활성). 지연 전용.
-            double gateDistanceMm = 0.0;
-            var gateMachine = Context != null ? Context.Machine : null;
-            if (gateMachine != null && gateMachine.PickerFrontUnit != null &&
-                ReferenceEquals(leadingPickerX, gateMachine.PickerFrontUnit.PickerX))
-                gateDistanceMm = gateMachine.PickerFrontUnit.Setup != null
-                    ? gateMachine.PickerFrontUnit.Setup.InputSafetyOffset : 0.0;
-            else if (gateMachine != null && gateMachine.PickerRearUnit != null &&
-                ReferenceEquals(leadingPickerX, gateMachine.PickerRearUnit.PickerX))
-                gateDistanceMm = gateMachine.PickerRearUnit.Setup != null
-                    ? gateMachine.PickerRearUnit.Setup.InputSafetyOffset : 0.0;
-            await SharedRailXMotionService.WaitFollowStartGateAsync(
-                stage.CameraX,
-                leadingPickerX,
-                target,
-                direction,
-                homeGap,
-                safetyGap,
-                gateDistanceMm,
-                "InputDieVisionPrepareSequence",
-                Name + " Input die vision 준비 VisionX",
-                ct).ConfigureAwait(false);
+            // [팀장님 지시 2026-08-28] 원인 제거 — "내가 가야 되는 목표치와 따라가야 되는 위치의
+            // 차이값을 확인하고 더 들어가지 않는다": 목표(target)가 현재 선행 픽커 기준 허용선
+            // (bound = 선행실측 ± (homeGap − safetyGap))을 넘으면 추격 진입 자체를 하지 않고 현
+            // 위치에서 대기한다. 선행 픽커가 목표+안전거리 너머로 실제로 비켜 허용선이 목표를
+            // 덮으면 그때 1회 이동한다(아래 FollowMoveAsync 첫 명령 = 곧 최종, 오버라이드 0회).
+            // 픽업 2~3개 조기 종료 후 측정 퇴장을 비전이 10ms 오버라이드로 43mm 뒤에서 추격하던
+            // 구조(2026-08-27 20:52 InputVisionX AX-5 서보 트립 경로)가 이 경로에서 사라진다.
+            int entryOpenTimeoutMs = MotionSpeedScale.ScaleDefaultTimeoutMs(
+                service.Config != null ? service.Config.VisionFollowEntryTimeoutMs : 15000);
+            DateTime entryOpenBegin = DateTime.UtcNow;
+            bool entryOpenLogged = false;
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                double leadingActualNow = leadingPickerX.ActualPosition;
+                double boundNow = direction > 0
+                    ? leadingActualNow + homeGap - safetyGap
+                    : leadingActualNow - homeGap + safetyGap;
+                // 차이값: 목표가 허용선보다 얼마나 깊은가(>0 = 아직 들어가면 안 되는 상태).
+                double entryShortfall = direction > 0 ? target - boundNow : boundNow - target;
+                int entryWaitedMs = (int)(DateTime.UtcNow - entryOpenBegin).TotalMilliseconds;
+
+                if (entryShortfall <= 0.0)
+                {
+                    if (entryOpenLogged)
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " VisionX 진입 허용선이 목표를 덮어 1회 이동으로 진입합니다. " +
+                            "target=" + target.ToString("F3") +
+                            ", bound=" + boundNow.ToString("F3") +
+                            ", leadingActual=" + leadingActualNow.ToString("F3") +
+                            ", waitedMs=" + entryWaitedMs + " - Ok");
+                    break;
+                }
+
+                if (entryWaitedMs >= entryOpenTimeoutMs)
+                {
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " VisionX 진입 허용선 대기가 타임아웃되었습니다(목표 미달 구간 진입 안 함). " +
+                        "target=" + target.ToString("F3") +
+                        ", bound=" + boundNow.ToString("F3") +
+                        ", shortfall=" + entryShortfall.ToString("F3") +
+                        ", leading=" + leadingPickerX.Name +
+                        ", timeoutMs=" + entryOpenTimeoutMs + " - Check");
+                    return -21;
+                }
+
+                if (!entryOpenLogged)
+                {
+                    entryOpenLogged = true;
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " VisionX 목표가 진입 허용선 밖이라 대기합니다(추격 진입 안 함). " +
+                        "target=" + target.ToString("F3") +
+                        ", bound=" + boundNow.ToString("F3") +
+                        ", shortfall=" + entryShortfall.ToString("F3") +
+                        ", leading=" + leadingPickerX.Name +
+                        ", leadingCommand=" + leadingPickerX.CommandPosition.ToString("F6") + " - Wait");
+                }
+
+                await Task.Delay(10, ct).ConfigureAwait(false);
+            }
 
             // C2(2026-07-26 미러, 2026-08-27 보완): 타임아웃은 100% 기준 설정값이므로 속도 스케일
             // 역수로 확장한다(저속 오탐 -21 방지) — 기존 누락분.
