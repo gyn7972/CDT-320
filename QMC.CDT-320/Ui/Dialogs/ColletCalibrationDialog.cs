@@ -1875,7 +1875,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 record.Side = _side;
                 record.ColletNo = _colletNo;
                 record.FinalPickerZ = inspectionTeachingZ;
-                record.UpdatedAt = DateTime.Now;
+                // UpdatedAt은 콜렛 측정(캘) 시각 — 티칭 저장이 재스탬프하면 COC 세대 게이트
+                // (RotationCenterUpdatedAt >= UpdatedAt)가 위반되어 해당 픽커 학습이 전량 폐기된다.
                 machine.VisionUnit.Config.CalibrationData.Touch("ColletSaveZ");
 
                 bool recipeSaved = host.SaveMachineRecipe(host.ActiveRecipeName);
@@ -2164,7 +2165,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 record.FinalPickerY = actualY;
                 record.FinalPickerZ = inspectionTeachingZ;
                 record.FinalPickerT = actualT;
-                record.UpdatedAt = DateTime.Now;
+                // UpdatedAt은 콜렛 측정(캘) 시각 — Save Bottom이 재스탬프하면 배치의 C4가 항상
+                // COC 세대 게이트(RotationCenterUpdatedAt >= UpdatedAt)에 걸려 P4 학습이 전량 폐기된다.
                 machine.VisionUnit.Config.CalibrationData.Touch("ColletBottomTeaching");
                 string offsetSummary;
                 bool offsetApplied = PickerVisionOffsetCalibrationService.TryApplyAvailableOffsets(machine, "ColletBottomTeaching", out offsetSummary);
