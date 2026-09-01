@@ -196,6 +196,38 @@ namespace QMC.CDT320.Materials
                 WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty);
         }
 
+        /// <summary>Flying Die(유실) 판정 다이를 NG 출력 결과 파일에 기록한다(PlaceRow/Col=-1, bin=255).</summary>
+        public static void RecordFlyingDieResult(string dieUid)
+        {
+            try
+            {
+                DieMaterial die;
+                WaferMaterial ngWafer;
+                string recipeName;
+                lock (_stateSync)
+                {
+                    die = FindDieByIdNoLock(dieUid);
+                    ngWafer = GetWaferAtLocation(ResolveOutputStageLocation(QMC.CDT320.BinSide.Ng));
+                    recipeName = State != null ? State.RecipeName : "";
+                }
+
+                if (die == null || ngWafer == null)
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Flying Die 기록 실패: 대상 Die 또는 NG 빈이 없습니다. die=" + (dieUid ?? "") +
+                        ", ngWafer=" + (ngWafer != null ? ngWafer.WaferId : "-") + " - Failed");
+                    return;
+                }
+
+                VisionInspectionResultFileWriter.EnqueueFlyingDieResult(recipeName, GetProductionLotId(), ngWafer, die);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Flying Die 기록 실패: " + ex.Message + " - Failed");
+            }
+        }
+
         public static OutputStageReceiveTarget ReserveNextOutputStageReceiveTarget(QMC.CDT320.BinSide side)
         {
             try

@@ -110,10 +110,11 @@ namespace QMC.CDT320.Materials
                 lotId = MaterialStateService.GetProductionLotId();
                 int reworkCount = LotSessionService.ResolveReworkCount(lotId);
                 DieInspectionRecord placeRecord = FindInspection(die, "OutputPlaceVision");
-                if (placeRecord == null)
+                // NG 스테이지는 후검사를 생략하므로 후검사 레코드 없이도 기록을 진행한다(측정 열은 공백).
+                if (placeRecord == null && outputSide != QMC.CDT320.BinSide.Ng)
                     return;
 
-                DateTime eventAt = ResolveEventTime(placeRecord.UpdatedAt);
+                DateTime eventAt = ResolveEventTime(placeRecord != null ? placeRecord.UpdatedAt : die.UpdatedAt);
                 DieInspectionRecord bottomRecord = FindInspection(die, "Bottom");
                 string inputWaferId = string.IsNullOrWhiteSpace(die.WaferID_Input)
                     ? "UNKNOWN_INPUT_WAFER"
@@ -175,6 +176,57 @@ namespace QMC.CDT320.Materials
             {
                 RecordPreparationFailure("OUTPUT-PLACE-RESULT-QUEUE", ex);
                 LogFailure("OUTPUT-PLACE-RESULT-QUEUE", "", ex);
+            }
+        }
+
+        /// <summary>
+        /// Flying Die(유실) 판정 다이를 NG 출력 결과 파일에 기록한다.
+        /// 플레이스가 없으므로 PlaceRow/Col=-1, bin=255로 기록하고, 검사 레코드(Bottom/후검사)가 있으면 함께 싣는다.
+        /// </summary>
+        public static void EnqueueFlyingDieResult(
+            string recipeName,
+            string lotId,
+            WaferMaterial ngWafer,
+            DieMaterial die)
+        {
+            try
+            {
+                if (ngWafer == null || die == null)
+                    return;
+
+                lotId = MaterialStateService.GetProductionLotId();
+                int reworkCount = LotSessionService.ResolveReworkCount(lotId);
+                DieInspectionRecord placeRecord = FindInspection(die, "OutputPlaceVision");
+                DieInspectionRecord bottomRecord = FindInspection(die, "Bottom");
+                DateTime eventAt = ResolveEventTime(die.UpdatedAt);
+                DateTime sessionStartedAt =
+                    MaterialStateService.ResolveOutputResultFileSessionStartedAt(
+                        ngWafer,
+                        die,
+                        IsValidDateTime(die.PickedAt) ? die.PickedAt : eventAt);
+
+                Enqueue(new WriteRequest
+                {
+                    Place = BuildPlacePayload(
+                        recipeName,
+                        lotId,
+                        reworkCount,
+                        QMC.CDT320.BinSide.Ng,
+                        ngWafer,
+                        die,
+                        null,
+                        bottomRecord,
+                        placeRecord,
+                        sessionStartedAt,
+                        eventAt,
+                        flyingDie: true),
+                    FailureCode = "OUTPUT-FLYING-DIE-RESULT-WRITE"
+                });
+            }
+            catch (Exception ex)
+            {
+                RecordPreparationFailure("OUTPUT-FLYING-DIE-RESULT-QUEUE", ex);
+                LogFailure("OUTPUT-FLYING-DIE-RESULT-QUEUE", die != null ? die.DieId : "", ex);
             }
         }
 
@@ -649,7 +701,7 @@ namespace QMC.CDT320.Materials
             bool replaced = false;
             for (int i = 3; i < lines.Count; i++)
             {
-                string currentKey = BuildCsvKey(lines[i], new[] { 5, 6, 7 });
+                string currentKey = BuildCsvKey(lines[i], place.DetailKeyColumns ?? new[] { 5, 6, 7 });
                 if (!string.Equals(currentKey, place.DetailKey, StringComparison.OrdinalIgnoreCase))
                     continue;
 
@@ -1008,7 +1060,8 @@ namespace QMC.CDT320.Materials
             DieInspectionRecord bottomRecord,
             DieInspectionRecord placeRecord,
             DateTime sessionStartedAt,
-            DateTime eventAt)
+            DateTime eventAt,
+            bool flyingDie = false)
         {
             double bottomItemOffsetX = ReadVisionDouble(
                 bottomRecord,
@@ -1026,13 +1079,13 @@ namespace QMC.CDT320.Materials
             int outputMapSourceX = outputSlot != null ? outputSlot.DieMapX : die.Bin_IndexX;
             int outputMapY = outputMapSourceY >= 0 ? outputMapSourceY + 1 : -1;
             int outputMapX = outputMapSourceX >= 0 ? outputMapSourceX + 1 : -1;
-            int targetBin = outputSlot != null ? outputSlot.BinCode : die.Output_BinCode;
+            int targetBin = flyingDie ? 255 : (outputSlot != null ? outputSlot.BinCode : die.Output_BinCode);
             int totalCount = ResolveOutputTotalCount(outputWafer);
             string outputWaferId = string.IsNullOrWhiteSpace(outputWafer.WaferId)
                 ? "UNKNOWN_OUTPUT_WAFER"
                 : outputWafer.WaferId.Trim();
-            string formattedOutputMapY = FormatPaddedIndex(outputMapY);
-            string formattedOutputMapX = FormatPaddedIndex(outputMapX);
+            string formattedOutputMapY = flyingDie ? "-1" : FormatPaddedIndex(outputMapY);
+            string formattedOutputMapX = flyingDie ? "-1" : FormatPaddedIndex(outputMapX);
 
             var detail = new List<object>(18)
             {
@@ -1060,7 +1113,7 @@ namespace QMC.CDT320.Materials
             if (detail.Count != 18)
                 throw new InvalidOperationException("OUTPUT 검사 결과 CSV Die 열 수가 18이 아닙니다. count=" + detail.Count);
 
-            return new PlaceWritePayload
+            var payload = new PlaceWritePayload
             {
                 RecipeName = recipeName ?? "",
                 LotId = lotId ?? "",
@@ -1076,9 +1129,20 @@ namespace QMC.CDT320.Materials
                     "\u001f",
                     new[] { outputWaferId, formattedOutputMapY, formattedOutputMapX }),
                 RawLine = ReadRawMeasurement(placeRecord, "OutputVisionRaw"),
-                HasBottomCorrection = IsFinite(bottomItemOffsetX) && IsFinite(bottomItemOffsetY),
-                HasOutputCoordinates = outputMapSourceY >= 0 && outputMapSourceX >= 0
+                HasBottomCorrection = flyingDie || (IsFinite(bottomItemOffsetX) && IsFinite(bottomItemOffsetY)),
+                HasOutputCoordinates = flyingDie || (outputMapSourceY >= 0 && outputMapSourceX >= 0)
             };
+
+            if (flyingDie)
+            {
+                // PlaceRow/Col이 전부 -1이라 입력 좌표 열(3,4)로 행을 식별한다.
+                payload.DetailKey = string.Join(
+                    "\u001f",
+                    new[] { outputWaferId, FormatIndex(inputMapY), FormatIndex(inputMapX) });
+                payload.DetailKeyColumns = new[] { 5, 3, 4 };
+            }
+
+            return payload;
         }
 
         private static string BuildOutputSummaryLine(
@@ -1698,6 +1762,8 @@ namespace QMC.CDT320.Materials
             public int TotalCount { get; set; }
             public string DetailLine { get; set; }
             public string DetailKey { get; set; }
+            // 행 갱신(upsert) 매칭에 쓸 열 인덱스. null이면 기본 (출력빈, PlaceRow, PlaceCol).
+            public int[] DetailKeyColumns { get; set; }
             public string RawLine { get; set; }
             public bool HasBottomCorrection { get; set; }
             public bool HasOutputCoordinates { get; set; }

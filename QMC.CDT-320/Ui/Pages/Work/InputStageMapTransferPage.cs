@@ -26,7 +26,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             InspectionWait,
             InspectionGood,
             InspectionNg,
-            PickSkip
+            PickSkip,
+            FlyingDie
         }
 
         private enum InputDieMapCellState
@@ -277,6 +278,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 rdoDieStateNg.Text = "NG / 검사 불량";
             if (rdoDieStateSkip != null)
                 rdoDieStateSkip.Text = "SKIP / 제외";
+            if (rdoDieStateFlying != null)
+                rdoDieStateFlying.Text = "FLYING DIE / 유실";
             if (btnApplyDieState != null)
                 btnApplyDieState.Text = "APPLY SELECTED STATE";
         }
@@ -5970,6 +5973,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 for (int i = 0; i < entries.Count; i++)
                     SyncManualDieState(entries[i], "InputMapManualDieState");
 
+                if (state == InputDieManualState.FlyingDie)
+                    for (int i = 0; i < entries.Count; i++)
+                        MaterialStateService.RecordFlyingDieResult(entries[i] != null ? entries[i].DieUid : "");
+
                 var host = FindForm() as Form1;
                 if (host != null && host.Controller != null)
                     host.Controller.ApplyInputDieMap(map, "InputStageMapTransferPage.ApplySelectedDieState");
@@ -6059,6 +6066,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return InputDieManualState.InspectionNg;
                 if (rdoDieStateSkip.Checked)
                     return InputDieManualState.PickSkip;
+                if (rdoDieStateFlying.Checked)
+                    return InputDieManualState.FlyingDie;
 
                 return InputDieManualState.InspectionWait;
             }
@@ -6092,6 +6101,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     entry.IsTarget = false;
                     entry.Result = DieResult.Unknown;
                     entry.BinCode = 0;
+                    entry.SequenceNo = 0;
+                    return;
+                case InputDieManualState.FlyingDie:
+                    // 실물 유실 — 픽업 제외(IsTarget=false) + BinCode 255가 Flying 식별 키(Skip=0과 구분).
+                    entry.IsTarget = false;
+                    entry.Result = DieResult.NG;
+                    entry.BinCode = BinCodeMap.MaxBin;
                     entry.SequenceNo = 0;
                     return;
                 case InputDieManualState.InspectionWait:
@@ -6141,6 +6157,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     case InputDieManualState.PickSkip:
                         rdoDieStateSkip.Checked = true;
                         break;
+                    case InputDieManualState.FlyingDie:
+                        rdoDieStateFlying.Checked = true;
+                        break;
                     case InputDieManualState.InspectionWait:
                     default:
                         rdoDieStateWait.Checked = true;
@@ -6161,7 +6180,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 return InputDieManualState.InspectionWait;
 
             if (!entry.IsTarget)
-                return InputDieManualState.PickSkip;
+                return entry.BinCode == BinCodeMap.MaxBin
+                    ? InputDieManualState.FlyingDie
+                    : InputDieManualState.PickSkip;
             if (entry.Result == DieResult.Good)
                 return InputDieManualState.InspectionGood;
             if (entry.Result == DieResult.NG)
@@ -6180,6 +6201,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return "NG / 검사 불량";
                 case InputDieManualState.PickSkip:
                     return "SKIP / 제외";
+                case InputDieManualState.FlyingDie:
+                    return "FLYING DIE / 유실";
                 case InputDieManualState.InspectionWait:
                 default:
                     return "WAIT / 검사 대기";
@@ -6204,6 +6227,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     MaterialStateService.RemoveInspection(entry.DieUid, "InputPickVision");
                     return;
                 }
+
+                // Flying Die는 기존 검사 레코드를 보존한다(NG 결과 파일에 검사 정보가 있으면 함께 기록).
+                if (state == InputDieManualState.FlyingDie)
+                    return;
 
                 var record = new DieInspectionRecord
                 {

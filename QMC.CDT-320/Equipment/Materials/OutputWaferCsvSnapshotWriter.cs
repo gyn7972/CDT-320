@@ -46,6 +46,18 @@ namespace QMC.CDT320.Materials
                         die,
                         receiveTarget);
                 }
+                // NG 스테이지는 후검사가 생략되므로 플레이스 확정 시점에 결과 파일을 기록한다.
+                else if (outputSide == QMC.CDT320.BinSide.Ng &&
+                         string.Equals(eventName, "Place", StringComparison.OrdinalIgnoreCase))
+                {
+                    VisionInspectionResultFileWriter.EnqueuePlaceResult(
+                        recipeName,
+                        lotId,
+                        outputSide,
+                        outputWafer,
+                        die,
+                        receiveTarget);
+                }
 
                 // 사용자 지시(2026-07-24): Log\OutputWaferCsv 스냅샷 CSV는 더 이상 남기지 않는다.
                 // 검사 결과 파일(VisionInspectionResultFileWriter -> INPUT/OUTPUT 폴더)은 위에서 그대로 유지된다.

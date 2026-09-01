@@ -48,6 +48,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private RadioButton rdoDieStateGood;
         private RadioButton rdoDieStateNg;
         private RadioButton rdoDieStateSkip;
+        private RadioButton rdoDieStateFlying;
         private System.Windows.Forms.Button btnApplyDieState;
         private TableLayoutPanel detachedButtonRow;
         private ActionButton btnManualAlignComplete;
@@ -108,6 +109,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rdoDieStateGood = new System.Windows.Forms.RadioButton();
             this.rdoDieStateNg = new System.Windows.Forms.RadioButton();
             this.rdoDieStateSkip = new System.Windows.Forms.RadioButton();
+            this.rdoDieStateFlying = new System.Windows.Forms.RadioButton();
             this.btnApplyDieState = new System.Windows.Forms.Button();
             this.detachedButtonRow = new System.Windows.Forms.TableLayoutPanel();
             this.btnManualAlignComplete = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -602,12 +604,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.dieStateLayout.Controls.Add(this.rdoDieStateGood, 0, 1);
             this.dieStateLayout.Controls.Add(this.rdoDieStateNg, 0, 2);
             this.dieStateLayout.Controls.Add(this.rdoDieStateSkip, 0, 3);
-            this.dieStateLayout.Controls.Add(this.btnApplyDieState, 0, 4);
+            this.dieStateLayout.Controls.Add(this.rdoDieStateFlying, 0, 4);
+            this.dieStateLayout.Controls.Add(this.btnApplyDieState, 0, 5);
             this.dieStateLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dieStateLayout.Location = new System.Drawing.Point(3, 23);
             this.dieStateLayout.Name = "dieStateLayout";
             this.dieStateLayout.Padding = new System.Windows.Forms.Padding(10, 8, 10, 8);
-            this.dieStateLayout.RowCount = 5;
+            this.dieStateLayout.RowCount = 6;
+            this.dieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.dieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.dieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.dieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
@@ -652,6 +656,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rdoDieStateSkip.TabIndex = 3;
             this.rdoDieStateSkip.Text = "SKIP / 제외";
             this.rdoDieStateSkip.UseVisualStyleBackColor = true;
+            //
+            // rdoDieStateFlying
+            //
+            this.rdoDieStateFlying.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.rdoDieStateFlying.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.rdoDieStateFlying.Name = "rdoDieStateFlying";
+            this.rdoDieStateFlying.TabIndex = 4;
+            this.rdoDieStateFlying.Text = "FLYING DIE / 유실";
+            this.rdoDieStateFlying.UseVisualStyleBackColor = true;
             //
             // btnApplyDieState
             //
