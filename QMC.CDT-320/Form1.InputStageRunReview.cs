@@ -80,6 +80,8 @@ namespace QMC.CDT_320
                     mappingReference,
                     mappingComplete,
                     "WAITING USER CONFIRM");
+                if (wafer.InputStageAlignManualFallback && !wafer.InputStageAlignManualFallbackThetaDone)
+                    dialog.SetManualAlignFallbackThetaRequired(true);
                 dialog.SetAxisPositions(
                     stage.CameraX != null ? stage.CameraX.ActualPosition : 0.0,
                     stage.StageY != null ? stage.StageY.ActualPosition : 0.0,
@@ -918,6 +920,10 @@ namespace QMC.CDT_320
                 },
                 true).ConfigureAwait(true);
 
+            // 수동 폴백 얼라인 웨이퍼: T 보정 저장이 실제 반영됐을 때만 확정 잠금을 해제한다.
+            if (dialog != null && !dialog.IsDisposed && wafer.InputStageAlignManualFallbackThetaDone)
+                dialog.NotifyThetaCorrectionCompleted();
+
             if (dialog != null && !dialog.IsDisposed && !wafer.HasInputStageDieMappingResult)
             {
                 dialog.SetWorkflowState(
@@ -930,6 +936,19 @@ namespace QMC.CDT_320
                     false,
                     "MAPPING REQUIRED");
                 dialog.SetReviewValid(false, "MAPPING REQUIRED");
+
+                // T 보정 후 재매핑 수동 클릭 대기에서 흐름이 끊기지 않도록 재매핑을 자동 제출한다.
+                if (dialog.TrySubmitAutoMappingRetryAfterThetaCorrection())
+                {
+                    QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                        "T 보정 저장 후 Die Mapping 재실행을 자동 제출했습니다. wafer=" + (wafer.WaferId ?? "") + " - Ok");
+                }
+                else
+                {
+                    QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                        "T 보정 저장 후 Die Mapping 자동 재실행 제출이 거부되어 수동 안내로 폴백합니다. wafer=" + (wafer.WaferId ?? "") + " - Check");
+                    dialog.SetStatusMessage("T 보정값을 저장했습니다. [RUN DIE MAPPING]을 눌러 Die Mapping을 다시 실행하세요.");
+                }
             }
         }
 

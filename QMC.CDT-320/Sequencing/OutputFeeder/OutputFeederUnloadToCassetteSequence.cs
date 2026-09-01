@@ -1312,7 +1312,7 @@ namespace QMC.CDT320.Sequencing
                     ", targetWafer=" + targetWafer.WaferId + ", targetRole=" + targetRole + ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
 
             MaterialStateService.PutWaferInCassette(
-                wafer.WaferId,
+                wafer,
                 targetRole,
                 Options.SlotIndex,
                 wafer.CassetteLotId,

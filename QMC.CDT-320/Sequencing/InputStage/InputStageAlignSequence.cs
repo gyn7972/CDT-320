@@ -101,6 +101,7 @@ namespace QMC.CDT320.Sequencing
         private int _alignAnchorCol;
         private double _alignAnchorX;
         private double _alignAnchorY;
+        private bool _manualAlignFallbackActive;
         private bool _alignProcessReferenceReady;
         private double _alignProcessReferenceX;
         private double _alignProcessReferenceY;
@@ -323,6 +324,7 @@ namespace QMC.CDT320.Sequencing
             _alignAnchorCol = 0;
             _alignAnchorX = 0.0;
             _alignAnchorY = 0.0;
+            _manualAlignFallbackActive = false;
             _alignProcessReferenceReady = false;
             _alignProcessReferenceX = 0.0;
             _alignProcessReferenceY = 0.0;
@@ -632,6 +634,11 @@ namespace QMC.CDT320.Sequencing
                     if (_hybridVirtualFrameActive)
                         return Fail("IN-STAGE-ALIGN-HYBRID-CENTER-VISION", "Vision",
                             "Wafer Align Center 다이를 찾지 못했습니다. HybridRealVisionSimMotion에서는 가상 X/Y 이동으로 실제 Vision 화면이 바뀌지 않으므로 동일 화면 통신 재시도 후 주변 8방향 탐색을 수행하지 않습니다.");
+
+                    // 파샬 웨이퍼 등 센터 다이가 없어도 정지하지 않고 명목값 얼라인으로 완료해
+                    // Review 화면(수동 Jog/T 보정/다이 검출/첫칩 선택)까지 진행시킨다.
+                    if (TryEnterManualAlignFallback())
+                        return 0;
 
                     return Fail("IN-STAGE-ALIGN-CENTER", "Vision",
                         "Wafer Align Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
@@ -1321,11 +1328,13 @@ namespace QMC.CDT320.Sequencing
                         correctedT,
                         offsetT,
                         resultMode,
-                        _alignResultRunId);
+                        _alignResultRunId,
+                        _manualAlignFallbackActive);
 
                     WriteLog("InputStageAlignSequence",
                         "InputStage align result provenance saved. waferId=" + wafer.WaferId +
                         ", resultMode=" + resultMode +
+                        ", manualFallback=" + _manualAlignFallbackActive +
                         ", resultRunId=" + _alignResultRunId + " - Ok");
                 }
 
@@ -2066,6 +2075,58 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        /// <summary>
+        /// 센터 다이 미검출 시(파샬 웨이퍼 등) 센터 지령 위치와 설정 피치로 명목 얼라인을 완성하고
+        /// ApplyAlignResult로 직행한다. 세타/오프셋 보정은 0으로 남아 Review 화면에서 수동 보정한다.
+        /// 앵커 미캡처(모션 비활성)나 설정 피치 무효면 false를 반환해 기존 알람 경로를 유지한다.
+        /// </summary>
+        private bool TryEnterManualAlignFallback()
+        {
+            if (!_alignAnchorReady)
+            {
+                WriteLog("InputStageAlignSequence",
+                    "Manual align fallback unavailable. reason=anchor not captured - Skip");
+                return false;
+            }
+
+            double pitchX = ResolveConfiguredAlignPitchX();
+            double pitchY = ResolveConfiguredAlignPitchY();
+            if (pitchX <= 0.0 || pitchY <= 0.0)
+            {
+                WriteLog("InputStageAlignSequence",
+                    "Manual align fallback unavailable. reason=configured pitch invalid" +
+                    ", pitchX=" + pitchX.ToString("F6") +
+                    ", pitchY=" + pitchY.ToString("F6") + " - Skip");
+                return false;
+            }
+
+            _pitchX = pitchX;
+            _pitchY = pitchY;
+            _originX = _alignAnchorX - (_alignAnchorCol * _pitchX);
+            _originY = _alignAnchorY - (_alignAnchorRow * _pitchY);
+            _manualAlignFallbackActive = true;
+
+            WriteLog("InputStageAlignSequence",
+                "Manual align fallback engaged. center die not found." +
+                " anchorRow=" + _alignAnchorRow +
+                ", anchorCol=" + _alignAnchorCol +
+                ", anchorX=" + _alignAnchorX.ToString("F6") +
+                ", anchorY=" + _alignAnchorY.ToString("F6") +
+                ", pitchX=" + _pitchX.ToString("F6") +
+                ", pitchY=" + _pitchY.ToString("F6") +
+                ", originX=anchorX-anchorCol*pitchX=" + _originX.ToString("F6") +
+                ", originY=anchorY-anchorRow*pitchY=" + _originY.ToString("F6") + " - Check");
+            QMC.Common.Logging.EventLogger.Write(
+                QMC.Common.Logging.EventKind.Warning,
+                "SYS",
+                "IN-STAGE-ALIGN-MANUAL-FALLBACK",
+                Stage != null ? Stage.Name : "InputStageUnit",
+                "Wafer Align Center 다이를 찾지 못해 명목값 얼라인으로 진행합니다. Review 화면에서 Jog 정렬과 T 보정을 완료해야 확정할 수 있습니다.");
+
+            CurrentStep = InputStageAlignStep.ApplyAlignResult;
+            return true;
         }
 
         private void CaptureAlignAnchorFromCurrentPosition(int row, int col, string description)

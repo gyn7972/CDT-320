@@ -243,6 +243,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 SelectEntry(entry);
                 SelectGridRow(entry);
             };
+            mapView.CellDoubleClicked += async entry =>
+            {
+                await MoveMapSlotToVisionOnDoubleClickAsync(entry).ConfigureAwait(true);
+            };
             mapView.SelectionRectangleCompleted += entries =>
             {
                 HandleOutputMapRectangleSelection(entries);
@@ -288,6 +292,35 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private async void btnPickStatusSave_Click(object sender, EventArgs e)
         {
             await MoveSelectedBinSlotAsync().ConfigureAwait(true);
+        }
+
+        private async Task MoveMapSlotToVisionOnDoubleClickAsync(DieMapEntry entry)
+        {
+            try
+            {
+                if (entry == null || _manualMoveBusy)
+                    return;
+
+                SelectEntry(entry);
+                SelectGridRow(entry);
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputDieMapDoubleClick",
+                    "Output Die Map 더블클릭으로 MOVE SELECTED SLOT을 요청했습니다. dieMapX=" + entry.DieMapX +
+                    ", dieMapY=" + entry.DieMapY +
+                    ", posX=" + entry.PosX.ToString("F4") +
+                    ", posY=" + entry.PosY.ToString("F4") + " - Start");
+                await MoveSelectedBinSlotAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputDieMapDoubleClick",
+                    "Output Die Map 더블클릭 MOVE SELECTED SLOT 처리 중 예외가 발생했습니다. error=" +
+                    ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this,
+                    "더블클릭 MOVE SELECTED SLOT 처리에 실패했습니다.\r\n" + ex.Message,
+                    "Output Stage Map",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
         }
 
         private void btnManualAlignComplete_Click(object sender, EventArgs e)

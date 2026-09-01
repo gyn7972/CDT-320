@@ -600,7 +600,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("OUT-FEEDER-DATA-OCCUPIED", "Material", "Ring 확인 후 Output feeder data가 점유 상태로 변경되었습니다.");
             }
 
-            MaterialStateService.MoveWafer(wafer.WaferId, new MaterialLocation { Kind = MaterialLocationKind.OutputFeeder }, WaferMaterialState.WorkReady);
+            MaterialStateService.MoveWafer(wafer, new MaterialLocation { Kind = MaterialLocationKind.OutputFeeder }, WaferMaterialState.WorkReady);
             Feeder.UpdateFeederMaterialState(MaterialState.Occupied);
             CurrentStep = OutputFeederUnloadFromStageStep.UpdateStageData;
             return 0;

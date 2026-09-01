@@ -696,7 +696,7 @@ namespace QMC.CDT320.Sequencing
                     ", targetWafer=" + targetWafer.WaferId + ", targetRole=" + Options.CassetteRole + ", targetSlot=" + (unloadSlot + 1).ToString("00"));
 
             MaterialStateService.PutWaferInCassette(
-                wafer.WaferId,
+                wafer,
                 Options.CassetteRole,
                 unloadSlot,
                 wafer.CassetteLotId,

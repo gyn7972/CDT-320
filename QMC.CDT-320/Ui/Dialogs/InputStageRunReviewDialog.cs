@@ -35,6 +35,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _alignComplete;
         private bool _mappingComplete;
         private bool _reviewValid;
+        private bool _manualFallbackThetaRequired;
+        private bool _manualFallbackThetaDone;
         private bool _readOnlyPreview;
         private bool _autoReviewMode;
         private bool _decisionSubmitted;
@@ -476,6 +478,53 @@ namespace QMC.CDT_320.Ui.Dialogs
                 ", mapping=" + mappingComplete +
                 ", revision=" + (mappingRevision ?? "-") +
                 ", review=" + (reviewState ?? "-"));
+        }
+
+        /// <summary>
+        /// 수동 폴백 얼라인(센터 다이 미검출) 웨이퍼: T 보정을 완료하기 전까지 확정(START RUN)을 잠근다.
+        /// </summary>
+        public void SetManualAlignFallbackThetaRequired(bool required)
+        {
+            _manualFallbackThetaRequired = required;
+            _manualFallbackThetaDone = false;
+            if (required)
+            {
+                lblAlignValue.Text = "MANUAL(T REQUIRED)";
+                lblAlignValue.ForeColor = Color.Khaki;
+                SetStatus("수동 얼라인 웨이퍼입니다. Jog로 정렬 후 [T 보정]을 완료해야 확정할 수 있습니다.");
+                LogReviewAction("MANUAL-FALLBACK", "수동 폴백 얼라인 — T 보정 완료 전 확정 차단");
+            }
+            UpdateActionAvailability();
+        }
+
+        /// <summary>Form1이 Review T 보정 저장 성공 후 호출해 확정 잠금을 해제한다.</summary>
+        public void NotifyThetaCorrectionCompleted()
+        {
+            if (!_manualFallbackThetaRequired || _manualFallbackThetaDone)
+                return;
+
+            _manualFallbackThetaDone = true;
+            lblAlignValue.Text = "MANUAL(T OK)";
+            lblAlignValue.ForeColor = Color.LightGreen;
+            LogReviewAction("MANUAL-FALLBACK", "T 보정 완료 — 확정 허용");
+            UpdateActionAvailability();
+        }
+
+        /// <summary>
+        /// T 보정 저장으로 Mapping이 무효화된 뒤 재매핑 결정을 자동 제출한다.
+        /// RUN DIE MAPPING 버튼과 완전히 같은 결정 경로를 타며, 제출이 거부되면(수동 모드,
+        /// 이동/Jog 진행 중 등) false를 반환해 호출자가 수동 안내로 폴백한다.
+        /// </summary>
+        public bool TrySubmitAutoMappingRetryAfterThetaCorrection()
+        {
+            if (!_autoReviewMode || _decisionSubmitted)
+                return false;
+
+            LogReviewAction("AUTO-RETRY-MAPPING",
+                "T 보정 저장으로 Mapping이 무효화되어 Die Mapping 재실행을 자동 제출합니다.");
+            SubmitAutoReviewDecision(MappingRetryRequested, DialogResult.Retry,
+                "AUTO RUN DIE MAPPING(ThetaCorrection)");
+            return _decisionSubmitted;
         }
 
         /// <summary>
@@ -1936,6 +1985,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                                   _mappingComplete &&
                                   _reviewValid &&
                                   _pickupOrderApplied &&
+                                  (!_manualFallbackThetaRequired || _manualFallbackThetaDone) &&
                                   (_previewOrder.Count == 0 || !chkUseSelectedStart.Checked || _startDie != null);
             btnAbortAuto.Enabled = actionEnabled || (enabled && _autoReviewMode);
             btnBuzzerStop.Enabled = enabled;

@@ -262,7 +262,10 @@ namespace QMC.CDT320.Materials
                     return false;
                 }
 
-                WaferMaterial duplicate = State.Wafers.FirstOrDefault(w =>
+                // Rework은 인풋 웨이퍼와 아웃풋 빈이 같은 표시 ID(같은 바코드)로 동시에 존재하는
+                // 합법 상태다. 자재의 고유 키는 WaferInstanceId이므로 반대 계열(인풋↔아웃풋) 공존은
+                // 허용하고, 같은 계열 내 중복과 위치를 판정할 수 없는 자재만 거부한다(fail-closed).
+                List<WaferMaterial> sameBarcodeActives = State.Wafers.Where(w =>
                     w != null &&
                     !string.Equals(
                         w.WaferInstanceId ?? "",
@@ -270,15 +273,29 @@ namespace QMC.CDT320.Materials
                         StringComparison.OrdinalIgnoreCase) &&
                     WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty &&
                     (string.Equals(w.WaferId ?? "", normalizedBarcode, StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(w.BarcodeId ?? "", normalizedBarcode, StringComparison.OrdinalIgnoreCase)));
+                     string.Equals(w.BarcodeId ?? "", normalizedBarcode, StringComparison.OrdinalIgnoreCase))).ToList();
+                WaferMaterial duplicate = sameBarcodeActives.FirstOrDefault(w =>
+                    !IsOppositeMaterialFlowSide(expectedLocation, w.CurrentLocation));
                 if (duplicate != null)
                 {
-                    reason = "같은 바코드를 사용하는 다른 활성 Material이 있습니다. barcode=" +
+                    reason = "같은 바코드를 사용하는 다른 활성 Material이 있습니다(같은 계열 또는 위치 불명). barcode=" +
                              normalizedBarcode + ", otherWafer=" + (duplicate.WaferId ?? "") +
                              ", otherInstance=" + (duplicate.WaferInstanceId ?? "") +
                              ", otherLocation=" +
                              (duplicate.CurrentLocation != null ? duplicate.CurrentLocation.ToString() : "null");
                     return false;
+                }
+                foreach (WaferMaterial reworkPeer in sameBarcodeActives)
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "같은 표시 ID의 반대 계열 활성 Material을 허용합니다(Rework). barcode=" +
+                        normalizedBarcode +
+                        ", applyLocation=" + expectedLocation +
+                        ", otherWafer=" + (reworkPeer.WaferId ?? "") +
+                        ", otherInstance=" + (reworkPeer.WaferInstanceId ?? "") +
+                        ", otherLocation=" +
+                        (reworkPeer.CurrentLocation != null ? reworkPeer.CurrentLocation.ToString() : "null") +
+                        " - Check");
                 }
 
                 previousWaferId = wafer.WaferId ?? "";
@@ -435,6 +452,35 @@ namespace QMC.CDT320.Materials
                 chars.Add(ch);
             }
             return new string(chars.ToArray());
+        }
+
+        /// <summary>
+        /// 바코드 중복 허용 판정: 적용 대상 위치와 상대 자재 위치가 인풋/아웃풋 반대 계열이면
+        /// 같은 표시 ID 공존을 허용한다(Rework). 계열을 판정할 수 없는 위치(null/Unknown/픽커)는
+        /// false를 반환해 기존 거부를 유지한다.
+        /// </summary>
+        private static bool IsOppositeMaterialFlowSide(MaterialLocationKind expected, MaterialLocation other)
+        {
+            if (other == null)
+                return false;
+
+            return (IsInputFlowLocation(expected) && IsOutputFlowLocation(other.Kind)) ||
+                   (IsOutputFlowLocation(expected) && IsInputFlowLocation(other.Kind));
+        }
+
+        private static bool IsInputFlowLocation(MaterialLocationKind kind)
+        {
+            return kind == MaterialLocationKind.InputCassette ||
+                   kind == MaterialLocationKind.InputFeeder ||
+                   kind == MaterialLocationKind.InputStage;
+        }
+
+        private static bool IsOutputFlowLocation(MaterialLocationKind kind)
+        {
+            return kind == MaterialLocationKind.OutputStageGood ||
+                   kind == MaterialLocationKind.OutputStageNg ||
+                   kind == MaterialLocationKind.OutputFeeder ||
+                   kind == MaterialLocationKind.OutputCassette;
         }
 
         public static void MoveWafer(string waferId, MaterialLocation location, WaferMaterialState state)

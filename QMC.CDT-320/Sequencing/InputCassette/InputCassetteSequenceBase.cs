@@ -36,6 +36,7 @@ namespace QMC.CDT320.Sequencing
         protected string Name { get; private set; }
         protected InputCassetteSequenceOptions Options { get; private set; }
         protected TStep CurrentStep { get; set; }
+        private bool _mappingRescanFallbackUsed;
         protected abstract TStep IdleStep { get; }
         protected abstract TStep InitialStep { get; }
         protected abstract TStep CompleteStep { get; }
@@ -64,6 +65,7 @@ namespace QMC.CDT320.Sequencing
                 GetType().Name + ":" + Name + ":" + Options.RunMode))
             try
             {
+                _mappingRescanFallbackUsed = false;
                 CurrentStep = ResolveStartStep(InitialStep);
                 SequenceTrace.RunStart(Name, Options.RunMode.ToString(), "kind=" + Kind);
                 SequenceResumeStore.MarkRunning(SequenceStateName, CurrentStep.ToString());
@@ -452,11 +454,25 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected int BuildWaferInfo(TStep nextStep)
+        protected int BuildWaferInfo(TStep nextStep, TStep rescanStep)
         {
             try
             {
                 var cassette = Cassette;
+
+                // 알람 복귀 재개나 데이터 클리어로 스캔 결과가 사라진 상태면 알람 대신
+                // 처음부터 재스캔한다. 재스캔 후에도 무효면(스캔 자체 이상) 기존 알람 경로.
+                string scanStateReason;
+                if (!_mappingRescanFallbackUsed && !IsMappingScanResultUsable(cassette, out scanStateReason))
+                {
+                    _mappingRescanFallbackUsed = true;
+                    WriteLog("BuildWaferInfo",
+                        "매핑 스캔 결과가 유효하지 않아 슬롯 스캔부터 다시 진행합니다. reason=" + scanStateReason +
+                        ", restartStep=" + rescanStep + " - Check");
+                    CurrentStep = rescanStep;
+                    return 0;
+                }
+
                 int result = RegisterMappingResult(cassette);
                 if (result != 0)
                     return Fail("IN-CST-BUILD-WAFER", cassette != null ? cassette.Name : "InputCassette", "Input cassette material mapping result registration failed. result=" + result);
@@ -471,6 +487,35 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private bool IsMappingScanResultUsable(InputCassetteUnit cassette, out string reason)
+        {
+            reason = string.Empty;
+            if (cassette == null)
+            {
+                reason = "cassette unit is null";
+                return false;
+            }
+            if (cassette.WaferMap == null)
+            {
+                reason = "wafer map is null";
+                return false;
+            }
+
+            int slotCount = cassette.Config != null ? cassette.Config.SlotCount : 0;
+            int levelCount = ResolveInputCassetteLevelCount(cassette);
+            int expectedMapCount = slotCount * levelCount;
+            if (slotCount <= 0 || cassette.WaferMap.Count != expectedMapCount)
+            {
+                reason = "slotCount=" + slotCount +
+                         ", levelCount=" + levelCount +
+                         ", expected=" + expectedMapCount +
+                         ", actual=" + cassette.WaferMap.Count;
+                return false;
+            }
+
+            return true;
         }
 
         protected async Task<int> MoveFirstWaferSlotAsync(CancellationToken ct)

@@ -847,8 +847,8 @@ namespace QMC.CDT320.Sequencing
 
         private static double ResolveEjectPinZSyncLiftOffset(InputStageUnit stage)
         {
-            return stage != null && stage.Config != null
-                ? stage.Config.PickUpEjectPinOffset
+            return stage != null
+                ? stage.ResolvePickUpMotionRecipe().EjectPinOffset
                 : 0.0;
         }
 

@@ -1010,6 +1010,9 @@ namespace QMC.CDT320.Materials
                             // (기존 ClearInput/OutputCassetteAllSlotData 도 같은 이유로 둘 다 내린다.)
                             cassette.IsMapped = false;
                             cassette.IsPresent = false;
+                            // 잔존 LOT ID가 다음 mapping의 LOT 후보 충돌을 만들지 않도록
+                            // 다른 전체 Clear 경로들과 동일하게 함께 소거한다.
+                            cassette.CassetteLotId = "";
 
                             if (cassette.Slots == null)
                                 continue;

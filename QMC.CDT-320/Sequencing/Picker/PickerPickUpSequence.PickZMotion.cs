@@ -814,8 +814,7 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                stage.Config.EnsurePickUpMotionDefaults();
-                double syncLiftDistance = stage.Config.PickUpNeedleSyncLiftDistance;
+                double syncLiftDistance = stage.ResolvePickUpMotionRecipe().SyncLiftDistance;
                 double ejectPinSyncLiftOffset = ResolveEjectPinZSyncLiftOffset(stage);
 
                 syncTargets.PickerZ = _targetPickerZ + syncLiftDistance;
@@ -896,11 +895,10 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 InputStageUnit stage = ResolveInputStage();
-                if (stage != null && stage.Config != null)
+                if (stage != null)
                 {
-                    stage.Config.EnsurePickUpMotionDefaults();
-                    int inputStageWaitMs = Math.Max(0, stage.Config.PickUpNeedleSyncLiftSettleMs);
-                    source = "InputStage.PickUpNeedleSyncLiftSettleMs";
+                    int inputStageWaitMs = Math.Max(0, stage.ResolvePickUpMotionRecipe().SyncLiftSettleMs);
+                    source = "InputStageRecipe.PickUpMotion.SyncLiftSettleMs";
                     return inputStageWaitMs;
                 }
 
@@ -1419,12 +1417,13 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                double needleVelocity = ResolveInputStageAxisVelocityByPercent(stage, WaferStageAxis.NeedleZ, stage.Config.PickUpNeedleSeparateSpeedPercent);
-                double needleAcceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.NeedleZ, stage.Config.PickUpNeedleSeparateSpeedPercent, true);
-                double needleDeceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.NeedleZ, stage.Config.PickUpNeedleSeparateSpeedPercent, false);
-                double ejectVelocity = ResolveInputStageAxisVelocityByPercent(stage, WaferStageAxis.EjectPinZ, stage.Config.PickUpNeedleSeparateSpeedPercent);
-                double ejectAcceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.EjectPinZ, stage.Config.PickUpNeedleSeparateSpeedPercent, true);
-                double ejectDeceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.EjectPinZ, stage.Config.PickUpNeedleSeparateSpeedPercent, false);
+                double separateSpeedPercent = stage.ResolvePickUpMotionRecipe().SeparateSpeedPercent;
+                double needleVelocity = ResolveInputStageAxisVelocityByPercent(stage, WaferStageAxis.NeedleZ, separateSpeedPercent);
+                double needleAcceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.NeedleZ, separateSpeedPercent, true);
+                double needleDeceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.NeedleZ, separateSpeedPercent, false);
+                double ejectVelocity = ResolveInputStageAxisVelocityByPercent(stage, WaferStageAxis.EjectPinZ, separateSpeedPercent);
+                double ejectAcceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.EjectPinZ, separateSpeedPercent, true);
+                double ejectDeceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.EjectPinZ, separateSpeedPercent, false);
                 Task<int> needleMove = MoveInputStageAxisWithMotionAndVerifyAsync(
                     stage,
                     WaferStageAxis.NeedleZ,

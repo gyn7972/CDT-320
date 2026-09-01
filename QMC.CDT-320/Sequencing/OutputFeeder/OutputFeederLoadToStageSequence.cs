@@ -1689,7 +1689,11 @@ namespace QMC.CDT320.Sequencing
                 (Options.Side == BinSide.Good && sourceRole != CassetteMaterialRole.Good1 && sourceRole != CassetteMaterialRole.Good2))
                 return Fail("OUT-STAGE-MATERIAL-SIDE", "Material", "Ring 확인 후 Output side와 source cassette role이 일치하지 않습니다. wafer=" + wafer.WaferId + ", side=" + Options.Side + ", sourceRole=" + sourceRole);
 
-            MaterialStateService.MoveWafer(wafer.WaferId, new MaterialLocation { Kind = ResolveOutputStageLocation() }, WaferMaterialState.Working);
+            MaterialStateService.MoveWafer(wafer, new MaterialLocation { Kind = ResolveOutputStageLocation() }, WaferMaterialState.Working);
+            // Feeder 로컬 자재 플래그는 자재 데이터 이동과 같은 시점에 변경한다(다른 3개 이동
+            // 경로와 동일 패턴). 사이에 실패 지점이 있으면 플래그만 남아 리프트 인터락이
+            // 실물/데이터 없는 피더를 영구 차단한다(2026-09-01 실사례).
+            Feeder.ClearFeederMaterialState();
 
             // [사용자 승인 2026-08-17] 종전에는 반환값을 버렸다. 계획 생성이 실패하면 OutputReceiveSlots가
             // 0으로 남고 GOOD 배출 픽업 캡 allowance=0이 되어 Front/Rear 픽커가 알람 없이 무한 대기한다
@@ -1708,7 +1712,6 @@ namespace QMC.CDT320.Sequencing
                     ", reason=" + receivePlanReason);
             }
 
-            Feeder.ClearFeederMaterialState();
             CurrentStep = OutputFeederLoadToStageStep.PrepareFeederLiftUp;
             return 0;
         }

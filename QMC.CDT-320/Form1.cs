@@ -1193,6 +1193,12 @@ namespace QMC.CDT_320
             //            사용자는 레시피 없는 상태로 시작해 수동으로 열어야 했다(2026-08-05).
             // 현재 기준: startupAutoLoad=true로 알람 게이트만 면제해 적용을 시도하고,
             //            마커 없음/적용 실패 모두 AlarmManager 실제 알람으로 사용자에게 알린다.
+            // PickUp 파라미터 Config→Recipe 스코프 전환 이관: 저장된 모든 레시피에 장비 Config
+            // 현재값을 기록한다(값이 이미 있는 레시피는 불변). 아래 레시피 적용보다 먼저 실행해
+            // 활성 레시피도 기록된 파일에서 로드되게 한다.
+            QMC.CDT320.InputStageUnit.MigratePickUpMotionRecipeToAllRecipes(
+                Machine != null ? Machine.InputStageUnit : null);
+
             try
             {
                 var last = QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();

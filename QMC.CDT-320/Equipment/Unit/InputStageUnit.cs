@@ -325,6 +325,23 @@ namespace QMC.CDT320
         }
     }
 
+    /// <summary>
+    /// PickUp Z 파라미터의 레시피 저장소. null이면 아직 이 레시피에 값이 기록되지 않은 것이며,
+    /// ResolvePickUpMotionRecipe가 장비 Config 현재값을 이관해 채운다(Config→Recipe 스코프 전환).
+    /// </summary>
+    [DataContract]
+    public class InputStagePickUpMotionRecipe
+    {
+        [DataMember] public double EjectPinOffset { get; set; }
+        [DataMember] public double SyncLiftDistance { get; set; }
+        [DataMember] public double SyncLiftVelocity { get; set; }
+        [DataMember] public double SyncLiftAcc { get; set; }
+        [DataMember] public double SyncLiftDec { get; set; }
+        [DataMember] public int SyncLiftSettleMs { get; set; }
+        [DataMember] public double SeparateDistance { get; set; }
+        [DataMember] public double SeparateSpeedPercent { get; set; }
+    }
+
     public class InputStageRecipe : IRecipeData
     {
         [DataMember] public StageAxisPositions WaferY { get; set; } = new StageAxisPositions();
@@ -335,6 +352,7 @@ namespace QMC.CDT320
         [DataMember] public StageAxisPositions NeedleZ { get; set; } = new StageAxisPositions();
         [DataMember] public StageAxisPositions EjectPinZ { get; set; } = new StageAxisPositions();
         [DataMember] public InputStageDieMapRecipe DieMap { get; set; } = new InputStageDieMapRecipe();
+        [DataMember] public InputStagePickUpMotionRecipe PickUpMotion { get; set; }
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -3098,6 +3116,90 @@ namespace QMC.CDT320
             }
             finally
             {
+            }
+        }
+
+        /// <summary>
+        /// PickUp Z 파라미터의 단일 읽기 깔때기(표시값=사용값). 레시피에 값이 없으면(null)
+        /// 장비 Config 현재값을 이관해 채운다 — 이관 후 레시피 저장 시 파일에 기록된다.
+        /// </summary>
+        public InputStagePickUpMotionRecipe ResolvePickUpMotionRecipe()
+        {
+            var recipe = Recipe;
+            if (recipe == null)
+                return BuildPickUpMotionRecipeFromConfig(Config);
+
+            if (recipe.PickUpMotion == null)
+            {
+                recipe.PickUpMotion = BuildPickUpMotionRecipeFromConfig(Config);
+                Log.Write("Main", "SYSTEM", "InputStagePickUpRecipe",
+                    "레시피에 PickUp 파라미터가 없어 장비 Config 현재값을 이관했습니다. " +
+                    "ejectPinOffset=" + recipe.PickUpMotion.EjectPinOffset.ToString("F4") +
+                    ", syncLiftDistance=" + recipe.PickUpMotion.SyncLiftDistance.ToString("F4") +
+                    ", syncLiftVelocity=" + recipe.PickUpMotion.SyncLiftVelocity.ToString("F1") +
+                    ", syncLiftAcc=" + recipe.PickUpMotion.SyncLiftAcc.ToString("F1") +
+                    ", syncLiftDec=" + recipe.PickUpMotion.SyncLiftDec.ToString("F1") +
+                    ", syncLiftSettleMs=" + recipe.PickUpMotion.SyncLiftSettleMs +
+                    ", separateDistance=" + recipe.PickUpMotion.SeparateDistance.ToString("F4") +
+                    ", separateSpeedPercent=" + recipe.PickUpMotion.SeparateSpeedPercent.ToString("F1") + " - Check");
+            }
+
+            return recipe.PickUpMotion;
+        }
+
+        private static InputStagePickUpMotionRecipe BuildPickUpMotionRecipeFromConfig(InputStageConfig config)
+        {
+            if (config == null)
+                return new InputStagePickUpMotionRecipe();
+
+            config.EnsurePickUpMotionDefaults();
+            return new InputStagePickUpMotionRecipe
+            {
+                EjectPinOffset = config.PickUpEjectPinOffset,
+                SyncLiftDistance = config.PickUpNeedleSyncLiftDistance,
+                SyncLiftVelocity = config.PickUpNeedleSyncLiftVelocity,
+                SyncLiftAcc = config.PickUpNeedleSyncLiftAcc,
+                SyncLiftDec = config.PickUpNeedleSyncLiftDec,
+                SyncLiftSettleMs = config.PickUpNeedleSyncLiftSettleMs,
+                SeparateDistance = config.PickUpNeedleSeparateDistance,
+                SeparateSpeedPercent = config.PickUpNeedleSeparateSpeedPercent
+            };
+        }
+
+        /// <summary>
+        /// Config→Recipe 스코프 전환 마이그레이션: 저장된 모든 레시피 프로젝트의 InputStage
+        /// 레시피 파일에 PickUp 파라미터가 없으면 장비 Config 현재값을 기록한다.
+        /// 파일이 없거나 손상된 프로젝트는 건드리지 않는다(활성화 시 깔때기가 이관).
+        /// </summary>
+        public static void MigratePickUpMotionRecipeToAllRecipes(InputStageUnit unit)
+        {
+            try
+            {
+                if (unit == null || unit.Config == null)
+                    return;
+
+                foreach (string dir in System.IO.Directory.GetDirectories(QMC.CDT320.Recipes.RecipeStore.Dir))
+                {
+                    string recipeName = System.IO.Path.GetFileName(dir);
+                    InputStageRecipe recipe;
+                    string reason;
+                    if (!QMC.Common.Data.Store.UnitDataStore.TryLoadRecipeRequired(
+                            recipeName, "InputStageUnit", out recipe, out reason))
+                        continue;
+                    if (recipe.PickUpMotion != null)
+                        continue;
+
+                    recipe.PickUpMotion = BuildPickUpMotionRecipeFromConfig(unit.Config);
+                    bool saved = QMC.Common.Data.Store.UnitDataStore.SaveRecipe(recipe, recipeName, "InputStageUnit");
+                    Log.Write("Main", "SYSTEM", "InputStagePickUpRecipe",
+                        "레시피에 PickUp 파라미터 현재값을 기록했습니다. recipe=" + recipeName +
+                        ", saved=" + saved + " - " + (saved ? "Ok" : "Failed"));
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "InputStagePickUpRecipe",
+                    "PickUp 파라미터 레시피 일괄 기록 실패: " + ex.Message + " - Failed");
             }
         }
 

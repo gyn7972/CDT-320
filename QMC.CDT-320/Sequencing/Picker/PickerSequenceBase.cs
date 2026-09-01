@@ -4452,12 +4452,13 @@ namespace QMC.CDT320.Sequencing
                         ", waitCount=" + waitCount +
                         ", limit=" + waitLimit +
                         ", lastReason=" + (reason ?? string.Empty);
-                    // [워닝 그레이드 2026-08-28 팀장님 지시] 코드명에 "LIMIT"이 들어가면
-                    // AlarmManager.NormalizeSeverity의 축 리밋 안전 규칙(Contains "LIMIT")에 오탐으로
-                    // 걸려 Warning이 Critical로 승격됐다(08-28 14:01 실측). 안전 규칙은 유지하고
-                    // 코드명에서 LIMIT을 제거해 의도대로 Warning으로 발행한다.
-                    AlarmManager.Raise(
-                        AlarmSeverity.Warning,
+                    // 비정지 알람(운전 계속) — AlarmManager 발행은 severity와 무관하게 중앙 안전
+                    // 계약(전축 EStop+Alarm 상태)을 타므로 "다음 Die" 모드의 한계 초과 통보에 쓸 수
+                    // 없다. 이력/화면 표시만 남기는 EventLogger 발행(OUTPUT-RESULT-NETWORK-COPY-FAIL
+                    // 패턴)을 사용한다. 코드명에 LIMIT 금지(축 리밋 Critical 승격 규칙 오탐).
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Alarm,
+                        "SYSTEM",
                         "INPUT-DIE-VISION-WAIT-OVER",
                         "InputDieVision",
                         alarmMessage);

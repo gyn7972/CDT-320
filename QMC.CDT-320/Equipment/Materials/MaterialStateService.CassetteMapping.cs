@@ -572,7 +572,15 @@ namespace QMC.CDT320.Materials
                 var roleSet = new HashSet<CassetteMaterialRole>(roles ?? new CassetteMaterialRole[0]);
                 foreach (CassetteMaterial cassette in State.Cassettes.Where(c => c != null && roleSet.Contains(c.Role)))
                 {
-                    candidates.Add(cassette.CassetteLotId);
+                    // LOT 충돌 검사가 보호하는 대상은 카세트 안 실물 자재다. 자재가 하나도 없는
+                    // 카세트에 남은 LOT ID는 잔존 문자열일 뿐이므로 후보에서 제외한다.
+                    if (CassetteHasAnySlotMaterial(cassette))
+                        candidates.Add(cassette.CassetteLotId);
+                    else if (!string.IsNullOrWhiteSpace(cassette.CassetteLotId))
+                        Log.Write("Main", "SYSTEM", "MaterialLotContext",
+                            "자재가 없는 카세트의 잔존 LOT ID를 후보에서 제외합니다. cassette=" + cassette.Role +
+                            ", staleLotId=" + cassette.CassetteLotId + " - Check");
+
                     if (cassette.Slots == null)
                         continue;
 
@@ -609,11 +617,26 @@ namespace QMC.CDT320.Materials
             if (wafer != null)
                 candidates.Add(wafer.CassetteLotId);
             if (cassette != null)
-                candidates.Add(cassette.CassetteLotId);
+            {
+                // 매핑 후보 산정과 같은 규칙: 자재 없는 카세트의 잔존 LOT ID는 후보에서 제외.
+                if (CassetteHasAnySlotMaterial(cassette))
+                    candidates.Add(cassette.CassetteLotId);
+                else if (!string.IsNullOrWhiteSpace(cassette.CassetteLotId))
+                    Log.Write("Main", "SYSTEM", "MaterialLotContext",
+                        "자재가 없는 카세트의 잔존 LOT ID를 후보에서 제외합니다. cassette=" + cassette.Role +
+                        ", staleLotId=" + cassette.CassetteLotId + " - Check");
+            }
             if (State != null)
                 candidates.Add(State.LotId);
 
             return ResolveOrCreateCassetteLotId(requestedLotId, candidates, "cassette wafer");
+        }
+
+        private static bool CassetteHasAnySlotMaterial(CassetteMaterial cassette)
+        {
+            return cassette != null &&
+                   cassette.Slots != null &&
+                   cassette.Slots.Any(s => s != null && s.HasWafer && !string.IsNullOrWhiteSpace(s.WaferId));
         }
 
         private static string ResolveOrCreateCassetteLotId(

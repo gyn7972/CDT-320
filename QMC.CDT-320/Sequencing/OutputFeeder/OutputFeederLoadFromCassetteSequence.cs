@@ -477,7 +477,7 @@ namespace QMC.CDT320.Sequencing
                 !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
                 return Fail("OUT-FEEDER-MATERIAL-WAFER", "Material", "Ring 확인 후 Bin ID가 변경되었습니다. expected=" + Options.ExpectedWaferId + ", actual=" + wafer.WaferId);
 
-            MaterialStateService.MoveWafer(wafer.WaferId, new MaterialLocation { Kind = MaterialLocationKind.OutputFeeder }, WaferMaterialState.WorkReady);
+            MaterialStateService.MoveWafer(wafer, new MaterialLocation { Kind = MaterialLocationKind.OutputFeeder }, WaferMaterialState.WorkReady);
             Feeder.UpdateFeederMaterialState(MaterialState.Occupied);
             Context.Bus.Set("OutputFeederOccupied");
             CurrentStep = OutputFeederLoadFromCassetteStep.UpdateCassetteData;

@@ -64,9 +64,11 @@ namespace QMC.CDT320.Sequencing
                     // 슬롯 스캔
                     case InputCassetteMappingStep.ScanSlots:
                         return ScanSlotsAsync(InputCassetteMappingStep.BuildWaferInfo, ct);
-                    // 웨이퍼 정보 생성
+                    // 웨이퍼 정보 생성 — 스캔 결과가 없으면 알람 대신 CheckLot부터 재스캔(1회)
                     case InputCassetteMappingStep.BuildWaferInfo:
-                        return Task.FromResult(BuildWaferInfo(InputCassetteMappingStep.MoveFirstWaferSlot));
+                        return Task.FromResult(BuildWaferInfo(
+                            InputCassetteMappingStep.MoveFirstWaferSlot,
+                            InputCassetteMappingStep.CheckLot));
                     // 첫번째 웨이퍼 슬롯 이동
                     case InputCassetteMappingStep.MoveFirstWaferSlot:
                         return MoveFirstWaferSlotAsync(ct);

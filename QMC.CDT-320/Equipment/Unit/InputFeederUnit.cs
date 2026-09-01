@@ -1656,7 +1656,7 @@ namespace QMC.CDT320
             WaferMaterial wafer = CurrentWaferMaterial;
             if (wafer != null)
                 MaterialStateService.PutWaferInCassette(
-                    wafer.WaferId,
+                    wafer,
                     wafer.SourceCassetteRole,
                     slotIndex,
                     wafer.CassetteLotId,

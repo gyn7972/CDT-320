@@ -2065,7 +2065,8 @@ namespace QMC.CDT320.Materials
             double correctedT,
             double offsetT,
             string resultMode = "",
-            string resultRunId = "")
+            string resultRunId = "",
+            bool manualAlignFallback = false)
         {
             try
             {
@@ -2073,6 +2074,8 @@ namespace QMC.CDT320.Materials
                     return;
 
                 wafer.HasInputStageAlignResult = true;
+                wafer.InputStageAlignManualFallback = manualAlignFallback;
+                wafer.InputStageAlignManualFallbackThetaDone = false;
                 wafer.InputStageAlignResultMode = InputStageResultMode.NormalizeForSave(resultMode);
                 wafer.InputStageAlignResultRunId = (resultRunId ?? "").Trim();
                 if (!InputStageResultMode.IsHybrid(wafer.InputStageAlignResultMode))
@@ -2121,6 +2124,8 @@ namespace QMC.CDT320.Materials
                 wafer.InputStageAlignReferenceT = referenceT;
                 wafer.InputStageAlignCorrectedT = correctedT;
                 wafer.InputStageAlignOffsetT = offsetT;
+                if (wafer.InputStageAlignManualFallback)
+                    wafer.InputStageAlignManualFallbackThetaDone = true;
                 if (thetaChanged)
                 {
                     InvalidateInputStageDieMappingNoLock(wafer, true);
