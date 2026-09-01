@@ -163,7 +163,7 @@ namespace QMC.CDT_320.Ui.Controls
                 string productionLotId = MaterialStateService.GetProductionLotId();
                 _lotText = string.IsNullOrWhiteSpace(productionLotId) ? "(no lot)" : productionLotId;
                 // 현재 기준: 작업 메인도 공통 DieMapView에 상태 캡션과 맵 데이터를 전달한다.
-                Caption = BuildCaption(_displayMap, _stats);
+                Caption = BuildCaption();
                 SetMap(_displayMap, false);
                 Invalidate();
             }
@@ -173,15 +173,26 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        private string BuildCaption(DieMap map, MapStats stats)
+        private string BuildCaption()
         {
-            if (map == null)
-                return string.Format("{0}   LOT {1}  (no map)", ResolveMapTitle(), _lotText);
+            return ResolveMapTitle() + "   " + ResolveWaferIdText();
+        }
 
-            string doneText = IsOutputMapSource() ? "place" : "pick";
-            return string.Format("{0}   LOT {1}  target={2}  wait={3}  vision={4}  {5}={6}  good={7}  ng={8}",
-                ResolveMapTitle(), _lotText, stats.Target, stats.InspectionWait, stats.InspectionDone,
-                doneText, stats.PickComplete, stats.Good, stats.Ng);
+        private string ResolveWaferIdText()
+        {
+            try
+            {
+                MaterialLocationKind location =
+                    _sourceKind == LiveLotMapSourceKind.OutputGood ? MaterialLocationKind.OutputStageGood :
+                    _sourceKind == LiveLotMapSourceKind.OutputNg ? MaterialLocationKind.OutputStageNg :
+                    MaterialLocationKind.InputStage;
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(location);
+                return wafer != null && !string.IsNullOrWhiteSpace(wafer.WaferId) ? wafer.WaferId : "-";
+            }
+            catch
+            {
+                return "-";
+            }
         }
 
         private string ResolveMapTitle()

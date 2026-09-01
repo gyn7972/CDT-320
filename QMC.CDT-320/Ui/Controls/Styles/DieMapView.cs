@@ -258,7 +258,7 @@ namespace QMC.CDT320.Ui.Controls
                 }
             }
 
-            DrawLegend(g, (int)contentRect.Width, (int)contentRect.Left, (int)(contentRect.Bottom + 6.0F));
+            DrawLegend(g, Math.Max(1, Width - 16), 8, (int)(contentRect.Bottom + 6.0F));
         }
 
         private void DrawPhysicalWaferOutline(Graphics g, RectangleF mapRect, CellMetrics cell, VisibleBounds bounds)
@@ -349,6 +349,54 @@ namespace QMC.CDT320.Ui.Controls
             Invalidate();
         }
 
+        private const int LegendRowHeight = 17;
+
+        private Tuple<string, Color>[] ResolveLegendItems()
+        {
+            return LegendItemsResolver != null
+                ? LegendItemsResolver()
+                : new[]
+                {
+                    Tuple.Create("Good", BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)),
+                    Tuple.Create("Pre-NG", BinCodeMap.ConvertToBinCodeColor(110)),
+                    Tuple.Create("Critical", BinCodeMap.ConvertToBinCodeColor(200)),
+                    Tuple.Create("Unknown", Color.FromArgb(80, 80, 100)),
+                    Tuple.Create("Skip", Color.FromArgb(60, 60, 60)),
+                };
+        }
+
+        private static int LegendItemAdvance(string label, Font f)
+        {
+            int labelW = TextRenderer.MeasureText(label ?? string.Empty, f).Width;
+            return Math.Max(80, 14 + 3 + labelW + 16);
+        }
+
+        // 컨트롤 폭 기준 줄 수. GetMapLayout의 범례 예약 높이와 DrawLegend 줄바꿈이 같은 계산을 쓴다.
+        private int MeasureLegendRows(int totalW)
+        {
+            Tuple<string, Color>[] items = ResolveLegendItems();
+            if (items == null || items.Length == 0)
+                return 1;
+
+            using (var f = new Font(OverlayFontFamily, 8.5F))
+            {
+                int rows = 1;
+                int sx = 0;
+                foreach (var it in items)
+                {
+                    int advance = LegendItemAdvance(it.Item1, f);
+                    if (sx > 0 && sx + advance > totalW)
+                    {
+                        rows++;
+                        sx = 0;
+                    }
+                    sx += advance;
+                }
+
+                return rows;
+            }
+        }
+
         private void DrawLegend(Graphics g, int totalW, int x0, int y)
         {
             Color textColor = ResolveOverlayTextColor();
@@ -356,25 +404,20 @@ namespace QMC.CDT320.Ui.Controls
             {
                 int sx = x0;
                 int sw = 14;
-                int gap = 80;
-                Tuple<string, Color>[] items = LegendItemsResolver != null
-                    ? LegendItemsResolver()
-                    : new[]
-                    {
-                        Tuple.Create("Good", BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)),
-                        Tuple.Create("Pre-NG", BinCodeMap.ConvertToBinCodeColor(110)),
-                        Tuple.Create("Critical", BinCodeMap.ConvertToBinCodeColor(200)),
-                        Tuple.Create("Unknown", Color.FromArgb(80, 80, 100)),
-                        Tuple.Create("Skip", Color.FromArgb(60, 60, 60)),
-                    };
-                foreach (var it in items)
+                foreach (var it in ResolveLegendItems())
                 {
+                    int advance = LegendItemAdvance(it.Item1, f);
+                    if (sx > x0 && sx + advance > x0 + totalW)
+                    {
+                        sx = x0;
+                        y += LegendRowHeight;
+                    }
+
                     using (var br = new SolidBrush(it.Item2))
                         g.FillRectangle(br, sx, y, sw, 12);
                     using (var br = new SolidBrush(textColor))
                         g.DrawString(it.Item1, f, br, sx + sw + 3, y - 1);
-                    SizeF labelSize = g.MeasureString(it.Item1, f);
-                    sx += Math.Max(gap, sw + 3 + (int)Math.Ceiling(labelSize.Width) + 16);
+                    sx += advance;
                 }
             }
         }
@@ -601,7 +644,7 @@ namespace QMC.CDT320.Ui.Controls
         {
             int margin = 30;
             int titleH = 48;
-            int legendH = 28;
+            int legendH = 11 + LegendRowHeight * MeasureLegendRows(Math.Max(1, Width - 16));
             bounds = CalculateVisibleBounds();
             int availableW = Math.Max(1, Width - margin * 2);
             int availableH = Math.Max(1, Height - titleH - legendH - margin);
