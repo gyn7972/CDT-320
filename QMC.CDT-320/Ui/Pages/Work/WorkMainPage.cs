@@ -47,7 +47,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (!designerMode)
             {
                 RebuildVisionPanel();
-                StyleMapTabs();
                 ApplyBottomGroupSizing();
                 WireRuntimeEvents();
                 InitializeWorkTimeToolTips();
@@ -1293,65 +1292,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             catch
             {
             }
-        }
-
-        /// <summary>작업 맵 탭을 플랫 오너드로우로 스타일링한다(선택 탭=액센트, 나머지=연회색).</summary>
-        private void StyleMapTabs()
-        {
-            if (mapTabControl == null)
-                return;
-
-            mapTabControl.DrawMode = TabDrawMode.OwnerDrawFixed;
-            mapTabControl.SizeMode = TabSizeMode.Fixed;
-            mapTabControl.BackColor = Color.White;
-            mapTabControl.Font = new Font("맑은 고딕", 8F, FontStyle.Bold);
-            mapTabControl.Padding = new Point(6, 1);
-            UpdateMapTabWidth();
-        }
-
-        private void MapTabControl_SizeChanged(object sender, EventArgs e)
-        {
-            UpdateMapTabWidth();
-        }
-
-        /// <summary>탭 3개가 좌우로 꽉 차도록 각 탭 폭을 컨트롤 폭에 맞춰 균등 분할한다.</summary>
-        private void UpdateMapTabWidth()
-        {
-            if (mapTabControl == null || mapTabControl.TabCount == 0)
-                return;
-
-            int w = (mapTabControl.ClientSize.Width - 4) / mapTabControl.TabCount;
-            if (w < 40)
-                w = 40;
-            if (mapTabControl.ItemSize.Width != w || mapTabControl.ItemSize.Height != 21)
-                mapTabControl.ItemSize = new Size(w, 21);
-        }
-
-        private void MapTabControl_DrawItem(object sender, DrawItemEventArgs e)
-        {
-            var tc = sender as TabControl;
-            if (tc == null || e.Index < 0 || e.Index >= tc.TabPages.Count)
-                return;
-
-            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-            Rectangle r = tc.GetTabRect(e.Index);
-            bool selected = e.Index == tc.SelectedIndex;
-
-            // 탭 스트립을 콘텐츠와 같은 흰색으로 채워 카드와 자연스럽게 이어지게(모던 언더라인 탭).
-            using (var b = new SolidBrush(Color.White))
-                e.Graphics.FillRectangle(b, r);
-
-            Color fg = selected ? AccentColor : Color.FromArgb(51, 65, 85);   // 캡션과 동일한 slate-700 로 통일
-            using (Font font = new Font(tc.Font.FontFamily, 8F, FontStyle.Bold))   // 선택/미선택 모두 굵게
-                TextRenderer.DrawText(
-                    e.Graphics, tc.TabPages[e.Index].Text, font, r, fg,
-                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-
-            // 선택 탭: 하단 강조 언더라인 바.
-            if (selected)
-                using (var b = new SolidBrush(AccentColor))
-                    e.Graphics.FillRectangle(b, r.Left + 12, r.Bottom - 2, Math.Max(1, r.Width - 24), 2);
         }
 
         private static void SetText(Control control, string text)
