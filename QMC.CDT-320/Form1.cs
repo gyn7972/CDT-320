@@ -1199,6 +1199,14 @@ namespace QMC.CDT_320
             QMC.CDT320.InputStageUnit.MigratePickUpMotionRecipeToAllRecipes(
                 Machine != null ? Machine.InputStageUnit : null);
 
+            // 픽커 T 공통값도 같은 시점에 전 레시피로 기록한다(값이 있는 레시피는 불변).
+            QMC.CDT320.PickerFrontConfig pickerTConfigSource =
+                Machine != null && Machine.PickerFrontUnit != null ? Machine.PickerFrontUnit.Config : null;
+            if (pickerTConfigSource != null)
+                pickerTConfigSource.EnsurePositionObjects();
+            QMC.CDT320.PickerCommonTeachingT.MigrateAllRecipes(
+                pickerTConfigSource != null ? pickerTConfigSource.PickerT0 : null);
+
             try
             {
                 var last = QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();

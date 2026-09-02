@@ -331,7 +331,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                         _calibrationSide + ", colletNo=" + _colletNo +
                         ", " + focusStartReason +
                         ", Vision Focus Cal에서 Bottom Collet Best Focus를 Apply/Save 후 다시 실행하세요.");
-                _basePickerT = startTarget.T;
+                // 캘 지점이 곧 0도가 되므로 T는 항상 0도에서 캘한다(공정 티칭각과 무관).
+                _basePickerT = 0.0;
 
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalMove",
                     "Collet Calibration Bottom 목표 좌표 계산. side=" + _calibrationSide +

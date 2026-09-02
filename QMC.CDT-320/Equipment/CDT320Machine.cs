@@ -31,6 +31,9 @@ namespace QMC.CDT320
     {
         /// <summary>현재 로드된 제품(공정) ID.</summary>
         public string ProductId { get; set; } = "PRODUCT-A";
+
+        /// <summary>픽커 T 공통 티칭값(Front/Rear 4개 픽커 공용). null이면 이 레시피에 아직 기록되지 않은 상태다.</summary>
+        public PickerCommonTeachingTRecipe PickerT { get; set; }
     }
 
     // ----------------------------------------------------------------------
@@ -353,6 +356,19 @@ namespace QMC.CDT320
             Units.Add(OpPanelUnit);
 
             BindPickerFlowTransitionDiagnostics();
+
+            // 픽커 T 티칭값은 레시피 공통값 하나를 쓴다. 현재 머신 레시피와 이관 소스를 깔때기에 연결한다.
+            PickerCommonTeachingT.Bind(
+                () => Recipe,
+                () =>
+                {
+                    PickerFrontConfig config = PickerFrontUnit != null ? PickerFrontUnit.Config : null;
+                    if (config == null)
+                        return null;
+
+                    config.EnsurePositionObjects();
+                    return config.PickerT0;
+                });
         }
 
         /// <summary>

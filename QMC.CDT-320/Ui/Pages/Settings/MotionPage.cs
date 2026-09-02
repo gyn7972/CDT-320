@@ -167,7 +167,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             actionsPanel.Padding = new Padding(1);
             actionsPanel.Dock = DockStyle.Fill;
             actionsPanel.BackColor = Color.White;
-            // 액션 버튼 폭을 다른 설정 페이지와 동일하게(14열 균등 = 각 7.14%) 맞춘다. 버튼 10개는 앞 10칸에 배치, 오른쪽 4칸은 빈칸.
+            // 액션 버튼 폭을 다른 설정 페이지와 동일하게(14열 균등 = 각 7.14%) 맞춘다. 버튼 9개는 앞 9칸에 배치, 오른쪽 5칸은 빈칸.
             actionsPanel.ColumnCount = 14;
             actionsPanel.ColumnStyles.Clear();
             for (int i = 0; i < 14; i++)
@@ -179,8 +179,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             var buttons = new[]
             {
+                // ALL SERVO OFF는 오조작 시 전축 서보가 풀려 사고로 이어지므로 제거했다(팀장님 지시 2026-08-18).
                 btnServoOn, btnServoOff, btnHome,
-                btnAllStop, btnAlarmClear, btnAllServoOff, btnParaLoad, btnParaSave, btnBoardScan, btnMotionTest
+                btnAllStop, btnAlarmClear, btnParaLoad, btnParaSave, btnBoardScan, btnMotionTest
             };
 
             for (int i = 0; i < buttons.Length; i++)
@@ -277,11 +278,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void btnAlarmClear_Click(object sender, EventArgs e)
         {
             ClearAllAxisAlarms();
-        }
-
-        private void btnAllServoOff_Click(object sender, EventArgs e)
-        {
-            RunAllAxes(ax => ax.ServoOff());
         }
 
         private void btnServoOn_Click(object sender, EventArgs e)

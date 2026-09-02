@@ -108,6 +108,7 @@
     <Compile Include="Equipment\Unit\OutputCassetteUnit.cs" />
     <Compile Include="Equipment\Unit\OutputFeederUnit.cs" />
     <Compile Include="Equipment\Unit\OutputStageUnit.cs" />
+    <Compile Include="Equipment\Unit\PickerCommonTeachingT.cs" />
     <Compile Include="Equipment\Unit\PickerFrontUnit.cs" />
     <Compile Include="Equipment\Unit\PickerRearUnit.cs" />
     <Compile Include="Equipment\Unit\PickerZoneXSetup.cs" />

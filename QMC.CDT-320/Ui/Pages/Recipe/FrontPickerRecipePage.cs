@@ -25,6 +25,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             public string DisplayName;
             public PickerAxis Axis;
             public string PositionName;
+            public ParameterGridScope Scope;
+            public bool IsCommonT;
         }
 
         private readonly Timer refreshTimer = new Timer();
@@ -35,6 +37,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private const int ManualActionFrameHeight = 29;
         private PickerFrontUnit unit;
         private int selectedManualPickerNo = 4;
+        private const string CommonTDisplayName = "PICKER T (공통)";
 
         public FrontPickerRecipePage()
         {
@@ -264,8 +267,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "OutputAvoidPosition은 Output 카메라 위치가 아니라 Front Picker X가 Output-side 방향으로 빠져 간섭을 피하기 위한 회피 위치입니다.");
             AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "AVOID POSITION", "AvoidPosition", AxisUnitConverter.Millimeter, "PICKER X", "K_AVOID");
             AddPositionItem(optionItems, PickerAxis.PickerY, "PICKER Y", "AVOID POSITION", "AvoidPosition", AxisUnitConverter.Millimeter, "PICKER Y", "K_AVOID");
+            AddCommonTPositionItem(optionItems, "AVOID POSITION", "AvoidPosition", "K_AVOID");
             for (int i = 0; i < tzKeys.Length; i++)
-                AddPositionItem(optionItems, tzKeys[i], tzNames[i], "AVOID POSITION", "AvoidPosition", tzUnits[i], tzNames[i], "K_AVOID");
+                if (!IsTheta(tzKeys[i]))
+                    AddPositionItem(optionItems, tzKeys[i], tzNames[i], "AVOID POSITION", "AvoidPosition", tzUnits[i], tzNames[i], "K_AVOID");
 
             // Zone position: X/Y is taught by picker #4 base. Picker #1~#4 use Config offset X/Y inside each zone.
             string[] zoneKinds = { "PICK", "BOTTOM", "SIDE", "PLACE" };
@@ -276,8 +281,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 optionItems.Add(ParameterGridItem.Header(zoneKinds[k] + " POSITION", gk));
                 for (int i = 0; i < xyKeys.Length; i++)
                     AddPositionItem(optionItems, xyKeys[i], xyNames[i], zoneKinds[k] + " POSITION", zoneKindPos[k], AxisUnitConverter.Millimeter, xyNames[i], gk);
+                AddCommonTPositionItem(optionItems, zoneKinds[k] + " POSITION", zoneKindPos[k], gk);
                 for (int i = 0; i < tzKeys.Length; i++)
-                    AddPositionItem(optionItems, tzKeys[i], tzNames[i], zoneKinds[k] + " POSITION", zoneKindPos[k], tzUnits[i], tzNames[i], gk);
+                    if (!IsTheta(tzKeys[i]))
+                        AddPositionItem(optionItems, tzKeys[i], tzNames[i], zoneKinds[k] + " POSITION", zoneKindPos[k], tzUnits[i], tzNames[i], gk);
             }
 
             const string rotationCenterGroup = "K_COLLET_ROTATION_CENTER";
@@ -682,7 +689,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private void AddPositionItem(List<ParameterGridItem> items, PickerAxis axis, string axisName, string displaySuffix, string positionName, string displayUnit, string memberDisplay, string groupKey, string description = "")
         {
             string display = axisName + " " + displaySuffix;
-            PositionItem posItem = new PositionItem { DisplayName = display, Axis = axis, PositionName = positionName };
+            // 티칭 값이 저장되는 스코프 — 그리드 항목과 PositionItem이 어긋나지 않도록 한 곳에서 정한다.
+            const ParameterGridScope scope = ParameterGridScope.Config;
+            PositionItem posItem = new PositionItem { DisplayName = display, Axis = axis, PositionName = positionName, Scope = scope };
             positionItems[display] = posItem;
 
             List<PositionItem> groupList;
@@ -695,9 +704,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             // [티칭 위치 Config 이관 2026-08-18] 저장소가 Config로 옮겨졌으므로 스코프 표시도 Config다.
             string unitName = DisplayUnitFor(axis, displayUnit);
-            ParameterGridItem item = ParameterGridItem.Double(memberDisplay, unitName, ParameterGridScope.Config,
+            ParameterGridItem item = ParameterGridItem.Double(memberDisplay, unitName, scope,
                 () => ToAxisDisplay(unit.GetPickerTeachingPosition(axis, positionName), axis),
-                v => SetPosition(axis, positionName, FromAxisDisplay(v, axis)));
+                v => unit.SetPickerAxisTeachingPosition(axis, positionName, FromAxisDisplay(v, axis)));
             item.UnitGetter = () => DisplayUnitFor(axis, displayUnit);
 
             item.Key = display;                     // 이동/티칭 조회는 전체 이름(positionItems 키)으로 매칭
@@ -705,6 +714,78 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             item.Description = description ?? string.Empty;
             item.SupportsTeaching = true;           // 행에 MOVE/TEACH 버튼 표시(티칭 포지션)
             items.Add(item);
+        }
+
+        // 픽커 T는 4개 픽커와 Front/Rear가 같은 각도를 쓰므로 화면 행을 1개만 만든다(값은 레시피 공통 저장).
+        // groupMoves에는 T0~T3 4축을 그대로 등록해야 그룹 AVOID 복귀가 4축을 모두 회전시킨다.
+        private void AddCommonTPositionItem(List<ParameterGridItem> items, string displaySuffix, string positionName, string groupKey)
+        {
+            string display = CommonTDisplayName + " " + displaySuffix;
+            positionItems[display] = new PositionItem
+            {
+                DisplayName = display,
+                Axis = PickerAxis.PickerT0,
+                PositionName = positionName,
+                Scope = ParameterGridScope.Recipe,
+                IsCommonT = true
+            };
+
+            List<PositionItem> groupList;
+            if (!groupMoves.TryGetValue(groupKey, out groupList))
+            {
+                groupList = new List<PositionItem>();
+                groupMoves[groupKey] = groupList;
+            }
+            foreach (PickerAxis tAxis in PickerTAxes)
+                groupList.Add(new PositionItem { DisplayName = display, Axis = tAxis, PositionName = positionName, Scope = ParameterGridScope.Recipe });
+
+            ParameterGridItem item = ParameterGridItem.Double(
+                CommonTDisplayName,
+                DisplayUnitFor(PickerAxis.PickerT0, AxisUnitConverter.Degree),
+                ParameterGridScope.Recipe,
+                () => ToAxisDisplay(unit.GetPickerTeachingPosition(PickerAxis.PickerT0, positionName), PickerAxis.PickerT0),
+                v => unit.SetPickerAxisTeachingPosition(PickerAxis.PickerT0, positionName, FromAxisDisplay(v, PickerAxis.PickerT0)));
+            item.UnitGetter = () => DisplayUnitFor(PickerAxis.PickerT0, AxisUnitConverter.Degree) + " (P#" + selectedManualPickerNo + ")";
+            item.Key = display;
+            item.GroupKey = groupKey;
+            item.Description = "Front/Rear 4개 픽커가 함께 쓰는 T 각도입니다(레시피 저장). MOVE/TEACH는 MANUAL ACTION에서 선택한 픽커 축에만 적용됩니다.";
+            item.SupportsTeaching = true;
+            items.Add(item);
+        }
+
+        // 공통 T 행의 MOVE/TEACH는 선택된 픽커 축 하나에만 적용한다.
+        // 이 경로에는 강제되는 T 인터락이 없어 4축 동시 회전은 위험 노출을 4배로 키운다.
+        private PickerAxis ResolveActionAxis(PositionItem item)
+        {
+            return item != null && item.IsCommonT ? ResolvePickerTAxis(selectedManualPickerNo - 1) : item.Axis;
+        }
+
+        private string ResolveActionDisplayName(PositionItem item)
+        {
+            if (item == null)
+                return string.Empty;
+
+            return item.IsCommonT
+                ? item.DisplayName + " PICKER #" + selectedManualPickerNo
+                : item.DisplayName;
+        }
+
+        // 공통 T 행 TEACH는 Front/Rear 8개 T축의 타깃을 한 번에 바꾸므로 적용 범위와
+        // 캡처 축, before-after 값을 확인창 본문에 명시한다.
+        private string BuildCommonTeachDetail(PositionItem item)
+        {
+            if (item == null || !item.IsCommonT || unit == null)
+                return null;
+
+            PickerAxis captureAxis = ResolveActionAxis(item);
+            BaseAxis axis = GetAxis(captureAxis);
+            string unitLabel = DisplayUnitFor(PickerAxis.PickerT0, AxisUnitConverter.Degree);
+            double before = ToAxisDisplay(unit.GetPickerTeachingPosition(PickerAxis.PickerT0, item.PositionName), PickerAxis.PickerT0);
+            double after = axis != null ? ToAxisDisplay(axis.ActualPosition, PickerAxis.PickerT0) : before;
+
+            return "이 값은 FRONT/REAR 픽커 8개 T축이 함께 쓰는 공통값입니다." + Environment.NewLine +
+                   "캡처 축: PICKER #" + selectedManualPickerNo + " (" + captureAxis + ")" + Environment.NewLine +
+                   "현재값 " + before.ToString("F3") + unitLabel + " -> " + after.ToString("F3") + unitLabel;
         }
 
         private ParameterGridItem AxisDouble(string displayName, PickerAxis axis, string fallbackUnit, ParameterGridScope scope, Func<double> getter, Action<double> setter, string unitSuffix = "")
@@ -838,7 +919,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (!positionItems.TryGetValue(e.Item.Key, out item))
                     return;
 
-                if (!ConfirmTeachPosition("Front Picker Teach", item.DisplayName))
+                if (!ConfirmTeachPosition("Front Picker Teach", item.DisplayName, BuildCommonTeachDetail(item)))
                     return;
 
                 TeachSelectedPosition(e.Item.Key);
@@ -859,7 +940,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             PositionItem item = positionItems[key];
-            await ConfirmMoveToPositionAsync(item.DisplayName, delegate { return MovePickerTeachingPositionAsync(item.Axis, item.PositionName); }, item.Axis);
+            PickerAxis axis = ResolveActionAxis(item);
+            await ConfirmMoveToPositionAsync(ResolveActionDisplayName(item), delegate { return MovePickerTeachingPositionAsync(axis, item.PositionName); }, axis);
         }
 
         private Task<int> MovePickerTeachingPositionAsync(PickerAxis axis, string positionName)
@@ -1409,12 +1491,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             PositionItem item = positionItems[key];
-            unit.TeachPickerAxisPosition(item.Axis, item.PositionName);
-            SaveCurrentRecipeData();
+            unit.TeachPickerAxisPosition(ResolveActionAxis(item), item.PositionName);
+            // 값이 실제로 기록되는 스코프로 저장한다. Config 티칭을 Recipe 저장 경로로 보내면
+            // 파일에 내려가지 않아 비정상 종료 시 티칭 결과가 사라진다.
+            if (item.Scope == ParameterGridScope.Recipe)
+                SaveCurrentRecipeData();
+            else
+                SaveCurrentSettingsData();
             RefreshView();
         }
 
-        private bool ConfirmTeachPosition(string title, string actionName)
+        private bool ConfirmTeachPosition(string title, string actionName, string extraLines = null)
         {
             string name = string.IsNullOrWhiteSpace(actionName) ? "Teach Position" : actionName;
             using (var dialog = new QMC.Common.MessageBoxYesNo())
@@ -1422,7 +1509,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 dialog.ButtonGroupLabel = "TEACH";
                 DialogResult result = dialog.ShowDialog(
                     title,
-                    name + " 현재 위치로 티칭하시겠습니까?",
+                    name + " 현재 위치로 티칭하시겠습니까?" +
+                        (string.IsNullOrEmpty(extraLines) ? string.Empty : Environment.NewLine + Environment.NewLine + extraLines),
                     this,
                     new[] { "Yes", "No" });
 
@@ -1712,69 +1800,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             lblVisionInfo3.Text = "SIDE VISION 2" + Environment.NewLine + body;
         }
 
-        private void SetPosition(PickerAxis axis, string positionName, double value)
-        {
-            PickerAxisPositionSet set = GetPositionSet(axis);
-            if (set == null || string.IsNullOrWhiteSpace(positionName))
-                return;
-
-            if (positionName == "InputAvoidPosition") set.InputAvoidPosition = value;
-            else if (positionName == "OutputAvoidPosition") set.OutputAvoidPosition = value;
-            else if (positionName == "AvoidPosition") set.AvoidPosition = value;
-            else if (positionName == "PickPosition") set.PickPosition = value;
-            else if (positionName == "BottomPosition") set.BottomPosition = value;
-            else if (positionName == "SidePosition") set.SidePosition = value;
-            else if (positionName == "PlacePosition") set.PlacePosition = value;
-            else if (positionName.StartsWith("DiePickPosition", StringComparison.OrdinalIgnoreCase)) set.DiePickPosition = SetIndexed(set.DiePickPosition, ExtractIndex(positionName), value);
-            else if (positionName.StartsWith("DieBottomPosition", StringComparison.OrdinalIgnoreCase)) set.DieBottomPosition = SetIndexed(set.DieBottomPosition, ExtractIndex(positionName), value);
-            else if (positionName.StartsWith("DieSidePosition", StringComparison.OrdinalIgnoreCase)) set.DieSidePosition = SetIndexed(set.DieSidePosition, ExtractIndex(positionName), value);
-            else if (positionName.StartsWith("DiePlacePosition", StringComparison.OrdinalIgnoreCase)) set.DiePlacePosition = SetIndexed(set.DiePlacePosition, ExtractIndex(positionName), value);
-        }
-
-        private PickerAxisPositionSet GetPositionSet(PickerAxis axis)
-        {
-            if (axis == PickerAxis.PickerX) return unit.Config.PickerX;
-            if (axis == PickerAxis.PickerY) return unit.Config.PickerY;
-            if (axis == PickerAxis.PickerT0) return unit.Config.PickerT0;
-            if (axis == PickerAxis.PickerT1) return unit.Config.PickerT1;
-            if (axis == PickerAxis.PickerT2) return unit.Config.PickerT2;
-            if (axis == PickerAxis.PickerT3) return unit.Config.PickerT3;
-            if (axis == PickerAxis.PickerZ1) return unit.Config.PickerZ1;
-            if (axis == PickerAxis.PickerZ2) return unit.Config.PickerZ2;
-            if (axis == PickerAxis.PickerZ3) return unit.Config.PickerZ3;
-            return unit.Config.PickerZ0;
-        }
-
         private BaseAxis GetAxis(PickerAxis axis)
         {
             BaseAxis item;
             return unit != null && unit.Axes.TryGetValue(axis, out item) ? item : null;
-        }
-
-        private static double[] SetIndexed(double[] values, int index, double value)
-        {
-            if (index < 0)
-                return values;
-            if (values == null)
-                values = new double[index + 1];
-            if (values.Length <= index)
-            {
-                double[] next = new double[index + 1];
-                Array.Copy(values, next, values.Length);
-                values = next;
-            }
-            values[index] = value;
-            return values;
-        }
-
-        private static int ExtractIndex(string name)
-        {
-            int start = name.IndexOf('[');
-            int end = name.IndexOf(']');
-            if (start < 0 || end <= start)
-                return -1;
-            int index;
-            return int.TryParse(name.Substring(start + 1, end - start - 1), out index) ? index : -1;
         }
 
         private static bool IsTheta(PickerAxis axis)

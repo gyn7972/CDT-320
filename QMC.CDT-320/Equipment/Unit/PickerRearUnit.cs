@@ -2535,6 +2535,11 @@ namespace QMC.CDT320
 
         public double GetPickerTeachingPosition(PickerAxis axis, string positionName)
         {
+            // 픽커 T는 4개 픽커·양 헤드가 레시피 공통값 하나를 쓴다.
+            double commonT;
+            if (PickerCommonTeachingT.TryGet(axis, positionName, out commonT))
+                return commonT;
+
             PickerAxisPositionSet set = GetPositionSet(axis);
             if (positionName == "InputAvoidPosition") return set.InputAvoidPosition;
             if (positionName == "OutputAvoidPosition") return set.OutputAvoidPosition;
@@ -3476,6 +3481,9 @@ namespace QMC.CDT320
 
         private void SetPickerTeachingPosition(PickerAxis axis, string positionName, double position)
         {
+            if (PickerCommonTeachingT.TrySet(axis, positionName, position))
+                return;
+
             PickerAxisPositionSet set = GetPositionSet(axis);
             if (positionName == "InputAvoidPosition") set.InputAvoidPosition = position;
             else if (positionName == "OutputAvoidPosition") set.OutputAvoidPosition = position;

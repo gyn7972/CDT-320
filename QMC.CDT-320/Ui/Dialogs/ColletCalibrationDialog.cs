@@ -2090,7 +2090,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 double pickerPitchX = ResolvePickerPitchXMagnitude(machine);
                 double bottomPicker1X = bottomTeachingX + (pickerPitchX * 3.0);
                 double sideTeachingX = bottomPicker1X + pickerPitchX;
-                double baseBottomT = GetSelectedPickerTeachingPosition(machine, tAxisKind, "BottomPosition");
+                // 캘 지점이 곧 0도가 되므로(SetPosition(0.0)) T 0점 기준각은 공정 티칭각이 아니라 항상 0이다.
+                const double baseBottomT = 0.0;
                 double activeTPcHomeOffset = ResolvePickerTPcHomeOffset(tAxis);
                 double tZeroResidual = actualT - baseBottomT;
                 double tZeroHomeOffset = activeTPcHomeOffset + tZeroResidual;

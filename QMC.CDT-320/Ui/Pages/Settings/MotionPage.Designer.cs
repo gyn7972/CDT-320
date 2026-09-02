@@ -40,7 +40,6 @@
         private QMC.CDT_320.Ui.Controls.ActionButton btnHome;
         private QMC.CDT_320.Ui.Controls.ActionButton btnAllStop;
         private QMC.CDT_320.Ui.Controls.ActionButton btnAlarmClear;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnAllServoOff;
         private QMC.CDT_320.Ui.Controls.ActionButton btnServoOn;
         private QMC.CDT_320.Ui.Controls.ActionButton btnServoOff;
         private QMC.CDT_320.Ui.Controls.ActionButton btnParaLoad;
@@ -131,7 +130,6 @@
             this.btnHome = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnAllStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnAlarmClear = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnAllServoOff = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnServoOn = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnServoOff = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnParaLoad = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -943,13 +941,12 @@
             this.actionsPanel.Controls.Add(this.btnHome, 0, 0);
             this.actionsPanel.Controls.Add(this.btnAllStop, 1, 0);
             this.actionsPanel.Controls.Add(this.btnAlarmClear, 2, 0);
-            this.actionsPanel.Controls.Add(this.btnAllServoOff, 3, 0);
-            this.actionsPanel.Controls.Add(this.btnServoOn, 4, 0);
-            this.actionsPanel.Controls.Add(this.btnServoOff, 5, 0);
-            this.actionsPanel.Controls.Add(this.btnParaLoad, 6, 0);
-            this.actionsPanel.Controls.Add(this.btnParaSave, 7, 0);
-            this.actionsPanel.Controls.Add(this.btnBoardScan, 8, 0);
-            this.actionsPanel.Controls.Add(this.btnMotionTest, 9, 0);
+            this.actionsPanel.Controls.Add(this.btnServoOn, 3, 0);
+            this.actionsPanel.Controls.Add(this.btnServoOff, 4, 0);
+            this.actionsPanel.Controls.Add(this.btnParaLoad, 5, 0);
+            this.actionsPanel.Controls.Add(this.btnParaSave, 6, 0);
+            this.actionsPanel.Controls.Add(this.btnBoardScan, 7, 0);
+            this.actionsPanel.Controls.Add(this.btnMotionTest, 8, 0);
             this.actionsPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionsPanel.Location = new System.Drawing.Point(1, 29);
             this.actionsPanel.Margin = new System.Windows.Forms.Padding(0);
@@ -1015,25 +1012,6 @@
             this.btnAlarmClear.TabIndex = 4;
             this.btnAlarmClear.Text = "ALARM CLEAR";
             this.btnAlarmClear.Click += new System.EventHandler(this.btnAlarmClear_Click);
-            // 
-            // btnAllServoOff
-            // 
-            this.btnAllServoOff.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnAllServoOff.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
-            this.btnAllServoOff.BadgeText = "ACTION";
-            this.btnAllServoOff.BorderColor = System.Drawing.Color.Empty;
-            this.btnAllServoOff.BorderWidth = 0;
-            this.btnAllServoOff.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnAllServoOff.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAllServoOff.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnAllServoOff.ForeColor = System.Drawing.Color.White;
-            this.btnAllServoOff.Location = new System.Drawing.Point(358, 8);
-            this.btnAllServoOff.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
-            this.btnAllServoOff.Name = "btnAllServoOff";
-            this.btnAllServoOff.Size = new System.Drawing.Size(110, 40);
-            this.btnAllServoOff.TabIndex = 5;
-            this.btnAllServoOff.Text = "ALL SERVO OFF";
-            this.btnAllServoOff.Click += new System.EventHandler(this.btnAllServoOff_Click);
             // 
             // btnServoOn
             // 
