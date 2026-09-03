@@ -1654,8 +1654,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 QMC.Common.Log.Write("Calibration", GetUserName(), "VisionCameraCalFormulaOffset",
                     "Vision Camera Calibration Offset 수식. " +
-                    "Bottom-Input X = -(BottomMmX + InputMmX) = -(" + data.BottomReticle.MmX.ToString("F6") + " + " + data.InputReticle.MmX.ToString("F6") + ") = " + data.InputToBottomOffsetX.ToString("F6") + " mm(PickBridge), " +
-                    "Bottom-Input Y = -(BottomMmY + InputMmY) = -(" + data.BottomReticle.MmY.ToString("F6") + " + " + data.InputReticle.MmY.ToString("F6") + ") = " + data.InputToBottomOffsetY.ToString("F6") + " mm(PickBridge), " +
+                    "Bottom-Input X = BottomMmX - InputMmX = (" + data.BottomReticle.MmX.ToString("F6") + " - " + data.InputReticle.MmX.ToString("F6") + ") = " + data.InputToBottomOffsetX.ToString("F6") + " mm(PickBridge), " +
+                    "Bottom-Input Y = BottomMmY - InputMmY = (" + data.BottomReticle.MmY.ToString("F6") + " - " + data.InputReticle.MmY.ToString("F6") + ") = " + data.InputToBottomOffsetY.ToString("F6") + " mm(PickBridge), " +
                     "Bottom-Output X = -(BottomMmX + OutputMmX) = -(" + data.BottomReticle.MmX.ToString("F6") + " + " + data.OutputReticle.MmX.ToString("F6") + ") = " + data.OutputToBottomOffsetX.ToString("F6") + " mm(PlaceBridge), " +
                     "Bottom-Output Y = -(BottomMmY + OutputMmY) = -(" + data.BottomReticle.MmY.ToString("F6") + " + " + data.OutputReticle.MmY.ToString("F6") + ") = " + data.OutputToBottomOffsetY.ToString("F6") + " mm(PlaceBridge)");
             }

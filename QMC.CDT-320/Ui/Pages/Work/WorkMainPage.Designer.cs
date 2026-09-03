@@ -39,6 +39,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Label lblTotalChip;
         private Label lblBinNumCaption;
         private Label lblBinNum;
+        private Panel mapHeaderOutputGoodTile;
+        private Label lblOutputGoodCaption;
+        private Label lblOutputGood;
+        private Panel mapHeaderOutputNgTile;
+        private Label lblOutputNgCaption;
+        private Label lblOutputNg;
         private Label lblVisionCaption;
         private Label lblPickCaption;
         private Label lblPlaceCaption;
@@ -179,6 +185,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapHeaderBinTile = new System.Windows.Forms.Panel();
             this.lblBinNum = new System.Windows.Forms.Label();
             this.lblBinNumCaption = new System.Windows.Forms.Label();
+            this.mapHeaderOutputGoodTile = new System.Windows.Forms.Panel();
+            this.lblOutputGood = new System.Windows.Forms.Label();
+            this.lblOutputGoodCaption = new System.Windows.Forms.Label();
+            this.mapHeaderOutputNgTile = new System.Windows.Forms.Panel();
+            this.lblOutputNg = new System.Windows.Forms.Label();
+            this.lblOutputNgCaption = new System.Windows.Forms.Label();
             this.mapLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lotMapView = new QMC.CDT_320.Ui.Controls.LiveLotMapView();
             this.outputGoodLotMapView = new QMC.CDT_320.Ui.Controls.LiveLotMapView();
@@ -308,6 +320,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapHeaderLayout.SuspendLayout();
             this.mapHeaderTotalTile.SuspendLayout();
             this.mapHeaderBinTile.SuspendLayout();
+            this.mapHeaderOutputGoodTile.SuspendLayout();
+            this.mapHeaderOutputNgTile.SuspendLayout();
             this.mapLayout.SuspendLayout();
             this.grpInfo.SuspendLayout();
             this.workInfoBody.SuspendLayout();
@@ -618,11 +632,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
             // mapHeaderLayout
             // 
             this.mapHeaderLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(245)))));
-            this.mapHeaderLayout.ColumnCount = 2;
-            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.mapHeaderLayout.ColumnCount = 4;
+            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.mapHeaderLayout.Controls.Add(this.mapHeaderTotalTile, 0, 0);
             this.mapHeaderLayout.Controls.Add(this.mapHeaderBinTile, 1, 0);
+            this.mapHeaderLayout.Controls.Add(this.mapHeaderOutputGoodTile, 2, 0);
+            this.mapHeaderLayout.Controls.Add(this.mapHeaderOutputNgTile, 3, 0);
             this.mapHeaderLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mapHeaderLayout.Location = new System.Drawing.Point(0, 0);
             this.mapHeaderLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -643,7 +661,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapHeaderTotalTile.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
             this.mapHeaderTotalTile.Name = "mapHeaderTotalTile";
             this.mapHeaderTotalTile.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
-            this.mapHeaderTotalTile.Size = new System.Drawing.Size(403, 30);
+            this.mapHeaderTotalTile.Size = new System.Drawing.Size(200, 30);
             this.mapHeaderTotalTile.TabIndex = 0;
             // 
             // lblTotalChip
@@ -655,7 +673,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblTotalChip.Location = new System.Drawing.Point(8, 12);
             this.lblTotalChip.Margin = new System.Windows.Forms.Padding(0);
             this.lblTotalChip.Name = "lblTotalChip";
-            this.lblTotalChip.Size = new System.Drawing.Size(385, 16);
+            this.lblTotalChip.Size = new System.Drawing.Size(182, 16);
             this.lblTotalChip.TabIndex = 1;
             this.lblTotalChip.Text = "0";
             this.lblTotalChip.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -669,7 +687,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblTotalChipCaption.Location = new System.Drawing.Point(8, 0);
             this.lblTotalChipCaption.Margin = new System.Windows.Forms.Padding(0);
             this.lblTotalChipCaption.Name = "lblTotalChipCaption";
-            this.lblTotalChipCaption.Size = new System.Drawing.Size(385, 12);
+            this.lblTotalChipCaption.Size = new System.Drawing.Size(182, 12);
             this.lblTotalChipCaption.TabIndex = 0;
             this.lblTotalChipCaption.Text = "TOTAL CHIP";
             this.lblTotalChipCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -681,11 +699,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapHeaderBinTile.Controls.Add(this.lblBinNum);
             this.mapHeaderBinTile.Controls.Add(this.lblBinNumCaption);
             this.mapHeaderBinTile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapHeaderBinTile.Location = new System.Drawing.Point(409, 1);
+            this.mapHeaderBinTile.Location = new System.Drawing.Point(206, 1);
             this.mapHeaderBinTile.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
             this.mapHeaderBinTile.Name = "mapHeaderBinTile";
             this.mapHeaderBinTile.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
-            this.mapHeaderBinTile.Size = new System.Drawing.Size(404, 30);
+            this.mapHeaderBinTile.Size = new System.Drawing.Size(200, 30);
             this.mapHeaderBinTile.TabIndex = 1;
             // 
             // lblBinNum
@@ -697,7 +715,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBinNum.Location = new System.Drawing.Point(8, 12);
             this.lblBinNum.Margin = new System.Windows.Forms.Padding(0);
             this.lblBinNum.Name = "lblBinNum";
-            this.lblBinNum.Size = new System.Drawing.Size(386, 16);
+            this.lblBinNum.Size = new System.Drawing.Size(182, 16);
             this.lblBinNum.TabIndex = 3;
             this.lblBinNum.Text = "--";
             this.lblBinNum.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -711,10 +729,94 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBinNumCaption.Location = new System.Drawing.Point(8, 0);
             this.lblBinNumCaption.Margin = new System.Windows.Forms.Padding(0);
             this.lblBinNumCaption.Name = "lblBinNumCaption";
-            this.lblBinNumCaption.Size = new System.Drawing.Size(386, 12);
+            this.lblBinNumCaption.Size = new System.Drawing.Size(182, 12);
             this.lblBinNumCaption.TabIndex = 2;
             this.lblBinNumCaption.Text = "CURRENT BIN";
             this.lblBinNumCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // mapHeaderOutputGoodTile
+            //
+            this.mapHeaderOutputGoodTile.BackColor = System.Drawing.Color.White;
+            this.mapHeaderOutputGoodTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.mapHeaderOutputGoodTile.Controls.Add(this.lblOutputGood);
+            this.mapHeaderOutputGoodTile.Controls.Add(this.lblOutputGoodCaption);
+            this.mapHeaderOutputGoodTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.mapHeaderOutputGoodTile.Location = new System.Drawing.Point(410, 1);
+            this.mapHeaderOutputGoodTile.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
+            this.mapHeaderOutputGoodTile.Name = "mapHeaderOutputGoodTile";
+            this.mapHeaderOutputGoodTile.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
+            this.mapHeaderOutputGoodTile.Size = new System.Drawing.Size(200, 30);
+            this.mapHeaderOutputGoodTile.TabIndex = 2;
+            //
+            // lblOutputGood
+            //
+            this.lblOutputGood.BackColor = System.Drawing.Color.Transparent;
+            this.lblOutputGood.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblOutputGood.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblOutputGood.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this.lblOutputGood.Location = new System.Drawing.Point(8, 12);
+            this.lblOutputGood.Margin = new System.Windows.Forms.Padding(0);
+            this.lblOutputGood.Name = "lblOutputGood";
+            this.lblOutputGood.Size = new System.Drawing.Size(182, 16);
+            this.lblOutputGood.TabIndex = 1;
+            this.lblOutputGood.Text = "- / -";
+            this.lblOutputGood.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // lblOutputGoodCaption
+            //
+            this.lblOutputGoodCaption.BackColor = System.Drawing.Color.Transparent;
+            this.lblOutputGoodCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblOutputGoodCaption.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
+            this.lblOutputGoodCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(85)))));
+            this.lblOutputGoodCaption.Location = new System.Drawing.Point(8, 0);
+            this.lblOutputGoodCaption.Margin = new System.Windows.Forms.Padding(0);
+            this.lblOutputGoodCaption.Name = "lblOutputGoodCaption";
+            this.lblOutputGoodCaption.Size = new System.Drawing.Size(182, 12);
+            this.lblOutputGoodCaption.TabIndex = 0;
+            this.lblOutputGoodCaption.Text = "OUTPUT GOOD";
+            this.lblOutputGoodCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // mapHeaderOutputNgTile
+            //
+            this.mapHeaderOutputNgTile.BackColor = System.Drawing.Color.White;
+            this.mapHeaderOutputNgTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.mapHeaderOutputNgTile.Controls.Add(this.lblOutputNg);
+            this.mapHeaderOutputNgTile.Controls.Add(this.lblOutputNgCaption);
+            this.mapHeaderOutputNgTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.mapHeaderOutputNgTile.Location = new System.Drawing.Point(614, 1);
+            this.mapHeaderOutputNgTile.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
+            this.mapHeaderOutputNgTile.Name = "mapHeaderOutputNgTile";
+            this.mapHeaderOutputNgTile.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
+            this.mapHeaderOutputNgTile.Size = new System.Drawing.Size(199, 30);
+            this.mapHeaderOutputNgTile.TabIndex = 3;
+            //
+            // lblOutputNg
+            //
+            this.lblOutputNg.BackColor = System.Drawing.Color.Transparent;
+            this.lblOutputNg.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblOutputNg.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblOutputNg.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this.lblOutputNg.Location = new System.Drawing.Point(8, 12);
+            this.lblOutputNg.Margin = new System.Windows.Forms.Padding(0);
+            this.lblOutputNg.Name = "lblOutputNg";
+            this.lblOutputNg.Size = new System.Drawing.Size(181, 16);
+            this.lblOutputNg.TabIndex = 1;
+            this.lblOutputNg.Text = "- / -";
+            this.lblOutputNg.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // lblOutputNgCaption
+            //
+            this.lblOutputNgCaption.BackColor = System.Drawing.Color.Transparent;
+            this.lblOutputNgCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblOutputNgCaption.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
+            this.lblOutputNgCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(85)))));
+            this.lblOutputNgCaption.Location = new System.Drawing.Point(8, 0);
+            this.lblOutputNgCaption.Margin = new System.Windows.Forms.Padding(0);
+            this.lblOutputNgCaption.Name = "lblOutputNgCaption";
+            this.lblOutputNgCaption.Size = new System.Drawing.Size(181, 12);
+            this.lblOutputNgCaption.TabIndex = 0;
+            this.lblOutputNgCaption.Text = "OUTPUT NG";
+            this.lblOutputNgCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // mapLayout
             //
@@ -2266,6 +2368,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapHeaderLayout.ResumeLayout(false);
             this.mapHeaderTotalTile.ResumeLayout(false);
             this.mapHeaderBinTile.ResumeLayout(false);
+            this.mapHeaderOutputGoodTile.ResumeLayout(false);
+            this.mapHeaderOutputNgTile.ResumeLayout(false);
             this.mapLayout.ResumeLayout(false);
             this.grpInfo.ResumeLayout(false);
             this.workInfoBody.ResumeLayout(false);

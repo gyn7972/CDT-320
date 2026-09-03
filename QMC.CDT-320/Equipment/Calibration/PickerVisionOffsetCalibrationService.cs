@@ -144,27 +144,27 @@ namespace QMC.CDT320.Calibration
                 return false;
             }
 
-            // 저장 Input/OutputToBottomOffset은 새 브리지 정의 -(Bottom.Mm + 해당카메라.Mm)로 계산돼 있어야 한다.
-            // 구(舊)정의(Bottom.Mm - 카메라.Mm)로 저장된 상태에서 가산하면 상수 오차가 생기므로 여기서 차단한다.
+            // 저장 Input/OutputToBottomOffset은 VisionCameraCalibrationData의 브리지 산식으로 계산돼 있어야 한다.
+            // 산식이 바뀐 뒤 CALC/SAVE를 안 한 상태로 가산하면 상수 오차가 생기므로 여기서 차단한다.
             const double toleranceMm = 0.001;
-            double inputBridgeX = -(camera.BottomReticle.MmX + camera.InputReticle.MmX);
-            double inputBridgeY = -(camera.BottomReticle.MmY + camera.InputReticle.MmY);
+            double inputBridgeX = camera.ResolveInputBridgeX();
+            double inputBridgeY = camera.ResolveInputBridgeY();
             if (Math.Abs(inputBridgeX - camera.InputToBottomOffsetX) > toleranceMm ||
                 Math.Abs(inputBridgeY - camera.InputToBottomOffsetY) > toleranceMm)
             {
-                reason = "stored InputToBottomOffset is not the pick-bridge value -(BottomMm+InputMm). expectedBridge=(" +
+                reason = "stored InputToBottomOffset is not the current pick-bridge value. expectedBridge=(" +
                          inputBridgeX.ToString("F6") + "," + inputBridgeY.ToString("F6") + "), storedOffset=(" +
                          camera.InputToBottomOffsetX.ToString("F6") + "," + camera.InputToBottomOffsetY.ToString("F6") +
                          ") — 구버전 산식 값입니다. Vision Camera Calibration(CALC/SAVE)을 다시 실행하세요.";
                 return false;
             }
 
-            double outputBridgeX = -(camera.BottomReticle.MmX + camera.OutputReticle.MmX);
-            double outputBridgeY = -(camera.BottomReticle.MmY + camera.OutputReticle.MmY);
+            double outputBridgeX = camera.ResolveOutputBridgeX();
+            double outputBridgeY = camera.ResolveOutputBridgeY();
             if (Math.Abs(outputBridgeX - camera.OutputToBottomOffsetX) > toleranceMm ||
                 Math.Abs(outputBridgeY - camera.OutputToBottomOffsetY) > toleranceMm)
             {
-                reason = "stored OutputToBottomOffset is not the place-bridge value -(BottomMm+OutputMm). expectedBridge=(" +
+                reason = "stored OutputToBottomOffset is not the current place-bridge value. expectedBridge=(" +
                          outputBridgeX.ToString("F6") + "," + outputBridgeY.ToString("F6") + "), storedOffset=(" +
                          camera.OutputToBottomOffsetX.ToString("F6") + "," + camera.OutputToBottomOffsetY.ToString("F6") +
                          ") — 구버전 산식 값입니다. Vision Camera Calibration(CALC/SAVE)을 다시 실행하세요.";

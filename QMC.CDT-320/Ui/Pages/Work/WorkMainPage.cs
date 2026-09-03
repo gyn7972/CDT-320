@@ -1058,6 +1058,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 ? material.CurrentInputProcessedCount + " / " + material.CurrentInputTargetCount
                 : "0";
             snap.BinNum = currBin >= 0 ? currBin.ToString() : "--";
+            snap.OutputGood = FormatOutputStageCount(material.OutputGoodPlacedCount, material.OutputGoodTotalCount);
+            snap.OutputNg = FormatOutputStageCount(material.OutputNgPlacedCount, material.OutputNgTotalCount);
             snap.StageInfo =
                 "STAGE\r\nTOTAL : " + total +
                 "\r\nGOOD : " + good +
@@ -1252,6 +1254,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             SetText(lblTotalChip, s.TotalChip);
             SetText(lblBinNum, s.BinNum);
+            SetText(lblOutputGood, s.OutputGood);
+            SetText(lblOutputNg, s.OutputNg);
             SetText(lblProject, s.Project);
             SetText(lblPickFail, s.PickFail);
             SetText(lblPlaceFail, s.PlaceFail);
@@ -1301,6 +1305,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             text = text ?? string.Empty;
             if (!string.Equals(control.Text, text, StringComparison.Ordinal))
                 control.Text = text;
+        }
+
+        private static string FormatOutputStageCount(int placed, int total)
+        {
+            return total > 0 ? placed + " / " + total : "- / -";
         }
 
         private static void SetTextArray(Label[] labels, string[] values)
@@ -1449,6 +1458,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
 
             ApplyOutputReceiveSlotFallback(state, display);
+            AccumulateOutputStageReceiveCount(state, MaterialLocationKind.OutputStageGood, out display.OutputGoodPlacedCount, out display.OutputGoodTotalCount);
+            AccumulateOutputStageReceiveCount(state, MaterialLocationKind.OutputStageNg, out display.OutputNgPlacedCount, out display.OutputNgTotalCount);
         }
 
         private static WaferMaterial ResolveCurrentInputStageWafer(MaterialSnapshot state)
@@ -1612,6 +1623,68 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 display.ProcessedCount = slotProcessed;
         }
 
+        // 출력 스테이지 웨이퍼는 GetWaferAtLocation과 같은 술어(위치 일치 + 비Empty, 첫 항목)로 골라 맵 캡션과 일치시킨다.
+        private static WaferMaterial ResolveOutputStageWafer(MaterialSnapshot state, MaterialLocationKind stageKind)
+        {
+            if (state == null || state.Wafers == null)
+                return null;
+
+            foreach (WaferMaterial wafer in state.Wafers)
+            {
+                if (wafer != null &&
+                    wafer.CurrentLocation != null &&
+                    wafer.CurrentLocation.Kind == stageKind &&
+                    WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Empty)
+                {
+                    return wafer;
+                }
+            }
+
+            return null;
+        }
+
+        // placed/total은 시퀀스 완료 판정(IsOutputReceiveSlotPending)과 같은 슬롯 기준이다.
+        // 대상 슬롯이 없으면 수령 계획 총수와 안착 다이 ID 수로 대체한다(시퀀스 폴백과 동일).
+        private static void AccumulateOutputStageReceiveCount(
+            MaterialSnapshot state,
+            MaterialLocationKind stageKind,
+            out int placed,
+            out int total)
+        {
+            placed = 0;
+            total = 0;
+
+            WaferMaterial wafer = ResolveOutputStageWafer(state, stageKind);
+            if (wafer == null)
+                return;
+
+            if (wafer.OutputReceiveSlots != null)
+            {
+                foreach (OutputReceiveSlotMaterial slot in wafer.OutputReceiveSlots)
+                {
+                    if (slot == null || !slot.IsTarget)
+                        continue;
+
+                    total++;
+                    if (slot.Result != DieResult.Unknown || !string.IsNullOrWhiteSpace(slot.DieUid))
+                        placed++;
+                }
+            }
+
+            if (total > 0)
+                return;
+
+            total = wafer.OutputReceiveTotalCount;
+            if (wafer.DieIds != null)
+            {
+                foreach (string dieId in wafer.DieIds)
+                {
+                    if (!string.IsNullOrWhiteSpace(dieId))
+                        placed++;
+                }
+            }
+        }
+
         private static bool IsOutputLocation(MaterialLocation location)
         {
             if (location == null)
@@ -1699,6 +1772,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             public string TotalChip;
             public string BinNum;
+            public string OutputGood;
+            public string OutputNg;
             public string StageInfo;
             public string Live;
             public string Project;
@@ -1737,6 +1812,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             public int CurrentBinCode = -1;
             public int CurrentInputTargetCount;
             public int CurrentInputProcessedCount;
+            public int OutputGoodPlacedCount;
+            public int OutputGoodTotalCount;
+            public int OutputNgPlacedCount;
+            public int OutputNgTotalCount;
             public string LotId = string.Empty;
         }
     }

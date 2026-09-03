@@ -204,6 +204,31 @@ namespace QMC.CDT320.Calibration
             }
         }
 
+        // 카메라 브리지 산식은 여기서만 정의한다. Calculate와 소비처 정합 검사가 같은 식을 써야
+        // 한쪽만 바뀌어 "구버전 산식"으로 차단되는 상태가 생기지 않는다.
+        // 레티클을 두 카메라의 공통 기준점으로 놓으면 브리지는 두 측정값의 차다.
+        // Mm은 PixelToMmOffsetX/Y가 이미 기계 프레임으로 환산한 값이라 여기서 부호를 다시 뒤집지 않는다.
+        public double ResolveInputBridgeX()
+        {
+            return BottomReticle.MmX - InputReticle.MmX;
+        }
+
+        public double ResolveInputBridgeY()
+        {
+            return BottomReticle.MmY - InputReticle.MmY;
+        }
+
+        // Output은 실측 검증 전이라 기존 식을 유지한다.
+        public double ResolveOutputBridgeX()
+        {
+            return -(BottomReticle.MmX + OutputReticle.MmX);
+        }
+
+        public double ResolveOutputBridgeY()
+        {
+            return -(BottomReticle.MmY + OutputReticle.MmY);
+        }
+
         public bool Calculate(string updatedBy)
         {
             EnsureObjects();
@@ -213,15 +238,10 @@ namespace QMC.CDT320.Calibration
                 return false;
             }
 
-            // 카메라 브리지: 레티클을 두 카메라의 공통 기준점으로 놓고 콜렛계(Bottom)를 스테이션 카메라계로 옮기는 상수.
-            // 레티클의 위치를 각 카메라계에서 쓰면 브리지는 두 측정값의 차(Bottom.Mm - 해당카메라.Mm)가 된다.
-            // Mm은 PixelToMmOffsetX/Y가 이미 기계 프레임으로 환산한 값이므로 여기서 부호를 다시 뒤집지 않는다.
-            // 소비처(PickerVisionOffsetCalibrationService)는 이 값을 변환 없이 그대로 가산(+)한다.
-            InputToBottomOffsetX = BottomReticle.MmX - InputReticle.MmX;
-            InputToBottomOffsetY = BottomReticle.MmY - InputReticle.MmY;
-            // Output은 실측 검증 전이라 기존 식을 유지한다.
-            OutputToBottomOffsetX = -(BottomReticle.MmX + OutputReticle.MmX);
-            OutputToBottomOffsetY = -(BottomReticle.MmY + OutputReticle.MmY);
+            InputToBottomOffsetX = ResolveInputBridgeX();
+            InputToBottomOffsetY = ResolveInputBridgeY();
+            OutputToBottomOffsetX = ResolveOutputBridgeX();
+            OutputToBottomOffsetY = ResolveOutputBridgeY();
             UpdatedAt = DateTime.Now;
             UpdatedBy = updatedBy ?? string.Empty;
             Valid = true;
