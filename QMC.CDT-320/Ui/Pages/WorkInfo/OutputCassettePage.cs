@@ -1233,8 +1233,44 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Row("Cassette Slot", wafer != null && wafer.SourceSlotNumber >= 0 ? (wafer.SourceSlotNumber + 1).ToString("00") : ""),
                 Row("Cassette Position", wafer != null ? FormatCassettePosition(wafer.CurrentCassetteSlotPosition) : ""),
                 Row("TapeFrame Spec", wafer != null ? wafer.TapeFrameSpecName : "", "TapeFrameSpecName", mapped),
+                // 수납 목표 수량: 로딩 전(카세트 안 READY) Bin에만 편집을 연다. 로딩된 Bin은 계획이 이미 잡혀 있어 대상이 아니다.
+                Row("Work Qty", BuildOutputReceiveTargetText(wafer), "OutputReceiveTargetCount", CanEditOutputReceiveTarget(cassette, wafer)),
                 Row("Updated", wafer != null ? wafer.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss") : "")
             };
+        }
+
+        // 지정값이 있으면 그 수, 없으면 FINAL APPLY된 빈맵의 계획 슬롯 수를 "전량"으로 보여준다.
+        private string BuildOutputReceiveTargetText(WaferMaterial wafer)
+        {
+            if (wafer == null)
+                return "";
+            if (wafer.OutputReceiveTargetCount > 0)
+                return wafer.OutputReceiveTargetCount.ToString();
+
+            int capacity;
+            BinSide side = _selectedCassetteRole == CassetteMaterialRole.Ng1 ? BinSide.Ng : BinSide.Good;
+            return MaterialStateService.TryGetOutputReceivePlanCapacity(side, out capacity)
+                ? capacity + " (전량)"
+                : "전량";
+        }
+
+        private static bool CanEditOutputReceiveTarget(CassetteMaterial cassette, WaferMaterial wafer)
+        {
+            return cassette != null && cassette.IsMapped &&
+                   wafer != null &&
+                   WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Ready &&
+                   wafer.CurrentLocation != null &&
+                   wafer.CurrentLocation.Kind == MaterialLocationKind.OutputCassette;
+        }
+
+        // "1142 (전량)" 같은 표시 문자열에서 앞자리 정수만 돌려준다(편집 창 초기값).
+        private static string LeadingInteger(string text)
+        {
+            string value = text ?? string.Empty;
+            int end = 0;
+            while (end < value.Length && char.IsDigit(value[end]))
+                end++;
+            return value.Substring(0, end);
         }
 
         private void MaterialDetailView_EditRequested(object sender, MaterialDetailEditEventArgs e)
@@ -1339,6 +1375,53 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         return;
                     }
                 }
+                else if (e.Row.Key == "OutputReceiveTargetCount")
+                {
+                    int targetCount;
+                    if (!int.TryParse(newValue, out targetCount) || targetCount < 0)
+                    {
+                        QMC.Common.MessageDialog.Show(this,
+                            "수납 목표 수량은 0 이상의 정수여야 합니다. (0 = 맵 전량)",
+                            "Material", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    var slot = cassette.Slots != null &&
+                               _selectedMaterialSlot >= 0 &&
+                               _selectedMaterialSlot < cassette.Slots.Count
+                        ? cassette.Slots[_selectedMaterialSlot]
+                        : null;
+                    var targetWafer = ResolveCassetteSlotWafer(snapshot, _selectedCassetteRole, _selectedMaterialSlot, slot);
+                    if (targetWafer == null)
+                    {
+                        QMC.Common.MessageDialog.Show(this,
+                            "이 Slot에는 Material 데이터가 없습니다.\r\nDATA CREATE로 먼저 생성한 뒤 수량을 입력하십시오.",
+                            "Material", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    string reason;
+                    ok = MaterialStateService.SetOutputReceiveTargetCount(
+                        targetWafer.WaferId,
+                        targetCount,
+                        QMC.CDT_320.Ui.Security.UserSession.Name,
+                        out reason);
+                    bool persisted = ok && MaterialStateService.TryFlushPendingSave("OutputCassetteReceiveTargetUpdate");
+                    WriteEvent("OUTPUT-CST-RECEIVE-TARGET",
+                        "Bin 수납 목표 수량 변경. material=" + targetWafer.WaferId +
+                        ", role=" + _selectedCassetteRole +
+                        ", slot=" + (_selectedMaterialSlot + 1) +
+                        ", value=" + targetCount + " (0=전량)" +
+                        ", persisted=" + persisted +
+                        ", result=" + ok +
+                        (ok ? "" : ", reason=" + reason));
+                    if (!ok)
+                    {
+                        QMC.Common.MessageDialog.Show(this, "수납 목표 수량을 변경하지 못했습니다.\r\n" + reason,
+                            "Material", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
                 else
                 {
                     ok = MaterialStateService.UpdateWaferFieldInMappedCassette(
@@ -1399,6 +1482,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     if (dialog.ShowDialog(this) != DialogResult.OK)
                         return false;
                     value = dialog.SelectedValue;
+                    return true;
+                }
+            }
+
+            if (row.Key == "OutputReceiveTargetCount")
+            {
+                using (var dialog = new NumericKeypadDialog("Work Qty", LeadingInteger(row.Value), "ea"))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return false;
+                    value = (dialog.ValueText ?? string.Empty).Trim();
                     return true;
                 }
             }

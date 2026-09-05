@@ -899,7 +899,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (string.Equals(state, "REJECT", StringComparison.OrdinalIgnoreCase))
                 return Color.FromArgb(180, 70, 70);
             if (IsDoneState(state))
-                return Color.FromArgb(60, 150, 90);
+                return QMC.CDT_320.Ui.Controls.WaferMapPalette.PickPlace;
             if (state.StartsWith("PICK", StringComparison.OrdinalIgnoreCase))
                 return Color.FromArgb(230, 150, 50);
             if (state.StartsWith("RESERVE", StringComparison.OrdinalIgnoreCase))

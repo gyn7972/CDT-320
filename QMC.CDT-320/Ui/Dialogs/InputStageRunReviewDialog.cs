@@ -815,13 +815,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (entry == null)
                 return Color.DimGray;
             if (chkUseSelectedStart.Checked && ReferenceEquals(entry, _startDie))
-                return Color.FromArgb(245, 190, 52);
+                return QMC.CDT_320.Ui.Controls.WaferMapPalette.StartMarker;
             if (!entry.IsTarget)
-                return Color.FromArgb(90, 90, 90);
+                return QMC.CDT_320.Ui.Controls.WaferMapPalette.Skip;
             if (entry.Result == DieResult.Good)
-                return Color.FromArgb(55, 176, 116);
+                return BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin);
             if (entry.Result == DieResult.NG)
-                return Color.FromArgb(214, 91, 91);
+                return QMC.CDT_320.Ui.Controls.WaferMapPalette.NgFallback;
             // [픽업 BIN 색표시 2026-08-27 팀장님 지시] 검사 전(WAIT) 다이는 BIN별 색으로 구분한다 —
             // BIN 1은 기존 하늘색 유지, 그 외 BIN은 고정 팔레트(값 기준 안정 배정). 검사 결과가
             // 나오면 GOOD/NG 상태색이 우선한다(위 분기 유지).
@@ -829,7 +829,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
 
         // BIN별 WAIT 색 팔레트 — BIN 1=기존 WAIT 하늘색, 그 외는 BIN 값으로 고정 순환 배정
-        // (같은 BIN은 항상 같은 색, 맵/세션 무관 안정). 상태색(GOOD 녹/NG 적/SKIP 회/START 노랑)과
+        // (같은 BIN은 항상 같은 색, 맵/세션 무관 안정). 상태색(GOOD 녹/NG 적/SKIP 회/START 주황)과
         // 겹치지 않는 계열로 구성.
         private static readonly Color[] WaitBinPalette =
         {
@@ -846,7 +846,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private static Color ResolveWaitBinColor(int binCode)
         {
             if (binCode <= 1)
-                return Color.FromArgb(188, 216, 239);   // BIN 1(및 미기록 0) = 기존 WAIT 하늘색
+                return QMC.CDT_320.Ui.Controls.WaferMapPalette.Wait;   // BIN 1(및 미기록 0) = 기존 WAIT 하늘색
 
             return WaitBinPalette[(binCode - 2) % WaitBinPalette.Length];
         }
@@ -895,7 +895,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (waitBins.Count <= 1)
             {
-                legend.Add(Tuple.Create("WAIT", Color.FromArgb(188, 216, 239)));
+                legend.Add(Tuple.Create("WAIT", QMC.CDT_320.Ui.Controls.WaferMapPalette.Wait));
             }
             else
             {
@@ -903,10 +903,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                     legend.Add(Tuple.Create("WAIT B" + bin, ResolveWaitBinColor(bin)));
             }
 
-            legend.Add(Tuple.Create("START", Color.FromArgb(245, 190, 52)));
-            legend.Add(Tuple.Create("GOOD", Color.FromArgb(55, 176, 116)));
-            legend.Add(Tuple.Create("NG", Color.FromArgb(214, 91, 91)));
-            legend.Add(Tuple.Create("SKIP", Color.FromArgb(90, 90, 90)));
+            legend.Add(Tuple.Create("START", QMC.CDT_320.Ui.Controls.WaferMapPalette.StartMarker));
+            legend.Add(Tuple.Create("GOOD", BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)));
+            legend.Add(Tuple.Create("NG", QMC.CDT_320.Ui.Controls.WaferMapPalette.NgFallback));
+            legend.Add(Tuple.Create("SKIP", QMC.CDT_320.Ui.Controls.WaferMapPalette.Skip));
             return legend.ToArray();
         }
 

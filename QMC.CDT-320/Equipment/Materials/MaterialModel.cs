@@ -592,6 +592,8 @@ namespace QMC.CDT320.Materials
         [DataMember] public double OutputReceiveOriginY { get; set; }
         [DataMember] public int OutputReceiveNextIndex { get; set; }
         [DataMember] public int OutputReceiveTotalCount { get; set; }
+        /// <summary>작업자가 지정한 수납 목표 수량. 0이면 승인 빈맵 전량, 양수면 수납 순서 앞에서부터 그 수만 받는다.</summary>
+        [DataMember] public int OutputReceiveTargetCount { get; set; }
         [DataMember] public string OutputReceiveStartCorner { get; set; } = "";
         [DataMember] public string OutputReceiveDirection { get; set; } = "";
         [DataMember] public string OutputReceivePattern { get; set; } = "";

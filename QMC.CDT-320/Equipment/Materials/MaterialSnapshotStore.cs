@@ -957,7 +957,7 @@ namespace QMC.CDT320.Materials
                     MatchesTypedCloneShape(typeof(MaterialSnapshot), 11) &&
                     MatchesTypedCloneShape(typeof(CassetteMaterial), 10) &&
                     MatchesTypedCloneShape(typeof(CassetteSlotMaterial), 4) &&
-                    MatchesTypedCloneShape(typeof(WaferMaterial), 79) &&
+                    MatchesTypedCloneShape(typeof(WaferMaterial), 82) &&
                     MatchesTypedCloneShape(typeof(OutputReceiveSlotMaterial), 22) &&
                     MatchesTypedCloneShape(typeof(DieMaterial), 30) &&
                     MatchesTypedCloneShape(typeof(DieInspectionRecord), 8) &&
@@ -1313,6 +1313,8 @@ namespace QMC.CDT320.Materials
                 InputStageAlignReferenceT = source.InputStageAlignReferenceT,
                 InputStageAlignCorrectedT = source.InputStageAlignCorrectedT,
                 InputStageAlignOffsetT = source.InputStageAlignOffsetT,
+                InputStageAlignManualFallback = source.InputStageAlignManualFallback,
+                InputStageAlignManualFallbackThetaDone = source.InputStageAlignManualFallbackThetaDone,
                 HasInputStageDieMappingResult = source.HasInputStageDieMappingResult,
                 InputStageDieMappingResultMode = source.InputStageDieMappingResultMode,
                 InputStageDieMappingAlignRunId = source.InputStageDieMappingAlignRunId,
@@ -1344,6 +1346,7 @@ namespace QMC.CDT320.Materials
                 OutputReceiveOriginY = source.OutputReceiveOriginY,
                 OutputReceiveNextIndex = source.OutputReceiveNextIndex,
                 OutputReceiveTotalCount = source.OutputReceiveTotalCount,
+                OutputReceiveTargetCount = source.OutputReceiveTargetCount,
                 OutputReceiveStartCorner = source.OutputReceiveStartCorner,
                 OutputReceiveDirection = source.OutputReceiveDirection,
                 OutputReceivePattern = source.OutputReceivePattern,

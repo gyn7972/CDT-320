@@ -390,6 +390,7 @@ namespace QMC.CDT320.Materials
             wafer.OutputReceiveOriginY = 0.0;
             wafer.OutputReceiveNextIndex = 0;
             wafer.OutputReceiveTotalCount = 0;
+            wafer.OutputReceiveTargetCount = 0;
             wafer.OutputReceiveStartCorner = string.Empty;
             wafer.OutputReceiveDirection = string.Empty;
             wafer.OutputReceivePattern = string.Empty;

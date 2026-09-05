@@ -98,6 +98,29 @@ namespace QMC.CDT320.Materials
                 outputWafer.OutputReceivePattern = pickup.Pattern.ToString();
                 outputWafer.DieMapFrameObjId = binMap.FrameObjId ?? "";
                 outputWafer.OutputReceiveSlots = BuildOutputReceiveSlots(ordered, side, binMap.PitchX, binMap.PitchY);
+
+                // 작업자 지정 수납 목표 수량: 수납 순서 앞에서부터 N칸만 대상으로 두고 나머지는 제외한다.
+                // 슬롯 목록은 전량 유지해 화면 오버레이가 제외 슬롯을 SKIP으로 그리고, 완료 판정은 대상 슬롯 기준이라 N개째에 Finish가 된다.
+                int receiveLimit = ResolveOutputReceiveTargetLimit(outputWafer.OutputReceiveTargetCount, ordered.Count);
+                if (receiveLimit > 0)
+                {
+                    foreach (OutputReceiveSlotMaterial slot in outputWafer.OutputReceiveSlots)
+                    {
+                        if (slot != null && slot.OrderIndex >= receiveLimit)
+                        {
+                            slot.IsTarget = false;
+                            slot.BinCode = 0;
+                        }
+                    }
+                    outputWafer.OutputReceiveTotalCount = receiveLimit;
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Bin 수납 목표 수량을 적용했습니다. side=" + side +
+                        ", bin=" + outputWafer.WaferId +
+                        ", target=" + outputWafer.OutputReceiveTargetCount +
+                        ", planSlots=" + ordered.Count +
+                        ", active=" + receiveLimit + " - Ok");
+                }
+
                 if (outputWafer.DieIds == null)
                     outputWafer.DieIds = new List<string>();
                 else
@@ -112,6 +135,7 @@ namespace QMC.CDT320.Materials
                     "state=" + outputWafer.State,
                     "side=" + side,
                     "total=" + outputWafer.OutputReceiveTotalCount,
+                    "targetCount=" + outputWafer.OutputReceiveTargetCount,
                     "sourceWafer=" + outputWafer.OutputReceiveSourceWaferId);
                 NotifyAndSave("OutputStageReceivePlanInitialize");
                 return true;
@@ -628,6 +652,120 @@ namespace QMC.CDT320.Materials
             }
             finally
             {
+            }
+        }
+
+        /// <summary>수납 목표 수량을 계획 슬롯 수에 맞춰 확정한다. 0 이하 또는 계획 슬롯 수 이상이면 제한 없음(0).</summary>
+        private static int ResolveOutputReceiveTargetLimit(int targetCount, int planSlotCount)
+        {
+            if (targetCount <= 0 || planSlotCount <= 0 || targetCount >= planSlotCount)
+                return 0;
+            return targetCount;
+        }
+
+        /// <summary>
+        /// 카세트 안(로딩 전) Bin의 수납 목표 수량을 설정한다. 위치는 옮기지 않는다.
+        /// 0은 승인 빈맵 전량이며, 적용 시점은 다음 빈 로딩(수령 계획 생성)이다.
+        /// </summary>
+        public static bool SetOutputReceiveTargetCount(string waferId, int targetCount, string userName, out string reason)
+        {
+            reason = string.Empty;
+            if (string.IsNullOrWhiteSpace(waferId))
+            {
+                reason = "Bin ID가 비어 있습니다.";
+                return false;
+            }
+            if (targetCount < 0)
+            {
+                reason = "수납 목표 수량은 0 이상이어야 합니다. value=" + targetCount;
+                return false;
+            }
+
+            int before;
+            lock (_stateSync)
+            {
+                List<WaferMaterial> candidates = State.Wafers != null
+                    ? State.Wafers.Where(w => w != null &&
+                        string.Equals(w.WaferId, waferId, StringComparison.OrdinalIgnoreCase)).ToList()
+                    : new List<WaferMaterial>();
+                if (candidates.Count != 1)
+                {
+                    reason = "표시 ID로 Bin을 1개로 확정할 수 없습니다. bin=" + waferId + ", candidates=" + candidates.Count;
+                    return false;
+                }
+
+                WaferMaterial wafer = candidates[0];
+                if (wafer.CurrentLocation == null || wafer.CurrentLocation.Kind != MaterialLocationKind.OutputCassette)
+                {
+                    reason = "카세트 안(로딩 전) Bin에만 설정할 수 있습니다. bin=" + waferId +
+                             ", location=" + (wafer.CurrentLocation != null ? wafer.CurrentLocation.ToString() : "-");
+                    return false;
+                }
+
+                before = wafer.OutputReceiveTargetCount;
+                wafer.OutputReceiveTargetCount = targetCount;
+                wafer.UpdatedAt = DateTime.Now;
+            }
+
+            Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "MaterialStateService",
+                "Bin 수납 목표 수량 변경. bin=" + waferId +
+                ", before=" + before + ", after=" + targetCount + " (0=전량) - Ok");
+            NotifyAndSave("OutputReceiveTargetCount");
+            return true;
+        }
+
+        // 승인 빈맵 기준 계획 슬롯 수의 표시용 캐시. 키 = 맵 경로|파일 수정시각|승인 해시.
+        private static readonly object _outputReceiveCapacitySync = new object();
+        private static readonly Dictionary<QMC.CDT320.BinSide, KeyValuePair<string, int>> _outputReceiveCapacityCache =
+            new Dictionary<QMC.CDT320.BinSide, KeyValuePair<string, int>>();
+
+        /// <summary>
+        /// FINAL APPLY된 빈맵으로 만들어질 수령 계획 슬롯 수(수납 목표 수량의 기본값 표시용).
+        /// 맵 파일 또는 승인 해시가 바뀔 때만 다시 읽는다. 맵을 쓸 수 없으면 false.
+        /// </summary>
+        public static bool TryGetOutputReceivePlanCapacity(QMC.CDT320.BinSide side, out int capacity)
+        {
+            capacity = 0;
+            try
+            {
+                RecipeProject project = RecipeStore.LoadLastOrDefaultCached();
+                if (project == null)
+                    return false;
+
+                RecipeMapKind kind = side == QMC.CDT320.BinSide.Ng ? RecipeMapKind.NgBin : RecipeMapKind.GoodBin;
+                string configured = project.MapApprovalVersion > 0
+                    ? RecipeMapPaths.ExactConfiguredFileName(project, kind)
+                    : RecipeMapPaths.ConfiguredFileName(project, kind);
+                string path = RecipeMapPaths.ResolveConfiguredPath(configured) ?? string.Empty;
+                string approval = kind == RecipeMapKind.NgBin ? project.NgBinMapApprovalHash : project.GoodBinMapApprovalHash;
+                string key = path + "|" +
+                             (File.Exists(path) ? File.GetLastWriteTimeUtc(path).Ticks.ToString(CultureInfo.InvariantCulture) : "-") +
+                             "|" + (approval ?? string.Empty);
+
+                lock (_outputReceiveCapacitySync)
+                {
+                    KeyValuePair<string, int> cached;
+                    if (_outputReceiveCapacityCache.TryGetValue(side, out cached) && cached.Key == key)
+                    {
+                        capacity = cached.Value;
+                        return capacity > 0;
+                    }
+                }
+
+                string reason;
+                DieMap binMap = LoadRecipeBinMap(side, out reason);
+                int count = binMap != null ? BuildOutputReceiveOrder(binMap, ResolveOutputPickup(project)).Count : 0;
+                lock (_outputReceiveCapacitySync)
+                    _outputReceiveCapacityCache[side] = new KeyValuePair<string, int>(key, count);
+
+                capacity = count;
+                return capacity > 0;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Output receive plan capacity lookup failed: " + ex.Message + " - Failed");
+                return false;
             }
         }
 

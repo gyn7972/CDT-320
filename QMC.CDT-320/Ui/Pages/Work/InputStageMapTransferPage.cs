@@ -59,10 +59,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             public double FinalY;
         }
 
-        private static readonly System.Drawing.Color InspectionWaitColor = System.Drawing.Color.FromArgb(0xCC, 0xDD, 0xEE);
-        private static readonly System.Drawing.Color InspectionDoneColor = System.Drawing.Color.FromArgb(0xF2, 0xC1, 0x4E);
-        private static readonly System.Drawing.Color PickCompleteColor = System.Drawing.Color.FromArgb(0x24, 0xB8, 0x6A);
-        private static readonly System.Drawing.Color SkipColor = System.Drawing.Color.FromArgb(0x66, 0x66, 0x66);
+        private static readonly System.Drawing.Color InspectionWaitColor = QMC.CDT_320.Ui.Controls.WaferMapPalette.Wait;
+        private static readonly System.Drawing.Color InspectionDoneColor = QMC.CDT_320.Ui.Controls.WaferMapPalette.Vision;
+        private static readonly System.Drawing.Color PickCompleteColor = QMC.CDT_320.Ui.Controls.WaferMapPalette.PickPlace;
+        private static readonly System.Drawing.Color SkipColor = QMC.CDT_320.Ui.Controls.WaferMapPalette.Skip;
         private static readonly object ManualDieDetectSimVisionRandomLock = new object();
         private static readonly Random ManualDieDetectSimVisionRandom = new Random();
         private const string ManualInputDieDetectFinderName = VisionToolIds.Wafer.DieFinder;
@@ -6279,7 +6279,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     int binCode = entry.BinCode > 0 ? entry.BinCode : BinCodeMap.MaxBin;
                     System.Drawing.Color color = BinCodeMap.ConvertToBinCodeColor(binCode);
                     return color.ToArgb() == System.Drawing.Color.Black.ToArgb()
-                        ? System.Drawing.Color.IndianRed
+                        ? QMC.CDT_320.Ui.Controls.WaferMapPalette.NgFallback
                         : color;
                 }
 
@@ -6360,7 +6360,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 Tuple.Create("검사완료", InspectionDoneColor),
                 Tuple.Create("픽커보유", PickCompleteColor),
                 Tuple.Create("GOOD", BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)),
-                Tuple.Create("NG", System.Drawing.Color.IndianRed),
+                Tuple.Create("NG", QMC.CDT_320.Ui.Controls.WaferMapPalette.NgFallback),
                 Tuple.Create("제외", SkipColor),
             };
         }

@@ -5,6 +5,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320.Bin;
 using QMC.CDT320.DieMaps;
+using QMC.CDT_320.Ui.Controls;
 
 namespace QMC.CDT320.Ui.Controls
 {
@@ -88,7 +89,7 @@ namespace QMC.CDT320.Ui.Controls
         /// <summary>외곽 테두리를 가장자리에서 안쪽으로 들여쓰는 정도(px). 0 = 컨트롤 가장자리.</summary>
         protected virtual int MapBorderInset => 0;
         /// <summary>웨이퍼 외곽 원 색.</summary>
-        protected virtual Color WaferOutlineColor => Color.FromArgb(70, 130, 220);
+        protected virtual Color WaferOutlineColor => WaferMapPalette.WaferOutline;
         /// <summary>캡션/정보/범례 등 오버레이 텍스트 폰트 패밀리.</summary>
         protected virtual string OverlayFontFamily => "Consolas";
         /// <summary>격자 크기·pitch·zoom 등 기술 정보 라인 표시 여부.</summary>
@@ -214,7 +215,7 @@ namespace QMC.CDT320.Ui.Controls
                 float x = mapRect.Left + ToViewX(_selected, bounds) * cell.Width;
                 float y = mapRect.Top + ToViewY(_selected, bounds) * cell.Height;
                 RectangleF dieRect = GetDieRect(x, y, cell);
-                using (var pen = new Pen(Color.DeepSkyBlue, Math.Max(2.0F, Math.Min(4.0F, Math.Min(cell.DieWidth, cell.DieHeight) / 6.0F))))
+                using (var pen = new Pen(WaferMapPalette.Selection, Math.Max(2.0F, Math.Min(4.0F, Math.Min(cell.DieWidth, cell.DieHeight) / 6.0F))))
                     g.DrawRectangle(pen, dieRect.X, dieRect.Y, Math.Max(1.0F, dieRect.Width - 1.0F), Math.Max(1.0F, dieRect.Height - 1.0F));
             }
 
@@ -224,7 +225,7 @@ namespace QMC.CDT320.Ui.Controls
                 float x = mapRect.Left + ToViewX(_hover, bounds) * cell.Width;
                 float y = mapRect.Top + ToViewY(_hover, bounds) * cell.Height;
                 RectangleF dieRect = GetDieRect(x, y, cell);
-                using (var pen = new Pen(Color.Yellow, 2f))
+                using (var pen = new Pen(WaferMapPalette.Hover, 2f))
                     g.DrawRectangle(pen, dieRect.X, dieRect.Y, Math.Max(1.0F, dieRect.Width - 1.0F), Math.Max(1.0F, dieRect.Height - 1.0F));
             }
 
@@ -291,7 +292,7 @@ namespace QMC.CDT320.Ui.Controls
             double centerY = Math.Max(0, _map.DieMapY - 1) / 2.0;
             float zeroX = mapRect.Left + (float)(centerX - bounds.MinX + 0.5) * cell.Width;
             float zeroY = mapRect.Top + (float)(centerY - bounds.MinY + 0.5) * cell.Height;
-            Color axisColor = Color.FromArgb(190, 255, 215, 0);
+            Color axisColor = WaferMapPalette.AxisFor(BackColor);
             using (var pen = new Pen(axisColor, 1.2F))
             using (var brush = new SolidBrush(axisColor))
             using (var font = new Font(OverlayFontFamily, 8.5F, FontStyle.Bold))
@@ -360,8 +361,8 @@ namespace QMC.CDT320.Ui.Controls
                     Tuple.Create("Good", BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)),
                     Tuple.Create("Pre-NG", BinCodeMap.ConvertToBinCodeColor(110)),
                     Tuple.Create("Critical", BinCodeMap.ConvertToBinCodeColor(200)),
-                    Tuple.Create("Unknown", Color.FromArgb(80, 80, 100)),
-                    Tuple.Create("Skip", Color.FromArgb(60, 60, 60)),
+                    Tuple.Create("Unknown", WaferMapPalette.Unknown),
+                    Tuple.Create("Skip", WaferMapPalette.Skip),
                 };
         }
 
@@ -834,7 +835,7 @@ namespace QMC.CDT320.Ui.Controls
             if (_selectedEntries == null || _selectedEntries.Count <= 0)
                 return;
 
-            using (var pen = new Pen(Color.LimeGreen, Math.Max(1.5F, Math.Min(3.0F, Math.Min(cell.DieWidth, cell.DieHeight) / 8.0F))))
+            using (var pen = new Pen(WaferMapPalette.Selection, Math.Max(1.5F, Math.Min(3.0F, Math.Min(cell.DieWidth, cell.DieHeight) / 8.0F))))
             {
                 for (int i = 0; i < _selectedEntries.Count; i++)
                 {
@@ -856,9 +857,9 @@ namespace QMC.CDT320.Ui.Controls
             if (rect.Width <= 0 || rect.Height <= 0)
                 return;
 
-            using (var fill = new SolidBrush(Color.FromArgb(45, Color.DeepSkyBlue)))
+            using (var fill = new SolidBrush(Color.FromArgb(45, WaferMapPalette.Selection)))
                 g.FillRectangle(fill, rect);
-            using (var pen = new Pen(Color.DeepSkyBlue, 1.4F))
+            using (var pen = new Pen(WaferMapPalette.Selection, 1.4F))
                 g.DrawRectangle(pen, rect);
         }
 
@@ -999,10 +1000,10 @@ namespace QMC.CDT320.Ui.Controls
                 return CellColorResolver(entry);
 
             return !entry.IsTarget
-                ? Color.FromArgb(60, 60, 60)
+                ? WaferMapPalette.Skip
                 : (entry.BinCode > 0
                     ? BinCodeMap.ConvertToBinCodeColor(entry.BinCode)
-                    : Color.FromArgb(80, 80, 100));
+                    : WaferMapPalette.Unknown);
         }
 
         private Color ResolveOverlayTextColor()

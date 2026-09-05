@@ -606,6 +606,7 @@
     <Compile Include="Ui\Controls\Styles\DieMapView.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\Styles\WaferMapPalette.cs" />
     <!-- Stage 4 ?�규 ??Dialogs + WorkInfo ActiveLot -->
     <Compile Include="Ui\Dialogs\RemoteViewerDialog.cs">
       <SubType>Form</SubType>

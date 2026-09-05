@@ -31,9 +31,9 @@ namespace QMC.CDT_320.Ui.Controls
     public class LiveLotMapView : QMC.CDT320.Ui.Controls.DieMapView
     {
         private const int RefreshIntervalMs = 100;
-        private static readonly Color InspectionWaitColor = Color.FromArgb(0xCC, 0xDD, 0xEE);
-        private static readonly Color InspectionDoneColor = Color.FromArgb(0xF2, 0xC1, 0x4E);
-        private static readonly Color PickCompleteColor = Color.FromArgb(0x24, 0xB8, 0x6A);
+        private static readonly Color InspectionWaitColor = WaferMapPalette.Wait;
+        private static readonly Color InspectionDoneColor = WaferMapPalette.Vision;
+        private static readonly Color PickCompleteColor = WaferMapPalette.PickPlace;
 
         private System.Windows.Forms.Timer _refresh;
         private int _gridX = 5;
@@ -56,7 +56,6 @@ namespace QMC.CDT_320.Ui.Controls
         protected override Color MapBorderColor => Color.FromArgb(0x8F, 0x9C, 0xAD);
         protected override float MapBorderWidth => 2f;          // 얇은 1px 대신 또렷한 2px 프레임
         protected override int MapBorderInset => 3;             // 가장자리에서 3px 들여써 카드처럼 분리
-        protected override Color WaferOutlineColor => Color.FromArgb(0xB4, 0xC4, 0xD8);
         protected override string OverlayFontFamily => "맑은 고딕";
         protected override bool ShowTechnicalInfoLine => false;   // pitch/zoom 등 기술 라인 숨김
 
@@ -726,7 +725,7 @@ namespace QMC.CDT_320.Ui.Controls
                     }
                 }
 
-                using (var pen = new Pen(Color.FromArgb(0x44, 0x88, 0xCC), 1.5f))
+                using (var pen = new Pen(WaferMapPalette.WaferOutline, 1.5f))
                     g.DrawEllipse(pen, x0, y0, totalW, totalH);
             }
             else
@@ -754,7 +753,7 @@ namespace QMC.CDT_320.Ui.Controls
                             }
                             else
                             {
-                                c = Color.IndianRed;
+                                c = WaferMapPalette.NgFallback;
                             }
                             filled++;
                         }
@@ -826,7 +825,7 @@ namespace QMC.CDT_320.Ui.Controls
                     Tuple.Create("Wait", InspectionWaitColor),
                     Tuple.Create("Vision", InspectionDoneColor),
                     Tuple.Create("Place", PickCompleteColor),
-                    Tuple.Create("NG", Color.IndianRed)
+                    Tuple.Create("NG", WaferMapPalette.NgFallback)
                 };
             }
 
@@ -836,7 +835,7 @@ namespace QMC.CDT_320.Ui.Controls
                 Tuple.Create("Vision", InspectionDoneColor),
                 Tuple.Create("Pick", PickCompleteColor),
                 Tuple.Create("Good", BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)),
-                Tuple.Create("NG", Color.IndianRed)
+                Tuple.Create("NG", WaferMapPalette.NgFallback)
             };
         }
 
@@ -858,7 +857,7 @@ namespace QMC.CDT_320.Ui.Controls
                 {
                     int outputNgBinCode = entry.BinCode > 0 ? entry.BinCode : BinCodeMap.MaxBin;
                     Color outputNgColor = BinCodeMap.ConvertToBinCodeColor(outputNgBinCode);
-                    return outputNgColor.ToArgb() == Color.Black.ToArgb() ? Color.IndianRed : outputNgColor;
+                    return outputNgColor.ToArgb() == Color.Black.ToArgb() ? WaferMapPalette.NgFallback : outputNgColor;
                 }
 
                 if (state == LiveDieMapCellState.InspectionDone)
@@ -869,7 +868,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 int binCode = entry.BinCode > 0 ? entry.BinCode : BinCodeMap.MaxBin;
                 Color c = BinCodeMap.ConvertToBinCodeColor(binCode);
-                return c.ToArgb() == Color.Black.ToArgb() ? Color.IndianRed : c;
+                return c.ToArgb() == Color.Black.ToArgb() ? WaferMapPalette.NgFallback : c;
             }
 
             if (entry.Result == DieResult.Good)
@@ -992,7 +991,7 @@ namespace QMC.CDT_320.Ui.Controls
                 x = DrawLegendItem(g, x + 12, y, InspectionDoneColor, "검사완료", font, textBrush, borderPen);
                 x = DrawLegendItem(g, x + 12, y, PickCompleteColor, "픽커보유", font, textBrush, borderPen);
                 x = DrawLegendItem(g, x + 12, y, BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin), "GOOD", font, textBrush, borderPen);
-                DrawLegendItem(g, x + 12, y, Color.IndianRed, "NG", font, textBrush, borderPen);
+                DrawLegendItem(g, x + 12, y, WaferMapPalette.NgFallback, "NG", font, textBrush, borderPen);
             }
         }
 
