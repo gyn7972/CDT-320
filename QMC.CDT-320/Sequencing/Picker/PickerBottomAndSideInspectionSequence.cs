@@ -1739,7 +1739,10 @@ namespace QMC.CDT320.Sequencing
 
             EnsureDeferredFinalResultLifetime(ct);
             if (shot.FinalResultTask == null)
+            {
                 shot.FinalResultTask = ReceiveBottomFinalResultAsync(shot, _deferredResultCancellation.Token);
+                PendingSequenceTaskRegistry.Track(shot.FinalResultTask, "BottomFinalResult");
+            }
 
             WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Bottom MRESULT Offset(X,Y) 저장 및 SideReady 등록 완료. 최종 RESULT는 병렬 수집합니다. die=" + shot.Target.Die.DieId +
@@ -2764,6 +2767,7 @@ namespace QMC.CDT320.Sequencing
                 _sideFinalResultTasks[target.PickerIndex] = ReceiveSideFinalResultAsync(
                     target,
                     _deferredResultCancellation.Token);
+                PendingSequenceTaskRegistry.Track(_sideFinalResultTasks[target.PickerIndex], "SideFinalResult");
             }
             WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Side Front0/Rear0/Front90/Rear90 EPD 전체 완료. 최종 RESULT 병렬 수집 Task 등록. " +

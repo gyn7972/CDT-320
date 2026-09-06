@@ -670,8 +670,7 @@ namespace QMC.CDT320.Sequencing
                     out cameraOffsetX,
                     out cameraOffsetY);
 
-                WriteLog("PickerPickUpSequence",
-                    Name + " calculated pick target. die=" + _currentDieId +
+                string pickTargetDiagnostic = Name + " calculated pick target. die=" + _currentDieId +
                     ", pickerNo=" + _currentPickerNo +
                     ", stageY=" + _targetStageY +
                     ", pickerX=" + _targetPickerX +
@@ -709,7 +708,9 @@ namespace QMC.CDT320.Sequencing
                     ", pickRuntimeEnabled=" + pickRuntimeEnabled +
                     ", pickRuntimeOffsetX=" + pickRuntimeOffsetX.ToString("F6") +
                     ", pickRuntimeOffsetY=" + pickRuntimeOffsetY.ToString("F6") +
-                    ", pickRuntimeOffsetT=" + pickRuntimeOffsetT.ToString("F6") + " - Ok");
+                    ", pickRuntimeOffsetT=" + pickRuntimeOffsetT.ToString("F6") + " - Ok";
+                WriteLog("PickerPickUpSequence", pickTargetDiagnostic);
+                WriteCurrentPickTargetAudit(pickTargetDiagnostic);
 
                 return 0;
             }
@@ -781,6 +782,32 @@ namespace QMC.CDT320.Sequencing
 
             CurrentStep = PickerPickUpStep.MoveOppositePickerToAvoidForPickerMove;
             return 0;
+        }
+
+        // 픽업 계산 완료 시점의 기존 메시지만 영속한다. 계산/자재 조회/축 명령을 다시 실행하지 않는다.
+        private void WriteCurrentPickTargetAudit(string calculatedMessage)
+        {
+            try
+            {
+                string identity = ", pickupWafer=" + (_pickTarget != null ? _pickTarget.WaferId : "unavailable") +
+                    ", pickupGridX=" + (_pickTarget != null ? _pickTarget.DieMapX.ToString(System.Globalization.CultureInfo.InvariantCulture) : "unavailable") +
+                    ", pickupGridY=" + (_pickTarget != null ? _pickTarget.DieMapY.ToString(System.Globalization.CultureInfo.InvariantCulture) : "unavailable") +
+                    ", pickupOrder=" + (_pickTarget != null ? _pickTarget.OrderIndex.ToString(System.Globalization.CultureInfo.InvariantCulture) : "unavailable") +
+                    ", pickupSide=" + Side +
+                    ", pickupHeadSlot=" + _currentPickerNo.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                QMC.Common.Logging.EventLogger.Write(
+                    Side == PickerSequenceSide.Front
+                        ? QMC.Common.Logging.EventKind.FrontHeadSeq
+                        : QMC.Common.Logging.EventKind.RearHeadSeq,
+                    "SYSTEM", "PICKUP-TARGET", "PickerPickUpSequence",
+                    SequenceLog.FormatWithCurrentContext("Log", "PickerPickUpSequence", calculatedMessage + identity),
+                    QMC.Common.Logging.LogSeverity.Audit);
+            }
+            catch (Exception ex)
+            {
+                // 진단 실패는 별도 Trace로 남기며 기존 픽업 계산 결과와 오토 진행을 변경하지 않는다.
+                System.Diagnostics.Trace.TraceError("픽업 목표 진단 기록 실패: {0}", ex);
+            }
         }
 
         /// <summary>CycleTime 계측 키 — 사이클 동안 불변(피커+다이).</summary>

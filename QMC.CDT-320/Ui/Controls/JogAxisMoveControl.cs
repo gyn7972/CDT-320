@@ -2593,6 +2593,7 @@ namespace QMC.CDT_320.Ui.Controls
 
         private async Task StartJogAsync(JogAxisItem item, int direction, Button button)
         {
+            IDisposable recipeOperationScope = null;
             bool isStepMode = false;
             IDisposable pendingRecoveryScope = null;
             bool continuousRecoveryScopeInstalled = false;
@@ -2602,6 +2603,16 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 if (item == null)
                     return;
+
+                string recipeBlockReason;
+                if (!MotionGuardRuntime.TryBeginRecipeSensitiveOperation(
+                        "Jog: " + (item.AxisName ?? string.Empty),
+                        out recipeOperationScope, out recipeBlockReason))
+                {
+                    QMC.Common.MessageDialog.Show(this, recipeBlockReason, "Jog Axis",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
 
                 // 이동 중 반복 조그 입력은 조작 노이즈로 보고 추가 알람/팝업 없이 무시한다.
                 if (IsJogAxisMoving(item))
@@ -2728,14 +2739,23 @@ namespace QMC.CDT_320.Ui.Controls
             }
             finally
             {
-                if (pendingRecoveryScope != null)
-                    pendingRecoveryScope.Dispose();
-                if (continuousRecoveryScopeInstalled && !keepContinuousRecoveryScope)
-                    ReleaseActivePickerYCollisionRecoveryJogScope();
-
-                if (!isStepMode)
+                try
                 {
-                    _isContinuousJogStarting = false;
+                    if (pendingRecoveryScope != null)
+                        pendingRecoveryScope.Dispose();
+                    if (continuousRecoveryScopeInstalled && !keepContinuousRecoveryScope)
+                        ReleaseActivePickerYCollisionRecoveryJogScope();
+
+                    if (!isStepMode)
+                    {
+                        _isContinuousJogStarting = false;
+                    }
+                }
+                finally
+                {
+                    // Continuous 명령 발행 뒤의 실제 이동 여부는 Controller의 적용 진입 게이트가 확인한다.
+                    if (recipeOperationScope != null)
+                        recipeOperationScope.Dispose();
                 }
             }
         }

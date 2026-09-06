@@ -199,40 +199,31 @@ namespace QMC.CDT320
             lease = null;
             reason = string.Empty;
 
-            lock (_recipeOperationLock)
-            {
-                if (_recipeApplyOperationActive)
-                {
-                    reason = "다른 Recipe 저장/적용 작업이 이미 진행 중입니다.";
-                    return false;
-                }
-
-                if (_recipeStartAttemptCts != null)
-                {
-                    reason =
-                        "START 준비 작업이 진행 중이므로 Recipe 저장/적용을 차단했습니다. " +
-                        "START 완료 또는 STOP 후 다시 실행하십시오.";
-                    return false;
-                }
-
-                _recipeApplyOperationActive = true;
-            }
-
-            bool ignoredMaterialOnlyBlockForApply;
-            if (!TryValidateRecipeChangeCore(
-                    recipeName,
-                    true,
-                    startupAutoLoad,
-                    out materialRecipeRestore,
-                    out ignoredMaterialOnlyBlockForApply,
-                    out reason))
-            {
-                EndRecipeApplyOperation();
+            if (!TryRegisterRecipeApplyOperation(out reason))
                 return false;
-            }
 
-            lease = new RecipeApplyOperationLease(this);
-            return true;
+            bool admitted = false;
+            try
+            {
+                bool ignoredMaterialOnlyBlockForApply;
+                if (!TryValidateRecipeChangeCore(
+                        recipeName,
+                        true,
+                        startupAutoLoad,
+                        out materialRecipeRestore,
+                        out ignoredMaterialOnlyBlockForApply,
+                        out reason))
+                    return false;
+
+                lease = new RecipeApplyOperationLease(this);
+                admitted = true;
+                return true;
+            }
+            finally
+            {
+                if (!admitted)
+                    EndRecipeApplyOperation();
+            }
         }
 
         private bool TryValidateRecipeChangeCore(
@@ -403,7 +394,40 @@ namespace QMC.CDT320
         private void EndRecipeApplyOperation()
         {
             lock (_recipeOperationLock)
-                _recipeApplyOperationActive = false;
+            {
+                try
+                {
+                    // 검사/Review 저장 진입 보호를 모두 해제한 뒤 START를 다시 엽니다.
+                    try
+                    {
+                        if (_recipeInspectionResetScope != null)
+                            _recipeInspectionResetScope.Dispose();
+                    }
+                    finally
+                    {
+                        if (_recipeReviewMaterialResetScope != null)
+                            _recipeReviewMaterialResetScope.Dispose();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _recipeApplyFailureReason = "Recipe 적용 보호 해제 중 오류가 발생하여 START를 차단했습니다. error=" + ex.Message;
+                    if (!string.IsNullOrWhiteSpace(_confirmedRecipeSwitchTarget))
+                        _failedRecipeSwitchTarget = _confirmedRecipeSwitchTarget;
+                    throw;
+                }
+                finally
+                {
+                    _recipeInspectionResetScope = null;
+                    _recipeReviewMaterialResetScope = null;
+                    _confirmedRecipeSwitchPrevious = string.Empty;
+                    _confirmedRecipeSwitchTarget = string.Empty;
+                    _confirmedRecipeSwitchEmptyMaterial = false;
+                    _confirmedRecipeSwitchRequiresHardwareInput = false;
+                    _startupMaterialResetOperationActive = false;
+                    _recipeApplyOperationActive = false;
+                }
+            }
         }
 
         private sealed class RecipeApplyOperationLease : IDisposable
@@ -460,6 +484,15 @@ namespace QMC.CDT320
                     reason = "Alarm 상태에서는 START를 수행할 수 없습니다.";
                     return false;
                 }
+
+                if (!string.IsNullOrWhiteSpace(_recipeApplyFailureReason))
+                {
+                    reason = _recipeApplyFailureReason;
+                    return false;
+                }
+
+                if (QMC.CDT320.Sequencing.PendingSequenceTaskRegistry.TryGetPending(out reason))
+                    return false;
 
                 attemptCts = new CancellationTokenSource();
                 _recipeStartAttemptCts = attemptCts;
@@ -817,14 +850,15 @@ namespace QMC.CDT320
         private bool TryCollectRecipePhysicalProductEvidence(
             out bool hasEvidence,
             out string detail,
-            out string reason)
+            out string reason,
+            bool requireHardwareInput = false)
         {
             hasEvidence = false;
             detail = string.Empty;
             reason = string.Empty;
 
             RecipePresenceSensorState sensors;
-            if (!TryReadRecipePresenceSensors(out sensors, out reason))
+            if (!TryReadRecipePresenceSensors(out sensors, out reason, requireHardwareInput))
                 return false;
 
             if (sensors.Bypassed)
@@ -917,7 +951,8 @@ namespace QMC.CDT320
 
         private bool TryReadRecipePresenceSensors(
             out RecipePresenceSensorState state,
-            out string reason)
+            out string reason,
+            bool requireHardwareInput = false)
         {
             state = new RecipePresenceSensorState();
             reason = string.Empty;
@@ -931,7 +966,7 @@ namespace QMC.CDT320
                   settings.SimulationMode ||
                   settings.DryRunMode ||
                   settings.BypassHardware));
-            if (virtualMode)
+            if (virtualMode && !requireHardwareInput)
             {
                 state.Bypassed = true;
                 return true;

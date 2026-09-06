@@ -349,6 +349,7 @@ namespace QMC.CDT320
             System.IO.Path.Combine(Dir, "settings.json");
 
         public static AppSettings Current { get; private set; } = new AppSettings();
+        private static readonly object SaveSync = new object();
         private static readonly object HybridModeSync = new object();
         private static bool _hybridModeSnapshotReady;
         private static bool _lastSimulationMode;
@@ -468,15 +469,57 @@ namespace QMC.CDT320
 
         public static void Save()
         {
-            try
+            string reason;
+            TrySave(out reason);
+        }
+
+        /// <summary>현재 설정의 저장 성공 여부와 실패 원인을 반환합니다.</summary>
+        public static bool TrySave(out string reason)
+        {
+            reason = null;
+            lock (SaveSync)
             {
-                RefreshHybridModeSnapshot(true);
-                using (var fs = File.Create(Path_))
+                string tempPath = null;
+                try
                 {
-                    JsonPrettySerializer.WriteObject(fs, typeof(AppSettings), Current);
+                    // 기존 Save와 동일하게 저장 시도 시점에 운전 모드 변경을 반영합니다.
+                    RefreshHybridModeSnapshot(true);
+                    tempPath = Path_ + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                    using (var fs = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    {
+                        JsonPrettySerializer.WriteObject(fs, typeof(AppSettings), Current);
+                        fs.Flush(true);
+                    }
+
+                    // 직렬화와 쓰기가 끝난 파일만 교체하여 저장 실패로 기존 설정이 잘리지 않게 합니다.
+                    if (File.Exists(Path_))
+                        File.Replace(tempPath, Path_, null);
+                    else
+                        File.Move(tempPath, Path_);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    reason = "프로그램 설정 저장 실패. path=" + Path_ + ", error=" + ex.Message;
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm,
+                        "DATA", "APP-SETTINGS-SAVE", reason);
+                    return false;
+                }
+                finally
+                {
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(tempPath) && File.Exists(tempPath))
+                            File.Delete(tempPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning,
+                            "DATA", "APP-SETTINGS-SAVE-TEMP",
+                            "프로그램 설정의 임시 파일 정리 실패. path=" + tempPath + ", error=" + ex.Message);
+                    }
                 }
             }
-            catch { }
         }
     }
 }

@@ -40,7 +40,23 @@ namespace QMC.CDT320
                 return false;
             }
 
-            if (_axisInitializeOperationGate.Wait(0))
+            bool initializeOperationEntered;
+            // Recipe 적용이 시작된 뒤 축 초기화가 끼어들지 않도록 등록 경계를 공유한다.
+            lock (_recipeOperationLock)
+            {
+                if (_recipeApplyOperationActive)
+                {
+                    LastActionFailureMessage =
+                        "Recipe 저장/적용 중에는 축 초기화를 시작할 수 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", source,
+                        LastActionFailureMessage + " - Blocked");
+                    return false;
+                }
+
+                initializeOperationEntered = _axisInitializeOperationGate.Wait(0);
+            }
+
+            if (initializeOperationEntered)
             {
                 var cts = new CancellationTokenSource();
                 lock (_axisInitializeCancellationLock)

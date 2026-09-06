@@ -1,30 +1,27 @@
 ﻿# InputStage 리뷰 좌표 보정 검증 — 구현 프롬프트
 
 작성일: 2026-09-06
-현재 단계: 중복 파일 2건의 사용자 승인을 받아 실제 프로젝트 등록과 공통 승인 검사 연결을 적용했다. 기존 Auto 이동 순서·축 명령·인터락 조건을 유지한 Review/Material 소스 구현을 마쳤다. 오프라인 검사 113개와 최종 실제 프로젝트 Build가 통과했다(오류 0개·기존 경고 41개). 배포·실장비 검증은 수행하지 않았다.
-연결 문서: [검증 체크리스트](02-validation-checklist.md), [구현 현황](03-implementation-status.md), [검토 결과와 한계](04-review-findings-and-limits.md)
+현재 단계: 사용자 요청에 따라 필수 3점 선택·VERIFY MAP·점별 수동 확인 절차를 제거하고 기존 CONFIRM에서 현재 자료의 일관성을 확인하도록 수정했다. 최신 수정본의 오프라인 183개 검사와 4차 실제 등록 프로젝트 격리 Build(오류 0개·기존 경고 41개)가 통과했다. 앞 단계의 오프라인 113개·Build 오류 0개/기존 경고 41개는 이전 구현의 이력이며 이번 수정본의 최종 결과로 사용하지 않는다.
+연결 문서: [검증 체크리스트](02-validation-checklist.md), [구현 현황](03-implementation-status.md), [검토 결과와 한계](04-review-findings-and-limits.md), [사용법과 로그 분석](05-operation-and-log-guide.md)
 
 ## 1. 수행할 작업과 범위
 
-현재 로컬 코드에서 InputStage Auto Review의 DIE DETECTION → APPLY OFFSET → CONFIRM / CONTINUE AUTO 경로를 보강한다.
-목표는 넓게 조정 가능한 단발·누적 OFFSET 설정을 제공하면서, 기준 조건이 달라진 오래된 검출 결과와 검증되지 않은 맵이 실제 픽업 승인으로 연결되는 것을 차단하는 것이다.
-현상은 간헐적이다. 큰 OFFSET 자체를 원인 또는 불량으로 단정하거나 과거 정상 작업을 크기만으로 차단하지 않는다.
-사용자 최우선 조건은 기존 Auto 이동 순서·축 명령·인터락 조건의 불변이다. 자동 Align의 피치 계산·fallback·실패 분기는 변경하지 않는다. 피치 불일치 검사는 Review의 실제 다점 측정과 승인 검사에 한정한다.
-InputStageAlignSequence.cs, InputSequence.Steps.Review.cs 및 Equipment/Interlocks에는 현재 git diff가 없다. InputStageDieMapApplyService.cs의 이번 변경은 새 맵의 baseline/검증 메타데이터 4줄에 한정한다.
-검증 증거가 없거나 오래되면 Material 승인 검사가 기존 자동 진행을 막고 재검증을 요구할 수 있다. 이는 축 이동 명령이나 인터락 조건을 바꾸는 것과 구분한다.
-이번 현상의 단일 근본 원인이 확정되었다고 표현하지 않는다. 보정 경로의 통제와 실제 픽업 정확도 검증을 구분한다.
+기존 Auto Review의 시작점·픽업 순서 확인과 CONFIRM / CONTINUE AUTO 조작을 유지한다. 추가했던 기준 다이 3개 선택, VERIFY MAP, 각 점으로 이동·촬영하여 작업자에게 대응을 묻는 절차를 필수 경로에서 제거한다. 기존 DIE DETECTION / APPLY OFFSET은 필요한 경우 사용하는 수동 기능으로 유지한다.
 
-사용자가 지시한 “프롬프트와 체크리스트 작성 우선” 단계를 거쳐 “작업 진행해줘” 지시에 따라 구현을 시작했다.
-이 문서는 구현 기준이다. 소스 작성·정책 테스트·통합 컴파일·실장비 검증의 완료 여부는 연결 문서에서 구분한다.
+CONFIRM에서는 현재 wafer·mapping·recipe·T·pitch·후보 좌표와 세션/요청 자료의 일관성을 확인하고 승인 자료를 저장한다. 이는 물리 실측 검증이 아니다. 가짜 측정값이나 GEOMETRY VERIFIED 표시로 대체하지 않는다.
+
+기존 Auto 이동 순서·축 명령·인터락 조건·픽업 수식은 변경하지 않는다. PickerPickUpSequence.PickTargets.cs에는 이미 계산한 메시지를 재사용하는 Audit 로그만 추가한다. 자동 Align 피치 계산·fallback·실패 분기와 자동 Review 전환 및 Simulation AutoSkip 조건은 그대로다.
+
+오래된 pending, 유효하지 않은 후보, 저장 실패를 막는 보호와 넓게 조정 가능한 단발·누적 OFFSET 제한은 유지한다. 실제 좌표가 틀려도 내부 자료가 일관될 수 있으므로 이 보강으로 간헐 픽업 쉬프트가 모두 해결된다고 단정하지 않는다.
 
 ## 2. 기준 자료와 동시 작업 규칙
 
 - 소스 기준: D:/Source/CDT-320_New. 저장소의 AGENTS.md를 따른다.
-- 문서 작성 시 관측한 브랜치: codex/picker-flow-recovery-20260906
-- 관측 HEAD: 7961f2ba772ea90fc6b08035b0a1604784e3a4c8
-- 관측 작업 트리: clean. 이는 그 시점의 기록이며, 이후에도 같다고 가정하지 않는다.
-- 문서 검증 중 같은 HEAD에서 master(ahead 92)로 전환되고 GeneralPage.Designer.cs/README.md 및 별도 picker-flow-recovery 문서의 변경이 관측되었다. 이는 외부 동시 작업이며 이번 문서 작성에서는 수정하지 않았다.
-- 구현 시작 및 현재 확인 브랜치는 master(ahead 92), HEAD는 위와 같다. 다른 채팅의 dirty 파일을 구분하고 겹치지 않는 파일부터 수정했다. csproj의 신규 Compile 3개와 MaterialStateService.OutputReceive.cs의 공통 승인 검사 연결 2줄은 사용자 승인 후 적용했다. 상대 작업의 등록 항목과 Place 완료 복구 처리를 보존했으며 03 문서에 기록했다.
+- 현재 확인 브랜치: master, origin/master보다 93개 커밋 앞섬.
+- 현재 확인 HEAD: 478ffef077ff0b95bfa64e796e3970e4810b093d.
+- 이전 단계 기준 HEAD 7961f2ba772ea90fc6b08035b0a1604784e3a4c8 및 당시 master ahead 92는 이전 구현 이력이다.
+- 현재 다른 작업의 AppSettings.cs, Recipes/RecipeStore.cs, csproj, README.md, RecipeMaterialStateFactory.cs 및 docs/recipe-change-material-reset은 수정 대상에서 제외한다.
+- 이전 단계의 신규 Compile 3개와 OutputReceive 승인 검사 연결 2줄은 당시 사용자 승인 후 적용된 기존 구현이다. 이번에는 이 파일들을 수정하지 않는다.
 - 실장비 증거: D:/Source/EQP_Handler/20260905/핸들러로그
 - 주요 파일: 2026-09-04_012.csv(RAD), 2026-09-04_014.csv(18:10~18:16 전환과 이후 JMB).
 - 동봉 CDT-320_DATA 설정은 사건 전 스냅샷이다. 사건 당시 적용값은 이벤트 로그를 우선한다.
@@ -49,124 +46,72 @@ InputStageAlignSequence.cs, InputSequence.Steps.Review.cs 및 Equipment/Interloc
 8. 이것은 프로그램 좌표의 변경 증거다. 실제 다이를 잘못 선택했는지, 잘못 잡힌 최초 맵을 올바르게 고쳤는지는 좌표만으로 확정하지 못했다.
 9. 개별 인풋 Vision 결과는 최종 픽업 계산에 다시 적용된다. 맵 검증 보강이 카메라→픽커 변환 또는 학습 보정 문제까지 해결한다는 주장을 하지 않는다.
 
-## 4. 수정 후보와 소유 범위
+## 4. 이번 수정과 소유 범위
 
-경로는 모두 D:/Source/CDT-320_New 아래다. 아래 목록은 최초 검토 후보이며, 실제 수정·신규 파일 및 승인 후 반영 내용은 03 문서에 구분했다. 후보에 있다는 이유로 다른 채팅과 겹치는 파일을 수정하지 않는다.
-수정 전 실제 함수·호출자·외부 변경을 다시 확인하고, 추가로 발견한 중복은 해당 수정 전에 승인받는다.
+경로는 모두 D:/Source/CDT-320_New 아래다. 이번 소스 변경은 아래 7개 파일이다. 이미 반영된 이전 단계 파일을 이번 수정 파일로 다시 계산하지 않는다.
 
-| 파일 | 한정된 검토·수정 목적 |
+| 파일 | 이번 수정 목적 |
 |---|---|
-| QMC.CDT-320/Form1.InputStageRunReview.cs | 검출 결과 등록, pending 조건, APPLY, 세션 종료·Jog·T 변경 무효화 |
-| QMC.CDT-320/Ui/Dialogs/InputStageRunReviewDialog.cs | Draft 보정 후 검증 필요 상태, 상태 표시·버튼 연결 |
-| QMC.CDT-320/Equipment/Materials/MaterialStateService.InputPick.cs | CommitInputStageRunReview와 실제 승인 소비의 공통 검증 |
-| QMC.CDT-320/Equipment/IStageInterfaces.cs | 필요한 경우에만 UserConfirmResult의 검증 식별 정보 전달 |
-| QMC.CDT-320/Sequencing/InputSequence.Steps.Review.cs | 현재 수정 없음. 기존 자동 Review 전환·이동·취소 흐름 유지 |
-| QMC.CDT-320/Sequencing/InputStage/InputStageAlignSequence.cs | 현재 수정 없음. 기존 자동 Align 계산·fallback·실패 분기 유지 |
-| QMC.CDT-320/Sequencing/InputStage/InputStageDieMappingSequence.cs | 기존 검색범위와 리뷰 보정 한계를 구분하고 맵 생성 조건 연계가 필요할 때만 |
-| QMC.CDT-320/Equipment/Unit/InputStageUnit.cs | 기존 한계 설정 해석·재사용이 필요할 때만 |
+| QMC.CDT-320/Form1.InputStageRunReview.cs | VERIFY 연결 제거, 기존 확인 연결, 검출/APPLY/요청 폐기 진단 로그 |
+| QMC.CDT-320/Form1.InputStageRunReview.Geometry.cs | 3점 이동·수동 대응 확인 경로 제거, 기존 CONFIRM의 context 승인 연결 |
+| QMC.CDT-320/Ui/Dialogs/InputStageRunReviewDialog.cs | 3점 검증 필수 조건·안내 제거, 기존 결정 잠금 보존 |
+| QMC.CDT-320/Ui/Dialogs/InputStageRunReviewDialog.Designer.cs | VERIFY MAP 버튼·이벤트·추가 행 제거 |
+| QMC.CDT-320/Equipment/Materials/MaterialStateService.InputPick.cs | context 승인 Commit 연결, 진행 자재 보존·저장 완료 판정 유지 |
+| QMC.CDT-320/Equipment/Materials/MaterialStateService.InputStageReviewGeometry.cs | context 승인과 legacy baseline, 기존 후보 제한·승인 소비, Audit 진단 |
+| QMC.CDT-320/Sequencing/Picker/PickerPickUpSequence.PickTargets.cs | 기존 계산 완료 문자열·로그 유지, PICKUP-TARGET Audit 기록만 추가 |
 
-새 정책·검증 클래스를 추가한다면 InputStage 관련 영역에 한정한다. 새 UI 컨트롤은 필요성이 확인될 때만 Designer에 등록한다.
-영속 모델 확장 및 csproj 수정이 필요하면 추가 이유와 대상 필드를 먼저 기록한다. 다른 채팅과 겹치는 경우 사용자 승인 후 최소 항목만 반영한다.
-Picker 관련 파일, Input/Output 맵 전송 페이지의 표시 코드, 다른 채팅 문서, README는 이번 작업으로 수정하지 않는다.
+PickerMotionTargetResolver, InputPickerPickTargetResolver, PickerSequenceBase, 자동 Align/Review 단계, Interlocks 및 공통 Motion은 수정하지 않는다. 새 프로젝트 등록이나 운영 설정 변경은 이번 범위에 없다. 다른 채팅과 새 겹침이 발견되면 구체적인 범위를 사용자 승인 후 수정한다.
 
 ## 5. 구현 요구사항
 
-### R1. 넓게 설정 가능한 단발·누적 OFFSET 범위
+### R1. 기존 시작 조작과 확인 의미
 
-- 단발 X/Y와 누적 X/Y 한계를 각각 확인·변경 가능한 설정으로 둔다. 기존 적합한 설정을 우선 활용하고 필요한 항목만 추가한다.
-- 초기 기본안은 기존 ManualDieDetectOffsetLimitX/Y 코드 기본값인 20 mm 수준의 넓은 범위를 기준으로 한다. 누적 한계도 별도로 넓게 설정할 수 있도록 한다. 이는 실장비 적용값을 확정하거나 운영 파일을 즉시 바꾸라는 지시가 아니다.
-- 기존 저장 설정을 소실시키지 않으며, 설정 화면/저장/재로드/실제 판정에 동일한 값이 사용되게 한다. 범위 확대 UI는 다른 채팅과 겹치면 승인 후 수정한다.
-- 리뷰 OFFSET에 pitch/2를 무조건적인 상한으로 새로 적용하지 않는다. 설정값을 크게 올려도 숨은 반 피치 clamp가 적용을 막는 구조를 만들지 않는다.
-- 반 피치와 offset/pitch 비율은 인접 다이 대응을 점검하는 진단 참고로 기록한다. 반 피치 초과만으로 적용 금지·재얼라인 강제를 하지 않는다.
-- 기존 자동 매핑의 반 피치 검색범위는 목적이 다르다. 이를 리뷰 한계에 강제 복제하거나, 반대로 기존 검색·모션 보호를 근거 없이 일괄 완화하지 않는다.
-- 검출 시와 APPLY 직전 모두 finite 값, 유효한 geometry, 설정 한계, 기준 맵 일치를 검사한다.
-- 이번 보정량과 candidateOrigin - baselineOrigin 누적량을 각각 해당 설정 한계와 비교한다. 실제 설정 초과·불명확한 기준·검증 실패는 구분해서 보고한다.
-- baseline은 해당 wafer/생성된 mapping revision의 원래 좌표 또는 다점 검증 완료 좌표에 고정한다. APPLY 성공, pending 삭제, 다이 재선택, 창 재열기만으로 갱신하지 않는다.
-- baseline 갱신은 새로운 맵 생성 또는 해당 후보 맵의 검증 성공 뒤에만 가능하다. 생성 기준과 검증 기준을 혼동하지 않는다.
-- 한계 초과 시 Draft·Material 좌표를 먼저 변경하지 않는다. 실패 후 좌표를 되돌리는 구현 대신 검증된 후보만 적용한다.
-- OFFSET 적용 가능 범위와 최종 XY/T/pitch 품질 허용치는 별개다. 큰 위치 보정 허용을 이유로 정밀도 합격 기준까지 함께 키우지 않는다.
+- Review에서 기존 시작점·픽업 순서를 확인한 뒤 CONFIRM / CONTINUE AUTO를 사용한다. 3점 선택·VERIFY MAP·개별 영상 대응 확인을 요구하지 않는다.
+- CONFIRM은 현재 context와 후보의 일관성을 확인한다. CONFIRM-CONTEXT-PRODUCTION / NONPRODUCTION 구분으로 저장하며 실측 자료를 만들지 않는다.
+- 기존 Align/Mapping 완료·모드·자재·순서 및 저장 성공 조건은 유지한다. 조건이 바뀌었으면 기존 CONFIRM에서 이유를 보여주며 무조건 승인하지 않는다.
+- Simulation의 기존 SkipRunReview 설정 경로는 변경하지 않는다. 시뮬에서 진행됐다는 사실은 물리 좌표 검증 성공을 뜻하지 않는다.
 
-### R2. 큰 보정의 정상 적용과 복구
+### R2. 넓은 단발·누적 OFFSET과 baseline
 
-- 설정 범위 안의 큰 OFFSET도 검출 조건과 맵 대응·검증이 유효하면 후보로 적용할 수 있어야 한다. 과거 약 8.218 mm 보정을 크기만으로 반드시 거부하는 요구는 철회한다.
-- 현재 영상의 다이와 선택 map index의 대응을 확인하고, 큰 이동 전후의 기준·좌표·검증 결과를 남긴다. 똑같은 이웃 다이를 찾았다는 사실만으로 대응을 입증하지 않는다.
-- 설정을 넘거나 기준 대응/검증이 실패하면 기존 Retry Align / Retry Mapping 경로를 우선 활용한다. 설정 확대만으로 오래된 결과·대응 불일치·검증 실패를 무시하지 않는다.
-- 기준점 재지정이 꼭 필요하면 식별 가능한 마크·맵 패턴 등으로 대응을 확인한 뒤 새 기준을 생성하고 검증한다.
-- 근거가 부족한 경우 자동으로 한 칸 이동하거나 pitch를 바꿔 합격시키지 않는다.
+- 기존 단발 X/Y와 누적 X/Y 설정을 유지한다. 기본 20 mm와 저장된 큰 값은 보존하고, 반 피치 상한이나 자동 clamp를 추가하지 않는다.
+- finite·pitch·단발·누적·wafer/revision/context 검사를 검출/APPLY/Commit에 유지한다. 후보 origin - baseline origin으로 누적량을 계산한다.
+- APPLY·pending 삭제·재선택·창 재열기로 baseline을 갱신하지 않는다. 새 mapping은 해당 revision의 새 기준을 만든다.
+- baseline 없는 구형 자료는 현재 canonical Material과 완전히 같은 좌표만 최초 기준으로 채택하고 저장한다. 과거 누적량을 복원했다고 표시하지 않는다. 저장된 다른 revision 기준을 임의 재설정하지 않는다.
+- Draft 변경은 기존 유효한 OFFSET 후보 이력을 따라야 한다. 실패 후보를 먼저 반영했다가 rollback하지 않는다.
+- 단발/누적 제한을 만족한다는 사실은 실제 동일 다이, 물리 피치/각도/정확도의 입증이 아니다.
 
-### R3. 맵 변경 후 다점 검증
+### R3. 결과 수명과 자재·저장 보호
 
-- APPLY는 후보 Draft 좌표를 만들고 검증 상태를 해제한다. 기존 _reviewValid의 용도·재설정 경로를 확인하고, 좌표 검증 상태가 UI 갱신만으로 참이 되지 않게 한다.
-- 최종 저장 T와 실제 T가 축 InPositionTolerance 안에서 일치하고 축이 정지한 상태에서 대응이 확인된 기준 다이를 검증한다. 현재 UI는 3점을 선택한다. 예상 좌표 삼각형의 최소 높이가 최장변의 10% 이상인 배치를 이동 전에 확인하고, 공통 정책에서도 재검사한다. 0.1 비율은 점 선택의 형상 기준이며 OFFSET 한계나 장비 정밀도 공차가 아니다.
-- 중심에 맞춘 같은 다이만 반복 검사하거나 한 직선상의 점만으로 2차원 검증 완료를 표시하지 않는다.
-- 검증은 후보 맵의 예상 좌표에 대한 실제 Vision 잔차를 수집한다. 각 검증점을 별도로 중심 보정한 뒤 그 0 잔차만 평가해서 맵 오차를 숨기지 않는다.
-- 예상 좌표, 촬영 실제 좌표, Vision 원시 잔차, 검증한 다이 index를 함께 사용한다.
-- 평행이동·각도·피치의 일관성을 비교한다. 검증 중 자동으로 T·pitch·전체 원점을 다시 고쳐 합격시키지 않는다.
-- XY/T/pitch 허용치는 현재 설정의 의미와 단위를 확인하여 사용한다. 반 피치 상한을 정상 정밀도 허용치로 재사용하지 않는다.
-- Review에서 얻은 유효한 실측과 후보 맵 pitch가 허용 차이를 넘으면 Review 승인을 보류하고 재검출/설정 확인을 요구한다. Review 측정값을 설정값으로 대체해 합격시키거나 레시피를 자동 덮어쓰지 않는다. 기존 자동 Align 내부의 피치 fallback와 실패 분기는 이 요구로 변경하지 않는다.
-- 측정이 없는 축(예: 같은 행의 2점만으로 Y pitch를 측정하지 못한 경우)은 실제 불일치와 구분한다. 임의 측정값을 만들지 않는다.
-- 중앙 다이 각도와 격자 각도를 비교할 때 레시피 방향·대칭·각도 기준을 맞춘다. raw 각도를 무조건 0°로 만드는 보정은 금지한다.
-- 각 기준 다이의 대응·점 배치·허용치가 불충분하면 실제 생산 검증을 완료로 표시하지 않는다.
+- wafer/revision/UID/grid/reference와 session/request generation, T/pitch/condition/candidate 서명 비교를 유지한다.
+- 늦은 비동기 결과, 검출 후 Jog/T/선택 변경, STOP/창 종료/세션 변경에는 이전 pending을 재사용하지 않는다.
+- 기존 결정 잠금과 수동 callback 종료 확인·기존 JogStop·정지 확인·scope 해제 처리를 보존한다. 자동 모션/인터락을 수정하지 않는다.
+- Commit은 UI bool만 믿지 않고 현재 context와 승인 요청을 비교한다. 저장 완료 전 소비 차단, 완료 뒤 현재 wafer/승인 ID/조건 재확인과 캐시 무효화를 유지한다.
+- 부분 진행 wafer에서 좌표·상태·남은 순서가 같은 경우 확인 자료만 추가하고 기존 물리 이력과 전체 승인 순서를 보존한다. 승인 순서/revision 소실 또는 진행된 자재의 좌표 변경은 무조건 허용하지 않는다.
+- 새 3점 필수 조건은 없으므로 남은 실제 다이가 3개 미만이라는 이유만으로 context 확인을 막지 않는다.
 
-### R4. 검출·검증 결과의 수명과 승인 검사
+### R4. 추후 분석 가능한 로그
 
-- 기존 wafer/revision/UID/index/좌표/signature 검사를 유지한다.
-- 검출·검증 결과에 session generation, request generation, align run, T, pitch, 관련 레시피/좌표 기준 버전을 결합한다.
-- 비동기 결과 등록 직전, APPLY 직전, CONTINUE/Material commit 직전 및 승인 소비 시점에 현재 조건과 비교한다.
-- 창 종료·취소·STOP·다른 세션·T 변경 후 늦게 도착한 결과가 pending이나 검증 완료를 되살릴 수 없게 한다.
-- T CORRECTION 저장 시 기존 pending 삭제·맵 무효화 처리는 유지한다. 저장 버튼을 누르지 않은 T Jog 변화도 반영한다.
-- 검출 이후 수동 위치/선택 기준을 바꾸면 재검출 필요 상태로 전환하여 일관성을 유지한다.
-- 공통 정책 판단 함수를 재사용하여 UI와 commit에서 허용치·판정식을 따로 복제하지 않는다.
-- Vision/축 이동/비동기 대기는 Material 상태 잠금 밖에서 수행한다. 최종 commit에서는 같은 상태 잠금 안에서 현재 기준과 검증 증거를 다시 비교하고, 통과한 후보만 반영한다.
-- UI가 보내는 bool만 믿지 않는다. Material commit에서 검증한 candidate 좌표/원점/pitch/T와 실제 제출된 결과의 일치를 확인하고, 변경·저장 전에 실패를 반환한다.
-- 승인 상태 확인·기본 순서 자동 승인·저장 상태 복구 등 다른 진입 경로를 조사한다. 실제 운전이 UI 검증을 우회하지 못하게 한다.
-- Simulation/DryRun/Hybrid 등 비생산 수동 Review는 명시적 현재 모드와 별도 NONPRODUCTION-MANUAL token/context로 승인한다. 가짜 실측 자료를 만들지 않고 실제 생산용 증거로 승격하지 않는다. 현재 모드·조건 비교와 기존 저장 결과 모드 검사를 유지한다. 기존 AutoSkip 분기는 변경하지 않는다.
-- 동일 조건의 정상 재개를 보존한다. 검증되지 않은 변경이나 오래된 저장 데이터에는 재검증을 요구하되 자재의 실제 위치·보유 기록을 지우지 않는다. 이미 일부 다이를 픽업한 구형 Wafer는 좌표·상태·남은 픽업 순서가 동일한 경우에만 검증 증거를 추가하는 경로를 별도로 검증한다. 기존 전체 승인 목록/revision 소실 또는 실제 촬영 가능한 비공선 3점 부족 시 재승인 한계가 남는다. 자동 보호를 우회하여 해결했다고 기록하지 않으며 완료 여부는 03, 한계는 04 문서에 기록한다.
-- 저장 실패 또는 일부 단계 실패 시 정상 승인/준비 신호를 발행하지 않는다. 실패를 원복으로 감추지 않고 재검증 필요 상태와 증거를 남긴다.
+- Review 진단은 input-stage-review-v1 JSON을 IN-REVIEW-* Audit 이벤트로 남긴다. 실행·후보 등록·Draft 적용·확인 요청·저장 완료·거부를 구분한다.
+- 현재 wafer instance/처리 세대/Lot/recipe/align run/mapping revision과 context 자료, 원점·baseline·pitch·T·한계·카메라 변환값을 기록한다.
+- DIE DETECTION의 촬영 직전 actual XYT, raw Vision 결과, 예상 reference, 계산 candidate 및 중심 이동 후 actual XYT를 구분한다. 미수신을 가짜 0으로 기록하지 않는다.
+- PICKUP-TARGET Audit은 실제 계산 완료 시점의 기존 문자열과 UID/wafer/grid/order/side/head slot 및 run 문맥을 재사용한다. 새 자재 조회·수식 계산·축 명령은 추가하지 않는다.
+- 50 ms 승인 폴링마다 새 로그를 만들지 않는다. 이벤트 발생과 거부 이유 변경에만 기록한다. 로그 작성 실패가 기존 승인·픽업 결과를 바꾸지 않게 한다.
+- 상세모드 OFF에서도 새 Audit은 영속 대상으로 분류한다. 비동기 디스크 쓰기의 전원 차단/저장장치 실패까지 무조건 기록을 보장한다고 표현하지 않는다.
 
-### R5. 로그와 간헐 조건 비교
+## 6. 현재 결정과 남은 확인
 
-검출/보정/검증/승인 한 흐름을 추적할 수 있는 식별자를 사용하여 다음을 기록한다.
-wafer, recipe 및 조건 버전, mapping revision, session/request generation, 선택 UID/index,
-baseline·현재·candidate 원점, 촬영 Actual X/Y/T, 원시 Vision 값, 이번 보정량·누적량,
-적용 pitch·각 한계·허용치 출처, 검증점 예상/검출 좌표·잔차, 상태 전이, 적용 또는 차단 사유.
-큰 문자열이나 모든 다이 전체 덤프를 매번 추가하지 않고 필요한 기준값과 식별 정보를 남긴다.
-정상 동작한 경우와 이상이 발생한 경우를 같은 기준으로 비교할 수 있도록 레시피 전환 여부, 동일 Material 재사용 여부, 재실행/복구 여부, 실제 적용된 보정 상태를 함께 추적한다. 매번 문제가 발생한다고 가정하지 않는다.
+수동 3점 검증 절차는 사용자 작업 방식과 맞지 않아 필수 시작 경로에서 제거했다. 기존 CONFIRM에 현재 자료의 일관성 확인을 연결하고 실측 여부를 로그에 명시한다. 과거 3점 정책/증거 자료형이 호환성 때문에 소스에 남아 있더라도 일반 Review가 이를 실행하거나 필수로 요구한다는 뜻은 아니다.
 
-## 6. 구현 결정과 남은 확인
-
-- 현재 Config의 단발·누적 OFFSET 범위와 XY/T/pitch 품질 허용치를 구분하여 의미를 확인한다. OFFSET은 초기부터 러프하게 큰 값까지 조정 가능해야 한다. 사건 로그의 과거 tolerance를 최신 코드의 생산 기준으로 복사하지 않는다.
-- 검증점 배치는 최소 높이/최장변 0.1 기준으로 확인한다. 물리 index 대응은 식별 근거를 보고 작업자가 확인하며 반복 패턴 검출만으로 자동 입증하지 않는다.
-- baseline과 원시 검증 증거는 Wafer의 추가 필드 및 Snapshot deep clone으로 보존한다. 복구 시 증거가 없으면 재검증을 요구하며 현재 좌표를 새 무제한 기준으로 취급하지 않는다. 기존 저장 구조·키는 보존한다.
-- 각 항목의 결정과 근거를 체크리스트 변경 기록에 남긴다. 공차가 미확정인 상태를 실제 생산 검증 통과로 표시하지 않는다.
-
-현재 반영한 결정은 다음과 같다. 소스 구현은 마쳤고 실제 UI/장비 통합 검증은 수행하지 않았다.
-
-- 기존 단발 ManualDieDetectOffsetLimitX/Y와 신규 누적 ManualDieDetectCumulativeOffsetLimitX/Y를 각각 사용한다. 누적 기본값은 축별 20 mm이며 ParameterGrid에 연결했다. 운영 설정 파일은 변경하지 않았다.
-- 품질 허용치는 현재 Config의 AlignCenterToleranceMm(X/Y 잔차), AlignPitchCompareToleranceMm(칸당 pitch 차이), MaxEffectiveThetaToleranceDeg(예상 격자 대비 각도)를 사용한다. 실제 촬영 T는 축의 InPositionTolerance로 비교하고, 저장 Mapping T 메타데이터 간 비교 허용치 0.000001°와 구분한다. 값과 조건은 로그에 포함한다.
-- APPLY OFFSET 후 하단 표에서 Ctrl로 X/Y 간격이 있는 비공선 기준 다이 3개를 선택하고 VERIFY MAP을 수행하는 흐름을 추가했다. 각 후보 예상 위치에서 MATCH 실측을 받고, 같은 정지 X/Y/T에서 별도 EXPOSE의 새 영상을 표시한 후 작업자가 실제 다이/index 대응을 확인한다. 이 EXPOSE가 MATCH 요청과 같은 프레임이라는 보장은 없으며, Vision이 물리 UID를 고유하게 식별했다는 의미가 아니다.
-- 검증 증거에는 원래 예상 위치, 촬영 실제 X/Y/T, 원시 Vision 값, UID/index, 작업자의 대응 확인과 영상 표시 기록을 결합한다. 공통 정책은 예상 위치에 대한 잔차와 비공선 격자의 pitch/각도를 검사하며 개별 점을 재중심 보정하여 합격시키지 않는다.
-- baseline과 원시 다점 검증 증거를 Wafer에 추가 저장하고 Snapshot 복제에 포함했다. 구형 자료에 baseline이 없으면 변경하지 않은 현재 맵을 먼저 검증하거나 재매핑해야 한다. 기존 baseline의 revision이 다르면 자동으로 현재 원점을 새 기준으로 삼지 않고 재매핑을 요구한다.
-- Material에는 유효한 OFFSET 후보의 연결 이력과 검증 token을 두어, UI bool 또는 출처가 없는 변경 좌표만으로 Commit하지 않게 했다. OutputReceive의 순서 복원 공통 진입점 연결 2줄도 사용자 승인 후 적용했다.
-- 카메라 조건 해시는 실제 해상도·중심·변환 배율을 비교한다. 촬영마다 바뀌는 ResolutionUpdatedAt은 제외하여 동일 조건의 정상 촬영으로 증거가 만료되지 않게 했다.
+운영 설정·레시피·학습 XYT·콜렛 교정은 변경하지 않았다. 과거 JMB 로그의 큰 이동량은 프로그램 좌표 차이이며 실제 물리 픽업 오차로 단정하지 않는다. 로그를 통해 새 정상/이상 사례를 비교할 수 있게 하되, 실제 장비 정상화 여부는 현장 측정으로 확인해야 한다.
 
 ## 7. 구현 순서와 검증
 
-1. 최신 코드 및 동시 변경 재확인 → 실제 수정 함수 목록 확정 → 겹치는 대상은 사용자 승인 후 수정.
-2. 공통 보정 정책·기준 버전·후보 계산 구조 → 장비 없이 검증 가능한 상태/수학 검사.
-3. 넓은 가변 OFFSET 설정과 검출/APPLY 수명 연결 → 설정 안의 큰 보정도 검증하여 허용하고, 설정 초과/검증 실패는 복구 경로 연결.
-4. Review 다점 검증과 후보 피치 불일치 처리 → 후보 검증 증거 전달. 기존 자동 Align 계산/분기는 유지한다.
-5. 공통 Material commit/승인 소비 검사 → UI 상태/로그 연결.
-6. 체크리스트의 오프라인·실장비 로그 재현 검증 → 대상 diff 확인 → 안전한 별도 출력 빌드.
-7. 변경 파일/함수, 수행 검증, 미검증 실장비 항목, 동시 변경 보존 결과 보고.
+1. 현재 로컬 파일·동시 변경을 확인하고 이번 7개 소스의 필요한 문맥만 수정한다.
+2. 3점 UI/이동 경로와 필수 조건을 제거하고 기존 CONFIRM context 승인 및 legacy baseline 저장을 연결한다.
+3. 기존 단발/누적/후보 수명/진행 자재/저장 검사를 유지한다.
+4. Review Audit과 기존 계산 재사용 PICKUP-TARGET Audit을 연결한다.
+5. 정책·Config·Material·context·로그 정책 검사 및 모션/분기/수식 불변 diff를 확인한다.
+6. 원본 소스를 복제하지 않고 작업 전용 OutDir/중간 경로의 /t:Build만 실행한다. Clean/Rebuild·운영 출력·배포는 수행하지 않는다.
+7. 현재 수정본의 최종 검증 결과를 03에 기록하고 실제 UI/장비 미검증과 구분한다.
 
-검증은 안전 조건·상태 전이·비동기 결과 수명·누적 제한을 실제로 확인해야 한다.
-구현식을 그대로 복제한 테스트만으로 검증 완료를 선언하지 않는다.
-실장비 연결 없이 수행하며 새 외부 Vision 프로젝트·엔진을 만들지 않는다.
-빌드는 AGENTS.md에 따라 원본에서 /t:Build와 별도 OutDir/필요한 중간 출력 경로만 사용한다.
-Clean/Rebuild, 운영 출력 경로, 소스 복제 빌드, 자동 배포를 사용하지 않는다.
-현재 다른 채팅의 빌드와 출력 경로가 겹치지 않게 이 작업 전용 경로를 사용한다.
-
-정책 30개, 실제 Config 직렬화 12개, Material geometry 10개, 부분 진행 보존 30개, 검증점 자재 상태 16개, 비생산 marker/context 15개로 총 113개 오프라인 검사가 통과했다. 마지막 61개는 backend helper 검사이며 실제 모드 조회·UI 통합 시험이 아니다. UI 결정 잠금과 STOP의 callback 종료 확인 → 기존 JogStop → 정지 확인 → embedded scope 해제를 구현했고, 시간 초과/실패에는 lease와 UI 잠금을 보존한다. request generation의 long 타입 컴파일 수정도 완료했다. 최종 실제 프로젝트 Build는 오류 0개·기존 경고 41개로 통과했고 수정 소스의 누락 반영이 없음을 확인했다. 상세 기록은 03에 연결한다. 이 결과는 실제 장비의 정상 동작 증거가 아니다.
-
-최신 검토에서 확인한 정상 작업 차단 가능성, 검증 영상/물리 UID의 한계 및 성능 측정의 해석은 [04 검토 결과](04-review-findings-and-limits.md)에 기록한다. 픽업 시 적용되는 learned XYT, 카메라→픽커 변환, 콜렛 drift의 수정·교정은 이번 범위에 포함하지 않는다.
+최신 수정본의 오프라인 183개 검사와 4차 실제 등록 프로젝트 격리 Build(오류 0개·기존 경고 41개)가 통과했다. 이전 단계의 113개 검사와 오류 0개/기존 경고 41개는 이력이며 이번 수정본의 성공 판정을 대신하지 않는다.

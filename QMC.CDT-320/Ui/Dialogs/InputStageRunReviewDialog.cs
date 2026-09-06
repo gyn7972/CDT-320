@@ -10,6 +10,7 @@ using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
 using QMC.CDT320.VisionComm;
 using QMC.CDT_320.Equipment.Vision;
+using QMC.CDT_320.Ui.Common.WaferMaps;
 using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Dialogs
@@ -35,7 +36,6 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _alignComplete;
         private bool _mappingComplete;
         private bool _reviewValid;
-        private bool _geometryVerified;
         private bool _nonproductionReviewMode;
         private bool _manualFallbackThetaRequired;
         private bool _manualFallbackThetaDone;
@@ -207,7 +207,6 @@ namespace QMC.CDT_320.Ui.Dialogs
         public event EventHandler ThetaCorrectionRequested;
         public event EventHandler DieDetectionRequested;
         public event EventHandler OffsetApplyRequested;
-        public event EventHandler GeometryVerificationRequested;
         public event EventHandler SelectedDieChanged;
         public event EventHandler SelectedDieMoveRequested;
         public event EventHandler StartRunRequested;
@@ -440,7 +439,6 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (_decisionSubmitted)
                 return;
-            _geometryVerified = false;
             _dieMap = map;
             _selectedDie = null;
             _startDie = null;
@@ -479,7 +477,6 @@ namespace QMC.CDT_320.Ui.Dialogs
             _alignComplete = alignComplete;
             _mappingComplete = mappingComplete;
             _reviewValid = false;
-            _geometryVerified = false;
             lblAlignValue.Text = alignComplete ? "COMPLETE" : "REQUIRED";
             lblAlignValue.ForeColor = alignComplete ? Color.LightGreen : Color.Khaki;
             lblMappingValue.Text = mappingComplete ? "COMPLETE" : "REQUIRED";
@@ -629,63 +626,20 @@ namespace QMC.CDT_320.Ui.Dialogs
             UpdateActionAvailability();
         }
 
-        public async System.Threading.Tasks.Task<DialogResult> ShowReviewCorrespondenceConfirmationAsync(
-            string caption, string message, System.Threading.CancellationToken token)
-        {
-            if (IsDisposed || Disposing || InvokeRequired)
-                throw new InvalidOperationException("Review 기준 Die 확인은 활성 화면의 UI 스레드에서 실행해야 합니다.");
-            token.ThrowIfCancellationRequested();
-            await System.Threading.Tasks.Task.Yield();
-            token.ThrowIfCancellationRequested();
-            using (var confirmation = new QMC.Common.MessageBoxYesNo())
-            {
-                confirmation.StartPosition = FormStartPosition.CenterParent;
-                // 취소 등록 전에 UI 핸들을 만들어 STOP이 ShowDialog 직전에 와도 해당 확인창만 닫을 수 있게 한다.
-                if (confirmation.Handle == IntPtr.Zero)
-                    throw new InvalidOperationException("Review 기준 Die 확인창을 만들지 못했습니다.");
-                using (token.Register(delegate
-                {
-                    try
-                    {
-                        if (!confirmation.IsDisposed && confirmation.IsHandleCreated)
-                            confirmation.BeginInvoke(new Action(delegate
-                            {
-                                if (!confirmation.IsDisposed)
-                                {
-                                    confirmation.DialogResult = DialogResult.Cancel;
-                                    confirmation.Close();
-                                }
-                            }));
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        System.Diagnostics.Trace.TraceWarning("Review 확인창 취소 중 창 상태가 변경되었습니다: " + ex.Message);
-                    }
-                }))
-                {
-                    token.ThrowIfCancellationRequested();
-                    DialogResult result = confirmation.ShowDialog(caption, message, this, new[] { "예", "아니오" });
-                    token.ThrowIfCancellationRequested();
-                    return result;
-                }
-            }
-        }
-
         public void SetNonproductionReviewMode(bool active)
         {
             // 표시/버튼 조건만 반영한다. Confirm 수락 여부는 현재 장비 모드를 다시 검사하는 처리부에서 결정한다.
             bool changed = _nonproductionReviewMode != active;
             _nonproductionReviewMode = active;
-            SetGeometryVerified(_geometryVerified, active
+            SetReviewApprovalStatus(active
                 ? "비생산 모드의 수동 Review 확인입니다."
                 : (changed ? "비생산 모드의 수동 Review 표시를 해제했습니다." : string.Empty));
         }
 
-        public void SetGeometryVerified(bool verified, string reason)
+        public void SetReviewApprovalStatus(string reason)
         {
-            _geometryVerified = verified;
-            lblReviewValue.Text = verified ? "GEOMETRY VERIFIED" : "VERIFY MAP REQUIRED";
-            lblReviewValue.ForeColor = verified ? Color.LightGreen : Color.Khaki;
+            lblReviewValue.Text = _reviewValid ? "USER CONFIRM REQUIRED" : "REVIEW REQUIRED";
+            lblReviewValue.ForeColor = _reviewValid ? Color.LightGreen : Color.Khaki;
             if (!string.IsNullOrWhiteSpace(reason))
                 SetStatus(reason);
             UpdateActionAvailability();
@@ -704,7 +658,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             rbDirectionVertical.Checked = source.Direction == PickupDirection.Vertical;
             rbPatternStraight.Checked = source.Pattern == PickupPattern.Straight;
             rbPatternZigZag.Checked = source.Pattern == PickupPattern.ZigZag;
-            RefreshPickupPreview();
+            if (!_synchronizingPickupOptions)
+                RefreshPickupPreview();
         }
 
         public void SetReadOnlyPreview(bool readOnly)
@@ -765,6 +720,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             // modeless 창은 DialogResult 설정만으로 닫히지 않으므로
             // 제출된 DialogResult를 기록한 뒤 반드시 Close()를 호출한다.
+            ClosePickupOrderViewer();
             if (_submittedDialogResult != DialogResult.None)
                 DialogResult = _submittedDialogResult;
             Close();
@@ -823,6 +779,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         public void SetReviewStopPending(bool pending)
         {
             _reviewStopPending = pending;
+            if (pending)
+                ClosePickupOrderViewer();
             UpdateActionAvailability();
         }
 
@@ -872,7 +830,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return false;
             }
 
-            SetGeometryVerified(false, "OFFSET 적용 후 VERIFY MAP으로 좌표를 다시 검증하세요.");
+            SetReviewApprovalStatus("OFFSET 후보를 반영했습니다. 맵과 픽업 순서를 확인한 뒤 CONFIRM을 누르세요.");
             _dieMap.OriginX += offsetX;
             _dieMap.OriginY += offsetY;
             foreach (DieMapEntry entry in _dieMap.Entries)
@@ -1028,16 +986,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (_dieMap != null)
             {
-                List<DieMapEntry> generated = PickupSequenceGenerator.Build(_dieMap, BuildPickupOptions());
-                foreach (DieMapEntry entry in generated)
-                {
-                    if (IsPickableEntry(entry))
-                        _baseOrder.Add(entry);
-                }
-
-                List<DieMapEntry> ordered = new List<DieMapEntry>(_baseOrder);
-                if (chkUseSelectedStart.Checked && _startDie != null)
-                    ordered = RotateOrderAtStartDie(ordered, _startDie);
+                _baseOrder.AddRange(PickupOrderDraft.BuildBaseOrder(_dieMap, BuildPickupOptions()));
+                List<DieMapEntry> ordered = PickupOrderDraft.RotateAtStart(_baseOrder, StartDieUid);
 
                 for (int i = 0; i < ordered.Count; i++)
                 {
@@ -1051,7 +1001,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             decimal maximum = Math.Max(1, _baseOrder.Count);
             numStartIndex.Maximum = maximum;
-            int selectedStartIndex = StartDieIndex;
+            int selectedStartIndex = ResolvePreviewSequence(StartDie);
             if (selectedStartIndex > 0)
                 numStartIndex.Value = Math.Min(maximum, selectedStartIndex);
             else if (numStartIndex.Value > maximum)
@@ -1102,23 +1052,6 @@ namespace QMC.CDT_320.Ui.Dialogs
                 ? PickupPattern.Straight
                 : PickupPattern.ZigZag;
             return options;
-        }
-
-        private static List<DieMapEntry> RotateOrderAtStartDie(List<DieMapEntry> source, DieMapEntry startDie)
-        {
-            if (source == null || source.Count == 0 || startDie == null)
-                return source ?? new List<DieMapEntry>();
-
-            int startIndex = source.FindIndex(entry => IsSameEntry(entry, startDie));
-            if (startIndex <= 0)
-                return source;
-
-            var rotated = new List<DieMapEntry>(source.Count);
-            for (int i = startIndex; i < source.Count; i++)
-                rotated.Add(source[i]);
-            for (int i = 0; i < startIndex; i++)
-                rotated.Add(source[i]);
-            return rotated;
         }
 
         private void RefreshDieGrid()
@@ -1514,7 +1447,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void PickupOption_CheckedChanged(object sender, EventArgs e)
         {
-            if (_decisionSubmitted)
+            if (_decisionSubmitted || _synchronizingPickupOptions)
                 return;
             var radio = sender as RadioButton;
             if (radio != null && !radio.Checked)
@@ -1526,7 +1459,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void ChkUseSelectedStart_CheckedChanged(object sender, EventArgs e)
         {
-            if (_decisionSubmitted)
+            if (_decisionSubmitted || _synchronizingPickupOptions)
                 return;
             _pickupOrderApplied = false;
             RefreshPickupPreview();
@@ -1555,7 +1488,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 chkUseSelectedStart.Checked = true;
             else
                 RefreshPickupPreview();
-            int startIndex = StartDieIndex;
+            int startIndex = ResolvePreviewSequence(StartDie);
             if (startIndex > 0)
                 numStartIndex.Value = Math.Min(numStartIndex.Maximum, startIndex);
             RefreshSelectedDieInformation();
@@ -1568,8 +1501,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_decisionSubmitted)
                 return;
             int requested = (int)numStartIndex.Value;
-            DieMapEntry entry = requested > 0 && requested <= _baseOrder.Count
-                ? _baseOrder[requested - 1]
+            DieMapEntry entry = requested > 0 && requested <= _previewOrder.Count
+                ? _previewOrder[requested - 1]
                 : null;
             if (entry == null)
             {
@@ -1583,11 +1516,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void BtnPreviewPath_Click(object sender, EventArgs e)
         {
-            if (_decisionSubmitted)
-                return;
-            RefreshPickupPreview();
-            SetStatus("픽업 경로 미리보기를 갱신했습니다. Target=" + _previewOrder.Count +
-                      ", Start=" + (StartDie != null ? lblStartDieValue.Text : "Recipe Corner"));
+            ShowPickupOrderViewer();
         }
 
         private void BtnApplyPickupOrder_Click(object sender, EventArgs e)
@@ -1887,12 +1816,6 @@ namespace QMC.CDT_320.Ui.Dialogs
             RaiseSimpleEvent(OffsetApplyRequested);
         }
 
-        private void BtnVerifyMap_Click(object sender, EventArgs e)
-        {
-            LogReviewAction("GEOMETRY-VERIFY", "선택한 기준 Die의 다점 좌표 검증 요청");
-            RaiseSimpleEvent(GeometryVerificationRequested);
-        }
-
         private void BtnStartRun_Click(object sender, EventArgs e)
         {
             SubmitAutoReviewDecision(StartRunRequested, DialogResult.OK, "CONFIRM/CONTINUE AUTO(ConfirmAndContinue)");
@@ -2110,7 +2033,6 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnThetaCorrection.Enabled = actionEnabled && _alignComplete;
             btnDieDetection.Enabled = actionEnabled && _alignComplete && _mappingComplete;
             btnOffsetApply.Enabled = actionEnabled && _mappingComplete;
-            btnVerifyMap.Enabled = actionEnabled && _alignComplete && _mappingComplete;
             btnVisionTest.Enabled = actionEnabled;
             // 미연결 상태에서는 Live/Grab이 no-op이면서 버튼만 눌린 상태로 남으므로 명령 자체를 잠근다.
             bool waferVisionCommandEnabled = !_reviewStopPending && _waferVisionControlActive &&
@@ -2135,7 +2057,6 @@ namespace QMC.CDT_320.Ui.Dialogs
                                   _alignComplete &&
                                   _mappingComplete &&
                                   _reviewValid &&
-                                  (_geometryVerified || _nonproductionReviewMode) &&
                                   _pickupOrderApplied &&
                                   (!_manualFallbackThetaRequired || _manualFallbackThetaDone) &&
                                   (_previewOrder.Count == 0 || !chkUseSelectedStart.Checked || _startDie != null);

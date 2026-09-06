@@ -11,6 +11,7 @@ using QMC.CDT320.Calibration;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Recipes;
 using QMC.Common;
+using QMC.Common.Logging;
 
 namespace QMC.CDT320.Materials
 {
@@ -42,9 +43,12 @@ namespace QMC.CDT320.Materials
         private static string _inputStageReviewVerificationToken;
         private static InputStageReviewGeometryEvidence _inputStageReviewEvidence;
         private static InputStageReviewGeometryContext _inputStageReviewNonProductionContext;
+        private static InputStageReviewGeometryContext _inputStageReviewConfirmationContext;
         private static string _inputStageReviewAcceptedSourceSignature;
         private static string _inputStageReviewAcceptedCandidateSignature;
         private static string _inputStageReviewAcceptedConditionSignature;
+        private static string _inputStageReviewLastRejectionKey;
+        private static WaferMaterial _inputStageReviewBaselineSavePendingWafer;
         private static readonly HashSet<string> _inputStageReviewPendingSave = new HashSet<string>(StringComparer.Ordinal);
 
         public static void InvalidateInputStageReviewVerification(long sessionGeneration, long requestGeneration)
@@ -62,6 +66,7 @@ namespace QMC.CDT320.Materials
                 _inputStageReviewVerificationToken = null;
                 _inputStageReviewEvidence = null;
                 _inputStageReviewNonProductionContext = null;
+                _inputStageReviewConfirmationContext = null;
             }
         }
 
@@ -104,7 +109,12 @@ namespace QMC.CDT320.Materials
                     _inputStageReviewAcceptedSourceSignature = BuildInputStageReviewGeometrySignature(BuildDieMapFromWaferNoLock(wafer));
                     _inputStageReviewAcceptedCandidateSignature = BuildInputStageReviewGeometrySignature(candidate);
                     _inputStageReviewAcceptedConditionSignature = current.ConditionSignature;
-                    reason = "단발/누적 한계 안의 후보 좌표를 기록했습니다. 다점 검증이 필요합니다.";
+                    reason = "단발/누적 한계 안의 후보 좌표를 기록했습니다. 기존 CONFIRM에서 현재 자료를 확정합니다.";
+                    WriteInputStageReviewDiagnostic("OFFSET-RECEIPT", current, candidate,
+                        "offsetX=" + offsetX.ToString("R", CultureInfo.InvariantCulture) +
+                        "; offsetY=" + offsetY.ToString("R", CultureInfo.InvariantCulture) +
+                        "; sourceSignature=" + _inputStageReviewAcceptedSourceSignature +
+                        "; acceptedCandidateSignature=" + _inputStageReviewAcceptedCandidateSignature);
                     return true;
                 }
             }
@@ -146,7 +156,7 @@ namespace QMC.CDT320.Materials
             if (!TryResolveInputStageReviewRuntimeMode(out nonProduction, out signature, out reason))
                 return false;
             if (!nonProduction)
-                return FailInputStageReviewGeometry("현재 실운전 모드는 실제 다점 좌표 검증이 필요합니다.", out reason);
+                return FailInputStageReviewGeometry("현재 실운전 모드입니다. 비실운전 전용 승인은 사용할 수 없습니다.", out reason);
             reason = "현재 Simulation/DryRun 또는 장비·비전 미사용 모드입니다.";
             return true;
         }
@@ -179,6 +189,7 @@ namespace QMC.CDT320.Materials
                     }
                     _inputStageReviewEvidence = null;
                     _inputStageReviewNonProductionContext = current.Clone();
+                    _inputStageReviewConfirmationContext = null;
                     _inputStageReviewVerificationToken = "NONPRODUCTION-MANUAL-" + Guid.NewGuid().ToString("N");
                     context = current.Clone();
                     verificationToken = _inputStageReviewVerificationToken;
@@ -189,6 +200,67 @@ namespace QMC.CDT320.Materials
             catch (Exception ex)
             {
                 return FailInputStageReviewGeometry("비실운전 Review 승인 준비 실패: " + ex.Message, out reason);
+            }
+        }
+
+        // 기존 CONFIRM 조작에 현재 좌표/레시피 자료를 연결한다. 영상 실측 성공을 의미하지 않는다.
+        public static bool TryRegisterInputStageReviewConfirmation(
+            string waferId, DieMap draft, long sessionGeneration, long requestGeneration,
+            out InputStageReviewGeometryContext context, out string verificationToken, out string reason)
+        {
+            context = null;
+            verificationToken = null;
+            reason = string.Empty;
+            try
+            {
+                lock (_stateSync)
+                {
+                    bool nonProduction;
+                    string runtimeModeSignature;
+                    if (!TryResolveInputStageReviewRuntimeMode(out nonProduction, out runtimeModeSignature, out reason))
+                        return false;
+                    InputStageReviewGeometryContext current;
+                    if (!TryCaptureInputStageReviewGeometryContext(waferId, draft, sessionGeneration,
+                        requestGeneration, true, out current, out reason))
+                        return false;
+                    WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    if (current.IsSimulation != nonProduction)
+                        return FailInputStageReviewGeometry("저장 결과와 현재 실운전/비실운전 모드가 다릅니다.", out reason);
+                    if (!IsStoredInputStageResultModeUsableNoLock(wafer, true, out reason) ||
+                        !CheckInputStageReviewAuthorizedCandidateNoLock(wafer, current, out reason))
+                        return false;
+                    bool establishedBaseline = !wafer.HasInputStageReviewBaseline;
+                    if (establishedBaseline)
+                    {
+                        // 구형 자료는 현재 Material과 좌표가 완전히 같은 경우에만 기준을 만든다.
+                        // 과거 보정 누적량을 복원한 값이 아니라 현재 원점부터 적용할 새 기준이다.
+                        SetInputStageReviewBaseline(wafer, draft);
+                        _inputStageReviewBaselineSavePendingWafer = wafer;
+                        if (!TryNotifyAndSave("InputStageReviewConfirmationBaseline"))
+                            return FailInputStageReviewGeometry("Review 확인 기준 저장 요청에 실패했습니다.", out reason);
+                    }
+                    _inputStageReviewEvidence = null;
+                    _inputStageReviewNonProductionContext = null;
+                    _inputStageReviewConfirmationContext = current.Clone();
+                    _inputStageReviewVerificationToken = (nonProduction
+                        ? "CONFIRM-CONTEXT-NONPRODUCTION-" : "CONFIRM-CONTEXT-PRODUCTION-") + Guid.NewGuid().ToString("N");
+                    context = current.Clone();
+                    verificationToken = _inputStageReviewVerificationToken;
+                    reason = "기존 CONFIRM에 현재 좌표/레시피 확인 자료를 연결했습니다. 물리 실측 검증은 수행하지 않았습니다." +
+                        (establishedBaseline ? " 현재 원점으로 최초 보정 기준을 만들었으며 과거 누적량은 복구하지 않았습니다." : "");
+                    WriteInputStageReviewDiagnostic("CONFIRM-PREPARED", current, draft,
+                        "approvalId=" + verificationToken + "; baselineEstablished=" + establishedBaseline + "; " + reason);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                return FailInputStageReviewGeometry("Review 확인 자료 준비 실패: " + ex.Message, out reason);
+            }
+            finally
+            {
+                if (verificationToken == null)
+                    WriteInputStageReviewDiagnostic("CONFIRM-REJECT", context, draft, reason);
             }
         }
 
@@ -208,6 +280,71 @@ namespace QMC.CDT320.Materials
                     !string.Equals(ResolveInputStageRunReviewMappingRevision(wafer, null), mappingRevision, StringComparison.OrdinalIgnoreCase))
                     return FailInputStageReviewGeometry("검증점의 Wafer 또는 Mapping revision이 현재 InputStage와 다릅니다.", out reason);
                 return CheckInputStageReviewVerificationDieNoLock(wafer, dieUid, out reason);
+            }
+        }
+
+        private static bool TryEstablishInputStageReviewBaselineCore(
+            string waferId, DieMap draft, long sessionGeneration, long requestGeneration, out string reason)
+        {
+            reason = string.Empty;
+            WaferMaterial target = null;
+            InputStageReviewGeometryContext expected = null;
+            bool adopted = false;
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (!TryCaptureInputStageReviewGeometryContext(waferId, draft, sessionGeneration,
+                        requestGeneration, true, out expected, out reason))
+                        return false;
+                    target = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    if (!CheckInputStageReviewAuthorizedCandidateNoLock(target, expected, out reason))
+                        return false;
+                    if (target.HasInputStageReviewBaseline &&
+                        !ReferenceEquals(_inputStageReviewBaselineSavePendingWafer, target))
+                    {
+                        reason = "기존 보정 원점과 누적량 기준을 그대로 사용합니다.";
+                        return true;
+                    }
+                    if (!target.HasInputStageReviewBaseline)
+                    {
+                        // 최초 기준 도입은 현재 canonical Material과 일치한 좌표에서만 허용된다.
+                        // 이후 검출/보정 요청마다 기준을 다시 만들지 않는다.
+                        SetInputStageReviewBaseline(target, BuildDieMapFromWaferNoLock(target));
+                        _inputStageReviewBaselineSavePendingWafer = target;
+                        adopted = true;
+                    }
+                    if (!TryNotifyAndSave("InputStageReviewBaselineAdopted"))
+                        return FailInputStageReviewGeometry("현재 Material 보정 기준 저장 요청에 실패했습니다. 다시 시도하세요.", out reason);
+                }
+                // 실패한 최초 저장도 pending 표시를 유지하여 재시도 때 반드시 다시 flush한다.
+                bool durable = TryFlushPendingSave("InputStageReviewBaselineAdopted");
+                lock (_stateSync)
+                {
+                    WaferMaterial currentWafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    InputStageReviewGeometryContext current;
+                    if (!durable || !ReferenceEquals(currentWafer, target) ||
+                        !ReferenceEquals(_inputStageReviewBaselineSavePendingWafer, target) ||
+                        !TryCaptureInputStageReviewGeometryContext(waferId, draft, sessionGeneration,
+                            requestGeneration, false, out current, out reason) ||
+                        !InputStageReviewGeometryPolicy.IsSameContext(expected, current, out reason))
+                        return FailInputStageReviewGeometry("보정 기준 저장 또는 저장 중 Wafer/세션/좌표 확인에 실패했습니다. 검출을 시작하지 않습니다. " + reason, out reason);
+                    _inputStageReviewBaselineSavePendingWafer = null;
+                    reason = "현재 Material 원점을 보정 기준으로 저장했습니다. 과거 누적 Offset은 복구하지 않았습니다.";
+                }
+                WriteInputStageReviewDiagnostic("BASELINE-SAVED", expected, draft,
+                    "adoptedNow=" + adopted + "; pastCumulativeRecovered=False; durableMaterialSave=True; " + reason);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return FailInputStageReviewGeometry("Review 보정 기준 등록 실패: " + ex.Message, out reason);
+            }
+            finally
+            {
+                if (adopted)
+                    WriteInputStageReviewDiagnostic("BASELINE-ADOPTED", expected, draft,
+                        "pastCumulativeRecovered=False; basis=canonical-current-material; " + reason);
             }
         }
 
@@ -276,6 +413,7 @@ namespace QMC.CDT320.Materials
                     }
                     _inputStageReviewEvidence = evidence;
                     _inputStageReviewNonProductionContext = null;
+                    _inputStageReviewConfirmationContext = null;
                     _inputStageReviewVerificationToken = Guid.NewGuid().ToString("N");
                     verificationToken = _inputStageReviewVerificationToken;
                     reason = "다점 검증 증거를 현재 후보 좌표에 연결했습니다. verification=" + verificationToken;
@@ -321,9 +459,12 @@ namespace QMC.CDT320.Materials
             if (!hasBaseline && (!allowBaselineEstablishment ||
                 !string.Equals(BuildInputStageReviewGeometrySignature(draft),
                     BuildInputStageReviewGeometrySignature(BuildDieMapFromWaferNoLock(wafer)), StringComparison.Ordinal)))
-                return FailInputStageReviewGeometry("저장된 보정 기준이 없습니다. 현재 좌표를 먼저 VERIFY MAP 하거나 재매핑하세요.", out reason);
+                return FailInputStageReviewGeometry("저장된 보정 기준이 없습니다. 현재 좌표 그대로 CONFIRM하여 기준을 확정하거나 재매핑하세요.", out reason);
             if (Math.Abs(wafer.InputStageDieMappingCorrectedT - wafer.InputStageAlignCorrectedT) > InputStageThetaMappingSnapshotToleranceDeg)
                 return FailInputStageReviewGeometry("Mapping 이후 저장 T가 변경되었습니다. 재매핑이 필요합니다.", out reason);
+            if (!CheckInputStageReviewMappingProvenance(wafer, RecipeStore.LoadLastOrDefaultCached(),
+                State != null ? State.RecipeName : null, IsInputStageReviewSimulation(wafer), out reason))
+                return false;
             string condition = BuildInputStageReviewConditionSignature(wafer);
             if (string.IsNullOrWhiteSpace(condition))
                 return FailInputStageReviewGeometry("현재 레시피/카메라/좌표 설정을 확인할 수 없습니다.", out reason);
@@ -341,6 +482,36 @@ namespace QMC.CDT320.Materials
             InputStageReviewOffsetCandidate candidate;
             return InputStageReviewGeometryPolicy.TryCreateOffsetCandidate(context, 0, 0,
                 GetInputStageReviewOffsetLimits(), out candidate, out reason);
+        }
+
+        private static bool CheckInputStageReviewMappingProvenance(
+            WaferMaterial wafer, RecipeProject recipe, string materialRecipeName, bool nonProduction, out string reason)
+        {
+            if (wafer == null || recipe == null || string.IsNullOrWhiteSpace(recipe.FileName))
+                return FailInputStageReviewGeometry("Review Map의 현재 Wafer/레시피 기준을 확인할 수 없습니다.", out reason);
+            // 기존 InputStage Map 화면과 같은 승인 해시 계약을 확정 경계에서도 확인한다.
+            if (recipe.MapApprovalVersion > 0 &&
+                (string.IsNullOrWhiteSpace(wafer.InputMapApprovalHashAtMapping) ||
+                 !string.Equals(wafer.InputMapApprovalHashAtMapping, recipe.InputMapApprovalHash, StringComparison.OrdinalIgnoreCase)))
+                return FailInputStageReviewGeometry("현재 Recipe 승인 맵과 Stage Mapping 기준이 일치하지 않습니다. 재매핑이 필요합니다.", out reason);
+            // RecipeStore의 마지막 이름 저장 계약처럼 .Project와 주변 공백만 정규화한다.
+            // 구형 snapshot의 빈 RecipeName은 과거 출처를 증명하지 않으므로 로그에는 빈 값 그대로 남긴다.
+            if (!string.IsNullOrWhiteSpace(materialRecipeName) &&
+                !string.Equals(NormalizeInputStageReviewRecipeName(materialRecipeName),
+                    NormalizeInputStageReviewRecipeName(recipe.FileName), StringComparison.OrdinalIgnoreCase))
+                return FailInputStageReviewGeometry("현재 Material과 선택 Recipe가 다릅니다. 기존 맵을 새 Recipe 확인 자료로 확정할 수 없습니다.", out reason);
+            InputStageReviewSavedVerification previous = wafer.InputStageReviewVerification;
+            if (!nonProduction && previous != null && previous.Context != null && previous.Context.IsSimulation)
+                return FailInputStageReviewGeometry("비실운전에서 확인한 Mapping을 실운전 확인으로 바꿀 수 없습니다. 실제 Align/Die Mapping을 다시 수행하세요.", out reason);
+            reason = "저장된 Map 승인/레시피 및 확인 운전 모드 출처가 현재 조건과 충돌하지 않습니다.";
+            return true;
+        }
+
+        private static string NormalizeInputStageReviewRecipeName(string value)
+        {
+            string name = (value ?? string.Empty).Trim();
+            return name.EndsWith(".Project", StringComparison.OrdinalIgnoreCase)
+                ? name.Substring(0, name.Length - ".Project".Length) : name;
         }
 
         private static bool CheckInputStageReviewAuthorizedCandidateNoLock(
@@ -438,7 +609,7 @@ namespace QMC.CDT320.Materials
             if (!review.HasMapOrigin || !IsFiniteInputStageReviewNumber(review.MapOriginX) ||
                 !IsFiniteInputStageReviewNumber(review.MapOriginY) ||
                 review.MapOriginX != currentMap.OriginX || review.MapOriginY != currentMap.OriginY)
-                return FailInputStageReviewGeometry("진행된 Wafer는 원점을 변경할 수 없습니다. 기존 좌표 그대로 VERIFY MAP을 진행하세요.", out reason);
+                return FailInputStageReviewGeometry("진행된 Wafer는 원점을 변경할 수 없습니다. 기존 좌표 그대로 CONFIRM하세요.", out reason);
 
             var entries = new Dictionary<string, DieMapEntry>(StringComparer.OrdinalIgnoreCase);
             foreach (DieMapEntry entry in currentMap.Entries)
@@ -477,7 +648,7 @@ namespace QMC.CDT320.Materials
                 !ValidateInputStageRunReviewStartSelection(remaining, review.StartDieUid, review.StartDieIndex, out reason))
                 return false;
             // 화면의 시작 인덱스는 남은 순서 기준이다. 원래 승인 시작점/전체 순서는 저장된 값을 보존한다.
-            reason = "기존 Die 상태/좌표와 남은 승인 순서가 일치하여 검증 증거만 갱신할 수 있습니다.";
+            reason = "기존 Die 상태/좌표와 남은 승인 순서가 일치하여 확인 자료만 갱신할 수 있습니다.";
             return true;
         }
 
@@ -490,8 +661,9 @@ namespace QMC.CDT320.Materials
                 review.ReviewRequestGeneration != _inputStageReviewRequest ||
                 string.IsNullOrWhiteSpace(review.GeometryVerificationToken) ||
                 !string.Equals(review.GeometryVerificationToken, _inputStageReviewVerificationToken, StringComparison.Ordinal) ||
-                (_inputStageReviewEvidence == null && _inputStageReviewNonProductionContext == null))
-                return FailInputStageReviewGeometry("현재 요청의 다점 검증 증거가 없습니다. VERIFY MAP 후 다시 확인하세요.", out reason);
+                (_inputStageReviewEvidence == null && _inputStageReviewNonProductionContext == null &&
+                 _inputStageReviewConfirmationContext == null))
+                return FailInputStageReviewGeometry("현재 요청의 Review 확인 자료가 없습니다. 기존 CONFIRM을 다시 누르세요.", out reason);
             if (!review.HasMapOrigin || review.DieStates == null)
                 return FailInputStageReviewGeometry("검증 후보 원점/좌표가 제출되지 않았습니다.", out reason);
             var byId = review.DieStates.Where(item => item != null && !string.IsNullOrWhiteSpace(item.DieId))
@@ -520,6 +692,21 @@ namespace QMC.CDT320.Materials
                 !TryBuildInputStageReviewContextNoLock(wafer, candidate, review.ReviewSessionGeneration,
                     review.ReviewRequestGeneration, false, out current, out reason))
                 return false;
+            if (_inputStageReviewConfirmationContext != null)
+            {
+                var measurements = new List<InputStageReviewMeasurement>();
+                if (!IsStoredInputStageResultModeUsableNoLock(wafer, true, out reason) ||
+                    !CheckInputStageReviewConfirmationContext(_inputStageReviewVerificationToken,
+                        _inputStageReviewConfirmationContext, current, measurements, out reason))
+                    return false;
+                savedVerification = new InputStageReviewSavedVerification
+                {
+                    VerificationId = _inputStageReviewVerificationToken,
+                    Context = _inputStageReviewConfirmationContext.Clone(),
+                    Measurements = measurements
+                };
+                return true;
+            }
             if (_inputStageReviewNonProductionContext != null)
             {
                 if (!IsInputStageReviewNonProductionMode(out reason) ||
@@ -549,17 +736,45 @@ namespace QMC.CDT320.Materials
 
         private static bool IsInputStageReviewGeometryApprovalUsableNoLock(WaferMaterial wafer, DieMap map, out string reason)
         {
+            InputStageReviewGeometryContext current;
+            bool usable = IsInputStageReviewGeometryApprovalUsableCoreNoLock(wafer, map, out current, out reason);
+            if (usable)
+            {
+                _inputStageReviewLastRejectionKey = null;
+                return true;
+            }
+            // 반복 준비 판정은 동일 거부를 한 번만 기록한다. 마지막 한 건만 보관하여 크기를 제한한다.
+            string key = (wafer != null ? wafer.WaferInstanceId : "") + "|" +
+                (wafer != null ? wafer.InputStageProcessingGeneration.ToString(CultureInfo.InvariantCulture) : "") + "|" +
+                (wafer != null && wafer.InputStageReviewVerification != null ? wafer.InputStageReviewVerification.VerificationId : "") + "|" +
+                _inputStageReviewSession.ToString(CultureInfo.InvariantCulture) + "|" +
+                _inputStageReviewRequest.ToString(CultureInfo.InvariantCulture) + "|" +
+                (current != null ? current.ConditionSignature + "|" + current.CandidateSignature : "") + "|" + reason;
+            if (!string.Equals(_inputStageReviewLastRejectionKey, key, StringComparison.Ordinal))
+            {
+                _inputStageReviewLastRejectionKey = key;
+                WriteInputStageReviewDiagnostic("APPROVAL-REJECT", current, map, reason);
+            }
+            return false;
+        }
+
+        private static bool IsInputStageReviewGeometryApprovalUsableCoreNoLock(
+            WaferMaterial wafer, DieMap map, out InputStageReviewGeometryContext current, out string reason)
+        {
+            current = null;
             if (wafer == null || _inputStageReviewPendingSave.Contains(wafer.WaferInstanceId ?? ""))
                 return FailInputStageReviewGeometry("Review 승인 자료 저장 완료를 기다리고 있습니다.", out reason);
             InputStageReviewSavedVerification saved = wafer.InputStageReviewVerification;
             if (saved == null || saved.Context == null || string.IsNullOrWhiteSpace(saved.VerificationId))
-                return FailInputStageReviewGeometry("저장된 다점 좌표 검증 증거가 없습니다. VERIFY MAP이 필요합니다.", out reason);
+                return FailInputStageReviewGeometry("저장된 Review 확인 자료가 없습니다. 기존 Review 화면에서 CONFIRM이 필요합니다.", out reason);
             if (!CheckInputStageReviewLiveCoordinatesNoLock(wafer, map, out reason))
                 return false;
-            InputStageReviewGeometryContext current;
             if (!TryBuildInputStageReviewContextNoLock(wafer, map, saved.Context.SessionGeneration,
                 saved.Context.RequestGeneration, false, out current, out reason))
                 return false;
+            if (saved.VerificationId.StartsWith("CONFIRM-CONTEXT-", StringComparison.Ordinal))
+                return IsStoredInputStageResultModeUsableNoLock(wafer, true, out reason) &&
+                    CheckInputStageReviewConfirmationContext(saved.VerificationId, saved.Context, current, saved.Measurements, out reason);
             if (saved.VerificationId.StartsWith("NONPRODUCTION-MANUAL-", StringComparison.Ordinal))
                 return IsStoredInputStageResultModeUsableNoLock(wafer, true, out reason) &&
                     IsInputStageReviewNonProductionMode(out reason) &&
@@ -573,6 +788,23 @@ namespace QMC.CDT320.Materials
             InputStageReviewGeometryEvidence evidence;
             return InputStageReviewGeometryPolicy.TryVerify(saved.Context, saved.Measurements, saved.Tolerance, out evidence, out reason) &&
                 InputStageReviewGeometryPolicy.IsEvidenceUsable(evidence, current, !current.IsSimulation, out reason);
+        }
+
+        private static bool CheckInputStageReviewConfirmationContext(
+            string verificationId, InputStageReviewGeometryContext saved, InputStageReviewGeometryContext current,
+            IList<InputStageReviewMeasurement> measurements, out string reason)
+        {
+            if (saved == null || current == null || measurements == null || measurements.Count != 0 ||
+                string.IsNullOrWhiteSpace(verificationId))
+                return FailInputStageReviewGeometry("Review 확인 자료가 없거나 실측 자료와 구분되지 않습니다.", out reason);
+            string expectedPrefix = current.IsSimulation
+                ? "CONFIRM-CONTEXT-NONPRODUCTION-" : "CONFIRM-CONTEXT-PRODUCTION-";
+            if (!verificationId.StartsWith(expectedPrefix, StringComparison.Ordinal) ||
+                verificationId.Length <= expectedPrefix.Length || saved.IsSimulation != current.IsSimulation)
+                return FailInputStageReviewGeometry("Review 확인 당시와 현재 실운전/비실운전 조건이 다릅니다.", out reason);
+            if (!InputStageReviewGeometryPolicy.IsSameContext(saved, current, out reason))
+                return FailInputStageReviewGeometry("Review 확인 이후 세션/좌표/장비 조건이 변경되었습니다. 기존 CONFIRM을 다시 누르세요. " + reason, out reason);
+            return true;
         }
 
         private static bool CheckInputStageReviewNonProductionContext(
@@ -591,6 +823,7 @@ namespace QMC.CDT320.Materials
         {
             if (string.IsNullOrWhiteSpace(committedVerificationId))
                 return FailInputStageReviewGeometry("저장할 Review 검증 식별자가 없습니다.", out reason);
+            reason = string.Empty;
             // 저장 IO는 Material 잠금 밖에서 수행하고, 저장 완료 전에는 승인 소비를 막는다.
             bool durable = TryFlushPendingSave("InputStageRunReviewCommit");
             lock (_stateSync)
@@ -613,8 +846,17 @@ namespace QMC.CDT320.Materials
                          (saved.Context.SessionGeneration == _inputStageReviewSession && saved.Context.RequestGeneration == _inputStageReviewRequest));
                     if (ReferenceEquals(current, wafer) && sameRequest &&
                         IsInputStageReviewGeometryApprovalUsableNoLock(wafer, BuildDieMapFromWaferNoLock(wafer), out reason))
+                    {
+                        if (ReferenceEquals(_inputStageReviewBaselineSavePendingWafer, wafer))
+                            _inputStageReviewBaselineSavePendingWafer = null;
+                        WriteInputStageReviewDiagnostic("SAVE-COMPLETE", saved.Context, BuildDieMapFromWaferNoLock(wafer),
+                            "approvalId=" + committedVerificationId + "; durableMaterialSave=True");
                         return true;
+                    }
                 }
+                WriteInputStageReviewDiagnostic("SAVE-REJECT", saved != null ? saved.Context : null,
+                    BuildDieMapFromWaferNoLock(wafer), "approvalId=" + committedVerificationId +
+                    "; durableMaterialSave=" + durable + "; " + reason);
                 wafer.HasInputStageRunReviewApproval = false;
                 wafer.InputStageReviewVerification = null;
                 wafer.UpdatedAt = DateTime.Now;
@@ -806,6 +1048,137 @@ namespace QMC.CDT320.Materials
         {
             using (SHA256 hash = SHA256.Create())
                 return Convert.ToBase64String(hash.ComputeHash(Encoding.UTF8.GetBytes(text)));
+        }
+
+        public static void WriteInputStageReviewDiagnostic(
+            string eventName, InputStageReviewGeometryContext context, DieMap draft, string details)
+        {
+            try
+            {
+                string payload;
+                lock (_stateSync)
+                {
+                    WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    InputStageReviewSavedVerification saved = wafer != null ? wafer.InputStageReviewVerification : null;
+                    CDT320_Machine machine = CalibrationCoordinateService.ResolveMachine();
+                    InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                    RecipeProject recipe = RecipeStore.LoadLastOrDefaultCached();
+                    AppSettings settings = AppSettingsStore.Current;
+                    InputStageConfig config = stage != null ? stage.Config : null;
+                    CalibrationData calibration = machine != null && machine.VisionUnit != null && machine.VisionUnit.Config != null
+                        ? machine.VisionUnit.Config.CalibrationData : null;
+                    VisionCameraPixelCalibration camera = calibration != null && calibration.Camera != null
+                        ? calibration.Camera.InputCamera : null;
+                    MaterialSnapshot state = MaterialStorage.State;
+                    var json = new StringBuilder("{");
+                    AppendInputStageReviewDiagnosticValue(json, "schema", "input-stage-review-v1");
+                    AppendInputStageReviewDiagnosticValue(json, "observedAtUtc", DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+                    AppendInputStageReviewDiagnosticValue(json, "event", eventName);
+                    AppendInputStageReviewDiagnosticValue(json, "details", details);
+                    AppendInputStageReviewDiagnosticValue(json, "physicalVerification", "not-performed-by-this-event");
+                    AppendInputStageReviewDiagnosticValue(json, "savedApprovalId", saved != null ? saved.VerificationId : null);
+                    string savedId = saved != null ? saved.VerificationId : null;
+                    string savedKind = string.IsNullOrWhiteSpace(savedId) ? "none" :
+                        savedId.StartsWith("CONFIRM-CONTEXT-", StringComparison.Ordinal) ? "context-confirmation-without-physical-measurement" :
+                        savedId.StartsWith("NONPRODUCTION-MANUAL-", StringComparison.Ordinal) ? "legacy-nonproduction-manual" :
+                        savedId.StartsWith("SIMULATION-DEFAULT-", StringComparison.Ordinal) ? "simulation-default-order" :
+                        saved.Measurements != null && saved.Measurements.Count >= 3 && saved.Tolerance != null
+                            ? "legacy-multipoint-evidence-present-unvalidated" : "unknown-approval-format";
+                    AppendInputStageReviewDiagnosticValue(json, "savedApprovalKind", savedKind);
+                    AppendInputStageReviewDiagnosticValue(json, "savedMeasurementCount", saved != null && saved.Measurements != null ? (object)saved.Measurements.Count : null);
+                    AppendInputStageReviewDiagnosticValue(json, "recipe", recipe != null ? recipe.FileName : null);
+                    AppendInputStageReviewDiagnosticValue(json, "materialRecipe", state != null ? state.RecipeName : null);
+                    AppendInputStageReviewDiagnosticValue(json, "lotId", state != null ? state.LotId : null);
+                    AppendInputStageReviewDiagnosticValue(json, "waferId", wafer != null ? wafer.WaferId : null);
+                    AppendInputStageReviewDiagnosticValue(json, "waferInstanceId", wafer != null ? wafer.WaferInstanceId : null);
+                    AppendInputStageReviewDiagnosticValue(json, "processingGeneration", wafer != null ? (object)wafer.InputStageProcessingGeneration : null);
+                    AppendInputStageReviewDiagnosticValue(json, "alignRunId", wafer != null ? wafer.InputStageAlignResultRunId : null);
+                    AppendInputStageReviewDiagnosticValue(json, "mappingAlignRunId", wafer != null ? wafer.InputStageDieMappingAlignRunId : null);
+                    AppendInputStageReviewDiagnosticValue(json, "alignMode", wafer != null ? wafer.InputStageAlignResultMode : null);
+                    AppendInputStageReviewDiagnosticValue(json, "mappingMode", wafer != null ? wafer.InputStageDieMappingResultMode : null);
+                    AppendInputStageReviewDiagnosticValue(json, "mappingRevision", wafer != null ? ResolveInputStageRunReviewMappingRevision(wafer, draft) : null);
+                    AppendInputStageReviewDiagnosticValue(json, "recipeMapApprovalVersion", recipe != null ? (object)recipe.MapApprovalVersion : null);
+                    AppendInputStageReviewDiagnosticValue(json, "recipeMapHash", recipe != null ? recipe.InputMapApprovalHash : null);
+                    AppendInputStageReviewDiagnosticValue(json, "mappingRecipeMapHash", wafer != null ? wafer.InputMapApprovalHashAtMapping : null);
+                    AppendInputStageReviewDiagnosticValue(json, "contextWaferId", context != null ? context.WaferId : null);
+                    AppendInputStageReviewDiagnosticValue(json, "contextMappingRevision", context != null ? context.MappingRevision : null);
+                    AppendInputStageReviewDiagnosticValue(json, "contextConditionSignature", context != null ? context.ConditionSignature : null);
+                    AppendInputStageReviewDiagnosticValue(json, "contextCandidateSignature", context != null ? context.CandidateSignature : null);
+                    AppendInputStageReviewDiagnosticValue(json, "savedConditionSignature", saved != null && saved.Context != null ? saved.Context.ConditionSignature : null);
+                    AppendInputStageReviewDiagnosticValue(json, "savedCandidateSignature", saved != null && saved.Context != null ? saved.Context.CandidateSignature : null);
+                    AppendInputStageReviewDiagnosticValue(json, "draftCandidateSignature", draft != null ? BuildInputStageReviewGeometrySignature(draft) : null);
+                    AppendInputStageReviewDiagnosticValue(json, "session", context != null ? (object)context.SessionGeneration : null);
+                    AppendInputStageReviewDiagnosticValue(json, "request", context != null ? (object)context.RequestGeneration : null);
+                    AppendInputStageReviewDiagnosticValue(json, "contextNonProduction", context != null ? (object)context.IsSimulation : null);
+                    AppendInputStageReviewDiagnosticValue(json, "simulationMode", settings != null ? (object)settings.SimulationMode : null);
+                    AppendInputStageReviewDiagnosticValue(json, "dryRunMode", settings != null ? (object)settings.DryRunMode : null);
+                    AppendInputStageReviewDiagnosticValue(json, "useVision", settings != null ? (object)settings.UseVision : null);
+                    AppendInputStageReviewDiagnosticValue(json, "useAjin", settings != null ? (object)settings.UseAjin : null);
+                    AppendInputStageReviewDiagnosticValue(json, "mapCount", draft != null && draft.Entries != null ? (object)draft.Entries.Count : null);
+                    AppendInputStageReviewDiagnosticValue(json, "originX", draft != null ? (object)draft.OriginX : null);
+                    AppendInputStageReviewDiagnosticValue(json, "originY", draft != null ? (object)draft.OriginY : null);
+                    AppendInputStageReviewDiagnosticValue(json, "pitchX", draft != null ? (object)draft.PitchX : null);
+                    AppendInputStageReviewDiagnosticValue(json, "pitchY", draft != null ? (object)draft.PitchY : null);
+                    AppendInputStageReviewDiagnosticValue(json, "dieSizeX", draft != null ? (object)draft.DieSizeX : null);
+                    AppendInputStageReviewDiagnosticValue(json, "dieSizeY", draft != null ? (object)draft.DieSizeY : null);
+                    AppendInputStageReviewDiagnosticValue(json, "baselinePresent", wafer != null ? (object)wafer.HasInputStageReviewBaseline : null);
+                    AppendInputStageReviewDiagnosticValue(json, "baselineOriginX", wafer != null && wafer.HasInputStageReviewBaseline ? (object)wafer.InputStageReviewBaselineOriginX : null);
+                    AppendInputStageReviewDiagnosticValue(json, "baselineOriginY", wafer != null && wafer.HasInputStageReviewBaseline ? (object)wafer.InputStageReviewBaselineOriginY : null);
+                    AppendInputStageReviewDiagnosticValue(json, "cumulativeX", wafer != null && wafer.HasInputStageReviewBaseline && draft != null ? (object)(draft.OriginX - wafer.InputStageReviewBaselineOriginX) : null);
+                    AppendInputStageReviewDiagnosticValue(json, "cumulativeY", wafer != null && wafer.HasInputStageReviewBaseline && draft != null ? (object)(draft.OriginY - wafer.InputStageReviewBaselineOriginY) : null);
+                    AppendInputStageReviewDiagnosticValue(json, "actualCameraX", stage != null && stage.CameraX != null ? (object)stage.CameraX.ActualPosition : null);
+                    AppendInputStageReviewDiagnosticValue(json, "actualStageY", stage != null && stage.StageY != null ? (object)stage.StageY.ActualPosition : null);
+                    AppendInputStageReviewDiagnosticValue(json, "actualStageT", stage != null && stage.StageT != null ? (object)stage.StageT.ActualPosition : null);
+                    AppendInputStageReviewDiagnosticValue(json, "alignT", wafer != null && wafer.HasInputStageThetaAlignResult ? (object)wafer.InputStageAlignCorrectedT : null);
+                    AppendInputStageReviewDiagnosticValue(json, "mappingT", wafer != null && wafer.HasInputStageDieMappingThetaSnapshot ? (object)wafer.InputStageDieMappingCorrectedT : null);
+                    AppendInputStageReviewDiagnosticValue(json, "singleLimitX", config != null ? (object)config.ManualDieDetectOffsetLimitX : null);
+                    AppendInputStageReviewDiagnosticValue(json, "singleLimitY", config != null ? (object)config.ManualDieDetectOffsetLimitY : null);
+                    AppendInputStageReviewDiagnosticValue(json, "cumulativeLimitX", config != null ? (object)config.ManualDieDetectCumulativeOffsetLimitX : null);
+                    AppendInputStageReviewDiagnosticValue(json, "cumulativeLimitY", config != null ? (object)config.ManualDieDetectCumulativeOffsetLimitY : null);
+                    AppendInputStageReviewDiagnosticValue(json, "pixelToMmX", camera != null ? (object)camera.PixelToMmX : null);
+                    AppendInputStageReviewDiagnosticValue(json, "pixelToMmY", camera != null ? (object)camera.PixelToMmY : null);
+                    AppendInputStageReviewDiagnosticValue(json, "imageCenterPixelX", camera != null ? (object)camera.ImageCenterPixelX : null);
+                    AppendInputStageReviewDiagnosticValue(json, "imageCenterPixelY", camera != null ? (object)camera.ImageCenterPixelY : null);
+                    AppendInputStageReviewDiagnosticValue(json, "inputToBottomOffsetX", calibration != null && calibration.Camera != null ? (object)calibration.Camera.InputToBottomOffsetX : null);
+                    AppendInputStageReviewDiagnosticValue(json, "inputToBottomOffsetY", calibration != null && calibration.Camera != null ? (object)calibration.Camera.InputToBottomOffsetY : null);
+                    json.Append('}');
+                    payload = json.ToString();
+                }
+                // Audit은 DiagnosticVerbose=false에서도 영속 큐에 들어간다. 여기서 장비 동작이나 저장 대기는 하지 않는다.
+                EventLogger.Write(EventKind.Event, "SYSTEM", "IN-REVIEW-" + (eventName ?? "UNKNOWN"),
+                    "InputStageReviewGeometry", "InputStage Review 진단 " + payload, LogSeverity.Audit);
+            }
+            catch (Exception ex)
+            {
+                // 진단 실패가 기존 운전 판정/저장 결과를 바꾸면 안 된다.
+                System.Diagnostics.Trace.TraceError("InputStage Review 진단 기록 실패: {0}; event={1}", ex, eventName);
+            }
+        }
+
+        private static void AppendInputStageReviewDiagnosticValue(StringBuilder json, string key, object value)
+        {
+            if (json.Length > 1) json.Append(',');
+            AppendInputStageReviewDiagnosticString(json, key);
+            json.Append(':');
+            if (value == null) json.Append("null");
+            else if (value is bool) json.Append((bool)value ? "true" : "false");
+            else if (value is double && IsFiniteInputStageReviewNumber((double)value))
+                json.Append(((double)value).ToString("R", CultureInfo.InvariantCulture));
+            else if (value is int || value is long)
+                json.Append(Convert.ToString(value, CultureInfo.InvariantCulture));
+            else AppendInputStageReviewDiagnosticString(json, Convert.ToString(value, CultureInfo.InvariantCulture));
+        }
+
+        private static void AppendInputStageReviewDiagnosticString(StringBuilder json, string value)
+        {
+            json.Append('"');
+            foreach (char item in value ?? string.Empty)
+            {
+                if (item == '"' || item == '\\') json.Append('\\').Append(item);
+                else if (item < 0x20) json.Append("\\u").Append(((int)item).ToString("x4", CultureInfo.InvariantCulture));
+                else json.Append(item);
+            }
+            json.Append('"');
         }
 
         private static bool FailInputStageReviewGeometry(string message, out string reason)

@@ -118,6 +118,9 @@ namespace QMC.CDT_320
                 dialog.SetNonproductionReviewMode(MaterialStateService.IsInputStageReviewNonProductionMode(
                     out string nonProductionReviewReason));
                 dialog.SetAutoReviewMode(true);
+                LogInputStageReviewGeometry("REVIEW_OPEN", null,
+                    "wafer=" + (wafer.WaferId ?? "") + "; alignComplete=" + alignComplete +
+                    "; mappingComplete=" + mappingComplete + "; physicalVerification=not-performed", stageMap);
 
                 // [사용자 확정 2026-08-17] 죽은 세션 컨펌 차단 — Auto가 CycleStop 등으로 이미
                 // 종료된 뒤 눌린 결정은 받아줄 시퀀스가 없어 무음으로 사라졌다(15:4x 실사례:
@@ -148,7 +151,7 @@ namespace QMC.CDT_320
                         dialog.RestoreAfterDecisionFailure("수동 동작 또는 Jog가 진행 중입니다. STOP 후 다시 확인하세요.");
                         return;
                     }
-                    if (!CanSubmitInputStageReviewGeometry(dialog, out string geometryReason))
+                    if (!CanSubmitInputStageReviewConfirmation(dialog, out string geometryReason))
                     {
                         dialog.RestoreAfterDecisionFailure(geometryReason);
                         return;
@@ -209,13 +212,9 @@ namespace QMC.CDT_320
                 {
                     ApplyInputStageRunReviewPendingOffset(dialog);
                 };
-                dialog.GeometryVerificationRequested += async delegate
-                {
-                    await VerifyInputStageRunReviewGeometryAsync(dialog).ConfigureAwait(true);
-                };
                 dialog.SelectedDieChanged += delegate
                 {
-                    ClearInputStageRunReviewPendingOffset();
+                    ClearInputStageRunReviewPendingOffset("SELECTION_CHANGED");
                 };
                 dialog.VisionTestRequested += delegate
                 {
@@ -390,7 +389,7 @@ namespace QMC.CDT_320
                 StartDieIndex = dialog != null ? dialog.StartDieIndex : 0,
                 ReviewSessionGeneration = _inputStageRunReviewSessionGeneration,
                 ReviewRequestGeneration = _inputStageRunReviewRequestGeneration,
-                GeometryVerificationToken = _inputStageRunReviewGeometryToken ?? string.Empty
+                GeometryVerificationToken = _inputStageRunReviewApprovalToken ?? string.Empty
             };
 
             if (dialog != null)
@@ -434,8 +433,9 @@ namespace QMC.CDT_320
             InputStageRunReviewDialog dialog = _inputStageRunReviewDialog;
             if (dialog != null && !dialog.IsDisposed)
             {
-                ClearInputStageRunReviewPendingOffset();
-                dialog.RestoreAfterDecisionFailure(message + " 현재 조건으로 VERIFY MAP 후 다시 확인하세요.");
+                LogInputStageReviewGeometry("COMMIT_PROCESSING_FAILED", null, message, dialog.DraftDieMap);
+                ClearInputStageRunReviewPendingOffset("COMMIT_PROCESSING_FAILED");
+                dialog.RestoreAfterDecisionFailure(message + " 원인을 확인한 뒤 CONFIRM을 다시 누르세요.");
             }
         }
 
@@ -642,6 +642,9 @@ namespace QMC.CDT_320
             {
                 try
                 {
+                    LogInputStageReviewGeometry("ACTION_CALLBACK_FINISHED", null,
+                        "action=" + actionName + "; status=" + finalStatus,
+                        dialog != null ? dialog.DraftDieMap : null);
                     if (workScope != null)
                         workScope.Dispose();
                     if (dialog != null && !dialog.IsDisposed)
@@ -1154,7 +1157,7 @@ namespace QMC.CDT_320
             if (confirm != DialogResult.Yes)
                 return;
 
-            ClearInputStageRunReviewPendingOffset();
+            ClearInputStageRunReviewPendingOffset("DETECTION_STARTED");
 
             // [DIE DETECTION Live 정지/복귀 2026-08-17, 팀장님 지시] 검출은 Grab을 직접 사용하므로
             // Live 수신과 카메라를 다툰다. 검출 직전 Live만 멈추고(안전 Scope는 유지) 검출 종료 후
@@ -1180,12 +1183,23 @@ namespace QMC.CDT_320
             string detectedDraftSignature = BuildInputStageRunReviewDraftSignature(dialog);
             InputStageReviewGeometryContext detectedContext;
             string geometryReason;
+            if (!MaterialStateService.TryEstablishInputStageReviewBaseline(
+                dialog.WaferId, dialog.DraftDieMap, detectionSessionGeneration,
+                detectionRequestGeneration, out geometryReason))
+            {
+                LogInputStageReviewGeometry("DETECTION_REJECTED", null, geometryReason, dialog.DraftDieMap);
+                dialog.SetBusy(false, geometryReason);
+                return;
+            }
             if (!TryCaptureInputStageReviewContext(dialog, false, out detectedContext, out geometryReason))
             {
+                LogInputStageReviewGeometry("DETECTION_REJECTED", detectedContext, geometryReason, dialog.DraftDieMap);
                 dialog.SetBusy(false, geometryReason);
                 return;
             }
             DieMap detectedDraft = dialog.DraftDieMap;
+            LogInputStageReviewGeometry("DETECTION_REQUEST", detectedContext,
+                FormattableString.Invariant($"dieUid={detectedDieUid}; gridX={detectedDieMapX}; gridY={detectedDieMapY}; referenceX={detectedReferenceX:R}; referenceY={detectedReferenceY:R}"), detectedDraft);
             double detectedFinalX = 0.0, detectedFinalY = 0.0, detectedFinalT = 0.0;
             double detectedOffsetX = 0.0;
             double detectedOffsetY = 0.0;
@@ -1238,7 +1252,13 @@ namespace QMC.CDT_320
                         entry,
                         currentX,
                         currentY,
+                        detectedContext,
+                        detectedDraft,
                         token).ConfigureAwait(false);
+                    // 촬영 직전 고정 좌표와 결과 반영/중심 이동 후 좌표를 구분해 남긴다.
+                    LogInputStageReviewGeometry("DETECTION_RAW", detectedContext,
+                        FormattableString.Invariant($"dieUid={detectedDieUid}; gridX={detectedDieMapX}; gridY={detectedDieMapY}; captureX={currentX:R}; captureY={currentY:R}; captureT={currentT:R}; referenceX={detectedReferenceX:R}; referenceY={detectedReferenceY:R}; ") +
+                        DescribeInputStageReviewVisionResult(vision) + "; simulatedNominalFallback=" + _inputStageRunReviewDieDetectionSimulated, detectedDraft);
                     if (vision == null ||
                         double.IsNaN(vision.DeltaX) || double.IsInfinity(vision.DeltaX) ||
                         double.IsNaN(vision.DeltaY) || double.IsInfinity(vision.DeltaY))
@@ -1257,6 +1277,8 @@ namespace QMC.CDT_320
                     double detectedCenterY = currentY + centerDeltaY;
                     double offsetX = detectedCenterX - detectedReferenceX;
                     double offsetY = detectedCenterY - detectedReferenceY;
+                    LogInputStageReviewGeometry("DETECTION_CANDIDATE", detectedContext,
+                        FormattableString.Invariant($"dieUid={detectedDieUid}; detectedCenterX={detectedCenterX:R}; detectedCenterY={detectedCenterY:R}; offsetX={offsetX:R}; offsetY={offsetY:R}; candidateOriginX={detectedContext.OriginX + offsetX:R}; candidateOriginY={detectedContext.OriginY + offsetY:R}; cumulativeX={detectedContext.OriginX + offsetX - detectedContext.BaselineOriginX:R}; cumulativeY={detectedContext.OriginY + offsetY - detectedContext.BaselineOriginY:R}; formulaX=captureX+visionDeltaX-referenceX; formulaY=captureY-visionDeltaY-referenceY"), detectedDraft);
                     string offsetReason;
                     InputStageReviewOffsetCandidate candidate;
                     if (!InputStageReviewGeometryPolicy.TryCreateOffsetCandidate(
@@ -1321,8 +1343,8 @@ namespace QMC.CDT_320
                 _inputStageRunReviewPendingCaptureX = detectedFinalX;
                 _inputStageRunReviewPendingCaptureY = detectedFinalY;
                 _inputStageRunReviewPendingCaptureT = detectedFinalT;
-                LogInputStageReviewGeometry("DETECTION", detectedContext,
-                    "offset=" + detectedOffsetX.ToString("F6") + "/" + detectedOffsetY.ToString("F6"));
+                LogInputStageReviewGeometry("DETECTION_PENDING", detectedContext,
+                    FormattableString.Invariant($"dieUid={detectedDieUid}; offsetX={detectedOffsetX:R}; offsetY={detectedOffsetY:R}; afterCenterMoveX={detectedFinalX:R}; afterCenterMoveY={detectedFinalY:R}; afterCenterMoveT={detectedFinalT:R}; draftApplied=false"), detectedDraft);
             }
             }
             finally
@@ -1377,6 +1399,8 @@ namespace QMC.CDT_320
             DieMapEntry entry,
             double currentX,
             double currentY,
+            InputStageReviewGeometryContext capturedContext,
+            DieMap capturedDraft,
             System.Threading.CancellationToken token)
         {
             bool connected = QMC.CDT320.VisionComm.VisionHub.Wafer != null &&
@@ -1414,6 +1438,10 @@ namespace QMC.CDT_320
                 0,
                 5000,
                 token).ConfigureAwait(false);
+            // MATCH 원본 pixel/각도와 mm 변환 결과를 분리한다. 아래 0.15는 기존 변환 인수이며 측정 피치가 아니다.
+            LogInputStageReviewGeometry("MATCH_RESULT", capturedContext,
+                match == null ? "matchResult=unavailable" :
+                FormattableString.Invariant($"dieUid={entry.DieUid}; requestId={match.RequestId}; groupId={match.GroupId}; matchSuccess={match.Success}; matchPixelX={match.X:R}; matchPixelY={match.Y:R}; matchAngleDeg={match.AngleDeg:R}; matchScore={match.Score:R}; hasImageSize={match.HasImageSize}; imageWidthPixel={match.ImageWidthPixel:R}; imageHeightPixel={match.ImageHeightPixel:R}; conversionPitchArgumentMm=0.15; pitchMeasured=false; raw={match.Raw}; rawError={match.RawError}"), capturedDraft);
             if (match == null || !match.Success)
                 return null;
 
@@ -1447,6 +1475,8 @@ namespace QMC.CDT_320
         {
             if (!_inputStageRunReviewOffsetPending || dialog == null)
             {
+                LogInputStageReviewGeometry("APPLY_REJECTED", _inputStageRunReviewPendingGeometryContext,
+                    "적용할 Die Detection Offset이 없습니다.", dialog != null ? dialog.DraftDieMap : null);
                 if (dialog != null)
                     dialog.SetBusy(false, "적용할 Die Detection Offset이 없습니다.");
                 return;
@@ -1455,6 +1485,8 @@ namespace QMC.CDT_320
             if (!string.Equals(dialog.WaferId, _inputStageRunReviewPendingOffsetWaferId, StringComparison.OrdinalIgnoreCase) ||
                 !string.Equals(dialog.MappingRevision, _inputStageRunReviewPendingOffsetMappingRevision, StringComparison.OrdinalIgnoreCase))
             {
+                LogInputStageReviewGeometry("APPLY_REJECTED", _inputStageRunReviewPendingGeometryContext,
+                    "Die Detection 이후 Wafer/Mapping이 변경되어 Offset을 적용할 수 없습니다.", dialog.DraftDieMap);
                 ClearInputStageRunReviewPendingOffset();
                 dialog.SetBusy(false, "Die Detection 이후 Wafer/Mapping이 변경되어 Offset을 적용할 수 없습니다.");
                 return;
@@ -1463,7 +1495,8 @@ namespace QMC.CDT_320
             string pendingReason;
             if (!CanApplyInputStageReviewPendingOffset(dialog, out pendingReason))
             {
-                ClearInputStageRunReviewPendingOffset();
+                LogInputStageReviewGeometry("APPLY_REJECTED", _inputStageRunReviewPendingGeometryContext, pendingReason, dialog.DraftDieMap);
+                ClearInputStageRunReviewPendingOffset(pendingReason);
                 dialog.SetBusy(false, pendingReason);
                 return;
             }
@@ -1474,6 +1507,8 @@ namespace QMC.CDT_320
                 _inputStageRunReviewPendingOffsetDraftSignature,
                 StringComparison.Ordinal))
             {
+                LogInputStageReviewGeometry("APPLY_REJECTED", _inputStageRunReviewPendingGeometryContext,
+                    "Die Detection 이후 Review Draft 상태/좌표/순서가 변경되어 Offset을 적용할 수 없습니다. 다시 검출하세요.", dialog.DraftDieMap);
                 ClearInputStageRunReviewPendingOffset();
                 dialog.SetBusy(false,
                     "Die Detection 이후 Review Draft 상태/좌표/순서가 변경되어 Offset을 적용할 수 없습니다. 다시 검출하세요.");
@@ -1494,6 +1529,8 @@ namespace QMC.CDT_320
                 Math.Abs(referenceEntry.PosX - _inputStageRunReviewPendingOffsetReferenceX) > 0.000000001 ||
                 Math.Abs(referenceEntry.PosY - _inputStageRunReviewPendingOffsetReferenceY) > 0.000000001)
             {
+                LogInputStageReviewGeometry("APPLY_REJECTED", _inputStageRunReviewPendingGeometryContext,
+                    "Die Detection 기준 Die UID/Grid/좌표가 현재 Draft와 달라 Offset을 적용할 수 없습니다. 다시 검출하세요.", dialog.DraftDieMap);
                 ClearInputStageRunReviewPendingOffset();
                 dialog.SetBusy(false,
                     "Die Detection 기준 Die UID/Grid/좌표가 현재 Draft와 달라 Offset을 적용할 수 없습니다. 다시 검출하세요.");
@@ -1520,7 +1557,8 @@ namespace QMC.CDT_320
             string reason;
             if (!CanApplyInputStageReviewPendingOffset(dialog, out reason))
             {
-                ClearInputStageRunReviewPendingOffset();
+                LogInputStageReviewGeometry("APPLY_REJECTED", _inputStageRunReviewPendingGeometryContext, reason, dialog.DraftDieMap);
+                ClearInputStageRunReviewPendingOffset(reason);
                 dialog.SetBusy(false, reason);
                 return;
             }
@@ -1528,22 +1566,26 @@ namespace QMC.CDT_320
                 _inputStageRunReviewPendingGeometryContext, dialog.DraftDieMap,
                 _inputStageRunReviewPendingOffsetX, _inputStageRunReviewPendingOffsetY, out reason))
             {
-                ClearInputStageRunReviewPendingOffset();
+                LogInputStageReviewGeometry("APPLY_REJECTED", _inputStageRunReviewPendingGeometryContext, reason, dialog.DraftDieMap);
+                ClearInputStageRunReviewPendingOffset(reason);
                 dialog.SetBusy(false, reason);
                 return;
             }
-            LogInputStageReviewGeometry("APPLY", _inputStageRunReviewPendingGeometryContext,
-                "offset=" + _inputStageRunReviewPendingOffsetX.ToString("F6") + "/" +
-                _inputStageRunReviewPendingOffsetY.ToString("F6"));
+            InputStageReviewGeometryContext applyContext = _inputStageRunReviewPendingGeometryContext;
+            string applyDetails = FormattableString.Invariant($"dieUid={_inputStageRunReviewPendingOffsetDieUid}; offsetX={_inputStageRunReviewPendingOffsetX:R}; offsetY={_inputStageRunReviewPendingOffsetY:R}; beforeOriginX={dialog.DraftDieMap.OriginX:R}; beforeOriginY={dialog.DraftDieMap.OriginY:R}");
+            LogInputStageReviewGeometry("APPLY_REQUEST", applyContext, applyDetails, dialog.DraftDieMap);
             if (dialog.ApplyDraftCoordinateOffset(
                 _inputStageRunReviewPendingOffsetX,
                 _inputStageRunReviewPendingOffsetY,
                 out reason))
             {
-                ClearInputStageRunReviewPendingOffset();
+                LogInputStageReviewGeometry("APPLY_COMMITTED", applyContext,
+                    applyDetails + FormattableString.Invariant($"; afterOriginX={dialog.DraftDieMap.OriginX:R}; afterOriginY={dialog.DraftDieMap.OriginY:R}; materialSaved=false"), dialog.DraftDieMap);
+                ClearInputStageRunReviewPendingOffset("OFFSET_APPLIED");
             }
             else
             {
+                LogInputStageReviewGeometry("APPLY_REJECTED", applyContext, applyDetails + "; reason=" + reason, dialog.DraftDieMap);
                 dialog.SetBusy(false, reason);
             }
         }
@@ -1585,16 +1627,23 @@ namespace QMC.CDT_320
             }
         }
 
-        private void ClearInputStageRunReviewPendingOffset()
+        private void ClearInputStageRunReviewPendingOffset(string reason = "REVIEW_CONTEXT_CHANGED")
         {
+            if (_inputStageRunReviewOffsetPending || !string.IsNullOrWhiteSpace(_inputStageRunReviewApprovalToken))
+            {
+                LogInputStageReviewGeometry("REQUEST_INVALIDATED", _inputStageRunReviewPendingGeometryContext,
+                    "reason=" + reason + "; approval=" + _inputStageRunReviewApprovalToken +
+                    "; pendingDieUid=" + _inputStageRunReviewPendingOffsetDieUid +
+                    FormattableString.Invariant($"; previousRequest={_inputStageRunReviewRequestGeneration}; nextRequest={_inputStageRunReviewRequestGeneration + 1}"),
+                    _inputStageRunReviewDialog != null ? _inputStageRunReviewDialog.DraftDieMap : null);
+            }
             ++_inputStageRunReviewRequestGeneration;
             MaterialStateService.InvalidateInputStageReviewVerification(
                 _inputStageRunReviewSessionGeneration, _inputStageRunReviewRequestGeneration);
-            _inputStageRunReviewGeometryToken = string.Empty;
-            _inputStageRunReviewVerifiedContext = null;
+            _inputStageRunReviewApprovalToken = string.Empty;
             _inputStageRunReviewPendingGeometryContext = null;
             if (_inputStageRunReviewDialog != null && !_inputStageRunReviewDialog.IsDisposed)
-                _inputStageRunReviewDialog.SetGeometryVerified(false, string.Empty);
+                _inputStageRunReviewDialog.SetReviewApprovalStatus(string.Empty);
             _inputStageRunReviewOffsetPending = false;
             _inputStageRunReviewPendingOffsetX = 0.0;
             _inputStageRunReviewPendingOffsetY = 0.0;

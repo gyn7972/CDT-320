@@ -278,6 +278,15 @@ namespace QMC.CDT_320
         // To do: [시작 레시피 자동 로드] startupAutoLoad는 기동 자동 적용 전용 - 알람 게이트만 면제된다.
         internal bool LoadMachineRecipe(string recipeName, bool startupAutoLoad)
         {
+            // 기동 복원만 기존 Load 경로를 사용합니다. 일반 적용은 초기화/저장 보호 구간을 공유합니다.
+            if (!startupAutoLoad)
+            {
+                bool cancelled;
+                string reason;
+                return TryApplyMachineRecipe(
+                    new QMC.CDT320.Recipes.RecipeProject { FileName = recipeName }, false, out cancelled, out reason);
+            }
+
             IDisposable recipeApplyLease = null;
             try
             {
@@ -332,9 +341,10 @@ namespace QMC.CDT_320
             string normalizedRecipeName,
             bool materialRecipeRestore,
             string recipeChangeReason,
-            bool broadcastVision)
+            bool broadcastVision,
+            QMC.CDT320.Recipes.RecipeProject preparedProject = null)
         {
-            QMC.CDT320.Recipes.RecipeProject project =
+            QMC.CDT320.Recipes.RecipeProject project = preparedProject ??
                 QMC.CDT320.Recipes.RecipeStore.Load(normalizedRecipeName);
 
             if (project == null)
@@ -384,63 +394,9 @@ namespace QMC.CDT_320
 
         internal bool ApplyMachineRecipe(QMC.CDT320.Recipes.RecipeProject project)
         {
-            try
-            {
-                if (project == null || string.IsNullOrWhiteSpace(project.FileName))
-                    return false;
-
-                string recipeName = NormalizeRecipeName(project.FileName);
-
-                if (!LoadMachineRecipe(recipeName))
-                    return false;
-
-                string recipeContextReason;
-                if (Controller != null &&
-                    !Controller.CompleteRecipeApplyContext(
-                        recipeName,
-                        out recipeContextReason))
-                {
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Alarm,
-                        UserSession.Name,
-                        "RECIPE-CONTEXT-APPLY",
-                        "Recipe 적용 후 Material 문맥 동기화 실패. recipe=" +
-                        recipeName + ", detail=" + recipeContextReason);
-                    return false;
-                }
-
-                Controller?.ApplyRecipeMode(_currentRecipe);
-                // 레시피 수명과 생산 LOT 수명은 다르다.
-                // LOT 완료 전에는 레시피 변경으로 Material의 활성 LOT ID가 바뀌지 않게 다시 동기화한다.
-                QMC.CDT320.Lots.LotSessionService.SynchronizeActiveLotToMaterial("RecipeApply");
-
-                QMC.CDT320.Recipes.RecipeStore.SaveLastProjectName(recipeName);
-                AppSettingsStore.Current.LastProject = recipeName;
-                AppSettingsStore.Save();
-
-                RefreshProjectName(recipeName);
-
-                QMC.Common.Logging.EventLogger.Write(
-                    QMC.Common.Logging.EventKind.Event,
-                    UserSession.Name,
-                    "RECIPE-APPLY",
-                    "Machine recipe applied: " + recipeName);
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.Logging.EventLogger.Write(
-                    QMC.Common.Logging.EventKind.Alarm,
-                    UserSession.Name,
-                    "RECIPE-APPLY",
-                    "Machine recipe apply failed: " + project?.FileName + " / " + ex.Message);
-
-                return false;
-            }
-            finally
-            {
-            }
+            bool cancelled;
+            string reason;
+            return TryApplyMachineRecipe(project, false, out cancelled, out reason);
         }
 
         /// <summary>
@@ -1255,7 +1211,7 @@ namespace QMC.CDT_320
             catch { /* Optional startup failure ignored. */ }
 
             if (!_materialSnapshotRestored && MaterialStorage.State.Cassettes.Count == 0)
-                MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
+                InitializeFreshMaterialStateForStartup(null);
 
             // [시작 로드 2026-08-17, 팀장님 지시] 폐루프 학습값을 기동 시 명시적으로 읽어 로그로 확인한다.
             // 기존에도 첫 접근 시 지연 로드는 됐지만, 파일이 비었거나 깨져 값이 0으로 초기화돼도
@@ -1282,7 +1238,7 @@ namespace QMC.CDT_320
                 if (!MaterialSnapshotStore.Exists())
                 {
                     Log.Write("Main", UserSession.Name, "MaterialRecovery", "Material snapshot does not exist. New empty Material state will be created. - Ok");
-                    MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
+                    InitializeFreshMaterialStateForStartup(null);
                     return;
                 }
 
@@ -1296,7 +1252,7 @@ namespace QMC.CDT_320
                         "Material Recovery",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
-                    MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
+                    InitializeFreshMaterialStateForStartup(null);
                     return;
                 }
 
@@ -1348,7 +1304,7 @@ namespace QMC.CDT_320
                             "Material Recovery",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Warning);
-                        MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
+                        InitializeFreshMaterialStateForStartup(null);
                         return;
                     }
 
@@ -1357,7 +1313,7 @@ namespace QMC.CDT_320
                 }
 
                 Log.Write("Main", UserSession.Name, "MaterialRecovery", "Material snapshot ignored by user. New empty Material state will be created. - Ok");
-                MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
+                InitializeFreshMaterialStateForStartup(null);
             }
             catch (Exception ex)
             {
@@ -1368,7 +1324,7 @@ namespace QMC.CDT_320
                     "Material Recovery",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
-                MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
+                InitializeFreshMaterialStateForStartup(null);
             }
             finally
             {
@@ -1471,21 +1427,8 @@ namespace QMC.CDT_320
 
         private void InitializeMaterialStateFromRecipe(QMC.CDT320.Recipes.RecipeProject recipe)
         {
-            if (recipe == null) return;
-
-            int inputLevels = recipe.InputCassetteLevelCount;
-            int goodLevels = recipe.GoodCassetteLevelCount;
-            if (inputLevels < 1 || inputLevels > 2) inputLevels = 1;
-            if (goodLevels < 1 || goodLevels > 2) goodLevels = 1;
-
-            MaterialStorage.InitializeDefaultState(inputLevels, goodLevels, 25, 25);
-            MaterialStorage.State.RecipeName = recipe.FileName ?? "";
-            // Recipe에 저장된 과거 LOT ID를 새 LOT처럼 되살리지 않는다.
-            // 활성 LOT이 있으면 그 ID만 유지하고, 없으면 명시적인 [LOT 시작] 전까지 빈 상태로 둔다.
-            MaterialStorage.State.LotId = QMC.CDT320.Lots.LotSessionService.IsLotActive
-                ? QMC.CDT320.Lots.LotSessionService.ActiveLotId
-                : "";
-            MaterialStateService.NotifyAndSave("InitializeFromRecipe");
+            if (recipe != null)
+                InitializeFreshMaterialStateForStartup(recipe);
         }
 
         /// <summary>선택한 메인 탭을 화면에 표시합니다.</summary>

@@ -285,14 +285,72 @@ namespace QMC.CDT320.Recipes
         private static string LastProjectMarkerPath
             => Path.Combine(Dir, ".last_project");
 
+        private static readonly object LastProjectSaveSync = new object();
+
         /// <summary>현재 로드된 프로젝트를 "마지막 프로젝트"로 기록 (다음 재시작 시 자동 로드).</summary>
         public static void SaveLastProjectName(string fileName)
         {
-            if (string.IsNullOrEmpty(fileName)) return;
-            if (fileName.EndsWith(".Project", StringComparison.OrdinalIgnoreCase))
+            string reason;
+            TrySaveLastProjectName(fileName, out reason);
+        }
+
+        /// <summary>마지막 프로젝트 기록의 저장 성공 여부와 실패 원인을 반환합니다.</summary>
+        public static bool TrySaveLastProjectName(string fileName, out string reason)
+        {
+            reason = null;
+            if (!string.IsNullOrEmpty(fileName) &&
+                fileName.EndsWith(".Project", StringComparison.OrdinalIgnoreCase))
                 fileName = fileName.Substring(0, fileName.Length - ".Project".Length);
-            try { File.WriteAllText(LastProjectMarkerPath, fileName, Encoding.UTF8); }
-            catch { }
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                reason = "마지막 프로젝트로 저장할 이름이 비어 있습니다.";
+                return false;
+            }
+
+            lock (LastProjectSaveSync)
+            {
+                string tempPath = null;
+                try
+                {
+                    tempPath = LastProjectMarkerPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                    using (var fs = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    {
+                        using (var writer = new StreamWriter(fs, Encoding.UTF8, 1024, true))
+                        {
+                            writer.Write(fileName);
+                            writer.Flush();
+                        }
+                        fs.Flush(true);
+                    }
+
+                    // 새 기록을 모두 쓴 뒤 교체하여 실패 시 기존 마지막 프로젝트를 보존합니다.
+                    if (File.Exists(LastProjectMarkerPath))
+                        File.Replace(tempPath, LastProjectMarkerPath, null);
+                    else
+                        File.Move(tempPath, LastProjectMarkerPath);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    reason = "마지막 프로젝트 기록 저장 실패. path=" + LastProjectMarkerPath +
+                        ", project=" + fileName + ", error=" + ex.Message;
+                    EventLogger.Write(EventKind.Alarm, "DATA", "LAST-PROJECT-SAVE", reason);
+                    return false;
+                }
+                finally
+                {
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(tempPath) && File.Exists(tempPath))
+                            File.Delete(tempPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        EventLogger.Write(EventKind.Warning, "DATA", "LAST-PROJECT-SAVE-TEMP",
+                            "마지막 프로젝트 기록의 임시 파일 정리 실패. path=" + tempPath + ", error=" + ex.Message);
+                    }
+                }
+            }
         }
 
         // 파싱 가능성 검증 캐시 (파일명 + mtime → 결과) — 손상 파일 fail-closed 의미를 유지하면서

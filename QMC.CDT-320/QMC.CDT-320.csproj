@@ -124,6 +124,7 @@
     <Compile Include="Equipment\MachineController.Initialization.cs" />
     <Compile Include="Equipment\MachineController.Manual.cs" />
     <Compile Include="Equipment\MachineController.Recipe.cs" />
+    <Compile Include="Equipment\MachineController.RecipeReset.cs" />
     <Compile Include="Equipment\MachineController.RuntimeState.cs" />
     <Compile Include="Equipment\MachineController.SequenceControl.cs" />
     <Compile Include="Equipment\MachineController.Statistics.cs" />
@@ -425,6 +426,7 @@
     <Compile Include="Sequencing\Common\SequenceRunMode.cs" />
     <Compile Include="Sequencing\Common\SequenceRunOptions.cs" />
     <Compile Include="Sequencing\Common\SequenceAwaiter.cs" />
+    <Compile Include="Sequencing\Common\PendingSequenceTaskRegistry.cs" />
     <Compile Include="Sequencing\Common\SequenceSignalBus.cs" />
     <Compile Include="Sequencing\Common\SequenceExecutionState.cs" />
     <Compile Include="Sequencing\Common\SequenceResumeStore.cs" />
@@ -533,6 +535,7 @@
     <Compile Include="Equipment\Recipes\RecipeProjectCloneService.cs" />
     <Compile Include="Equipment\Recipes\RecipeColletZApplyService.cs" />
     <Compile Include="Equipment\Recipes\RecipeStore.cs" />
+    <Compile Include="Equipment\Recipes\RecipeApplyFileSnapshot.cs" />
     <!-- Equipment / Materials (310 ?�식) -->
     <Compile Include="Equipment\Materials\Die.cs" />
     <Compile Include="Equipment\Materials\DieTapeFrame.cs" />
@@ -562,6 +565,8 @@
     <Compile Include="Equipment\Materials\MaterialStateService.WaferMove.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.WaferPlacement.cs" />
     <Compile Include="Equipment\Materials\MaterialStorage.cs" />
+    <Compile Include="Equipment\Materials\RecipeMaterialStateFactory.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.RecipeReset.cs" />
     <Compile Include="Equipment\Materials\MaterialSpecs.cs" />
     <Compile Include="Equipment\Materials\OutputWaferCsvSnapshotWriter.cs" />
     <Compile Include="Equipment\Materials\VisionInspectionResultFileWriter.cs" />
@@ -771,6 +776,19 @@
     <Compile Include="Equipment\Vision\VisionTcpClient.cs" />
     <Compile Include="Equipment\Vision\VisionTcpClient.Correlated.cs" />
     <Compile Include="Ui\Common\WaferMaps\WaferMapDisplayStyle.cs" />
+    <Compile Include="Ui\Common\WaferMaps\PickupOrderDraft.cs" />
+    <Compile Include="Ui\Controls\PickupRouteMapControl.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\PickupRouteMapControl.Designer.cs">
+      <DependentUpon>PickupRouteMapControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\InputPickupOrderDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\InputPickupOrderDialog.Designer.cs">
+      <DependentUpon>InputPickupOrderDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Common\History\EventLogDisplayBuffer.cs" />
     <!-- UI / Common Designer catalog and template (not connected to production screens) -->
     <Compile Include="Ui\Common\Catalog\UiStandardCatalogForm.cs">
@@ -992,6 +1010,10 @@
     </Compile>
     <Compile Include="Ui\Dialogs\InputStageRunReviewDialog.Designer.cs">
       <DependentUpon>InputStageRunReviewDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\InputStageRunReviewDialog.PickupOrder.cs">
+      <DependentUpon>InputStageRunReviewDialog.cs</DependentUpon>
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="Ui\Dialogs\LoginDialog.cs">
       <SubType>Form</SubType>
@@ -1403,6 +1425,10 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Form1.InputStageRunReview.Geometry.cs">
+      <DependentUpon>Form1.cs</DependentUpon>
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Form1.RecipeReset.cs">
       <DependentUpon>Form1.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>

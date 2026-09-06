@@ -62,6 +62,35 @@ namespace QMC.CDT320.Sequencing
         private static readonly List<Task<int>> ActiveInputRetreatTasks = new List<Task<int>>();
         private static string _inputRetreatFailure = string.Empty;
 
+        /// <summary>Recipe 전환 전에 종료되지 않은 회피 작업과 현재 명령 소유자를 조회합니다.</summary>
+        internal static bool TryGetRecipeChangePendingWork(out string reason)
+        {
+            reason = string.Empty;
+            lock (Sync)
+            {
+                foreach (Task<int> task in ActiveInputRetreatTasks)
+                {
+                    if (task != null && !task.IsCompleted)
+                    {
+                        reason = "InputVision 독립 회피 Task가 아직 종료되지 않았습니다.";
+                        return true;
+                    }
+                }
+                if (_output != null && _output.MoveTask != null && !_output.MoveTask.IsCompleted)
+                {
+                    reason = "OutputVision 독립 회피 Task가 아직 종료되지 않았습니다.";
+                    return true;
+                }
+                if (_outputVisionCommandOwner != null)
+                {
+                    reason = "OutputVision 명령 소유자가 아직 작업을 완료하지 않았습니다. owner=" +
+                        _outputVisionCommandOwner;
+                    return true;
+                }
+                return false;
+            }
+        }
+
         // ---------- 인풋 (InputVisionX, side = 회피를 시작한 선행검사 측) ----------
 
         /// <summary>선행검사 EPD 직후 시작한 독립 회피 Task를 등록한다. 이전 세션은 관찰 후 덮어쓴다.</summary>

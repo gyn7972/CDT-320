@@ -698,7 +698,7 @@ namespace QMC.CDT320.Materials
         /// PickUp 순서는 레시피 기본 순서, 시작 Die 지정 없음(index=0), Die 상태 변경 없음.
         /// 호출 측(InputSequence)이 SimulationMode를 이미 확인한 뒤에만 호출한다.
         /// </summary>
-        public static bool TryApproveInputStageRunReviewWithDefaultOrder(
+        private static bool TryApproveInputStageRunReviewWithDefaultOrderCore(
             WaferMaterial wafer,
             out string reason)
         {
@@ -848,7 +848,7 @@ namespace QMC.CDT320.Materials
             }
         }
 
-        public static bool CommitInputStageRunReview(
+        private static bool CommitInputStageRunReviewCore(
             WaferMaterial wafer,
             UserConfirmResult review,
             out string reason)
@@ -856,6 +856,7 @@ namespace QMC.CDT320.Materials
             reason = string.Empty;
             string verificationIdForSave = null;
             bool preserveMaterialProgress = false;
+            bool confirmationCompleted = false;
 
             try
             {
@@ -1026,6 +1027,9 @@ namespace QMC.CDT320.Materials
                         return false;
                     if (!TryValidateInputStageReviewCommitNoLock(current, currentMap, review, out geometryVerification, out reason))
                         return false;
+                    WriteInputStageReviewDiagnostic("COMMIT-PREPARED", geometryVerification.Context, currentMap,
+                        "approvalId=" + geometryVerification.VerificationId + "; preserveMaterialProgress=" + preserveMaterialProgress +
+                        "; orderedCount=" + orderedIds.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
                     // 검증을 통과한 후보만 반영하되, 일부 단계 실패가 이전 승인을 재사용하지 못하게 한다.
                     current.HasInputStageRunReviewApproval = false;
@@ -1130,14 +1134,20 @@ namespace QMC.CDT320.Materials
                     _inputStageReviewVerificationToken = null;
                     _inputStageReviewEvidence = null;
                     _inputStageReviewNonProductionContext = null;
+                    _inputStageReviewConfirmationContext = null;
                 }
                 if (!TryCompleteInputStageReviewCommitSave(wafer, verificationIdForSave, out reason))
                     return false;
-                reason = verificationIdForSave.StartsWith("NONPRODUCTION-MANUAL-", StringComparison.Ordinal)
-                    ? "비실운전 Review 상태와 승인 순서를 저장/확정했습니다. wafer=" + (wafer.WaferId ?? "")
-                    : (preserveMaterialProgress
-                    ? "기존 Die 진행 상태와 승인 순서를 보존하고 다점 검증을 저장/확정했습니다. wafer="
-                    : "InputStage Review 다점 검증과 PickUp 순서를 저장/확정했습니다. wafer=") + (wafer.WaferId ?? "");
+                reason = verificationIdForSave.StartsWith("CONFIRM-CONTEXT-", StringComparison.Ordinal)
+                    ? (preserveMaterialProgress
+                        ? "기존 Die 진행 상태/좌표/승인 순서를 보존하고 CONFIRM 자료를 저장했습니다. 물리 실측 검증은 수행하지 않았습니다. wafer="
+                        : "현재 좌표/레시피 CONFIRM 자료와 PickUp 순서를 저장했습니다. 물리 실측 검증은 수행하지 않았습니다. wafer=") + (wafer.WaferId ?? "")
+                    : (verificationIdForSave.StartsWith("NONPRODUCTION-MANUAL-", StringComparison.Ordinal)
+                        ? "비실운전 Review 상태와 승인 순서를 저장/확정했습니다. wafer=" + (wafer.WaferId ?? "")
+                        : (preserveMaterialProgress
+                        ? "기존 Die 진행 상태와 승인 순서를 보존하고 다점 검증을 저장/확정했습니다. wafer="
+                        : "InputStage Review 다점 검증과 PickUp 순서를 저장/확정했습니다. wafer=") + (wafer.WaferId ?? ""));
+                confirmationCompleted = true;
                 return true;
             }
             catch (Exception ex)
@@ -1148,6 +1158,9 @@ namespace QMC.CDT320.Materials
             }
             finally
             {
+                if (!confirmationCompleted)
+                    WriteInputStageReviewDiagnostic("COMMIT-REJECT", null, null,
+                        "submittedApprovalId=" + (review != null ? review.GeometryVerificationToken : "") + "; " + reason);
             }
         }
 

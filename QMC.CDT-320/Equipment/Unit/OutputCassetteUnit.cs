@@ -2595,6 +2595,13 @@ namespace QMC.CDT320
             UpdateCassetteSlotState(cassette, slotIndex, hasWafer ? SlotPresence.Exist : SlotPresence.Empty, ProcessState.Ready);
         }
 
+        /// <summary>레시피 초기화 후 이전 Material의 슬롯 투영만 비웁니다. 티칭 위치와 장비 출력은 변경하지 않습니다.</summary>
+        internal void ResetMaterialProjection()
+        {
+            _slotMap.Clear();
+            _slotStates.Clear();
+        }
+
         public void BeginMapping()
         {
             _slotMap[TargetCassette.Ng] = new bool[0];

@@ -751,11 +751,19 @@ namespace QMC.CDT320
 
         private IDisposable EnterManualOperation()
         {
-            if (Interlocked.Increment(ref _manualBusyCount) == 1)
+            // Recipe 적용 등록과 수동 busy 등록을 같은 잠금으로 묶어 확인 직후 진입 경합을 막는다.
+            lock (_recipeOperationLock)
             {
-                var old = Interlocked.Exchange(ref _manualCts, new CancellationTokenSource());
-                if (old != null)
-                    old.Dispose();
+                if (_recipeApplyOperationActive)
+                    throw new ManualActionBlockedException(
+                        "Recipe 저장/적용 중에는 수동 동작을 시작할 수 없습니다.");
+
+                if (Interlocked.Increment(ref _manualBusyCount) == 1)
+                {
+                    var old = Interlocked.Exchange(ref _manualCts, new CancellationTokenSource());
+                    if (old != null)
+                        old.Dispose();
+                }
             }
 
             if (_status != EquipmentStatus.Alarm && _status != EquipmentStatus.AutoRunning)

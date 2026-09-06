@@ -20,8 +20,52 @@ namespace QMC.CDT320.Interlocks
         private static PickerYCollisionRecoveryJogScope _pickerYCollisionRecoveryJogScope;
         private static MotionGuardService _service;
 
+        public delegate bool RecipeSensitiveOperationHandler(
+            string operation, out IDisposable scope, out string reason);
+
         public static Func<MotionGuardContext> ContextProvider { get; set; }
+        public static Func<string> RecipeApplyBlockReasonProvider { get; set; }
+        public static RecipeSensitiveOperationHandler RecipeSensitiveOperationProvider { get; set; }
         public static bool Enabled { get; set; } = true;
+
+        /// <summary>Recipe 적용 중 신규 명령만 거부한다. STOP 및 기존 물리 인터락은 변경하지 않는다.</summary>
+        public static bool TryValidateRecipeOperation(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                Func<string> provider = RecipeApplyBlockReasonProvider;
+                reason = provider != null ? provider() ?? string.Empty : string.Empty;
+                return string.IsNullOrWhiteSpace(reason);
+            }
+            catch (Exception ex)
+            {
+                reason = "Recipe 적용 상태를 확인할 수 없어 명령을 차단했습니다. error=" + ex.Message;
+                return false;
+            }
+        }
+
+        /// <summary>비동기 UI 명령이 끝날 때까지 Recipe 적용 시작과 겹치지 않도록 등록한다.</summary>
+        public static bool TryBeginRecipeSensitiveOperation(
+            string operation, out IDisposable scope, out string reason)
+        {
+            scope = null;
+            reason = string.Empty;
+            try
+            {
+                if (!TryValidateRecipeOperation(out reason))
+                    return false;
+
+                RecipeSensitiveOperationHandler provider = RecipeSensitiveOperationProvider;
+                return provider == null || provider(operation, out scope, out reason);
+            }
+            catch (Exception ex)
+            {
+                reason = "Recipe 전환 보호 등록에 실패하여 명령을 차단했습니다. operation=" +
+                    (operation ?? string.Empty) + ", error=" + ex.Message;
+                return false;
+            }
+        }
 
         public static bool VerifyAxisMove(BaseAxis axis, double targetPosition, out string reason)
         {
@@ -59,7 +103,8 @@ namespace QMC.CDT320.Interlocks
             bool skipSharedRailXRule,
             out string reason)
         {
-            reason = "";
+            if (!TryValidateRecipeOperation(out reason))
+                return false;
             try
             {
                 if (!Enabled || axis == null)
@@ -139,7 +184,8 @@ namespace QMC.CDT320.Interlocks
             bool skipSharedRailXRule,
             out string reason)
         {
-            reason = "";
+            if (!TryValidateRecipeOperation(out reason))
+                return false;
             try
             {
                 if (!Enabled || axis == null)
@@ -187,7 +233,8 @@ namespace QMC.CDT320.Interlocks
 
         public static bool VerifyAxisTeachingMove(BaseAxis axis, double targetPosition, string targetName, out string reason)
         {
-            reason = "";
+            if (!TryValidateRecipeOperation(out reason))
+                return false;
             try
             {
                 if (!Enabled || axis == null)
@@ -236,7 +283,8 @@ namespace QMC.CDT320.Interlocks
         /// </summary>
         public static bool CanAxisPositionOverride(BaseAxis axis, double targetPosition, string targetName, out string reason)
         {
-            reason = "";
+            if (!TryValidateRecipeOperation(out reason))
+                return false;
             try
             {
                 if (!Enabled || axis == null)
@@ -273,7 +321,8 @@ namespace QMC.CDT320.Interlocks
         /// </summary>
         public static bool CanAxisTeachingMove(BaseAxis axis, double targetPosition, string targetName, out string reason)
         {
-            reason = "";
+            if (!TryValidateRecipeOperation(out reason))
+                return false;
             try
             {
                 if (!Enabled || axis == null)
@@ -308,7 +357,8 @@ namespace QMC.CDT320.Interlocks
 
         public static bool VerifyAxisHome(BaseAxis axis, out string reason)
         {
-            reason = "";
+            if (!TryValidateRecipeOperation(out reason))
+                return false;
             try
             {
                 if (!Enabled || axis == null)
@@ -343,7 +393,8 @@ namespace QMC.CDT320.Interlocks
 
         public static bool VerifyCylinderMove(QMC.Common.IO.BaseCylinder cylinder, bool moveFwd, out string reason)
         {
-            reason = "";
+            if (!TryValidateRecipeOperation(out reason))
+                return false;
             try
             {
                 if (!Enabled || cylinder == null)

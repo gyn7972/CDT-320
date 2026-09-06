@@ -547,6 +547,7 @@ namespace QMC.CDT320.Sequencing
             double requiredTravel = Math.Min(Math.Abs(avoid - startZ), nearAvoidDistance);
 
             Task<int> riseTask = MovePickerAxisCommandAsync(zAxisKind, avoid, "AvoidPosition");
+            PendingSequenceTaskRegistry.Track(riseTask, "PickerPlaceRise");
             ObservePlaceBackgroundResultTask(riseTask);
 
             DateTime timeoutAt = DateTime.UtcNow.AddMilliseconds(ResolveTimeout());

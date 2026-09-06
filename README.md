@@ -52,6 +52,9 @@ QMC.CDT-320/
 
 - [픽커 FLOW 일회성 복구 구현 프롬프트](docs/picker-flow-recovery/implementation-prompt.md)
 - [픽커 FLOW 일회성 복구 검증 체크리스트](docs/picker-flow-recovery/validation-checklist.md)
+- [레시피 변경 생산 상태 초기화 구현 프롬프트](docs/recipe-change-material-reset/01-implementation-prompt.md)
+- [레시피 변경 생산 상태 초기화 구현·검증 체크리스트](docs/recipe-change-material-reset/02-validation-checklist.md)
+- [레시피 변경 시퀀스·인터락 변경 승인 범위](docs/recipe-change-material-reset/03-sequence-interlock-approval.md)
 
 ## 외부 Vision 계약
 

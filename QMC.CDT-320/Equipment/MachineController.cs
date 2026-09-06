@@ -411,6 +411,9 @@ namespace QMC.CDT320
             _axisInitializeExecutor.StepProgressChanged += OnAxisInitializeExecutorStepProgressChanged;
             MotionGuardRuntime.ContextProvider = () =>
                 new MotionGuardContext(_machine, EnumerateAxes(), QMC.CDT320.Ajin.CylinderManager.Items.Values);
+            MotionGuardRuntime.RecipeApplyBlockReasonProvider = () => IsRecipeApplyOperationActive
+                ? "Recipe 적용 및 Material 초기화 중에는 새 동작을 시작할 수 없습니다." : null;
+            MotionGuardRuntime.RecipeSensitiveOperationProvider = TryBeginRecipeSensitiveUiOperation;
             BaseAxis.MotionGuard = VerifyAxisMotionGuard;
             // 알람 발생 시 AlarmContext 파일에 포함할 장비 스냅샷(상태/모드/축) 제공자 등록.
             QMC.Common.Logging.LogPolicy.EquipmentSnapshotProvider = BuildAlarmContextEquipmentSnapshot;

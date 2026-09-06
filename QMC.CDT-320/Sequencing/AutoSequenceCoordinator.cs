@@ -126,7 +126,11 @@ namespace QMC.CDT320.Sequencing
                 CancellationToken childrenToken = childrenCts.Token;
                 var unitTasks = new List<Task>();
                 foreach (var sequence in _active.Values)
-                    unitTasks.Add(Task.Run(() => sequence.RunAsync(childrenToken), childrenToken));
+                {
+                    Task unitTask = Task.Run(() => sequence.RunAsync(childrenToken), childrenToken);
+                    PendingSequenceTaskRegistry.Track(unitTask, "Unit:" + sequence.Name);
+                    unitTasks.Add(unitTask);
+                }
 
                 CancellationTokenSource waferMonitorCts = null;
                 Task waferMonitorTask = null;
@@ -137,6 +141,7 @@ namespace QMC.CDT320.Sequencing
                     waferMonitorTask = Task.Run(
                         () => _ctx.WaferCompletion.RunMonitorAsync(waferMonitorToken),
                         waferMonitorToken);
+                    PendingSequenceTaskRegistry.Track(waferMonitorTask, "WaferCompletionMonitor");
                 }
 
                 // Input Vision Prefetch 러너: Auto + VisionConfig 플래그 ON + 픽커 유닛 활성 시에만 기동.
@@ -155,6 +160,7 @@ namespace QMC.CDT320.Sequencing
                     prefetchTask = Task.Run(
                         () => InputVisionPrefetchRunner.RunAsync(_ctx, prefetchFrontActive, prefetchRearActive, prefetchToken),
                         prefetchToken);
+                    PendingSequenceTaskRegistry.Track(prefetchTask, "InputVisionPrefetchRunner");
                     _ctx.LogPublic("[SEQ] Input Vision Prefetch 러너를 시작합니다. front=" + prefetchFrontActive +
                                    ", rear=" + prefetchRearActive);
                 }

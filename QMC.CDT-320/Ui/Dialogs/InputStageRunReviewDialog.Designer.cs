@@ -84,7 +84,6 @@
         private System.Windows.Forms.Button btnThetaCorrection;
         private System.Windows.Forms.Button btnDieDetection;
         private System.Windows.Forms.Button btnOffsetApply;
-        private System.Windows.Forms.Button btnVerifyMap;
         private System.Windows.Forms.Button btnVisionTest;
         private System.Windows.Forms.TableLayoutPanel rightLayout;
         private System.Windows.Forms.GroupBox grpMapInfo;
@@ -246,7 +245,6 @@
             this.btnThetaCorrection = new System.Windows.Forms.Button();
             this.btnDieDetection = new System.Windows.Forms.Button();
             this.btnOffsetApply = new System.Windows.Forms.Button();
-            this.btnVerifyMap = new System.Windows.Forms.Button();
             this.btnVisionTest = new System.Windows.Forms.Button();
             this.rightLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpMapInfo = new System.Windows.Forms.GroupBox();
@@ -776,6 +774,7 @@
             this.colSequence.MinimumWidth = 6;
             this.colSequence.Name = "colSequence";
             this.colSequence.ReadOnly = true;
+            this.colSequence.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colSequence.Width = 52;
             // 
             // colMapX
@@ -784,6 +783,7 @@
             this.colMapX.MinimumWidth = 6;
             this.colMapX.Name = "colMapX";
             this.colMapX.ReadOnly = true;
+            this.colMapX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colMapX.Width = 55;
             // 
             // colMapY
@@ -792,6 +792,7 @@
             this.colMapY.MinimumWidth = 6;
             this.colMapY.Name = "colMapY";
             this.colMapY.ReadOnly = true;
+            this.colMapY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colMapY.Width = 55;
             // 
             // colGridX
@@ -800,6 +801,7 @@
             this.colGridX.MinimumWidth = 6;
             this.colGridX.Name = "colGridX";
             this.colGridX.ReadOnly = true;
+            this.colGridX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colGridX.Width = 62;
             // 
             // colGridY
@@ -808,6 +810,7 @@
             this.colGridY.MinimumWidth = 6;
             this.colGridY.Name = "colGridY";
             this.colGridY.ReadOnly = true;
+            this.colGridY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colGridY.Width = 62;
             // 
             // colOriginalX
@@ -816,6 +819,7 @@
             this.colOriginalX.MinimumWidth = 6;
             this.colOriginalX.Name = "colOriginalX";
             this.colOriginalX.ReadOnly = true;
+            this.colOriginalX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colOriginalX.Width = 58;
             // 
             // colOriginalY
@@ -824,6 +828,7 @@
             this.colOriginalY.MinimumWidth = 6;
             this.colOriginalY.Name = "colOriginalY";
             this.colOriginalY.ReadOnly = true;
+            this.colOriginalY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colOriginalY.Width = 58;
             // 
             // colState
@@ -832,6 +837,7 @@
             this.colState.MinimumWidth = 6;
             this.colState.Name = "colState";
             this.colState.ReadOnly = true;
+            this.colState.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colState.Width = 70;
             // 
             // colResult
@@ -840,6 +846,7 @@
             this.colResult.MinimumWidth = 6;
             this.colResult.Name = "colResult";
             this.colResult.ReadOnly = true;
+            this.colResult.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colResult.Width = 70;
             // 
             // colBin
@@ -848,6 +855,7 @@
             this.colBin.MinimumWidth = 6;
             this.colBin.Name = "colBin";
             this.colBin.ReadOnly = true;
+            this.colBin.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colBin.Width = 45;
             // 
             // colPosX
@@ -856,6 +864,7 @@
             this.colPosX.MinimumWidth = 6;
             this.colPosX.Name = "colPosX";
             this.colPosX.ReadOnly = true;
+            this.colPosX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colPosX.Width = 82;
             // 
             // colPosY
@@ -864,6 +873,7 @@
             this.colPosY.MinimumWidth = 6;
             this.colPosY.Name = "colPosY";
             this.colPosY.ReadOnly = true;
+            this.colPosY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colPosY.Width = 82;
             // 
             // colDieUid
@@ -873,6 +883,7 @@
             this.colDieUid.MinimumWidth = 120;
             this.colDieUid.Name = "colDieUid";
             this.colDieUid.ReadOnly = true;
+            this.colDieUid.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // centerLayout
             // 
@@ -1071,7 +1082,7 @@
             this.lblStartIndexCaption.Name = "lblStartIndexCaption";
             this.lblStartIndexCaption.Size = new System.Drawing.Size(88, 36);
             this.lblStartIndexCaption.TabIndex = 3;
-            this.lblStartIndexCaption.Text = "Start Index";
+            this.lblStartIndexCaption.Text = "실행 순번";
             this.lblStartIndexCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // numStartIndex
@@ -1364,18 +1375,16 @@
             this.actionLayout.Controls.Add(this.btnThetaCorrection, 0, 1);
             this.actionLayout.Controls.Add(this.btnDieDetection, 0, 2);
             this.actionLayout.Controls.Add(this.btnOffsetApply, 0, 3);
-            this.actionLayout.Controls.Add(this.btnVerifyMap, 0, 4);
-            this.actionLayout.Controls.Add(this.btnVisionTest, 0, 5);
+            this.actionLayout.Controls.Add(this.btnVisionTest, 0, 4);
             this.actionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionLayout.Location = new System.Drawing.Point(8, 24);
             this.actionLayout.Name = "actionLayout";
-            this.actionLayout.RowCount = 6;
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
+            this.actionLayout.RowCount = 5;
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
             this.actionLayout.Size = new System.Drawing.Size(357, 191);
             this.actionLayout.TabIndex = 0;
             // 
@@ -1419,14 +1428,6 @@
             this.btnOffsetApply.Text = "APPLY OFFSET";
             this.btnOffsetApply.Click += new System.EventHandler(this.BtnOffsetApply_Click);
             // 
-            // btnVerifyMap
-            //
-            this.btnVerifyMap.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnVerifyMap.Name = "btnVerifyMap";
-            this.btnVerifyMap.TabIndex = 4;
-            this.btnVerifyMap.Text = "VERIFY MAP / 좌표 검증";
-            this.btnVerifyMap.Click += new System.EventHandler(this.BtnVerifyMap_Click);
-            //
             // btnVisionTest
             // 
             this.btnVisionTest.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -2141,7 +2142,7 @@
             this.btnPreviewPath.Name = "btnPreviewPath";
             this.btnPreviewPath.Size = new System.Drawing.Size(306, 26);
             this.btnPreviewPath.TabIndex = 6;
-            this.btnPreviewPath.Text = "PREVIEW PATH";
+            this.btnPreviewPath.Text = "픽업 순서 보기";
             this.btnPreviewPath.Click += new System.EventHandler(this.BtnPreviewPath_Click);
             // 
             // btnApplyPickupOrder

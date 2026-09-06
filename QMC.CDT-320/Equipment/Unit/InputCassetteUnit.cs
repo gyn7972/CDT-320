@@ -2184,6 +2184,16 @@ namespace QMC.CDT320
             return view;
         }
 
+        /// <summary>레시피 초기화 후 이전 Material의 슬롯 투영만 비웁니다. 티칭 위치와 장비 출력은 변경하지 않습니다.</summary>
+        internal void ResetMaterialProjection()
+        {
+            levelSlotStates.Clear();
+            WaferMap = new List<bool>().AsReadOnly();
+            lastScanSlotMap = null;
+            lastScanSlotPositions = null;
+            CommitWaferMapping();
+        }
+
         public void CommitWaferMapping()
         {
             mappingPreviousLevelSlotStates.Clear();

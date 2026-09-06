@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common.Motion;
@@ -27,6 +27,7 @@ namespace QMC.CDT320.Sequencing
                 if (stepTask.IsCompleted)
                     return await stepTask.ConfigureAwait(false);
 
+                PendingSequenceTaskRegistry.Track(stepTask, "SequenceStep");
                 Task cancelTask = Task.Delay(Timeout.Infinite, ct);
                 Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
                 if (!ReferenceEquals(completed, stepTask))

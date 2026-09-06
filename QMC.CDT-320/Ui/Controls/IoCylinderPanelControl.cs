@@ -352,8 +352,12 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
 
             _isCommandRunning = true;
+            IDisposable recipeOperationScope = null;
             try
             {
+                if (!TryBeginRecipePanelCommand(item, out recipeOperationScope))
+                    return;
+
                 await item.InputDoubleClickCommand();
                 RefreshStates();
             }
@@ -367,6 +371,8 @@ namespace QMC.CDT_320.Ui.Controls
             finally
             {
                 _isCommandRunning = false;
+                if (recipeOperationScope != null)
+                    recipeOperationScope.Dispose();
             }
         }
 
@@ -380,8 +386,12 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
 
             _isCommandRunning = true;
+            IDisposable recipeOperationScope = null;
             try
             {
+                if (!TryBeginRecipePanelCommand(item, out recipeOperationScope))
+                    return;
+
                 if (item.ItemType == IoCylinderItemType.Output)
                 {
                     bool current = item.StateGetter != null && item.StateGetter();
@@ -400,7 +410,22 @@ namespace QMC.CDT_320.Ui.Controls
             finally
             {
                 _isCommandRunning = false;
+                if (recipeOperationScope != null)
+                    recipeOperationScope.Dispose();
             }
+        }
+
+        private bool TryBeginRecipePanelCommand(IoCylinderItem item, out IDisposable scope)
+        {
+            string reason;
+            if (QMC.CDT320.Interlocks.MotionGuardRuntime.TryBeginRecipeSensitiveOperation(
+                    "I/O Panel: " + (item != null ? item.DisplayName : string.Empty),
+                    out scope, out reason))
+                return true;
+
+            QMC.Common.MessageDialog.Show(this, reason, "I/O Panel",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
         }
 
         private async Task WriteOutputAsync(IoCylinderItem item, bool value)

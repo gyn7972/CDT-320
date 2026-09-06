@@ -20,6 +20,72 @@ namespace QMC.CDT320.Sequencing
         private static readonly object Sync = new object();
         private static readonly Dictionary<PickerSequenceSide, RunningInspection> Running =
             new Dictionary<PickerSequenceSide, RunningInspection>();
+        // Clear는 취소 요청 후 반환하므로 등록이 지워져도 실제 Task 종료까지 추적합니다.
+        private static readonly HashSet<Task<int>> RecipeResetTrackedTasks = new HashSet<Task<int>>();
+        private static bool _recipeResetAdmissionActive;
+
+        internal static bool TryBeginRecipeReset(out IDisposable scope, out string reason)
+        {
+            scope = null;
+            reason = string.Empty;
+            lock (Sync)
+            {
+                RecipeResetTrackedTasks.RemoveWhere(pendingTask => pendingTask.IsCompleted);
+                if (_recipeResetAdmissionActive || RecipeResetTrackedTasks.Count > 0)
+                {
+                    reason = _recipeResetAdmissionActive
+                        ? "다른 Recipe 초기화가 선행검사 진입을 보호하고 있습니다."
+                        : "취소 요청 이후에도 종료되지 않은 InputCamera 선행검사 Task가 있습니다.";
+                    return false;
+                }
+
+                foreach (RunningInspection inspection in Running.Values)
+                {
+                    if (inspection != null && inspection.Task != null && !inspection.Task.IsCompleted)
+                    {
+                        reason = "진행 중인 InputCamera 선행검사가 있습니다.";
+                        return false;
+                    }
+                }
+
+                _recipeResetAdmissionActive = true;
+                scope = new RecipeResetAdmissionScope();
+                return true;
+            }
+        }
+
+        internal static bool TryClearCompletedForRecipeReset(out string reason)
+        {
+            reason = string.Empty;
+            lock (Sync)
+            {
+                RecipeResetTrackedTasks.RemoveWhere(pendingTask => pendingTask.IsCompleted);
+                if (!_recipeResetAdmissionActive || RecipeResetTrackedTasks.Count > 0)
+                {
+                    reason = "선행검사 종료 또는 Recipe 초기화 소유권이 확인되지 않았습니다.";
+                    return false;
+                }
+                ClearCompletedNoLock(PickerSequenceSide.Front);
+                ClearCompletedNoLock(PickerSequenceSide.Rear);
+            }
+
+            InputCameraPickUpPermissionStore.Clear(PickerSequenceSide.Front);
+            InputCameraPickUpPermissionStore.Clear(PickerSequenceSide.Rear);
+            return true;
+        }
+
+        private sealed class RecipeResetAdmissionScope : IDisposable
+        {
+            private int _disposed;
+
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                    return;
+                lock (Sync)
+                    _recipeResetAdmissionActive = false;
+            }
+        }
 
         // [동적 선행 대기점 2026-07-27] 촬영(선행검사) 진행 중 여부 — 읽기 전용 조회(부수효과 없음).
         // 대기 픽커의 동적 선행 대기 게이트 1(자기 측 촬영 진행 중) 판정용. 허가 발행/소비 무변경.
@@ -165,6 +231,11 @@ namespace QMC.CDT320.Sequencing
 
             lock (Sync)
             {
+                // 승인된 Recipe 전환은 종료된 검사만 초기화하며 새 검사 시작과 원자적으로 분리합니다.
+                if (_recipeResetAdmissionActive)
+                    return false;
+                RecipeResetTrackedTasks.RemoveWhere(pendingTask => pendingTask.IsCompleted);
+
                 if (options != null &&
                     options.RunMode == SequenceRunMode.Auto &&
                     context.IsCycleStopRequested)
@@ -196,6 +267,7 @@ namespace QMC.CDT320.Sequencing
                     StartedAt = DateTime.Now,
                     Reason = reason ?? string.Empty
                 };
+                RecipeResetTrackedTasks.Add(task);
 
                 // 진짜 FIFO(Q2): 선행검사 Task를 시작하는 이 임계구역에서 진입 티켓을 발급한다.
                 // 카메라존 양보 대기(선행검사 Task 내부)보다 반드시 먼저 발급돼, 대기 중 주체는 항상

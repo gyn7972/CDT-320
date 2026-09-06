@@ -3443,6 +3443,7 @@ namespace QMC.CDT320.Sequencing
                 if (task == null)
                     throw new ArgumentNullException("task");
 
+                PendingSequenceTaskRegistry.Track(task, "ReadyStep");
                 Task cancelTask = Task.Delay(Timeout.Infinite, ct);
                 Task finishedTask = await Task.WhenAny(task, cancelTask).ConfigureAwait(false);
                 if (finishedTask != task)
