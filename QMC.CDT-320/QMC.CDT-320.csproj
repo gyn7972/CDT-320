@@ -123,6 +123,7 @@
     <Compile Include="Equipment\MachineController.cs" />
     <Compile Include="Equipment\MachineController.Initialization.cs" />
     <Compile Include="Equipment\MachineController.Manual.cs" />
+    <Compile Include="Equipment\MachineController.ManualOutputBatch.cs" />
     <Compile Include="Equipment\MachineController.Recipe.cs" />
     <Compile Include="Equipment\MachineController.RecipeReset.cs" />
     <Compile Include="Equipment\MachineController.RuntimeState.cs" />
@@ -522,6 +523,8 @@
     <Compile Include="Sequencing\OutputFeeder\OutputFeederExchangeSequence.cs" />
     <Compile Include="Sequencing\OutputFeeder\OutputFeederRecoverSequence.cs" />
     <Compile Include="Sequencing\OutputSequence.cs" />
+    <Compile Include="Sequencing\OutputSequence.ManualBatch.cs" />
+    <Compile Include="Sequencing\ManualOutputBatchRunner.cs" />
     <Compile Include="Sequencing\OutputSequence.ActionPlanner.cs" />
     <Compile Include="Sequencing\OutputSequence.UnitCalls.cs" />
     <Compile Include="Sequencing\OutputSequence.Safety.cs" />

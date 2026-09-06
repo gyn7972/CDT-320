@@ -2003,7 +2003,7 @@ namespace QMC.CDT320.Sequencing
                     }
                 }
 
-                if (!IsAutoOutputLoaderBatchActive)
+                if (!IsAutoOutputLoaderBatchActive && !_manualOutputBatchActive)
                     SetOutputStageReadySignals();
                 return 0;
             }
@@ -2207,7 +2207,7 @@ namespace QMC.CDT320.Sequencing
                     }
                 }
 
-                if (!IsAutoOutputLoaderBatchActive)
+                if (!IsAutoOutputLoaderBatchActive && !_manualOutputBatchActive)
                     SetOutputStageReadySignals();
                 return 0;
             }

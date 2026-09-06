@@ -66,7 +66,7 @@ namespace QMC.CDT320
     }
 
     /// <summary>IVisionTcpClient 빌드용 Null Object (InputStageUnit용).</summary>
-    internal class NullVisionTcpClient : IVisionTcpClient
+    internal class NullVisionTcpClient : IVisionTcpClient, IConfigurableAlignVisionClient
     {
         public Task<bool> TriggerExposeAsync(int dieIndex)
             => Task.FromResult(true);
@@ -76,6 +76,12 @@ namespace QMC.CDT320
 
         public Task<VisionAlignResult> TriggerAlignAsync(string alignTargetId)
             => Task.FromResult(new VisionAlignResult());
+
+        public Task<VisionAlignResult> TriggerAlignAsync(string alignTargetId, int timeoutMs, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return TriggerAlignAsync(alignTargetId);
+        }
     }
 
     /// <summary>IWaferMapHandler 빌드용 Null Object.</summary>

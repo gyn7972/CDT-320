@@ -20,6 +20,7 @@ namespace QMC.CDT320
         private bool _startupMaterialResetOperationActive;
         private string _recipeApplyFailureReason = string.Empty;
         private string _failedRecipeSwitchTarget = string.Empty;
+        private string _inputCassetteClearFailureReason = string.Empty;
 
         public string RecipeApplyFailureReason
         {
@@ -50,6 +51,151 @@ namespace QMC.CDT320
                 scope = new RecipeSensitiveUiOperationScope(this);
                 return true;
             }
+        }
+
+        /// <summary>
+        /// 입력 카세트 교체 데이터 초기화와 저장이 끝날 때까지 운전 진입을 보호합니다.
+        /// </summary>
+        public bool TryBeginInputCassetteClearOperation(out IDisposable scope, out string reason)
+        {
+            scope = null;
+            reason = string.Empty;
+            if (_status == EquipmentStatus.Alarm || QMC.Common.Alarms.AlarmManager.HasActive)
+            {
+                reason = "Alarm 원인을 조치하고 RESET을 완료한 뒤 INPUT CST CLEAR를 실행하십시오.";
+                return false;
+            }
+
+            // 카세트 데이터만 지우더라도 START/수동/직접 I/O/Review 저장과 경합하면 안 됩니다.
+            // 기존 데이터 초기화 Gate를 공유하며 축 정지까지 확인하고, 모션이나 출력은 실행하지 않습니다.
+            if (!TryRegisterRecipeApplyOperation(out reason, true))
+            {
+                reason = "INPUT CST CLEAR를 시작할 수 없습니다. " + reason;
+                return false;
+            }
+
+            bool admitted = false;
+            try
+            {
+                if (_status == EquipmentStatus.Alarm || QMC.Common.Alarms.AlarmManager.HasActive)
+                {
+                    reason = "INPUT CST CLEAR 준비 중 Alarm이 발생했습니다. 원인을 조치한 뒤 다시 실행하십시오.";
+                    return false;
+                }
+                if (!MaterialStateService.CanCompleteInputCassetteExchange(out reason))
+                    return false;
+                if (!TryValidateInputCassetteClearPresence(out reason))
+                    return false;
+
+                scope = new RecipeApplyOperationLease(this);
+                admitted = true;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "INPUT CST CLEAR의 장비 상태 확인에 실패했습니다. 초기화하지 않았습니다. error=" + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputCassetteClear",
+                    reason + ", exception=" + ex + " - Failed");
+                return false;
+            }
+            finally
+            {
+                if (!admitted)
+                    EndRecipeApplyOperation();
+            }
+        }
+
+        public void ReportInputCassetteClearCompletion(bool completed, string reason)
+        {
+            lock (_recipeOperationLock)
+            {
+                if (!_recipeApplyOperationActive)
+                    throw new InvalidOperationException("INPUT CST CLEAR 작업 보호 범위 안에서만 완료 상태를 변경할 수 있습니다.");
+
+                if (completed)
+                {
+                    // 재시도 성공으로 해제할 수 있는 것은 이 클리어 작업이 설정한 START 차단뿐입니다.
+                    // 다른 Recipe 오류가 이후에 등록되었다면 그대로 유지합니다.
+                    if (!string.IsNullOrWhiteSpace(_inputCassetteClearFailureReason) &&
+                        string.Equals(_recipeApplyFailureReason, _inputCassetteClearFailureReason, StringComparison.Ordinal))
+                        _recipeApplyFailureReason = string.Empty;
+                    _inputCassetteClearFailureReason = string.Empty;
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(_recipeApplyFailureReason) ||
+                    string.Equals(_recipeApplyFailureReason, _inputCassetteClearFailureReason, StringComparison.Ordinal))
+                {
+                    _inputCassetteClearFailureReason =
+                        "INPUT CST CLEAR의 초기화/저장/상태 반영이 완료되지 않아 START를 차단했습니다. " +
+                        "원인을 조치하고 INPUT CST CLEAR를 다시 실행하십시오. " + (reason ?? string.Empty);
+                    _recipeApplyFailureReason = _inputCassetteClearFailureReason;
+                }
+            }
+        }
+
+        private bool TryValidateInputCassetteClearPresence(out string reason)
+        {
+            reason = string.Empty;
+            if (_machine == null)
+            {
+                reason = "장비 객체를 확인할 수 없어 INPUT CST CLEAR를 차단했습니다.";
+                return false;
+            }
+            if (!IsRecipeSwitchHardwareInputRequired())
+                return true;
+            if (!QMC.CDT320.Ajin.AjinFactory.IsRealBoardReady)
+            {
+                reason = "실장비 I/O 모드이지만 AJIN 보드가 준비되지 않아 INPUT CST CLEAR의 자재 감지를 확인할 수 없습니다.";
+                return false;
+            }
+
+            // 실장비는 Material이 비어 있어도 원본 Ring/FLOW 입력을 재확인합니다.
+            // 센서와 저장 위치가 다르면 복구가 필요하므로 센서값으로 Material을 자동 삭제하지 않습니다.
+            if (!TryValidateInputCassetteClearSensorEmpty(
+                    _machine.InputFeederUnit != null ? _machine.InputFeederUnit.WaferFeederRingCheckSensor : null,
+                    "InputFeeder Ring", out reason) ||
+                !TryValidateInputCassetteClearSensorEmpty(
+                    _machine.InputStageUnit != null ? _machine.InputStageUnit.WaferStage8RingCheckSensor : null,
+                    "InputStage 8 Ring", out reason) ||
+                !TryValidateInputCassetteClearSensorEmpty(
+                    _machine.InputStageUnit != null ? _machine.InputStageUnit.WaferStage12RingCheckSensor : null,
+                    "InputStage 12 Ring", out reason))
+                return false;
+
+            for (int side = 0; side < 2; side++)
+            {
+                BaseDigitalInput[] flows = side == 0
+                    ? (_machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.FlowChecks : null)
+                    : (_machine.PickerRearUnit != null ? _machine.PickerRearUnit.FlowChecks : null);
+                for (int picker = 0; picker < 4; picker++)
+                {
+                    BaseDigitalInput input = flows != null && picker < flows.Length ? flows[picker] : null;
+                    string sensorName = (side == 0 ? "Front" : "Rear") + " P" + (picker + 1) + " FLOW";
+                    if (!TryValidateInputCassetteClearSensorEmpty(input, sensorName, out reason))
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        private static bool TryValidateInputCassetteClearSensorEmpty(
+            BaseDigitalInput input, string sensorName, out string reason)
+        {
+            bool detected;
+            if (!TryReadRecipePresenceSensor(input, sensorName, out detected, out reason))
+            {
+                reason = "자재 실입력을 확인할 수 없어 INPUT CST CLEAR를 차단했습니다. " + reason;
+                return false;
+            }
+            if (detected)
+            {
+                reason = sensorName + " 실입력이 ON이므로 INPUT CST CLEAR를 차단했습니다. " +
+                    "실제 자재와 Material 위치 데이터를 확인하고 반납 또는 위치 복구를 완료한 뒤 다시 실행하십시오.";
+                return false;
+            }
+            reason = string.Empty;
+            return true;
         }
 
         private bool TryRegisterRecipeApplyOperation(out string reason, bool requireStoppedAxes = false)

@@ -11,7 +11,10 @@ namespace QMC.CDT_320.Ui.Dialogs
     public sealed partial class ManualSequenceDialog : Form
     {
         private readonly MachineController _controller;
+        private readonly Dictionary<BinSide, LoadTargetItem> _outputLoadSelections = new Dictionary<BinSide, LoadTargetItem>();
         private bool _busy;
+        private BinSide? _listedOutputSide;
+        private int _manualRunId;
 
         /// <summary>LOAD 대상 콤보 항목. Slot이 음수이면 자동 순번을 의미한다.</summary>
         private sealed class LoadTargetItem
@@ -35,8 +38,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         public ManualSequenceDialog(MachineController controller)
         {
-            _controller = controller ?? throw new ArgumentNullException(nameof(controller));
             InitializeComponent();
+            _controller = controller ?? throw new ArgumentNullException(nameof(controller));
             cmbPickerNo.SelectedIndex = 0;
             InitializeSpeedPercent();
             WireEvents();
@@ -45,22 +48,58 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         // LOAD 대상 목록을 현재 Material 상태로 다시 구성한다.
         // UNLOAD는 원본 슬롯으로만 복귀하므로 선택 대상이 없다(항상 자재의 SourceSlot 사용).
-        private void RefreshLoadTargets()
+        private void RefreshLoadTargets(bool showFailureStatus = true)
         {
             try
             {
                 LoadComboItems(cmbInputLoadTarget, BuildInputLoadTargets());
-                LoadComboItems(cmbOutputLoadTarget, BuildOutputLoadTargets(SelectedOutputSide()));
+                RefreshOutputLoadTargets();
             }
             catch (Exception ex)
             {
-                statusLabel.Text = "로딩 대상 목록을 구성하지 못했습니다. " + ex.Message;
+                if (showFailureStatus)
+                    statusLabel.Text = "로딩 대상 목록을 구성하지 못했습니다. " + ex.Message;
                 QMC.Common.Log.Write("Main", "SYSTEM", "ManualSequenceLoadTarget",
                     "로딩 대상 목록 구성 실패: " + ex.Message + " - Failed");
             }
             finally
             {
             }
+        }
+
+        private void RefreshOutputLoadTargets()
+        {
+            if (_listedOutputSide.HasValue && cmbOutputLoadTarget.SelectedItem is LoadTargetItem selected)
+                _outputLoadSelections[_listedOutputSide.Value] = selected;
+
+            if (rdoOutputAll.Checked)
+            {
+                _listedOutputSide = null;
+                LoadComboItems(cmbOutputLoadTarget, new List<LoadTargetItem>
+                {
+                    new LoadTargetItem("자동 — NG/GOOD 각각 다음 순번", CassetteMaterialRole.Good1, -1)
+                });
+            }
+            else
+            {
+                BinSide side = SelectedOutputSide();
+                LoadComboItems(cmbOutputLoadTarget, BuildOutputLoadTargets(side));
+                LoadTargetItem previous;
+                if (_outputLoadSelections.TryGetValue(side, out previous))
+                {
+                    foreach (LoadTargetItem item in cmbOutputLoadTarget.Items)
+                    {
+                        if (item.Role == previous.Role && item.SlotIndex == previous.SlotIndex)
+                        {
+                            cmbOutputLoadTarget.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+                _listedOutputSide = side;
+            }
+
+            cmbOutputLoadTarget.Enabled = !_busy && !rdoOutputAll.Checked;
         }
 
         private static void LoadComboItems(ComboBox combo, List<LoadTargetItem> items)
@@ -237,7 +276,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        // Output LOAD/UNLOAD 대상 side. GOOD/NG는 별개로 동작시킨다.
+        // 개별 Output LOAD/UNLOAD의 물리적 Side. ALL은 별도 Controller 진입점을 사용한다.
         private BinSide SelectedOutputSide()
         {
             return rbOutputNg.Checked ? BinSide.Ng : BinSide.Good;
@@ -273,43 +312,9 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 await RunManualProcessAsync("INPUT UNLOAD", _controller.RunManualInputUnloadAsync).ConfigureAwait(true);
             };
-            btnOutputLoad.Click += async delegate
-            {
-                BinSide side = SelectedOutputSide();
-                LoadTargetItem target = ResolveSelectedTarget(cmbOutputLoadTarget, CassetteMaterialRole.Good1);
-                string label = target.SlotIndex >= 0
-                    ? "OUTPUT LOAD(" + side + " " + target.Text + ")"
-                    : "OUTPUT LOAD(" + side + ")";
-                if (!ConfirmManualProcessStart(
-                    "OUTPUT LOAD",
-                    "출력 구분: " + side.ToString().ToUpperInvariant() + Environment.NewLine +
-                    "대상: " + target.Text))
-                {
-                    return;
-                }
-
-                await RunManualProcessAsync(label,
-                    () => _controller.RunManualOutputLoadAsync(side, target.Role, target.SlotIndex)).ConfigureAwait(true);
-            };
-            btnOutputUnload.Click += async delegate
-            {
-                BinSide side = SelectedOutputSide();
-                if (!ConfirmManualProcessStart(
-                    "OUTPUT UNLOAD",
-                    "출력 구분: " + side.ToString().ToUpperInvariant() + Environment.NewLine +
-                    "선택한 Stage/Feeder 자재를 원본 카세트 슬롯으로 배출합니다."))
-                {
-                    return;
-                }
-
-                await RunManualProcessAsync("OUTPUT UNLOAD(" + side + ")", () => _controller.RunManualOutputUnloadAsync(side)).ConfigureAwait(true);
-            };
             btnRefreshLoadTargets.Click += delegate { RefreshLoadTargets(); };
             btnSaveSpeedPercent.Click += delegate { SaveSequenceSpeedSettings(); };
 
-            // GOOD/NG를 바꾸면 해당 side의 공급 가능한 Bin 목록으로 갱신한다.
-            rbOutputGood.CheckedChanged += delegate { if (rbOutputGood.Checked) RefreshLoadTargets(); };
-            rbOutputNg.CheckedChanged += delegate { if (rbOutputNg.Checked) RefreshLoadTargets(); };
             btnPickUp.Click += async delegate { await RunPickerProcessAsync("PickUp", "PICK UP").ConfigureAwait(true); };
             btnBottom.Click += async delegate { await RunPickerProcessAsync("Bottom", "BOTTOM").ConfigureAwait(true); };
             btnSide.Click += async delegate { await RunPickerProcessAsync("Side", "SIDE").ConfigureAwait(true); };
@@ -317,6 +322,84 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnPickUpZTest.Click += async delegate { await RunPickerPickUpZMotionTestAsync().ConfigureAwait(true); };
             btnAllStep.Click += async delegate { await RunUnitStepAsync(SequenceUnitKind.All, "ALL STEP").ConfigureAwait(true); };
             btnClose.Click += delegate { Close(); };
+        }
+
+        private async void btnOutputLoad_Click(object sender, EventArgs e)
+        {
+            if (_busy)
+                return;
+
+            if (rdoOutputAll.Checked)
+            {
+                if (!ConfirmManualProcessStart("OUTPUT LOAD(ALL)",
+                    "출력 구분: ALL / 기본 순서: NG → GOOD" + Environment.NewLine +
+                    "빈 Stage에 각 구분의 다음 순번 Bin을 로딩합니다. NG 미사용 시 신규 NG 공급은 제외합니다." + Environment.NewLine +
+                    "Feeder 잔류 자재는 기존 재개 조건을 먼저 확인하며, 실패·정지 시 다음 대상을 시작하지 않습니다."))
+                    return;
+
+                await RunManualProcessAsync("OUTPUT LOAD(ALL)",
+                    _controller.RunManualOutputLoadAllAsync, true).ConfigureAwait(true);
+                return;
+            }
+
+            BinSide side = SelectedOutputSide();
+            LoadTargetItem target = ResolveSelectedTarget(cmbOutputLoadTarget, CassetteMaterialRole.Good1);
+            string label = target.SlotIndex >= 0
+                ? "OUTPUT LOAD(" + side + " " + target.Text + ")"
+                : "OUTPUT LOAD(" + side + ")";
+            if (!ConfirmManualProcessStart("OUTPUT LOAD",
+                "출력 구분: " + side.ToString().ToUpperInvariant() + Environment.NewLine +
+                "대상: " + target.Text))
+                return;
+
+            await RunManualProcessAsync(label,
+                () => _controller.RunManualOutputLoadAsync(side, target.Role, target.SlotIndex)).ConfigureAwait(true);
+        }
+
+        private async void btnOutputUnload_Click(object sender, EventArgs e)
+        {
+            if (_busy)
+                return;
+
+            if (rdoOutputAll.Checked)
+            {
+                if (!ConfirmManualProcessStart("OUTPUT UNLOAD(ALL)",
+                    "출력 구분: ALL / 기본 순서: NG → GOOD" + Environment.NewLine +
+                    "자재가 있는 Stage를 원본 카세트 슬롯으로 배출하고 종료합니다." + Environment.NewLine +
+                    "Feeder 잔류 자재는 기존 배출 조건을 먼저 확인하며, 실패·정지 시 다음 대상을 시작하지 않습니다."))
+                    return;
+
+                await RunManualProcessAsync("OUTPUT UNLOAD(ALL)",
+                    _controller.RunManualOutputUnloadAllAsync, true).ConfigureAwait(true);
+                return;
+            }
+
+            BinSide side = SelectedOutputSide();
+            if (!ConfirmManualProcessStart("OUTPUT UNLOAD",
+                "출력 구분: " + side.ToString().ToUpperInvariant() + Environment.NewLine +
+                "선택한 Stage/Feeder 자재를 원본 카세트 슬롯으로 배출합니다."))
+                return;
+
+            await RunManualProcessAsync("OUTPUT UNLOAD(" + side + ")",
+                () => _controller.RunManualOutputUnloadAsync(side)).ConfigureAwait(true);
+        }
+
+        private void rbOutputGood_CheckedChanged(object sender, EventArgs e)
+        {
+            if (rbOutputGood.Checked)
+                RefreshLoadTargets();
+        }
+
+        private void rbOutputNg_CheckedChanged(object sender, EventArgs e)
+        {
+            if (rbOutputNg.Checked)
+                RefreshLoadTargets();
+        }
+
+        private void rdoOutputAll_CheckedChanged(object sender, EventArgs e)
+        {
+            if (rdoOutputAll.Checked)
+                RefreshLoadTargets();
         }
 
         // LOAD/UNLOAD는 실제 Auto 시퀀스와 동일한 모션·인터락을 사용하므로 실행 직전에 작업자 확인을 받는다.
@@ -334,38 +417,58 @@ namespace QMC.CDT_320.Ui.Dialogs
                 MessageBoxIcon.Question) == DialogResult.Yes;
         }
 
-        private async Task RunManualProcessAsync(string label, Func<Task<int>> action)
+        private Task RunManualProcessAsync(string label, Func<Task<int>> action)
+        {
+            return RunManualProcessAsync(label, progress => action(), false);
+        }
+
+        private async Task RunManualProcessAsync(string label, Func<IProgress<string>, Task<int>> action, bool isOutputBatch)
         {
             if (_busy)
                 return;
 
+            int runId = ++_manualRunId;
+            bool acceptProgress = true;
             try
             {
                 _busy = true;
                 SetButtonsEnabled(false);
                 statusLabel.Text = label + " 실행 중...";
 
-                int result = await action().ConfigureAwait(true);
+                var progress = new Progress<string>(message =>
+                {
+                    if (acceptProgress && _busy && runId == _manualRunId && !IsDisposed && !Disposing)
+                        statusLabel.Text = message;
+                });
+                int result = await action(progress).ConfigureAwait(true);
+                // Progress는 UI 큐에 게시되므로 최종 결과나 다음 실행의 상태를 덮어쓰지 못하게 막는다.
+                acceptProgress = false;
+                string batchMessage = isOutputBatch ? _controller.LastManualOutputBatchMessage : null;
                 if (result == 0)
                 {
-                    statusLabel.Text = label + " 완료.";
+                    statusLabel.Text = string.IsNullOrWhiteSpace(batchMessage) ? label + " 완료." : batchMessage;
                     return;
                 }
 
-                ShowFailure(string.IsNullOrWhiteSpace(_controller.LastActionFailureMessage)
+                ShowFailure(!string.IsNullOrWhiteSpace(batchMessage) ? batchMessage :
+                    string.IsNullOrWhiteSpace(_controller.LastActionFailureMessage)
                     ? label + " 실행 실패"
                     : _controller.LastActionFailureMessage);
             }
             catch (Exception ex)
             {
-                ShowError(label + " 실행 중 예외가 발생했습니다. " + ex.Message);
+                acceptProgress = false;
+                string batchMessage = isOutputBatch ? _controller.LastManualOutputBatchMessage : null;
+                ShowError((string.IsNullOrWhiteSpace(batchMessage) ? label : batchMessage) +
+                    " 실행 중 예외가 발생했습니다. " + ex.Message);
             }
             finally
             {
+                acceptProgress = false;
                 _busy = false;
                 SetButtonsEnabled(true);
                 // 이송 결과로 슬롯 상태가 바뀌므로 선택 목록을 최신 Material로 갱신한다.
-                RefreshLoadTargets();
+                RefreshLoadTargets(!isOutputBatch);
             }
         }
 
@@ -501,6 +604,14 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             foreach (Control control in Controls)
                 SetButtonsEnabledRecursive(control, enabled);
+
+            rbOutputGood.Enabled = enabled;
+            rbOutputNg.Enabled = enabled;
+            rdoOutputAll.Enabled = enabled;
+            cmbInputLoadTarget.Enabled = enabled;
+            cmbOutputLoadTarget.Enabled = enabled && !rdoOutputAll.Checked;
+            numSpeedPercent.Enabled = enabled;
+            numReadySpeedPercent.Enabled = enabled;
         }
 
         private static void SetButtonsEnabledRecursive(Control control, bool enabled)

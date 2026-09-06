@@ -739,50 +739,32 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return true;
         }
 
-        // [P1 2026-08-21] 카세트 교체 완료: INPUT(1단/2단 전체) Material Data만 초기화한다.
-        // 2026-08-18 지시서 확정 스펙 — 기존 공개 API 재사용, 매핑은 여기서 하지 않는다
-        // (초기화가 IsMapped/IsPresent를 내리므로 다음 Auto START에서 매핑이 자동 재수행된다).
+        // 완료된 INPUT 카세트만 교체 초기화한다. 다음 START에서 매핑을 다시 수행한다.
         private void CompleteInputCassetteExchange()
         {
             const string actionName = "INPUT CST CLEAR";
             try
             {
-                Form1 host = GetHost();
-                if (!CanChangeInputCassetteData(host, actionName))
-                    return;
-                if (!CanPrepareInputCassetteExchange("카세트 데이터를 초기화할 수 없습니다."))
-                    return;
-
+                // 버튼 클릭 시 먼저 의사를 확인하고, 예를 선택한 경우에만 검사/초기화를 시작한다.
                 if (QMC.Common.MessageDialog.Show(this,
-                    "INPUT 카세트(1단/2단 전체)의 Material Data만 초기화합니다.\r\n" +
-                    "(OUTPUT 카세트 데이터는 유지됩니다)\r\n\r\n진행할까요?",
-                    "Cassette Exchange", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
-                    return;
-
-                // 확인창이 떠 있는 동안 상태가 변할 수 있어 가드를 재확인한다(Output 미러).
-                if (!CanChangeInputCassetteData(host, actionName))
-                    return;
-                if (!CanPrepareInputCassetteExchange("카세트 데이터를 초기화할 수 없습니다."))
-                    return;
-
-                string clearReason;
-                if (!MaterialStateService.ClearInputCassetteAllSlotData(out clearReason))
+                    "INPUT 카세트 데이터를 초기화하시겠습니까?\r\n\r\n" +
+                    "대상: INPUT 카세트 1단/2단 전체\r\n" +
+                    "Finish 완료 및 장비 내부 자재 상태를 확인한 후 초기화합니다.\r\n" +
+                    "OUTPUT 카세트 데이터는 유지됩니다.",
+                    "INPUT CST CLEAR 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                 {
-                    WriteEvent("INPUT-CST-CST-CLEAR", "blocked. reason=" + clearReason);
-                    QMC.Common.MessageDialog.Show(this,
-                        "INPUT 카세트 Material Data 초기화가 차단되었습니다.\r\n" +
-                        "(저장 파일은 변경되지 않았습니다)\r\n\r\n" + clearReason,
-                        "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    WriteEvent("INPUT-CST-CST-CLEAR", "사용자가 INPUT 카세트 초기화를 취소했습니다.");
                     return;
                 }
 
-                if (!MaterialStateService.TryFlushPendingSave("InputCassetteCstClear"))
+                // 확인창 이후 운전 진입을 막고 실입력/Material 재검사부터 저장까지 보호한다.
+                Form1 host = GetHost();
+                if (!CanChangeInputCassetteData(host, actionName))
+                    return;
+                string clearReason;
+                if (!TryCompleteInputCassetteClear(host, out clearReason))
                 {
-                    WriteEvent("INPUT-CST-CST-CLEAR", "cleared but save flush failed.");
-                    QMC.Common.MessageDialog.Show(this,
-                        "INPUT 카세트 Material Data는 메모리에서 초기화했지만 저장 파일 갱신에 실패했습니다.\r\n" +
-                        "프로그램을 재시작하지 말고 로그를 확인하십시오.",
-                        "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ShowInputCassetteClearFailure(clearReason);
                     return;
                 }
 
@@ -796,10 +778,67 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (Exception ex)
             {
+                WriteWarning("INPUT-CST-CST-CLEAR", "카세트 교체 완료 처리 실패: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this,
                     "카세트 교체 완료 처리 실패:\r\n" + ex.Message,
                     "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private bool TryCompleteInputCassetteClear(Form1 host, out string reason)
+        {
+            IDisposable operationScope;
+            if (!host.Controller.TryBeginInputCassetteClearOperation(out operationScope, out reason))
+                return false;
+
+            using (operationScope)
+            {
+                bool mutationStarted = false;
+                try
+                {
+                    mutationStarted = true;
+                    if (!MaterialStateService.ClearInputCassetteForExchange(out reason))
+                    {
+                        mutationStarted = false;
+                        return false;
+                    }
+                    if (!MaterialStateService.TryFlushPendingSave("InputCassetteCstClear"))
+                    {
+                        reason = "INPUT 카세트 데이터는 메모리에서 초기화했지만 저장하지 못했습니다. " +
+                                 "START를 차단했습니다. 프로그램을 재시작하지 말고 저장 오류를 해결한 후 CST CLEAR를 다시 실행하십시오.\r\n" +
+                                 EmptyToDash(MaterialSnapshotStore.LastSaveFailureReason);
+                        host.Controller.ReportInputCassetteClearCompletion(false, reason);
+                        return false;
+                    }
+                    if (!SyncInputRuntimeProjection())
+                    {
+                        reason = "INPUT 카세트 데이터는 저장했지만 유닛 상태 동기화에 실패했습니다. " +
+                                 "START를 차단했습니다. 로그를 확인하고 CST CLEAR를 다시 실행하십시오.";
+                        host.Controller.ReportInputCassetteClearCompletion(false, reason);
+                        return false;
+                    }
+                    host.Controller.ReportInputCassetteClearCompletion(true, "");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    reason = "INPUT 카세트 초기화 처리 중 오류가 발생했습니다. error=" + ex.Message;
+                    if (mutationStarted)
+                    {
+                        reason += "\r\nSTART를 차단했습니다. 현재 데이터와 저장 상태를 확인한 후 CST CLEAR를 다시 실행하십시오.";
+                        host.Controller.ReportInputCassetteClearCompletion(false, reason);
+                    }
+                    return false;
+                }
+            }
+        }
+
+        private void ShowInputCassetteClearFailure(string reason)
+        {
+            WriteWarning("INPUT-CST-CST-CLEAR", "INPUT 카세트 초기화 미완료. reason=" + reason);
+            QMC.Common.MessageDialog.Show(this,
+                "INPUT 카세트 초기화를 완료하지 못했습니다.\r\n\r\n" + reason,
+                "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         private InputCassetteSequence CreateInputCassetteSequence(Form1 host)

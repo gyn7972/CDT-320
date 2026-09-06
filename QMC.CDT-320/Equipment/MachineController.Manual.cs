@@ -1920,7 +1920,8 @@ namespace QMC.CDT320
         private async Task<int> RunManualUnitProcessAsync(
             string processLabel,
             string alarmCodePrefix,
-            Func<QMC.CDT320.Sequencing.MachineSequenceContext, CancellationToken, Task<int>> action)
+            Func<QMC.CDT320.Sequencing.MachineSequenceContext, CancellationToken, Task<int>> action,
+            Func<string> failureDetail = null)
         {
             try
             {
@@ -1976,7 +1977,8 @@ namespace QMC.CDT320
                     int result = await action(context, ManualOperationToken).ConfigureAwait(false);
                     if (result != 0)
                     {
-                        LastActionFailureMessage = processLabel + " Manual 공정 실패. result=" + result;
+                        LastActionFailureMessage = ResolveManualProcessFailure(
+                            processLabel + " Manual 공정 실패. result=" + result, failureDetail);
                         if (_status != EquipmentStatus.Alarm)
                             SetStatus(EquipmentStatus.Stopped);
                         return result;
@@ -2007,14 +2009,26 @@ namespace QMC.CDT320
             }
             catch (OperationCanceledException)
             {
-                LastActionFailureMessage = processLabel + " Manual 공정이 취소되었습니다.";
+                LastActionFailureMessage = ResolveManualProcessFailure(
+                    processLabel + " Manual 공정이 취소되었습니다.", failureDetail);
                 if (_status != EquipmentStatus.Alarm)
                     SetStatus(EquipmentStatus.Stopped);
                 return -1;
             }
+            catch (QMC.CDT320.Sequencing.SequenceStopException ex)
+            {
+                LastActionFailureMessage = ResolveManualProcessFailure(
+                    processLabel + " Manual 공정이 정지되었습니다. " + ex.Message, failureDetail);
+                QMC.Common.Log.Write("Main", "SYSTEM", "ManualUnitProcessStop", LastActionFailureMessage + " - Stopped");
+                if (_status != EquipmentStatus.Alarm)
+                    SetStatus(QMC.CDT320.Sequencing.SequenceStopException.IsCycleStopMessage(ex.Message)
+                        ? EquipmentStatus.CycleStopped : EquipmentStatus.Stopped);
+                return -1;
+            }
             catch (Exception ex)
             {
-                LastActionFailureMessage = processLabel + " Manual 공정 실행 중 예외가 발생했습니다. " + ex.Message;
+                LastActionFailureMessage = ResolveManualProcessFailure(
+                    processLabel + " Manual 공정 실행 중 예외가 발생했습니다. " + ex.Message, failureDetail);
                 AlarmManager.Raise(AlarmSeverity.Error, alarmCodePrefix + "-EX", "MachineController", LastActionFailureMessage);
                 SetStatus(EquipmentStatus.Alarm);
                 return -1;

@@ -1,9 +1,10 @@
-namespace QMC.CDT_320.Ui.Controls
+﻿namespace QMC.CDT_320.Ui.Controls
 {
     partial class ParameterGridControl
     {
         private System.ComponentModel.IContainer components = null;
         private System.Windows.Forms.DataGridView grid;
+        private System.Windows.Forms.ToolTip parameterDescriptionToolTip;
         private System.Windows.Forms.DataGridViewTextBoxColumn colName;
         private System.Windows.Forms.DataGridViewTextBoxColumn colValue;
         private System.Windows.Forms.DataGridViewTextBoxColumn colUnit;
@@ -13,6 +14,8 @@ namespace QMC.CDT_320.Ui.Controls
 
         protected override void Dispose(bool disposing)
         {
+            if (disposing)
+                HideParameterDescription();
             if (disposing && (components != null))
                 components.Dispose();
             base.Dispose(disposing);
@@ -27,7 +30,9 @@ namespace QMC.CDT_320.Ui.Controls
             System.Windows.Forms.DataGridViewCellStyle scopeStyle = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle moveStyle = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle teachStyle = new System.Windows.Forms.DataGridViewCellStyle();
+            this.components = new System.ComponentModel.Container();
             this.grid = new System.Windows.Forms.DataGridView();
+            this.parameterDescriptionToolTip = new System.Windows.Forms.ToolTip(this.components);
             this.colName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colUnit = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -76,6 +81,12 @@ namespace QMC.CDT_320.Ui.Controls
             this.grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.grid.Size = new System.Drawing.Size(640, 480);
             this.grid.TabIndex = 0;
+            this.grid.MouseMove += new System.Windows.Forms.MouseEventHandler(this.grid_MouseMove);
+            this.grid.MouseLeave += new System.EventHandler(this.grid_DescriptionDismissed);
+            this.grid.MouseDown += new System.Windows.Forms.MouseEventHandler(this.grid_DescriptionDismissed);
+            this.grid.Scroll += new System.Windows.Forms.ScrollEventHandler(this.grid_DescriptionDismissed);
+            this.grid.CellBeginEdit += new System.Windows.Forms.DataGridViewCellCancelEventHandler(this.grid_DescriptionDismissed);
+            this.grid.VisibleChanged += new System.EventHandler(this.grid_DescriptionDismissed);
             this.grid.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.grid_CellClick);
             this.grid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.grid_CellDoubleClick);
             this.grid.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this.grid_CellEndEdit);
@@ -84,6 +95,11 @@ namespace QMC.CDT_320.Ui.Controls
             this.grid.CellMouseDown += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.grid_CellMouseDown);
             this.grid.CurrentCellDirtyStateChanged += new System.EventHandler(this.grid_CurrentCellDirtyStateChanged);
             this.grid.DataError += new System.Windows.Forms.DataGridViewDataErrorEventHandler(this.grid_DataError);
+            //
+            // parameterDescriptionToolTip
+            //
+            this.parameterDescriptionToolTip.AutoPopDelay = 15000;
+            this.parameterDescriptionToolTip.ShowAlways = true;
             // 
             // colName
             // 

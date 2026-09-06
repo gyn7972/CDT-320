@@ -75,6 +75,9 @@ namespace QMC.CDT320.Sequencing
                     : 0.05;
             }
         }
+        private int _alignVisionRetryCount = 3;
+        private int _alignSearchPointCount = 8;
+        private int _alignVisionTimeoutMs = 5000;
         private WaferMapData _map;
         private WaferMaterial _wafer;
         private TapeFrameSpec _frameSpec;
@@ -239,6 +242,7 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                CaptureAlignVisionSettings();
                 result = ConfigureHybridVirtualFrameMode();
                 if (result != 0)
                     return result;
@@ -295,6 +299,22 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private void CaptureAlignVisionSettings()
+        {
+            var config = Stage.Config;
+            if (config != null)
+                config.EnsureAlignVisionDefaults();
+
+            // 한 번 시작한 얼라인은 같은 검사 정책을 사용한다. 편집한 값은 다음 시작부터 적용한다.
+            _alignVisionRetryCount = config != null ? config.AlignVisionRetryCount : 3;
+            _alignSearchPointCount = config != null ? config.AlignSearchPointCount : 8;
+            _alignVisionTimeoutMs = config != null ? config.AlignVisionTimeoutMs : 5000;
+            WriteLog("InputStageAlignSequence",
+                "얼라인 검사 설정 적용. 추가 재시도=" + _alignVisionRetryCount +
+                ", 주변 탐색 위치=" + _alignSearchPointCount +
+                ", 통신 단계별 응답 대기(ms)=" + _alignVisionTimeoutMs + " - Ok");
         }
 
         private void ResetAlignRuntimeState()
@@ -633,7 +653,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     if (_hybridVirtualFrameActive)
                         return Fail("IN-STAGE-ALIGN-HYBRID-CENTER-VISION", "Vision",
-                            "Wafer Align Center 다이를 찾지 못했습니다. HybridRealVisionSimMotion에서는 가상 X/Y 이동으로 실제 Vision 화면이 바뀌지 않으므로 동일 화면 통신 재시도 후 주변 8방향 탐색을 수행하지 않습니다.");
+                            "Wafer Align Center 다이를 찾지 못했습니다. HybridRealVisionSimMotion에서는 가상 X/Y 이동으로 실제 Vision 화면이 바뀌지 않으므로 동일 화면 통신 재시도 후 주변 탐색을 수행하지 않습니다.");
 
                     // 파샬 웨이퍼 등 센터 다이가 없어도 정지하지 않고 명목값 얼라인으로 완료해
                     // Review 화면(수동 Jog/T 보정/다이 검출/첫칩 선택)까지 진행시킨다.
@@ -641,7 +661,7 @@ namespace QMC.CDT320.Sequencing
                         return 0;
 
                     return Fail("IN-STAGE-ALIGN-CENTER", "Vision",
-                        "Wafer Align Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
+                        "Wafer Align Center 다이를 찾지 못했습니다. 센터 검사와 설정된 주변 탐색에서 검출하지 못했습니다.");
                 }
 
                 int centerMoveResult = await ApplyCenterVisionCorrectionAsync(
@@ -771,10 +791,10 @@ namespace QMC.CDT320.Sequencing
                 {
                     if (_hybridVirtualFrameActive)
                         return Fail("IN-STAGE-ALIGN-HYBRID-THETA-VERIFY-VISION", "Vision",
-                            "Wafer Align T 보정 확인용 Center 다이를 찾지 못했습니다. HybridRealVisionSimMotion에서는 가상 X/Y 이동으로 실제 Vision 화면이 바뀌지 않으므로 동일 화면 통신 재시도 후 주변 8방향 탐색을 수행하지 않습니다.");
+                            "Wafer Align T 보정 확인용 Center 다이를 찾지 못했습니다. HybridRealVisionSimMotion에서는 가상 X/Y 이동으로 실제 Vision 화면이 바뀌지 않으므로 동일 화면 통신 재시도 후 주변 탐색을 수행하지 않습니다.");
 
                     return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision",
-                        "Wafer Align T 보정 확인용 Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
+                        "Wafer Align T 보정 확인용 Center 다이를 찾지 못했습니다. 센터 검사와 설정된 주변 탐색에서 검출하지 못했습니다.");
                 }
 
                 double inputDeltaX;
@@ -1481,7 +1501,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                int retryCount = Math.Max(3, Options.AlignRetryCount);
+                int retryCount = _alignVisionRetryCount;
                 int maxAttempts = retryCount + 1;
                 for (int attempt = 1; attempt <= maxAttempts; attempt++)
                 {
@@ -1502,7 +1522,8 @@ namespace QMC.CDT320.Sequencing
                     WriteLog("InputStageAlignSequence",
                         "Vision PC offset receive failed. step=" + stepName +
                         ", target=" + targetId +
-                        ", attempt=" + attempt + "/" + maxAttempts + " - Retry");
+                        ", attempt=" + attempt + "/" + maxAttempts +
+                        (attempt < maxAttempts ? " - Retry" : " - Failed"));
                 }
 
                 return null;
@@ -1519,6 +1540,17 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private Task<VisionAlignResult> RequestConfiguredAlignVisionAsync(string targetId, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            var configurableVision = Stage.Vision as IConfigurableAlignVisionClient;
+            if (configurableVision != null)
+                return configurableVision.TriggerAlignAsync(targetId, _alignVisionTimeoutMs, ct);
+
+            // 기존 외부 구현과의 호환 경로. 실장비 Wafer adapter는 위의 설정 지원 계약을 구현한다.
+            return Stage.Vision.TriggerAlignAsync(targetId);
         }
 
         private async Task<VisionAlignResult> RequestVisionPcOffsetOnceAsync(string targetId, string stepName, CancellationToken ct)
@@ -1538,7 +1570,7 @@ namespace QMC.CDT320.Sequencing
                 if (Stage.Vision == null)
                     return null;
 
-                Task<VisionAlignResult> alignTask = Stage.Vision.TriggerAlignAsync(targetId);
+                Task<VisionAlignResult> alignTask = RequestConfiguredAlignVisionAsync(targetId, ct);
                 if (alignTask == null)
                     return null;
 
@@ -1569,7 +1601,7 @@ namespace QMC.CDT320.Sequencing
                 if (Stage == null || Stage.Vision == null)
                     return null;
 
-                Task<VisionAlignResult> alignTask = Stage.Vision.TriggerAlignAsync(targetId);
+                Task<VisionAlignResult> alignTask = RequestConfiguredAlignVisionAsync(targetId, ct);
                 if (alignTask == null)
                     return null;
 
@@ -1658,6 +1690,13 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
+                if (_alignSearchPointCount == 0)
+                {
+                    WriteLog("InputStageAlignSequence",
+                        description + " 주변 탐색 설정이 0이므로 추가 탐색을 수행하지 않습니다. step=" + stepName + " - Skip");
+                    return null;
+                }
+
                 if (!Options.EnableMotion)
                 {
                     WriteLog("InputStageAlignSequence",
@@ -1679,7 +1718,7 @@ namespace QMC.CDT320.Sequencing
                     return null;
                 }
 
-                SearchOffset[] offsets = BuildOnePitchSearchOffsets(pitchX, pitchY);
+                SearchOffset[] offsets = BuildOnePitchSearchOffsets(pitchX, pitchY, _alignSearchPointCount);
                 for (int i = 0; i < offsets.Length; i++)
                 {
                     ct.ThrowIfCancellationRequested();
@@ -1727,7 +1766,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 WriteLog("InputStageAlignSequence",
-                    description + " 주변 8방향 탐색에서 다이를 찾지 못했습니다. baseX=" +
+                    description + " 설정된 주변 " + _alignSearchPointCount + "곳 탐색에서 다이를 찾지 못했습니다. baseX=" +
                     baseX.ToString("F6") +
                     ", baseY=" + baseY.ToString("F6") +
                     ", pitchX=" + pitchX.ToString("F6") +
@@ -1749,9 +1788,9 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static SearchOffset[] BuildOnePitchSearchOffsets(double pitchX, double pitchY)
+        private static SearchOffset[] BuildOnePitchSearchOffsets(double pitchX, double pitchY, int pointCount)
         {
-            return new[]
+            var offsets = new[]
             {
                 new SearchOffset("Up", 0.0, pitchY),
                 new SearchOffset("Down", 0.0, -pitchY),
@@ -1762,6 +1801,8 @@ namespace QMC.CDT320.Sequencing
                 new SearchOffset("LeftDown", -pitchX, -pitchY),
                 new SearchOffset("RightDown", pitchX, -pitchY)
             };
+            Array.Resize(ref offsets, pointCount);
+            return offsets;
         }
 
         private static bool IsDryRunWithVisionDisabled()

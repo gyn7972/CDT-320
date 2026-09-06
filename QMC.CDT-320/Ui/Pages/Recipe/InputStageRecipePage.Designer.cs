@@ -400,6 +400,7 @@
             this.optionParameterGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.optionParameterGrid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.optionParameterGrid.GridScrollBars = System.Windows.Forms.ScrollBars.Both;
+            this.optionParameterGrid.ShowParameterDescriptions = true;
             this.optionParameterGrid.Location = new System.Drawing.Point(3, 25);
             this.optionParameterGrid.Margin = new System.Windows.Forms.Padding(0);
             this.optionParameterGrid.Name = "optionParameterGrid";

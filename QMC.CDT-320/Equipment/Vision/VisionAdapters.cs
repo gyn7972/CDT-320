@@ -11,7 +11,7 @@ namespace QMC.CDT320.VisionComm
     /// InputStageUnit에서 사용하는 Wafer/Input vision adapter.
     /// Unit은 공정 의미를 유지하고, 실제 TCP 요청은 AutoVisionRequestService가 담당한다.
     /// </summary>
-    public class WaferVisionAdapter : IVisionTcpClient
+    public class WaferVisionAdapter : IVisionTcpClient, IConfigurableAlignVisionClient
     {
         private const double VisionPitchUnavailableMm = 0.0;
         private const double MatchScoreThreshold = 0.7;
@@ -52,7 +52,24 @@ namespace QMC.CDT320.VisionComm
 
         public async Task<VisionAlignResult> TriggerAlignAsync(string alignTargetId)
         {
+            try
+            {
+                return await TriggerAlignAsync(
+                    alignTargetId, DefaultTimeoutMs, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // 취소 토큰이 없는 기존 호출은 종전과 동일하게 통신 실패를 null로 반환한다.
+                return null;
+            }
+        }
+
+        public async Task<VisionAlignResult> TriggerAlignAsync(
+            string alignTargetId, int timeoutMs, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
             string finder = ResolveAlignFinder(alignTargetId);
+            int requestTimeoutMs = timeoutMs <= 0 ? DefaultTimeoutMs : Math.Max(500, Math.Min(30000, timeoutMs));
 
             try
             {
@@ -61,8 +78,8 @@ namespace QMC.CDT320.VisionComm
                     await AutoVisionRequestService.GrabAsync(
                         AutoVisionChannel.Wafer,
                         0,
-                        DefaultTimeoutMs,
-                        CancellationToken.None).ConfigureAwait(false);
+                        requestTimeoutMs,
+                        ct).ConfigureAwait(false);
                 }
 
                 VisionAlignResult align = await AutoVisionRequestService.MatchAlignAsync(
@@ -70,16 +87,23 @@ namespace QMC.CDT320.VisionComm
                     finder,
                     0,
                     VisionPitchUnavailableMm,
-                    DefaultTimeoutMs,
-                    CancellationToken.None).ConfigureAwait(false);
+                    requestTimeoutMs,
+                    ct).ConfigureAwait(false);
 
                 if (align != null)
                     QMC.CDT_320.Equipment.Vision.WaferVisionResultStore.RecordAlign(alignTargetId, align);
 
                 return align;
             }
-            catch
+            catch (OperationCanceledException)
             {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "ALIGN-REQUEST-EX",
+                    "얼라인 Vision 요청 실패. target=" + alignTargetId +
+                    ", timeoutMs=" + requestTimeoutMs + ", error=" + ex.Message);
                 return null;
             }
             finally

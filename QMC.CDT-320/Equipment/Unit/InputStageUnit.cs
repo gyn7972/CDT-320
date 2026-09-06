@@ -124,6 +124,15 @@ namespace QMC.CDT320
         /// <summary>얼라인 반복 촬상 최대 횟수.</summary>
         [DataMember] public int MaxAlignIterations { get; set; } = 3;
 
+        /// <summary>얼라인 한 위치에서 최초 검사 실패 후 추가 검사할 횟수. 0이면 최초 1회만 검사한다.</summary>
+        [DataMember] public int AlignVisionRetryCount { get; set; } = 3;
+
+        /// <summary>얼라인 기준 위치 미검출 시 추가 탐색할 주변 위치 수. 0, 4, 8 중 하나를 사용한다.</summary>
+        [DataMember] public int AlignSearchPointCount { get; set; } = 8;
+
+        /// <summary>얼라인 Vision 통신 단계별 응답 대기 제한 시간 [ms]. 전체 얼라인 시간과 이동 시간은 포함하지 않는다.</summary>
+        [DataMember] public int AlignVisionTimeoutMs { get; set; } = 5000;
+
         /// <summary>얼라인 수렴 임계값 [deg]. 이 값 이하이면 반복을 종료한다.</summary>
         [DataMember] public double AlignConvergenceThresholdDeg { get; set; } = 0.005;
 
@@ -181,6 +190,10 @@ namespace QMC.CDT320
         private void OnDeserializing(StreamingContext ctx)
         {
             InputDieVisionWaitRetryLimit = 3;
+            // 새 키가 없는 기존 설정은 기본 재시도/탐색 값을 사용한다. 저장된 0회/0곳은 유효값이다.
+            AlignVisionRetryCount = 3;
+            AlignSearchPointCount = 8;
+            AlignVisionTimeoutMs = 5000;
             // 이전 설정에 누적 한계 키가 없을 때만 기본값을 사용한다. 저장된 값은 덮어쓰지 않는다.
             ManualDieDetectCumulativeOffsetLimitX = 20.0;
             ManualDieDetectCumulativeOffsetLimitY = 20.0;
@@ -190,6 +203,17 @@ namespace QMC.CDT320
         private void OnDeserialized(StreamingContext ctx)
         {
             EnsurePickUpMotionDefaults();
+            EnsureAlignVisionDefaults();
+        }
+
+        public void EnsureAlignVisionDefaults()
+        {
+            AlignVisionRetryCount = Math.Max(0, Math.Min(10, AlignVisionRetryCount));
+            if (AlignSearchPointCount != 0 && AlignSearchPointCount != 4 && AlignSearchPointCount != 8)
+                AlignSearchPointCount = 8;
+            AlignVisionTimeoutMs = AlignVisionTimeoutMs <= 0
+                ? 5000
+                : Math.Max(500, Math.Min(30000, AlignVisionTimeoutMs));
         }
 
         public void EnsurePickUpMotionDefaults()

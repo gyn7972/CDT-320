@@ -1668,6 +1668,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 AddNeedlePickUpSettingItems(items, unit);   // NEEDLE PIN CAL POSITION 바로 아래 배치
                 AddWorkAreaSettingItems(items, unit);
                 AddInputDieVisionSettingItems(items, unit);
+                AddAlignVisionSettingItems(items, unit);
                 AddPickupBinSettingItems(items, unit);
                 // 바코드 설정은 설정(Settings) → 바코드 화면 한 곳에서만 관리한다.
                 // (레시피 화면에 있던 BARCODE READ TIMEOUT은 시퀀스가 쓰지 않는 중복 항목이라 제거)
@@ -1695,6 +1696,42 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private void AddAlignVisionSettingItems(List<ParameterGridItem> items, InputStageUnit unit)
+        {
+            const string groupKey = "ALIGN_VISION_SETTING";
+            unit.Config.EnsureAlignVisionDefaults();
+
+            items.Add(Describe(ParameterGridItem.Header("ALIGN VISION SETTING", groupKey),
+                "웨이퍼 얼라인 중 다이 미검출 재검사와 주변 탐색, 응답 대기 시간입니다. 장비 공통 Config에 저장됩니다."));
+            items.Add(InGroup(Describe(ParameterGridItem.Int("ALIGN VISION RETRY", "count", ParameterGridScope.Config,
+                () => unit.Config.AlignVisionRetryCount,
+                v => unit.Config.AlignVisionRetryCount = Math.Max(0, Math.Min(10, v))),
+                "한 위치에서 최초 검사에 실패한 뒤 추가로 검사할 횟수입니다. 범위: 0~10회.\r\n" +
+                "0이면 최초 1회만, 1이면 최대 2회 검사합니다. ALIGN ITERATIONS의 T 보정 반복과는 별개입니다."), groupKey));
+
+            var searchOptions = new List<ParameterGridOption>
+            {
+                new ParameterGridOption("0 / 주변 탐색 없음", 0),
+                new ParameterGridOption("4 / 상하좌우", 4),
+                new ParameterGridOption("8 / 상하좌우 + 대각선", 8)
+            };
+            items.Add(InGroup(Describe(ParameterGridItem.Selection("ALIGN SEARCH POINTS", "count", ParameterGridScope.Config,
+                () => unit.Config.AlignSearchPointCount,
+                value =>
+                {
+                    int count = value is int ? (int)value : 8;
+                    unit.Config.AlignSearchPointCount = count == 0 || count == 4 || count == 8 ? count : 8;
+                }, searchOptions),
+                "기준 위치에서 다이를 찾지 못하면 추가로 탐색할 주변 위치 수입니다.\r\n" +
+                "0은 주변 탐색 생략, 4는 상하좌우, 8은 대각선까지 탐색합니다. 각 위치에 재시도 횟수가 적용됩니다."), groupKey));
+
+            items.Add(InGroup(Describe(ParameterGridItem.Int("ALIGN VISION TIMEOUT", "ms", ParameterGridScope.Config,
+                () => unit.Config.AlignVisionTimeoutMs,
+                v => unit.Config.AlignVisionTimeoutMs = Math.Max(500, Math.Min(30000, v))),
+                "얼라인 Vision 통신 단계별 응답 대기 제한 시간입니다. 범위: 500~30000 ms.\r\n" +
+                "전체 얼라인 제한 시간이 아니며 이동 시간은 포함하지 않습니다. 픽업 전 Die 검사와 다른 Vision 검사의 대기 시간은 변경하지 않습니다."), groupKey));
         }
 
         private void AddInputDieVisionSettingItems(List<ParameterGridItem> items, InputStageUnit unit)

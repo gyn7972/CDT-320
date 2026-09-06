@@ -43,6 +43,7 @@ QMC.CDT-320/
 - [EventLogPage 파일 조회·실시간 표시 구조](docs/ui/event-log-view.md)
 - [축·IO·실린더 정의 코드 탐색표](docs/architecture/equipment-definition-code-map.md)
 - [자동 시컨스 전체 흐름도](docs/architecture/auto-sequence-flow.md)
+- [Manual Sequence OUTPUT ALL 동작과 검증](docs/manual-output-all/README.md)
 - [전체 축 초기화 시퀀스형 리팩터링 구현 프롬프트](docs/initialization/axis-initialize-sequence-refactor-implementation-prompt.txt)
 - [전체 축 초기화 시퀀스형 리팩터링 검증 체크리스트](docs/initialization/axis-initialize-sequence-refactor-validation-checklist.txt)
 - [Material Journal + Checkpoint 구현 프롬프트](docs/material-state/material-journal-checkpoint-implementation-prompt.txt)

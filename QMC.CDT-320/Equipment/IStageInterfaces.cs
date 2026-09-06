@@ -1,6 +1,7 @@
 ﻿using System.Threading.Tasks;
 
 using System.Collections.Generic;
+using System.Threading;
 using QMC.CDT320.Materials;
 
 namespace QMC.CDT320
@@ -98,6 +99,18 @@ namespace QMC.CDT320
         /// <param name="alignTargetId">얼라인 대상 식별자 (VisionComm.VisionAlignTargetIds 참조)</param>
         /// <returns>비전이 계산한 위치 보정값 객체. 통신 실패 시 null.</returns>
         Task<VisionAlignResult> TriggerAlignAsync(string alignTargetId);
+    }
+
+    /// <summary>
+    /// 얼라인 요청에만 응답 대기 시간과 취소를 지정하는 선택 계약.<br/>
+    /// 일반 다이 검사 및 기존 IVisionTcpClient 호출의 대기 시간은 변경하지 않는다.
+    /// </summary>
+    public interface IConfigurableAlignVisionClient
+    {
+        /// <param name="alignTargetId">얼라인 대상 식별자.</param>
+        /// <param name="timeoutMs">응답 대기 시간 [ms]. 0 이하는 기본 5000, 양수는 500~30000으로 제한한다.</param>
+        /// <param name="ct">요청 취소 토큰.</param>
+        Task<VisionAlignResult> TriggerAlignAsync(string alignTargetId, int timeoutMs, CancellationToken ct);
     }
 
     // ──────────────────────────────────────────────────────────────────────────

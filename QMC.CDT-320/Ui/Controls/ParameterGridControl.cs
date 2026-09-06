@@ -12,6 +12,22 @@ namespace QMC.CDT_320.Ui.Controls
         private readonly List<ParameterGridItem> _items = new List<ParameterGridItem>();
         private readonly HashSet<string> _collapsedGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private bool _isRefreshing;
+        private ParameterGridItem _descriptionItem;
+        private string _descriptionText;
+        private bool _showParameterDescriptions;
+
+        /// <summary>주기적인 값 갱신과 독립적으로 행 설명을 표시한다. 필요한 화면에서만 활성화한다.</summary>
+        [System.ComponentModel.DefaultValue(false)]
+        public bool ShowParameterDescriptions
+        {
+            get { return _showParameterDescriptions; }
+            set
+            {
+                _showParameterDescriptions = value;
+                if (!value)
+                    HideParameterDescription();
+            }
+        }
 
         public event EventHandler<ParameterGridChangedEventArgs> ParameterValueChanged;
         public event EventHandler<ParameterGridChangedEventArgs> ParameterRowDoubleClicked;
@@ -174,6 +190,7 @@ namespace QMC.CDT_320.Ui.Controls
             try
             {
                 _isRefreshing = true;
+                HideParameterDescription();
                 grid.Rows.Clear();
 
                 ApplyTeachColumnLayout();
@@ -392,6 +409,59 @@ namespace QMC.CDT_320.Ui.Controls
             finally
             {
             }
+        }
+
+        private void grid_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!ShowParameterDescriptions)
+                return;
+
+            try
+            {
+                var hit = grid.HitTest(e.X, e.Y);
+                var item = hit.RowIndex >= 0 && hit.ColumnIndex >= 0 && !grid.IsCurrentCellInEditMode
+                    ? grid.Rows[hit.RowIndex].Tag as ParameterGridItem
+                    : null;
+                string description = item != null ? item.Description : null;
+                if (string.IsNullOrWhiteSpace(description))
+                {
+                    HideParameterDescription();
+                    return;
+                }
+
+                // 같은 행에서 움직이거나 값이 갱신되어도 표시 시간을 계속 초기화하지 않는다.
+                if (ReferenceEquals(_descriptionItem, item) && _descriptionText == description)
+                    return;
+
+                HideParameterDescription();
+                _descriptionItem = item;
+                _descriptionText = description;
+                grid.ShowCellToolTips = false;
+                parameterDescriptionToolTip.ToolTipTitle = item.DisplayName ?? string.Empty;
+                parameterDescriptionToolTip.Show(description, grid, e.X + 16, e.Y + 20, 15000);
+            }
+            catch (Exception ex)
+            {
+                HideParameterDescription();
+                EventLogger.Write(EventKind.Warning, "UI", "PARAM-GRID",
+                    "설정 항목 설명 표시 실패: " + ex.Message);
+            }
+        }
+
+        private void grid_DescriptionDismissed(object sender, EventArgs e)
+        {
+            HideParameterDescription();
+        }
+
+        private void HideParameterDescription()
+        {
+            if (_descriptionItem == null)
+                return;
+
+            parameterDescriptionToolTip.Hide(grid);
+            _descriptionItem = null;
+            _descriptionText = null;
+            grid.ShowCellToolTips = true;
         }
 
         private void ApplyDescriptionToolTip(DataGridViewRow row, ParameterGridItem item)
