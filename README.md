@@ -38,6 +38,8 @@ QMC.CDT-320/
 
 ## 코드 탐색 문서
 
+- [Designer 공통 UI 카탈로그와 페이지 템플릿](docs/ui/designer-catalog.md)
+- [WaferMap 공통 상태·색상과 작업 모니터](docs/ui/wafer-map-monitor.md)
 - [축·IO·실린더 정의 코드 탐색표](docs/architecture/equipment-definition-code-map.md)
 - [자동 시컨스 전체 흐름도](docs/architecture/auto-sequence-flow.md)
 - [전체 축 초기화 시퀀스형 리팩터링 구현 프롬프트](docs/initialization/axis-initialize-sequence-refactor-implementation-prompt.txt)

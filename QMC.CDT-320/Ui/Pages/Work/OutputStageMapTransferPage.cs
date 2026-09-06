@@ -14,6 +14,7 @@ using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
 using QMC.CDT320.Sequencing;
+using QMC.CDT_320.Ui.Common.WaferMaps;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Pages.WorkInfo;
 
@@ -35,6 +36,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private BinSide _selectedSide = BinSide.Good;
         private string _lastMapSignature;
         private string _lastOutputProgressSignature;
+        // 표시 전용 상태. 저장/수동 조작에 사용하는 DieMapEntry의 Result/BIN은 색상 때문에 바꾸지 않는다.
+        private Dictionary<string, WaferMapCellState> _outputDisplayStates =
+            new Dictionary<string, WaferMapCellState>(StringComparer.Ordinal);
+        private Dictionary<string, DieResult> _outputDisplayResults =
+            new Dictionary<string, DieResult>(StringComparer.Ordinal);
         private ContextMenuStrip _gridMenu;
         private ToolStripMenuItem _gridMoveMenuItem;
         private ToolStripMenuItem[] _gridMoveFrontPickerMenuItems;
@@ -43,6 +49,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ToolStripMenuItem[] _gridPlaceTestRearPickerMenuItems;
         private OutputPlaceTargetSelectDialog _placeTestDialog;
         private bool _manualMoveBusy;
+        private bool _materialSaveBusy;
         private static readonly PickerAxis[] PickerZAxes =
         {
             PickerAxis.PickerZ0,
@@ -110,12 +117,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             grpAction.Text = "ACTION";
             mapView.Caption = "OUTPUT GOOD RECEIVE MAP";
             // 현재 기준: 출력 전환 화면도 공통 DieMapView 표시 옵션으로 맞춘다.
-            mapView.BackColor = System.Drawing.Color.FromArgb(0xDD, 0xDD, 0xDD);
-            mapView.ShowWaferOutline = true;
-            mapView.ShowEquipmentAxes = true;
-            mapView.CompactUsedBounds = true;
             mapView.EntryVisibilityPredicate = IsVisibleOutputMapEntry;
-            mapView.EnableRectangleSelection = true;
+            mapView.CellColorResolver = entry => WaferMapDisplayStyle.GetColor(ResolveOutputDisplayState(entry));
+            mapView.CellStatusResolver = ResolveOutputDieGridStateText;
+            mapView.LegendItemsResolver = WaferMapDisplayStyle.BuildLegend;
 
             rbStandard.Text = "GOOD";
             rbStartIndex.Text = "NG";
@@ -159,58 +164,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 colIndex.HeaderText = "Index";
             if (colTarget != null)
                 colTarget.HeaderText = "State";
-            ConfigureOutputMapCoordinateGridColumns();
         }
 
-        private void ConfigureOutputMapCoordinateGridColumns()
-        {
-            if (gridDieList == null)
-                return;
-
-            if (colGridX != null)
-            {
-                colGridX.HeaderText = "DieMapX (Raw)";
-                colGridX.FillWeight = 65F;
-            }
-            if (colGridY != null)
-            {
-                colGridY.HeaderText = "DieMapY (Raw)";
-                colGridY.FillWeight = 65F;
-            }
-            if (colAxisX != null)
-            {
-                colAxisX.HeaderText = "Process X(mm)";
-                colAxisX.FillWeight = 90F;
-            }
-            if (colAxisY != null)
-            {
-                colAxisY.HeaderText = "Process Y(mm)";
-                colAxisY.FillWeight = 90F;
-            }
-
-            if (gridDieList.Columns["colEquipmentGridX"] == null)
-            {
-                gridDieList.Columns.Insert(3, new DataGridViewTextBoxColumn
-                {
-                    Name = "colEquipmentGridX",
-                    HeaderText = "Grid X",
-                    FillWeight = 55F,
-                    ReadOnly = true,
-                    SortMode = DataGridViewColumnSortMode.NotSortable
-                });
-            }
-            if (gridDieList.Columns["colEquipmentGridY"] == null)
-            {
-                gridDieList.Columns.Insert(4, new DataGridViewTextBoxColumn
-                {
-                    Name = "colEquipmentGridY",
-                    HeaderText = "Grid Y",
-                    FillWeight = 55F,
-                    ReadOnly = true,
-                    SortMode = DataGridViewColumnSortMode.NotSortable
-                });
-            }
-        }
 
         private void ApplyTitle()
         {
@@ -333,9 +288,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             InitializeReceivePlan(BinSide.Ng);
         }
 
-        private void btnThetaMatchMove_Click(object sender, EventArgs e)
+        private async void btnThetaMatchMove_Click(object sender, EventArgs e)
         {
-            SaveMaterialState();
+            await SaveMaterialStateAsync().ConfigureAwait(true);
         }
 
         private void btnXyMatchMove_Click(object sender, EventArgs e)
@@ -435,7 +390,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             try
             {
-                WaferMaterial outputWafer = GetSelectedOutputWafer();
+                WaferMaterial outputWafer = CaptureSelectedOutputWaferDisplaySnapshot();
                 WaferMaterial sourceWafer = ResolveSourceWafer(outputWafer);
 
                 DieMap materialMap = MaterialStateService.BuildOutputReceiveDieMapFromWafer(outputWafer);
@@ -502,6 +457,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             return string.Join("|",
                 _selectedSide.ToString(),
                 outputWafer != null ? outputWafer.WaferId ?? "" : "",
+                outputWafer != null ? outputWafer.WaferInstanceId ?? "" : "",
                 outputWafer != null ? outputWafer.OutputReceiveSourceWaferId ?? "" : "",
                 map.FrameObjId ?? "",
                 map.DieMapX.ToString(),
@@ -527,6 +483,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             return string.Join("|",
                 _selectedSide.ToString(),
                 outputWafer.WaferId ?? "",
+                outputWafer.WaferInstanceId ?? "",
                 outputWafer.State.ToString(),
                 outputWafer.OutputReceiveTotalCount.ToString(CultureInfo.InvariantCulture),
                 outputWafer.OutputReceiveNextIndex.ToString(CultureInfo.InvariantCulture),
@@ -591,9 +548,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         hash = hash * 31 + (slot.IsTarget ? 1 : 0);
                         hash = hash * 31 + (int)slot.Result;
                         hash = hash * 31 + slot.BinCode;
+                        hash = hash * 31 + (slot.IsOutputInspectionDone ? 1 : 0);
+                        hash = hash * 31 + (slot.IsOutputInspectionOk ? 1 : 0);
                         hash = hash * 31 + slot.PosX.GetHashCode();
                         hash = hash * 31 + slot.PosY.GetHashCode();
                         hash = hash * 31 + (slot.DieUid != null ? StringComparer.OrdinalIgnoreCase.GetHashCode(slot.DieUid) : 0);
+                        hash = hash * 31 + (slot.SourceDieUid != null ? StringComparer.OrdinalIgnoreCase.GetHashCode(slot.SourceDieUid) : 0);
                     }
 
                     return hash;
@@ -698,20 +658,88 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _selectedSide == BinSide.Ng ? MaterialLocationKind.OutputStageNg : MaterialLocationKind.OutputStageGood);
         }
 
+        private WaferMaterial CaptureSelectedOutputWaferDisplaySnapshot()
+        {
+            // 전역 상태 락에서는 필요한 값만 복사한다. 정렬/맵 생성/표시 계산은 사본으로 수행한다.
+            return MaterialStateService.ReadState(state =>
+            {
+                WaferMaterial wafer = GetSelectedOutputWafer();
+                if (wafer == null)
+                    return null;
+
+                var snapshot = new WaferMaterial
+                {
+                    WaferId = wafer.WaferId,
+                    WaferInstanceId = wafer.WaferInstanceId,
+                    State = wafer.State,
+                    UpdatedAt = wafer.UpdatedAt,
+                    TapeFrameSpecName = wafer.TapeFrameSpecName,
+                    DieMapFrameObjId = wafer.DieMapFrameObjId,
+                    OutputReceiveSourceWaferId = wafer.OutputReceiveSourceWaferId,
+                    OutputReceiveSourceWaferInstanceId = wafer.OutputReceiveSourceWaferInstanceId,
+                    OutputReceiveDieMapX = wafer.OutputReceiveDieMapX,
+                    OutputReceiveDieMapY = wafer.OutputReceiveDieMapY,
+                    OutputReceivePitchX = wafer.OutputReceivePitchX,
+                    OutputReceivePitchY = wafer.OutputReceivePitchY,
+                    OutputReceiveDieSizeX = wafer.OutputReceiveDieSizeX,
+                    OutputReceiveDieSizeY = wafer.OutputReceiveDieSizeY,
+                    OutputReceiveOuterDiameterMm = wafer.OutputReceiveOuterDiameterMm,
+                    OutputReceiveOriginX = wafer.OutputReceiveOriginX,
+                    OutputReceiveOriginY = wafer.OutputReceiveOriginY,
+                    OutputReceiveNextIndex = wafer.OutputReceiveNextIndex,
+                    OutputReceiveTotalCount = wafer.OutputReceiveTotalCount
+                };
+
+                if (wafer.OutputReceiveSlots == null)
+                    return snapshot;
+
+                foreach (OutputReceiveSlotMaterial slot in wafer.OutputReceiveSlots)
+                {
+                    if (slot == null)
+                        continue;
+
+                    snapshot.OutputReceiveSlots.Add(new OutputReceiveSlotMaterial
+                    {
+                        OrderIndex = slot.OrderIndex,
+                        SequenceNo = slot.SequenceNo,
+                        DieMapX = slot.DieMapX,
+                        DieMapY = slot.DieMapY,
+                        OriginalMapX = slot.OriginalMapX,
+                        OriginalMapY = slot.OriginalMapY,
+                        IsTarget = slot.IsTarget,
+                        Result = slot.Result,
+                        BinCode = slot.BinCode,
+                        PosX = slot.PosX,
+                        PosY = slot.PosY,
+                        DieUid = slot.DieUid,
+                        SourceDieUid = slot.SourceDieUid,
+                        IsOutputInspectionDone = slot.IsOutputInspectionDone,
+                        IsOutputInspectionOk = slot.IsOutputInspectionOk
+                    });
+                }
+
+                return snapshot;
+            });
+        }
+
         private WaferMaterial ResolveSourceWafer(WaferMaterial outputWafer)
         {
             try
             {
-                WaferMaterial inputStageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
-                if (inputStageWafer != null)
-                    return inputStageWafer;
+                return MaterialStateService.ReadState(state =>
+                {
+                    WaferMaterial source = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    if (source == null && outputWafer != null &&
+                        !string.IsNullOrWhiteSpace(outputWafer.OutputReceiveSourceWaferId))
+                    {
+                        source = state.Wafers.FirstOrDefault(w =>
+                            w != null && string.Equals(w.WaferId,
+                                outputWafer.OutputReceiveSourceWaferId, StringComparison.OrdinalIgnoreCase));
+                    }
 
-                if (outputWafer == null || string.IsNullOrWhiteSpace(outputWafer.OutputReceiveSourceWaferId))
-                    return null;
-
-                return MaterialStateService.State.Wafers.FirstOrDefault(w =>
-                    w != null &&
-                    string.Equals(w.WaferId, outputWafer.OutputReceiveSourceWaferId, StringComparison.OrdinalIgnoreCase));
+                    // 이 화면은 원본 wafer의 표시 ID만 사용한다. 라이브 Material 참조를 UI에 보관하지 않는다.
+                    return source != null ? new WaferMaterial { WaferId = source.WaferId } : null;
+                });
             }
             catch
             {
@@ -732,6 +760,30 @@ namespace QMC.CDT_320.Ui.Pages.Work
             double processY = ResolveOutputStageProcessY(_selectedSide);
             List<DieMapEntry> ordered = BuildReceiveOrder(display);
             Dictionary<string, OutputReceiveSlotMaterial> savedSlots = BuildOutputReceiveSlotLookup(outputWafer);
+            var displayStates = new Dictionary<string, WaferMapCellState>(StringComparer.Ordinal);
+            var displayResults = new Dictionary<string, DieResult>(StringComparer.Ordinal);
+            foreach (DieMapEntry entry in display.Entries)
+            {
+                if (entry == null)
+                    continue;
+
+                OutputReceiveSlotMaterial slot;
+                if (savedSlots.TryGetValue(BuildEntryGridKey(entry), out slot))
+                {
+                    displayStates[BuildEntryGridKey(entry)] = WaferMapDisplayStyle.ResolveOutputState(
+                        slot.IsTarget, slot.Result,
+                        !string.IsNullOrWhiteSpace(slot.DieUid) || !string.IsNullOrWhiteSpace(slot.SourceDieUid),
+                        slot.IsOutputInspectionDone, slot.IsOutputInspectionOk);
+                    displayResults[BuildEntryGridKey(entry)] = slot.Result;
+                }
+                else
+                {
+                    // NextIndex/레시피 BIN으로 실물 배치 완료를 추정하지 않는다.
+                    displayStates[BuildEntryGridKey(entry)] = entry.IsTarget
+                        ? WaferMapCellState.Wait : WaferMapCellState.Skip;
+                    displayResults[BuildEntryGridKey(entry)] = DieResult.Unknown;
+                }
+            }
             int nextIndex = outputWafer != null ? outputWafer.OutputReceiveNextIndex : 0;
             int total = ordered.Count;
             if (nextIndex < 0)
@@ -783,6 +835,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 entry.PosY = processY + entry.PosY;
             }
 
+            _outputDisplayStates = displayStates;
+            _outputDisplayResults = displayResults;
             return display;
         }
 
@@ -846,16 +900,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             return side == BinSide.Ng
                 ? unit.Recipe.NGStageY.ProcessPosition
                 : unit.Recipe.GoodStageY.ProcessPosition;
-        }
-
-        private double ToRelativeOutputX(double displayX)
-        {
-            return displayX - ResolveOutputVisionProcessX();
-        }
-
-        private double ToRelativeOutputY(double displayY)
-        {
-            return displayY - ResolveOutputStageProcessY(_selectedSide);
         }
 
         private static DieMap CloneMap(DieMap source)
@@ -945,21 +989,35 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMapGenerator.ResolveOriginalMapIndexY(entry) + "]";
         }
 
-        private static string ResolveOutputDieGridStateText(DieMapEntry entry)
+        private WaferMapCellState ResolveOutputDisplayState(DieMapEntry entry)
         {
             if (entry == null)
-                return "";
+                return WaferMapCellState.Unknown;
 
-            if (!entry.IsTarget)
-                return "SKIP";
+            WaferMapCellState state;
+            if (_outputDisplayStates.TryGetValue(BuildEntryGridKey(entry), out state))
+                return state;
 
-            if (entry.Result == DieResult.Good)
-                return "GOOD";
+            return entry.IsTarget ? WaferMapCellState.Wait : WaferMapCellState.Skip;
+        }
 
-            if (entry.Result == DieResult.NG)
-                return "NG";
+        private string ResolveOutputDieGridStateText(DieMapEntry entry)
+        {
+            return entry != null ? WaferMapDisplayStyle.GetText(ResolveOutputDisplayState(entry)) : "";
+        }
 
-            return "WAIT";
+        private DieResult ResolveOutputDisplayResult(DieMapEntry entry)
+        {
+            DieResult result;
+            return entry != null && _outputDisplayResults.TryGetValue(BuildEntryGridKey(entry), out result)
+                ? result : DieResult.Unknown;
+        }
+
+        private string ResolveOutputBinToolTip(DieMapEntry entry)
+        {
+            return ResolveOutputDisplayState(entry) == WaferMapCellState.Wait
+                ? "미배치 슬롯의 계획 BIN입니다. 현재 진행 및 검사 결과는 상태 열을 확인하세요."
+                : "수납/물류 BIN입니다. Output 검사 결과는 상태 열을 확인하세요.";
         }
 
         private List<DieMapEntry> BuildReceiveOrder(DieMap map)
@@ -1132,8 +1190,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         DataGridViewRow row = gridDieList.Rows[i];
                         row.Tag = entry;
                         row.Cells[colTarget.Index].Value = ResolveOutputDieGridStateText(entry);
-                        row.Cells[colResult.Index].Value = entry.Result;
+                        row.Cells[colResult.Index].Value = ResolveOutputDisplayResult(entry);
                         row.Cells[colBin.Index].Value = entry.BinCode;
+                        row.Cells[colBin.Index].ToolTipText = ResolveOutputBinToolTip(entry);
                         row.Cells[colDieUid.Index].Value = entry.DieUid ?? "";
                     }
                 }
@@ -1155,10 +1214,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
         private void ApplyEmptyOutputMap(WaferMaterial outputWafer, WaferMaterial sourceWafer)
         {
+            string sideText = _selectedSide == BinSide.Ng ? "NG" : "GOOD";
+            _outputDisplayStates.Clear();
+            _outputDisplayResults.Clear();
+            _selectedEntry = null;
             mapView.Map = null;
-            mapView.Caption = "OUTPUT GOOD RECEIVE MAP";
+            mapView.Caption = "OUTPUT " + sideText + " RECEIVE MAP";
             lblAxisYCaption.Text = (_selectedSide == BinSide.Ng ? "NG" : "GOOD") + " Stage Y (mm)";
-            lblMapTitle.Text = "OUTPUT GOOD RECEIVE MAP";
+            lblMapTitle.Text = "OUTPUT " + sideText + " RECEIVE MAP";
             lblProjectValue.Text = GetCurrentProjectName();
             lblBarcodeValue.Text = sourceWafer != null ? sourceWafer.WaferId : "-";
             lblBinValue.Text = _selectedSide == BinSide.Ng ? "NG" : "GOOD";
@@ -1232,12 +1295,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         FormatEquipmentGrid(entry.EquipmentGridX),
                         FormatEquipmentGrid(entry.EquipmentGridY),
                         status,
-                        entry.Result,
+                        ResolveOutputDisplayResult(entry),
                         entry.BinCode,
                         entry.PosX.ToString("F4"),
                         entry.PosY.ToString("F4"),
                         entry.DieUid ?? "");
                     gridDieList.Rows[rowIndex].Tag = entry;
+                    gridDieList.Rows[rowIndex].Cells[colBin.Index].ToolTipText = ResolveOutputBinToolTip(entry);
                 }
             }
             catch
@@ -1326,6 +1390,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     DieMapEntry rowEntry = gridDieList.Rows[rowIndex].Tag as DieMapEntry;
                     if (rowEntry != null)
                     {
+                        mapView.SelectedEntry = rowEntry;
                         SelectEntry(rowEntry);
                         return;
                     }
@@ -1333,7 +1398,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 List<DieMapEntry> ordered = BuildReceiveOrder(map);
                 if (rowIndex < ordered.Count)
+                {
+                    mapView.SelectedEntry = ordered[rowIndex];
                     SelectEntry(ordered[rowIndex]);
+                }
             }
             catch
             {
@@ -3213,98 +3281,57 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private void SaveMaterialState()
+        private async Task SaveMaterialStateAsync()
         {
+            if (_materialSaveBusy || IsDisposed || Disposing)
+                return;
+
             try
             {
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    "현재 Material 상태를 저장하시겠습니까?",
+                    "현재 Material 상태를 저장하시겠습니까?\r\n" +
+                    "화면 맵으로 슬롯을 다시 만들지 않고, 기록된 검사·추적 정보를 저장합니다.",
                     "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
-                PersistOutputMapToMaterialState(mapView != null ? mapView.Map : null);
-                MaterialStateService.NotifyAndSave("OutputStageMapTransferSave");
-                QMC.Common.MessageDialog.Show(this, "Material 상태 저장 완료.",
+                _materialSaveBusy = true;
+                btnThetaMatchMove.Enabled = false;
+
+                // 상태 APPLY는 이미 Material을 갱신합니다. 표시 맵의 합성 UID/진행 추정값을
+                // 다시 저장하면 검사·추적 정보와 실제 수납 순서가 손상되므로 역기록하지 않습니다.
+                // 저장 요청 접수와 디스크 저장 완료는 다릅니다. UI 밖에서 완료까지 확인합니다.
+                bool saved = await Task.Run(() =>
+                    MaterialStateService.TryNotifyAndSave("OutputStageMapTransferSave") &&
+                    MaterialStateService.TryFlushPendingSave("OutputStageMapTransferSave")).ConfigureAwait(true);
+                if (!saved)
+                    throw new InvalidOperationException(
+                        "Material 저장 완료를 확인하지 못했습니다. 저장 경로·파일 접근 권한과 MaterialStateSave 로그를 확인하세요.");
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output Material 상태 저장 완료. 화면 맵의 슬롯 재작성 없이 저장했습니다. - Ok");
+                if (IsDisposed || Disposing || !IsHandleCreated)
+                    return;
+
+                QMC.Common.MessageDialog.Show(this, "Material 상태 저장 완료.\r\n검사·추적 정보를 그대로 저장했습니다.",
                     "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
-                    "Output material state save failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "Material 상태 저장 실패:\r\n" + ex.Message,
-                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    "Output Material 상태 저장 실패: " + ex.Message + " - Failed");
+                if (!IsDisposed && !Disposing && IsHandleCreated)
+                    QMC.Common.MessageDialog.Show(this, "Material 상태 저장 실패:\r\n" + ex.Message,
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
-            }
-        }
-
-        private void PersistOutputMapToMaterialState(DieMap map)
-        {
-            try
-            {
-                if (map == null || map.Entries == null)
-                    return;
-
-                WaferMaterial wafer = GetSelectedOutputWafer();
-                if (wafer == null)
-                    return;
-
-                DieMapGenerator.Normalize(map);
-                wafer.DieMapFrameObjId = map.FrameObjId ?? "";
-                wafer.OutputReceiveDieMapX = map.DieMapX;
-                wafer.OutputReceiveDieMapY = map.DieMapY;
-                wafer.OutputReceivePitchX = map.PitchX;
-                wafer.OutputReceivePitchY = map.PitchY;
-                wafer.OutputReceiveDieSizeX = map.DieSizeX;
-                wafer.OutputReceiveDieSizeY = map.DieSizeY;
-                wafer.OutputReceiveOuterDiameterMm = map.OuterDiameterMm;
-                wafer.OutputReceiveOriginX = map.OriginX;
-                wafer.OutputReceiveOriginY = map.OriginY;
-                wafer.OutputReceiveTotalCount = map.Entries.Count(e => e != null && e.IsTarget);
-                wafer.UpdatedAt = DateTime.Now;
-
-                List<DieMapEntry> ordered = BuildReceiveOrder(map);
-                wafer.OutputReceiveNextIndex = CalculateNextOutputReceiveIndex(ordered);
-                if (wafer.OutputReceiveSlots == null)
-                    wafer.OutputReceiveSlots = new List<OutputReceiveSlotMaterial>();
-                else
-                    wafer.OutputReceiveSlots.Clear();
-
-                for (int i = 0; i < ordered.Count; i++)
+                if (_materialSaveBusy)
                 {
-                    DieMapEntry entry = ordered[i];
-                    if (entry == null)
-                        continue;
-
-                    double relativeX = ToRelativeOutputX(entry.PosX);
-                    double relativeY = ToRelativeOutputY(entry.PosY);
-                    wafer.OutputReceiveSlots.Add(new OutputReceiveSlotMaterial
-                    {
-                        OrderIndex = i,
-                        SequenceNo = entry.SequenceNo,
-                        // 현재 기준: OutputReceiveSlot도 웨이퍼맵 원본 X/Y 인덱스를 저장한다.
-                        DieMapX = ResolveEntryMapX(entry),
-                        DieMapY = ResolveEntryMapY(entry),
-                        OriginalMapX = DieMapGenerator.ResolveOriginalMapIndexX(entry),
-                        OriginalMapY = DieMapGenerator.ResolveOriginalMapIndexY(entry),
-                        IsTarget = entry.IsTarget,
-                        Result = entry.Result,
-                        BinCode = entry.BinCode,
-                        PosX = relativeX,
-                        PosY = relativeY,
-                        DieUid = entry.DieUid ?? ""
-                    });
+                    _materialSaveBusy = false;
+                    if (!IsDisposed && !Disposing && btnThetaMatchMove != null && !btnThetaMatchMove.IsDisposed)
+                        btnThetaMatchMove.Enabled = !_manualMoveBusy;
                 }
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
-                    "Output map material persist failed: " + ex.Message + " - Failed");
-            }
-            finally
-            {
             }
         }
 
@@ -3502,30 +3529,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
 
             return true;
-        }
-
-        private static int CalculateNextOutputReceiveIndex(List<DieMapEntry> ordered)
-        {
-            if (ordered == null || ordered.Count <= 0)
-                return 0;
-
-            int targetCount = 0;
-            for (int index = 0; index < ordered.Count; index++)
-            {
-                DieMapEntry entry = ordered[index];
-                if (entry == null)
-                    continue;
-
-                if (!entry.IsTarget)
-                    continue;
-
-                targetCount++;
-                // 현재 기준: 표시용 Output map의 DieUid는 맵 셀 UID일 수 있으므로 Result 기준으로 다음 place 대상을 계산한다.
-                if (entry.Result == DieResult.Unknown)
-                    return index;
-            }
-
-            return targetCount > 0 ? targetCount : 0;
         }
 
         private static int CalculateNextOutputReceiveIndex(List<OutputReceiveSlotMaterial> slots)

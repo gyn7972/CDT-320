@@ -126,6 +126,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.colIndex = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colGridX = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colGridY = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colEquipmentGridX = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colEquipmentGridY = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colTarget = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colResult = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colBin = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -200,6 +202,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
             this.mapView.Caption = "OUTPUT GOOD RECEIVE MAP";
             this.mapView.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.mapView.CompactUsedBounds = true;
+            this.mapView.ShowWaferOutline = true;
+            this.mapView.ShowEquipmentAxes = true;
+            this.mapView.EnableRectangleSelection = true;
             this.mapView.Location = new System.Drawing.Point(0, 0);
             this.mapView.Margin = new System.Windows.Forms.Padding(0);
             this.mapView.Map = null;
@@ -235,6 +241,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.colIndex,
             this.colGridX,
             this.colGridY,
+            this.colEquipmentGridX,
+            this.colEquipmentGridY,
             this.colTarget,
             this.colResult,
             this.colBin,
@@ -960,19 +968,35 @@ namespace QMC.CDT_320.Ui.Pages.Work
             //
             // colGridX
             //
-            this.colGridX.FillWeight = 55F;
-            this.colGridX.HeaderText = "DieMapX";
+            this.colGridX.FillWeight = 65F;
+            this.colGridX.HeaderText = "DieMapX (Raw)";
             this.colGridX.Name = "colGridX";
             this.colGridX.ReadOnly = true;
             this.colGridX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             //
             // colGridY
             //
-            this.colGridY.FillWeight = 55F;
-            this.colGridY.HeaderText = "DieMapY";
+            this.colGridY.FillWeight = 65F;
+            this.colGridY.HeaderText = "DieMapY (Raw)";
             this.colGridY.Name = "colGridY";
             this.colGridY.ReadOnly = true;
             this.colGridY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
+            // colEquipmentGridX
+            //
+            this.colEquipmentGridX.FillWeight = 55F;
+            this.colEquipmentGridX.HeaderText = "Grid X";
+            this.colEquipmentGridX.Name = "colEquipmentGridX";
+            this.colEquipmentGridX.ReadOnly = true;
+            this.colEquipmentGridX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
+            // colEquipmentGridY
+            //
+            this.colEquipmentGridY.FillWeight = 55F;
+            this.colEquipmentGridY.HeaderText = "Grid Y";
+            this.colEquipmentGridY.Name = "colEquipmentGridY";
+            this.colEquipmentGridY.ReadOnly = true;
+            this.colEquipmentGridY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             //
             // colTarget
             //
@@ -1000,16 +1024,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
             //
             // colAxisX
             //
-            this.colAxisX.FillWeight = 80F;
-            this.colAxisX.HeaderText = "X(mm)";
+            this.colAxisX.FillWeight = 90F;
+            this.colAxisX.HeaderText = "Process X(mm)";
             this.colAxisX.Name = "colAxisX";
             this.colAxisX.ReadOnly = true;
             this.colAxisX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             //
             // colAxisY
             //
-            this.colAxisY.FillWeight = 80F;
-            this.colAxisY.HeaderText = "Y(mm)";
+            this.colAxisY.FillWeight = 90F;
+            this.colAxisY.HeaderText = "Process Y(mm)";
             this.colAxisY.Name = "colAxisY";
             this.colAxisY.ReadOnly = true;
             this.colAxisY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
@@ -1113,6 +1137,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private DataGridViewTextBoxColumn colIndex;
         private DataGridViewTextBoxColumn colGridX;
         private DataGridViewTextBoxColumn colGridY;
+        private DataGridViewTextBoxColumn colEquipmentGridX;
+        private DataGridViewTextBoxColumn colEquipmentGridY;
         private DataGridViewTextBoxColumn colTarget;
         private DataGridViewTextBoxColumn colResult;
         private DataGridViewTextBoxColumn colBin;

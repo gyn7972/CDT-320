@@ -767,6 +767,20 @@
     <Compile Include="Equipment\Vision\VisionFrameClient.cs" />
     <Compile Include="Equipment\Vision\VisionTcpClient.cs" />
     <Compile Include="Equipment\Vision\VisionTcpClient.Correlated.cs" />
+    <Compile Include="Ui\Common\WaferMaps\WaferMapDisplayStyle.cs" />
+    <!-- UI / Common Designer catalog and template (not connected to production screens) -->
+    <Compile Include="Ui\Common\Catalog\UiStandardCatalogForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Common\Catalog\UiStandardCatalogForm.Designer.cs">
+      <DependentUpon>UiStandardCatalogForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Common\Templates\UiPageTemplate.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Common\Templates\UiPageTemplate.Designer.cs">
+      <DependentUpon>UiPageTemplate.cs</DependentUpon>
+    </Compile>
     <!-- UI / Theme + Localization + Security -->
     <Compile Include="Ui\UiTheme.cs" />
     <Compile Include="Ui\Localization\Lang.cs" />
@@ -1403,6 +1417,9 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <EmbeddedResource Include="Ui\Common\Catalog\UiStandardCatalogForm.resx">
+      <DependentUpon>UiStandardCatalogForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Controls\CassetteSlotView.resx">
       <DependentUpon>CassetteSlotView.cs</DependentUpon>
     </EmbeddedResource>

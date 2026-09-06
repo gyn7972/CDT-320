@@ -1,11 +1,11 @@
-using System.Drawing;
+﻿using System.Drawing;
 
 namespace QMC.CDT_320.Ui.Controls
 {
     /// <summary>
     /// 웨이퍼맵 공통 팔레트 (UI 표준 QMC-CDT320-UI-STD-001 §5.7).
     /// 렌더러(DieMapView/LiveLotMapView)와 페이지 레전드가 공유하는 "의미색"만 정의한다.
-    /// BIN 레벨 색(Good/NG 실물 다이)은 BinCodeMap(레시피 데이터)이 원본 — 여기서 정의하지 않는다.
+    /// 작업 모니터는 이 팔레트로 상태를 표시하고, BIN 번호는 원본 데이터로 별도 보존한다.
     /// 색 상수뿐인 정적 클래스로, 시퀀스/인터락과 무관하다.
     /// </summary>
     public static class WaferMapPalette
@@ -13,10 +13,14 @@ namespace QMC.CDT_320.Ui.Controls
         // ── 다이 진행 상태 (여정: 대기 → 비전 → 픽업/안착) ──
         public static readonly Color Wait      = Color.FromArgb(0xCC, 0xDD, 0xEE); // 검사 대기 (기존 다수파 값 유지)
         public static readonly Color Vision    = Color.FromArgb(0xF5, 0xA6, 0x23); // 검사 완료 — PrimaryBright (구 F2C14E·F5BE34 흡수)
-        public static readonly Color PickPlace = Color.FromArgb(0x44, 0x88, 0xCC); // 픽업/안착 완료 — 청색 (구 24B86A: Good 초록과 분리)
+        public static readonly Color PickerHeld = Color.FromArgb(0x8E, 0x63, 0xCE); // 픽커 보유 — 보라색
+        public static readonly Color Placed = Color.FromArgb(0x44, 0x88, 0xCC);     // 안착 완료 / 검사 전 — 파란색
+        public static readonly Color PickPlace = Placed; // 기존 화면 호환용. 작업 모니터는 두 상태를 구분한다.
 
-        // ── 결과 표기 — 레전드/폴백 전용 (실물 다이는 BinCodeMap 색) ──
-        public static readonly Color NgFallback = Color.Firebrick;                 // AlarmRed (구 IndianRed·D65B5B 흡수)
+        // 작업 모니터의 결과색은 BIN 설정과 분리한다. 저장된 BIN/Result 값은 바꾸지 않는다.
+        public static readonly Color Good = Color.FromArgb(0x33, 0xB2, 0x6B);
+        public static readonly Color Ng = Color.Firebrick;
+        public static readonly Color NgFallback = Ng;
 
         // ── 마커/보조 상태 ──
         public static readonly Color StartMarker = Color.FromArgb(0xF5, 0xA6, 0x23); // 시작 다이 마커 (RunReview "S")

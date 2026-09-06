@@ -317,14 +317,66 @@ namespace QMC.CDT320.Ui.Controls
 
         public void SetMap(DieMap map, bool resetView)
         {
+            SetMap(map, resetView, false);
+        }
+
+        /// <summary>
+        /// 같은 wafer의 상태 사본을 갱신할 때만 선택을 새 셀에 연결한다.
+        /// 다른 wafer인지 여부는 호출 화면에서 확인하며, 기존 2인자 호출은 선택을 초기화한다.
+        /// </summary>
+        public void SetMap(DieMap map, bool resetView, bool preserveSelection)
+        {
+            var entriesByKey = new Dictionary<string, DieMapEntry>(StringComparer.OrdinalIgnoreCase);
+            bool hasSelection = _selected != null || _hover != null || _selectedEntries.Count > 0;
+            if (preserveSelection && hasSelection && map != null && map.Entries != null)
+            {
+                foreach (DieMapEntry entry in map.Entries)
+                {
+                    if (entry != null && IsEntryVisible(entry))
+                        entriesByKey[BuildSelectionKey(entry)] = entry;
+                }
+            }
+
+            DieMapEntry selected = FindMatchingEntry(entriesByKey, _selected);
+            DieMapEntry hover = FindMatchingEntry(entriesByKey, _hover);
+            var selectedEntries = new List<DieMapEntry>();
+            foreach (DieMapEntry entry in _selectedEntries)
+            {
+                DieMapEntry matching = FindMatchingEntry(entriesByKey, entry);
+                if (matching != null)
+                    selectedEntries.Add(matching);
+            }
+
             _map = map;
-            _hover = null;
-            _selected = null;
+            _hover = hover;
+            _selected = selected;
             _selectedEntries.Clear();
+            _selectedEntries.AddRange(selectedEntries);
+            if (!preserveSelection)
+            {
+                _dragging = false;
+                _rectangleSelecting = false;
+            }
             if (resetView)
                 ResetView();
             else
                 Invalidate();
+        }
+
+        private static string BuildSelectionKey(DieMapEntry entry)
+        {
+            return ResolveEntryMapX(entry) + ":" + ResolveEntryMapY(entry) + ":" + (entry.DieUid ?? "");
+        }
+
+        private static DieMapEntry FindMatchingEntry(
+            Dictionary<string, DieMapEntry> entriesByKey,
+            DieMapEntry previous)
+        {
+            if (previous == null)
+                return null;
+
+            DieMapEntry matching;
+            return entriesByKey.TryGetValue(BuildSelectionKey(previous), out matching) ? matching : null;
         }
 
         public void SetSelectedEntries(IEnumerable<DieMapEntry> entries)
@@ -368,7 +420,8 @@ namespace QMC.CDT320.Ui.Controls
 
         private static int LegendItemAdvance(string label, Font f)
         {
-            int labelW = TextRenderer.MeasureText(label ?? string.Empty, f).Width;
+            int labelW = TextRenderer.MeasureText(label ?? string.Empty, f,
+                new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPrefix).Width;
             return Math.Max(80, 14 + 3 + labelW + 16);
         }
 
@@ -416,8 +469,9 @@ namespace QMC.CDT320.Ui.Controls
 
                     using (var br = new SolidBrush(it.Item2))
                         g.FillRectangle(br, sx, y, sw, 12);
-                    using (var br = new SolidBrush(textColor))
-                        g.DrawString(it.Item1, f, br, sx + sw + 3, y - 1);
+                    // 폭 측정과 같은 TextRenderer를 사용해야 긴 한글 범례가 다음 색상과 겹치지 않습니다.
+                    TextRenderer.DrawText(g, it.Item1 ?? string.Empty, f,
+                        new Point(sx + sw + 3, y - 1), textColor, TextFormatFlags.NoPrefix);
                     sx += advance;
                 }
             }

@@ -206,8 +206,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnBinSelect = new System.Windows.Forms.Button();
             this.workInfoProjectTile = new System.Windows.Forms.Panel();
             this.workInfoProjectLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.lblProject = new System.Windows.Forms.Label();
             this.lblProjectCaption = new System.Windows.Forms.Label();
+            this.lblProject = new System.Windows.Forms.Label();
             this.lblReworkCaption = new System.Windows.Forms.Label();
             this.cmbReworkCount = new System.Windows.Forms.ComboBox();
             this.workInfoBinQtyTile = new System.Windows.Forms.Panel();
@@ -402,9 +402,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.visionPanel.BackColor = System.Drawing.Color.Black;
             this.visionPanel.Controls.Add(this.visionShellLayout);
             this.visionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.visionPanel.Location = new System.Drawing.Point(6, 24);
+            this.visionPanel.Location = new System.Drawing.Point(6, 29);
             this.visionPanel.Name = "visionPanel";
-            this.visionPanel.Size = new System.Drawing.Size(815, 541);
+            this.visionPanel.Size = new System.Drawing.Size(815, 536);
             this.visionPanel.TabIndex = 1;
             // 
             // visionShellLayout
@@ -419,7 +419,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.visionShellLayout.Name = "visionShellLayout";
             this.visionShellLayout.RowCount = 1;
             this.visionShellLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.visionShellLayout.Size = new System.Drawing.Size(815, 541);
+            this.visionShellLayout.Size = new System.Drawing.Size(815, 536);
             this.visionShellLayout.TabIndex = 0;
             // 
             // visionMainLayout
@@ -436,7 +436,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.visionMainLayout.Name = "visionMainLayout";
             this.visionMainLayout.RowCount = 1;
             this.visionMainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.visionMainLayout.Size = new System.Drawing.Size(815, 541);
+            this.visionMainLayout.Size = new System.Drawing.Size(815, 536);
             this.visionMainLayout.TabIndex = 0;
             // 
             // visionLeftLayout
@@ -453,7 +453,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.visionLeftLayout.RowCount = 2;
             this.visionLeftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.visionLeftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.visionLeftLayout.Size = new System.Drawing.Size(407, 541);
+            this.visionLeftLayout.Size = new System.Drawing.Size(407, 536);
             this.visionLeftLayout.TabIndex = 0;
             // 
             // pnlWaferVision
@@ -465,7 +465,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.pnlWaferVision.Location = new System.Drawing.Point(1, 1);
             this.pnlWaferVision.Margin = new System.Windows.Forms.Padding(1);
             this.pnlWaferVision.Name = "pnlWaferVision";
-            this.pnlWaferVision.Size = new System.Drawing.Size(405, 268);
+            this.pnlWaferVision.Size = new System.Drawing.Size(405, 266);
             this.pnlWaferVision.TabIndex = 0;
             // 
             // lblStageInfo
@@ -476,7 +476,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblStageInfo.ForeColor = System.Drawing.Color.LightGreen;
             this.lblStageInfo.Location = new System.Drawing.Point(8, 8);
             this.lblStageInfo.Name = "lblStageInfo";
-            this.lblStageInfo.Size = new System.Drawing.Size(91, 42);
+            this.lblStageInfo.Size = new System.Drawing.Size(104, 54);
             this.lblStageInfo.TabIndex = 0;
             this.lblStageInfo.Text = "WAFER VISION\r\nSTAGE\r\nW:640 H:480";
             // 
@@ -486,10 +486,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.pnlBinVision.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.pnlBinVision.Controls.Add(this.lblBinVisionInfo);
             this.pnlBinVision.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pnlBinVision.Location = new System.Drawing.Point(1, 271);
+            this.pnlBinVision.Location = new System.Drawing.Point(1, 269);
             this.pnlBinVision.Margin = new System.Windows.Forms.Padding(1);
             this.pnlBinVision.Name = "pnlBinVision";
-            this.pnlBinVision.Size = new System.Drawing.Size(405, 269);
+            this.pnlBinVision.Size = new System.Drawing.Size(405, 266);
             this.pnlBinVision.TabIndex = 3;
             // 
             // lblBinVisionInfo
@@ -500,7 +500,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBinVisionInfo.ForeColor = System.Drawing.Color.LightGreen;
             this.lblBinVisionInfo.Location = new System.Drawing.Point(8, 8);
             this.lblBinVisionInfo.Name = "lblBinVisionInfo";
-            this.lblBinVisionInfo.Size = new System.Drawing.Size(84, 42);
+            this.lblBinVisionInfo.Size = new System.Drawing.Size(96, 54);
             this.lblBinVisionInfo.TabIndex = 0;
             this.lblBinVisionInfo.Text = "BIN VISION\r\nSTAGE\r\nW:640 H:480";
             // 
@@ -520,7 +520,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.visionSideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
             this.visionSideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
             this.visionSideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
-            this.visionSideLayout.Size = new System.Drawing.Size(408, 541);
+            this.visionSideLayout.Size = new System.Drawing.Size(408, 536);
             this.visionSideLayout.TabIndex = 2;
             // 
             // pnlSideRearVision
@@ -532,7 +532,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.pnlSideRearVision.Location = new System.Drawing.Point(1, 1);
             this.pnlSideRearVision.Margin = new System.Windows.Forms.Padding(1);
             this.pnlSideRearVision.Name = "pnlSideRearVision";
-            this.pnlSideRearVision.Size = new System.Drawing.Size(406, 178);
+            this.pnlSideRearVision.Size = new System.Drawing.Size(406, 176);
             this.pnlSideRearVision.TabIndex = 0;
             // 
             // lblSideRearInfo
@@ -543,7 +543,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblSideRearInfo.ForeColor = System.Drawing.Color.LightGreen;
             this.lblSideRearInfo.Location = new System.Drawing.Point(8, 8);
             this.lblSideRearInfo.Name = "lblSideRearInfo";
-            this.lblSideRearInfo.Size = new System.Drawing.Size(119, 42);
+            this.lblSideRearInfo.Size = new System.Drawing.Size(136, 54);
             this.lblSideRearInfo.TabIndex = 0;
             this.lblSideRearInfo.Text = "REAR SIDE VISION\r\nSTAGE\r\nW:640 H:480";
             // 
@@ -553,10 +553,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.pnlBottomInspVision.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.pnlBottomInspVision.Controls.Add(this.lblBottomInspInfo);
             this.pnlBottomInspVision.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pnlBottomInspVision.Location = new System.Drawing.Point(1, 181);
+            this.pnlBottomInspVision.Location = new System.Drawing.Point(1, 179);
             this.pnlBottomInspVision.Margin = new System.Windows.Forms.Padding(1);
             this.pnlBottomInspVision.Name = "pnlBottomInspVision";
-            this.pnlBottomInspVision.Size = new System.Drawing.Size(406, 178);
+            this.pnlBottomInspVision.Size = new System.Drawing.Size(406, 176);
             this.pnlBottomInspVision.TabIndex = 1;
             // 
             // lblBottomInspInfo
@@ -567,7 +567,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBottomInspInfo.ForeColor = System.Drawing.Color.LightGreen;
             this.lblBottomInspInfo.Location = new System.Drawing.Point(8, 8);
             this.lblBottomInspInfo.Name = "lblBottomInspInfo";
-            this.lblBottomInspInfo.Size = new System.Drawing.Size(98, 42);
+            this.lblBottomInspInfo.Size = new System.Drawing.Size(112, 54);
             this.lblBottomInspInfo.TabIndex = 0;
             this.lblBottomInspInfo.Text = "BOTTOM VISION\r\nSTAGE\r\nW:640 H:480";
             // 
@@ -577,10 +577,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.pnlSideFrontVision.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.pnlSideFrontVision.Controls.Add(this.lblSideFrontInfo);
             this.pnlSideFrontVision.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pnlSideFrontVision.Location = new System.Drawing.Point(1, 361);
+            this.pnlSideFrontVision.Location = new System.Drawing.Point(1, 357);
             this.pnlSideFrontVision.Margin = new System.Windows.Forms.Padding(1);
             this.pnlSideFrontVision.Name = "pnlSideFrontVision";
-            this.pnlSideFrontVision.Size = new System.Drawing.Size(406, 179);
+            this.pnlSideFrontVision.Size = new System.Drawing.Size(406, 178);
             this.pnlSideFrontVision.TabIndex = 1;
             // 
             // lblSideFrontInfo
@@ -591,7 +591,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblSideFrontInfo.ForeColor = System.Drawing.Color.LightGreen;
             this.lblSideFrontInfo.Location = new System.Drawing.Point(8, 8);
             this.lblSideFrontInfo.Name = "lblSideFrontInfo";
-            this.lblSideFrontInfo.Size = new System.Drawing.Size(126, 42);
+            this.lblSideFrontInfo.Size = new System.Drawing.Size(144, 54);
             this.lblSideFrontInfo.TabIndex = 0;
             this.lblSideFrontInfo.Text = "FRONT SIDE VISION\r\nSTAGE\r\nW:640 H:480";
             // 
@@ -620,13 +620,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapBody.Controls.Add(this.mapHeaderLayout, 0, 0);
             this.mapBody.Controls.Add(this.mapLayout, 0, 1);
             this.mapBody.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapBody.Location = new System.Drawing.Point(6, 24);
+            this.mapBody.Location = new System.Drawing.Point(6, 29);
             this.mapBody.Margin = new System.Windows.Forms.Padding(0);
             this.mapBody.Name = "mapBody";
             this.mapBody.RowCount = 2;
             this.mapBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.mapBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mapBody.Size = new System.Drawing.Size(815, 541);
+            this.mapBody.Size = new System.Drawing.Size(815, 536);
             this.mapBody.TabIndex = 0;
             // 
             // mapHeaderLayout
@@ -661,7 +661,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapHeaderTotalTile.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
             this.mapHeaderTotalTile.Name = "mapHeaderTotalTile";
             this.mapHeaderTotalTile.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
-            this.mapHeaderTotalTile.Size = new System.Drawing.Size(200, 30);
+            this.mapHeaderTotalTile.Size = new System.Drawing.Size(199, 30);
             this.mapHeaderTotalTile.TabIndex = 0;
             // 
             // lblTotalChip
@@ -673,7 +673,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblTotalChip.Location = new System.Drawing.Point(8, 12);
             this.lblTotalChip.Margin = new System.Windows.Forms.Padding(0);
             this.lblTotalChip.Name = "lblTotalChip";
-            this.lblTotalChip.Size = new System.Drawing.Size(182, 16);
+            this.lblTotalChip.Size = new System.Drawing.Size(181, 16);
             this.lblTotalChip.TabIndex = 1;
             this.lblTotalChip.Text = "0";
             this.lblTotalChip.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -687,7 +687,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblTotalChipCaption.Location = new System.Drawing.Point(8, 0);
             this.lblTotalChipCaption.Margin = new System.Windows.Forms.Padding(0);
             this.lblTotalChipCaption.Name = "lblTotalChipCaption";
-            this.lblTotalChipCaption.Size = new System.Drawing.Size(182, 12);
+            this.lblTotalChipCaption.Size = new System.Drawing.Size(181, 12);
             this.lblTotalChipCaption.TabIndex = 0;
             this.lblTotalChipCaption.Text = "TOTAL CHIP";
             this.lblTotalChipCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -699,11 +699,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapHeaderBinTile.Controls.Add(this.lblBinNum);
             this.mapHeaderBinTile.Controls.Add(this.lblBinNumCaption);
             this.mapHeaderBinTile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapHeaderBinTile.Location = new System.Drawing.Point(206, 1);
+            this.mapHeaderBinTile.Location = new System.Drawing.Point(205, 1);
             this.mapHeaderBinTile.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
             this.mapHeaderBinTile.Name = "mapHeaderBinTile";
             this.mapHeaderBinTile.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
-            this.mapHeaderBinTile.Size = new System.Drawing.Size(200, 30);
+            this.mapHeaderBinTile.Size = new System.Drawing.Size(199, 30);
             this.mapHeaderBinTile.TabIndex = 1;
             // 
             // lblBinNum
@@ -715,7 +715,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBinNum.Location = new System.Drawing.Point(8, 12);
             this.lblBinNum.Margin = new System.Windows.Forms.Padding(0);
             this.lblBinNum.Name = "lblBinNum";
-            this.lblBinNum.Size = new System.Drawing.Size(182, 16);
+            this.lblBinNum.Size = new System.Drawing.Size(181, 16);
             this.lblBinNum.TabIndex = 3;
             this.lblBinNum.Text = "--";
             this.lblBinNum.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -729,27 +729,27 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBinNumCaption.Location = new System.Drawing.Point(8, 0);
             this.lblBinNumCaption.Margin = new System.Windows.Forms.Padding(0);
             this.lblBinNumCaption.Name = "lblBinNumCaption";
-            this.lblBinNumCaption.Size = new System.Drawing.Size(182, 12);
+            this.lblBinNumCaption.Size = new System.Drawing.Size(181, 12);
             this.lblBinNumCaption.TabIndex = 2;
             this.lblBinNumCaption.Text = "CURRENT BIN";
             this.lblBinNumCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // mapHeaderOutputGoodTile
-            //
+            // 
             this.mapHeaderOutputGoodTile.BackColor = System.Drawing.Color.White;
             this.mapHeaderOutputGoodTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.mapHeaderOutputGoodTile.Controls.Add(this.lblOutputGood);
             this.mapHeaderOutputGoodTile.Controls.Add(this.lblOutputGoodCaption);
             this.mapHeaderOutputGoodTile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapHeaderOutputGoodTile.Location = new System.Drawing.Point(410, 1);
+            this.mapHeaderOutputGoodTile.Location = new System.Drawing.Point(408, 1);
             this.mapHeaderOutputGoodTile.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
             this.mapHeaderOutputGoodTile.Name = "mapHeaderOutputGoodTile";
             this.mapHeaderOutputGoodTile.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
-            this.mapHeaderOutputGoodTile.Size = new System.Drawing.Size(200, 30);
+            this.mapHeaderOutputGoodTile.Size = new System.Drawing.Size(199, 30);
             this.mapHeaderOutputGoodTile.TabIndex = 2;
-            //
+            // 
             // lblOutputGood
-            //
+            // 
             this.lblOutputGood.BackColor = System.Drawing.Color.Transparent;
             this.lblOutputGood.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblOutputGood.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
@@ -757,13 +757,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblOutputGood.Location = new System.Drawing.Point(8, 12);
             this.lblOutputGood.Margin = new System.Windows.Forms.Padding(0);
             this.lblOutputGood.Name = "lblOutputGood";
-            this.lblOutputGood.Size = new System.Drawing.Size(182, 16);
+            this.lblOutputGood.Size = new System.Drawing.Size(181, 16);
             this.lblOutputGood.TabIndex = 1;
             this.lblOutputGood.Text = "- / -";
             this.lblOutputGood.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblOutputGoodCaption
-            //
+            // 
             this.lblOutputGoodCaption.BackColor = System.Drawing.Color.Transparent;
             this.lblOutputGoodCaption.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblOutputGoodCaption.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
@@ -771,27 +771,27 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblOutputGoodCaption.Location = new System.Drawing.Point(8, 0);
             this.lblOutputGoodCaption.Margin = new System.Windows.Forms.Padding(0);
             this.lblOutputGoodCaption.Name = "lblOutputGoodCaption";
-            this.lblOutputGoodCaption.Size = new System.Drawing.Size(182, 12);
+            this.lblOutputGoodCaption.Size = new System.Drawing.Size(181, 12);
             this.lblOutputGoodCaption.TabIndex = 0;
             this.lblOutputGoodCaption.Text = "OUTPUT GOOD";
             this.lblOutputGoodCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // mapHeaderOutputNgTile
-            //
+            // 
             this.mapHeaderOutputNgTile.BackColor = System.Drawing.Color.White;
             this.mapHeaderOutputNgTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.mapHeaderOutputNgTile.Controls.Add(this.lblOutputNg);
             this.mapHeaderOutputNgTile.Controls.Add(this.lblOutputNgCaption);
             this.mapHeaderOutputNgTile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapHeaderOutputNgTile.Location = new System.Drawing.Point(614, 1);
+            this.mapHeaderOutputNgTile.Location = new System.Drawing.Point(611, 1);
             this.mapHeaderOutputNgTile.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
             this.mapHeaderOutputNgTile.Name = "mapHeaderOutputNgTile";
             this.mapHeaderOutputNgTile.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
-            this.mapHeaderOutputNgTile.Size = new System.Drawing.Size(199, 30);
+            this.mapHeaderOutputNgTile.Size = new System.Drawing.Size(202, 30);
             this.mapHeaderOutputNgTile.TabIndex = 3;
-            //
+            // 
             // lblOutputNg
-            //
+            // 
             this.lblOutputNg.BackColor = System.Drawing.Color.Transparent;
             this.lblOutputNg.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblOutputNg.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
@@ -799,13 +799,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblOutputNg.Location = new System.Drawing.Point(8, 12);
             this.lblOutputNg.Margin = new System.Windows.Forms.Padding(0);
             this.lblOutputNg.Name = "lblOutputNg";
-            this.lblOutputNg.Size = new System.Drawing.Size(181, 16);
+            this.lblOutputNg.Size = new System.Drawing.Size(184, 16);
             this.lblOutputNg.TabIndex = 1;
             this.lblOutputNg.Text = "- / -";
             this.lblOutputNg.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblOutputNgCaption
-            //
+            // 
             this.lblOutputNgCaption.BackColor = System.Drawing.Color.Transparent;
             this.lblOutputNgCaption.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblOutputNgCaption.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
@@ -813,13 +813,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblOutputNgCaption.Location = new System.Drawing.Point(8, 0);
             this.lblOutputNgCaption.Margin = new System.Windows.Forms.Padding(0);
             this.lblOutputNgCaption.Name = "lblOutputNgCaption";
-            this.lblOutputNgCaption.Size = new System.Drawing.Size(181, 12);
+            this.lblOutputNgCaption.Size = new System.Drawing.Size(184, 12);
             this.lblOutputNgCaption.TabIndex = 0;
             this.lblOutputNgCaption.Text = "OUTPUT NG";
             this.lblOutputNgCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // mapLayout
-            //
+            // 
             this.mapLayout.ColumnCount = 3;
             this.mapLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
             this.mapLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
@@ -833,9 +833,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapLayout.Name = "mapLayout";
             this.mapLayout.RowCount = 1;
             this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mapLayout.Size = new System.Drawing.Size(815, 509);
+            this.mapLayout.Size = new System.Drawing.Size(815, 504);
             this.mapLayout.TabIndex = 1;
-            //
+            // 
             // lotMapView
             // 
             this.lotMapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
@@ -852,47 +852,47 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lotMapView.SelectedEntry = null;
             this.lotMapView.ShowEquipmentAxes = true;
             this.lotMapView.ShowWaferOutline = true;
-            this.lotMapView.Size = new System.Drawing.Size(807, 480);
+            this.lotMapView.Size = new System.Drawing.Size(271, 504);
             this.lotMapView.SourceKind = QMC.CDT_320.Ui.Controls.LiveLotMapSourceKind.Input;
             this.lotMapView.TabIndex = 0;
-            //
+            // 
             // outputGoodLotMapView
             // 
             this.outputGoodLotMapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
-            this.outputGoodLotMapView.Caption = "Die Map";
+            this.outputGoodLotMapView.Caption = "OUTPUT GOOD MAP   -";
             this.outputGoodLotMapView.CompactUsedBounds = true;
             this.outputGoodLotMapView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.outputGoodLotMapView.EnableRectangleSelection = false;
             this.outputGoodLotMapView.GridX = 5;
             this.outputGoodLotMapView.GridY = 5;
-            this.outputGoodLotMapView.Location = new System.Drawing.Point(0, 0);
+            this.outputGoodLotMapView.Location = new System.Drawing.Point(271, 0);
             this.outputGoodLotMapView.Map = null;
             this.outputGoodLotMapView.Margin = new System.Windows.Forms.Padding(0);
             this.outputGoodLotMapView.Name = "outputGoodLotMapView";
             this.outputGoodLotMapView.SelectedEntry = null;
             this.outputGoodLotMapView.ShowEquipmentAxes = true;
             this.outputGoodLotMapView.ShowWaferOutline = true;
-            this.outputGoodLotMapView.Size = new System.Drawing.Size(807, 480);
+            this.outputGoodLotMapView.Size = new System.Drawing.Size(271, 504);
             this.outputGoodLotMapView.SourceKind = QMC.CDT_320.Ui.Controls.LiveLotMapSourceKind.OutputGood;
             this.outputGoodLotMapView.TabIndex = 0;
-            //
+            // 
             // outputNgLotMapView
             // 
             this.outputNgLotMapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
-            this.outputNgLotMapView.Caption = "Die Map";
+            this.outputNgLotMapView.Caption = "OUTPUT NG MAP   -";
             this.outputNgLotMapView.CompactUsedBounds = true;
             this.outputNgLotMapView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.outputNgLotMapView.EnableRectangleSelection = false;
             this.outputNgLotMapView.GridX = 5;
             this.outputNgLotMapView.GridY = 5;
-            this.outputNgLotMapView.Location = new System.Drawing.Point(0, 0);
+            this.outputNgLotMapView.Location = new System.Drawing.Point(542, 0);
             this.outputNgLotMapView.Map = null;
             this.outputNgLotMapView.Margin = new System.Windows.Forms.Padding(0);
             this.outputNgLotMapView.Name = "outputNgLotMapView";
             this.outputNgLotMapView.SelectedEntry = null;
             this.outputNgLotMapView.ShowEquipmentAxes = true;
             this.outputNgLotMapView.ShowWaferOutline = true;
-            this.outputNgLotMapView.Size = new System.Drawing.Size(807, 480);
+            this.outputNgLotMapView.Size = new System.Drawing.Size(273, 504);
             this.outputNgLotMapView.SourceKind = QMC.CDT_320.Ui.Controls.LiveLotMapSourceKind.OutputNg;
             this.outputNgLotMapView.TabIndex = 0;
             // 
@@ -936,7 +936,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoBody.Controls.Add(this.workInfoRearCollet3Tile, 2, 4);
             this.workInfoBody.Controls.Add(this.workInfoRearCollet4Tile, 3, 4);
             this.workInfoBody.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workInfoBody.Location = new System.Drawing.Point(6, 24);
+            this.workInfoBody.Location = new System.Drawing.Point(6, 29);
             this.workInfoBody.Margin = new System.Windows.Forms.Padding(0);
             this.workInfoBody.Name = "workInfoBody";
             this.workInfoBody.Padding = new System.Windows.Forms.Padding(3);
@@ -946,7 +946,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
             this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
             this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
-            this.workInfoBody.Size = new System.Drawing.Size(815, 275);
+            this.workInfoBody.Size = new System.Drawing.Size(815, 270);
             this.workInfoBody.TabIndex = 0;
             // 
             // lotInputPanel
@@ -994,7 +994,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.txtLotId.Margin = new System.Windows.Forms.Padding(3, 3, 6, 3);
             this.txtLotId.MaxLength = 64;
             this.txtLotId.Name = "txtLotId";
-            this.txtLotId.Size = new System.Drawing.Size(484, 25);
+            this.txtLotId.Size = new System.Drawing.Size(412, 29);
             this.txtLotId.TabIndex = 1;
             // 
             // btnLotStart
@@ -1004,7 +1004,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnLotStart.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLotStart.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
             this.btnLotStart.ForeColor = System.Drawing.Color.White;
-            this.btnLotStart.Location = new System.Drawing.Point(556, 2);
+            this.btnLotStart.Location = new System.Drawing.Point(484, 2);
             this.btnLotStart.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.btnLotStart.Name = "btnLotStart";
             this.btnLotStart.Size = new System.Drawing.Size(86, 27);
@@ -1020,7 +1020,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnLotComplete.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLotComplete.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
             this.btnLotComplete.ForeColor = System.Drawing.Color.White;
-            this.btnLotComplete.Location = new System.Drawing.Point(648, 2);
+            this.btnLotComplete.Location = new System.Drawing.Point(576, 2);
             this.btnLotComplete.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.btnLotComplete.Name = "btnLotComplete";
             this.btnLotComplete.Size = new System.Drawing.Size(86, 27);
@@ -1036,7 +1036,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnLotHistory.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLotHistory.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
             this.btnLotHistory.ForeColor = System.Drawing.Color.White;
-            this.btnLotHistory.Location = new System.Drawing.Point(740, 2);
+            this.btnLotHistory.Location = new System.Drawing.Point(668, 2);
             this.btnLotHistory.Margin = new System.Windows.Forms.Padding(3, 2, 0, 2);
             this.btnLotHistory.Name = "btnLotHistory";
             this.btnLotHistory.Size = new System.Drawing.Size(69, 27);
@@ -1044,16 +1044,19 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnLotHistory.Text = "이력";
             this.btnLotHistory.UseVisualStyleBackColor = false;
             this.btnLotHistory.Click += new System.EventHandler(this.btnLotHistory_Click);
-            //
+            // 
             // btnBinSelect
-            //
+            // 
             this.btnBinSelect.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
             this.btnBinSelect.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnBinSelect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnBinSelect.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
             this.btnBinSelect.ForeColor = System.Drawing.Color.White;
+            this.btnBinSelect.Location = new System.Drawing.Point(740, 2);
             this.btnBinSelect.Margin = new System.Windows.Forms.Padding(3, 2, 0, 2);
             this.btnBinSelect.Name = "btnBinSelect";
+            this.btnBinSelect.Size = new System.Drawing.Size(69, 27);
+            this.btnBinSelect.TabIndex = 5;
             this.btnBinSelect.Text = "BIN";
             this.btnBinSelect.UseVisualStyleBackColor = false;
             this.btnBinSelect.Click += new System.EventHandler(this.btnBinSelect_Click);
@@ -1071,9 +1074,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoProjectTile.Padding = new System.Windows.Forms.Padding(8, 1, 8, 1);
             this.workInfoProjectTile.Size = new System.Drawing.Size(803, 38);
             this.workInfoProjectTile.TabIndex = 1;
-            //
+            // 
             // workInfoProjectLayout
-            //
+            // 
             this.workInfoProjectLayout.ColumnCount = 4;
             this.workInfoProjectLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 148F));
             this.workInfoProjectLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -1091,19 +1094,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoProjectLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.workInfoProjectLayout.Size = new System.Drawing.Size(785, 34);
             this.workInfoProjectLayout.TabIndex = 0;
-            //
-            // lblProject
-            // 
-            this.lblProject.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblProject.Font = new System.Drawing.Font("Consolas", 11F, System.Drawing.FontStyle.Bold);
-            this.lblProject.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.lblProject.Location = new System.Drawing.Point(148, 0);
-            this.lblProject.Margin = new System.Windows.Forms.Padding(0);
-            this.lblProject.Name = "lblProject";
-            this.lblProject.Size = new System.Drawing.Size(503, 34);
-            this.lblProject.TabIndex = 0;
-            this.lblProject.Text = "--";
-            this.lblProject.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblProjectCaption
             // 
@@ -1118,9 +1108,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblProjectCaption.Tag = "i18n:work.workInfo.project";
             this.lblProjectCaption.Text = "프로젝트 이름";
             this.lblProjectCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
+            // lblProject
+            // 
+            this.lblProject.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblProject.Font = new System.Drawing.Font("Consolas", 11F, System.Drawing.FontStyle.Bold);
+            this.lblProject.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this.lblProject.Location = new System.Drawing.Point(148, 0);
+            this.lblProject.Margin = new System.Windows.Forms.Padding(0);
+            this.lblProject.Name = "lblProject";
+            this.lblProject.Size = new System.Drawing.Size(503, 34);
+            this.lblProject.TabIndex = 0;
+            this.lblProject.Text = "--";
+            this.lblProject.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
             // lblReworkCaption
-            //
+            // 
             this.lblReworkCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblReworkCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
             this.lblReworkCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(85)))));
@@ -1132,21 +1135,21 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblReworkCaption.Tag = "i18n:work.workInfo.rework";
             this.lblReworkCaption.Text = "DT Count";
             this.lblReworkCaption.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // cmbReworkCount
-            //
+            // 
             this.cmbReworkCount.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.cmbReworkCount.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cmbReworkCount.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.cmbReworkCount.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.cmbReworkCount.FormattingEnabled = true;
-            this.cmbReworkCount.Location = new System.Drawing.Point(725, 5);
+            this.cmbReworkCount.Location = new System.Drawing.Point(725, 3);
             this.cmbReworkCount.Margin = new System.Windows.Forms.Padding(4, 0, 0, 0);
             this.cmbReworkCount.MaxDropDownItems = 20;
             this.cmbReworkCount.Name = "cmbReworkCount";
-            this.cmbReworkCount.Size = new System.Drawing.Size(60, 23);
+            this.cmbReworkCount.Size = new System.Drawing.Size(60, 28);
             this.cmbReworkCount.TabIndex = 2;
-            //
+            // 
             // workInfoBinQtyTile
             // 
             this.workInfoBinQtyTile.BackColor = System.Drawing.Color.White;
@@ -1157,7 +1160,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoBinQtyTile.Location = new System.Drawing.Point(6, 82);
             this.workInfoBinQtyTile.Name = "workInfoBinQtyTile";
             this.workInfoBinQtyTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workInfoBinQtyTile.Size = new System.Drawing.Size(196, 58);
+            this.workInfoBinQtyTile.Size = new System.Drawing.Size(196, 56);
             this.workInfoBinQtyTile.TabIndex = 2;
             // 
             // lblBinQty
@@ -1167,7 +1170,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBinQty.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(120)))), ((int)(((byte)(60)))));
             this.lblBinQty.Location = new System.Drawing.Point(8, 19);
             this.lblBinQty.Name = "lblBinQty";
-            this.lblBinQty.Size = new System.Drawing.Size(178, 35);
+            this.lblBinQty.Size = new System.Drawing.Size(178, 33);
             this.lblBinQty.TabIndex = 0;
             this.lblBinQty.Text = "0 ea";
             this.lblBinQty.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1195,7 +1198,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoPickFailTile.Location = new System.Drawing.Point(208, 82);
             this.workInfoPickFailTile.Name = "workInfoPickFailTile";
             this.workInfoPickFailTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workInfoPickFailTile.Size = new System.Drawing.Size(196, 58);
+            this.workInfoPickFailTile.Size = new System.Drawing.Size(196, 56);
             this.workInfoPickFailTile.TabIndex = 3;
             // 
             // lblPickFail
@@ -1205,7 +1208,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblPickFail.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(55)))), ((int)(((byte)(55)))));
             this.lblPickFail.Location = new System.Drawing.Point(8, 19);
             this.lblPickFail.Name = "lblPickFail";
-            this.lblPickFail.Size = new System.Drawing.Size(178, 35);
+            this.lblPickFail.Size = new System.Drawing.Size(178, 33);
             this.lblPickFail.TabIndex = 0;
             this.lblPickFail.Text = "0 ea";
             this.lblPickFail.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1233,7 +1236,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoPlaceFailTile.Location = new System.Drawing.Point(410, 82);
             this.workInfoPlaceFailTile.Name = "workInfoPlaceFailTile";
             this.workInfoPlaceFailTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workInfoPlaceFailTile.Size = new System.Drawing.Size(196, 58);
+            this.workInfoPlaceFailTile.Size = new System.Drawing.Size(196, 56);
             this.workInfoPlaceFailTile.TabIndex = 4;
             // 
             // lblPlaceFail
@@ -1243,7 +1246,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblPlaceFail.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(55)))), ((int)(((byte)(55)))));
             this.lblPlaceFail.Location = new System.Drawing.Point(8, 19);
             this.lblPlaceFail.Name = "lblPlaceFail";
-            this.lblPlaceFail.Size = new System.Drawing.Size(178, 35);
+            this.lblPlaceFail.Size = new System.Drawing.Size(178, 33);
             this.lblPlaceFail.TabIndex = 0;
             this.lblPlaceFail.Text = "0 ea";
             this.lblPlaceFail.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1271,7 +1274,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoNeedleTile.Location = new System.Drawing.Point(612, 82);
             this.workInfoNeedleTile.Name = "workInfoNeedleTile";
             this.workInfoNeedleTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workInfoNeedleTile.Size = new System.Drawing.Size(197, 58);
+            this.workInfoNeedleTile.Size = new System.Drawing.Size(197, 56);
             this.workInfoNeedleTile.TabIndex = 5;
             // 
             // lblNeedle
@@ -1281,7 +1284,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblNeedle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblNeedle.Location = new System.Drawing.Point(8, 19);
             this.lblNeedle.Name = "lblNeedle";
-            this.lblNeedle.Size = new System.Drawing.Size(179, 35);
+            this.lblNeedle.Size = new System.Drawing.Size(179, 33);
             this.lblNeedle.TabIndex = 0;
             this.lblNeedle.Text = "0";
             this.lblNeedle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1306,10 +1309,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoFrontCollet1Tile.Controls.Add(this.lblFrontCollet1Designer);
             this.workInfoFrontCollet1Tile.Controls.Add(this.lblFrontCollet1CaptionDesigner);
             this.workInfoFrontCollet1Tile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workInfoFrontCollet1Tile.Location = new System.Drawing.Point(6, 146);
+            this.workInfoFrontCollet1Tile.Location = new System.Drawing.Point(6, 144);
             this.workInfoFrontCollet1Tile.Name = "workInfoFrontCollet1Tile";
             this.workInfoFrontCollet1Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workInfoFrontCollet1Tile.Size = new System.Drawing.Size(196, 58);
+            this.workInfoFrontCollet1Tile.Size = new System.Drawing.Size(196, 56);
             this.workInfoFrontCollet1Tile.TabIndex = 6;
             // 
             // lblFrontCollet1Designer
@@ -1319,7 +1322,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblFrontCollet1Designer.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblFrontCollet1Designer.Location = new System.Drawing.Point(8, 19);
             this.lblFrontCollet1Designer.Name = "lblFrontCollet1Designer";
-            this.lblFrontCollet1Designer.Size = new System.Drawing.Size(178, 35);
+            this.lblFrontCollet1Designer.Size = new System.Drawing.Size(178, 33);
             this.lblFrontCollet1Designer.TabIndex = 0;
             this.lblFrontCollet1Designer.Text = "00 ea";
             this.lblFrontCollet1Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1343,10 +1346,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoFrontCollet2Tile.Controls.Add(this.lblFrontCollet2Designer);
             this.workInfoFrontCollet2Tile.Controls.Add(this.lblFrontCollet2CaptionDesigner);
             this.workInfoFrontCollet2Tile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workInfoFrontCollet2Tile.Location = new System.Drawing.Point(208, 146);
+            this.workInfoFrontCollet2Tile.Location = new System.Drawing.Point(208, 144);
             this.workInfoFrontCollet2Tile.Name = "workInfoFrontCollet2Tile";
             this.workInfoFrontCollet2Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workInfoFrontCollet2Tile.Size = new System.Drawing.Size(196, 58);
+            this.workInfoFrontCollet2Tile.Size = new System.Drawing.Size(196, 56);
             this.workInfoFrontCollet2Tile.TabIndex = 7;
             // 
             // lblFrontCollet2Designer
@@ -1356,7 +1359,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblFrontCollet2Designer.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblFrontCollet2Designer.Location = new System.Drawing.Point(8, 19);
             this.lblFrontCollet2Designer.Name = "lblFrontCollet2Designer";
-            this.lblFrontCollet2Designer.Size = new System.Drawing.Size(178, 35);
+            this.lblFrontCollet2Designer.Size = new System.Drawing.Size(178, 33);
             this.lblFrontCollet2Designer.TabIndex = 0;
             this.lblFrontCollet2Designer.Text = "00 ea";
             this.lblFrontCollet2Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1380,10 +1383,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoFrontCollet3Tile.Controls.Add(this.lblFrontCollet3Designer);
             this.workInfoFrontCollet3Tile.Controls.Add(this.lblFrontCollet3CaptionDesigner);
             this.workInfoFrontCollet3Tile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workInfoFrontCollet3Tile.Location = new System.Drawing.Point(410, 146);
+            this.workInfoFrontCollet3Tile.Location = new System.Drawing.Point(410, 144);
             this.workInfoFrontCollet3Tile.Name = "workInfoFrontCollet3Tile";
             this.workInfoFrontCollet3Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workInfoFrontCollet3Tile.Size = new System.Drawing.Size(196, 58);
+            this.workInfoFrontCollet3Tile.Size = new System.Drawing.Size(196, 56);
             this.workInfoFrontCollet3Tile.TabIndex = 8;
             // 
             // lblFrontCollet3Designer
@@ -1393,7 +1396,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblFrontCollet3Designer.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblFrontCollet3Designer.Location = new System.Drawing.Point(8, 19);
             this.lblFrontCollet3Designer.Name = "lblFrontCollet3Designer";
-            this.lblFrontCollet3Designer.Size = new System.Drawing.Size(178, 35);
+            this.lblFrontCollet3Designer.Size = new System.Drawing.Size(178, 33);
             this.lblFrontCollet3Designer.TabIndex = 0;
             this.lblFrontCollet3Designer.Text = "00 ea";
             this.lblFrontCollet3Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1417,10 +1420,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoFrontCollet4Tile.Controls.Add(this.lblFrontCollet4Designer);
             this.workInfoFrontCollet4Tile.Controls.Add(this.lblFrontCollet4CaptionDesigner);
             this.workInfoFrontCollet4Tile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workInfoFrontCollet4Tile.Location = new System.Drawing.Point(612, 146);
+            this.workInfoFrontCollet4Tile.Location = new System.Drawing.Point(612, 144);
             this.workInfoFrontCollet4Tile.Name = "workInfoFrontCollet4Tile";
             this.workInfoFrontCollet4Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workInfoFrontCollet4Tile.Size = new System.Drawing.Size(197, 58);
+            this.workInfoFrontCollet4Tile.Size = new System.Drawing.Size(197, 56);
             this.workInfoFrontCollet4Tile.TabIndex = 9;
             // 
             // lblFrontCollet4Designer
@@ -1430,7 +1433,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblFrontCollet4Designer.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblFrontCollet4Designer.Location = new System.Drawing.Point(8, 19);
             this.lblFrontCollet4Designer.Name = "lblFrontCollet4Designer";
-            this.lblFrontCollet4Designer.Size = new System.Drawing.Size(179, 35);
+            this.lblFrontCollet4Designer.Size = new System.Drawing.Size(179, 33);
             this.lblFrontCollet4Designer.TabIndex = 0;
             this.lblFrontCollet4Designer.Text = "00 ea";
             this.lblFrontCollet4Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1454,10 +1457,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoRearCollet1Tile.Controls.Add(this.lblRearCollet1Designer);
             this.workInfoRearCollet1Tile.Controls.Add(this.lblRearCollet1CaptionDesigner);
             this.workInfoRearCollet1Tile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workInfoRearCollet1Tile.Location = new System.Drawing.Point(6, 210);
+            this.workInfoRearCollet1Tile.Location = new System.Drawing.Point(6, 206);
             this.workInfoRearCollet1Tile.Name = "workInfoRearCollet1Tile";
             this.workInfoRearCollet1Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workInfoRearCollet1Tile.Size = new System.Drawing.Size(196, 59);
+            this.workInfoRearCollet1Tile.Size = new System.Drawing.Size(196, 58);
             this.workInfoRearCollet1Tile.TabIndex = 10;
             // 
             // lblRearCollet1Designer
@@ -1467,7 +1470,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblRearCollet1Designer.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblRearCollet1Designer.Location = new System.Drawing.Point(8, 19);
             this.lblRearCollet1Designer.Name = "lblRearCollet1Designer";
-            this.lblRearCollet1Designer.Size = new System.Drawing.Size(178, 36);
+            this.lblRearCollet1Designer.Size = new System.Drawing.Size(178, 35);
             this.lblRearCollet1Designer.TabIndex = 0;
             this.lblRearCollet1Designer.Text = "00 ea";
             this.lblRearCollet1Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1491,10 +1494,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoRearCollet2Tile.Controls.Add(this.lblRearCollet2Designer);
             this.workInfoRearCollet2Tile.Controls.Add(this.lblRearCollet2CaptionDesigner);
             this.workInfoRearCollet2Tile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workInfoRearCollet2Tile.Location = new System.Drawing.Point(208, 210);
+            this.workInfoRearCollet2Tile.Location = new System.Drawing.Point(208, 206);
             this.workInfoRearCollet2Tile.Name = "workInfoRearCollet2Tile";
             this.workInfoRearCollet2Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workInfoRearCollet2Tile.Size = new System.Drawing.Size(196, 59);
+            this.workInfoRearCollet2Tile.Size = new System.Drawing.Size(196, 58);
             this.workInfoRearCollet2Tile.TabIndex = 11;
             // 
             // lblRearCollet2Designer
@@ -1504,7 +1507,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblRearCollet2Designer.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblRearCollet2Designer.Location = new System.Drawing.Point(8, 19);
             this.lblRearCollet2Designer.Name = "lblRearCollet2Designer";
-            this.lblRearCollet2Designer.Size = new System.Drawing.Size(178, 36);
+            this.lblRearCollet2Designer.Size = new System.Drawing.Size(178, 35);
             this.lblRearCollet2Designer.TabIndex = 0;
             this.lblRearCollet2Designer.Text = "00 ea";
             this.lblRearCollet2Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1528,10 +1531,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoRearCollet3Tile.Controls.Add(this.lblRearCollet3Designer);
             this.workInfoRearCollet3Tile.Controls.Add(this.lblRearCollet3CaptionDesigner);
             this.workInfoRearCollet3Tile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workInfoRearCollet3Tile.Location = new System.Drawing.Point(410, 210);
+            this.workInfoRearCollet3Tile.Location = new System.Drawing.Point(410, 206);
             this.workInfoRearCollet3Tile.Name = "workInfoRearCollet3Tile";
             this.workInfoRearCollet3Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workInfoRearCollet3Tile.Size = new System.Drawing.Size(196, 59);
+            this.workInfoRearCollet3Tile.Size = new System.Drawing.Size(196, 58);
             this.workInfoRearCollet3Tile.TabIndex = 12;
             // 
             // lblRearCollet3Designer
@@ -1541,7 +1544,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblRearCollet3Designer.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblRearCollet3Designer.Location = new System.Drawing.Point(8, 19);
             this.lblRearCollet3Designer.Name = "lblRearCollet3Designer";
-            this.lblRearCollet3Designer.Size = new System.Drawing.Size(178, 36);
+            this.lblRearCollet3Designer.Size = new System.Drawing.Size(178, 35);
             this.lblRearCollet3Designer.TabIndex = 0;
             this.lblRearCollet3Designer.Text = "00 ea";
             this.lblRearCollet3Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1565,10 +1568,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoRearCollet4Tile.Controls.Add(this.lblRearCollet4Designer);
             this.workInfoRearCollet4Tile.Controls.Add(this.lblRearCollet4CaptionDesigner);
             this.workInfoRearCollet4Tile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workInfoRearCollet4Tile.Location = new System.Drawing.Point(612, 210);
+            this.workInfoRearCollet4Tile.Location = new System.Drawing.Point(612, 206);
             this.workInfoRearCollet4Tile.Name = "workInfoRearCollet4Tile";
             this.workInfoRearCollet4Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workInfoRearCollet4Tile.Size = new System.Drawing.Size(197, 59);
+            this.workInfoRearCollet4Tile.Size = new System.Drawing.Size(197, 58);
             this.workInfoRearCollet4Tile.TabIndex = 13;
             // 
             // lblRearCollet4Designer
@@ -1578,7 +1581,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblRearCollet4Designer.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblRearCollet4Designer.Location = new System.Drawing.Point(8, 19);
             this.lblRearCollet4Designer.Name = "lblRearCollet4Designer";
-            this.lblRearCollet4Designer.Size = new System.Drawing.Size(179, 36);
+            this.lblRearCollet4Designer.Size = new System.Drawing.Size(179, 35);
             this.lblRearCollet4Designer.TabIndex = 0;
             this.lblRearCollet4Designer.Text = "00 ea";
             this.lblRearCollet4Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1635,7 +1638,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeBody.Controls.Add(this.workTimeErrDownTile, 2, 3);
             this.workTimeBody.Controls.Add(this.workTimeErrCntTile, 3, 3);
             this.workTimeBody.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workTimeBody.Location = new System.Drawing.Point(6, 24);
+            this.workTimeBody.Location = new System.Drawing.Point(6, 29);
             this.workTimeBody.Margin = new System.Windows.Forms.Padding(0);
             this.workTimeBody.Name = "workTimeBody";
             this.workTimeBody.Padding = new System.Windows.Forms.Padding(3);
@@ -1644,7 +1647,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
             this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
             this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
-            this.workTimeBody.Size = new System.Drawing.Size(815, 275);
+            this.workTimeBody.Size = new System.Drawing.Size(815, 270);
             this.workTimeBody.TabIndex = 0;
             // 
             // workTimeLotTile
@@ -1766,7 +1769,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeUphTile.Location = new System.Drawing.Point(6, 48);
             this.workTimeUphTile.Name = "workTimeUphTile";
             this.workTimeUphTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workTimeUphTile.Size = new System.Drawing.Size(196, 69);
+            this.workTimeUphTile.Size = new System.Drawing.Size(196, 68);
             this.workTimeUphTile.TabIndex = 2;
             // 
             // workTimeUphValueLayout
@@ -1780,7 +1783,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeUphValueLayout.Name = "workTimeUphValueLayout";
             this.workTimeUphValueLayout.RowCount = 1;
             this.workTimeUphValueLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.workTimeUphValueLayout.Size = new System.Drawing.Size(178, 46);
+            this.workTimeUphValueLayout.Size = new System.Drawing.Size(178, 45);
             this.workTimeUphValueLayout.TabIndex = 0;
             // 
             // lblUph
@@ -1790,7 +1793,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblUph.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(24)))), ((int)(((byte)(95)))), ((int)(((byte)(165)))));
             this.lblUph.Location = new System.Drawing.Point(3, 0);
             this.lblUph.Name = "lblUph";
-            this.lblUph.Size = new System.Drawing.Size(172, 46);
+            this.lblUph.Size = new System.Drawing.Size(172, 45);
             this.lblUph.TabIndex = 0;
             this.lblUph.Text = "0.00";
             this.lblUph.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1847,7 +1850,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeUpTile.Location = new System.Drawing.Point(208, 48);
             this.workTimeUpTile.Name = "workTimeUpTile";
             this.workTimeUpTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workTimeUpTile.Size = new System.Drawing.Size(196, 69);
+            this.workTimeUpTile.Size = new System.Drawing.Size(196, 68);
             this.workTimeUpTile.TabIndex = 3;
             // 
             // lblUp
@@ -1857,7 +1860,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblUp.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblUp.Location = new System.Drawing.Point(8, 19);
             this.lblUp.Name = "lblUp";
-            this.lblUp.Size = new System.Drawing.Size(178, 46);
+            this.lblUp.Size = new System.Drawing.Size(178, 45);
             this.lblUp.TabIndex = 0;
             this.lblUp.Text = "00:00:00";
             this.lblUp.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1885,7 +1888,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeContUpTile.Location = new System.Drawing.Point(410, 48);
             this.workTimeContUpTile.Name = "workTimeContUpTile";
             this.workTimeContUpTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workTimeContUpTile.Size = new System.Drawing.Size(196, 69);
+            this.workTimeContUpTile.Size = new System.Drawing.Size(196, 68);
             this.workTimeContUpTile.TabIndex = 4;
             // 
             // lblContUp
@@ -1895,7 +1898,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblContUp.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblContUp.Location = new System.Drawing.Point(8, 19);
             this.lblContUp.Name = "lblContUp";
-            this.lblContUp.Size = new System.Drawing.Size(178, 46);
+            this.lblContUp.Size = new System.Drawing.Size(178, 45);
             this.lblContUp.TabIndex = 0;
             this.lblContUp.Text = "00:00:00";
             this.lblContUp.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1923,7 +1926,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeRateTile.Location = new System.Drawing.Point(612, 48);
             this.workTimeRateTile.Name = "workTimeRateTile";
             this.workTimeRateTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workTimeRateTile.Size = new System.Drawing.Size(197, 69);
+            this.workTimeRateTile.Size = new System.Drawing.Size(197, 68);
             this.workTimeRateTile.TabIndex = 5;
             // 
             // lblRate
@@ -1933,7 +1936,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblRate.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(120)))), ((int)(((byte)(60)))));
             this.lblRate.Location = new System.Drawing.Point(8, 19);
             this.lblRate.Name = "lblRate";
-            this.lblRate.Size = new System.Drawing.Size(179, 46);
+            this.lblRate.Size = new System.Drawing.Size(179, 45);
             this.lblRate.TabIndex = 0;
             this.lblRate.Text = "0.00 %";
             this.lblRate.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1958,10 +1961,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeCycleTile.Controls.Add(this.lblCycle);
             this.workTimeCycleTile.Controls.Add(this.lblCycleCaption);
             this.workTimeCycleTile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workTimeCycleTile.Location = new System.Drawing.Point(6, 123);
+            this.workTimeCycleTile.Location = new System.Drawing.Point(6, 122);
             this.workTimeCycleTile.Name = "workTimeCycleTile";
             this.workTimeCycleTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workTimeCycleTile.Size = new System.Drawing.Size(196, 69);
+            this.workTimeCycleTile.Size = new System.Drawing.Size(196, 68);
             this.workTimeCycleTile.TabIndex = 6;
             // 
             // lblCycle
@@ -1971,7 +1974,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblCycle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblCycle.Location = new System.Drawing.Point(8, 19);
             this.lblCycle.Name = "lblCycle";
-            this.lblCycle.Size = new System.Drawing.Size(178, 46);
+            this.lblCycle.Size = new System.Drawing.Size(178, 45);
             this.lblCycle.TabIndex = 0;
             this.lblCycle.Text = "0 ms";
             this.lblCycle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1996,10 +1999,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeLoadTile.Controls.Add(this.lblLoad);
             this.workTimeLoadTile.Controls.Add(this.lblLoadCaption);
             this.workTimeLoadTile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workTimeLoadTile.Location = new System.Drawing.Point(208, 123);
+            this.workTimeLoadTile.Location = new System.Drawing.Point(208, 122);
             this.workTimeLoadTile.Name = "workTimeLoadTile";
             this.workTimeLoadTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workTimeLoadTile.Size = new System.Drawing.Size(196, 69);
+            this.workTimeLoadTile.Size = new System.Drawing.Size(196, 68);
             this.workTimeLoadTile.TabIndex = 7;
             // 
             // lblLoad
@@ -2009,7 +2012,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblLoad.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblLoad.Location = new System.Drawing.Point(8, 19);
             this.lblLoad.Name = "lblLoad";
-            this.lblLoad.Size = new System.Drawing.Size(178, 46);
+            this.lblLoad.Size = new System.Drawing.Size(178, 45);
             this.lblLoad.TabIndex = 0;
             this.lblLoad.Text = "00:00:00";
             this.lblLoad.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -2034,10 +2037,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeMtbfTile.Controls.Add(this.lblMtbf);
             this.workTimeMtbfTile.Controls.Add(this.lblMtbfCaption);
             this.workTimeMtbfTile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workTimeMtbfTile.Location = new System.Drawing.Point(410, 123);
+            this.workTimeMtbfTile.Location = new System.Drawing.Point(410, 122);
             this.workTimeMtbfTile.Name = "workTimeMtbfTile";
             this.workTimeMtbfTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workTimeMtbfTile.Size = new System.Drawing.Size(196, 69);
+            this.workTimeMtbfTile.Size = new System.Drawing.Size(196, 68);
             this.workTimeMtbfTile.TabIndex = 8;
             // 
             // lblMtbf
@@ -2047,7 +2050,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblMtbf.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblMtbf.Location = new System.Drawing.Point(8, 19);
             this.lblMtbf.Name = "lblMtbf";
-            this.lblMtbf.Size = new System.Drawing.Size(178, 46);
+            this.lblMtbf.Size = new System.Drawing.Size(178, 45);
             this.lblMtbf.TabIndex = 0;
             this.lblMtbf.Text = "00:00:00";
             this.lblMtbf.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -2072,10 +2075,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeMttrTile.Controls.Add(this.lblMttr);
             this.workTimeMttrTile.Controls.Add(this.lblMttrCaption);
             this.workTimeMttrTile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workTimeMttrTile.Location = new System.Drawing.Point(612, 123);
+            this.workTimeMttrTile.Location = new System.Drawing.Point(612, 122);
             this.workTimeMttrTile.Name = "workTimeMttrTile";
             this.workTimeMttrTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workTimeMttrTile.Size = new System.Drawing.Size(197, 69);
+            this.workTimeMttrTile.Size = new System.Drawing.Size(197, 68);
             this.workTimeMttrTile.TabIndex = 9;
             // 
             // lblMttr
@@ -2085,7 +2088,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblMttr.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblMttr.Location = new System.Drawing.Point(8, 19);
             this.lblMttr.Name = "lblMttr";
-            this.lblMttr.Size = new System.Drawing.Size(179, 46);
+            this.lblMttr.Size = new System.Drawing.Size(179, 45);
             this.lblMttr.TabIndex = 0;
             this.lblMttr.Text = "00:00:00";
             this.lblMttr.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -2110,10 +2113,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeRecoveryTile.Controls.Add(this.lblRecovery);
             this.workTimeRecoveryTile.Controls.Add(this.lblRecoveryCaption);
             this.workTimeRecoveryTile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workTimeRecoveryTile.Location = new System.Drawing.Point(6, 198);
+            this.workTimeRecoveryTile.Location = new System.Drawing.Point(6, 196);
             this.workTimeRecoveryTile.Name = "workTimeRecoveryTile";
             this.workTimeRecoveryTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workTimeRecoveryTile.Size = new System.Drawing.Size(196, 71);
+            this.workTimeRecoveryTile.Size = new System.Drawing.Size(196, 68);
             this.workTimeRecoveryTile.TabIndex = 10;
             // 
             // lblRecovery
@@ -2123,7 +2126,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblRecovery.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblRecovery.Location = new System.Drawing.Point(8, 19);
             this.lblRecovery.Name = "lblRecovery";
-            this.lblRecovery.Size = new System.Drawing.Size(178, 48);
+            this.lblRecovery.Size = new System.Drawing.Size(178, 45);
             this.lblRecovery.TabIndex = 0;
             this.lblRecovery.Text = "00:00:00";
             this.lblRecovery.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -2148,10 +2151,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeNormDownTile.Controls.Add(this.lblNormDown);
             this.workTimeNormDownTile.Controls.Add(this.lblNormDownCaption);
             this.workTimeNormDownTile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workTimeNormDownTile.Location = new System.Drawing.Point(208, 198);
+            this.workTimeNormDownTile.Location = new System.Drawing.Point(208, 196);
             this.workTimeNormDownTile.Name = "workTimeNormDownTile";
             this.workTimeNormDownTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workTimeNormDownTile.Size = new System.Drawing.Size(196, 71);
+            this.workTimeNormDownTile.Size = new System.Drawing.Size(196, 68);
             this.workTimeNormDownTile.TabIndex = 11;
             // 
             // lblNormDown
@@ -2161,7 +2164,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblNormDown.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblNormDown.Location = new System.Drawing.Point(8, 19);
             this.lblNormDown.Name = "lblNormDown";
-            this.lblNormDown.Size = new System.Drawing.Size(178, 48);
+            this.lblNormDown.Size = new System.Drawing.Size(178, 45);
             this.lblNormDown.TabIndex = 0;
             this.lblNormDown.Text = "00:00:00";
             this.lblNormDown.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -2186,10 +2189,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeErrDownTile.Controls.Add(this.lblErrDown);
             this.workTimeErrDownTile.Controls.Add(this.lblErrDownCaption);
             this.workTimeErrDownTile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workTimeErrDownTile.Location = new System.Drawing.Point(410, 198);
+            this.workTimeErrDownTile.Location = new System.Drawing.Point(410, 196);
             this.workTimeErrDownTile.Name = "workTimeErrDownTile";
             this.workTimeErrDownTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workTimeErrDownTile.Size = new System.Drawing.Size(196, 71);
+            this.workTimeErrDownTile.Size = new System.Drawing.Size(196, 68);
             this.workTimeErrDownTile.TabIndex = 12;
             // 
             // lblErrDown
@@ -2199,7 +2202,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblErrDown.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(55)))), ((int)(((byte)(55)))));
             this.lblErrDown.Location = new System.Drawing.Point(8, 19);
             this.lblErrDown.Name = "lblErrDown";
-            this.lblErrDown.Size = new System.Drawing.Size(178, 48);
+            this.lblErrDown.Size = new System.Drawing.Size(178, 45);
             this.lblErrDown.TabIndex = 0;
             this.lblErrDown.Text = "00:00:00";
             this.lblErrDown.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -2224,10 +2227,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeErrCntTile.Controls.Add(this.lblErrCnt);
             this.workTimeErrCntTile.Controls.Add(this.lblErrCntCaption);
             this.workTimeErrCntTile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workTimeErrCntTile.Location = new System.Drawing.Point(612, 198);
+            this.workTimeErrCntTile.Location = new System.Drawing.Point(612, 196);
             this.workTimeErrCntTile.Name = "workTimeErrCntTile";
             this.workTimeErrCntTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
-            this.workTimeErrCntTile.Size = new System.Drawing.Size(197, 71);
+            this.workTimeErrCntTile.Size = new System.Drawing.Size(197, 68);
             this.workTimeErrCntTile.TabIndex = 13;
             // 
             // lblErrCnt
@@ -2237,7 +2240,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblErrCnt.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(55)))), ((int)(((byte)(55)))));
             this.lblErrCnt.Location = new System.Drawing.Point(8, 19);
             this.lblErrCnt.Name = "lblErrCnt";
-            this.lblErrCnt.Size = new System.Drawing.Size(179, 48);
+            this.lblErrCnt.Size = new System.Drawing.Size(179, 45);
             this.lblErrCnt.TabIndex = 0;
             this.lblErrCnt.Text = "0 ea";
             this.lblErrCnt.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
