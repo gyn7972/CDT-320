@@ -547,11 +547,14 @@
     <Compile Include="Equipment\Materials\MaterialSnapshotStore.cs" />
     <Compile Include="Equipment\Materials\MaterialStateCompactor.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.PickerFlowRecovery.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.CassetteMapping.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.BinSelection.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.Clear.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.DieOps.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.InputPick.cs" />
+    <Compile Include="Equipment\Materials\InputStageReviewGeometryPolicy.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.InputStageReviewGeometry.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.OutputReceive.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.ProcessTest.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.RecipeSpec.cs" />
@@ -768,6 +771,7 @@
     <Compile Include="Equipment\Vision\VisionTcpClient.cs" />
     <Compile Include="Equipment\Vision\VisionTcpClient.Correlated.cs" />
     <Compile Include="Ui\Common\WaferMaps\WaferMapDisplayStyle.cs" />
+    <Compile Include="Ui\Common\History\EventLogDisplayBuffer.cs" />
     <!-- UI / Common Designer catalog and template (not connected to production screens) -->
     <Compile Include="Ui\Common\Catalog\UiStandardCatalogForm.cs">
       <SubType>Form</SubType>
@@ -1289,6 +1293,7 @@
     </Compile>
     <Compile Include="Ui\Pages\Recipe\Helper\ManualMoveGuard.cs" />
     <Compile Include="Ui\Pages\Recipe\Helper\RecipePickerMoveTarget.cs" />
+    <Compile Include="Ui\Pages\Recipe\Helper\RecipePickerFlowRecovery.cs" />
     <Compile Include="Ui\Pages\Recipe\RearPickerRecipePage.Designer.cs">
       <DependentUpon>RearPickerRecipePage.cs</DependentUpon>
     </Compile>
@@ -1394,6 +1399,10 @@
     </Compile>
     <!-- Form1 + Program -->
     <Compile Include="Form1.InputStageRunReview.cs">
+      <DependentUpon>Form1.cs</DependentUpon>
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Form1.InputStageRunReview.Geometry.cs">
       <DependentUpon>Form1.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
@@ -1663,4 +1672,4 @@
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-</Project>
+</Project>

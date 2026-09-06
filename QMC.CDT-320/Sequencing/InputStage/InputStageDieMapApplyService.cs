@@ -171,6 +171,10 @@ namespace QMC.CDT320.Sequencing
                     ResolveInputMapApprovalHash(request.Controller),
                     mappingResultMode,
                     alignResultRunId);
+                // 수동 평행 이동은 새 맵 생성이 아니므로 기존 누적 기준을 갱신하지 않는다.
+                if (!string.Equals(request.SaveReason, "InputStageManualDieDetectOffsetApply", StringComparison.Ordinal))
+                    MaterialStateService.SetInputStageReviewBaseline(wafer, request.DieMap);
+                wafer.InputStageReviewVerification = null;
 
                 if (InputStageResultMode.IsHybrid(mappingResultMode))
                 {

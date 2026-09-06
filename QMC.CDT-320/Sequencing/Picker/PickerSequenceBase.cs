@@ -3280,8 +3280,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected async Task<int> VerifyPickerFlowStateAsync(int pickerNo, bool expected, string description, CancellationToken ct)
+        protected async Task<int> VerifyPickerFlowStateAsync(int pickerNo, bool expected, string description,
+            CancellationToken ct, string recoveryDieId = null)
         {
+            MaterialStateService.PickerProductFlowCheck recoveryCheck = null;
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -3297,6 +3299,9 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
+                if (expected && !string.IsNullOrWhiteSpace(recoveryDieId))
+                    recoveryCheck = MaterialStateService.BeginPickerProductFlowCheck(PickerLocationKind, pickerNo, recoveryDieId);
+
                 int timeoutMs = ResolvePickerIoTimeoutMs(pickerNo);
                 DateTime deadline = DateTime.Now.AddMilliseconds(timeoutMs);
                 bool actual = ReadPickerFlowState(pickerNo);
@@ -3307,6 +3312,15 @@ namespace QMC.CDT320.Sequencing
                     actual = ReadPickerFlowState(pickerNo);
                     if (actual == expected)
                         return 0;
+
+                    // 실제 다이를 보유한 Admin 승인 건만 해당 픽업 대기에서 ON으로 인정한다.
+                    if (expected && MaterialStateService.IsPickerProductFlowCheckApproved(
+                        recoveryCheck, Context.Machine, Context.Controller != null && Context.Controller.GlobalDryRun))
+                    {
+                        WriteLog("PickerFlowCheck", Name + " 현재 Die의 Admin FLOW 강제 ON으로 흡착 확인을 완료합니다. " +
+                            "side=" + Side + ", pickerNo=" + pickerNo + ", die=" + recoveryDieId + ", actualFlow=OFF - Ok");
+                        return 0;
+                    }
 
                     await Task.Delay(1, ct).ConfigureAwait(false);
                 }
@@ -3335,6 +3349,8 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                if (recoveryCheck != null)
+                    recoveryCheck.Dispose();
             }
         }
 
@@ -3360,6 +3376,17 @@ namespace QMC.CDT320.Sequencing
             }
 
             return 5000;
+        }
+
+        // 생산에서 현재 다이의 흡착을 확인할 때만 사용한다.
+        // 실제 센서 읽기/빈 픽커 검사/캘리브레이션은 ReadPickerFlowState를 그대로 사용한다.
+        protected bool ReadPickerProductFlowState(int pickerNo, DieMaterial die)
+        {
+            bool actual = ReadPickerFlowState(pickerNo);
+            return actual || (die != null && !string.IsNullOrWhiteSpace(die.DieId) &&
+                MaterialStateService.IsPickerFlowRecoveryActive(
+                    Context.Machine, Context.Controller != null && Context.Controller.GlobalDryRun,
+                    PickerLocationKind, pickerNo, die.DieId, die));
         }
 
         protected bool ReadPickerFlowState(int pickerNo)

@@ -815,7 +815,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     items.Add(IoCylinderItem.Input("VACUUM TANK", () => unit.IsPickerVacuumPressureOk()));
 
                 int pickerNo = i;
-                items.Add(IoCylinderItem.Input("P" + pickerNo + " FLOW", () => unit.IsPickerFlowDetected(pickerNo)));
+                items.Add(RecipePickerFlowRecovery.CreateItem(this,
+                    QMC.CDT320.Materials.MaterialLocationKind.PickerFront, pickerNo,
+                    () => unit.IsPickerFlowDetected(pickerNo)));
                 items.Add(IoCylinderItem.Output("P" + pickerNo + " VACUUM", () => OutputOn(unit.Vacuums, pickerNo), on => { unit.SetPickerVacuum(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
                 items.Add(IoCylinderItem.Output("P" + pickerNo + " BLOW", () => OutputOn(unit.Blows, pickerNo), on => { unit.SetPickerBlow(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
             }

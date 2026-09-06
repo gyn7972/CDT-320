@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.Common.Logging;
+using QMC.CDT_320.Ui.Common.History;
 using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.History
@@ -33,6 +34,14 @@ namespace QMC.CDT_320.Ui.Pages.History
         private readonly Timer _liveFlushTimer = new Timer();
         private bool _liveEventSubscribed;
         private bool _initializingFilterControls;
+        private bool _updatingHeader;
+        private bool _fileSnapshotMode;
+        private volatile bool _acceptLiveRows;
+        private volatile bool _viewActive;
+        private volatile int _reloadVersion;
+        private DateTime _readTime;
+        private DateTime _nextExpiryCheck;
+        private bool _pendingLiveOverflow;
 
         // 사용자가 직접 연 로그 파일 경로. null 이면 DATE 피커 날짜 기준으로 읽는다.
         private string _overridePath;
@@ -52,6 +61,8 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             public EventKind? PresetKind;
             public bool RecentHourOnly;
+            public DateTime? Date;
+            public DateTime ReadTime;
             public string RunId = "";
             public string Source = "";
             public string Search = "";
@@ -59,13 +70,14 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 읽기 단계 필터 — 종류/시간 조건만. 파일·메모리에서 최신 N개(캐시)를 모을 때 사용한다.
             public bool PassesRead(EventRow r)
             {
-                if (r == null)
-                    return false;
-                if (PresetKind != null && r.Kind != PresetKind.Value)
-                    return false;
-                if (RecentHourOnly && r.When < DateTime.Now.AddHours(-1))
-                    return false;
-                return true;
+                return PassesAt(r, ReadTime);
+            }
+
+            public bool PassesAt(EventRow r, DateTime now)
+            {
+                return r != null &&
+                    (PresetKind == null || r.Kind == PresetKind.Value) &&
+                    EventLogDisplayBuffer.MatchesTimeRange(r, Date, RecentHourOnly, now);
             }
 
             // 표시 단계 텍스트 필터 — 이미 불러온 최신 N개(캐시) 안에서만 검색한다(파일 재읽기 없음).
@@ -105,14 +117,13 @@ namespace QMC.CDT_320.Ui.Pages.History
         private volatile EventFilterSnapshot _filterSnapshot;
 
         // 백그라운드 재로드 재진입 가드. 읽는 중 조건이 바뀌면 pending 으로 합쳐 마지막 조건으로 1회만 더 읽는다.
-        // _reloadPending 은 진행 중인 백그라운드 읽기의 '중단 신호'로도 쓰이므로(다른 스레드가 읽음) volatile.
+        // pending은 UI 스레드가 관리하고, 백그라운드 중단 판정에는 _reloadVersion을 사용한다.
         private bool _reloadRunning;
-        private volatile bool _reloadPending;
-        private bool _reloadPendingForceFile;
+        private bool _reloadPending;
 
         // 마지막으로 읽어 온 최신 N개 캐시(종류/시간 조건만 적용된 원본).
         // 텍스트 필터(RunId/Source/Search)는 파일을 다시 읽지 않고 이 캐시 위에서만 동작한다.
-        private List<EventRow> _loadedRows = new List<EventRow>();
+        private readonly EventLogDisplayBuffer _displayBuffer = new EventLogDisplayBuffer();
 
         // 파일 읽기 진행 중 여부 — 진행 중에는 텍스트 필터 타이핑이 '읽는 중' 안내 행을 지우지 않게 한다.
         private bool _fileLoadInProgress;
@@ -124,10 +135,12 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         public EventLogPage(EventKind? presetKind)
         {
-            _presetKind = presetKind;
             InitializeComponent();
+            _presetKind = presetKind;
             InitializeFilterControls();
-            ApplyKindHeader();
+            // Designer에는 정적으로 작성한 제목을 유지하고 런타임 번역을 조회하지 않는다.
+            if (!IsDesignerMode())
+                ApplyKindHeader();
             // 이벤트는 항상 연결한다 — 켜짐/꺼짐 판정은 페이지가 보일 때마다(UpdateLiveEventSubscription,
             // ReloadCurrent) 설정값을 다시 읽어 반영하므로, 재시작 없이 토글이 적용된다.
             WireEvents();
@@ -140,7 +153,6 @@ namespace QMC.CDT_320.Ui.Pages.History
             {
                 // 초기 날짜/표시 상한은 이벤트 구독 후에도 오발화하지 않도록 가드 안에서 설정한다.
                 _dp.Value = DateTime.Today;
-                cmbLimit.Items.AddRange(new object[] { "500", "2000", "ALL" });
                 cmbLimit.SelectedIndex = 0;
             }
             finally
@@ -152,6 +164,7 @@ namespace QMC.CDT_320.Ui.Pages.History
         // 설정이 꺼져 있을 때 표시하는 상태 — 필터를 잠그고 안내 행만 남긴다(켜면 SetFilterUiEnabled 로 원복).
         private void ApplyFileLogHistoryDisabledState()
         {
+            ResetDisplayCache();
             SetFilterUiEnabled(false);
 
             if (_grid == null)
@@ -178,14 +191,36 @@ namespace QMC.CDT_320.Ui.Pages.History
 
             if (btnOpenFile != null)
                 btnOpenFile.Enabled = enabled;
+
+            if (btnLive != null)
+                btnLive.Enabled = enabled;
         }
 
-        // 프리셋 Kind 에 맞춰 헤더 라벨 i18n 키를 교체한다.
+        // 제목 번역과 현재 조회 모드를 함께 표시한다.
         private void ApplyKindHeader()
         {
-            string key = KindToI18n(_presetKind);
-            lblHeader.Tag = "i18n:" + key;
-            lblHeader.Text = Lang.T(key);
+            _updatingHeader = true;
+            try
+            {
+                string key = KindToI18n(_presetKind);
+                lblHeader.Tag = "i18n:" + key;
+                string source = !_fileSnapshotMode ? "실시간 (오늘)" :
+                    (_overridePath == null ? "파일 조회" : "파일: " + System.IO.Path.GetFileName(_overridePath));
+                lblHeader.Text = Lang.T(key) + " · " + source +
+                    (_fileLoadInProgress ? " (파일 읽는 중...)" : "");
+            }
+            finally
+            {
+                _updatingHeader = false;
+            }
+        }
+
+        private void lblHeader_TextChanged(object sender, EventArgs e)
+        {
+            // 부모의 Lang.Apply가 제목을 번역한 뒤에도 조회 모드를 유지한다.
+            // ApplyKindHeader 자체의 Text 변경은 다시 처리하지 않는다.
+            if (!IsDesignerMode() && !_updatingHeader)
+                ApplyKindHeader();
         }
 
         private static string KindToI18n(EventKind? kind)
@@ -208,60 +243,113 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             // _liveFlushTimer 는 코드에서 생성한 컴포넌트(디자이너 미등록)라 Tick 구독은 코드 유지.
             _liveFlushTimer.Interval = LiveFlushIntervalMs;
-            _liveFlushTimer.Tick += (s, e) => FlushPendingLiveRows();
+            _liveFlushTimer.Tick += timerLiveFlush_Tick;
             // 페이지 수명 이벤트(라이브 구독 해제/타이머 정리와 짝)라 코드 유지.
             Disposed += (s, e) =>
             {
+                _viewActive = false;
+                _reloadVersion++;
+                _reloadPending = false;
+                _acceptLiveRows = false;
                 UnsubscribeLiveEvents();
                 _liveFlushTimer.Stop();
                 _liveFlushTimer.Dispose();
+                ClearPendingLiveRows();
             };
         }
 
-        private void EventLogPage_Load(object sender, EventArgs e)
+        private async void EventLogPage_Load(object sender, EventArgs e)
         {
-            ReloadCurrent();
+            await ReloadCurrentAsync().ConfigureAwait(true);
         }
 
-        private void dp_ValueChanged(object sender, EventArgs e)
+        private async void dp_ValueChanged(object sender, EventArgs e)
         {
             if (_initializingFilterControls)
                 return;
 
             _overridePath = null;
-            ReloadCurrent();
+            _fileSnapshotMode = true;
+            await ReloadCurrentAsync().ConfigureAwait(true);
         }
 
-        private void cmbLimit_SelectedIndexChanged(object sender, EventArgs e)
+        private async void cmbLimit_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (_initializingFilterControls)
                 return;
 
-            ReloadCurrent();
+            await ReloadCurrentAsync().ConfigureAwait(true);
         }
 
         // 이하 표준 컨트롤 이벤트는 디자이너(InitializeComponent)에서 구독한다. Grid_CellClick/Grid_CellDoubleClick 핸들러는 그대로 사용.
         // 텍스트 필터: 파일을 다시 읽지 않고 캐시(최신 N개) 안에서만 즉시 거른다. 세 필터 박스가 같은 동작이라 핸들러를 공유한다.
         private void FilterTextBox_TextChanged(object sender, EventArgs e)
         {
+            if (IsDesignerMode())
+                return;
+
             CaptureFilterSnapshot();
             ApplyTextFilterAndDisplay();
         }
 
-        private void chkRecentHour_CheckedChanged(object sender, EventArgs e)
+        private async void chkRecentHour_CheckedChanged(object sender, EventArgs e)
         {
-            ReloadCurrent();
+            await ReloadCurrentAsync().ConfigureAwait(true);
         }
 
-        // REFRESH 는 파일 강제 재로드 — 재시작 후 '오늘'의 앱 시작 이전 로그까지 파일에서 다시 불러온다.
-        private void btnRefresh_Click(object sender, EventArgs e)
+        // REFRESH는 파일 스냅샷이다. 실시간 로그는 섞지 않으며 btnLive로 복귀한다.
+        private async void btnRefresh_Click(object sender, EventArgs e)
         {
-            ReloadCurrent(true);
+            _fileSnapshotMode = true;
+            await ReloadCurrentAsync().ConfigureAwait(true);
         }
 
-        private void btnOpenFile_Click(object sender, EventArgs e)
+        private async void btnOpenFile_Click(object sender, EventArgs e)
         {
-            OpenFile();
+            await OpenFileAsync().ConfigureAwait(true);
+        }
+
+        private async void btnLive_Click(object sender, EventArgs e)
+        {
+            if (IsDesignerMode())
+                return;
+
+            _overridePath = null;
+            _fileSnapshotMode = false;
+            SetTodayWithoutReload();
+            await ReloadCurrentAsync().ConfigureAwait(true);
+        }
+
+        private void SetTodayWithoutReload()
+        {
+            _initializingFilterControls = true;
+            try { _dp.Value = DateTime.Today; }
+            finally { _initializingFilterControls = false; }
+        }
+
+        private async void timerLiveFlush_Tick(object sender, EventArgs e)
+        {
+            if (!_viewActive || _fileSnapshotMode || !ShouldRefreshVisible(this))
+                return;
+
+            if (_dp.Value.Date != DateTime.Today)
+            {
+                SetTodayWithoutReload();
+                await ReloadCurrentAsync().ConfigureAwait(true);
+                return;
+            }
+
+            bool overflow;
+            lock (_pendingLiveRowsLock)
+                overflow = _pendingLiveOverflow;
+            if (overflow && !_reloadRunning)
+            {
+                // UI가 처리할 양을 넘겼다면 기록기의 최신 메모리 범위로 다시 맞춘다.
+                await ReloadCurrentAsync().ConfigureAwait(true);
+                return;
+            }
+
+            FlushPendingLiveRows();
         }
 
         // 첫 컬럼(시간)을 행 헤더처럼 다뤄 행 전체를 선택한다. 다른 컬럼은 기본 셀 단위 선택을 유지한다.
@@ -316,19 +404,17 @@ namespace QMC.CDT_320.Ui.Pages.History
             }
         }
 
-        // 페이지에 지정된 고정 Kind 만 표시한다(프리셋이 없으면 전체 표시).
-        // DATE 변경·OPEN FILE 모두 이 필터를 거치므로, 해당 kind 의 로그만 로드된다.
-        private bool PassesKindFilter(EventKind kind)
-        {
-            return _presetKind == null || kind == _presetKind.Value;
-        }
-
         // UI 컨트롤에서 필터 값을 읽어 스냅샷으로 떠 둔다. 반드시 UI 스레드에서 호출한다.
-        private EventFilterSnapshot CaptureFilterSnapshot()
+        private EventFilterSnapshot CaptureFilterSnapshot(bool newRead = false)
         {
+            if (newRead)
+                _readTime = DateTime.Now;
+
             var snap = new EventFilterSnapshot
             {
                 PresetKind = _presetKind,
+                Date = _overridePath == null ? (DateTime?)_dp.Value.Date : null,
+                ReadTime = _readTime,
                 RecentHourOnly = chkRecentHour != null && chkRecentHour.Checked,
                 RunId = txtRunId != null ? (txtRunId.Text ?? "").Trim() : "",
                 Source = txtSource != null ? (txtSource.Text ?? "").Trim() : "",
@@ -338,28 +424,46 @@ namespace QMC.CDT_320.Ui.Pages.History
             return snap;
         }
 
-        // 현재 소스를 다시 읽어 그리드에 채운다.
-        // '오늘'(DATE=오늘, 파일 미지정, 강제 아님)은 메모리 최근 버퍼에서 즉시 —
-        // 과거 날짜/OPEN FILE/REFRESH(forceFile)는 파일을 백그라운드에서 읽어 UI 를 멈추지 않는다.
-        // 읽는 중 조건이 또 바뀌면(pending) 끝난 뒤 최신 조건으로 한 번만 더 읽는다.
-        private async void ReloadCurrent(bool forceFile = false)
+        // 한 번에 파일 작업 하나만 실행한다. 조건이 바뀌면 이전 결과를 버리고 마지막 요청만 읽는다.
+        private async Task ReloadCurrentAsync()
         {
-            if (!FileLogHistoryEnabled)
-            {
-                ApplyFileLogHistoryDisabledState();
+            // Load/필터 이벤트가 Designer에서 발생해도 설정과 로그 저장소에는 접근하지 않는다.
+            if (IsDesignerMode() || IsDisposed || !ShouldRefreshVisible(this))
                 return;
-            }
 
+            int version = _reloadVersion;
             try
             {
-                CaptureFilterSnapshot();   // 백그라운드에서 컨트롤을 읽지 않도록 UI 스레드에서 먼저 떠 둔다.
+                _viewActive = true;
+                version = ++_reloadVersion;
+                _reloadPending = true;
+                _acceptLiveRows = false;
+                ResetDisplayCache();
+                ClearPendingLiveRows();
+                CaptureFilterSnapshot(true);
+                ApplyKindHeader();
 
-                if (_reloadRunning)
+                if (!FileLogHistoryEnabled)
                 {
-                    _reloadPending = true;
-                    _reloadPendingForceFile |= forceFile;
+                    StopLiveUpdates();
+                    _reloadPending = false;
+                    ApplyFileLogHistoryDisabledState();
                     return;
                 }
+
+                SetFilterUiEnabled(true);
+                if (_fileSnapshotMode)
+                    StopLiveUpdates();
+                else
+                {
+                    // 조회 전에 구독해야 조회와 구독 사이에 들어온 행을 놓치지 않는다.
+                    _acceptLiveRows = true;
+                    SubscribeLiveEvents();
+                    _liveFlushTimer.Start();
+                }
+
+                if (_reloadRunning)
+                    return;
 
                 _reloadRunning = true;
                 try
@@ -367,85 +471,104 @@ namespace QMC.CDT_320.Ui.Pages.History
                     do
                     {
                         _reloadPending = false;
-                        bool useFile = forceFile || _reloadPendingForceFile;
-                        _reloadPendingForceFile = false;
-                        forceFile = false;   // pending 재실행은 그때 요청된 force 여부를 따른다.
-
+                        version = _reloadVersion;
+                        int readVersion = version;
                         var snap = _filterSnapshot;
                         string overridePath = _overridePath;
                         DateTime date = _dp.Value.Date;
                         int maxRows = GetEffectiveReadLimit();
-                        bool memorySource = !useFile && overridePath == null && date == DateTime.Today;
-
-                        List<EventRow> source;
-                        if (memorySource)
+                        bool memorySource = !_fileSnapshotMode;
+                        try
                         {
-                            // 메모리 버퍼 조회는 즉시 끝나므로 UI 스레드에서 바로 수행한다.
-                            source = EventLogger.ReadRecentMemory(_presetKind, maxRows, snap.PassesRead);
-                        }
-                        else
-                        {
-                            // 헛읽기 차단 — '최근 1시간' 필터가 켜진 채 과거 날짜를 조회하면 그날 하루 전체가
-                            // 이미 컷오프(지금-1시간) 이전이라 결과가 0건으로 확정된다. 파일을 읽지 않고 바로 안내한다.
-                            if (snap.RecentHourOnly && overridePath == null &&
-                                date.AddDays(1) <= DateTime.Now.AddHours(-1))
+                            List<EventRow> source;
+                            if (memorySource)
                             {
-                                ShowRecentHourFilteredNotice();
-                                continue;   // pending 요청이 있으면 최신 조건으로 재실행, 없으면 종료.
+                                // 기록기 메모리 상한까지 참조를 기억해 조회 후 늦게 도착한 알림도 중복 제외한다.
+                                source = EventLogger.ReadRecentMemory(
+                                    _presetKind, MaxAllRowsSafeLimit, snap.PassesRead);
                             }
-
-                            // 파일 읽기는 백그라운드 + 역방향(tail) — 최신 로그가 파일 끝에 있으므로
-                            // 수 GB 파일도 필요한 만큼(보통 끝의 수 MB)만 읽고 끝난다.
-                            // 진행 표시는 헤더 + 그리드 안내 행 두 곳에 — 탭 전환 시 i18n 갱신이
-                            // 헤더 텍스트를 덮어써도 그리드 안내 행은 유지된다.
-                            lblHeader.Text = Lang.T(KindToI18n(_presetKind)) + "  (파일 읽는 중...)";
-                            _fileLoadInProgress = true;
-                            ShowFileLoadingNotice();
-                            try
+                            else
                             {
+                                if (snap.RecentHourOnly && overridePath == null &&
+                                    date.AddDays(1) <= snap.ReadTime.AddHours(-1))
+                                {
+                                    ShowRecentHourFilteredNotice();
+                                    continue;
+                                }
+
+                                _fileLoadInProgress = true;
+                                ApplyKindHeader();
+                                ShowFileLoadingNotice();
                                 source = await Task.Run(() =>
                                     overridePath != null
-                                        ? EventLogger.ReadRecentFileTail(overridePath, maxRows, snap.PassesRead, IsReloadCancelRequested, _presetKind)
-                                        : EventLogger.ReadRecentTail(date, maxRows, snap.PassesRead, IsReloadCancelRequested, _presetKind));
+                                        ? EventLogger.ReadRecentFileTail(overridePath, maxRows, snap.PassesRead,
+                                            () => IsReloadCancelRequested(readVersion), _presetKind)
+                                        : EventLogger.ReadRecentTail(date, maxRows, snap.PassesRead,
+                                            () => IsReloadCancelRequested(readVersion), _presetKind)).ConfigureAwait(true);
                             }
-                            finally
+
+                            if (IsReloadCancelRequested(readVersion))
+                                continue;
+
+                            if (!FileLogHistoryEnabled)
+                            {
+                                StopLiveUpdates();
+                                _reloadPending = false;
+                                ApplyFileLogHistoryDisabledState();
+                                return;
+                            }
+
+                            _fileLoadInProgress = false;
+                            LoadRows(source);
+                        }
+                        catch (Exception ex)
+                        {
+                            if (!IsReloadCancelRequested(readVersion))
+                                ShowReloadError(ex);
+                        }
+                        finally
+                        {
+                            if (!IsReloadCancelRequested(readVersion))
                             {
                                 _fileLoadInProgress = false;
-                                if (!IsDisposed)
-                                    ApplyKindHeader();
+                                ApplyKindHeader();
                             }
-
-                            // 페이지가 닫혔으면 결과를 버리고 즉시 끝낸다(닫힌 컨트롤 접근 방지).
-                            if (IsDisposed)
-                                return;
-
-                            // 읽는 중 새 요청이 들어와 중단된 결과(불완전)는 버리고 최신 조건으로 다시 읽는다.
-                            if (_reloadPending)
-                                continue;
                         }
-
-                        if (IsDisposed)
-                            return;
-
-                        LoadRows(source);
                     }
-                    while (_reloadPending);
+                    while (_reloadPending && _viewActive && !IsDisposed);
                 }
                 finally
                 {
                     _reloadRunning = false;
+                    _fileLoadInProgress = false;
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "HISTORY", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                if (!IsReloadCancelRequested(version))
+                    ShowReloadError(ex);
             }
+        }
+
+        private void ShowReloadError(Exception ex)
+        {
+            QMC.Common.MessageDialog.Show(this, "로그를 조회하지 못했습니다.\r\n" + ex.Message,
+                "로그 조회", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
+        private void ResetDisplayCache()
+        {
+            _displayBuffer.Clear();
+            _lastRowClicked = -1;
+            _fileLoadInProgress = false;
+            if (_grid != null)
+                _grid.Rows.Clear();
         }
 
         // 읽기 결과를 캐시로 보관하고 텍스트 필터를 적용해 표시한다.
         private void LoadRows(List<EventRow> source)
         {
-            _loadedRows = source ?? new List<EventRow>();
+            _displayBuffer.ReplaceRows(source, GetEffectiveReadLimit());
             ApplyTextFilterAndDisplay();
         }
 
@@ -459,13 +582,15 @@ namespace QMC.CDT_320.Ui.Pages.History
 
             var snap = _filterSnapshot ?? CaptureFilterSnapshot();
             int maxRows = GetRowLimit();
+            DateTime now = _fileSnapshotMode ? snap.ReadTime : DateTime.Now;
+            IReadOnlyList<EventRow> loadedRows = _displayBuffer.Rows;
 
             // 캐시는 과거→최신 순이므로 뒤(최신)부터 훑어 최신순으로 필요한 만큼만 만든다.
             var rows = new List<DataGridViewRow>();
-            for (int i = _loadedRows.Count - 1; i >= 0 && (maxRows <= 0 || rows.Count < maxRows); i--)
+            for (int i = loadedRows.Count - 1; i >= 0 && (maxRows <= 0 || rows.Count < maxRows); i--)
             {
-                var r = _loadedRows[i];
-                if (r == null || !snap.PassesText(r)) continue;
+                var r = loadedRows[i];
+                if (!snap.PassesAt(r, now) || !snap.PassesText(r)) continue;
                 rows.Add(BuildRow(r));                  // 뒤에서부터 → 이미 최신순
             }
 
@@ -475,6 +600,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             try
             {
                 _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+                _lastRowClicked = -1;
                 _grid.Rows.Clear();
                 if (rows.Count > 0) _grid.Rows.AddRange(rows.ToArray());
             }
@@ -486,9 +612,9 @@ namespace QMC.CDT_320.Ui.Pages.History
         }
 
         // 로그 폴더에서 CSV 파일을 골라 그 내용을 그리드에 로드한다.
-        private void OpenFile()
+        private async Task OpenFileAsync()
         {
-            if (!FileLogHistoryEnabled)
+            if (IsDesignerMode() || !FileLogHistoryEnabled)
                 return;
 
             try
@@ -501,7 +627,8 @@ namespace QMC.CDT_320.Ui.Pages.History
                     if (dlg.ShowDialog(this) != DialogResult.OK) return;
 
                     _overridePath = dlg.FileName;
-                    ReloadCurrent();
+                    _fileSnapshotMode = true;
+                    await ReloadCurrentAsync().ConfigureAwait(true);
                 }
             }
             catch (Exception ex)
@@ -510,42 +637,38 @@ namespace QMC.CDT_320.Ui.Pages.History
             }
         }
 
-        protected override void OnVisibleChanged(EventArgs e)
+        protected override async void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
-            UpdateLiveEventSubscription();
+            await UpdateLiveEventSubscriptionAsync().ConfigureAwait(true);
         }
 
-        private void UpdateLiveEventSubscription()
+        private async Task UpdateLiveEventSubscriptionAsync()
         {
-            // 설정이 꺼져 있으면 구독/타이머를 정리하고, 보이는 동안엔 안내만 표시한다(토글 즉시 반영 지점).
-            if (!FileLogHistoryEnabled)
-            {
-                UnsubscribeLiveEvents();
-                _liveFlushTimer.Stop();
-                ClearPendingLiveRows();
-                if (ShouldRefreshVisible(this))
-                    ApplyFileLogHistoryDisabledState();
+            if (IsDesignerMode())
                 return;
-            }
 
-            if (ShouldRefreshVisible(this))
+            _viewActive = ShouldRefreshVisible(this);
+            if (_viewActive)
             {
-                // 꺼져 있던 상태에서 켜졌을 수 있으므로 필터 UI 를 다시 활성화한다.
-                SetFilterUiEnabled(true);
-                // 페이지는 캐시되어 재사용되므로(TabBase.PageCache), 다시 보일 때마다 CSV를 재로드한다.
-                // 재로드하지 않으면 페이지가 숨겨진 동안 기록된 이벤트(라이브 큐는 숨김 시 비워짐)가 누락된다.
-                ReloadCurrent();
-                SubscribeLiveEvents();
-                if (!_liveFlushTimer.Enabled)
-                    _liveFlushTimer.Start();
+                if (!_fileSnapshotMode)
+                    SetTodayWithoutReload();
+                await ReloadCurrentAsync().ConfigureAwait(true);
             }
             else
             {
-                UnsubscribeLiveEvents();
-                _liveFlushTimer.Stop();
-                ClearPendingLiveRows();
+                _reloadVersion++;
+                _reloadPending = false;
+                StopLiveUpdates();
             }
+        }
+
+        private void StopLiveUpdates()
+        {
+            _acceptLiveRows = false;
+            UnsubscribeLiveEvents();
+            _liveFlushTimer.Stop();
+            ClearPendingLiveRows();
         }
 
         private void SubscribeLiveEvents()
@@ -568,26 +691,35 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         private void OnLiveEvent(EventRow r)
         {
-            if (r == null)
+            if (r == null || !_acceptLiveRows)
                 return;
 
             // 수집은 읽기 단계 필터(종류/시간)만 통과하면 한다 — 텍스트 필터는 표시 시점에 적용되므로
             // 검색어를 지웠을 때 그 사이 들어온 행도 다시 보이도록 캐시에는 남겨 둔다.
+            int version = _reloadVersion;
             var snap = _filterSnapshot;
-            if (snap != null ? !snap.PassesRead(r) : !PassesKindFilter(r.Kind))
+            if (snap == null || !snap.PassesAt(r, DateTime.Now))
                 return;
 
             lock (_pendingLiveRowsLock)
             {
+                // 구독 해제 전에 실행되던 이전 조회의 callback도 큐에 다시 넣지 않는다.
+                if (!_acceptLiveRows || version != _reloadVersion)
+                    return;
+
                 _pendingLiveRows.Enqueue(r);
                 while (_pendingLiveRows.Count > MaxPendingLiveRows)
+                {
                     _pendingLiveRows.Dequeue();
+                    _pendingLiveOverflow = true;
+                }
             }
         }
 
         private void FlushPendingLiveRows()
         {
-            if (!ShouldRefreshVisible(this))
+            if (!_viewActive || _fileSnapshotMode || _reloadRunning ||
+                _fileLoadInProgress || !ShouldRefreshVisible(this))
                 return;
 
             // 직접 연 파일을 보는 중이면 실시간 이벤트로 덮지 않는다.
@@ -598,23 +730,38 @@ namespace QMC.CDT_320.Ui.Pages.History
                 return;
             }
 
-            List<EventRow> rows = DequeuePendingLiveRows();
-            if (rows.Count == 0)
+            var snap = _filterSnapshot;
+            if (snap == null)
                 return;
 
-            // 캐시에도 반영해 두어야 나중에 검색어를 바꿔도 방금 들어온 행이 검색 대상에 포함된다.
-            int readLimit = GetEffectiveReadLimit();
-            _loadedRows.AddRange(rows);
-            while (_loadedRows.Count > readLimit)
-                _loadedRows.RemoveAt(0);
+            DateTime now = DateTime.Now;
+            bool expired = false;
+            if (now >= _nextExpiryCheck)
+            {
+                _nextExpiryCheck = now.AddSeconds(1);
+                expired = _displayBuffer.RemoveOutsideRange(snap.Date, snap.RecentHourOnly, now);
+            }
 
-            var snap = _filterSnapshot;
+            List<EventRow> pending = DequeuePendingLiveRows();
+            pending.RemoveAll(row => !snap.PassesAt(row, now));
+            List<EventRow> rows = _displayBuffer.AppendRows(pending, GetEffectiveReadLimit());
+            if (rows.Count == 0 && !expired)
+                return;
+
             int maxRows = GetEffectiveReadLimit();
             var prevAutoSize = _grid.AutoSizeColumnsMode;
             _grid.SuspendLayout();
             try
             {
                 _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+                _lastRowClicked = -1;
+                // 캐시 상한/시간 범위에서 제외된 행은 검색 결과에서도 함께 제거한다.
+                for (int i = _grid.Rows.Count - 1; i >= 0; i--)
+                {
+                    var row = _grid.Rows[i].Tag as EventRow;
+                    if (row != null && !_displayBuffer.ContainsRow(row))
+                        _grid.Rows.RemoveAt(i);
+                }
                 foreach (EventRow row in rows)
                 {
                     // 화면 표시는 텍스트 필터까지 통과한 행만 (캐시에는 이미 반영됨).
@@ -635,53 +782,37 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         // 백그라운드 읽기 중단 조건 — 새 요청이 대기 중이거나 페이지가 닫혔으면 더 읽지 않는다.
         // EventLogger 가 백그라운드 스레드에서 주기적으로 호출한다.
-        private bool IsReloadCancelRequested()
+        private bool IsReloadCancelRequested(int version)
         {
-            return _reloadPending || IsDisposed;
+            return version != _reloadVersion || !_viewActive || IsDisposed;
         }
 
         // '최근 1시간' 필터 때문에 과거 날짜 결과가 0건으로 확정일 때, 파일을 읽지 않고 이유를 안내한다.
         private void ShowRecentHourFilteredNotice()
         {
-            try
-            {
-                _grid.Rows.Clear();
-                _grid.Rows.Add(
-                    DateTime.Now.ToString("HH:mm:ss.fff"),
-                    "",
-                    "",
-                    "History",
-                    "LAST-1HOUR-FILTER",
-                    "'Last 1 hour' 필터가 켜져 있어 과거 날짜의 로그는 모두 걸러집니다. 체크를 해제하면 해당 날짜의 최신 로그를 표시합니다.");
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
+            _displayBuffer.Clear();
+            _lastRowClicked = -1;
+            _grid.Rows.Clear();
+            _grid.Rows.Add(
+                DateTime.Now.ToString("HH:mm:ss.fff"),
+                "",
+                "",
+                "History",
+                "LAST-1HOUR-FILTER",
+                "'Last 1 hour' 필터가 켜져 있어 과거 날짜의 로그는 모두 걸러집니다. 체크를 해제하면 해당 날짜의 최신 로그를 표시합니다.");
         }
 
         // 파일을 읽는 동안 그리드에 안내 행 하나를 표시한다(완료되면 LoadRows 가 결과로 교체).
         private void ShowFileLoadingNotice()
         {
-            try
-            {
-                _grid.Rows.Clear();
-                _grid.Rows.Add(
-                    DateTime.Now.ToString("HH:mm:ss.fff"),
-                    "",
-                    "",
-                    "History",
-                    "FILE-LOADING",
-                    "로그 파일을 읽는 중입니다... 완료되면 자동으로 표시됩니다. (화면은 계속 사용할 수 있습니다)");
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
+            _grid.Rows.Clear();
+            _grid.Rows.Add(
+                DateTime.Now.ToString("HH:mm:ss.fff"),
+                "",
+                "",
+                "History",
+                "FILE-LOADING",
+                "로그 파일을 읽는 중입니다... 완료되면 자동으로 표시됩니다. (화면은 계속 사용할 수 있습니다)");
         }
 
         private List<EventRow> DequeuePendingLiveRows()
@@ -701,6 +832,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             lock (_pendingLiveRowsLock)
             {
                 _pendingLiveRows.Clear();
+                _pendingLiveOverflow = false;
             }
         }
 

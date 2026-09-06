@@ -22,6 +22,24 @@ namespace QMC.CDT_320
 {
     public partial class Form1
     {
+        private sealed class InputStageRunReviewOneShotState
+        {
+            public readonly InputStageRunReviewDialog Dialog;
+            public readonly int SessionGeneration;
+            public readonly System.Threading.Tasks.TaskCompletionSource<bool> Completion =
+                new System.Threading.Tasks.TaskCompletionSource<bool>(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public InputStageRunReviewOneShotState(InputStageRunReviewDialog dialog, int sessionGeneration)
+            {
+                Dialog = dialog;
+                SessionGeneration = sessionGeneration;
+            }
+        }
+
+        private InputStageRunReviewOneShotState _inputStageRunReviewOneShot;
+        private readonly HashSet<InputStageRunReviewDialog> _inputStageRunReviewDrainingDialogs =
+            new HashSet<InputStageRunReviewDialog>();
+
         private void OnInputStageUserConfirmRequested()
         {
             if (InvokeRequired)
@@ -97,6 +115,8 @@ namespace QMC.CDT_320
                     "확인: 현재 Align/Die Mapping 결과로 Auto PickUp 공정을 계속합니다." + Environment.NewLine +
                     "취소: Picker Ready를 발행하지 않고 센터 검출/T Align부터 다시 수행한 뒤 Die Mapping과 확인을 반복합니다.");
                 dialog.SetReviewValid(alignComplete && mappingComplete, "USER CONFIRM REQUIRED");
+                dialog.SetNonproductionReviewMode(MaterialStateService.IsInputStageReviewNonProductionMode(
+                    out string nonProductionReviewReason));
                 dialog.SetAutoReviewMode(true);
 
                 // [사용자 확정 2026-08-17] 죽은 세션 컨펌 차단 — Auto가 CycleStop 등으로 이미
@@ -126,6 +146,11 @@ namespace QMC.CDT_320
                     if (Controller.IsInputStageRunReviewActionBusy)
                     {
                         dialog.RestoreAfterDecisionFailure("수동 동작 또는 Jog가 진행 중입니다. STOP 후 다시 확인하세요.");
+                        return;
+                    }
+                    if (!CanSubmitInputStageReviewGeometry(dialog, out string geometryReason))
+                    {
+                        dialog.RestoreAfterDecisionFailure(geometryReason);
                         return;
                     }
                     stage.ConfirmFromUi(BuildInputStageRunReviewResult(
@@ -183,6 +208,14 @@ namespace QMC.CDT_320
                 dialog.OffsetApplyRequested += delegate
                 {
                     ApplyInputStageRunReviewPendingOffset(dialog);
+                };
+                dialog.GeometryVerificationRequested += async delegate
+                {
+                    await VerifyInputStageRunReviewGeometryAsync(dialog).ConfigureAwait(true);
+                };
+                dialog.SelectedDieChanged += delegate
+                {
+                    ClearInputStageRunReviewPendingOffset();
                 };
                 dialog.VisionTestRequested += delegate
                 {
@@ -267,25 +300,30 @@ namespace QMC.CDT_320
 
             if (isCurrentSession)
             {
+                ClearInputStageRunReviewPendingOffset();
                 try
                 {
                     if (Controller != null)
                         Controller.CancelInputStageRunReviewAction();
                 }
                 catch { }
+                if (!await WaitForInputStageRunReviewOneShotCompletionAsync(dialog, sessionGeneration).ConfigureAwait(true))
+                {
+                    if (_inputStageRunReviewSessionGeneration == sessionGeneration)
+                        _inputStageRunReviewCleanedGeneration = sessionGeneration - 1;
+                    return;
+                }
+                if (_inputStageRunReviewSessionGeneration != sessionGeneration ||
+                    !ReferenceEquals(dialog, _inputStageRunReviewDialog))
+                {
+                    if (dialog != null && !dialog.IsDisposed)
+                        dialog.Dispose();
+                    return;
+                }
                 StopInputStageRunReviewEmbeddedVision(
                     dialog,
                     false,
-                    "Review 종료로 내장 Wafer Vision을 정지했습니다.");
-                try
-                {
-                    await StopInputStageRunReviewJogCoreAsync().ConfigureAwait(true);
-                }
-                catch (Exception ex)
-                {
-                    QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
-                        "Review Cleanup Jog 정지 실패: " + ex.Message + " - Failed");
-                }
+                    "Review 종료로 내장 Wafer Vision을 정지했습니다.", true);
                 if (_inputStageRunReviewVisionTestDialog != null &&
                     !_inputStageRunReviewVisionTestDialog.IsDisposed)
                 {
@@ -349,7 +387,10 @@ namespace QMC.CDT_320
                 WaferId = dialog != null ? dialog.WaferId : string.Empty,
                 MappingRevision = dialog != null ? dialog.MappingRevision : string.Empty,
                 StartDieUid = dialog != null ? dialog.StartDieUid : string.Empty,
-                StartDieIndex = dialog != null ? dialog.StartDieIndex : 0
+                StartDieIndex = dialog != null ? dialog.StartDieIndex : 0,
+                ReviewSessionGeneration = _inputStageRunReviewSessionGeneration,
+                ReviewRequestGeneration = _inputStageRunReviewRequestGeneration,
+                GeometryVerificationToken = _inputStageRunReviewGeometryToken ?? string.Empty
             };
 
             if (dialog != null)
@@ -392,7 +433,10 @@ namespace QMC.CDT_320
 
             InputStageRunReviewDialog dialog = _inputStageRunReviewDialog;
             if (dialog != null && !dialog.IsDisposed)
-                dialog.RestoreAfterDecisionFailure(message);
+            {
+                ClearInputStageRunReviewPendingOffset();
+                dialog.RestoreAfterDecisionFailure(message + " 현재 조건으로 VERIFY MAP 후 다시 확인하세요.");
+            }
         }
 
         private async void OnInputStageRunReviewManualStateChanged(bool active, string waferId)
@@ -411,11 +455,30 @@ namespace QMC.CDT_320
                 return;
 
             InputStageRunReviewDialog dialog = _inputStageRunReviewDialog;
-            StopInputStageRunReviewJogAsync(dialog, "Review Manual 종료로 Jog를 정지했습니다.");
+            int sessionGeneration = _inputStageRunReviewSessionGeneration;
+            try
+            {
+                if (Controller != null)
+                    Controller.CancelInputStageRunReviewAction();
+                if (!await WaitForInputStageRunReviewOneShotCompletionAsync(dialog, sessionGeneration).ConfigureAwait(true))
+                    return;
+                if (_inputStageRunReviewSessionGeneration != sessionGeneration ||
+                    !ReferenceEquals(dialog, _inputStageRunReviewDialog) ||
+                    (Controller != null && Controller.IsInputStageRunReviewManualActive))
+                    return;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                    "Review Manual 종료 확인에 실패하여 안전 Scope를 유지합니다. " + ex.Message + " - Failed");
+                if (dialog != null && !dialog.IsDisposed)
+                    dialog.SetStatusMessage("Review 동작 정지 확인에 실패했습니다. STOP 후 장비 상태를 확인하세요.");
+                return;
+            }
             StopInputStageRunReviewEmbeddedVision(
                 dialog,
                 false,
-                "Review Manual 종료로 내장 Wafer Vision을 정지했습니다.");
+                "Review Manual 종료로 내장 Wafer Vision을 정지했습니다.", true);
             if (_inputStageRunReviewVisionTestDialog != null &&
                 !_inputStageRunReviewVisionTestDialog.IsDisposed)
             {
@@ -502,6 +565,16 @@ namespace QMC.CDT_320
             Func<InputStageUnit, System.Threading.CancellationToken, System.Threading.Tasks.Task<string>> action,
             bool allowEmbeddedVisionScopeReuse = false)
         {
+            if (dialog == null || dialog.IsDisposed || !ReferenceEquals(dialog, _inputStageRunReviewDialog))
+                return;
+            if (_inputStageRunReviewDrainingDialogs.Contains(dialog) ||
+                (_inputStageRunReviewOneShot != null && !_inputStageRunReviewOneShot.Completion.Task.IsCompleted))
+            {
+                dialog.SetStatusMessage("이전 Review 동작이 종료 중입니다. 완료 후 다시 실행하세요.");
+                return;
+            }
+            var oneShot = new InputStageRunReviewOneShotState(dialog, _inputStageRunReviewSessionGeneration);
+            _inputStageRunReviewOneShot = oneShot;
             IDisposable workScope = null;
             string finalStatus = string.Empty;
             bool reusedEmbeddedVisionScope = false;
@@ -567,15 +640,96 @@ namespace QMC.CDT_320
             }
             finally
             {
-                if (workScope != null)
-                    workScope.Dispose();
-                if (dialog != null && !dialog.IsDisposed)
+                try
                 {
-                    if (reusedEmbeddedVisionScope && dialog.IsWaferVisionControlActive)
-                        dialog.SetWaferVisionMoveBusy(false, finalStatus);
-                    else
-                        dialog.SetBusy(false, finalStatus);
+                    if (workScope != null)
+                        workScope.Dispose();
+                    if (dialog != null && !dialog.IsDisposed)
+                    {
+                        if (_inputStageRunReviewDrainingDialogs.Contains(dialog))
+                        {
+                            dialog.SetWaferVisionMoveBusy(true, "Review 동작 종료를 확인하고 있습니다.");
+                            dialog.SetBusy(true, "Review 동작 종료를 확인하고 있습니다.");
+                        }
+                        else if (reusedEmbeddedVisionScope && dialog.IsWaferVisionControlActive)
+                            dialog.SetWaferVisionMoveBusy(false, finalStatus);
+                        else
+                            dialog.SetBusy(false, finalStatus);
+                    }
                 }
+                finally
+                {
+                    if (ReferenceEquals(_inputStageRunReviewOneShot, oneShot))
+                        _inputStageRunReviewOneShot = null;
+                    oneShot.Completion.TrySetResult(true);
+                }
+            }
+        }
+
+        private async System.Threading.Tasks.Task<bool> WaitForInputStageRunReviewOneShotCompletionAsync(
+            InputStageRunReviewDialog dialog, int sessionGeneration)
+        {
+            if (dialog == null || !ReferenceEquals(dialog, _inputStageRunReviewDialog) ||
+                sessionGeneration != _inputStageRunReviewSessionGeneration)
+                return false;
+            InputStageRunReviewOneShotState oneShot = _inputStageRunReviewOneShot;
+            if (oneShot != null && (!ReferenceEquals(oneShot.Dialog, dialog) ||
+                oneShot.SessionGeneration != sessionGeneration))
+                return false;
+
+            _inputStageRunReviewDrainingDialogs.Add(dialog);
+            if (dialog != null && !dialog.IsDisposed)
+            {
+                dialog.SetReviewStopPending(true);
+                dialog.SetWaferVisionMoveBusy(true, "STOP: 진행 중인 이동/검출 종료를 기다립니다.");
+                dialog.SetBusy(true, "STOP: 진행 중인 이동/검출 종료를 기다립니다.");
+            }
+            try
+            {
+                // 기존 이동/촬상 callback이 끝날 때까지 현재 Review lease를 보유한다.
+                InputStageUnit stage = Machine != null ? Machine.InputStageUnit : null;
+                int configuredTimeout = stage != null && stage.Config != null ? stage.Config.SequenceMoveTimeoutMs : 10000;
+                int timeout = Math.Min(30000, configuredTimeout > 0 ? configuredTimeout : 10000);
+                if (oneShot != null && await System.Threading.Tasks.Task.WhenAny(
+                    oneShot.Completion.Task, System.Threading.Tasks.Task.Delay(timeout)).ConfigureAwait(true) != oneShot.Completion.Task)
+                {
+                    QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                        "Review STOP 후 동작 완료 대기 시간이 초과되어 안전 Scope를 유지합니다. session=" + sessionGeneration + ", timeoutMs=" + timeout + " - Failed");
+                    if (!dialog.IsDisposed)
+                        dialog.SetStatusMessage("동작 종료가 확인되지 않아 Review 안전 영역을 유지합니다. STOP 및 장비 상태를 확인하세요.");
+                    return false;
+                }
+                if (sessionGeneration != _inputStageRunReviewSessionGeneration ||
+                    !ReferenceEquals(dialog, _inputStageRunReviewDialog))
+                    return false;
+
+                // 기존 Jog 정지 처리를 먼저 수행한다. 새로운 이동 명령은 발행하지 않는다.
+                await StopInputStageRunReviewJogCoreAsync().ConfigureAwait(true);
+                if (stage != null)
+                {
+                    BaseAxis[] axes = { stage.CameraX, stage.StageY, stage.StageT, stage.EjectPinZ };
+                    var elapsed = System.Diagnostics.Stopwatch.StartNew();
+                    while (axes.Any(axis => axis != null && axis.IsMoving) && elapsed.ElapsedMilliseconds < timeout)
+                        await System.Threading.Tasks.Task.Delay(20).ConfigureAwait(true);
+                    if (axes.Any(axis => axis != null && axis.IsMoving))
+                    {
+                        QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                            "Review STOP 후 축 정지를 확인하지 못해 안전 Scope를 유지합니다. session=" + sessionGeneration + " - Failed");
+                        if (!dialog.IsDisposed)
+                            dialog.SetStatusMessage("축 정지가 확인되지 않아 Review 안전 영역을 유지합니다. STOP 및 축 상태를 확인하세요.");
+                        return false;
+                    }
+                }
+                return sessionGeneration == _inputStageRunReviewSessionGeneration &&
+                    ReferenceEquals(dialog, _inputStageRunReviewDialog);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                    "Review STOP 완료 확인에 실패하여 안전 Scope를 유지합니다. session=" + sessionGeneration + ", " + ex.Message + " - Failed");
+                if (!dialog.IsDisposed)
+                    dialog.SetStatusMessage("Review 정지 확인에 실패했습니다. 안전 영역을 유지하며 STOP 및 장비 상태 확인이 필요합니다.");
+                return false;
             }
         }
 
@@ -589,6 +743,11 @@ namespace QMC.CDT_320
                 if (dialog == null || args == null || Controller == null ||
                     !Controller.IsInputStageRunReviewManualActive || Machine == null || Machine.InputStageUnit == null)
                     return;
+                if (_inputStageRunReviewDrainingDialogs.Contains(dialog))
+                    return;
+
+                // X/Y 이동은 검출 기준을 바꾸고 T 이동은 좌표 검증 조건도 바꾼다.
+                ClearInputStageRunReviewPendingOffset();
 
                 // [Live 중 Jog 허용 2026-08-17, 팀장님 지시] Wafer Vision Live는 Review work scope를
                 //   계속 보유하므로 IsInputStageRunReviewActionBusy가 true다. 기존에는 여기서
@@ -830,6 +989,8 @@ namespace QMC.CDT_320
             InputStageRunReviewDialog dialog,
             string reason)
         {
+            int sessionGeneration = _inputStageRunReviewSessionGeneration;
+            ClearInputStageRunReviewPendingOffset();
             try
             {
                 if (Controller != null)
@@ -841,11 +1002,15 @@ namespace QMC.CDT_320
                     await _inputStageRunReviewVisionTestDialog.RequestClose().ConfigureAwait(true);
                 }
 
+                if (!await WaitForInputStageRunReviewOneShotCompletionAsync(dialog, sessionGeneration).ConfigureAwait(true))
+                    return;
+                if (_inputStageRunReviewSessionGeneration != sessionGeneration ||
+                    !ReferenceEquals(dialog, _inputStageRunReviewDialog))
+                    return;
                 StopInputStageRunReviewEmbeddedVision(
                     dialog,
                     true,
-                    "Review STOP으로 내장 Wafer Vision을 정지했습니다.");
-                await StopInputStageRunReviewJogCoreAsync().ConfigureAwait(true);
+                    "Review STOP으로 내장 Wafer Vision을 정지했습니다.", true);
                 if (dialog != null && !dialog.IsDisposed)
                 {
                     bool busy = Controller != null && Controller.IsInputStageRunReviewActionBusy;
@@ -856,8 +1021,15 @@ namespace QMC.CDT_320
             }
             catch (Exception ex)
             {
+                _inputStageRunReviewDrainingDialogs.Add(dialog);
+                QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                    "Review 수동 동작 정지 실패로 안전 Scope를 유지합니다. " + ex.Message + " - Failed");
                 if (dialog != null && !dialog.IsDisposed)
-                    dialog.SetBusy(false, "Review 수동 동작 정지 실패: " + ex.Message);
+                {
+                    dialog.SetReviewStopPending(true);
+                    dialog.SetWaferVisionMoveBusy(true, "Review 수동 동작 정지 실패: " + ex.Message);
+                    dialog.SetBusy(true, "Review 수동 동작 정지 실패: " + ex.Message);
+                }
             }
         }
 
@@ -987,6 +1159,8 @@ namespace QMC.CDT_320
             // [DIE DETECTION Live 정지/복귀 2026-08-17, 팀장님 지시] 검출은 Grab을 직접 사용하므로
             // Live 수신과 카메라를 다툰다. 검출 직전 Live만 멈추고(안전 Scope는 유지) 검출 종료 후
             // finally에서 반드시 복귀시킨다. 복귀 실패는 알람 없이 상태 문구로만 안내한다(팀장님 확정).
+            int detectionSessionGeneration = _inputStageRunReviewSessionGeneration;
+            long detectionRequestGeneration = _inputStageRunReviewRequestGeneration;
             bool waferLivePaused = dialog.PauseWaferVisionLiveForAction();
             if (waferLivePaused)
             {
@@ -1004,6 +1178,15 @@ namespace QMC.CDT_320
             double detectedReferenceX = entry.PosX;
             double detectedReferenceY = entry.PosY;
             string detectedDraftSignature = BuildInputStageRunReviewDraftSignature(dialog);
+            InputStageReviewGeometryContext detectedContext;
+            string geometryReason;
+            if (!TryCaptureInputStageReviewContext(dialog, false, out detectedContext, out geometryReason))
+            {
+                dialog.SetBusy(false, geometryReason);
+                return;
+            }
+            DieMap detectedDraft = dialog.DraftDieMap;
+            double detectedFinalX = 0.0, detectedFinalY = 0.0, detectedFinalT = 0.0;
             double detectedOffsetX = 0.0;
             double detectedOffsetY = 0.0;
             bool detectionSucceeded = false;
@@ -1015,6 +1198,7 @@ namespace QMC.CDT_320
                 async (inputStage, token) =>
                 {
                     token.ThrowIfCancellationRequested();
+                    EnsureInputStageReviewRequestCurrent(dialog, detectedContext, detectedDraft);
                     inputStage.ApplyWaferAlignThetaResult(
                         wafer.InputStageAlignReferenceT,
                         wafer.InputStageAlignCorrectedT,
@@ -1031,6 +1215,8 @@ namespace QMC.CDT_320
                             throw new InvalidOperationException("Die 검출 전 EjectPinZ Avoid 이동 실패. result=" + ejectResult);
                     }
 
+                    token.ThrowIfCancellationRequested();
+                    EnsureInputStageReviewRequestCurrent(dialog, detectedContext, detectedDraft);
                     double targetT;
                     if (inputStage.TryResolveWaferAlignThetaTarget(out targetT))
                     {
@@ -1045,6 +1231,8 @@ namespace QMC.CDT_320
 
                     double currentX = inputStage.CameraX.ActualPosition;
                     double currentY = inputStage.StageY.ActualPosition;
+                    double currentT = inputStage.StageT.ActualPosition;
+                    EnsureInputStageReviewAxesStationary(inputStage);
                     VisionAlignResult vision = await RequestInputStageRunReviewDieVisionAsync(
                         inputStage,
                         entry,
@@ -1058,6 +1246,10 @@ namespace QMC.CDT_320
                         throw new InvalidOperationException("InputPickDie Vision 검출 결과가 유효하지 않습니다.");
                     }
 
+                    token.ThrowIfCancellationRequested();
+                    EnsureInputStageReviewRequestCurrent(dialog, detectedContext, detectedDraft);
+                    EnsureInputStageReviewCaptureUnchanged(inputStage, currentX, currentY, currentT);
+
                     // Wafer 채널 라이브 Delta는 카메라 순수 오프셋(raw)이므로 InputToBottomOffset 감산 없이 그대로 사용한다.
                     double centerDeltaX = vision.DeltaX;
                     double centerDeltaY = -vision.DeltaY;
@@ -1066,7 +1258,10 @@ namespace QMC.CDT_320
                     double offsetX = detectedCenterX - detectedReferenceX;
                     double offsetY = detectedCenterY - detectedReferenceY;
                     string offsetReason;
-                    if (!inputStage.IsManualDieDetectOffsetWithinLimit(offsetX, offsetY, out offsetReason))
+                    InputStageReviewOffsetCandidate candidate;
+                    if (!InputStageReviewGeometryPolicy.TryCreateOffsetCandidate(
+                        detectedContext, offsetX, offsetY, GetInputStageReviewOffsetLimits(inputStage),
+                        out candidate, out offsetReason))
                         throw new InvalidOperationException(offsetReason);
 
                     int moveResult = await inputStage.MoveVisionPointSafelyAsync(
@@ -1078,6 +1273,12 @@ namespace QMC.CDT_320
                     if (moveResult != 0)
                         throw new InvalidOperationException("검출 Die 중심 좌표 이동 실패. result=" + moveResult);
 
+                    token.ThrowIfCancellationRequested();
+                    EnsureInputStageReviewRequestCurrent(dialog, detectedContext, detectedDraft);
+                    EnsureInputStageReviewAxesStationary(inputStage);
+                    detectedFinalX = inputStage.CameraX.ActualPosition;
+                    detectedFinalY = inputStage.StageY.ActualPosition;
+                    detectedFinalT = inputStage.StageT.ActualPosition;
                     detectedOffsetX = offsetX;
                     detectedOffsetY = offsetY;
                     detectionSucceeded = true;
@@ -1102,7 +1303,8 @@ namespace QMC.CDT_320
                     "비전 미사용(시뮬레이션) Die 검출이므로 Offset을 적용 대상으로 등록하지 않았습니다. " +
                     "die=" + (detectedDieUid ?? "-"));
             }
-            else if (detectionSucceeded && dialog != null && !dialog.IsDisposed)
+            else if (detectionSucceeded && IsInputStageReviewRequestCurrent(dialog, detectedContext, detectedDraft) &&
+                     string.Equals(detectedDraftSignature, BuildInputStageRunReviewDraftSignature(dialog), StringComparison.Ordinal))
             {
                 _inputStageRunReviewOffsetPending = true;
                 _inputStageRunReviewPendingOffsetX = detectedOffsetX;
@@ -1115,12 +1317,24 @@ namespace QMC.CDT_320
                 _inputStageRunReviewPendingOffsetReferenceX = detectedReferenceX;
                 _inputStageRunReviewPendingOffsetReferenceY = detectedReferenceY;
                 _inputStageRunReviewPendingOffsetDraftSignature = detectedDraftSignature;
+                _inputStageRunReviewPendingGeometryContext = detectedContext;
+                _inputStageRunReviewPendingCaptureX = detectedFinalX;
+                _inputStageRunReviewPendingCaptureY = detectedFinalY;
+                _inputStageRunReviewPendingCaptureT = detectedFinalT;
+                LogInputStageReviewGeometry("DETECTION", detectedContext,
+                    "offset=" + detectedOffsetX.ToString("F6") + "/" + detectedOffsetY.ToString("F6"));
             }
             }
             finally
             {
                 // 성공/실패/취소 어느 경로로 끝나도 Live를 복귀시킨다(정지한 경우에만).
-                if (waferLivePaused && dialog != null && !dialog.IsDisposed)
+                if (waferLivePaused && dialog != null && !dialog.IsDisposed &&
+                    ReferenceEquals(dialog, _inputStageRunReviewDialog) && Controller != null &&
+                    detectionSessionGeneration == _inputStageRunReviewSessionGeneration &&
+                    detectionRequestGeneration == _inputStageRunReviewRequestGeneration &&
+                    !_inputStageRunReviewDrainingDialogs.Contains(dialog) &&
+                    Controller.IsInputStageRunReviewManualActive &&
+                    !Controller.InputStageRunReviewActionToken.IsCancellationRequested)
                 {
                     bool resumed = dialog.StartWaferVisionLive();
                     QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReviewVision",
@@ -1246,6 +1460,14 @@ namespace QMC.CDT_320
                 return;
             }
 
+            string pendingReason;
+            if (!CanApplyInputStageReviewPendingOffset(dialog, out pendingReason))
+            {
+                ClearInputStageRunReviewPendingOffset();
+                dialog.SetBusy(false, pendingReason);
+                return;
+            }
+
             string currentSignature = BuildInputStageRunReviewDraftSignature(dialog);
             if (!string.Equals(
                 currentSignature,
@@ -1294,7 +1516,25 @@ namespace QMC.CDT_320
             if (confirm != DialogResult.Yes)
                 return;
 
+            // 확인 대화상자 중 정지/세션 변경/설정 변경도 다시 확인한다.
             string reason;
+            if (!CanApplyInputStageReviewPendingOffset(dialog, out reason))
+            {
+                ClearInputStageRunReviewPendingOffset();
+                dialog.SetBusy(false, reason);
+                return;
+            }
+            if (!MaterialStateService.TryRecordInputStageReviewOffset(
+                _inputStageRunReviewPendingGeometryContext, dialog.DraftDieMap,
+                _inputStageRunReviewPendingOffsetX, _inputStageRunReviewPendingOffsetY, out reason))
+            {
+                ClearInputStageRunReviewPendingOffset();
+                dialog.SetBusy(false, reason);
+                return;
+            }
+            LogInputStageReviewGeometry("APPLY", _inputStageRunReviewPendingGeometryContext,
+                "offset=" + _inputStageRunReviewPendingOffsetX.ToString("F6") + "/" +
+                _inputStageRunReviewPendingOffsetY.ToString("F6"));
             if (dialog.ApplyDraftCoordinateOffset(
                 _inputStageRunReviewPendingOffsetX,
                 _inputStageRunReviewPendingOffsetY,
@@ -1347,6 +1587,14 @@ namespace QMC.CDT_320
 
         private void ClearInputStageRunReviewPendingOffset()
         {
+            ++_inputStageRunReviewRequestGeneration;
+            MaterialStateService.InvalidateInputStageReviewVerification(
+                _inputStageRunReviewSessionGeneration, _inputStageRunReviewRequestGeneration);
+            _inputStageRunReviewGeometryToken = string.Empty;
+            _inputStageRunReviewVerifiedContext = null;
+            _inputStageRunReviewPendingGeometryContext = null;
+            if (_inputStageRunReviewDialog != null && !_inputStageRunReviewDialog.IsDisposed)
+                _inputStageRunReviewDialog.SetGeometryVerified(false, string.Empty);
             _inputStageRunReviewOffsetPending = false;
             _inputStageRunReviewPendingOffsetX = 0.0;
             _inputStageRunReviewPendingOffsetY = 0.0;
@@ -1363,6 +1611,8 @@ namespace QMC.CDT_320
         private async void StartInputStageRunReviewEmbeddedVisionAsync(
             InputStageRunReviewDialog dialog)
         {
+            if (_inputStageRunReviewDrainingDialogs.Contains(dialog))
+                return;
             if (_inputStageRunReviewEmbeddedVisionTransition)
                 return;
 
@@ -1503,8 +1753,24 @@ namespace QMC.CDT_320
         private void StopInputStageRunReviewEmbeddedVision(
             InputStageRunReviewDialog dialog,
             bool restoreViewer,
-            string status)
+            string status,
+            bool stopConfirmed = false)
         {
+            if (!ReferenceEquals(dialog, _inputStageRunReviewDialog))
+                return;
+            if (_inputStageRunReviewDrainingDialogs.Contains(dialog) && !stopConfirmed)
+            {
+                if (dialog != null && !dialog.IsDisposed)
+                    dialog.SetStatusMessage("Review 동작 종료가 아직 확인되지 않았습니다. STOP 및 장비 상태를 확인하세요.");
+                return;
+            }
+            InputStageRunReviewOneShotState oneShot = _inputStageRunReviewOneShot;
+            if (oneShot != null && ReferenceEquals(oneShot.Dialog, dialog) && !oneShot.Completion.Task.IsCompleted)
+            {
+                if (dialog != null && !dialog.IsDisposed)
+                    dialog.SetStatusMessage("진행 중인 Review 동작을 STOP으로 종료한 뒤 비전 사용을 종료하세요.");
+                return;
+            }
             try
             {
                 // CAM_SWITCH OFF와 Viewer 수신 Thread 정지를 먼저 완료한 뒤 Resource Lease를 반환합니다.
@@ -1523,6 +1789,9 @@ namespace QMC.CDT_320
             {
                 DisposeInputStageRunReviewEmbeddedVisionScope();
                 _inputStageRunReviewEmbeddedVisionTransition = false;
+                _inputStageRunReviewDrainingDialogs.Remove(dialog);
+                if (dialog != null && !dialog.IsDisposed)
+                    dialog.SetReviewStopPending(false);
             }
 
             if (restoreViewer && dialog != null && !dialog.IsDisposed)
@@ -1561,6 +1830,8 @@ namespace QMC.CDT_320
 
         private async void OpenInputStageRunReviewVisionTest(InputStageRunReviewDialog dialog)
         {
+            if (_inputStageRunReviewDrainingDialogs.Contains(dialog))
+                return;
             if (Controller == null || !Controller.IsInputStageRunReviewManualActive)
             {
                 if (dialog != null)

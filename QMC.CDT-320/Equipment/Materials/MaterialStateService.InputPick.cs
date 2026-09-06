@@ -653,6 +653,8 @@ namespace QMC.CDT320.Materials
                         }
 
                         DieMap map = BuildDieMapFromWafer(wafer);
+                        if (!IsInputStageReviewGeometryApprovalUsableNoLock(wafer, map, out reason))
+                            return false;
                         if (wafer.DieIds == null || wafer.DieIds.Count == 0 ||
                             map == null || map.Entries == null || map.Entries.Count == 0)
                         {
@@ -701,6 +703,7 @@ namespace QMC.CDT320.Materials
             out string reason)
         {
             reason = string.Empty;
+            string verificationIdForSave = null;
 
             try
             {
@@ -709,6 +712,13 @@ namespace QMC.CDT320.Materials
                     if (wafer == null)
                     {
                         reason = "InputStage 리뷰 자동 승인 대상 Wafer Material이 없습니다.";
+                        return false;
+                    }
+
+                    AppSettings reviewSettings = AppSettingsStore.Current;
+                    if (reviewSettings == null || !reviewSettings.SimulationMode)
+                    {
+                        reason = "기본 순서 자동 승인은 SimulationMode에서만 허용됩니다.";
                         return false;
                     }
 
@@ -791,6 +801,19 @@ namespace QMC.CDT320.Materials
                     }
 
                     // 시작 Die 미지정(index=0) — ValidateInputStageRunReviewStartSelection의 기본 통과 조건이다.
+                    if (!wafer.HasInputStageReviewBaseline)
+                        SetInputStageReviewBaseline(wafer, map);
+                    InputStageReviewGeometryContext simulationContext;
+                    if (!TryBuildInputStageReviewContextNoLock(wafer, map, 1, 1, false, out simulationContext, out reason))
+                        return false;
+                    wafer.InputStageReviewVerification = new InputStageReviewSavedVerification
+                    {
+                        VerificationId = "SIMULATION-DEFAULT-" + Guid.NewGuid().ToString("N"),
+                        Context = simulationContext, Tolerance = GetInputStageReviewGeometryTolerance(),
+                        Measurements = new List<InputStageReviewMeasurement>()
+                    };
+                    verificationIdForSave = wafer.InputStageReviewVerification.VerificationId;
+                    _inputStageReviewPendingSave.Add(wafer.WaferInstanceId ?? "");
                     wafer.HasInputStageRunReviewApproval = true;
                     wafer.InputStageRunReviewStartDieIndex = 0;
                     wafer.InputStageRunReviewStartDieUid = "";
@@ -803,9 +826,16 @@ namespace QMC.CDT320.Materials
                     reason = "InputStage 리뷰를 기본 순서로 자동 승인했습니다. waferId=" + (wafer.WaferId ?? "") +
                              ", orderedCount=" + orderedIds.Count +
                              ", mappingRevision=" + mappingRevision;
-                    NotifyAndSave("InputStageRunReviewAutoApproved");
-                    return true;
+                    if (!TryNotifyAndSave("InputStageRunReviewAutoApproved"))
+                    {
+                        wafer.HasInputStageRunReviewApproval = false;
+                        wafer.InputStageReviewVerification = null;
+                        _inputStageReviewPendingSave.Remove(wafer.WaferInstanceId ?? "");
+                        reason = "시뮬레이션 Review 저장 요청에 실패했습니다.";
+                        return false;
+                    }
                 }
+                return TryCompleteInputStageReviewCommitSave(wafer, verificationIdForSave, out reason);
             }
             catch (Exception ex)
             {
@@ -824,6 +854,8 @@ namespace QMC.CDT320.Materials
             out string reason)
         {
             reason = string.Empty;
+            string verificationIdForSave = null;
+            bool preserveMaterialProgress = false;
 
             try
             {
@@ -928,18 +960,9 @@ namespace QMC.CDT320.Materials
                         MaterialLocationKind location = die.CurrentLocation != null
                             ? die.CurrentLocation.Kind
                             : MaterialLocationKind.Unknown;
-                        if (location != MaterialLocationKind.Unknown && location != MaterialLocationKind.InputStage)
-                        {
-                            reason = "Review 중 이미 InputStage를 벗어난 Die가 있습니다. die=" +
-                                     draft.DieId + ", location=" + location;
-                            return false;
-                        }
-
-                        if (IsDieReservedForPicker(die) || HasInputPickCompletedHistory(die))
-                        {
-                            reason = "Review 중 이미 예약 또는 Pick 완료된 Die가 있습니다. die=" + draft.DieId;
-                            return false;
-                        }
+                        if ((location != MaterialLocationKind.Unknown && location != MaterialLocationKind.InputStage) ||
+                            IsDieReservedForPicker(die) || HasInputPickCompletedHistory(die))
+                            preserveMaterialProgress = true;
 
                         if (draft.HasPosition &&
                             (double.IsNaN(draft.PositionX) || double.IsInfinity(draft.PositionX) ||
@@ -997,87 +1020,125 @@ namespace QMC.CDT320.Materials
                         return false;
                     }
 
-                    foreach (InputStageRunReviewDieState draft in draftById.Values)
+                    InputStageReviewSavedVerification geometryVerification;
+                    if (preserveMaterialProgress && !CheckInputStageReviewProgressPreservation(
+                        current, currentMap, review, currentMappingRevision, out reason))
+                        return false;
+                    if (!TryValidateInputStageReviewCommitNoLock(current, currentMap, review, out geometryVerification, out reason))
+                        return false;
+
+                    // 검증을 통과한 후보만 반영하되, 일부 단계 실패가 이전 승인을 재사용하지 못하게 한다.
+                    current.HasInputStageRunReviewApproval = false;
+                    current.InputStageReviewVerification = null;
+                    _inputStageReviewPendingSave.Add(current.WaferInstanceId ?? "");
+                    InvalidateInputPickContextCacheNoLock();
+                    // 이미 진행된 Wafer는 물리 진행/상태/좌표/순서를 보존하고 검증 증거만 갱신한다.
+                    if (!preserveMaterialProgress)
                     {
-                        DieMaterial die = waferDies[draft.DieId];
-                        DieResult committedResult = draft.IsTarget ? draft.Result : DieResult.Unknown;
-                        ApplyManualDieStateNoLock(
-                            die,
-                            draft.IsTarget,
-                            committedResult,
-                            draft.BinCode,
-                            draft.Result == DieResult.NG ? "ManualInputMapEdit" : "");
-                        if (draft.HasPosition)
+                        foreach (InputStageRunReviewDieState draft in draftById.Values)
                         {
-                            if (die.WaferOffset == null)
-                                die.WaferOffset = new VisionOffset();
-                            die.WaferOffset.X = draft.PositionX;
-                            die.WaferOffset.Y = draft.PositionY;
-                            die.WaferOffset.R = 0.0;
-                            die.WaferOffset.IsValid = true;
-                        }
-                        die.InputSequenceNo = 0;
-                        SyncActiveInputMapEntryNoLock(
-                            die.DieId,
-                            draft.IsTarget,
-                            committedResult,
-                            ResolveManualBinCode(committedResult, draft.BinCode));
-                        SyncInputPickVisionReviewInspectionNoLock(die, committedResult);
-                    }
-
-                    for (int i = 0; i < orderedIds.Count; i++)
-                        waferDies[orderedIds[i]].InputSequenceNo = i + 1;
-
-                    DieMap activeMap = LotStorage.ActiveInputDieMap;
-                    if (activeMap != null && activeMap.Entries != null)
-                    {
-                        foreach (DieMapEntry entry in activeMap.Entries)
-                        {
-                            if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
-                                continue;
-
-                            DieMaterial die;
-                            if (waferDies.TryGetValue(entry.DieUid, out die))
+                            DieMaterial die = waferDies[draft.DieId];
+                            DieResult committedResult = draft.IsTarget ? draft.Result : DieResult.Unknown;
+                            ApplyManualDieStateNoLock(
+                                die,
+                                draft.IsTarget,
+                                committedResult,
+                                draft.BinCode,
+                                draft.Result == DieResult.NG ? "ManualInputMapEdit" : "");
+                            if (draft.HasPosition)
                             {
-                                entry.SequenceNo = die.InputSequenceNo;
-                                if (die.WaferOffset != null && die.WaferOffset.IsValid)
+                                if (die.WaferOffset == null)
+                                    die.WaferOffset = new VisionOffset();
+                                die.WaferOffset.X = draft.PositionX;
+                                die.WaferOffset.Y = draft.PositionY;
+                                die.WaferOffset.R = 0.0;
+                                die.WaferOffset.IsValid = true;
+                            }
+                            die.InputSequenceNo = 0;
+                            SyncActiveInputMapEntryNoLock(
+                                die.DieId,
+                                draft.IsTarget,
+                                committedResult,
+                                ResolveManualBinCode(committedResult, draft.BinCode));
+                            SyncInputPickVisionReviewInspectionNoLock(die, committedResult);
+                        }
+
+                        for (int i = 0; i < orderedIds.Count; i++)
+                            waferDies[orderedIds[i]].InputSequenceNo = i + 1;
+
+                        DieMap activeMap = LotStorage.ActiveInputDieMap;
+                        if (activeMap != null && activeMap.Entries != null)
+                        {
+                            foreach (DieMapEntry entry in activeMap.Entries)
+                            {
+                                if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                                    continue;
+
+                                DieMaterial die;
+                                if (waferDies.TryGetValue(entry.DieUid, out die))
                                 {
-                                    entry.PosX = die.WaferOffset.X;
-                                    entry.PosY = die.WaferOffset.Y;
+                                    entry.SequenceNo = die.InputSequenceNo;
+                                    if (die.WaferOffset != null && die.WaferOffset.IsValid)
+                                    {
+                                        entry.PosX = die.WaferOffset.X;
+                                        entry.PosY = die.WaferOffset.Y;
+                                    }
                                 }
+                            }
+                        }
+
+                        if (review.HasMapOrigin &&
+                            !double.IsNaN(review.MapOriginX) && !double.IsInfinity(review.MapOriginX) &&
+                            !double.IsNaN(review.MapOriginY) && !double.IsInfinity(review.MapOriginY))
+                        {
+                            current.HasInputStageDieMappingOrigin = true;
+                            current.InputStageDieMappingOriginX = review.MapOriginX;
+                            current.InputStageDieMappingOriginY = review.MapOriginY;
+                            current.InputStageDieMappingOffsetX = review.MapOriginX - current.InputStageAlignOriginX;
+                            current.InputStageDieMappingOffsetY = review.MapOriginY - current.InputStageAlignOriginY;
+                            if (activeMap != null)
+                            {
+                                activeMap.OriginX = review.MapOriginX;
+                                activeMap.OriginY = review.MapOriginY;
                             }
                         }
                     }
 
-                    if (review.HasMapOrigin &&
-                        !double.IsNaN(review.MapOriginX) && !double.IsInfinity(review.MapOriginX) &&
-                        !double.IsNaN(review.MapOriginY) && !double.IsInfinity(review.MapOriginY))
-                    {
-                        current.HasInputStageDieMappingOrigin = true;
-                        current.InputStageDieMappingOriginX = review.MapOriginX;
-                        current.InputStageDieMappingOriginY = review.MapOriginY;
-                        current.InputStageDieMappingOffsetX = review.MapOriginX - current.InputStageAlignOriginX;
-                        current.InputStageDieMappingOffsetY = review.MapOriginY - current.InputStageAlignOriginY;
-                        if (activeMap != null)
-                        {
-                            activeMap.OriginX = review.MapOriginX;
-                            activeMap.OriginY = review.MapOriginY;
-                        }
-                    }
-
+                    current.InputStageReviewVerification = geometryVerification;
+                    verificationIdForSave = geometryVerification.VerificationId;
+                    _inputStageReviewPendingSave.Add(current.WaferInstanceId ?? "");
                     current.HasInputStageRunReviewApproval = true;
-                    current.InputStageRunReviewStartDieIndex = review.StartDieIndex;
-                    current.InputStageRunReviewStartDieUid = review.StartDieUid ?? "";
-                    current.InputStageRunReviewOrderedDieIds = new List<string>(orderedIds);
-                    current.InputStageRunReviewMappingRevision = currentMappingRevision;
+                    if (!preserveMaterialProgress)
+                    {
+                        current.InputStageRunReviewStartDieIndex = review.StartDieIndex;
+                        current.InputStageRunReviewStartDieUid = review.StartDieUid ?? "";
+                        current.InputStageRunReviewOrderedDieIds = new List<string>(orderedIds);
+                        current.InputStageRunReviewMappingRevision = currentMappingRevision;
+                    }
                     current.UpdatedAt = DateTime.Now;
 
-                    NotifyAndSave("InputStageRunReviewCommit");
-                    reason = "InputStage Review 상태와 PickUp 순서를 확정했습니다. wafer=" +
-                             (current.WaferId ?? "") + ", target=" + orderedIds.Count +
-                             ", startDie=" + (current.InputStageRunReviewStartDieUid ?? "");
-                    return true;
+                    InvalidateInputPickContextCacheNoLock();
+                    if (!TryNotifyAndSave("InputStageRunReviewCommit"))
+                    {
+                        current.HasInputStageRunReviewApproval = false;
+                        current.InputStageReviewVerification = null;
+                        _inputStageReviewPendingSave.Remove(current.WaferInstanceId ?? "");
+                        reason = "Review 변경 저장 요청에 실패하여 승인을 해제했습니다.";
+                        return false;
+                    }
+                    wafer = current;
+                    _inputStageReviewVerificationToken = null;
+                    _inputStageReviewEvidence = null;
+                    _inputStageReviewNonProductionContext = null;
                 }
+                if (!TryCompleteInputStageReviewCommitSave(wafer, verificationIdForSave, out reason))
+                    return false;
+                reason = verificationIdForSave.StartsWith("NONPRODUCTION-MANUAL-", StringComparison.Ordinal)
+                    ? "비실운전 Review 상태와 승인 순서를 저장/확정했습니다. wafer=" + (wafer.WaferId ?? "")
+                    : (preserveMaterialProgress
+                    ? "기존 Die 진행 상태와 승인 순서를 보존하고 다점 검증을 저장/확정했습니다. wafer="
+                    : "InputStage Review 다점 검증과 PickUp 순서를 저장/확정했습니다. wafer=") + (wafer.WaferId ?? "");
+                return true;
             }
             catch (Exception ex)
             {
@@ -1595,6 +1656,10 @@ namespace QMC.CDT320.Materials
                 reason = "InputStage Align/Die Mapping 사용자 확인이 완료되지 않았습니다. waferId=" + wafer.WaferId;
                 return false;
             }
+
+            // 캐시된 순서가 있어도 레시피/좌표 조건과 저장 검증 증거는 실제 예약 직전에 다시 확인한다.
+            if (!IsInputStageReviewGeometryApprovalUsableNoLock(wafer, pickContext.Map, out reason))
+                return false;
 
             if (!pickContext.ReviewApprovalValid)
             {

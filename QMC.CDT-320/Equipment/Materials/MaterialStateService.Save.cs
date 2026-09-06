@@ -34,6 +34,8 @@ namespace QMC.CDT320.Materials
                 lock (_stateSync)
                 {
                     _stateVersion++;
+                    // UI StateChanged는 지연되므로 복구 승인 만료는 Material 변경 통지 안에서 즉시 정리한다.
+                    PrunePickerFlowRecoveriesNoLock("Material 변경: " + reason);
                 }
 
                 RequestStateChanged();

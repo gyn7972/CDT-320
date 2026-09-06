@@ -571,6 +571,13 @@ namespace QMC.CDT320.Materials
         [DataMember] public List<string> InputStageRunReviewOrderedDieIds { get; set; } = new List<string>();
         /// <summary>사용자 확인 시점의 Die Mapping revision/frame ID.</summary>
         [DataMember] public string InputStageRunReviewMappingRevision { get; set; } = "";
+        /// <summary>맵 생성 또는 현재 좌표의 다점 검증으로 확정한 누적 OFFSET 기준.</summary>
+        [DataMember] public bool HasInputStageReviewBaseline { get; set; }
+        [DataMember] public string InputStageReviewBaselineMappingRevision { get; set; } = "";
+        [DataMember] public double InputStageReviewBaselineOriginX { get; set; }
+        [DataMember] public double InputStageReviewBaselineOriginY { get; set; }
+        /// <summary>승인 후보의 좌표/조건과 원시 다점 검증 증거. 구형 저장 자료의 누락은 재검증 대상이다.</summary>
+        [DataMember] public InputStageReviewSavedVerification InputStageReviewVerification { get; set; }
         /// <summary>
         /// 동일 Slot 고정 WaferId 재사용 시 새 physical wafer를 구분하기 위한 처리 세대 번호.
         /// 새 wafer 투입(비보존 매핑) 경로마다 증가하며, 이전 Align/Mapping/Review 승인 상속을 차단한다.

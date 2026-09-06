@@ -676,6 +676,13 @@ namespace QMC.Common.Ui.Controls
         public void ZoomFit() { _zoom = 0; _panX = _panY = 0; UpdateMagLabel(); Invalidate(); }
         protected override void OnResize(EventArgs e) { base.OnResize(e); UpdateMagLabel(); }
 
+        /// <summary>검증점 영상은 이전 위치 영상과 평균하지 않는다. 누적 토글은 유지하고 버퍼만 비운다.</summary>
+        public void SetVerificationImage(Bitmap bmp)
+        {
+            ResetAccum();
+            SetImage(bmp);
+        }
+
         /// <summary>비트맵을 표시(내부 복제 — 원본은 호출자가 Dispose 가능).
         /// <see cref="DisplayOrientation"/> 가 설정돼 있으면 그 방향변환을 적용해 표시한다.</summary>
         public void SetImage(Bitmap bmp)

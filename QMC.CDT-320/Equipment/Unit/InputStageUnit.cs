@@ -147,6 +147,12 @@ namespace QMC.CDT320
         /// <summary>수동 Die 검출로 전체 Input Die Map에 적용할 수 있는 Y Offset 최대값 [mm].</summary>
         [DataMember] public double ManualDieDetectOffsetLimitY { get; set; } = 20.0;
 
+        /// <summary>검증 기준 원점에서 Input Die Map에 누적 적용할 수 있는 X Offset 최대값 [mm]. 단발 한계와 별개이며 반 피치로 제한하지 않는다.</summary>
+        [DataMember] public double ManualDieDetectCumulativeOffsetLimitX { get; set; } = 20.0;
+
+        /// <summary>검증 기준 원점에서 Input Die Map에 누적 적용할 수 있는 Y Offset 최대값 [mm]. 단발 한계와 별개이며 반 피치로 제한하지 않는다.</summary>
+        [DataMember] public double ManualDieDetectCumulativeOffsetLimitY { get; set; } = 20.0;
+
         /// <summary>Align 예상 Anchor에서 Die Mapping이 허용할 X 미세 보정 최대값 [mm].</summary>
         [DataMember] public double DieMapFineOffsetLimitX { get; set; } = 2.0;
 
@@ -175,6 +181,9 @@ namespace QMC.CDT320
         private void OnDeserializing(StreamingContext ctx)
         {
             InputDieVisionWaitRetryLimit = 3;
+            // 이전 설정에 누적 한계 키가 없을 때만 기본값을 사용한다. 저장된 값은 덮어쓰지 않는다.
+            ManualDieDetectCumulativeOffsetLimitX = 20.0;
+            ManualDieDetectCumulativeOffsetLimitY = 20.0;
         }
 
         [OnDeserialized]

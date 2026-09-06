@@ -123,14 +123,14 @@
             this.networkWaferMapLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbUseLotNetworkWaferMap = new System.Windows.Forms.CheckBox();
             this._tbNetworkWaferMapFolder = new System.Windows.Forms.TextBox();
-            this.lblOutputResultNetworkCopyFolder = new System.Windows.Forms.Label();
-            this._tbOutputResultNetworkCopyFolder = new System.Windows.Forms.TextBox();
             this.btnNetworkWaferMapCheck = new System.Windows.Forms.Button();
             this._cbNetworkWaferMapFormat = new System.Windows.Forms.ComboBox();
             this.lblVisionOperatorConfirmTimeout = new System.Windows.Forms.Label();
             this._tbVisionOperatorConfirmTimeoutSec = new System.Windows.Forms.TextBox();
             this.lblSimulationVisionNgRate = new System.Windows.Forms.Label();
             this._tbSimulationVisionNgRatePercent = new System.Windows.Forms.TextBox();
+            this.lblOutputResultNetworkCopyFolder = new System.Windows.Forms.Label();
+            this._tbOutputResultNetworkCopyFolder = new System.Windows.Forms.TextBox();
             this.grpAjin = new System.Windows.Forms.GroupBox();
             this.ajinLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbAjin = new System.Windows.Forms.CheckBox();
@@ -145,6 +145,7 @@
             this.pickRuntimeOffsetLayout.SuspendLayout();
             this.placeRuntimeOffsetLayout.SuspendLayout();
             this.pickerZRuntimeOffsetLayout.SuspendLayout();
+            this.networkWaferMapLayout.SuspendLayout();
             this.grpAjin.SuspendLayout();
             this.ajinLayout.SuspendLayout();
             this.logBtnLayout.SuspendLayout();
@@ -158,16 +159,16 @@
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
             this.rootLayout.Controls.Add(this.grpSetting, 0, 1);
             this.rootLayout.Controls.Add(this.grpAjin, 0, 2);
-            this.rootLayout.Controls.Add(this.logBtnLayout, 0, 3);
+            this.rootLayout.Controls.Add(this.logBtnLayout, 1, 2);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
             this.rootLayout.RowCount = 5;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 659F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 100F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 691F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 82F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 61F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
@@ -198,7 +199,7 @@
             this.grpSetting.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.grpSetting.Name = "grpSetting";
             this.grpSetting.Padding = new System.Windows.Forms.Padding(1, 10, 1, 2);
-            this.grpSetting.Size = new System.Drawing.Size(831, 511);
+            this.grpSetting.Size = new System.Drawing.Size(831, 690);
             this.grpSetting.TabIndex = 1;
             this.grpSetting.TabStop = false;
             this.grpSetting.Text = "SETTING";
@@ -209,18 +210,18 @@
             this.settingLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.settingLayout.Controls.Add(this.bodyLayout, 0, 0);
             this.settingLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.settingLayout.Location = new System.Drawing.Point(1, 30);
+            this.settingLayout.Location = new System.Drawing.Point(1, 35);
             this.settingLayout.Margin = new System.Windows.Forms.Padding(0);
             this.settingLayout.Name = "settingLayout";
             this.settingLayout.RowCount = 1;
             this.settingLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.settingLayout.Size = new System.Drawing.Size(829, 479);
+            this.settingLayout.Size = new System.Drawing.Size(829, 653);
             this.settingLayout.TabIndex = 0;
             // 
             // bodyLayout
             // 
             this.bodyLayout.ColumnCount = 2;
-            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 180F));
+            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 348F));
             this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.bodyLayout.Controls.Add(this.lblLanguage, 0, 0);
             this.bodyLayout.Controls.Add(this.lblBinArray, 0, 1);
@@ -282,9 +283,9 @@
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.bodyLayout.Size = new System.Drawing.Size(829, 479);
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 37F));
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 31F));
+            this.bodyLayout.Size = new System.Drawing.Size(829, 653);
             this.bodyLayout.TabIndex = 1;
             // 
             // lblLanguage
@@ -296,7 +297,7 @@
             this.lblLanguage.Margin = new System.Windows.Forms.Padding(2);
             this.lblLanguage.Name = "lblLanguage";
             this.lblLanguage.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblLanguage.Size = new System.Drawing.Size(176, 30);
+            this.lblLanguage.Size = new System.Drawing.Size(344, 30);
             this.lblLanguage.TabIndex = 0;
             this.lblLanguage.Text = "Language";
             this.lblLanguage.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -310,7 +311,7 @@
             this.lblBinArray.Margin = new System.Windows.Forms.Padding(2);
             this.lblBinArray.Name = "lblBinArray";
             this.lblBinArray.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblBinArray.Size = new System.Drawing.Size(176, 30);
+            this.lblBinArray.Size = new System.Drawing.Size(344, 30);
             this.lblBinArray.TabIndex = 1;
             this.lblBinArray.Text = "Bin Array File";
             this.lblBinArray.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -324,7 +325,7 @@
             this.lblVisionMatch.Margin = new System.Windows.Forms.Padding(2);
             this.lblVisionMatch.Name = "lblVisionMatch";
             this.lblVisionMatch.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblVisionMatch.Size = new System.Drawing.Size(176, 30);
+            this.lblVisionMatch.Size = new System.Drawing.Size(344, 30);
             this.lblVisionMatch.TabIndex = 2;
             this.lblVisionMatch.Text = "Vision Match Error";
             this.lblVisionMatch.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -338,7 +339,7 @@
             this.lblSimulationMode.Margin = new System.Windows.Forms.Padding(2);
             this.lblSimulationMode.Name = "lblSimulationMode";
             this.lblSimulationMode.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblSimulationMode.Size = new System.Drawing.Size(176, 30);
+            this.lblSimulationMode.Size = new System.Drawing.Size(344, 30);
             this.lblSimulationMode.TabIndex = 6;
             this.lblSimulationMode.Text = "SIMULATION MODE";
             this.lblSimulationMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -352,7 +353,7 @@
             this.lblDryRunMode.Margin = new System.Windows.Forms.Padding(2);
             this.lblDryRunMode.Name = "lblDryRunMode";
             this.lblDryRunMode.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblDryRunMode.Size = new System.Drawing.Size(176, 30);
+            this.lblDryRunMode.Size = new System.Drawing.Size(344, 30);
             this.lblDryRunMode.TabIndex = 7;
             this.lblDryRunMode.Text = "DRY RUN MODE";
             this.lblDryRunMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -366,7 +367,7 @@
             this.lblDeveloperMode.Margin = new System.Windows.Forms.Padding(2);
             this.lblDeveloperMode.Name = "lblDeveloperMode";
             this.lblDeveloperMode.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblDeveloperMode.Size = new System.Drawing.Size(176, 30);
+            this.lblDeveloperMode.Size = new System.Drawing.Size(344, 30);
             this.lblDeveloperMode.TabIndex = 10;
             this.lblDeveloperMode.Text = "DEVELOPER MODE";
             this.lblDeveloperMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -380,7 +381,7 @@
             this.lblPickerMotionOnlyTestMode.Margin = new System.Windows.Forms.Padding(2);
             this.lblPickerMotionOnlyTestMode.Name = "lblPickerMotionOnlyTestMode";
             this.lblPickerMotionOnlyTestMode.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPickerMotionOnlyTestMode.Size = new System.Drawing.Size(176, 30);
+            this.lblPickerMotionOnlyTestMode.Size = new System.Drawing.Size(344, 30);
             this.lblPickerMotionOnlyTestMode.TabIndex = 12;
             this.lblPickerMotionOnlyTestMode.Text = "PICKER MOTION ONLY TEST";
             this.lblPickerMotionOnlyTestMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -394,7 +395,7 @@
             this.lblUseVision.Margin = new System.Windows.Forms.Padding(2);
             this.lblUseVision.Name = "lblUseVision";
             this.lblUseVision.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblUseVision.Size = new System.Drawing.Size(176, 30);
+            this.lblUseVision.Size = new System.Drawing.Size(344, 30);
             this.lblUseVision.TabIndex = 14;
             this.lblUseVision.Text = "VISION USE";
             this.lblUseVision.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -408,7 +409,7 @@
             this.lblUseRealVisionInSimulation.Margin = new System.Windows.Forms.Padding(2);
             this.lblUseRealVisionInSimulation.Name = "lblUseRealVisionInSimulation";
             this.lblUseRealVisionInSimulation.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblUseRealVisionInSimulation.Size = new System.Drawing.Size(176, 30);
+            this.lblUseRealVisionInSimulation.Size = new System.Drawing.Size(344, 30);
             this.lblUseRealVisionInSimulation.TabIndex = 16;
             this.lblUseRealVisionInSimulation.Text = "REAL VISION IN SIMULATION";
             this.lblUseRealVisionInSimulation.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -422,7 +423,7 @@
             this.lblSkipRunReviewInSimulation.Margin = new System.Windows.Forms.Padding(2);
             this.lblSkipRunReviewInSimulation.Name = "lblSkipRunReviewInSimulation";
             this.lblSkipRunReviewInSimulation.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblSkipRunReviewInSimulation.Size = new System.Drawing.Size(176, 30);
+            this.lblSkipRunReviewInSimulation.Size = new System.Drawing.Size(344, 30);
             this.lblSkipRunReviewInSimulation.TabIndex = 30;
             this.lblSkipRunReviewInSimulation.Text = "SKIP RUN REVIEW (SIM)";
             this.lblSkipRunReviewInSimulation.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -436,13 +437,13 @@
             this.lblWaferCompleteRunMode.Margin = new System.Windows.Forms.Padding(2);
             this.lblWaferCompleteRunMode.Name = "lblWaferCompleteRunMode";
             this.lblWaferCompleteRunMode.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblWaferCompleteRunMode.Size = new System.Drawing.Size(176, 30);
+            this.lblWaferCompleteRunMode.Size = new System.Drawing.Size(344, 30);
             this.lblWaferCompleteRunMode.TabIndex = 18;
             this.lblWaferCompleteRunMode.Text = "WAFER COMPLETE RUN MODE";
             this.lblWaferCompleteRunMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblUseOutputGoodPickupCap
-            //
+            // 
             this.lblUseOutputGoodPickupCap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblUseOutputGoodPickupCap.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblUseOutputGoodPickupCap.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -450,7 +451,7 @@
             this.lblUseOutputGoodPickupCap.Margin = new System.Windows.Forms.Padding(2);
             this.lblUseOutputGoodPickupCap.Name = "lblUseOutputGoodPickupCap";
             this.lblUseOutputGoodPickupCap.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblUseOutputGoodPickupCap.Size = new System.Drawing.Size(176, 30);
+            this.lblUseOutputGoodPickupCap.Size = new System.Drawing.Size(344, 30);
             this.lblUseOutputGoodPickupCap.TabIndex = 20;
             this.lblUseOutputGoodPickupCap.Text = "GOOD OUTPUT PICKUP CAP";
             this.lblUseOutputGoodPickupCap.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -460,10 +461,10 @@
             this._cbLang.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbLang.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbLang.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbLang.Location = new System.Drawing.Point(182, 2);
+            this._cbLang.Location = new System.Drawing.Point(350, 2);
             this._cbLang.Margin = new System.Windows.Forms.Padding(2);
             this._cbLang.Name = "_cbLang";
-            this._cbLang.Size = new System.Drawing.Size(645, 23);
+            this._cbLang.Size = new System.Drawing.Size(477, 28);
             this._cbLang.TabIndex = 3;
             this._cbLang.SelectedIndexChanged += new System.EventHandler(this._cbLang_SelectedIndexChanged);
             // 
@@ -472,10 +473,10 @@
             this._cbBinArr.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbBinArr.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbBinArr.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbBinArr.Location = new System.Drawing.Point(182, 36);
+            this._cbBinArr.Location = new System.Drawing.Point(350, 36);
             this._cbBinArr.Margin = new System.Windows.Forms.Padding(2);
             this._cbBinArr.Name = "_cbBinArr";
-            this._cbBinArr.Size = new System.Drawing.Size(645, 23);
+            this._cbBinArr.Size = new System.Drawing.Size(477, 28);
             this._cbBinArr.TabIndex = 4;
             this._cbBinArr.SelectedIndexChanged += new System.EventHandler(this._cbBinArr_SelectedIndexChanged);
             // 
@@ -484,10 +485,10 @@
             this._cbVisionMatch.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbVisionMatch.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbVisionMatch.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbVisionMatch.Location = new System.Drawing.Point(182, 70);
+            this._cbVisionMatch.Location = new System.Drawing.Point(350, 70);
             this._cbVisionMatch.Margin = new System.Windows.Forms.Padding(2);
             this._cbVisionMatch.Name = "_cbVisionMatch";
-            this._cbVisionMatch.Size = new System.Drawing.Size(645, 23);
+            this._cbVisionMatch.Size = new System.Drawing.Size(477, 28);
             this._cbVisionMatch.TabIndex = 5;
             this._cbVisionMatch.SelectedIndexChanged += new System.EventHandler(this._cbVisionMatch_SelectedIndexChanged);
             // 
@@ -496,10 +497,10 @@
             this._cbSimulationMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbSimulationMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbSimulationMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbSimulationMode.Location = new System.Drawing.Point(182, 104);
+            this._cbSimulationMode.Location = new System.Drawing.Point(350, 104);
             this._cbSimulationMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbSimulationMode.Name = "_cbSimulationMode";
-            this._cbSimulationMode.Size = new System.Drawing.Size(645, 23);
+            this._cbSimulationMode.Size = new System.Drawing.Size(477, 28);
             this._cbSimulationMode.TabIndex = 8;
             this._cbSimulationMode.SelectedIndexChanged += new System.EventHandler(this._cbSimulationMode_SelectedIndexChanged);
             // 
@@ -508,10 +509,10 @@
             this._cbDryRunMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbDryRunMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbDryRunMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbDryRunMode.Location = new System.Drawing.Point(182, 138);
+            this._cbDryRunMode.Location = new System.Drawing.Point(350, 138);
             this._cbDryRunMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbDryRunMode.Name = "_cbDryRunMode";
-            this._cbDryRunMode.Size = new System.Drawing.Size(645, 23);
+            this._cbDryRunMode.Size = new System.Drawing.Size(477, 28);
             this._cbDryRunMode.TabIndex = 9;
             this._cbDryRunMode.SelectedIndexChanged += new System.EventHandler(this._cbDryRunMode_SelectedIndexChanged);
             // 
@@ -520,10 +521,10 @@
             this._cbDeveloperMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbDeveloperMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbDeveloperMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbDeveloperMode.Location = new System.Drawing.Point(182, 172);
+            this._cbDeveloperMode.Location = new System.Drawing.Point(350, 172);
             this._cbDeveloperMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbDeveloperMode.Name = "_cbDeveloperMode";
-            this._cbDeveloperMode.Size = new System.Drawing.Size(645, 23);
+            this._cbDeveloperMode.Size = new System.Drawing.Size(477, 28);
             this._cbDeveloperMode.TabIndex = 11;
             this._cbDeveloperMode.SelectedIndexChanged += new System.EventHandler(this._cbDeveloperMode_SelectedIndexChanged);
             // 
@@ -532,10 +533,10 @@
             this._cbPickerMotionOnlyTestMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbPickerMotionOnlyTestMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbPickerMotionOnlyTestMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbPickerMotionOnlyTestMode.Location = new System.Drawing.Point(182, 206);
+            this._cbPickerMotionOnlyTestMode.Location = new System.Drawing.Point(350, 206);
             this._cbPickerMotionOnlyTestMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbPickerMotionOnlyTestMode.Name = "_cbPickerMotionOnlyTestMode";
-            this._cbPickerMotionOnlyTestMode.Size = new System.Drawing.Size(645, 23);
+            this._cbPickerMotionOnlyTestMode.Size = new System.Drawing.Size(477, 28);
             this._cbPickerMotionOnlyTestMode.TabIndex = 13;
             this._cbPickerMotionOnlyTestMode.SelectedIndexChanged += new System.EventHandler(this._cbPickerMotionOnlyTestMode_SelectedIndexChanged);
             // 
@@ -544,10 +545,10 @@
             this._cbUseVision.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbUseVision.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbUseVision.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbUseVision.Location = new System.Drawing.Point(182, 240);
+            this._cbUseVision.Location = new System.Drawing.Point(350, 240);
             this._cbUseVision.Margin = new System.Windows.Forms.Padding(2);
             this._cbUseVision.Name = "_cbUseVision";
-            this._cbUseVision.Size = new System.Drawing.Size(645, 23);
+            this._cbUseVision.Size = new System.Drawing.Size(477, 28);
             this._cbUseVision.TabIndex = 15;
             this._cbUseVision.SelectedIndexChanged += new System.EventHandler(this._cbUseVision_SelectedIndexChanged);
             // 
@@ -556,10 +557,10 @@
             this._cbUseRealVisionInSimulation.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbUseRealVisionInSimulation.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbUseRealVisionInSimulation.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbUseRealVisionInSimulation.Location = new System.Drawing.Point(182, 274);
+            this._cbUseRealVisionInSimulation.Location = new System.Drawing.Point(350, 274);
             this._cbUseRealVisionInSimulation.Margin = new System.Windows.Forms.Padding(2);
             this._cbUseRealVisionInSimulation.Name = "_cbUseRealVisionInSimulation";
-            this._cbUseRealVisionInSimulation.Size = new System.Drawing.Size(645, 23);
+            this._cbUseRealVisionInSimulation.Size = new System.Drawing.Size(477, 28);
             this._cbUseRealVisionInSimulation.TabIndex = 17;
             this._cbUseRealVisionInSimulation.SelectedIndexChanged += new System.EventHandler(this._cbUseRealVisionInSimulation_SelectedIndexChanged);
             // 
@@ -568,10 +569,10 @@
             this._cbSkipRunReviewInSimulation.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbSkipRunReviewInSimulation.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbSkipRunReviewInSimulation.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbSkipRunReviewInSimulation.Location = new System.Drawing.Point(182, 308);
+            this._cbSkipRunReviewInSimulation.Location = new System.Drawing.Point(350, 308);
             this._cbSkipRunReviewInSimulation.Margin = new System.Windows.Forms.Padding(2);
             this._cbSkipRunReviewInSimulation.Name = "_cbSkipRunReviewInSimulation";
-            this._cbSkipRunReviewInSimulation.Size = new System.Drawing.Size(645, 23);
+            this._cbSkipRunReviewInSimulation.Size = new System.Drawing.Size(477, 28);
             this._cbSkipRunReviewInSimulation.TabIndex = 31;
             this._cbSkipRunReviewInSimulation.SelectedIndexChanged += new System.EventHandler(this._cbSkipRunReviewInSimulation_SelectedIndexChanged);
             // 
@@ -580,22 +581,22 @@
             this._cbWaferCompleteRunMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbWaferCompleteRunMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbWaferCompleteRunMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbWaferCompleteRunMode.Location = new System.Drawing.Point(182, 342);
+            this._cbWaferCompleteRunMode.Location = new System.Drawing.Point(350, 342);
             this._cbWaferCompleteRunMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbWaferCompleteRunMode.Name = "_cbWaferCompleteRunMode";
-            this._cbWaferCompleteRunMode.Size = new System.Drawing.Size(645, 23);
+            this._cbWaferCompleteRunMode.Size = new System.Drawing.Size(477, 28);
             this._cbWaferCompleteRunMode.TabIndex = 19;
             this._cbWaferCompleteRunMode.SelectedIndexChanged += new System.EventHandler(this._cbWaferCompleteRunMode_SelectedIndexChanged);
-            //
+            // 
             // _cbUseOutputGoodPickupCap
-            //
+            // 
             this._cbUseOutputGoodPickupCap.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbUseOutputGoodPickupCap.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbUseOutputGoodPickupCap.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbUseOutputGoodPickupCap.Location = new System.Drawing.Point(182, 376);
+            this._cbUseOutputGoodPickupCap.Location = new System.Drawing.Point(350, 376);
             this._cbUseOutputGoodPickupCap.Margin = new System.Windows.Forms.Padding(2);
             this._cbUseOutputGoodPickupCap.Name = "_cbUseOutputGoodPickupCap";
-            this._cbUseOutputGoodPickupCap.Size = new System.Drawing.Size(645, 23);
+            this._cbUseOutputGoodPickupCap.Size = new System.Drawing.Size(477, 28);
             this._cbUseOutputGoodPickupCap.TabIndex = 21;
             this._cbUseOutputGoodPickupCap.SelectedIndexChanged += new System.EventHandler(this._cbUseOutputGoodPickupCap_SelectedIndexChanged);
             // 
@@ -608,7 +609,7 @@
             this.lblPickRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this.lblPickRuntimeOffset.Name = "lblPickRuntimeOffset";
             this.lblPickRuntimeOffset.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPickRuntimeOffset.Size = new System.Drawing.Size(176, 30);
+            this.lblPickRuntimeOffset.Size = new System.Drawing.Size(344, 30);
             this.lblPickRuntimeOffset.TabIndex = 22;
             this.lblPickRuntimeOffset.Text = "PICK RUNTIME OFFSET";
             this.lblPickRuntimeOffset.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -623,12 +624,12 @@
             this.pickRuntimeOffsetLayout.Controls.Add(this.btnResetPickRuntimeOffset, 1, 0);
             this.pickRuntimeOffsetLayout.Controls.Add(this.btnRuntimeFilterSettings, 2, 0);
             this.pickRuntimeOffsetLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pickRuntimeOffsetLayout.Location = new System.Drawing.Point(180, 408);
+            this.pickRuntimeOffsetLayout.Location = new System.Drawing.Point(348, 408);
             this.pickRuntimeOffsetLayout.Margin = new System.Windows.Forms.Padding(0);
             this.pickRuntimeOffsetLayout.Name = "pickRuntimeOffsetLayout";
             this.pickRuntimeOffsetLayout.RowCount = 1;
             this.pickRuntimeOffsetLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.pickRuntimeOffsetLayout.Size = new System.Drawing.Size(649, 34);
+            this.pickRuntimeOffsetLayout.Size = new System.Drawing.Size(481, 34);
             this.pickRuntimeOffsetLayout.TabIndex = 23;
             // 
             // _cbPickRuntimeOffset
@@ -639,7 +640,7 @@
             this._cbPickRuntimeOffset.Location = new System.Drawing.Point(2, 2);
             this._cbPickRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this._cbPickRuntimeOffset.Name = "_cbPickRuntimeOffset";
-            this._cbPickRuntimeOffset.Size = new System.Drawing.Size(535, 23);
+            this._cbPickRuntimeOffset.Size = new System.Drawing.Size(237, 28);
             this._cbPickRuntimeOffset.TabIndex = 0;
             this._cbPickRuntimeOffset.SelectedIndexChanged += new System.EventHandler(this._cbPickRuntimeOffset_SelectedIndexChanged);
             // 
@@ -648,7 +649,7 @@
             this.btnResetPickRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnResetPickRuntimeOffset.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnResetPickRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnResetPickRuntimeOffset.Location = new System.Drawing.Point(541, 2);
+            this.btnResetPickRuntimeOffset.Location = new System.Drawing.Point(243, 2);
             this.btnResetPickRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this.btnResetPickRuntimeOffset.Name = "btnResetPickRuntimeOffset";
             this.btnResetPickRuntimeOffset.Size = new System.Drawing.Size(106, 30);
@@ -656,13 +657,13 @@
             this.btnResetPickRuntimeOffset.Text = "RESET";
             this.btnResetPickRuntimeOffset.UseVisualStyleBackColor = true;
             this.btnResetPickRuntimeOffset.Click += new System.EventHandler(this.btnResetPickRuntimeOffset_Click);
-            //
+            // 
             // btnRuntimeFilterSettings
-            //
+            // 
             this.btnRuntimeFilterSettings.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnRuntimeFilterSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnRuntimeFilterSettings.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnRuntimeFilterSettings.Location = new System.Drawing.Point(521, 2);
+            this.btnRuntimeFilterSettings.Location = new System.Drawing.Point(353, 2);
             this.btnRuntimeFilterSettings.Margin = new System.Windows.Forms.Padding(2);
             this.btnRuntimeFilterSettings.Name = "btnRuntimeFilterSettings";
             this.btnRuntimeFilterSettings.Size = new System.Drawing.Size(126, 30);
@@ -680,7 +681,7 @@
             this.lblPlaceRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this.lblPlaceRuntimeOffset.Name = "lblPlaceRuntimeOffset";
             this.lblPlaceRuntimeOffset.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPlaceRuntimeOffset.Size = new System.Drawing.Size(176, 33);
+            this.lblPlaceRuntimeOffset.Size = new System.Drawing.Size(344, 30);
             this.lblPlaceRuntimeOffset.TabIndex = 24;
             this.lblPlaceRuntimeOffset.Text = "PLACE RUNTIME OFFSET";
             this.lblPlaceRuntimeOffset.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -695,12 +696,12 @@
             this.placeRuntimeOffsetLayout.Controls.Add(this.btnResetPlaceRuntimeOffset, 1, 0);
             this.placeRuntimeOffsetLayout.Controls.Add(this.btnRuntimeOffsetMonitor, 2, 0);
             this.placeRuntimeOffsetLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.placeRuntimeOffsetLayout.Location = new System.Drawing.Point(180, 442);
+            this.placeRuntimeOffsetLayout.Location = new System.Drawing.Point(348, 442);
             this.placeRuntimeOffsetLayout.Margin = new System.Windows.Forms.Padding(0);
             this.placeRuntimeOffsetLayout.Name = "placeRuntimeOffsetLayout";
             this.placeRuntimeOffsetLayout.RowCount = 1;
             this.placeRuntimeOffsetLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.placeRuntimeOffsetLayout.Size = new System.Drawing.Size(649, 37);
+            this.placeRuntimeOffsetLayout.Size = new System.Drawing.Size(481, 34);
             this.placeRuntimeOffsetLayout.TabIndex = 25;
             // 
             // _cbPlaceRuntimeOffset
@@ -711,7 +712,7 @@
             this._cbPlaceRuntimeOffset.Location = new System.Drawing.Point(2, 2);
             this._cbPlaceRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this._cbPlaceRuntimeOffset.Name = "_cbPlaceRuntimeOffset";
-            this._cbPlaceRuntimeOffset.Size = new System.Drawing.Size(405, 23);
+            this._cbPlaceRuntimeOffset.Size = new System.Drawing.Size(237, 28);
             this._cbPlaceRuntimeOffset.TabIndex = 0;
             this._cbPlaceRuntimeOffset.SelectedIndexChanged += new System.EventHandler(this._cbPlaceRuntimeOffset_SelectedIndexChanged);
             // 
@@ -720,10 +721,10 @@
             this.btnResetPlaceRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnResetPlaceRuntimeOffset.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnResetPlaceRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnResetPlaceRuntimeOffset.Location = new System.Drawing.Point(411, 2);
+            this.btnResetPlaceRuntimeOffset.Location = new System.Drawing.Point(243, 2);
             this.btnResetPlaceRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this.btnResetPlaceRuntimeOffset.Name = "btnResetPlaceRuntimeOffset";
-            this.btnResetPlaceRuntimeOffset.Size = new System.Drawing.Size(106, 33);
+            this.btnResetPlaceRuntimeOffset.Size = new System.Drawing.Size(106, 30);
             this.btnResetPlaceRuntimeOffset.TabIndex = 1;
             this.btnResetPlaceRuntimeOffset.Text = "RESET";
             this.btnResetPlaceRuntimeOffset.UseVisualStyleBackColor = true;
@@ -734,17 +735,17 @@
             this.btnRuntimeOffsetMonitor.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnRuntimeOffsetMonitor.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnRuntimeOffsetMonitor.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnRuntimeOffsetMonitor.Location = new System.Drawing.Point(521, 2);
+            this.btnRuntimeOffsetMonitor.Location = new System.Drawing.Point(353, 2);
             this.btnRuntimeOffsetMonitor.Margin = new System.Windows.Forms.Padding(2);
             this.btnRuntimeOffsetMonitor.Name = "btnRuntimeOffsetMonitor";
-            this.btnRuntimeOffsetMonitor.Size = new System.Drawing.Size(126, 33);
+            this.btnRuntimeOffsetMonitor.Size = new System.Drawing.Size(126, 30);
             this.btnRuntimeOffsetMonitor.TabIndex = 2;
             this.btnRuntimeOffsetMonitor.Text = "OFFSET MONITOR";
             this.btnRuntimeOffsetMonitor.UseVisualStyleBackColor = true;
             this.btnRuntimeOffsetMonitor.Click += new System.EventHandler(this.btnRuntimeOffsetMonitor_Click);
-            //
+            // 
             // lblPickerZRuntimeOffset
-            //
+            // 
             this.lblPickerZRuntimeOffset.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblPickerZRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPickerZRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -752,48 +753,45 @@
             this.lblPickerZRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this.lblPickerZRuntimeOffset.Name = "lblPickerZRuntimeOffset";
             this.lblPickerZRuntimeOffset.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPickerZRuntimeOffset.Size = new System.Drawing.Size(176, 30);
+            this.lblPickerZRuntimeOffset.Size = new System.Drawing.Size(344, 30);
             this.lblPickerZRuntimeOffset.TabIndex = 26;
             this.lblPickerZRuntimeOffset.Text = "PICKER Z RUNTIME OFFSET";
             this.lblPickerZRuntimeOffset.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // _cbPickerZRuntimeOffset
-            //
-            //
+            // 
             // pickerZRuntimeOffsetLayout
-            //
+            // 
             this.pickerZRuntimeOffsetLayout.ColumnCount = 2;
             this.pickerZRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.pickerZRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 110F));
             this.pickerZRuntimeOffsetLayout.Controls.Add(this._cbPickerZRuntimeOffset, 0, 0);
             this.pickerZRuntimeOffsetLayout.Controls.Add(this.btnResetPickerZRuntimeOffset, 1, 0);
             this.pickerZRuntimeOffsetLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pickerZRuntimeOffsetLayout.Location = new System.Drawing.Point(180, 476);
+            this.pickerZRuntimeOffsetLayout.Location = new System.Drawing.Point(348, 476);
             this.pickerZRuntimeOffsetLayout.Margin = new System.Windows.Forms.Padding(0);
             this.pickerZRuntimeOffsetLayout.Name = "pickerZRuntimeOffsetLayout";
             this.pickerZRuntimeOffsetLayout.RowCount = 1;
             this.pickerZRuntimeOffsetLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.pickerZRuntimeOffsetLayout.Size = new System.Drawing.Size(649, 34);
+            this.pickerZRuntimeOffsetLayout.Size = new System.Drawing.Size(481, 34);
             this.pickerZRuntimeOffsetLayout.TabIndex = 27;
-            //
+            // 
             // _cbPickerZRuntimeOffset
-            //
+            // 
             this._cbPickerZRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbPickerZRuntimeOffset.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbPickerZRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbPickerZRuntimeOffset.Location = new System.Drawing.Point(2, 2);
             this._cbPickerZRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this._cbPickerZRuntimeOffset.Name = "_cbPickerZRuntimeOffset";
-            this._cbPickerZRuntimeOffset.Size = new System.Drawing.Size(535, 23);
+            this._cbPickerZRuntimeOffset.Size = new System.Drawing.Size(367, 28);
             this._cbPickerZRuntimeOffset.TabIndex = 0;
             this._cbPickerZRuntimeOffset.SelectedIndexChanged += new System.EventHandler(this._cbPickerZRuntimeOffset_SelectedIndexChanged);
-            //
+            // 
             // btnResetPickerZRuntimeOffset
-            //
+            // 
             this.btnResetPickerZRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnResetPickerZRuntimeOffset.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnResetPickerZRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnResetPickerZRuntimeOffset.Location = new System.Drawing.Point(541, 2);
+            this.btnResetPickerZRuntimeOffset.Location = new System.Drawing.Point(373, 2);
             this.btnResetPickerZRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this.btnResetPickerZRuntimeOffset.Name = "btnResetPickerZRuntimeOffset";
             this.btnResetPickerZRuntimeOffset.Size = new System.Drawing.Size(106, 30);
@@ -801,20 +799,23 @@
             this.btnResetPickerZRuntimeOffset.Text = "RESET";
             this.btnResetPickerZRuntimeOffset.UseVisualStyleBackColor = true;
             this.btnResetPickerZRuntimeOffset.Click += new System.EventHandler(this.btnResetPickerZRuntimeOffset_Click);
-            //
+            // 
             // lblNetworkWaferMapFolder
-            //
+            // 
             this.lblNetworkWaferMapFolder.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblNetworkWaferMapFolder.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNetworkWaferMapFolder.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblNetworkWaferMapFolder.Location = new System.Drawing.Point(2, 512);
             this.lblNetworkWaferMapFolder.Margin = new System.Windows.Forms.Padding(2);
             this.lblNetworkWaferMapFolder.Name = "lblNetworkWaferMapFolder";
             this.lblNetworkWaferMapFolder.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblNetworkWaferMapFolder.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblNetworkWaferMapFolder.Size = new System.Drawing.Size(344, 30);
+            this.lblNetworkWaferMapFolder.TabIndex = 32;
             this.lblNetworkWaferMapFolder.Text = "NETWORK WAFER MAP FOLDER";
-            //
+            this.lblNetworkWaferMapFolder.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
             // networkWaferMapLayout
-            //
+            // 
             this.networkWaferMapLayout.ColumnCount = 4;
             this.networkWaferMapLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 64F));
             this.networkWaferMapLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -825,113 +826,146 @@
             this.networkWaferMapLayout.Controls.Add(this.btnNetworkWaferMapCheck, 2, 0);
             this.networkWaferMapLayout.Controls.Add(this._cbNetworkWaferMapFormat, 3, 0);
             this.networkWaferMapLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.networkWaferMapLayout.Location = new System.Drawing.Point(348, 510);
             this.networkWaferMapLayout.Margin = new System.Windows.Forms.Padding(0);
             this.networkWaferMapLayout.Name = "networkWaferMapLayout";
             this.networkWaferMapLayout.RowCount = 1;
             this.networkWaferMapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            //
+            this.networkWaferMapLayout.Size = new System.Drawing.Size(481, 34);
+            this.networkWaferMapLayout.TabIndex = 33;
+            // 
             // _cbUseLotNetworkWaferMap
-            //
+            // 
             this._cbUseLotNetworkWaferMap.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbUseLotNetworkWaferMap.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._cbUseLotNetworkWaferMap.Location = new System.Drawing.Point(3, 3);
             this._cbUseLotNetworkWaferMap.Name = "_cbUseLotNetworkWaferMap";
+            this._cbUseLotNetworkWaferMap.Size = new System.Drawing.Size(58, 28);
+            this._cbUseLotNetworkWaferMap.TabIndex = 0;
             this._cbUseLotNetworkWaferMap.Text = "USE";
             this._cbUseLotNetworkWaferMap.UseVisualStyleBackColor = true;
             this._cbUseLotNetworkWaferMap.CheckedChanged += new System.EventHandler(this._cbUseLotNetworkWaferMap_CheckedChanged);
-            //
+            // 
             // _tbNetworkWaferMapFolder
-            //
+            // 
             this._tbNetworkWaferMapFolder.Dock = System.Windows.Forms.DockStyle.Fill;
             this._tbNetworkWaferMapFolder.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._tbNetworkWaferMapFolder.Location = new System.Drawing.Point(67, 3);
             this._tbNetworkWaferMapFolder.Name = "_tbNetworkWaferMapFolder";
+            this._tbNetworkWaferMapFolder.Size = new System.Drawing.Size(141, 27);
+            this._tbNetworkWaferMapFolder.TabIndex = 1;
             this._tbNetworkWaferMapFolder.Leave += new System.EventHandler(this._tbNetworkWaferMapFolder_Leave);
-            //
+            // 
             // btnNetworkWaferMapCheck
-            //
+            // 
             this.btnNetworkWaferMapCheck.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnNetworkWaferMapCheck.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnNetworkWaferMapCheck.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.btnNetworkWaferMapCheck.Location = new System.Drawing.Point(214, 3);
             this.btnNetworkWaferMapCheck.Name = "btnNetworkWaferMapCheck";
+            this.btnNetworkWaferMapCheck.Size = new System.Drawing.Size(104, 28);
+            this.btnNetworkWaferMapCheck.TabIndex = 2;
             this.btnNetworkWaferMapCheck.Text = "연결 확인";
             this.btnNetworkWaferMapCheck.UseVisualStyleBackColor = true;
             this.btnNetworkWaferMapCheck.Click += new System.EventHandler(this.btnNetworkWaferMapCheck_Click);
-            //
+            // 
             // _cbNetworkWaferMapFormat
-            //
+            // 
             this._cbNetworkWaferMapFormat.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbNetworkWaferMapFormat.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbNetworkWaferMapFormat.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._cbNetworkWaferMapFormat.Location = new System.Drawing.Point(323, 2);
             this._cbNetworkWaferMapFormat.Margin = new System.Windows.Forms.Padding(2);
             this._cbNetworkWaferMapFormat.Name = "_cbNetworkWaferMapFormat";
+            this._cbNetworkWaferMapFormat.Size = new System.Drawing.Size(156, 28);
+            this._cbNetworkWaferMapFormat.TabIndex = 3;
             this._cbNetworkWaferMapFormat.SelectedIndexChanged += new System.EventHandler(this._cbNetworkWaferMapFormat_SelectedIndexChanged);
-            //
+            // 
             // lblVisionOperatorConfirmTimeout
-            //
+            // 
             this.lblVisionOperatorConfirmTimeout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblVisionOperatorConfirmTimeout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblVisionOperatorConfirmTimeout.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblVisionOperatorConfirmTimeout.Location = new System.Drawing.Point(2, 546);
             this.lblVisionOperatorConfirmTimeout.Margin = new System.Windows.Forms.Padding(2);
             this.lblVisionOperatorConfirmTimeout.Name = "lblVisionOperatorConfirmTimeout";
             this.lblVisionOperatorConfirmTimeout.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblVisionOperatorConfirmTimeout.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblVisionOperatorConfirmTimeout.Size = new System.Drawing.Size(344, 30);
+            this.lblVisionOperatorConfirmTimeout.TabIndex = 34;
             this.lblVisionOperatorConfirmTimeout.Text = "VISION OPERATOR CONFIRM TIMEOUT (SEC)";
-            //
+            this.lblVisionOperatorConfirmTimeout.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
             // _tbVisionOperatorConfirmTimeoutSec
-            //
+            // 
             this._tbVisionOperatorConfirmTimeoutSec.Dock = System.Windows.Forms.DockStyle.Fill;
             this._tbVisionOperatorConfirmTimeoutSec.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._tbVisionOperatorConfirmTimeoutSec.Location = new System.Drawing.Point(350, 546);
             this._tbVisionOperatorConfirmTimeoutSec.Margin = new System.Windows.Forms.Padding(2);
             this._tbVisionOperatorConfirmTimeoutSec.Name = "_tbVisionOperatorConfirmTimeoutSec";
+            this._tbVisionOperatorConfirmTimeoutSec.Size = new System.Drawing.Size(477, 27);
+            this._tbVisionOperatorConfirmTimeoutSec.TabIndex = 35;
             this._tbVisionOperatorConfirmTimeoutSec.Leave += new System.EventHandler(this._tbVisionOperatorConfirmTimeoutSec_Leave);
-            //
-            // lblOutputResultNetworkCopyFolder
-            //
-            this.lblOutputResultNetworkCopyFolder.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblOutputResultNetworkCopyFolder.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOutputResultNetworkCopyFolder.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblOutputResultNetworkCopyFolder.Margin = new System.Windows.Forms.Padding(2);
-            this.lblOutputResultNetworkCopyFolder.Name = "lblOutputResultNetworkCopyFolder";
-            this.lblOutputResultNetworkCopyFolder.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblOutputResultNetworkCopyFolder.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.lblOutputResultNetworkCopyFolder.Text = "OUTPUT RESULT NETWORK COPY FOLDER";
-            //
-            // _tbOutputResultNetworkCopyFolder
-            //
-            this._tbOutputResultNetworkCopyFolder.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._tbOutputResultNetworkCopyFolder.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._tbOutputResultNetworkCopyFolder.Margin = new System.Windows.Forms.Padding(2);
-            this._tbOutputResultNetworkCopyFolder.Name = "_tbOutputResultNetworkCopyFolder";
-            this._tbOutputResultNetworkCopyFolder.Leave += new System.EventHandler(this._tbOutputResultNetworkCopyFolder_Leave);
-            //
+            // 
             // lblSimulationVisionNgRate
-            //
+            // 
             this.lblSimulationVisionNgRate.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblSimulationVisionNgRate.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSimulationVisionNgRate.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblSimulationVisionNgRate.Location = new System.Drawing.Point(2, 580);
             this.lblSimulationVisionNgRate.Margin = new System.Windows.Forms.Padding(2);
             this.lblSimulationVisionNgRate.Name = "lblSimulationVisionNgRate";
             this.lblSimulationVisionNgRate.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblSimulationVisionNgRate.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblSimulationVisionNgRate.Size = new System.Drawing.Size(344, 33);
+            this.lblSimulationVisionNgRate.TabIndex = 36;
             this.lblSimulationVisionNgRate.Text = "SIM VISION NG RATE (%)";
-            //
+            this.lblSimulationVisionNgRate.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
             // _tbSimulationVisionNgRatePercent
-            //
+            // 
             this._tbSimulationVisionNgRatePercent.Dock = System.Windows.Forms.DockStyle.Fill;
             this._tbSimulationVisionNgRatePercent.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._tbSimulationVisionNgRatePercent.Location = new System.Drawing.Point(350, 580);
             this._tbSimulationVisionNgRatePercent.Margin = new System.Windows.Forms.Padding(2);
             this._tbSimulationVisionNgRatePercent.Name = "_tbSimulationVisionNgRatePercent";
+            this._tbSimulationVisionNgRatePercent.Size = new System.Drawing.Size(477, 27);
+            this._tbSimulationVisionNgRatePercent.TabIndex = 37;
             this._tbSimulationVisionNgRatePercent.Leave += new System.EventHandler(this._tbSimulationVisionNgRatePercent_Leave);
-            //
+            // 
+            // lblOutputResultNetworkCopyFolder
+            // 
+            this.lblOutputResultNetworkCopyFolder.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblOutputResultNetworkCopyFolder.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblOutputResultNetworkCopyFolder.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblOutputResultNetworkCopyFolder.Location = new System.Drawing.Point(2, 617);
+            this.lblOutputResultNetworkCopyFolder.Margin = new System.Windows.Forms.Padding(2);
+            this.lblOutputResultNetworkCopyFolder.Name = "lblOutputResultNetworkCopyFolder";
+            this.lblOutputResultNetworkCopyFolder.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblOutputResultNetworkCopyFolder.Size = new System.Drawing.Size(344, 34);
+            this.lblOutputResultNetworkCopyFolder.TabIndex = 38;
+            this.lblOutputResultNetworkCopyFolder.Text = "OUTPUT RESULT NETWORK COPY FOLDER";
+            this.lblOutputResultNetworkCopyFolder.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _tbOutputResultNetworkCopyFolder
+            // 
+            this._tbOutputResultNetworkCopyFolder.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._tbOutputResultNetworkCopyFolder.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._tbOutputResultNetworkCopyFolder.Location = new System.Drawing.Point(350, 617);
+            this._tbOutputResultNetworkCopyFolder.Margin = new System.Windows.Forms.Padding(2);
+            this._tbOutputResultNetworkCopyFolder.Name = "_tbOutputResultNetworkCopyFolder";
+            this._tbOutputResultNetworkCopyFolder.Size = new System.Drawing.Size(477, 27);
+            this._tbOutputResultNetworkCopyFolder.TabIndex = 39;
+            this._tbOutputResultNetworkCopyFolder.Leave += new System.EventHandler(this._tbOutputResultNetworkCopyFolder_Leave);
+            // 
             // grpAjin
-            //
+            // 
             this.grpAjin.Controls.Add(this.ajinLayout);
             this.grpAjin.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpAjin.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpAjin.Location = new System.Drawing.Point(8, 550);
+            this.grpAjin.Location = new System.Drawing.Point(8, 729);
             this.grpAjin.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.grpAjin.Name = "grpAjin";
             this.grpAjin.Padding = new System.Windows.Forms.Padding(8);
-            this.grpAjin.Size = new System.Drawing.Size(831, 92);
+            this.grpAjin.Size = new System.Drawing.Size(831, 74);
             this.grpAjin.TabIndex = 2;
             this.grpAjin.TabStop = false;
             this.grpAjin.Text = "AJINEXTEK";
@@ -946,7 +980,7 @@
             this.ajinLayout.Controls.Add(this.lblIrq, 1, 0);
             this.ajinLayout.Controls.Add(this._tbIrq, 2, 0);
             this.ajinLayout.Dock = System.Windows.Forms.DockStyle.Top;
-            this.ajinLayout.Location = new System.Drawing.Point(8, 26);
+            this.ajinLayout.Location = new System.Drawing.Point(8, 31);
             this.ajinLayout.Name = "ajinLayout";
             this.ajinLayout.RowCount = 1;
             this.ajinLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
@@ -983,7 +1017,7 @@
             this._tbIrq.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._tbIrq.Location = new System.Drawing.Point(263, 3);
             this._tbIrq.Name = "_tbIrq";
-            this._tbIrq.Size = new System.Drawing.Size(549, 23);
+            this._tbIrq.Size = new System.Drawing.Size(549, 27);
             this._tbIrq.TabIndex = 2;
             this._tbIrq.TextChanged += new System.EventHandler(this._tbIrq_TextChanged);
             // 
@@ -993,14 +1027,13 @@
             this.logBtnLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.logBtnLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.logBtnLayout.Controls.Add(this.btnLogSettings, 1, 0);
-            this.logBtnLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.logBtnLayout.Location = new System.Drawing.Point(8, 650);
+            this.logBtnLayout.Location = new System.Drawing.Point(839, 729);
             this.logBtnLayout.Margin = new System.Windows.Forms.Padding(0);
             this.logBtnLayout.Name = "logBtnLayout";
             this.logBtnLayout.Padding = new System.Windows.Forms.Padding(0, 3, 0, 0);
             this.logBtnLayout.RowCount = 1;
             this.logBtnLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.logBtnLayout.Size = new System.Drawing.Size(831, 44);
+            this.logBtnLayout.Size = new System.Drawing.Size(831, 76);
             this.logBtnLayout.TabIndex = 3;
             // 
             // btnLogSettings
@@ -1011,7 +1044,7 @@
             this.btnLogSettings.Location = new System.Drawing.Point(415, 3);
             this.btnLogSettings.Margin = new System.Windows.Forms.Padding(0);
             this.btnLogSettings.Name = "btnLogSettings";
-            this.btnLogSettings.Size = new System.Drawing.Size(416, 41);
+            this.btnLogSettings.Size = new System.Drawing.Size(416, 73);
             this.btnLogSettings.TabIndex = 0;
             this.btnLogSettings.Text = "LOG SETTINGS";
             this.btnLogSettings.UseVisualStyleBackColor = true;
@@ -1028,9 +1061,12 @@
             this.grpSetting.ResumeLayout(false);
             this.settingLayout.ResumeLayout(false);
             this.bodyLayout.ResumeLayout(false);
+            this.bodyLayout.PerformLayout();
             this.pickRuntimeOffsetLayout.ResumeLayout(false);
             this.placeRuntimeOffsetLayout.ResumeLayout(false);
             this.pickerZRuntimeOffsetLayout.ResumeLayout(false);
+            this.networkWaferMapLayout.ResumeLayout(false);
+            this.networkWaferMapLayout.PerformLayout();
             this.grpAjin.ResumeLayout(false);
             this.ajinLayout.ResumeLayout(false);
             this.ajinLayout.PerformLayout();

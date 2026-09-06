@@ -1477,7 +1477,18 @@ namespace QMC.CDT320
 
         /// <summary>true이면 모션 없이 진행만 수행합니다(Recipe.DryRun 영향).</summary>
         public bool DryRun { get; set; } = false;
-        public bool GlobalDryRun { get; set; } = false;
+        private bool _globalDryRun;
+        public bool GlobalDryRun
+        {
+            get { return _globalDryRun; }
+            set
+            {
+                if (_globalDryRun == value)
+                    return;
+                _globalDryRun = value;
+                QMC.CDT320.Materials.MaterialStateService.ClearAllPickerFlowRecoveries("GlobalDryRun 변경");
+            }
+        }
 
         /// <summary>현재 활성 RecipeProject의 운전 설정을 적용합니다.</summary>
         public void ApplyRecipeMode(QMC.CDT320.Recipes.RecipeProject p)
@@ -2371,4 +2382,3 @@ namespace QMC.CDT320
 
     }
 }
-

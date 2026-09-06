@@ -20,6 +20,9 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
+                int recoveryResetResult = PrepareFlowRecoveryForNewPick();
+                if (recoveryResetResult != 0)
+                    return recoveryResetResult;
 
                 PickerPickUpMotionConfig config = ResolvePickUpMotionConfig();
                 PickerAxis pickerZ = GetPickerZAxis(_currentPickerIndex);
@@ -78,7 +81,7 @@ namespace QMC.CDT320.Sequencing
                     _currentPickerNo,
                     true,
                     "PickUp Z 모션 완료 후 흡착 Flow 확인",
-                    ct);
+                    ct, _currentDieId);
                 ObserveBackgroundResultTask(flowVerifyTask);
 
                 result = await SeparateNeedlePickerZAsync(pickerZ, pickerZAvoid, _lastPickUpZTargets, config, ct).ConfigureAwait(false);
@@ -148,7 +151,7 @@ namespace QMC.CDT320.Sequencing
                     _currentPickerNo,
                     true,
                     "PickUp Z 모션 완료 후 흡착 Flow 확인",
-                    ct);
+                    ct, _currentDieId);
                 ObserveBackgroundResultTask(flowVerifyTask);
 
                 result = await SeparateNeedlePickerZAsync(pickerZ, pickerZAvoid, _lastPickUpZTargets, config, ct).ConfigureAwait(false);
@@ -1516,7 +1519,7 @@ namespace QMC.CDT320.Sequencing
                         _currentPickerNo,
                         true,
                         "PickUp Z 모션 완료 후 흡착 Flow 확인",
-                        ct).ConfigureAwait(false);
+                        ct, _currentDieId).ConfigureAwait(false);
                 if (flowResult != 0)
                     return flowResult;
 

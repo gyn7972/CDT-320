@@ -84,6 +84,7 @@
         private System.Windows.Forms.Button btnThetaCorrection;
         private System.Windows.Forms.Button btnDieDetection;
         private System.Windows.Forms.Button btnOffsetApply;
+        private System.Windows.Forms.Button btnVerifyMap;
         private System.Windows.Forms.Button btnVisionTest;
         private System.Windows.Forms.TableLayoutPanel rightLayout;
         private System.Windows.Forms.GroupBox grpMapInfo;
@@ -245,6 +246,7 @@
             this.btnThetaCorrection = new System.Windows.Forms.Button();
             this.btnDieDetection = new System.Windows.Forms.Button();
             this.btnOffsetApply = new System.Windows.Forms.Button();
+            this.btnVerifyMap = new System.Windows.Forms.Button();
             this.btnVisionTest = new System.Windows.Forms.Button();
             this.rightLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpMapInfo = new System.Windows.Forms.GroupBox();
@@ -1362,16 +1364,18 @@
             this.actionLayout.Controls.Add(this.btnThetaCorrection, 0, 1);
             this.actionLayout.Controls.Add(this.btnDieDetection, 0, 2);
             this.actionLayout.Controls.Add(this.btnOffsetApply, 0, 3);
-            this.actionLayout.Controls.Add(this.btnVisionTest, 0, 4);
+            this.actionLayout.Controls.Add(this.btnVerifyMap, 0, 4);
+            this.actionLayout.Controls.Add(this.btnVisionTest, 0, 5);
             this.actionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionLayout.Location = new System.Drawing.Point(8, 24);
             this.actionLayout.Name = "actionLayout";
-            this.actionLayout.RowCount = 5;
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.actionLayout.RowCount = 6;
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
             this.actionLayout.Size = new System.Drawing.Size(357, 191);
             this.actionLayout.TabIndex = 0;
             // 
@@ -1415,6 +1419,14 @@
             this.btnOffsetApply.Text = "APPLY OFFSET";
             this.btnOffsetApply.Click += new System.EventHandler(this.BtnOffsetApply_Click);
             // 
+            // btnVerifyMap
+            //
+            this.btnVerifyMap.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnVerifyMap.Name = "btnVerifyMap";
+            this.btnVerifyMap.TabIndex = 4;
+            this.btnVerifyMap.Text = "VERIFY MAP / 좌표 검증";
+            this.btnVerifyMap.Click += new System.EventHandler(this.BtnVerifyMap_Click);
+            //
             // btnVisionTest
             // 
             this.btnVisionTest.Dock = System.Windows.Forms.DockStyle.Fill;

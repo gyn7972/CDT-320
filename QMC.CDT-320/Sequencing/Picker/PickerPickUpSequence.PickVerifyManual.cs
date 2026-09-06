@@ -288,6 +288,10 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
+                int recoveryResetResult = PrepareFlowRecoveryForNewPick();
+                if (recoveryResetResult != 0)
+                    return recoveryResetResult;
+
                 bool vacuumOn;
                 string vacuumStateReason;
                 if (!TryReadPickerVacuumOutputOn(_currentPickerNo, out vacuumOn, out vacuumStateReason))
@@ -355,6 +359,17 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private int PrepareFlowRecoveryForNewPick()
+        {
+            if (IsPickUpProductPrecheckBypassed())
+                return 0;
+            string reason;
+            if (!MaterialStateService.TryPreparePickerForNewFlowCheck(PickerLocationKind, _currentPickerNo, out reason))
+                return Fail("PICKER-PICKUP-PRE-MATERIAL-EXISTS", Name,
+                    "다음 PickUp을 시작할 수 없습니다. " + reason);
+            return 0;
         }
 
         private bool IsPickUpProductPrecheckBypassed()

@@ -40,6 +40,7 @@ QMC.CDT-320/
 
 - [Designer 공통 UI 카탈로그와 페이지 템플릿](docs/ui/designer-catalog.md)
 - [WaferMap 공통 상태·색상과 작업 모니터](docs/ui/wafer-map-monitor.md)
+- [EventLogPage 파일 조회·실시간 표시 구조](docs/ui/event-log-view.md)
 - [축·IO·실린더 정의 코드 탐색표](docs/architecture/equipment-definition-code-map.md)
 - [자동 시컨스 전체 흐름도](docs/architecture/auto-sequence-flow.md)
 - [전체 축 초기화 시퀀스형 리팩터링 구현 프롬프트](docs/initialization/axis-initialize-sequence-refactor-implementation-prompt.txt)
@@ -48,6 +49,9 @@ QMC.CDT-320/
 - [Material Journal + Checkpoint 검증 체크리스트](docs/material-state/material-journal-checkpoint-validation-checklist.txt)
 - [정상 Auto Cycle Stop 전체 Drain 구현 프롬프트](docs/auto-cycle-stop-full-drain-implementation-prompt.txt)
 - [정상 Auto Cycle Stop 전체 Drain 검증 체크리스트](docs/auto-cycle-stop-full-drain-validation-checklist.txt)
+
+- [픽커 FLOW 일회성 복구 구현 프롬프트](docs/picker-flow-recovery/implementation-prompt.md)
+- [픽커 FLOW 일회성 복구 검증 체크리스트](docs/picker-flow-recovery/validation-checklist.md)
 
 ## 외부 Vision 계약
 

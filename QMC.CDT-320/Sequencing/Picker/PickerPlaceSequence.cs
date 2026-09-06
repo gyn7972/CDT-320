@@ -749,12 +749,13 @@ namespace QMC.CDT320.Sequencing
 
                     int timeoutMs = ResolvePickerIoTimeoutMs(pickerNo);
                     DateTime deadline = DateTime.Now.AddMilliseconds(timeoutMs);
-                    bool flowOn = ReadPickerFlowState(pickerNo);
+                    // 현재 다이에 한정한 Admin 승인을 생산용 흡착 판정에 반영한다.
+                    bool flowOn = ReadPickerProductFlowState(pickerNo, die);
                     while (!flowOn && DateTime.Now <= deadline)
                     {
                         ct.ThrowIfCancellationRequested();
                         await Task.Delay(1, ct).ConfigureAwait(false);
-                        flowOn = ReadPickerFlowState(pickerNo);
+                        flowOn = ReadPickerProductFlowState(pickerNo, die);
                     }
 
                     if (!flowOn)
@@ -774,7 +775,7 @@ namespace QMC.CDT320.Sequencing
                         "side=" + Side +
                         ", pickerNo=" + pickerNo +
                         ", die=" + die.DieId +
-                        ", flow=ON - Ok");
+                        ", flow=ON, actualFlow=" + (ReadPickerFlowState(pickerNo) ? "ON" : "OFF") + " - Ok");
                 }
 
                 CurrentStep = PickerPlaceStep.MoveAllPickerZToAvoid;

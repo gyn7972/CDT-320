@@ -256,6 +256,11 @@ namespace QMC.CDT320
         /// <summary>Review 대상 Die Mapping revision/frame ID.</summary>
         public string MappingRevision { get; set; }
 
+        /// <summary>현재 Review 요청과 실제 다점 측정 증거를 연결하는 일회용 식별자.</summary>
+        public long ReviewSessionGeneration { get; set; }
+        public long ReviewRequestGeneration { get; set; }
+        public string GeometryVerificationToken { get; set; }
+
         /// <summary>사용자가 지정한 시작 Die UID.</summary>
         public string StartDieUid { get; set; }
 

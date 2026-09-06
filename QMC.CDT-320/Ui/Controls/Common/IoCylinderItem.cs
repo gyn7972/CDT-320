@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using QMC.Common.IO;
 
@@ -16,6 +16,9 @@ namespace QMC.CDT_320.Ui.Controls
         public string DisplayName { get; set; }
         public IoCylinderItemType ItemType { get; set; }
         public Func<bool> StateGetter { get; set; }
+        // 선택한 생산용 입력 행만 복구 승인 동작을 제공한다. 일반 Input의 읽기 전용 계약은 유지한다.
+        public Func<Task<int>> InputDoubleClickCommand { get; set; }
+        public Func<bool> InputOverrideGetter { get; set; }
         public Func<bool, Task<int>> OutputWriter { get; set; }
         public Func<Task<int>> ForwardCommand { get; set; }
         public Func<Task<int>> BackwardCommand { get; set; }

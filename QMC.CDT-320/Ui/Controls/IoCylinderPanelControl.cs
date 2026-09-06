@@ -238,6 +238,13 @@ namespace QMC.CDT_320.Ui.Controls
                 rowPanel.Click += Row_Click;
                 indicator.Click += Row_Click;
                 label.Click += Row_Click;
+                if (item.ItemType == IoCylinderItemType.Input && item.InputDoubleClickCommand != null)
+                {
+                    rowPanel.MouseDoubleClick += Row_MouseDoubleClick;
+                    indicator.MouseDoubleClick += Row_MouseDoubleClick;
+                    label.MouseDoubleClick += Row_MouseDoubleClick;
+                    rowPanel.Cursor = label.Cursor = indicator.Cursor = Cursors.Hand;
+                }
                 rowPanel.ContextMenuStrip = BuildContextMenu(item);
                 label.ContextMenuStrip = rowPanel.ContextMenuStrip;
                 indicator.ContextMenuStrip = rowPanel.ContextMenuStrip;
@@ -281,15 +288,25 @@ namespace QMC.CDT_320.Ui.Controls
                 if (item == null || !_rows.ContainsKey(item))
                     return;
 
-                bool on = item.StateGetter != null && item.StateGetter();
+                bool actualOn = item.StateGetter != null && item.StateGetter();
+                bool forced = item.ItemType == IoCylinderItemType.Input &&
+                    item.InputOverrideGetter != null && item.InputOverrideGetter();
+                bool on = actualOn || forced;
                 IoCylinderRow row = _rows[item];
                 if (row.Dot != null)
+                {
+                    row.Dot.OnColor = forced ? Color.DarkOrange : Color.LimeGreen;
                     row.Dot.IsOn = on;
+                }
                 if (row.Toggle != null)
                     row.Toggle.IsOn = on;
-                row.Label.Text = GetDisplayText(item, on);
-                row.Label.BackColor = on ? Color.FromArgb(219, 246, 226) : Color.FromArgb(207, 211, 216);
-                row.Label.ForeColor = on ? Color.FromArgb(20, 115, 55) : Color.FromArgb(20, 24, 28);
+                row.Label.Text = forced
+                    ? item.DisplayName + " 강제 ON·실제 " + (actualOn ? "ON" : "OFF")
+                    : GetDisplayText(item, on);
+                row.Label.BackColor = forced ? Color.FromArgb(255, 237, 205)
+                    : on ? Color.FromArgb(219, 246, 226) : Color.FromArgb(207, 211, 216);
+                row.Label.ForeColor = forced ? Color.FromArgb(130, 70, 0)
+                    : on ? Color.FromArgb(20, 115, 55) : Color.FromArgb(20, 24, 28);
             }
             catch (Exception ex)
             {
@@ -326,19 +343,45 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        private async void Row_Click(object sender, EventArgs e)
+        private async void Row_MouseDoubleClick(object sender, MouseEventArgs e)
         {
+            Control control = sender as Control;
+            IoCylinderItem item = control != null ? control.Tag as IoCylinderItem : null;
+            if (e.Button != MouseButtons.Left || _isRefreshing || _isCommandRunning ||
+                item == null || item.ItemType != IoCylinderItemType.Input || item.InputDoubleClickCommand == null)
+                return;
+
+            _isCommandRunning = true;
             try
             {
-                if (_isRefreshing || _isCommandRunning)
-                    return;
+                await item.InputDoubleClickCommand();
+                RefreshStates();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "IO-PANEL",
+                    "입력 신호 복구 요청 중 오류가 발생했습니다. " + item.DisplayName + ": " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "FLOW 강제 ON",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _isCommandRunning = false;
+            }
+        }
 
-                Control control = sender as Control;
-                var item = control != null ? control.Tag as IoCylinderItem : null;
-                if (item == null || !item.CanControl)
-                    return;
+        private async void Row_Click(object sender, EventArgs e)
+        {
+            if (_isRefreshing || _isCommandRunning)
+                return;
+            Control control = sender as Control;
+            var item = control != null ? control.Tag as IoCylinderItem : null;
+            if (item == null || !item.CanControl)
+                return;
 
-                _isCommandRunning = true;
+            _isCommandRunning = true;
+            try
+            {
                 if (item.ItemType == IoCylinderItemType.Output)
                 {
                     bool current = item.StateGetter != null && item.StateGetter();
@@ -481,5 +524,3 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
-
-

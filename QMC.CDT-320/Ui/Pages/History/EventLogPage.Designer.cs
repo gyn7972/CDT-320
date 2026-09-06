@@ -22,6 +22,7 @@ namespace QMC.CDT_320.Ui.Pages.History
         private ComboBox cmbLimit;
         private Button btnRefresh;
         private Button btnOpenFile;
+        private Button btnLive;
         private DataGridView _grid;
 
         private void InitializeComponent()
@@ -47,6 +48,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.cmbLimit = new System.Windows.Forms.ComboBox();
             this.btnRefresh = new System.Windows.Forms.Button();
             this.btnOpenFile = new System.Windows.Forms.Button();
+            this.btnLive = new System.Windows.Forms.Button();
             this._grid = new System.Windows.Forms.DataGridView();
             this.dataGridViewTextBoxColumn1 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.dataGridViewTextBoxColumn2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -110,7 +112,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 76F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 122F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 136F));
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 0F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 96F));
             this.filterLayout.Controls.Add(this.lblDate, 0, 0);
             this.filterLayout.Controls.Add(this._dp, 1, 0);
             this.filterLayout.Controls.Add(this.lblRunId, 2, 0);
@@ -123,6 +125,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.filterLayout.Controls.Add(this.cmbLimit, 9, 0);
             this.filterLayout.Controls.Add(this.btnRefresh, 10, 0);
             this.filterLayout.Controls.Add(this.btnOpenFile, 11, 0);
+            this.filterLayout.Controls.Add(this.btnLive, 12, 0);
             this.filterLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.filterLayout.Location = new System.Drawing.Point(0, 30);
             this.filterLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -260,6 +263,10 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.cmbLimit.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cmbLimit.Font = new System.Drawing.Font("Consolas", 10F);
             this.cmbLimit.FormattingEnabled = true;
+            this.cmbLimit.Items.AddRange(new object[] {
+            "500",
+            "2000",
+            "ALL"});
             this.cmbLimit.Location = new System.Drawing.Point(1339, 8);
             this.cmbLimit.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.cmbLimit.Name = "cmbLimit";
@@ -310,6 +317,24 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.btnOpenFile.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.btnOpenFile.UseVisualStyleBackColor = false;
             // 
+            // btnLive
+            //
+            this.btnLive.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnLive.BackColor = System.Drawing.Color.FromArgb(52, 73, 94);
+            this.btnLive.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnLive.FlatAppearance.BorderSize = 0;
+            this.btnLive.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(40, 57, 74);
+            this.btnLive.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(69, 90, 113);
+            this.btnLive.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnLive.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnLive.ForeColor = System.Drawing.Color.White;
+            this.btnLive.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.btnLive.Name = "btnLive";
+            this.btnLive.Size = new System.Drawing.Size(88, 24);
+            this.btnLive.TabIndex = 14;
+            this.btnLive.Text = "실시간";
+            this.btnLive.UseVisualStyleBackColor = false;
+            //
             // _grid
             // 
             this._grid.AllowUserToAddRows = false;
@@ -414,6 +439,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._grid.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.Grid_CellClick);
             this._grid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.Grid_CellDoubleClick);
             this._dp.ValueChanged += new System.EventHandler(this.dp_ValueChanged);
+            this.lblHeader.TextChanged += new System.EventHandler(this.lblHeader_TextChanged);
             this.txtRunId.TextChanged += new System.EventHandler(this.FilterTextBox_TextChanged);
             this.txtSource.TextChanged += new System.EventHandler(this.FilterTextBox_TextChanged);
             this.txtSearch.TextChanged += new System.EventHandler(this.FilterTextBox_TextChanged);
@@ -421,6 +447,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.cmbLimit.SelectedIndexChanged += new System.EventHandler(this.cmbLimit_SelectedIndexChanged);
             this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
             this.btnOpenFile.Click += new System.EventHandler(this.btnOpenFile_Click);
+            this.btnLive.Click += new System.EventHandler(this.btnLive_Click);
             //
             // EventLogPage
             //

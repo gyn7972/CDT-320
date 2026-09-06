@@ -35,11 +35,14 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _alignComplete;
         private bool _mappingComplete;
         private bool _reviewValid;
+        private bool _geometryVerified;
+        private bool _nonproductionReviewMode;
         private bool _manualFallbackThetaRequired;
         private bool _manualFallbackThetaDone;
         private bool _readOnlyPreview;
         private bool _autoReviewMode;
         private bool _decisionSubmitted;
+        private bool _reviewStopPending;
         private bool _sequenceCloseRequested;
         private DialogResult _submittedDialogResult = DialogResult.None;
         private string _waferId = string.Empty;
@@ -204,6 +207,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         public event EventHandler ThetaCorrectionRequested;
         public event EventHandler DieDetectionRequested;
         public event EventHandler OffsetApplyRequested;
+        public event EventHandler GeometryVerificationRequested;
+        public event EventHandler SelectedDieChanged;
         public event EventHandler SelectedDieMoveRequested;
         public event EventHandler StartRunRequested;
         public event EventHandler AbortAutoRequested;
@@ -360,6 +365,15 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        /// <summary>호출자가 Review 동작 Scope를 보유한 상태에서 현재 정지 검증점의 새 영상을 표시한다.</summary>
+        public System.Threading.Tasks.Task<string> ShowReviewVerificationFrameAsync(System.Threading.CancellationToken token)
+        {
+            if (_readOnlyPreview || _decisionSubmitted)
+                throw new InvalidOperationException("읽기 전용 또는 종료된 Review에서는 검증 영상을 촬영할 수 없습니다.");
+            return waferVisionViewer.ShowReviewVerificationFrameAsync(
+                _waferVisionHost, _waferVisionPort, _waferVisionCommandClient, token);
+        }
+
         /// <summary>
         /// Sequence 종료/STOP에서는 Viewer 재구성 없이 즉시 CAM_SWITCH OFF와 수신 Thread 정지만 수행합니다.
         /// 안전 Scope는 호출한 Form1이 이 함수 실행 후 반환합니다.
@@ -424,6 +438,9 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         public void SetDieMap(DieMap map)
         {
+            if (_decisionSubmitted)
+                return;
+            _geometryVerified = false;
             _dieMap = map;
             _selectedDie = null;
             _startDie = null;
@@ -462,6 +479,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _alignComplete = alignComplete;
             _mappingComplete = mappingComplete;
             _reviewValid = false;
+            _geometryVerified = false;
             lblAlignValue.Text = alignComplete ? "COMPLETE" : "REQUIRED";
             lblAlignValue.ForeColor = alignComplete ? Color.LightGreen : Color.Khaki;
             lblMappingValue.Text = mappingComplete ? "COMPLETE" : "REQUIRED";
@@ -611,8 +629,72 @@ namespace QMC.CDT_320.Ui.Dialogs
             UpdateActionAvailability();
         }
 
+        public async System.Threading.Tasks.Task<DialogResult> ShowReviewCorrespondenceConfirmationAsync(
+            string caption, string message, System.Threading.CancellationToken token)
+        {
+            if (IsDisposed || Disposing || InvokeRequired)
+                throw new InvalidOperationException("Review 기준 Die 확인은 활성 화면의 UI 스레드에서 실행해야 합니다.");
+            token.ThrowIfCancellationRequested();
+            await System.Threading.Tasks.Task.Yield();
+            token.ThrowIfCancellationRequested();
+            using (var confirmation = new QMC.Common.MessageBoxYesNo())
+            {
+                confirmation.StartPosition = FormStartPosition.CenterParent;
+                // 취소 등록 전에 UI 핸들을 만들어 STOP이 ShowDialog 직전에 와도 해당 확인창만 닫을 수 있게 한다.
+                if (confirmation.Handle == IntPtr.Zero)
+                    throw new InvalidOperationException("Review 기준 Die 확인창을 만들지 못했습니다.");
+                using (token.Register(delegate
+                {
+                    try
+                    {
+                        if (!confirmation.IsDisposed && confirmation.IsHandleCreated)
+                            confirmation.BeginInvoke(new Action(delegate
+                            {
+                                if (!confirmation.IsDisposed)
+                                {
+                                    confirmation.DialogResult = DialogResult.Cancel;
+                                    confirmation.Close();
+                                }
+                            }));
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        System.Diagnostics.Trace.TraceWarning("Review 확인창 취소 중 창 상태가 변경되었습니다: " + ex.Message);
+                    }
+                }))
+                {
+                    token.ThrowIfCancellationRequested();
+                    DialogResult result = confirmation.ShowDialog(caption, message, this, new[] { "예", "아니오" });
+                    token.ThrowIfCancellationRequested();
+                    return result;
+                }
+            }
+        }
+
+        public void SetNonproductionReviewMode(bool active)
+        {
+            // 표시/버튼 조건만 반영한다. Confirm 수락 여부는 현재 장비 모드를 다시 검사하는 처리부에서 결정한다.
+            bool changed = _nonproductionReviewMode != active;
+            _nonproductionReviewMode = active;
+            SetGeometryVerified(_geometryVerified, active
+                ? "비생산 모드의 수동 Review 확인입니다."
+                : (changed ? "비생산 모드의 수동 Review 표시를 해제했습니다." : string.Empty));
+        }
+
+        public void SetGeometryVerified(bool verified, string reason)
+        {
+            _geometryVerified = verified;
+            lblReviewValue.Text = verified ? "GEOMETRY VERIFIED" : "VERIFY MAP REQUIRED";
+            lblReviewValue.ForeColor = verified ? Color.LightGreen : Color.Khaki;
+            if (!string.IsNullOrWhiteSpace(reason))
+                SetStatus(reason);
+            UpdateActionAvailability();
+        }
+
         public void SetPickupOptions(PickupSubset options)
         {
+            if (_decisionSubmitted)
+                return;
             PickupSubset source = options ?? new PickupSubset();
             rbCornerTopLeft.Checked = source.StartCorner == PickupStartCorner.TopLeft;
             rbCornerBottomLeft.Checked = source.StartCorner == PickupStartCorner.BottomLeft;
@@ -738,6 +820,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             UpdateActionAvailability();
         }
 
+        public void SetReviewStopPending(bool pending)
+        {
+            _reviewStopPending = pending;
+            UpdateActionAvailability();
+        }
+
         public void SetWaferVisionMoveBusy(bool busy, string status)
         {
             _waferVisionMoveBusy = busy && _waferVisionControlActive;
@@ -760,6 +848,11 @@ namespace QMC.CDT_320.Ui.Dialogs
         public bool ApplyDraftCoordinateOffset(double offsetX, double offsetY, out string reason)
         {
             reason = string.Empty;
+            if (_decisionSubmitted)
+            {
+                reason = "확인 요청을 처리 중이므로 후보 좌표를 변경할 수 없습니다.";
+                return false;
+            }
             if (_dieMap == null || _dieMap.Entries == null ||
                 double.IsNaN(offsetX) || double.IsInfinity(offsetX) ||
                 double.IsNaN(offsetY) || double.IsInfinity(offsetY))
@@ -768,6 +861,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return false;
             }
 
+            // 일부 좌표를 바꾼 뒤 실패하지 않도록 모든 후보 좌표를 먼저 확인한다.
+            if (!IsFiniteReviewCoordinate(_dieMap.OriginX + offsetX) ||
+                !IsFiniteReviewCoordinate(_dieMap.OriginY + offsetY) ||
+                _dieMap.Entries.Any(entry => entry != null &&
+                    (!IsFiniteReviewCoordinate(entry.PosX + offsetX) ||
+                     !IsFiniteReviewCoordinate(entry.PosY + offsetY))))
+            {
+                reason = "OFFSET 적용 후보에 유효하지 않은 좌표가 있습니다. Draft는 변경하지 않았습니다.";
+                return false;
+            }
+
+            SetGeometryVerified(false, "OFFSET 적용 후 VERIFY MAP으로 좌표를 다시 검증하세요.");
             _dieMap.OriginX += offsetX;
             _dieMap.OriginY += offsetY;
             foreach (DieMapEntry entry in _dieMap.Entries)
@@ -785,6 +890,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                      offsetX.ToString("F6") + ", Y=" + offsetY.ToString("F6");
             SetStatus(reason);
             return true;
+        }
+
+        private static bool IsFiniteReviewCoordinate(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
         }
 
         private void ConfigureMapView()
@@ -1280,6 +1390,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             bool synchronizeMap,
             bool synchronizeGrid)
         {
+            if (_decisionSubmitted)
+                return;
+            string previousSelection = string.Join("|", _selectedDies.Select(item => item.DieUid ?? "")) +
+                                       ":" + (_selectedDie != null ? _selectedDie.DieUid : "");
             _selectedDies.Clear();
             if (entries != null)
             {
@@ -1294,6 +1408,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             _selectedDie = ResolveDraftEntry(primary);
             if (_selectedDie == null || !ContainsSameEntry(_selectedDies, _selectedDie))
                 _selectedDie = _selectedDies.Count > 0 ? _selectedDies[0] : null;
+
+            string currentSelection = string.Join("|", _selectedDies.Select(item => item.DieUid ?? "")) +
+                                      ":" + (_selectedDie != null ? _selectedDie.DieUid : "");
+            if (!string.Equals(previousSelection, currentSelection, StringComparison.Ordinal))
+                RaiseSimpleEvent(SelectedDieChanged);
 
             if (synchronizeMap)
                 mapView.SetSelectedEntries(_selectedDies);
@@ -1334,6 +1453,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void MapView_CellDoubleClicked(DieMapEntry entry)
         {
+            if (_decisionSubmitted)
+                return;
             SelectDie(entry, true);
             if (_readOnlyPreview)
                 return;
@@ -1393,6 +1514,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void PickupOption_CheckedChanged(object sender, EventArgs e)
         {
+            if (_decisionSubmitted)
+                return;
             var radio = sender as RadioButton;
             if (radio != null && !radio.Checked)
                 return;
@@ -1403,12 +1526,16 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void ChkUseSelectedStart_CheckedChanged(object sender, EventArgs e)
         {
+            if (_decisionSubmitted)
+                return;
             _pickupOrderApplied = false;
             RefreshPickupPreview();
         }
 
         private void BtnSetStartDie_Click(object sender, EventArgs e)
         {
+            if (_decisionSubmitted)
+                return;
             if (_selectedDie == null)
             {
                 SetStatus("시작할 Die를 Wafer Map 또는 목록에서 먼저 선택하세요.");
@@ -1438,6 +1565,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void BtnSetStartIndex_Click(object sender, EventArgs e)
         {
+            if (_decisionSubmitted)
+                return;
             int requested = (int)numStartIndex.Value;
             DieMapEntry entry = requested > 0 && requested <= _baseOrder.Count
                 ? _baseOrder[requested - 1]
@@ -1454,6 +1583,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void BtnPreviewPath_Click(object sender, EventArgs e)
         {
+            if (_decisionSubmitted)
+                return;
             RefreshPickupPreview();
             SetStatus("픽업 경로 미리보기를 갱신했습니다. Target=" + _previewOrder.Count +
                       ", Start=" + (StartDie != null ? lblStartDieValue.Text : "Recipe Corner"));
@@ -1461,6 +1592,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void BtnApplyPickupOrder_Click(object sender, EventArgs e)
         {
+            if (_decisionSubmitted)
+                return;
             if (_dieMap == null || _dieMap.Entries == null)
             {
                 SetStatus("적용할 Review Draft Die Map이 없습니다.");
@@ -1505,6 +1638,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void BtnApplyDieState_Click(object sender, EventArgs e)
         {
+            if (_decisionSubmitted)
+                return;
             List<DieMapEntry> entries = _selectedDies
                 .Where(item => item != null)
                 .ToList();
@@ -1597,7 +1732,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             //   Live 보유(_waferVisionControlActive)는 "대기 중"이라 Jog를 막지 않고,
             //   실제 이동 중(_waferVisionMoveBusy)일 때만 중복 실행을 막는다.
             bool busyBlocksJog = (_busy && !_waferVisionControlActive) || _waferVisionMoveBusy;
-            if (busyBlocksJog || _readOnlyPreview || e.Button != MouseButtons.Left)
+            if (busyBlocksJog || _readOnlyPreview || _decisionSubmitted || _reviewStopPending || e.Button != MouseButtons.Left)
                 return;
 
             Button button = sender as Button;
@@ -1752,6 +1887,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             RaiseSimpleEvent(OffsetApplyRequested);
         }
 
+        private void BtnVerifyMap_Click(object sender, EventArgs e)
+        {
+            LogReviewAction("GEOMETRY-VERIFY", "선택한 기준 Die의 다점 좌표 검증 요청");
+            RaiseSimpleEvent(GeometryVerificationRequested);
+        }
+
         private void BtnStartRun_Click(object sender, EventArgs e)
         {
             SubmitAutoReviewDecision(StartRunRequested, DialogResult.OK, "CONFIRM/CONTINUE AUTO(ConfirmAndContinue)");
@@ -1865,7 +2006,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void SubmitAutoReviewDecision(EventHandler handler, DialogResult result, string decisionName)
         {
-            if (_decisionSubmitted)
+            if (_decisionSubmitted || _reviewStopPending)
                 return;
             if (_waferVisionControlActive)
             {
@@ -1934,14 +2075,22 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void UpdateActionAvailability()
         {
+            if (_nonproductionReviewMode)
+            {
+                lblReviewValue.Text = "NONPRODUCTION REVIEW";
+                lblReviewValue.ForeColor = Color.Khaki;
+            }
             // [라이브 중 버튼 사용 2026-08-17, 팀장님 지시] 기존에는 Wafer Vision Live Scope를 잡으면
             // SetBusy(true)가 걸려 _busy=true → 액션 버튼이 전부 비활성이었다.
             // 현재 기준: Live 보유 상태(_waferVisionControlActive)는 "동작 중"이 아니라 "대기 중"이므로
             // 버튼을 잠그지 않는다. 실제 동작 중 중복 실행 차단은 _waferVisionMoveBusy가 담당한다
             // (기존 MOVE SELECTED DIE의 Scope 재사용 경로와 동일한 정책).
             bool busyBlocksActions = _busy && !_waferVisionControlActive;
-            bool enabled = !busyBlocksActions;
-            bool actionEnabled = enabled && !_readOnlyPreview && !_waferVisionMoveBusy;
+            bool enabled = !busyBlocksActions && !_reviewStopPending;
+            bool actionEnabled = enabled && !_readOnlyPreview && !_waferVisionMoveBusy && !_decisionSubmitted;
+            // 제출 후 Camera X 복귀/저장 응답을 기다리는 동안 단순 선택이 검증 증거를 무효화하지 않게 한다.
+            mapView.Enabled = !_decisionSubmitted;
+            dieGrid.Enabled = !_decisionSubmitted;
             grpDieState.Enabled = actionEnabled && _mode == InputStageRunReviewMode.MappingReview;
             grpStartDie.Enabled = actionEnabled && _mappingComplete;
             grpJog.Enabled = !_readOnlyPreview;
@@ -1961,15 +2110,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnThetaCorrection.Enabled = actionEnabled && _alignComplete;
             btnDieDetection.Enabled = actionEnabled && _alignComplete && _mappingComplete;
             btnOffsetApply.Enabled = actionEnabled && _mappingComplete;
+            btnVerifyMap.Enabled = actionEnabled && _alignComplete && _mappingComplete;
             btnVisionTest.Enabled = actionEnabled;
             // 미연결 상태에서는 Live/Grab이 no-op이면서 버튼만 눌린 상태로 남으므로 명령 자체를 잠근다.
-            bool waferVisionCommandEnabled = _waferVisionControlActive &&
+            bool waferVisionCommandEnabled = !_reviewStopPending && _waferVisionControlActive &&
                                               _waferVisionLinkConnected &&
                                               !_readOnlyPreview &&
                                               !_decisionSubmitted &&
                                               !_waferVisionMoveBusy;
             waferVisionViewer.CameraCommandsEnabled = waferVisionCommandEnabled;
-            btnWaferVisionControl.Enabled = !_readOnlyPreview &&
+            btnWaferVisionControl.Enabled = !_reviewStopPending && !_readOnlyPreview &&
                                             (!_busy || _waferVisionControlActive) &&
                                             !_decisionSubmitted &&
                                             !_waferVisionMoveBusy;
@@ -1980,14 +2130,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnRetryMapping.Enabled = actionEnabled && _alignComplete;
             btnMappingSetup.Enabled = actionEnabled && !_autoReviewMode;
             btnStartRun.Enabled = (actionEnabled || (enabled && _autoReviewMode)) &&
+                                  !_decisionSubmitted &&
                                   _mode == InputStageRunReviewMode.MappingReview &&
                                   _alignComplete &&
                                   _mappingComplete &&
                                   _reviewValid &&
+                                  (_geometryVerified || _nonproductionReviewMode) &&
                                   _pickupOrderApplied &&
                                   (!_manualFallbackThetaRequired || _manualFallbackThetaDone) &&
                                   (_previewOrder.Count == 0 || !chkUseSelectedStart.Checked || _startDie != null);
-            btnAbortAuto.Enabled = actionEnabled || (enabled && _autoReviewMode);
+            btnAbortAuto.Enabled = !_decisionSubmitted && (actionEnabled || (enabled && _autoReviewMode));
             btnBuzzerStop.Enabled = enabled;
             btnClose.Enabled = enabled && !_autoReviewMode;
             btnJogStop.Enabled = !_readOnlyPreview;
@@ -2003,7 +2155,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void SetStatus(string message)
         {
-            lblStatus.Text = string.IsNullOrWhiteSpace(message) ? "-" : message;
+            string text = string.IsNullOrWhiteSpace(message) ? "-" : message;
+            lblStatus.Text = _nonproductionReviewMode ? "실측 검증 아님 | " + text : text;
         }
 
         private void BtnClose_Click(object sender, EventArgs e)

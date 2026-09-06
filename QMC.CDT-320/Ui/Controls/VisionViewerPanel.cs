@@ -32,6 +32,7 @@ namespace QMC.CDT_320.Ui.Controls
         private double _savedHeightPixel;
         private int _grabImageUiPending;
         private bool _cameraCommandsEnabled = true;
+        private bool _reviewVerificationFrameBusy;
 
         public bool AllowLive { get; set; }
 
@@ -137,6 +138,74 @@ namespace QMC.CDT_320.Ui.Controls
             return _cam != null
                 ? _cam.WaitForCameraOperationsAsync()
                 : System.Threading.Tasks.Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Review 안전 Scope와 정지한 XYT를 호출자가 유지한 상태에서 별도 EXPOSE 영상을 표시한다.
+        /// 반환값은 표시 영수증이며 MATCH 요청 ID 또는 물리 Die 식별자가 아니다.
+        /// </summary>
+        public async System.Threading.Tasks.Task<string> ShowReviewVerificationFrameAsync(
+            string host, int port, VisionTcpClient commandClient, CancellationToken token)
+        {
+            if (IsDisposed || Disposing || !IsHandleCreated || InvokeRequired || _cam == null || _cam.IsDisposed)
+                throw new InvalidOperationException("검증 영상은 활성 Viewer의 UI 스레드에서 요청해야 합니다.");
+            if (_reviewVerificationFrameBusy)
+                throw new InvalidOperationException("이전 검증 영상 요청이 아직 끝나지 않았습니다.");
+            if (IsLive || commandClient == null || !commandClient.IsConnected ||
+                string.IsNullOrWhiteSpace(host) || port <= 0 || port > 65535 || port != _port)
+                throw new InvalidOperationException("Live 정지와 현재 Viewer 포트/명령 연결을 확인한 뒤 검증 영상을 요청하세요.");
+
+            token.ThrowIfCancellationRequested();
+            VisionViewerSource expectedSource = _source;
+            Bitmap frame = null;
+            VisionFrameMeta metadata = null;
+            string sourceStatus = string.Empty;
+            _reviewVerificationFrameBusy = true;
+            try
+            {
+                await WaitForCameraOperationsAsync().ConfigureAwait(true);
+                token.ThrowIfCancellationRequested();
+                if (IsDisposed || Disposing || IsLive || !ReferenceEquals(expectedSource, _source) ||
+                    !commandClient.IsConnected)
+                    throw new InvalidOperationException("검증 영상 요청 전에 Viewer 상태가 변경되었습니다.");
+
+                // 기존 EXPOSE ACK/거부 및 단발 수신 경로를 사용한다. null 명령 채널의 캐시 영상은 사용하지 않는다.
+                // STOP이 와도 짧은 촬상/수신 작업이 종료된 뒤 반환하여 호출자의 안전 Scope가 먼저 풀리지 않게 한다.
+                using (var source = new VisionViewerSource(host.Trim(), port, 2000, commandClient))
+                {
+                    source.FrameMeta += value => metadata = value;
+                    source.Status += value => sourceStatus = value;
+                    frame = await System.Threading.Tasks.Task.Run(() => source.GrabFrame()).ConfigureAwait(true);
+                }
+
+                token.ThrowIfCancellationRequested();
+                if (IsDisposed || Disposing || !IsHandleCreated || InvokeRequired || _cam.IsDisposed || IsLive ||
+                    !ReferenceEquals(expectedSource, _source) || port != _port || !commandClient.IsConnected)
+                    throw new InvalidOperationException("검증 영상 수신 중 Viewer 상태가 변경되어 영상을 폐기했습니다.");
+                if (frame == null || frame.Width <= 0 || frame.Height <= 0)
+                    throw new InvalidOperationException("검증용 새 촬상 영상을 표시할 수 없습니다. " + sourceStatus);
+
+                string receipt = "EXPOSE-DISPLAY:" + Guid.NewGuid().ToString("N") +
+                    "; UTC=" + DateTime.UtcNow.ToString("O") +
+                    "; Image=" + frame.Width + "x" + frame.Height + "; Port=" + port;
+                // 누적 평균이 켜져 있어도 이전 검증점 영상이 섞이지 않게 현재 프레임부터 새 버퍼를 시작한다.
+                _cam.SetVerificationImage(frame);
+                if (metadata != null)
+                    ApplyMeta(metadata);
+                // 별도 EXPOSE와 이전 MATCH의 대응은 보장되지 않으므로 과거 판정/마크를 식별 근거처럼 표시하지 않는다.
+                _cam.SetResultLines(new string[0]);
+                _cam.SetOverlay(RectangleF.Empty, null);
+                _cam.SetVerdict(string.Empty, false);
+                _lblStat.Text = "검증점 별도 촬상 영상 표시 — " + frame.Width + "x" + frame.Height;
+                _cam.Refresh();
+                return receipt;
+            }
+            finally
+            {
+                if (frame != null)
+                    frame.Dispose();
+                _reviewVerificationFrameBusy = false;
+            }
         }
 
         private void StartGrabImageView()

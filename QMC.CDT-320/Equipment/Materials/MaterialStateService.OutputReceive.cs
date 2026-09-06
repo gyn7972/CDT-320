@@ -908,6 +908,9 @@ namespace QMC.CDT320.Materials
                         outputWafer,
                         die,
                         receiveTarget);
+                    // Vacuum 해제/안전 이탈 후 Place Material 전이가 끝난 해당 픽커만 해제한다.
+                    if (previousLocation != null)
+                        ClearPickerFlowRecoveryNoLock(previousLocation.Kind, previousLocation.PickerNo, "Place 완료: " + dieId);
                     NotifyAndSave("MoveDieToOutputStage");
                     return true;
                 }
@@ -2092,6 +2095,9 @@ namespace QMC.CDT320.Materials
                 reason = "InputStage Review 승인이 없습니다.";
                 return false;
             }
+
+            if (!IsInputStageReviewGeometryApprovalUsableNoLock(wafer, sourceMap, out reason))
+                return false;
 
             string currentRevision = ResolveInputStageRunReviewMappingRevision(wafer, sourceMap);
             if (string.IsNullOrWhiteSpace(currentRevision) ||

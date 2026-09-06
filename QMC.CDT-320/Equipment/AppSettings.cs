@@ -385,7 +385,10 @@ namespace QMC.CDT320
             }
 
             if (changed && invalidateSessionOnChange)
+            {
                 QMC.CDT320.Materials.InputStageHybridResultSession.Clear();
+                QMC.CDT320.Materials.MaterialStateService.ClearAllPickerFlowRecoveries("운전 모드 설정 변경");
+            }
         }
 
         public static AppSettings Load()
