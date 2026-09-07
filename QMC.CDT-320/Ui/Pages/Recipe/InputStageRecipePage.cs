@@ -1670,7 +1670,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 AddInputDieVisionSettingItems(items, unit);
                 AddAlignVisionSettingItems(items, unit);
                 AddPickupBinSettingItems(items, unit);
-                // 바코드 설정은 설정(Settings) → 바코드 화면 한 곳에서만 관리한다.
+                AddBarcodeLotPrefixSettingItems(items, unit);
+                // 바코드 판독기 설정은 설정(Settings) → 바코드 화면 한 곳에서만 관리한다.
                 // (레시피 화면에 있던 BARCODE READ TIMEOUT은 시퀀스가 쓰지 않는 중복 항목이라 제거)
                 items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
                 items.Add(ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)));
@@ -1768,6 +1769,35 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "같은 Die를 Wait(재촬영 대기)로 되돌릴 수 있는 최대 횟수입니다.\r\n" +
                 "이 횟수를 넘기면 해당 Die를 픽업 대상에서 제외하고 경고 알람을 남깁니다.\r\n" +
                 "0이면 재시도 없이 즉시 제외합니다. 카운터는 웨이퍼 교체와 자동 운전 시작 시 초기화됩니다."), groupKey));
+        }
+
+        private void AddBarcodeLotPrefixSettingItems(List<ParameterGridItem> items, InputStageUnit unit)
+        {
+            const string groupKey = "BARCODE_LOT_PREFIX_SETTING";
+            items.Add(Describe(ParameterGridItem.Header("BARCODE LOT CHECK", groupKey),
+                "현재 생산 LOT ID와 입력 웨이퍼 바코드의 앞 N글자를 비교합니다(장비 공통 Config 저장)."));
+            items.Add(InGroup(Describe(ParameterGridItem.Bool("LOT 접두어 검사 사용", ParameterGridScope.Config,
+                () => unit.Config.UseBarcodeLotPrefixCheck,
+                value =>
+                {
+                    if (value && !InputWaferBarcodePolicy.IsValidPrefixLength(unit.Config.BarcodeLotPrefixLength))
+                        throw new ArgumentOutOfRangeException("BarcodeLotPrefixLength", "LOT 접두어 비교 글자수를 1~128 사이로 먼저 설정하십시오.");
+                    unit.Config.UseBarcodeLotPrefixCheck = value;
+                }),
+                "네트워크 맵 사용 여부와 관계없이 얼라인 전에 LOT 앞부분을 검사합니다.\r\n" +
+                "현재 생산 LOT ID와 바코드의 앞 N글자를 대소문자 구분 없이 비교합니다.\r\n" +
+                "바코드 사용 OFF, LOT 미지정, 길이 부족 또는 불일치이면 작업을 진행하지 않습니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Int("LOT 접두어 비교 글자수", "글자", ParameterGridScope.Config,
+                () => unit.Config.BarcodeLotPrefixLength,
+                value =>
+                {
+                    if (!InputWaferBarcodePolicy.IsValidPrefixLength(value))
+                        throw new ArgumentOutOfRangeException("BarcodeLotPrefixLength", "LOT 접두어 비교 글자수는 1~128 사이여야 합니다.");
+                    unit.Config.BarcodeLotPrefixLength = value;
+                }),
+                "LOT ID와 바코드의 앞에서부터 비교할 글자수입니다. 기본값은 5입니다.\r\n" +
+                "예: LOT ID=YZAMH, 바코드=YZAMH.02, 글자수=5이면 일치합니다.\r\n" +
+                "양쪽 문자열이 지정한 글자수보다 짧으면 실패합니다."), groupKey));
         }
 
         // [픽업 BIN 필터 2026-08-27 팀장님 지시] 웨이퍼 맵 픽업 대상 BIN 필터 — 레시피 저장

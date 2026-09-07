@@ -466,12 +466,14 @@ namespace QMC.CDT320.Materials
                 State != null ? State.RecipeName : null, IsInputStageReviewSimulation(wafer), out reason))
                 return false;
             string condition = BuildInputStageReviewConditionSignature(wafer);
-            if (string.IsNullOrWhiteSpace(condition))
+            string mapCondition = BuildInputStageReviewConditionSignature(wafer, false);
+            if (string.IsNullOrWhiteSpace(condition) || string.IsNullOrWhiteSpace(mapCondition))
                 return FailInputStageReviewGeometry("현재 레시피/카메라/좌표 설정을 확인할 수 없습니다.", out reason);
             context = new InputStageReviewGeometryContext
             {
                 WaferId = wafer.WaferId, MappingRevision = revision,
                 ConditionSignature = condition, CandidateSignature = BuildInputStageReviewGeometrySignature(draft),
+                MapConditionSignature = InputStageReviewGeometryPolicy.MapConditionSignaturePrefix + mapCondition,
                 SessionGeneration = session, RequestGeneration = request,
                 StageTheta = wafer.InputStageDieMappingCorrectedT,
                 PitchX = draft.PitchX, PitchY = draft.PitchY, OriginX = draft.OriginX, OriginY = draft.OriginY,
@@ -818,6 +820,99 @@ namespace QMC.CDT320.Materials
             return InputStageReviewGeometryPolicy.IsSameContext(saved, current, out reason);
         }
 
+        public static bool TryPrepareInputStageReviewForCameraSave(out string reason)
+        {
+            // 호출자는 카메라 SAVE의 독점 게이트를 보유하고 아직 파일/운전값을 변경하지 않아야 한다.
+            // 승인 판정 getter에서 이관하지 않고, 정상 구형 승인에 맵 전용 근거만 보강한다.
+            WaferMaterial wafer = null;
+            InputStageReviewSavedVerification previous = null;
+            InputStageReviewSavedVerification prepared = null;
+            InputStageReviewGeometryContext preparedContext = null;
+            string verificationId = null;
+            string pendingKey = null;
+            try
+            {
+                lock (_stateSync)
+                {
+                    wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    previous = wafer != null ? wafer.InputStageReviewVerification : null;
+                    if (wafer == null || !wafer.HasInputStageRunReviewApproval || previous == null ||
+                        previous.Context == null || !string.IsNullOrEmpty(previous.Context.MapConditionSignature))
+                    {
+                        reason = "카메라 저장 전 이관할 구형 Review 승인이 없습니다.";
+                        return true;
+                    }
+                    if (_inputStageReviewPendingSave.Contains(wafer.WaferInstanceId ?? ""))
+                        return FailInputStageReviewGeometry("기존 Review 승인 자료 저장 완료 후 다시 저장하세요.", out reason);
+                    DieMap map = BuildDieMapFromWaferNoLock(wafer);
+                    InputStageReviewGeometryContext current;
+                    if (!IsInputStageRunReviewApprovalUsable(wafer, out reason) ||
+                        !IsInputStageReviewGeometryApprovalUsableCoreNoLock(wafer, map, out current, out reason))
+                    {
+                        // 이미 불일치한 자료를 현재 값으로 덮어쓰지 않는다. 기존 재확인 판정은 유지한다.
+                        WriteInputStageReviewDiagnostic("CAMERA-SAVE-LEGACY-NOT-UPGRADED", previous.Context, map, reason);
+                        return true;
+                    }
+                    if (!InputStageReviewGeometryPolicy.TryUpgradeLegacyContext(
+                        previous.Context, current, out preparedContext, out reason))
+                        return false;
+                    prepared = previous.Clone();
+                    prepared.Context = preparedContext;
+                    verificationId = prepared.VerificationId;
+                    pendingKey = wafer.WaferInstanceId ?? "";
+                    wafer.InputStageReviewVerification = prepared;
+                    _inputStageReviewPendingSave.Add(pendingKey);
+                    InvalidateInputPickContextCacheNoLock();
+                    if (!TryNotifyAndSave("InputStageReviewCameraSaveUpgrade"))
+                        throw new IOException("Review 승인 이관 저장 요청에 실패했습니다.");
+                }
+
+                // IO 대기는 Material 잠금 밖에서 수행한다. 완료 전까지 카메라 저장과 승인 소비를 막는다.
+                if (!TryFlushPendingSave("InputStageReviewCameraSaveUpgrade"))
+                    throw new IOException("Review 승인 이관 자료를 파일에 저장하지 못했습니다.");
+                lock (_stateSync)
+                {
+                    if (!ReferenceEquals(GetWaferAtLocation(MaterialLocationKind.InputStage), wafer) ||
+                        !string.Equals(wafer.WaferInstanceId ?? "", pendingKey, StringComparison.Ordinal) ||
+                        !ReferenceEquals(wafer.InputStageReviewVerification, prepared) ||
+                        !ReferenceEquals(prepared.Context, preparedContext) ||
+                        !string.Equals(prepared.VerificationId, verificationId, StringComparison.Ordinal))
+                        throw new InvalidOperationException("Review 승인 이관 저장 중 대상 또는 승인 자료가 변경되었습니다.");
+                    _inputStageReviewPendingSave.Remove(pendingKey);
+                    InvalidateInputPickContextCacheNoLock();
+                    if (!IsInputStageRunReviewApprovalUsable(wafer, out reason))
+                        throw new InvalidOperationException("Review 승인 이관 저장 중 재개 조건이 변경되었습니다. " + reason);
+                    WriteInputStageReviewDiagnostic("CAMERA-SAVE-LEGACY-UPGRADED", prepared.Context,
+                        BuildDieMapFromWaferNoLock(wafer), "approvalId=" + verificationId + "; durableMaterialSave=True");
+                    reason = "기존 Review 확인과 생산 진행 상태를 유지하도록 승인 자료를 이관했습니다.";
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                lock (_stateSync)
+                {
+                    // 다른 작업의 새 승인은 건드리지 않는다. 실패 시 카메라 저장 전에 기존 근거로 복원한다.
+                    if (wafer != null && prepared != null && ReferenceEquals(wafer.InputStageReviewVerification, prepared))
+                    {
+                        wafer.InputStageReviewVerification = previous;
+                        WaferMaterial currentWafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                        // 같은 ID의 새 객체가 새 승인을 저장 중이면 그 작업의 대기 상태를 해제하지 않는다.
+                        if (currentWafer == null || ReferenceEquals(currentWafer, wafer) ||
+                            !string.Equals(currentWafer.WaferInstanceId ?? "", pendingKey, StringComparison.Ordinal))
+                            _inputStageReviewPendingSave.Remove(pendingKey);
+                        InvalidateInputPickContextCacheNoLock();
+                        if (!TryNotifyAndSave("InputStageReviewCameraSaveUpgradeRestored"))
+                            Log.Write("Main", "SYSTEM", "MaterialStateService",
+                                "Review 승인 이관 실패 후 기존 근거의 저장 요청도 실패했습니다. 카메라 저장은 중단합니다. - Failed");
+                    }
+                }
+                reason = "Review 재개 승인 이관 실패로 카메라 저장을 중단합니다. " + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService", reason + " - Failed");
+                return false;
+            }
+        }
+
         private static bool TryCompleteInputStageReviewCommitSave(
             WaferMaterial wafer, string committedVerificationId, out string reason)
         {
@@ -965,7 +1060,7 @@ namespace QMC.CDT320.Materials
             return machine != null && machine.InputStageUnit != null ? machine.InputStageUnit.Config : null;
         }
 
-        private static string BuildInputStageReviewConditionSignature(WaferMaterial wafer)
+        private static string BuildInputStageReviewConditionSignature(WaferMaterial wafer, bool includePickerBridge = true)
         {
             CDT320_Machine machine = CalibrationCoordinateService.ResolveMachine();
             RecipeProject recipe = RecipeStore.LoadLastOrDefaultCached();
@@ -992,8 +1087,12 @@ namespace QMC.CDT320.Materials
                 config.ManualDieDetectOffsetLimitX, config.ManualDieDetectOffsetLimitY,
                 config.ManualDieDetectCumulativeOffsetLimitX, config.ManualDieDetectCumulativeOffsetLimitY,
                 config.AlignCenterToleranceMm, config.AlignPitchCompareToleranceMm, config.MaxEffectiveThetaToleranceDeg,
-                ResolveInputStageReviewActualThetaTolerance(),
-                calibration.Camera.InputToBottomOffsetX, calibration.Camera.InputToBottomOffsetY, calibration.Camera.Valid);
+                ResolveInputStageReviewActualThetaTolerance());
+            // Input 카메라 간 보정은 Picker Setup 전용이며 맵 좌표에는 적용하지 않는다.
+            // 구형 승인 대조용 전체 서명은 기존 입력 순서 그대로 유지한다.
+            if (includePickerBridge)
+                AppendInputStageReviewValue(text, calibration.Camera.InputToBottomOffsetX,
+                    calibration.Camera.InputToBottomOffsetY, calibration.Camera.Valid);
             AppendInputStageReviewSerialized(text, recipe.Die);
             AppendInputStageReviewSerialized(text, recipe.InputFrame ?? recipe.Frame);
             AppendInputStageReviewSerialized(text, machine.InputStageUnit.Recipe != null ? machine.InputStageUnit.Recipe.DieMap : null);
@@ -1105,6 +1204,8 @@ namespace QMC.CDT320.Materials
                     AppendInputStageReviewDiagnosticValue(json, "contextConditionSignature", context != null ? context.ConditionSignature : null);
                     AppendInputStageReviewDiagnosticValue(json, "contextCandidateSignature", context != null ? context.CandidateSignature : null);
                     AppendInputStageReviewDiagnosticValue(json, "savedConditionSignature", saved != null && saved.Context != null ? saved.Context.ConditionSignature : null);
+                    AppendInputStageReviewDiagnosticValue(json, "contextMapConditionSignature", context != null ? context.MapConditionSignature : null);
+                    AppendInputStageReviewDiagnosticValue(json, "savedMapConditionSignature", saved != null && saved.Context != null ? saved.Context.MapConditionSignature : null);
                     AppendInputStageReviewDiagnosticValue(json, "savedCandidateSignature", saved != null && saved.Context != null ? saved.Context.CandidateSignature : null);
                     AppendInputStageReviewDiagnosticValue(json, "draftCandidateSignature", draft != null ? BuildInputStageReviewGeometrySignature(draft) : null);
                     AppendInputStageReviewDiagnosticValue(json, "session", context != null ? (object)context.SessionGeneration : null);

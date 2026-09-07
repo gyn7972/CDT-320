@@ -26,6 +26,11 @@ namespace QMC.CDT320.Barcode
         public string MaterialId { get; set; } = "";
         public string MaterialInstanceId { get; set; } = "";
         public string FailureMessage { get; set; } = "";
+        // 얼라인 전 값/맵 검증 복구는 동일 후보 재확인만 수행하고 판독 모션을 재발행하지 않는다.
+        public bool ValidationRecovery { get; set; }
+        public string CurrentBarcode { get; set; } = "";
+        public string LotId { get; set; } = "";
+        public int PrefixLength { get; set; }
         public int RetryCount { get; set; } = 3;
         public double RetryStepMm { get; set; } = 1.000;
 
@@ -216,6 +221,13 @@ namespace QMC.CDT320.Barcode
                             RetryStepMm = retryStepMm
                         },
                         false);
+                dialog.CancelRequested += () =>
+                    CompletePrompt(
+                        pending,
+                        BarcodeRecoveryResponse.Cancelled(
+                            pending.Request.RetryCount,
+                            pending.Request.RetryStepMm),
+                        false);
                 dialog.BuzzerStopRequested += () => StopBuzzer(pending.Host);
                 StartBuzzer(pending.Host);
                 dialog.Show(pending.Host);
@@ -258,7 +270,7 @@ namespace QMC.CDT320.Barcode
 
             response.RetryCount = ClampRetryCount(response.RetryCount);
             response.RetryStepMm = ClampRetryStep(response.RetryStepMm);
-            if (response.Decision != BarcodeRecoveryDecision.Cancelled)
+            if (response.Decision != BarcodeRecoveryDecision.Cancelled && !pending.Request.ValidationRecovery)
                 SaveRetrySettings(pending.Request.Channel, response.RetryCount, response.RetryStepMm);
 
             pending.Completion.TrySetResult(response);

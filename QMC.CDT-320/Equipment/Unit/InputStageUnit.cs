@@ -110,6 +110,12 @@ namespace QMC.CDT320
 
         [DataMember] public double VisionXBarcodePosition { get; set; }
 
+        /// <summary>현재 생산 LOT ID와 입력 웨이퍼 바코드의 접두어를 검사하는 장비 공통 설정.</summary>
+        [DataMember] public bool UseBarcodeLotPrefixCheck { get; set; } = false;
+
+        /// <summary>LOT 접두어 비교 글자수. 유효 범위는 1~128이며 저장된 잘못된 값은 검사 시 거부한다.</summary>
+        [DataMember] public int BarcodeLotPrefixLength { get; set; } = InputWaferBarcodePolicy.DefaultPrefixLength;
+
         // Legacy values are kept only for reading old config files.
         [DataMember] public double PickUpNeedleSeparateVelocity { get; set; }
         [DataMember] public double PickUpNeedleSeparateAcc { get; set; } = 100.0;
@@ -197,6 +203,9 @@ namespace QMC.CDT320
             // 이전 설정에 누적 한계 키가 없을 때만 기본값을 사용한다. 저장된 값은 덮어쓰지 않는다.
             ManualDieDetectCumulativeOffsetLimitX = 20.0;
             ManualDieDetectCumulativeOffsetLimitY = 20.0;
+            // 구 Config에 새 키가 없을 때만 기본값을 사용한다. 명시적으로 저장된 잘못된 N은 보정하지 않는다.
+            UseBarcodeLotPrefixCheck = false;
+            BarcodeLotPrefixLength = InputWaferBarcodePolicy.DefaultPrefixLength;
         }
 
         [OnDeserialized]

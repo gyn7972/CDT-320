@@ -146,7 +146,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     // 유닛 확인
                     case InputStageAlignStep.CheckUnit:
-                        return Task.FromResult(CheckAlignUnit());
+                        return CheckAlignUnitAsync(ct);
                     // 비전 프로세스 위치 이동
                     case InputStageAlignStep.MoveVisionProcessPosition:
                         return MoveVisionProcessPositionAsync(ct);
@@ -231,14 +231,14 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private int CheckAlignUnit()
+        private async Task<int> CheckAlignUnitAsync(CancellationToken ct)
         {
             try
             {
                 ResetAlignRuntimeState();
-                InputStageHybridResultSession.Clear();
 
-                int result = CheckUnit(InputStageAlignStep.MoveVisionProcessPosition);
+                // 바코드/맵 검사까지 성공해야 이동 Step으로 승격한다. 실패/취소 재개도 이 검사를 다시 거친다.
+                int result = CheckUnit(InputStageAlignStep.CheckUnit);
                 if (result != 0)
                     return result;
 
@@ -261,6 +261,23 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-ALIGN-WAFER", "Material",
                         "InputStage wafer data was not found. CurrentWaferMaterial=null, MaterialLocation=InputStage empty.");
 
+                // 수동/STEP 얼라인도 Auto의 바코드 검사를 우회하지 않는다.
+                // 이 단계는 값을 정정하거나 판독 모션을 시작하지 않고, 확정된 후보만 검사한다.
+                AppSettings barcodeSettings = AppSettingsStore.Current;
+                if (barcodeSettings == null || Stage.Config == null)
+                    return Fail("IN-STAGE-ALIGN-BARCODE-SETTING", Stage.Name, "얼라인 전 바코드 검사 설정을 확인할 수 없습니다.");
+                if (barcodeSettings.UseLotNetworkWaferMap || Stage.Config.UseBarcodeLotPrefixCheck)
+                {
+                    if (!_wafer.BarcodeConfirmed || !InputFeederLoadToStageSequence.IsUsableBarcode(_wafer.BarcodeId))
+                        return Fail("IN-STAGE-ALIGN-BARCODE-REQUIRED", Stage.Name,
+                            "얼라인 전에 웨이퍼 바코드 확인을 완료해야 합니다. 바코드 판독/수동 입력 절차를 먼저 진행하십시오.");
+                    _wafer = await InputFeederLoadToStageSequence.ValidateAndApplyInputBarcodeAsync(
+                        Stage, _wafer, _wafer.BarcodeId, "InputStageAlign:Validation", _wafer.BarcodeAttemptCount,
+                        ct, allowRecovery: false).ConfigureAwait(false);
+                    ct.ThrowIfCancellationRequested();
+                }
+
+                InputStageHybridResultSession.Clear();
                 Stage.ClearWaferAlignThetaResult();
                 MaterialStateService.ResetInputStageThetaAlignResult(_wafer, "InputStageAlignStartThetaReset");
 

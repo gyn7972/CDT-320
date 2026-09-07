@@ -27,6 +27,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private System.Windows.Forms.Timer _refresh;
         private ToolTip _workTimeToolTip;
         private bool _eventsHooked;
+        private bool _lotStartPending;
         private readonly object _materialDisplaySync = new object();
         private MaterialDisplaySnapshot _materialDisplayCache = new MaterialDisplaySnapshot();
         private DateTime _lastMaterialDisplayRefreshUtc = DateTime.MinValue;
@@ -547,10 +548,28 @@ namespace QMC.CDT_320.Ui.Pages.Work
             };
         }
 
-        private void btnLotStart_Click(object sender, EventArgs e)
+        private async void btnLotStart_Click(object sender, EventArgs e)
         {
+            await StartLotAsync();
+        }
+
+        private async Task StartLotAsync()
+        {
+            if (_lotStartPending)
+                return;
+
+            _lotStartPending = true;
             try
             {
+                // LOT ID는 USE와 무관한 필수값이다. 네트워크 접근 전에 먼저 검사한다.
+                string lotId = (txtLotId.Text ?? "").Trim();
+                if (lotId.Length == 0)
+                {
+                    QMC.Common.MessageDialog.Show(this, "LOT ID를 입력하세요.", "LOT 시작 오류",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
                 Form1 host = ParentForm as Form1 ?? FindForm() as Form1;
                 if (host == null)
                 {
@@ -559,12 +578,45 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
-                string lotId = txtLotId.Text;
                 int reworkCount = GetSelectedReworkCount();
+                string activeRecipeName = host.ActiveRecipeName;
+                CDT320_Machine machine = host.Machine;
+                AppSettings startSettings = AppSettingsStore.Current;
+                bool checkedUse = startSettings != null && startSettings.UseLotNetworkWaferMap;
+                string checkedFolder = checkedUse ? LotWaferMapFetchService.ResolveNetworkFolder() : "";
+                RefreshLotUi(true);
+                string folderError = await LotWaferMapFetchService.CheckLotStartFolderAsync(lotId);
+                if (IsDisposed || Disposing || host.IsDisposed || host.Disposing)
+                    return;
+                if (!string.IsNullOrEmpty(folderError))
+                {
+                    QMC.Common.MessageDialog.Show(this, folderError, "LOT 시작 오류",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                // 백그라운드 검사 완료부터 UI 재개 사이에 바뀐 설정도 이전 검사로 승인하지 않는다.
+                AppSettings currentSettings = AppSettingsStore.Current;
+                if (currentSettings == null || currentSettings.UseLotNetworkWaferMap != checkedUse ||
+                    (checkedUse && !string.Equals(checkedFolder, LotWaferMapFetchService.ResolveNetworkFolder(), StringComparison.Ordinal)))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "확인 중 네트워크 웨이퍼맵 설정이 변경되어 LOT을 시작하지 않았습니다. 현재 설정을 확인한 후 다시 시작하세요.",
+                        "LOT 시작 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                if (!ReferenceEquals(machine, host.Machine) ||
+                    !string.Equals(activeRecipeName, host.ActiveRecipeName, StringComparison.Ordinal))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "확인 중 장비 또는 활성 레시피가 변경되어 LOT을 시작하지 않았습니다. 현재 레시피를 확인한 후 다시 시작하세요.",
+                        "LOT 시작 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
                 string reason;
                 if (!LotSessionService.TryStartLot(
-                    host.Machine,
-                    host.ActiveRecipeName,
+                    machine,
+                    activeRecipeName,
                     lotId,
                     reworkCount,
                     out reason))
@@ -575,31 +627,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
 
                 RefreshLotUi();
-
-                // [P5 2026-08-24] 맵 파일명=바코드(1:1)라 LOT 단위 프리페치는 불가 — LOT 시작 시점에는
-                // 폴더 접근만 비차단으로 확인하고, 파일 확보는 웨이퍼 바코드 판독 후 웨이퍼별로 수행한다.
-                QMC.CDT320.Lots.LotWaferMapFetchService.BeginLotStartFolderCheck(
-                    LotSessionService.ActiveLotId,
-                    warning =>
-                    {
-                        try
-                        {
-                            if (IsHandleCreated && !IsDisposed)
-                            {
-                                BeginInvoke((Action)(() =>
-                                    QMC.Common.MessageDialog.Show(this, warning, "LOT 웨이퍼맵",
-                                        MessageBoxButtons.OK, MessageBoxIcon.Warning)));
-                            }
-                        }
-                        catch (Exception marshalEx)
-                        {
-                            // [검토수정 2026-08-22] 이 콜백은 프리페치 실패를 작업자에게 알리는 마지막
-                            // 통로다 — 마샬링 실패까지 삼키면 경고가 소실되므로 로그로 남긴다(AGENTS.md §7).
-                            QMC.Common.Logging.EventLogger.Write(
-                                QMC.Common.Logging.EventKind.Warning, "UI", "LOT-MAP-FETCH",
-                                "프리페치 경고 표시 실패(경고 내용은 LOT-MAP-FETCH 로그 참조): " + marshalEx.Message);
-                        }
-                    });
 
                 QMC.Common.MessageDialog.Show(this,
                     "LOT을 시작했습니다.\r\nLOT ID: " + LotSessionService.ActiveLotId +
@@ -614,6 +641,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             finally
             {
+                _lotStartPending = false;
+                if (!IsDisposed && !Disposing)
+                    RefreshLotUi(true);
             }
         }
 
@@ -752,7 +782,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         }
 
         /// <summary>LOT 입력줄의 버튼 상태를 갱신한다.</summary>
-        private void RefreshLotUi()
+        private void RefreshLotUi(bool preserveInput = false)
         {
             try
             {
@@ -761,14 +791,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
 
                 bool active = LotSessionService.IsLotActive;
+                bool canStart = !active && !_lotStartPending;
 
-                txtLotId.Enabled = !active;
-                btnLotStart.Enabled = !active;
-                btnLotComplete.Enabled = active;
-                cmbReworkCount.Enabled = !active;
-                btnLotStart.BackColor = active
-                    ? Color.FromArgb(150, 150, 150)
-                    : Color.FromArgb(21, 128, 61);
+                txtLotId.Enabled = canStart;
+                btnLotStart.Enabled = canStart;
+                btnLotComplete.Enabled = active && !_lotStartPending;
+                cmbReworkCount.Enabled = canStart;
+                btnLotStart.BackColor = canStart
+                    ? Color.FromArgb(21, 128, 61)
+                    : Color.FromArgb(150, 150, 150);
                 btnLotComplete.BackColor = active
                     ? Color.FromArgb(217, 119, 6)
                     : Color.FromArgb(150, 150, 150);
@@ -778,7 +809,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     txtLotId.Text = LotSessionService.ActiveLotId;
                     SetSelectedReworkCount(LotSessionService.ActiveReworkCount);
                 }
-                else
+                else if (!preserveInput && !_lotStartPending)
                 {
                     // LOT 완료 후 이전 ID가 입력창에 남아 활성 LOT처럼 보이지 않게 생산 LOT 상태와 맞춘다.
                     txtLotId.Text = MaterialStateService.GetProductionLotId();

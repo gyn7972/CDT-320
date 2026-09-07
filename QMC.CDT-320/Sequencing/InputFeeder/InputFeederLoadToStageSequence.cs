@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading;
+using System.Linq;
 using System.Threading.Tasks;
 using QMC.CDT320.Barcode;
 using QMC.CDT320.Lots;
@@ -216,7 +217,7 @@ namespace QMC.CDT320.Sequencing
             ct.ThrowIfCancellationRequested();
 
             InputStageUnit stage = ResolveStage();
-            if (stage == null || stage.Recipe == null)
+            if (stage == null || stage.Recipe == null || stage.Config == null)
                 return Fail("IN-FEEDER-STAGE-MISSING", "InputStage", "Input stage unit or recipe is not available.");
 
             int result = CheckStageAxisInPosition(stage, WaferStageAxis.WaferY, stage.Recipe.WaferY.LoadPosition, "StageY load");
@@ -493,12 +494,18 @@ namespace QMC.CDT320.Sequencing
 
                 if (Options == null || !Options.UseBarcode)
                 {
+                    InputStageUnit disabledStage = ResolveStage();
+                    AppSettings disabledSettings = AppSettingsStore.Current;
+                    if ((disabledStage != null && disabledStage.Config != null && disabledStage.Config.UseBarcodeLotPrefixCheck) ||
+                        (disabledSettings != null && disabledSettings.UseLotNetworkWaferMap))
+                        return Fail("IN-BARCODE-VALIDATION-DISABLED", "Barcode",
+                            "LOT 바코드 검사 또는 네트워크 맵 사용 시 USE INPUT WAFER BARCODE를 켜야 합니다. 얼라인 전에 설정을 확인하십시오.");
                     CurrentStep = InputFeederLoadToStageStep.MoveInputStageProcessPosition;
                     return 0;
                 }
 
                 InputStageUnit stage = ResolveStage();
-                if (stage == null || stage.Recipe == null || stage.CameraX == null ||
+                if (stage == null || stage.Recipe == null || stage.Config == null || stage.CameraX == null ||
                     stage.StageY == null || stage.ExpanderZ == null)
                 {
                     return Fail("IN-BARCODE-STAGE-MISSING", "InputStage",
@@ -517,6 +524,8 @@ namespace QMC.CDT320.Sequencing
                 // 재개 시 이미 같은 물리 Wafer에 판독값이 적용되어 있으면 다시 읽지 않는다.
                 if (wafer.BarcodeConfirmed && IsUsableBarcode(wafer.BarcodeId))
                 {
+                    wafer = await ValidateAndApplyInputBarcodeAsync(
+                        stage, wafer, wafer.BarcodeId, Name + ":ResumeValidation", wafer.BarcodeAttemptCount, ct).ConfigureAwait(false);
                     int resumeAvoid = await EnsureInputVisionAvoidAfterBarcodeAsync(
                         stage,
                         "barcode-confirmed resume",
@@ -865,45 +874,14 @@ namespace QMC.CDT320.Sequencing
             string sourceKind,
             CancellationToken ct)
         {
-            string normalized = NormalizeBarcode(barcode);
-            if (!IsUsableBarcode(normalized))
-                return Fail("IN-BARCODE-MANUAL-INVALID", "Barcode",
-                    "입력된 Input Wafer 바코드가 비어 있거나 유효하지 않습니다.");
-
-            string previousWaferId;
-            string applyReason;
-            bool applied = MaterialStateService.TryApplyWaferBarcode(
-                expectedWafer.WaferInstanceId,
-                MaterialLocationKind.InputStage,
-                normalized,
-                Name + ":" + sourceKind,
-                attempts,
-                out previousWaferId,
-                out applyReason);
-            if (!applied)
-            {
-                return await FailInputBarcodeWithAvoidRecoveryAsync(
-                    stage,
-                    "IN-BARCODE-MATERIAL-APPLY",
-                    "Input Wafer barcode Material 갱신 실패. waferInstanceId=" + expectedWafer.WaferInstanceId +
-                    ", barcode=" + normalized + ", reason=" + applyReason).ConfigureAwait(false);
-            }
-
-            WaferMaterial refreshed = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
-            if (refreshed == null ||
-                !string.Equals(refreshed.WaferInstanceId, expectedWafer.WaferInstanceId, StringComparison.OrdinalIgnoreCase) ||
-                !refreshed.BarcodeConfirmed ||
-                !string.Equals(refreshed.WaferId, normalized, StringComparison.Ordinal))
-            {
-                return await FailInputBarcodeWithAvoidRecoveryAsync(
-                    stage,
-                    "IN-BARCODE-MATERIAL-CHECK",
-                    "Input Wafer barcode Material 최종 확인 실패. expectedInstanceId=" + expectedWafer.WaferInstanceId +
-                    ", expectedBarcode=" + normalized +
-                    ", actualWafer=" + (refreshed != null ? refreshed.WaferId : "null")).ConfigureAwait(false);
-            }
-
-            stage.SetCurrentWaferMaterial(refreshed);
+            // 검증 복구창 대기 전에도 기존 판독 실패 경로와 동일하게 CameraX의 실제 Avoid를 확인한다.
+            int validationAvoid = await EnsureInputVisionAvoidAfterBarcodeAsync(
+                stage, "before barcode validation", ct).ConfigureAwait(false);
+            if (validationAvoid != 0)
+                return validationAvoid;
+            string previousWaferId = expectedWafer.WaferId;
+            WaferMaterial refreshed = await ValidateAndApplyInputBarcodeAsync(
+                stage, expectedWafer, barcode, Name + ":" + sourceKind, attempts, ct).ConfigureAwait(false);
             Options.ExpectedWaferId = refreshed.WaferId ?? string.Empty;
             int avoidResult = await EnsureInputVisionAvoidAfterBarcodeAsync(
                 stage,
@@ -920,6 +898,199 @@ namespace QMC.CDT320.Sequencing
                 ", source=" + sourceKind + " - Ok");
             CurrentStep = InputFeederLoadToStageStep.MoveInputStageProcessPosition;
             return 0;
+        }
+
+        // 얼라인 전에 Reader/Manual/확정 바코드 재개의 후보를 같은 경로로 검사한다.
+        // 복구창 Retry는 같은 후보 재검사이며, 기존 판독 실패창의 재판독 모션과 구분한다.
+        internal static async Task<WaferMaterial> ValidateAndApplyInputBarcodeAsync(
+            InputStageUnit stage, WaferMaterial expectedWafer, string barcode,
+            string source, int attempts, CancellationToken ct, bool allowRecovery = true)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (stage == null || stage.Recipe == null || stage.Config == null || expectedWafer == null ||
+                string.IsNullOrWhiteSpace(expectedWafer.WaferInstanceId))
+                throw new InvalidOperationException("얼라인 전 바코드 검사 대상 Stage/Recipe/물리 Wafer를 확인할 수 없습니다.");
+
+            InputStageRecipe expectedRecipe = stage.Recipe;
+            InputStageConfig expectedConfig = stage.Config;
+            AppSettings expectedSettings = AppSettingsStore.Current;
+            if (expectedSettings == null)
+                throw new InvalidOperationException("얼라인 전 바코드 검사 설정을 확인할 수 없습니다.");
+            string instanceId = expectedWafer.WaferInstanceId;
+            string originalWaferId = expectedWafer.WaferId;
+            string originalBarcode = expectedWafer.BarcodeId;
+            bool originalConfirmed = expectedWafer.BarcodeConfirmed;
+            string expectedContext = BuildBarcodeValidationContext(stage, expectedWafer);
+            string candidate = NormalizeBarcode(barcode);
+
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+                WaferMaterial current = RequireUnchangedBarcodeValidationContext(
+                    stage, expectedRecipe, expectedConfig, expectedSettings, expectedContext,
+                    instanceId, originalWaferId, originalBarcode, originalConfirmed);
+                string failure;
+                bool valid = TryValidateInputBarcodePolicy(stage, candidate, out failure);
+                if (valid)
+                {
+                    // SMB 판독은 동기 API이므로 UI 스레드를 막지 않는다. 완료 후 취소와 대상/설정을 다시 확인한다.
+                    string mapFailure = string.Empty;
+                    valid = await Task.Run(
+                        () => InputWaferMapPreflightService.TryValidate(candidate, stage, out mapFailure), ct).ConfigureAwait(false);
+                    failure = mapFailure;
+                }
+                ct.ThrowIfCancellationRequested();
+                current = RequireUnchangedBarcodeValidationContext(
+                    stage, expectedRecipe, expectedConfig, expectedSettings, expectedContext,
+                    instanceId, originalWaferId, originalBarcode, originalConfirmed);
+
+                if (valid)
+                {
+                    if (current.BarcodeConfirmed &&
+                        string.Equals(current.BarcodeId, candidate, StringComparison.Ordinal) &&
+                        string.Equals(current.WaferId, candidate, StringComparison.Ordinal))
+                        return current;
+                    if (!allowRecovery)
+                        throw new InvalidOperationException("얼라인 전에 확정된 바코드가 필요합니다. 먼저 웨이퍼 바코드 확인 절차를 완료하십시오.");
+                    if (HasInputBarcodeProcessingStarted(current))
+                        throw new InvalidOperationException("얼라인/맵 생성/픽업이 시작된 웨이퍼의 바코드는 변경할 수 없습니다. 후단 정정은 지원하지 않습니다.");
+
+                    ct.ThrowIfCancellationRequested();
+                    string previousId;
+                    string applyReason;
+                    if (!MaterialStateService.TryApplyWaferBarcode(
+                        instanceId, MaterialLocationKind.InputStage, candidate, source, attempts, out previousId, out applyReason))
+                        throw new InvalidOperationException("검증된 Input Wafer 바코드 적용 실패. " + applyReason);
+                    current = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    if (current == null || !string.Equals(current.WaferInstanceId, instanceId, StringComparison.OrdinalIgnoreCase) ||
+                        !current.BarcodeConfirmed || !string.Equals(current.BarcodeId, candidate, StringComparison.Ordinal) ||
+                        !string.Equals(current.WaferId, candidate, StringComparison.Ordinal))
+                        throw new InvalidOperationException("Input Wafer 바코드 적용 후 물리 Wafer/확정값이 변경되었습니다.");
+                    stage.SetCurrentWaferMaterial(current);
+                    ct.ThrowIfCancellationRequested();
+                    return current;
+                }
+
+                if (!allowRecovery)
+                    throw new InvalidOperationException("얼라인 전 바코드 검사 실패: " + failure +
+                        " 먼저 웨이퍼 바코드 확인 절차를 완료하십시오.");
+                if (HasInputBarcodeProcessingStarted(current))
+                    throw new InvalidOperationException("얼라인/맵 생성/픽업 이후 바코드 검사 실패: " + failure +
+                        " 후단 바코드 정정은 지원하지 않습니다. 웨이퍼와 LOT/맵 설정을 확인하십시오.");
+
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning,
+                    "SYSTEM", "INPUT-BARCODE-VALIDATION",
+                    "얼라인 전 바코드 확인 대기. lot=" + MaterialStateService.GetProductionLotId() +
+                    ", candidate=" + candidate + ", instance=" + instanceId + ", reason=" + failure);
+                BarcodeRecoveryResponse response = await BarcodeOperatorPromptService.RequestAsync(
+                    new BarcodeRecoveryRequest
+                    {
+                        Channel = BarcodeReaderChannel.InputWafer,
+                        MaterialId = current.WaferId,
+                        MaterialInstanceId = instanceId,
+                        FailureMessage = failure,
+                        ValidationRecovery = true,
+                        CurrentBarcode = candidate,
+                        LotId = MaterialStateService.GetProductionLotId(),
+                        PrefixLength = expectedConfig.UseBarcodeLotPrefixCheck ? expectedConfig.BarcodeLotPrefixLength : 0,
+                        RetryCount = expectedSettings.InputBarcodeRetryCount,
+                        RetryStepMm = expectedSettings.InputBarcodeRetryStepMm
+                    }, ct).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+                if (response == null || response.Decision == BarcodeRecoveryDecision.Cancelled)
+                    throw new InvalidOperationException("얼라인 전 바코드 확인을 중단했습니다. 바코드/맵 확인 완료 전에는 진행할 수 없습니다.");
+                if (response.Decision == BarcodeRecoveryDecision.ManualApply)
+                {
+                    string previousCandidate = candidate;
+                    candidate = NormalizeBarcode(response.ManualBarcode);
+                    source = "InputBarcodeValidation:Manual";
+                    QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "InputBarcodeValidation",
+                        "작업자가 얼라인 전 바코드 후보를 수정했습니다. lot=" + MaterialStateService.GetProductionLotId() +
+                        ", instance=" + instanceId + ", previousCandidate=" + previousCandidate +
+                        ", newCandidate=" + candidate + " - Check");
+                }
+                // Retry는 같은 후보를 다시 검사한다. 사용자 응답 없이 자동으로 재시도하지 않는다.
+            }
+        }
+
+        // 재개 판정에서도 사용하는 순수 검사다. 이 함수에서는 네트워크 파일에 접근하지 않는다.
+        internal static bool TryValidateInputBarcodePolicy(InputStageUnit stage, string barcode, out string reason)
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            if (stage == null || stage.Recipe == null || stage.Config == null || settings == null)
+            {
+                reason = "얼라인 전 바코드 검사에 필요한 Stage/Recipe/설정이 없습니다.";
+                return false;
+            }
+            if (!settings.UseInputWaferBarcode)
+            {
+                reason = "USE INPUT WAFER BARCODE가 꺼져 있습니다. 얼라인 전에 바코드 사용 설정을 확인하십시오.";
+                return false;
+            }
+            string candidate = NormalizeBarcode(barcode);
+            if (!IsUsableBarcode(candidate))
+            {
+                reason = "Input Wafer 바코드가 비어 있거나 유효하지 않습니다.";
+                return false;
+            }
+            return InputWaferBarcodePolicy.TryValidate(
+                stage.Config.UseBarcodeLotPrefixCheck, stage.Config.BarcodeLotPrefixLength,
+                settings.UseInputWaferBarcode, MaterialStateService.GetProductionLotId(), candidate, out reason);
+        }
+
+        internal static bool HasInputBarcodeProcessingStarted(WaferMaterial wafer)
+        {
+            if (wafer == null)
+                return true;
+            // 첫 얼라인 모션 중 알람이면 아직 결과 플래그가 없다. 저장된 진행 스텝도 후단 정정 차단에 포함한다.
+            string alignResumeStep = SequenceResumeStore.ResolveStartStep("InputStageSequence.Align", string.Empty);
+            if (!string.IsNullOrWhiteSpace(alignResumeStep) &&
+                !string.Equals(alignResumeStep, "CheckUnit", StringComparison.Ordinal) &&
+                !string.Equals(alignResumeStep, "Idle", StringComparison.Ordinal))
+                return true;
+            return MaterialStateService.ReadState(state =>
+                wafer.HasInputStageAlignResult || wafer.HasInputStageThetaAlignResult ||
+                wafer.HasInputStageDieMappingResult || wafer.HasInputStageRunReviewApproval ||
+                // Stage 이적재만 완료되어도 Working이므로 공정 시작 판정에는 사용하지 않는다.
+                wafer.State == WaferMaterialState.Finish ||
+                (state != null && state.Dies != null && state.Dies.Any(die => die != null &&
+                    string.Equals(die.InputWaferInstanceId, wafer.WaferInstanceId, StringComparison.OrdinalIgnoreCase) &&
+                    (die.ReservedPickerLocation != MaterialLocationKind.Unknown ||
+                     die.PickedAt != DateTime.MinValue || die.PickedPickerLocation != MaterialLocationKind.Unknown))));
+        }
+
+        private static WaferMaterial RequireUnchangedBarcodeValidationContext(
+            InputStageUnit stage, InputStageRecipe recipe, InputStageConfig config, AppSettings settings, string expectedContext,
+            string instanceId, string waferId, string barcodeId, bool confirmed)
+        {
+            WaferMaterial current = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+            if (current == null || stage.CurrentWaferMaterial == null ||
+                !string.Equals(current.WaferInstanceId, instanceId, StringComparison.OrdinalIgnoreCase) ||
+                !MaterialStateService.IsSameWaferInstance(current, stage.CurrentWaferMaterial) ||
+                !string.Equals(current.WaferId, waferId, StringComparison.Ordinal) ||
+                !string.Equals(current.BarcodeId, barcodeId, StringComparison.Ordinal) || current.BarcodeConfirmed != confirmed ||
+                !ReferenceEquals(stage.Recipe, recipe) || !ReferenceEquals(stage.Config, config) || !ReferenceEquals(AppSettingsStore.Current, settings) ||
+                !string.Equals(BuildBarcodeValidationContext(stage, current), expectedContext, StringComparison.Ordinal))
+                throw new InvalidOperationException("바코드 확인 중 물리 웨이퍼/바코드/LOT/레시피 또는 맵 설정이 변경되었습니다. 얼라인을 시작하지 않습니다.");
+            return current;
+        }
+
+        private static string BuildBarcodeValidationContext(InputStageUnit stage, WaferMaterial wafer)
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            InputStageRecipe recipe = stage != null ? stage.Recipe : null;
+            if (settings == null || recipe == null || stage.Config == null || wafer == null)
+                return string.Empty;
+            return string.Join("\u001f", new[]
+            {
+                MaterialStateService.GetProductionLotId() ?? string.Empty,
+                wafer.TapeFrameSpecName ?? string.Empty,
+                stage.Config.UseBarcodeLotPrefixCheck.ToString(), stage.Config.BarcodeLotPrefixLength.ToString(),
+                recipe.DieMap != null ? recipe.DieMap.PickupBinFilterCsv ?? string.Empty : string.Empty,
+                MaterialStateService.DescribePickupBinSelection(),
+                settings.UseInputWaferBarcode.ToString(), settings.UseLotNetworkWaferMap.ToString(),
+                settings.NetworkWaferMapFolder ?? string.Empty, settings.NetworkWaferMapFormat ?? string.Empty
+            });
         }
 
         private async Task<int> EnsureInputVisionAvoidAfterBarcodeAsync(
@@ -1365,7 +1536,7 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
 
                 InputStageUnit stage = ResolveStage();
-                if (stage == null || stage.Recipe == null)
+                if (stage == null || stage.Recipe == null || stage.Config == null)
                     return Fail("IN-FEEDER-STAGE-MISSING", "InputStage", "Input stage unit or recipe is not available for process position move.");
 
                 stage.Recipe.EnsurePositionObjects();

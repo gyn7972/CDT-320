@@ -1750,7 +1750,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         }
 
         /// <summary>이번 세션 측정 중 시뮬/bypass 결과가 섞여 있는지(계산·저장 차단용). 영속화된 값이 아니라 메모리 플래그로 판정한다.</summary>
-        private bool HasSimulatedMeasurementInSession(out string cameraNames)
+        public bool HasSimulatedMeasurementInSession(out string cameraNames)
         {
             List<string> simulated = new List<string>();
             if (_bottomMeasurementSimulated)

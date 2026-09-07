@@ -42,6 +42,8 @@ QMC.CDT-320/
 - [WaferMap 공통 상태·색상과 작업 모니터](docs/ui/wafer-map-monitor.md)
 - [RAD 웨이퍼맵 수량 검증 구현 프롬프트](docs/wafer-map-count-validation/01-implementation-prompt.md)
 - [RAD 웨이퍼맵 수량 검증 체크리스트](docs/wafer-map-count-validation/02-validation-checklist.md)
+- [Input Wafer 바코드 LOT 검사 구현 프롬프트](docs/input-wafer-barcode-validation/01-implementation-prompt.md)
+- [Input Wafer 바코드 LOT 검사 및 수동 복구 검증](docs/input-wafer-barcode-validation/02-validation-checklist.md)
 - [EventLogPage 파일 조회·실시간 표시 구조](docs/ui/event-log-view.md)
 - [축·IO·실린더 정의 코드 탐색표](docs/architecture/equipment-definition-code-map.md)
 - [자동 시컨스 전체 흐름도](docs/architecture/auto-sequence-flow.md)

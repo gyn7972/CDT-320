@@ -158,6 +158,193 @@ namespace QMC.Common.Data.Store
             return FlushAsync();
         }
 
+        public sealed class TransactionSaveResult
+        {
+            public bool Success { get; private set; }
+            public bool RecoveryRequired { get; private set; }
+            public string Message { get; private set; }
+
+            public TransactionSaveResult(bool success, bool recoveryRequired, string message)
+            {
+                Success = success;
+                RecoveryRequired = recoveryRequired;
+                Message = message ?? string.Empty;
+            }
+        }
+
+        private sealed class TransactionFile
+        {
+            internal PreparedSave Save;
+            internal FileState State;
+            internal bool Existed;
+            internal byte[] Original;
+            internal string TemporaryPath;
+        }
+
+        /// <summary>
+        /// 최대 5개 파일을 기존 파일별 저장 잠금 안에서 함께 저장합니다.
+        /// 호출자는 장비/편집의 배타 범위를 유지하고 성공 후에만 런타임 사본을 반영해야 합니다.
+        /// 일반 I/O 실패는 역순 복구하며, 전원 차단 또는 복구 I/O 실패까지 원자성을 보장하지 않습니다.
+        /// </summary>
+        public static TransactionSaveResult SaveTransaction(IReadOnlyList<PreparedSave> saves)
+        {
+            var heldLocks = new List<object>();
+            var files = new List<TransactionFile>();
+            var attempted = new List<TransactionFile>();
+            bool reserved = false;
+            try
+            {
+                if (saves == null || saves.Count == 0 || saves.Count > 5)
+                    throw new ArgumentException("함께 저장할 파일은 1~5개여야 합니다.");
+                if (HasUnfinishedSaves)
+                    throw new InvalidOperationException("기존 설정 저장이 진행 중이거나 실패 상태입니다. 저장을 완료한 뒤 다시 실행하십시오.");
+
+                foreach (PreparedSave save in saves)
+                {
+                    if (save == null || save.Payload == null || save.Completion != null)
+                        throw new ArgumentException("새로 캡처한 저장 사본만 함께 저장할 수 있습니다.");
+                    if (files.Any(file => string.Equals(file.Save.Path, save.Path, StringComparison.OrdinalIgnoreCase)))
+                        throw new ArgumentException("같은 파일을 중복해서 저장할 수 없습니다. path=" + save.Path);
+                    files.Add(new TransactionFile { Save = save, State = GetState(save.Path) });
+                }
+                files.Sort((left, right) => StringComparer.OrdinalIgnoreCase.Compare(left.Save.Path, right.Save.Path));
+
+                // 기존 Commit과 동일한 Writer -> Sync 순서를 지킵니다. 대상 전체를 확보한 동안
+                // 기존 큐와 동기 저장의 신규 접수/교체를 막아 복구 중 다른 값을 덮어쓰지 않습니다.
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                foreach (TransactionFile file in files)
+                    EnterTransactionLock(file.State.Writer, heldLocks, watch);
+                foreach (TransactionFile file in files)
+                    EnterTransactionLock(file.State.Sync, heldLocks, watch);
+                foreach (TransactionFile file in files)
+                {
+                    if (file.Save.Completion != null ||
+                        (file.State.Latest != null &&
+                         (file.State.Latest.Result == null || !file.State.Latest.Result.Success)))
+                        throw new InvalidOperationException("대상 파일의 기존 저장이 끝나지 않았습니다. path=" + file.Save.Path);
+                }
+
+                foreach (TransactionFile file in files)
+                {
+                    file.Save.State = file.State;
+                    file.Save.Completion = new TaskCompletionSource<DataStoreResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+                }
+                reserved = true;
+
+                // 모든 원본 읽기와 새 파일 쓰기를 완료한 뒤에만 첫 운영 파일을 교체합니다.
+                foreach (TransactionFile file in files)
+                {
+                    if (Directory.Exists(file.Save.Path))
+                        throw new IOException("저장할 파일 경로에 폴더가 있습니다. path=" + file.Save.Path);
+                    file.Existed = File.Exists(file.Save.Path);
+                    file.Original = file.Existed ? File.ReadAllBytes(file.Save.Path) : null;
+                    string directory = System.IO.Path.GetDirectoryName(file.Save.Path);
+                    if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+                    file.TemporaryPath = file.Save.Path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                    File.WriteAllBytes(file.TemporaryPath, file.Save.Payload);
+                }
+                foreach (TransactionFile file in files)
+                {
+                    attempted.Add(file);
+                    InstallTransactionFile(file.TemporaryPath, file.Save.Path, file.Existed);
+                    file.TemporaryPath = null;
+                }
+                foreach (TransactionFile file in files)
+                    CompleteTransactionFile(file, DataStoreResult.Ok(file.Save.Path), true, false);
+                return new TransactionSaveResult(true, false, string.Empty);
+            }
+            catch (Exception ex)
+            {
+                var recoveryErrors = new List<string>();
+                for (int i = attempted.Count - 1; i >= 0; i--)
+                {
+                    TransactionFile file = attempted[i];
+                    try { RestoreTransactionFile(file); }
+                    catch (Exception restoreEx)
+                    {
+                        recoveryErrors.Add(file.Save.Path + ": " + restoreEx.Message);
+                    }
+                }
+                bool recoveryRequired = recoveryErrors.Count != 0;
+                string message = "설정 묶음 저장에 실패했습니다. " + ex.Message;
+                if (recoveryRequired)
+                    message += " 원본 파일 복구를 완료하지 못했습니다. " + string.Join(" / ", recoveryErrors);
+                else if (attempted.Count != 0)
+                    message += " 변경한 파일은 저장 전 내용으로 복구했습니다.";
+
+                if (reserved)
+                {
+                    foreach (TransactionFile file in files)
+                    {
+                        // 실패 후보를 일반 파일별 재시도에 남기면 일부 값만 다시 저장될 수 있습니다.
+                        // 복구 성공은 기존 상태를 유지하고, 복구 실패만 재시도 payload 없이 차단 상태로 남깁니다.
+                        CompleteTransactionFile(file, DataStoreResult.Fail(file.Save.Path, message, ex),
+                            recoveryRequired, recoveryRequired);
+                    }
+                }
+                return new TransactionSaveResult(false, recoveryRequired, message);
+            }
+            finally
+            {
+                foreach (TransactionFile file in files)
+                {
+                    if (string.IsNullOrEmpty(file.TemporaryPath)) continue;
+                    try { if (File.Exists(file.TemporaryPath)) File.Delete(file.TemporaryPath); }
+                    catch (Exception cleanupEx)
+                    {
+                        System.Diagnostics.Trace.TraceError("설정 저장 임시 파일 정리 실패. path=" + file.TemporaryPath + ", error=" + cleanupEx);
+                    }
+                }
+                for (int i = heldLocks.Count - 1; i >= 0; i--) Monitor.Exit(heldLocks[i]);
+            }
+        }
+
+        private static void EnterTransactionLock(object target, List<object> heldLocks, System.Diagnostics.Stopwatch watch)
+        {
+            int remaining = (int)Math.Max(0, 5000 - watch.ElapsedMilliseconds);
+            if (remaining == 0 || !Monitor.TryEnter(target, remaining))
+                throw new TimeoutException("다른 설정 저장이 파일을 사용 중이어서 함께 저장하지 못했습니다.");
+            heldLocks.Add(target);
+        }
+
+        private static void InstallTransactionFile(string temporaryPath, string path, bool existed)
+        {
+            if (existed) File.Replace(temporaryPath, path, null);
+            else File.Move(temporaryPath, path);
+        }
+
+        private static void RestoreTransactionFile(TransactionFile file)
+        {
+            if (file.Existed)
+            {
+                if (File.Exists(file.Save.Path) && File.ReadAllBytes(file.Save.Path).SequenceEqual(file.Original)) return;
+                string restorePath = file.Save.Path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                try
+                {
+                    File.WriteAllBytes(restorePath, file.Original);
+                    InstallTransactionFile(restorePath, file.Save.Path, File.Exists(file.Save.Path));
+                }
+                finally
+                {
+                    if (File.Exists(restorePath)) File.Delete(restorePath);
+                }
+            }
+            else if (File.Exists(file.Save.Path)) File.Delete(file.Save.Path);
+        }
+
+        private static void CompleteTransactionFile(TransactionFile file, DataStoreResult result,
+            bool publishState, bool discardPayload)
+        {
+            file.Save.Result = result;
+            if (discardPayload) file.Save.Payload = null;
+            if (publishState)
+            {
+                file.Save.Revision = ++file.State.Revision;
+                file.State.Latest = file.Save;
+            }
+            file.Save.Completion.TrySetResult(result);
+        }
+
         private static async Task<DataStoreResult> FlushAsync(Func<PreparedSave, bool> filter, int timeoutMs)
         {
             DateTime deadline = DateTime.UtcNow.AddMilliseconds(Math.Max(1, timeoutMs));

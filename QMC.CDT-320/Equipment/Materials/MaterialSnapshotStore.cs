@@ -959,7 +959,7 @@ namespace QMC.CDT320.Materials
                     MatchesTypedCloneShape(typeof(CassetteSlotMaterial), 4) &&
                     MatchesTypedCloneShape(typeof(WaferMaterial), 87) &&
                     MatchesTypedCloneShape(typeof(InputStageReviewSavedVerification), 4) &&
-                    MatchesTypedCloneShape(typeof(InputStageReviewGeometryContext), 14) &&
+                    MatchesTypedCloneShape(typeof(InputStageReviewGeometryContext), 15) &&
                     MatchesTypedCloneShape(typeof(InputStageReviewGeometryTolerance), 5) &&
                     MatchesTypedCloneShape(typeof(InputStageReviewMeasurement), 12) &&
                     MatchesTypedCloneShape(typeof(OutputReceiveSlotMaterial), 22) &&

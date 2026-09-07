@@ -17,6 +17,7 @@ namespace QMC.CDT320.Materials
         public string WaferId { get; set; }
         public string MappingRevision { get; set; }
         public string ConditionSignature { get; set; }
+        public string MapConditionSignature { get; set; }
         public string CandidateSignature { get; set; }
         public long SessionGeneration { get; set; }
         public long RequestGeneration { get; set; }
@@ -141,6 +142,7 @@ namespace QMC.CDT320.Materials
     /// </summary>
     public static class InputStageReviewGeometryPolicy
     {
+        public const string MapConditionSignaturePrefix = "INPUT-MAP-V2:";
         // 부동소수점 덧셈의 표현 오차만 흡수한다. 장비의 품질 허용치는 별도 설정값이다.
         private const double NumericTolerance = 1e-9;
         private const double GeometryNumericTolerance = 1e-6;
@@ -194,7 +196,7 @@ namespace QMC.CDT320.Materials
                 return false;
             if (!string.Equals(expected.WaferId, current.WaferId, StringComparison.Ordinal) ||
                 !string.Equals(expected.MappingRevision, current.MappingRevision, StringComparison.Ordinal) ||
-                !string.Equals(expected.ConditionSignature, current.ConditionSignature, StringComparison.Ordinal) ||
+                !AreConditionSignaturesEqual(expected, current) ||
                 !string.Equals(expected.CandidateSignature, current.CandidateSignature, StringComparison.Ordinal) ||
                 expected.SessionGeneration != current.SessionGeneration ||
                 expected.RequestGeneration != current.RequestGeneration ||
@@ -205,6 +207,32 @@ namespace QMC.CDT320.Materials
                 return Fail("Review 검출/검증 이후 세션, 후보 좌표 또는 장비 조건이 변경되었습니다. 다시 검증하십시오.", out reason);
             reason = string.Empty;
             return true;
+        }
+
+        public static bool TryUpgradeLegacyContext(
+            InputStageReviewGeometryContext approved, InputStageReviewGeometryContext current,
+            out InputStageReviewGeometryContext upgraded, out string reason)
+        {
+            upgraded = null;
+            if (!IsSameContext(approved, current, out reason))
+                return false;
+            if (!string.IsNullOrEmpty(approved.MapConditionSignature) ||
+                string.IsNullOrEmpty(current.MapConditionSignature))
+                return Fail("구형 승인과 현재 맵 전용 확인값이 있어야 이관할 수 있습니다.", out reason);
+            upgraded = approved.Clone();
+            upgraded.MapConditionSignature = current.MapConditionSignature;
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool AreConditionSignaturesEqual(
+            InputStageReviewGeometryContext expected, InputStageReviewGeometryContext current)
+        {
+            // 카메라 간 보정은 Picker Setup에만 적용되며 Input 맵/Stage 좌표에는 더하지 않는다.
+            // 맵 전용 근거가 있는 승인만 보정 변경 후 재사용한다. 구형 승인은 전체 조건 일치가 필요하다.
+            return !string.IsNullOrEmpty(expected.MapConditionSignature)
+                ? string.Equals(expected.MapConditionSignature, current.MapConditionSignature, StringComparison.Ordinal)
+                : string.Equals(expected.ConditionSignature, current.ConditionSignature, StringComparison.Ordinal);
         }
 
         /// <summary>
@@ -226,7 +254,7 @@ namespace QMC.CDT320.Materials
                 return false;
             if (!string.Equals(beforeUpdate.WaferId, afterUpdate.WaferId, StringComparison.Ordinal) ||
                 !string.Equals(beforeUpdate.MappingRevision, afterUpdate.MappingRevision, StringComparison.Ordinal) ||
-                !string.Equals(beforeUpdate.ConditionSignature, afterUpdate.ConditionSignature, StringComparison.Ordinal) ||
+                !AreConditionSignaturesEqual(beforeUpdate, afterUpdate) ||
                 beforeUpdate.SessionGeneration != afterUpdate.SessionGeneration ||
                 beforeUpdate.RequestGeneration != afterUpdate.RequestGeneration ||
                 beforeUpdate.StageTheta != afterUpdate.StageTheta ||
@@ -408,6 +436,10 @@ namespace QMC.CDT320.Materials
                 string.IsNullOrWhiteSpace(context.MappingRevision) || string.IsNullOrWhiteSpace(context.ConditionSignature) ||
                 string.IsNullOrWhiteSpace(context.CandidateSignature) || context.SessionGeneration <= 0 || context.RequestGeneration <= 0)
                 return Fail("Review wafer/맵/조건/후보 또는 세션 기준이 없습니다.", out reason);
+            if (!string.IsNullOrEmpty(context.MapConditionSignature) &&
+                (!context.MapConditionSignature.StartsWith(MapConditionSignaturePrefix, StringComparison.Ordinal) ||
+                 context.MapConditionSignature.Length <= MapConditionSignaturePrefix.Length))
+                return Fail("맵 전용 Review 확인값의 형식을 확인할 수 없습니다.", out reason);
             if (!IsPositiveFinite(context.PitchX) || !IsPositiveFinite(context.PitchY) || !IsFinite(context.StageTheta) ||
                 !IsFinite(context.OriginX) || !IsFinite(context.OriginY) ||
                 !IsFinite(context.BaselineOriginX) || !IsFinite(context.BaselineOriginY))

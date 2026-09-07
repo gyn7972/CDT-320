@@ -45,7 +45,7 @@ namespace QMC.CDT320.Sequencing
         private static string LastSourceInputDieMapFailure = "";
         // [P4 2026-08-22] LOT 네트워크 맵 실패를 구분 알람 코드로 세우기 위한 부가 정보(비면 기존 코드 사용).
         private static string LastSourceInputDieMapFailureCode = "";
-        private const double AlignPitchCompareToleranceMm = 0.05;
+        private const double AlignPitchCompareToleranceMm = InputWaferMapPreflightService.PitchCompareToleranceMm;
 
         private readonly Dictionary<string, MappedMarkPoint> _mappedPoints = new Dictionary<string, MappedMarkPoint>(StringComparer.OrdinalIgnoreCase);
         private WaferMaterial _wafer;
@@ -161,7 +161,8 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 _hybridVirtualFrameActive = false;
-                int result = CheckUnit(InputStageDieMappingStep.MoveNeedleZSafeBeforeMapping);
+                // 바코드/원격맵 검사 실패 후 재개도 CheckUnit을 거쳐야 한다.
+                int result = CheckUnit(InputStageDieMappingStep.CheckUnit);
                 if (result != 0)
                     return result;
 
@@ -195,6 +196,18 @@ namespace QMC.CDT320.Sequencing
                 if (_wafer == null)
                     return Fail("IN-STAGE-DIEMAP-WAFER", "Material",
                         "InputStage wafer material is not available. CurrentWaferMaterial=null, MaterialLocation=InputStage empty.");
+
+                // 독립 Manual/Step Mapping도 자동 투입과 같은 LOT 접두부 검사를 통과해야 한다.
+                // 이 경계에서는 재입력이나 복구 모션을 수행하지 않고 잘못된 자재만 차단한다.
+                if (Stage.Config != null && Stage.Config.UseBarcodeLotPrefixCheck)
+                {
+                    string barcodeReason;
+                    if (!_wafer.BarcodeConfirmed)
+                        return Fail("IN-STAGE-DIEMAP-BARCODE-LOT", "InputStageDieMappingSequence",
+                            "LOT 접두부 검사가 켜져 있지만 입력 웨이퍼 바코드가 확정되지 않았습니다.");
+                    if (!InputFeederLoadToStageSequence.TryValidateInputBarcodePolicy(Stage, _wafer.BarcodeId, out barcodeReason))
+                        return Fail("IN-STAGE-DIEMAP-BARCODE-LOT", "InputStageDieMappingSequence", barcodeReason);
+                }
 
                 _expectedWaferId = _wafer.WaferId ?? "";
                 _expectedWaferInstanceId = MaterialStateService.EnsureWaferInstanceId(_wafer);
@@ -2164,33 +2177,14 @@ namespace QMC.CDT320.Sequencing
                 return null;
             }
 
-            // 피치 대조(오제품 차단) — 외부맵은 그리드 좌표계가 프레임과 달라 그리드 검증은 설계상
-            // 건너뛰므로(IsRecipeInputDieMapMatchedToFrame 참조) 피치로 잡는다.
-            // [실측 2026-08-22] 맵 헤더 피치의 의미가 팹마다 다르다: YZ8XRD(JMB 제품)=다이 크기
-            // 그대로(8.120), 갭 포함 중심간격이 아님. 그래서 "중심간격(크기+갭) 또는 다이 크기" 중
-            // 어느 한쪽과 일치하면 통과시킨다 — 오제품(예: 10.878 vs 8.12/8.32)은 둘 다 어긋나 차단된다.
-            // 허용치는 기존 정렬 피치 비교 상수(AlignPitchCompareToleranceMm)를 재사용한다.
-            if (frameSpec != null)
+            // 얼라인 전 바코드 사전 확인과 동일한 제품/BIN 조건을 실제 적용 직전에도 다시 검증한다.
+            string validationCode;
+            string validationReason;
+            if (!InputWaferMapPreflightService.TryValidateParsedMap(map, frameSpec, Stage, out validationCode, out validationReason))
             {
-                double frameCenterStepX = DieMapGenerator.CalculateCenterStep(frameSpec.DieSizeX, frameSpec.PitchX);
-                double frameCenterStepY = DieMapGenerator.CalculateCenterStep(frameSpec.DieSizeY, frameSpec.PitchY);
-                bool xOk = map.PitchX <= 0.0 ||
-                           (frameCenterStepX > 0.0 && Math.Abs(map.PitchX - frameCenterStepX) <= AlignPitchCompareToleranceMm) ||
-                           (frameSpec.DieSizeX > 0.0 && Math.Abs(map.PitchX - frameSpec.DieSizeX) <= AlignPitchCompareToleranceMm);
-                bool yOk = map.PitchY <= 0.0 ||
-                           (frameCenterStepY > 0.0 && Math.Abs(map.PitchY - frameCenterStepY) <= AlignPitchCompareToleranceMm) ||
-                           (frameSpec.DieSizeY > 0.0 && Math.Abs(map.PitchY - frameSpec.DieSizeY) <= AlignPitchCompareToleranceMm);
-                if (!xOk || !yOk)
-                {
-                    LastSourceInputDieMapFailureCode = "LOT-MAP-FRAME-MISMATCH";
-                    LastSourceInputDieMapFailure =
-                        "LOT 웨이퍼맵의 다이 피치가 레시피 제품과 다릅니다(다른 제품 맵 의심). " +
-                        "mapPitch=(" + map.PitchX.ToString("F3") + "," + map.PitchY.ToString("F3") + ")" +
-                        ", frameCenterStep=(" + frameCenterStepX.ToString("F3") + "," + frameCenterStepY.ToString("F3") + ")" +
-                        ", frameDieSize=(" + frameSpec.DieSizeX.ToString("F3") + "," + frameSpec.DieSizeY.ToString("F3") + ")" +
-                        ", file=" + slotInfo.LocalPath;
-                    return null;
-                }
+                LastSourceInputDieMapFailureCode = validationCode;
+                LastSourceInputDieMapFailure = validationReason + ", file=" + slotInfo.LocalPath;
+                return null;
             }
 
             // [P5 2026-08-24] 파일 특정은 이미 바코드=파일명으로 끝났다. 헤더 내부 ID는 파일명과

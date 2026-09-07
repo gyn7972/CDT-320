@@ -152,7 +152,8 @@ namespace QMC.CDT_320.Ui.Tabs
                     }
                 }
 
-                RunSafe(async c => await c.StartAsync(mode), false);
+                // LOT 미등록 등 Alarm 상태를 만들지 않는 START 차단도 사유를 오류창으로 알린다.
+                RunSafe(async c => await c.StartAsync(mode), true, MessageBoxIcon.Error);
             }
             catch (Exception ex)
             {
@@ -739,7 +740,8 @@ namespace QMC.CDT_320.Ui.Tabs
             button.StateForeColor = null;
         }
 
-        private async void RunSafe(Func<MachineController, System.Threading.Tasks.Task<int>> action, bool showFailureDialog = true)
+        private async void RunSafe(Func<MachineController, System.Threading.Tasks.Task<int>> action,
+            bool showFailureDialog = true, MessageBoxIcon failureIcon = MessageBoxIcon.Warning)
         {
             try
             {
@@ -747,7 +749,7 @@ namespace QMC.CDT_320.Ui.Tabs
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunSafe", "Work action failed: Machine controller is not ready. - Failed");
                     if (showFailureDialog)
-                        QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Work", MessageBoxButtons.OK, failureIcon);
                     return;
                 }
 
@@ -759,7 +761,7 @@ namespace QMC.CDT_320.Ui.Tabs
                         ? "작업 수행에 실패했습니다.\nAlarm/Event Log를 확인하세요."
                         : Host.Controller.LastActionFailureMessage;
                     if (showFailureDialog)
-                        QMC.Common.MessageDialog.Show(FindForm(), message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(FindForm(), message, "Work", MessageBoxButtons.OK, failureIcon);
                     return;
                 }
             }

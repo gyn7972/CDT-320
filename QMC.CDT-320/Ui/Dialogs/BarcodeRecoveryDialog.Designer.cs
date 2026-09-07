@@ -143,6 +143,7 @@
             this.txtFailure.Dock = System.Windows.Forms.DockStyle.Fill;
             this.txtFailure.Multiline = true;
             this.txtFailure.ReadOnly = true;
+            this.txtFailure.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             // grpRetry
             this.grpRetry.Controls.Add(this.retryLayout);
             this.grpRetry.Dock = System.Windows.Forms.DockStyle.Fill;

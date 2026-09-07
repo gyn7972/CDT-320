@@ -112,7 +112,11 @@ namespace QMC.CDT320.Lots
         /// <summary>설정 화면 [연결 확인]용: 폴더 존재 + 목록 조회를 타임아웃 안에 시도한다.</summary>
         public static bool TryCheckFolderAccessible(out string detail)
         {
-            string folder = ResolveNetworkFolder();
+            return TryCheckFolderAccessible(ResolveNetworkFolder(), out detail);
+        }
+
+        private static bool TryCheckFolderAccessible(string folder, out string detail)
+        {
             if (string.IsNullOrWhiteSpace(folder))
             {
                 detail = "네트워크 웨이퍼맵 폴더가 설정되지 않았습니다(기능 꺼짐).";
@@ -140,44 +144,59 @@ namespace QMC.CDT320.Lots
         }
 
         /// <summary>
-        /// [P5] LOT 시작 시 비차단 접근 확인: 파일 목록은 알 수 없으므로(바코드 전) 폴더 접근만
-        /// 확인하고, 실패는 Warning 로그 + onWarning 안내로 알린다. LOT 시작은 막지 않는다 —
-        /// 파일 확보 실패의 확정 판정은 웨이퍼별 맵 적용 시점의 알람이 담당한다.
+        /// LOT 생성 전 폴더 접근을 확인한다. USE가 꺼져 있으면 네트워크에 접근하지 않는다.
+        /// 빈 문자열은 시작 가능, 그 외 문자열은 시작을 차단할 오류 사유다.
+        /// 개별 맵 파일은 기존대로 웨이퍼 바코드 판독 후 확인한다.
         /// </summary>
-        public static void BeginLotStartFolderCheck(string lotId, Action<string> onWarning)
+        public static async Task<string> CheckLotStartFolderAsync(string lotId)
         {
             string normalizedLotId = (lotId ?? "").Trim();
-            if (!IsConfigured)
-                return;
-
-            Task.Run(() =>
+            string folder = "";
+            try
             {
-                try
-                {
-                    string accessDetail;
-                    if (TryCheckFolderAccessible(out accessDetail))
-                    {
-                        EventLogger.Write(EventKind.Event, "SYSTEM", "LOT-MAP-FETCH",
-                            "LOT 시작 — 웨이퍼맵 폴더 접근 확인. lot=" + normalizedLotId +
-                            ", detail=" + accessDetail +
-                            " (맵은 웨이퍼 바코드 판독 후 웨이퍼별로 수신)");
-                        return;
-                    }
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null)
+                    return BuildLotStartFolderError(normalizedLotId, folder, "네트워크 웨이퍼맵 설정을 읽을 수 없습니다.");
+                if (!settings.UseLotNetworkWaferMap)
+                    return "";
 
-                    EventLogger.Write(EventKind.Warning, "SYSTEM", "LOT-MAP-FETCH",
-                        "LOT 웨이퍼맵 폴더 접근 실패(LOT 시작은 계속 진행). lot=" + normalizedLotId +
-                        ", detail=" + accessDetail);
-                    if (onWarning != null)
-                        onWarning("네트워크 웨이퍼맵 폴더에 접근할 수 없습니다.\r\n" + accessDetail +
-                                  "\r\n\r\nLOT 시작은 계속 진행됩니다. 경로/연결을 확인하세요.\r\n" +
-                                  "(맵 파일은 웨이퍼 바코드 판독 시점에 웨이퍼별로 확인합니다)");
-                }
-                catch (Exception ex)
+                folder = ResolveNetworkFolder();
+                if (string.IsNullOrWhiteSpace(folder))
+                    return BuildLotStartFolderError(normalizedLotId, folder,
+                        "USE가 켜져 있지만 NETWORK WAFER MAP FOLDER 경로가 비어 있습니다.");
+
+                // UI를 멈추지 않고 기존 5초 제한 안에서 확인한다. LOT/Recipe 기록은 이 검사 후 수행한다.
+                string accessDetail = "";
+                bool accessible = await Task.Run(() => TryCheckFolderAccessible(folder, out accessDetail)).ConfigureAwait(false);
+                AppSettings currentSettings = AppSettingsStore.Current;
+                if (currentSettings == null || !currentSettings.UseLotNetworkWaferMap ||
+                    !string.Equals(folder, ResolveNetworkFolder(), StringComparison.Ordinal))
                 {
-                    EventLogger.Write(EventKind.Warning, "SYSTEM", "LOT-MAP-FETCH",
-                        "LOT 시작 폴더 확인 예외. lot=" + normalizedLotId + ", error=" + ex.Message);
+                    return BuildLotStartFolderError(normalizedLotId, folder,
+                        "접근 확인 중 USE 또는 폴더 설정이 변경되었습니다. 현재 설정을 확인한 후 다시 시작하세요.");
                 }
-            });
+                if (!accessible)
+                    return BuildLotStartFolderError(normalizedLotId, folder, accessDetail);
+
+                EventLogger.Write(EventKind.Event, "SYSTEM", "LOT-MAP-FETCH",
+                    "LOT 시작 전 웨이퍼맵 폴더 접근 확인 완료. lot=" + normalizedLotId +
+                    ", detail=" + accessDetail + " (맵 파일은 웨이퍼 바코드 판독 후 확인)");
+                return "";
+            }
+            catch (Exception ex)
+            {
+                return BuildLotStartFolderError(normalizedLotId, folder, "폴더 접근 확인 중 오류: " + ex.Message);
+            }
+        }
+
+        private static string BuildLotStartFolderError(string lotId, string folder, string detail)
+        {
+            string message = "네트워크 웨이퍼맵 폴더 접근 확인에 실패했습니다.\r\n" + detail +
+                "\r\n경로: " + (string.IsNullOrWhiteSpace(folder) ? "(미설정)" : folder) +
+                "\r\n\r\nLOT을 시작하지 않았습니다. 설정/연결을 확인한 후 다시 시작하세요.";
+            EventLogger.Write(EventKind.Alarm, "SYSTEM", "LOT-MAP-START-BLOCKED",
+                "LOT 시작 차단. lot=" + lotId + ", folder=" + folder + ", detail=" + detail);
+            return message;
         }
 
         /// <summary>[P5] BIN 선택 다이얼로그용: 가장 최근에 수신/파싱된 맵(없으면 false).</summary>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.Serialization;
 
 namespace QMC.CDT320.Calibration
@@ -129,6 +129,12 @@ namespace QMC.CDT320.Calibration
         [DataMember] public double InputToBottomOffsetY { get; set; }
         [DataMember] public double OutputToBottomOffsetX { get; set; }
         [DataMember] public double OutputToBottomOffsetY { get; set; }
+        // 기존 Offset 네 값은 운전에서 사용하는 최종값이다. 구버전 데이터의 수동 보정은 0으로 읽는다.
+        // 최종값 = Reticle 측정 산식 + 수동 보정이며, 소비처에서 수동 보정을 다시 더하지 않는다.
+        [DataMember] public double InputToBottomManualCorrectionX { get; set; }
+        [DataMember] public double InputToBottomManualCorrectionY { get; set; }
+        [DataMember] public double OutputToBottomManualCorrectionX { get; set; }
+        [DataMember] public double OutputToBottomManualCorrectionY { get; set; }
         [DataMember] public double ImageCenterPixelX { get; set; } = 320.0;
         [DataMember] public double ImageCenterPixelY { get; set; } = 240.0;
         [DataMember] public double PixelToMmX { get; set; } = 0.001;
@@ -229,6 +235,26 @@ namespace QMC.CDT320.Calibration
             return -(BottomReticle.MmY + OutputReticle.MmY);
         }
 
+        public double ResolveEffectiveInputBridgeX()
+        {
+            return ResolveInputBridgeX() + InputToBottomManualCorrectionX;
+        }
+
+        public double ResolveEffectiveInputBridgeY()
+        {
+            return ResolveInputBridgeY() + InputToBottomManualCorrectionY;
+        }
+
+        public double ResolveEffectiveOutputBridgeX()
+        {
+            return ResolveOutputBridgeX() + OutputToBottomManualCorrectionX;
+        }
+
+        public double ResolveEffectiveOutputBridgeY()
+        {
+            return ResolveOutputBridgeY() + OutputToBottomManualCorrectionY;
+        }
+
         public bool Calculate(string updatedBy)
         {
             EnsureObjects();
@@ -238,14 +264,29 @@ namespace QMC.CDT320.Calibration
                 return false;
             }
 
-            InputToBottomOffsetX = ResolveInputBridgeX();
-            InputToBottomOffsetY = ResolveInputBridgeY();
-            OutputToBottomOffsetX = ResolveOutputBridgeX();
-            OutputToBottomOffsetY = ResolveOutputBridgeY();
+            double inputX = ResolveEffectiveInputBridgeX();
+            double inputY = ResolveEffectiveInputBridgeY();
+            double outputX = ResolveEffectiveOutputBridgeX();
+            double outputY = ResolveEffectiveOutputBridgeY();
+            if (!IsFinite(inputX) || !IsFinite(inputY) || !IsFinite(outputX) || !IsFinite(outputY))
+            {
+                Valid = false;
+                return false;
+            }
+
+            InputToBottomOffsetX = inputX;
+            InputToBottomOffsetY = inputY;
+            OutputToBottomOffsetX = outputX;
+            OutputToBottomOffsetY = outputY;
             UpdatedAt = DateTime.Now;
             UpdatedBy = updatedBy ?? string.Empty;
             Valid = true;
             return true;
+        }
+
+        private static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
         }
     }
 }

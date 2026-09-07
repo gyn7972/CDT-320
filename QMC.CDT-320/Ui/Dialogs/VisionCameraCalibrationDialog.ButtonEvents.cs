@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
@@ -18,7 +16,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void btnFindInput_Click(object sender, EventArgs e)
         {
-            // 성공 시에만 세션 측정 기록을 남긴다(SAVE POS 가드용).
+            // 성공 시에만 세션 측정 기록을 남긴다(SAVE / APPLY 가드용).
             _ = RunOperationAsync("FIND INPUT",
                 ct => Sequence.PrepareAndFindInputReticleAsync(ct, QMC.CDT320.Sequencing.SequenceRunMode.Manual),
                 ManualCalibrationReadinessTarget.None,
@@ -40,14 +38,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void btnCalculateSave_Click(object sender, EventArgs e)
         {
-            _ = RunOperationAsync("CALC / SAVE", delegate(CancellationToken ct)
-            {
-                ct.ThrowIfCancellationRequested();
-                int result = Sequence.CalculateCalibration();
-                if (result != 0)
-                    return Task.FromResult(result);
-                return Task.FromResult(Sequence.SaveCalibration());
-            });
+            SaveAndApplyCameraValues(true);
         }
 
         private void btnClose_Click(object sender, EventArgs e)

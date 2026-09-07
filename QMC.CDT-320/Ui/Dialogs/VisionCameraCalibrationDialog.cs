@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -39,11 +38,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private CancellationTokenSource _cts;
         private bool _busy;
 
-        // [측정 가드 2026-07-27] SAVE POS는 "이번 다이얼로그 세션에서 실제로 측정/입력한 값"만 저장한다.
-        // 기존에는 data.InputReticle.HasVisionXPosition 만 확인했는데, 이 플래그는 파일에서 로드된
-        // 과거 값에도 true라서 FIND INPUT/OUTPUT을 한 번도 하지 않고 SAVE POS를 눌러도 통과했고,
-        // 그 결과 과거 VisionX 값이 현재 Recipe의 ReticlePosition을 덮어썼다.
-        // 세션 내 성공 시점의 값을 함께 보관해, 이후 LOAD/재측정으로 값이 바뀌면 저장을 차단한다.
+        // 실제 FIND 결과와 수동 편집을 구분하여, 저장할 Reticle 위치만 선택합니다.
         private bool _inputReticleMeasuredInSession;
         private bool _outputReticleMeasuredInSession;
         private double _measuredInputVisionX;
@@ -94,6 +89,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 EnsureSequence();
                 RefreshData();
+                UpdateSaveReticleButtonEnabled();
             }
             catch (Exception ex)
             {
@@ -106,6 +102,13 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            if (_manualDraft != null && !_busy && QMC.Common.MessageDialog.Show(this,
+                "저장하지 않은 수정값을 취소하고 닫으시겠습니까?", "VISION CAMERA CAL",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            {
+                e.Cancel = true;
+                return;
+            }
             try
             {
                 if (_busy)
@@ -155,18 +158,19 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 lblGuide.Text = "Bottom/Input/Output 카메라가 같은 Reticle Mark를 찾은 좌표와 현재 모터 위치를 VisionUnit Config에 저장합니다.";
                 lblValueTitle.Text = "FIDUCIAL OFFSET";
+                btnSaveReticleValues.Text = "SAVE / APPLY";
                 lblStatus.Text = "대기 중입니다.";
 
                 toolTip.SetToolTip(btnLoadValues, "저장 파일에서 Machine Settings와 현재 Recipe 값을 다시 읽어 표시합니다.");
-                toolTip.SetToolTip(btnSaveReticleValues, "FIND INPUT/OUTPUT에서 측정한 InputVisionX/OutputVisionX 위치를 ReticlePosition으로 저장합니다.\r\nBottom 위 Reticle 촬영 X Encoder 값도 VisionUnit Config에 함께 저장합니다.");
-                toolTip.SetToolTip(gridAppliedValues, "Admin 권한에서 값을 더블클릭하면 키패드로 수정하고 VisionUnit CalibrationData에 저장합니다.");
+                toolTip.SetToolTip(btnSaveReticleValues, "수정값을 저장하고 픽커 보정에 적용합니다.\r\n이번에 측정하거나 직접 수정한 Encoder 위치만 현재 Recipe에도 저장합니다.");
+                toolTip.SetToolTip(gridAppliedValues, "Admin 권한에서 더블클릭하여 편집합니다. SAVE / APPLY 전까지 운전값은 변경되지 않습니다.");
                 toolTip.SetToolTip(btnCheck, "자동 운전, 다른 수동 동작, 알람 상태를 확인합니다.\r\n측정 버튼을 누르기 전에 현재 장비 상태가 안전한지 확인합니다.");
                 toolTip.SetToolTip(btnRunAll, "사전 준비 후 Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 Rear Back -> Lift Down으로 복귀한 뒤 Front/Rear Picker를 Output-side Avoid로 안전 순차 이동합니다. Front Slide는 Rear Back 기준으로 확인합니다.");
                 toolTip.SetToolTip(btnFindBottom, "Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\n성공하면 X/Y/T/Score를 VisionUnit Config의 Bottom 측정값으로 저장합니다.");
                 toolTip.SetToolTip(btnFindInput, "Input Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 안전 위치로 복귀하고 Front/Rear Picker를 Output-side Avoid로 안전 순차 이동한 뒤 InputVisionX를 Reticle 위치로 이동합니다.");
                 toolTip.SetToolTip(btnFindOutput, "Output Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 안전 위치로 복귀하고 Front/Rear Picker를 Input-side Avoid로 안전 순차 이동한 뒤 OutputVisionX를 Reticle 위치로 이동합니다.");
                 toolTip.SetToolTip(btnRetractReticle, "Reticle을 촬영 준비 위치에서 복귀합니다.\r\nRear Slide 후진, Lift Down 순서로 실행하고 최종 위치를 확인합니다. Front Slide는 Rear Back 기준으로 확인합니다.");
-                toolTip.SetToolTip(btnCalculateSave, "Bottom/Input/Output 측정값으로 카메라 간 Offset을 계산합니다.\r\n계산된 값을 CalibrationData.Camera에 저장합니다.");
+                toolTip.SetToolTip(btnCalculateSave, "Bottom/Input/Output 측정값으로 카메라 간 Offset을 계산하고 수동 보정량을 유지합니다.\r\nSAVE / APPLY와 동일하게 파일과 픽커 보정을 함께 저장·적용합니다.");
                 toolTip.SetToolTip(btnHelp, "Vision Camera Calibration 수행 순서를 표시합니다.");
                 toolTip.SetToolTip(btnClose, "Vision Camera Calibration 창을 닫습니다.");
             }
@@ -271,10 +275,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _sequence = null;
                 EnsureSequence();
                 // 파일에서 다시 읽었으므로 세션 측정 기록은 무효다(과거값 저장 차단).
+                DiscardManualDraft();
                 ClearReticleMeasuredInSession();
                 RefreshData();
-                lblStatus.Text = "저장 파일에서 Machine Settings와 현재 Recipe 값을 다시 불러왔습니다. " +
-                                 "SAVE POS를 하려면 FIND INPUT/OUTPUT을 다시 수행하세요.";
+                lblStatus.Text = "미저장 편집을 취소하고 저장된 Settings와 현재 Recipe를 불러왔습니다.";
             }
             catch (Exception ex)
             {
@@ -288,96 +292,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void btnSaveReticleValues_Click(object sender, EventArgs e)
         {
-            try
-            {
-                Form1 host = FindHostForm();
-                if (host == null || host.Machine == null)
-                    throw new InvalidOperationException("장비 객체가 준비되지 않았습니다.");
-
-                if (host.Machine.InputStageUnit == null ||
-                    host.Machine.InputStageUnit.Recipe == null ||
-                    host.Machine.InputStageUnit.Recipe.VisionX == null)
-                    throw new InvalidOperationException("InputVisionX ReticlePosition 저장을 위한 Recipe 정보가 없습니다.");
-
-                if (host.Machine.OutputStageUnit == null ||
-                    host.Machine.OutputStageUnit.Recipe == null ||
-                    host.Machine.OutputStageUnit.Recipe.VisionX == null)
-                    throw new InvalidOperationException("OutputVisionX ReticlePosition 저장을 위한 Recipe 정보가 없습니다.");
-
-                VisionCameraCalibrationData data = Sequence.CalibrationData;
-                if (data == null)
-                    throw new InvalidOperationException("Vision Camera Calibration 데이터가 준비되지 않았습니다.");
-
-                data.EnsureObjects();
-                if (data.InputReticle == null ||
-                    !data.InputReticle.HasVisionXPosition)
-                    throw new InvalidOperationException("Input Reticle VisionX 위치가 없습니다. FIND INPUT을 수행하거나 Admin 수동 입력 후 저장하세요.");
-
-                if (data.OutputReticle == null ||
-                    !data.OutputReticle.HasVisionXPosition)
-                    throw new InvalidOperationException("Output Reticle VisionX 위치가 없습니다. FIND OUTPUT을 수행하거나 Admin 수동 입력 후 저장하세요.");
-
-                // [측정 가드 2026-07-27] HasVisionXPosition은 파일 로드값에도 true이므로 신뢰할 수 없다.
-                // 이번 세션에서 실제로 측정/입력했는지, 그리고 그 값이 이후 바뀌지 않았는지까지 확인한다.
-                if (!_inputReticleMeasuredInSession)
-                    throw new InvalidOperationException(
-                        "이번 세션에서 Input Reticle을 측정하지 않았습니다. FIND INPUT을 먼저 정상 완료하세요. " +
-                        "(과거 저장값으로 Recipe ReticlePosition을 덮어쓰지 않도록 차단합니다.)");
-
-                if (!_outputReticleMeasuredInSession)
-                    throw new InvalidOperationException(
-                        "이번 세션에서 Output Reticle을 측정하지 않았습니다. FIND OUTPUT을 먼저 정상 완료하세요. " +
-                        "(과거 저장값으로 Recipe ReticlePosition을 덮어쓰지 않도록 차단합니다.)");
-
-                const double ReticlePositionTolerance = 1e-6;
-                if (Math.Abs(data.InputReticle.VisionXPosition - _measuredInputVisionX) > ReticlePositionTolerance ||
-                    Math.Abs(data.OutputReticle.VisionXPosition - _measuredOutputVisionX) > ReticlePositionTolerance)
-                {
-                    ClearReticleMeasuredInSession();
-                    throw new InvalidOperationException(
-                        "마지막 측정 이후 Reticle VisionX 값이 변경되었거나 다시 로드되었습니다. " +
-                        "잘못된 값 저장을 막기 위해 SAVE POS를 차단합니다. FIND INPUT/OUTPUT을 다시 수행하세요.");
-                }
-
-                double inputX = data.InputReticle.VisionXPosition;
-                double outputX = data.OutputReticle.VisionXPosition;
-
-                host.Machine.InputStageUnit.Recipe.VisionX.ReticlePosition = inputX;
-                host.Machine.OutputStageUnit.Recipe.VisionX.ReticlePosition = outputX;
-
-                data.InputReticle.VisionXPosition = inputX;
-                data.InputReticle.HasVisionXPosition = true;
-                data.OutputReticle.VisionXPosition = outputX;
-                data.OutputReticle.HasVisionXPosition = true;
-                host.Machine.VisionUnit.Config.CalibrationData.Touch(UserSession.Name);
-
-                string recipeName = host.ActiveRecipeName;
-                if (string.IsNullOrWhiteSpace(recipeName))
-                    throw new InvalidOperationException("활성 Recipe가 없어 ReticlePosition을 저장할 수 없습니다.");
-
-                if (!host.Machine.SaveRecipe(recipeName))
-                    throw new InvalidOperationException("현재 Recipe 파일 저장에 실패했습니다. recipe=" + recipeName);
-
-                if (!host.Machine.SaveSettings())
-                    throw new InvalidOperationException("CalibrationData 파일 저장에 실패했습니다.");
-
-                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-SAVE-RETICLE-POS",
-                    "Vision Camera Calibration 측정 위치로 ReticlePosition 및 Bottom Reticle X Encoder 저장. recipe=" + recipeName +
-                    ", InputVisionX=" + inputX.ToString("F3") +
-                    ", OutputVisionX=" + outputX.ToString("F3"));
-
-                RefreshAppliedValueGrid();
-                lblStatus.Text = "FIND INPUT/OUTPUT에서 측정한 위치를 Recipe ReticlePosition과 CalibrationData의 X Encoder 값으로 저장했습니다.";
-            }
-            catch (Exception ex)
-            {
-                lblStatus.Text = "ReticlePosition 저장 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "UI", "VISION-CAMERA-CAL-SAVE-RETICLE-POS", lblStatus.Text);
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION CAMERA CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
+            SaveAndApplyCameraValues(false);
         }
 
         private string BuildSequenceGuideText()
@@ -394,8 +309,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 "5. 조명, 초점, Reticle 실린더 위치가 반복 동작해도 흔들리지 않는지 확인합니다.\r\n\r\n" +
                 "버튼별 의미\r\n\r\n" +
                 "- CALC / SAVE: Bottom/Input/Output 측정값으로 카메라 간 Offset을 계산하고 CalibrationData.Camera에 저장합니다. 정상 저장 후 valid=True가 됩니다.\r\n" +
-                "- SAVE POS: FIND INPUT/OUTPUT 때 측정된 InputVisionX/OutputVisionX Encoder 위치를 현재 Recipe의 ReticlePosition으로 저장합니다. Offset 계산값 valid 상태는 변경하지 않습니다.\r\n" +
-                "- LOAD: 저장 파일에서 Machine Settings와 현재 Recipe 값을 다시 읽어 화면에 표시합니다.\r\n\r\n" +
+                "- SAVE / APPLY: 수정값을 검증하여 저장·적용합니다. 이번에 측정하거나 수정한 Encoder만 현재 Recipe에 저장합니다.\r\n" +
+                "- LOAD: 미저장 편집을 취소하고 저장된 Settings와 현재 Recipe를 다시 읽습니다.\r\n" +
+                "- 수동 Offset: 입력한 최종값과 측정 산식의 차이를 보정량으로 보관하므로 CALC 후에도 보정이 유지됩니다.\r\n\r\n" +
                 "순차 수행 작업\r\n\r\n" +
                 "1. CHECK READY\r\n" +
                 "   - 자동 운전, 다른 수동 동작, 알람 상태를 확인합니다.\r\n\r\n" +
@@ -422,7 +338,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 "6. CALC / SAVE\r\n" +
                 "   - Bottom/Input/Output 측정값으로 Offset을 계산하고 VisionUnit Config의 CalibrationData.Camera에 저장합니다.\r\n" +
                 "   - 저장 후 Offset valid=True 상태인지 확인합니다.\r\n\r\n" +
-                "7. SAVE POS\r\n" +
+                "7. SAVE / APPLY\r\n" +
                 "   - FIND INPUT/OUTPUT 때 측정한 InputVisionX/OutputVisionX Encoder 값을 Recipe ReticlePosition에 저장합니다.\r\n" +
                 "   - 저장 시점의 현재 축 위치를 다시 읽지 않습니다. 반드시 측정했던 위치값을 저장합니다.\r\n\r\n" +
                 "주의 사항\r\n\r\n" +
@@ -440,6 +356,11 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (_busy)
                 return;
+            if (_manualDraft != null && actionName != "RETICLE BACK")
+            {
+                lblStatus.Text = "미저장 편집이 있습니다. SAVE / APPLY 또는 LOAD 후 측정하세요.";
+                return;
+            }
 
             Form1 host = null;
             Action stopHandler = null;
@@ -768,7 +689,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 VisionCameraCalibrationData data = null;
                 try
                 {
-                    data = _sequence != null ? _sequence.CalibrationData : null;
+                    data = _manualDraft ?? (_sequence != null ? _sequence.CalibrationData : null);
                 }
                 catch
                 {
@@ -791,7 +712,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddMeasurementRow("Output", data.OutputReticle);
 
                 lblOffsets.Text =
-                    "Offset: Bottom-Input=(" + data.InputToBottomOffsetX.ToString("F6") + ", " + data.InputToBottomOffsetY.ToString("F6") + ") mm" +
+                    (_manualDraft != null ? "[미저장 편집] " : "") + "Offset: Bottom-Input=(" + data.InputToBottomOffsetX.ToString("F6") + ", " + data.InputToBottomOffsetY.ToString("F6") + ") mm" +
                     " / Bottom-Output=(" + data.OutputToBottomOffsetX.ToString("F6") + ", " + data.OutputToBottomOffsetY.ToString("F6") + ") mm" +
                     " / valid=" + data.Valid;
 
@@ -818,7 +739,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 VisionCameraCalibrationData data = null;
                 try
                 {
-                    data = _sequence != null ? _sequence.CalibrationData : null;
+                    data = _manualDraft ?? (_sequence != null ? _sequence.CalibrationData : null);
                     if (data != null)
                         data.EnsureObjects();
                 }
@@ -916,15 +837,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 case OutputPixelYRow:
                     return "Output 카메라에서 Reticle Finder로 측정한 픽셀 좌표입니다. Bottom 기준 Output Camera Offset 계산에 사용합니다.";
                 case InputVisionXEncoderRow:
-                    return "Input 카메라 Reticle 촬영 시 VisionX 실제 Encoder 위치입니다. SAVE RETICLE VALUES로 ReticlePosition에 저장됩니다.";
+                    return "Input 카메라 Reticle 촬영 시 VisionX 실제 Encoder 위치입니다. 이번에 측정하거나 직접 수정한 경우 SAVE / APPLY로 현재 Recipe에 저장합니다.";
                 case OutputVisionXEncoderRow:
-                    return "Output 카메라 Reticle 촬영 시 VisionX 실제 Encoder 위치입니다. SAVE RETICLE VALUES로 ReticlePosition에 저장됩니다.";
+                    return "Output 카메라 Reticle 촬영 시 VisionX 실제 Encoder 위치입니다. 이번에 측정하거나 직접 수정한 경우 SAVE / APPLY로 현재 Recipe에 저장합니다.";
                 case BottomInputOffsetXRow:
                 case BottomInputOffsetYRow:
-                    return "Bottom 카메라 좌표계를 기준으로 계산된 Input 카메라 보정값입니다.";
+                    return "측정 산식과 수동 보정을 합친 Input 최종 Offset입니다. 수정 후 SAVE / APPLY로 저장하며 CALC 후에도 수동 보정이 유지됩니다.";
                 case BottomOutputOffsetXRow:
                 case BottomOutputOffsetYRow:
-                    return "Bottom 카메라 좌표계를 기준으로 계산된 Output 카메라 보정값입니다.";
+                    return "측정 산식과 수동 보정을 합친 Output 최종 Offset입니다. 수정 후 SAVE / APPLY로 저장하며 CALC 후에도 수동 보정이 유지됩니다.";
                 case MotionSpeedRow:
                     return "Vision Camera Calibration에서 Reticle 촬영 위치로 이동할 때 사용하는 전용 속도입니다. 더블클릭하면 키패드로 수정합니다.";
                 case MotionAccRow:
@@ -1058,7 +979,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void ApplyManualAppliedValue(string item, string valueText)
         {
-            VisionCameraCalibrationData data = Sequence.CalibrationData;
+            VisionCameraCalibrationData data = CreateManualEditCandidate();
             if (data == null)
                 throw new InvalidOperationException("Vision Camera Calibration 데이터가 준비되지 않았습니다.");
 
@@ -1104,42 +1025,63 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             else if (item == BottomInputOffsetXRow)
             {
+                ValidateManualOffsetBasis(data);
                 data.InputToBottomOffsetX = ReadDoubleValue(item, valueText);
-                data.Valid = true;
+                data.InputToBottomManualCorrectionX = data.InputToBottomOffsetX - data.ResolveInputBridgeX();
+                if (!IsFinite(data.InputToBottomManualCorrectionX))
+                    throw new FormatException(item + " 보정량이 숫자 범위를 벗어났습니다.");
             }
             else if (item == BottomInputOffsetYRow)
             {
+                ValidateManualOffsetBasis(data);
                 data.InputToBottomOffsetY = ReadDoubleValue(item, valueText);
-                data.Valid = true;
+                data.InputToBottomManualCorrectionY = data.InputToBottomOffsetY - data.ResolveInputBridgeY();
+                if (!IsFinite(data.InputToBottomManualCorrectionY))
+                    throw new FormatException(item + " 보정량이 숫자 범위를 벗어났습니다.");
             }
             else if (item == BottomOutputOffsetXRow)
             {
+                ValidateManualOffsetBasis(data);
                 data.OutputToBottomOffsetX = ReadDoubleValue(item, valueText);
-                data.Valid = true;
+                data.OutputToBottomManualCorrectionX = data.OutputToBottomOffsetX - data.ResolveOutputBridgeX();
+                if (!IsFinite(data.OutputToBottomManualCorrectionX))
+                    throw new FormatException(item + " 보정량이 숫자 범위를 벗어났습니다.");
             }
             else if (item == BottomOutputOffsetYRow)
             {
+                ValidateManualOffsetBasis(data);
                 data.OutputToBottomOffsetY = ReadDoubleValue(item, valueText);
-                data.Valid = true;
+                data.OutputToBottomManualCorrectionY = data.OutputToBottomOffsetY - data.ResolveOutputBridgeY();
+                if (!IsFinite(data.OutputToBottomManualCorrectionY))
+                    throw new FormatException(item + " 보정량이 숫자 범위를 벗어났습니다.");
             }
             else if (item == MotionSpeedRow)
             {
-                data.Motion.MoveVelocity = Math.Max(0.001, ReadDoubleValue(item, valueText));
+                double value = ReadDoubleValue(item, valueText);
+                if (value < 0.001) throw new FormatException(item + " 값은 0.001 이상이어야 합니다.");
+                data.Motion.MoveVelocity = value;
                 data.Motion.EnsureDefaults();
             }
             else if (item == MotionAccRow)
             {
-                data.Motion.MoveAcceleration = Math.Max(0.001, ReadDoubleValue(item, valueText));
+                double value = ReadDoubleValue(item, valueText);
+                if (value < 0.001) throw new FormatException(item + " 값은 0.001 이상이어야 합니다.");
+                data.Motion.MoveAcceleration = value;
                 data.Motion.EnsureDefaults();
             }
             else if (item == MotionDecRow)
             {
-                data.Motion.MoveDeceleration = Math.Max(0.001, ReadDoubleValue(item, valueText));
+                double value = ReadDoubleValue(item, valueText);
+                if (value < 0.001) throw new FormatException(item + " 값은 0.001 이상이어야 합니다.");
+                data.Motion.MoveDeceleration = value;
                 data.Motion.EnsureDefaults();
             }
             else if (item == MotionTimeoutRow)
             {
-                data.Motion.MoveTimeoutMs = Math.Max(100, (int)Math.Round(ReadDoubleValue(item, valueText)));
+                double value = ReadDoubleValue(item, valueText);
+                if (value < 100 || value > int.MaxValue || value != Math.Truncate(value))
+                    throw new FormatException(item + " 값은 100 이상인 정수여야 합니다.");
+                data.Motion.MoveTimeoutMs = (int)value;
                 data.Motion.EnsureDefaults();
             }
             else
@@ -1147,7 +1089,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                 throw new InvalidOperationException("수정할 수 없는 항목입니다. item=" + item);
             }
 
+            if ((IsReticlePixelItem(item) || item == BottomInputOffsetXRow || item == BottomInputOffsetYRow ||
+                 item == BottomOutputOffsetXRow || item == BottomOutputOffsetYRow) && data.CanCalculate &&
+                !data.Calculate(UserSession.Name))
+                throw new FormatException("수정 후 Offset 계산값이 유효하지 않습니다.");
             MarkManualCameraCalibrationUpdate(data);
+            _manualDraft = data;
+            _manualEditedItems.Add(item);
+            UpdateSaveReticleButtonEnabled();
         }
 
         private void ApplyManualReticlePixelAxis(
@@ -1162,6 +1111,9 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             string axisName = isXAxis ? " Pixel X" : " Pixel Y";
             double pixelValue = ReadDoubleValue(cameraName + axisName, valueText);
+            double size = isXAxis ? camera.ImageWidthPixel : camera.ImageHeightPixel;
+            if (!IsFinite(size) || size <= 0 || pixelValue < 0 || pixelValue >= size)
+                throw new FormatException(cameraName + axisName + " 값이 카메라 이미지 범위를 벗어났습니다.");
 
             measurement.Valid = true;
             measurement.CameraName = cameraName;
@@ -1204,63 +1156,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             data.EnsureSerializableDateTimes();
         }
 
-        private void SaveManualAppliedValue(string item)
-        {
-            Form1 host = FindHostForm();
-            if (host == null || host.Machine == null)
-                throw new InvalidOperationException("장비 객체가 준비되지 않았습니다.");
-
-            if (host.Machine.VisionUnit == null ||
-                host.Machine.VisionUnit.Config == null ||
-                host.Machine.VisionUnit.Config.CalibrationData == null)
-                throw new InvalidOperationException("VisionUnit CalibrationData가 준비되지 않았습니다.");
-
-            host.Machine.VisionUnit.Config.CalibrationData.Touch(UserSession.Name);
-
-            if (IsCameraCalibrationGeometryItem(item))
-            {
-                string offsetSummary;
-                PickerVisionOffsetCalibrationService.TryApplyAvailableOffsets(host.Machine, UserSession.Name, out offsetSummary);
-                if (!string.IsNullOrWhiteSpace(offsetSummary))
-                    EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MANUAL-PICKER-OFFSET", offsetSummary);
-            }
-
-            if (!host.Machine.SaveSettings())
-                throw new InvalidOperationException("CalibrationData 파일 저장에 실패했습니다.");
-
-            EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MANUAL-EDIT",
-                "Vision Camera Calibration admin 수동 수정 저장. item=" + item + ", user=" + UserSession.Name);
-        }
-
         private static double ReadDoubleValue(string item, string text)
         {
-            double[] values;
-            if (!TryReadNumbers(text, 1, out values))
-                throw new FormatException(item + " 값은 숫자가 필요합니다.");
-
-            double value = values[0];
-            if (!IsFinite(value))
-                throw new FormatException(item + " 값이 유효한 숫자가 아닙니다.");
-
+            double value;
+            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) || !IsFinite(value))
+                throw new FormatException(item + " 값은 유효한 숫자 하나를 입력해야 합니다.");
             return value;
-        }
-
-        private static bool TryReadNumbers(string text, int minimumCount, out double[] values)
-        {
-            List<double> parsed = new List<double>();
-            MatchCollection matches = Regex.Matches(text ?? string.Empty, @"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?");
-            foreach (Match match in matches)
-            {
-                double value;
-                if (double.TryParse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out value) ||
-                    double.TryParse(match.Value, NumberStyles.Float, CultureInfo.CurrentCulture, out value))
-                {
-                    parsed.Add(value);
-                }
-            }
-
-            values = parsed.ToArray();
-            return values.Length >= minimumCount;
         }
 
         private static bool IsFinite(double value)
@@ -1286,23 +1187,27 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             try
             {
+                string reason;
+                if (!CanRunManualCalibration(out reason)) throw new InvalidOperationException(reason);
+                Form1 editHost = FindHostForm();
+                CDT320_Machine editMachine = editHost?.Machine;
+                string editRecipe = editHost?.ActiveRecipeName;
+                VisionCameraCalibrationData editSource = Sequence.CalibrationData;
+                string editSnapshot = Snapshot(editSource);
+                ValidateManualEditContext(editHost);
                 string valueText;
                 if (!PromptAppliedValueWithKeypad(item, out valueText))
                     return;
 
+                if (!CanRunManualCalibration(out reason)) throw new InvalidOperationException(reason);
+                if (!ReferenceEquals(editMachine, editHost?.Machine) ||
+                    !string.Equals(editRecipe, editHost?.ActiveRecipeName, StringComparison.Ordinal) ||
+                    !ReferenceEquals(editSource, Sequence.CalibrationData) || editSnapshot != Snapshot(Sequence.CalibrationData))
+                    throw new InvalidOperationException("키패드 입력 중 Recipe/카메라가 변경되었습니다. 값을 다시 확인하고 입력하세요.");
                 ApplyManualAppliedValue(item, valueText);
-                SaveManualAppliedValue(item);
-                // Admin 수동 입력도 정식 측정 경로로 인정한다(기존 안내 문구와 동일 기준).
-                if (item == InputVisionXEncoderRow)
-                    MarkReticleMeasuredInSession(true, false);
-                else if (item == OutputVisionXEncoderRow)
-                    MarkReticleMeasuredInSession(false, true);
                 RefreshData();
 
-                string suffix = IsReticlePixelItem(item)
-                    ? " Offset 재계산이 필요하면 CALC / SAVE를 실행하세요."
-                    : string.Empty;
-                lblStatus.Text = item + " 키패드 수정값을 저장했습니다." + suffix;
+                lblStatus.Text = item + " 수정값은 미저장 상태입니다. SAVE / APPLY로 저장·적용하세요. LOAD는 편집을 취소합니다.";
             }
             catch (Exception ex)
             {
@@ -1320,7 +1225,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             valueText = null;
 
-            VisionCameraCalibrationData data = Sequence.CalibrationData;
+            VisionCameraCalibrationData data = _manualDraft ?? Sequence.CalibrationData;
             if (data == null)
                 throw new InvalidOperationException("Vision Camera Calibration 데이터가 준비되지 않았습니다.");
 
@@ -1477,7 +1382,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool PromptSingleWithKeypad(string title, double currentValue, string unit, out double value)
         {
             value = currentValue;
-            using (NumericKeypadDialog dialog = new NumericKeypadDialog(title, FormatManualNumber(currentValue), unit))
+            using (NumericKeypadDialog dialog = new NumericKeypadDialog(title, FormatManualNumber(currentValue), unit, true))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                     return false;
@@ -1489,7 +1394,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private static string FormatManualNumber(double value)
         {
-            return value.ToString("0.######", CultureInfo.InvariantCulture);
+            return value.ToString("R", CultureInfo.InvariantCulture);
         }
 
         private string FormatPixelValue(VisionReticleMeasurement measurement, bool isXAxis)
@@ -1561,8 +1466,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
 
         /// <summary>
-        /// FIND INPUT / FIND OUTPUT 또는 Admin 수동 입력이 성공했을 때 세션 측정 사실을 기록한다.
-        /// 기록 시점의 값을 함께 보관해 SAVE POS 시점에 대조한다.
+        /// FIND INPUT / FIND OUTPUT이 성공했을 때 실제 측정 사실을 기록한다.
+        /// 기록 시점의 값과 Recipe를 함께 보관해 SAVE / APPLY 시점에 대조한다.
         /// </summary>
         private void MarkReticleMeasuredInSession(bool input, bool output)
         {
@@ -1570,6 +1475,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (data == null)
                 return;
 
+            string recipeName = FindHostForm()?.ActiveRecipeName;
+            if (!ReferenceEquals(_measuredCameraSource, data) ||
+                !string.Equals(_measuredRecipeName, recipeName, StringComparison.Ordinal))
+                ClearReticleMeasuredInSession();
             data.EnsureObjects();
             if (input && data.InputReticle != null && data.InputReticle.HasVisionXPosition)
             {
@@ -1583,6 +1492,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _measuredOutputVisionX = data.OutputReticle.VisionXPosition;
             }
 
+            _measuredCameraSource = data;
+            _measuredRecipeName = recipeName;
             UpdateSaveReticleButtonEnabled();
         }
 
@@ -1593,19 +1504,21 @@ namespace QMC.CDT_320.Ui.Dialogs
             _outputReticleMeasuredInSession = false;
             _measuredInputVisionX = 0.0;
             _measuredOutputVisionX = 0.0;
+            _measuredCameraSource = null;
+            _measuredRecipeName = null;
             UpdateSaveReticleButtonEnabled();
         }
 
-        private bool HasReticleMeasuredInSession()
+        private bool HasCameraValuesToSave()
         {
-            return _inputReticleMeasuredInSession && _outputReticleMeasuredInSession;
+            return _inputReticleMeasuredInSession || _outputReticleMeasuredInSession || _manualDraft != null;
         }
 
         private void UpdateSaveReticleButtonEnabled()
         {
             try
             {
-                btnSaveReticleValues.Enabled = !_busy && HasReticleMeasuredInSession();
+                btnSaveReticleValues.Enabled = !_busy && HasCameraValuesToSave();
             }
             catch
             {
@@ -1615,8 +1528,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void SetButtonsEnabled(bool enabled)
         {
             btnLoadValues.Enabled = enabled;
-            // SAVE POS는 세션 내 Input/Output 측정이 모두 끝난 경우에만 활성화한다.
-            btnSaveReticleValues.Enabled = enabled && HasReticleMeasuredInSession();
+            // 측정한 위치 또는 명시적으로 편집한 값이 있을 때 저장할 수 있습니다.
+            btnSaveReticleValues.Enabled = enabled && HasCameraValuesToSave();
             btnCheck.Enabled = enabled;
             btnFindBottom.Enabled = enabled;
             btnFindInput.Enabled = enabled;

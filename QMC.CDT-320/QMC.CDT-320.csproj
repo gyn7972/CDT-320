@@ -84,6 +84,7 @@
     <Compile Include="Equipment\AppSettings.cs" />
     <Compile Include="Equipment\BarcodeDisabledNoticeService.cs" />
     <Compile Include="Equipment\BarcodeOperatorPromptService.cs" />
+    <Compile Include="Equipment\InputWaferBarcodePolicy.cs" />
     <Compile Include="Equipment\LogRetentionService.cs" />
     <Compile Include="Equipment\Alarms\AlarmResponsePolicy.cs" />
     <Compile Include="Equipment\Alarms\AlarmResponseService.cs" />
@@ -94,6 +95,7 @@
     <Compile Include="Equipment\Calibration\ColletCalibrationApplyService.cs" />
     <Compile Include="Equipment\Calibration\CalibrationCoordinateService.cs" />
     <Compile Include="Equipment\Calibration\PickerVisionOffsetCalibrationService.cs" />
+    <Compile Include="Equipment\Calibration\VisionCameraManualSaveService.cs" />
     <Compile Include="Equipment\Calibration\VisionCameraCalibrationData.cs" />
     <Compile Include="Equipment\Calibration\VisionCameraCalibrationTransform.cs" />
     <Compile Include="Equipment\Calibration\ColletCalibrationData.cs" />
@@ -126,6 +128,7 @@
     <Compile Include="Equipment\MachineController.ManualOutputBatch.cs" />
     <Compile Include="Equipment\MachineController.Recipe.cs" />
     <Compile Include="Equipment\MachineController.RecipeReset.cs" />
+    <Compile Include="Equipment\MachineController.CameraCalibration.cs" />
     <Compile Include="Equipment\MachineController.RuntimeState.cs" />
     <Compile Include="Equipment\MachineController.SequenceControl.cs" />
     <Compile Include="Equipment\MachineController.Statistics.cs" />
@@ -593,6 +596,7 @@
     <Compile Include="Equipment\Lots\LotSessionService.cs" />
     <Compile Include="Equipment\Lots\LotStorage.cs" />
     <Compile Include="Equipment\Lots\LotWaferMapFetchService.cs" />
+    <Compile Include="Equipment\Lots\InputWaferMapPreflightService.cs" />
     <!-- Equipment / Interlocks (Stage 3 ??5 + Stage 8 ??5 추�?, �?15) -->
     <Compile Include="Equipment\Interlocks\Common\ExtendedInterlocks.cs" />
     <Compile Include="Equipment\Interlocks\Common\ExtendedInterlocks2.cs" />
@@ -867,6 +871,10 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Ui\Dialogs\VisionCameraCalibrationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\VisionCameraCalibrationDialog.ManualSave.cs">
+      <DependentUpon>VisionCameraCalibrationDialog.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Ui\Dialogs\VisionCameraCalibrationDialog.ButtonEvents.cs">

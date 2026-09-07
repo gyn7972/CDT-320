@@ -1,5 +1,6 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
+using System;
 using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
@@ -69,15 +70,18 @@ namespace QMC.CDT320.Sequencing
             detail = string.Empty;
 
             AppSettings settings = AppSettingsStore.Current;
-            if (settings == null || !settings.UseInputWaferBarcode)
+            InputStageUnit stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
+            bool prefixRequired = stage != null && stage.Config != null && stage.Config.UseBarcodeLotPrefixCheck;
+            if (settings != null && !settings.UseInputWaferBarcode && !settings.UseLotNetworkWaferMap && !prefixRequired)
                 return false;
 
             stageWafer = ResolveStageWaferFromRuntimeState();
             if (stageWafer == null)
                 return false;
 
+            string validationReason = string.Empty;
             bool usable = stageWafer.BarcodeConfirmed &&
-                          InputFeederLoadToStageSequence.IsUsableBarcode(stageWafer.BarcodeId);
+                          InputFeederLoadToStageSequence.TryValidateInputBarcodePolicy(stage, stageWafer.BarcodeId, out validationReason);
             if (usable)
                 return false;
 
@@ -85,7 +89,8 @@ namespace QMC.CDT320.Sequencing
                      ", barcodeConfirmed=" + stageWafer.BarcodeConfirmed +
                      ", barcodeId=" + (string.IsNullOrWhiteSpace(stageWafer.BarcodeId) ? "-" : stageWafer.BarcodeId) +
                      ", waferId=" + (stageWafer.WaferId ?? "-") +
-                     ", instance=" + (stageWafer.WaferInstanceId ?? "-");
+                     ", instance=" + (stageWafer.WaferInstanceId ?? "-") +
+                     ", validation=" + validationReason;
             return true;
         }
 
@@ -107,8 +112,46 @@ namespace QMC.CDT320.Sequencing
 
             WaferMaterial stageWafer;
             string gateDetail;
-            if (!IsStageBarcodeRecoveryRequired(out stageWafer, out gateDetail))
+            bool recoveryRequired = IsStageBarcodeRecoveryRequired(out stageWafer, out gateDetail);
+            if (stageWafer == null)
                 return 0;
+
+            // 정상 재개는 Mapping/Review에서 네트워크를 다시 읽지 않는다. 맵 사전 검사는 얼라인 진입에서 끝낸다.
+            if (!recoveryRequired && !string.Equals(entryPoint, "AlignStage", StringComparison.Ordinal))
+                return 0;
+            if (recoveryRequired &&
+                (!string.Equals(entryPoint, "AlignStage", StringComparison.Ordinal) ||
+                 InputFeederLoadToStageSequence.HasInputBarcodeProcessingStarted(stageWafer)))
+                return Fail("SEQ-IN-BARCODE-AFTER-ALIGN", "InputStage",
+                    "얼라인/맵 생성/픽업 이후 바코드 오류는 이 단계에서 정정할 수 없습니다. " + gateDetail);
+
+            // 이미 판독한 후보는 얼라인 전에 값/맵만 다시 확인한다. 수동 정정으로 바코드 위치 모션을 반복하지 않는다.
+            if (stageWafer.BarcodeConfirmed)
+            {
+                try
+                {
+                    return await ExecuteWithInputPickerAvoidGateAsync("InputBarcodeValidation", ct, async () =>
+                    {
+                        using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputBarcodeValidation", ct).ConfigureAwait(false))
+                        {
+                            if (lease == null)
+                                return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "얼라인 전 바코드 검사 중 InputStageArea 점유에 실패했습니다.");
+                            InputStageUnit stage = Context.Machine != null ? Context.Machine.InputStageUnit : null;
+                            WaferMaterial validated = await InputFeederLoadToStageSequence.ValidateAndApplyInputBarcodeAsync(
+                                stage, stageWafer, stageWafer.BarcodeId, "InputSequence:BeforeAlign", stageWafer.BarcodeAttemptCount, ct).ConfigureAwait(false);
+                            ct.ThrowIfCancellationRequested();
+                            _autoWaferId = validated.WaferId;
+                            return 0;
+                        }
+                    }).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    return Fail("SEQ-IN-BARCODE-VALIDATION", "InputStage", "얼라인 전 바코드 확인 실패. " + ex.Message);
+                }
+            }
+
             gateDetail = "entry=" + entryPoint + ", " + gateDetail;
 
             // 최소 로그 정책에서도 남도록 레벨 지정 로그 사용(가시성 — P2 지시서 §3-B-3).
