@@ -796,8 +796,17 @@ namespace QMC.CDT_320.Ui.Controls
                 if (item.Validator != null && !item.Validator(value))
                     throw new InvalidOperationException(item.DisplayName + " value is out of range.");
 
+                object previous = item.Getter != null ? item.Getter() : null;
+                if (item.Getter != null && object.Equals(previous, value))
+                {
+                    SetValueCellText(row, item, FormatValue(item));
+                    return;
+                }
+
                 item.Setter(value);
                 SetValueCellText(row, item, FormatValue(item));
+                if (item.Getter != null && object.Equals(previous, item.Getter()))
+                    return;
                 OnParameterValueChanged(item);
             }
             catch (Exception ex)

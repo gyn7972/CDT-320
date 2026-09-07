@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.Serialization;
 using System.Threading;
 
@@ -36,6 +36,9 @@ namespace QMC.CDT320.Calibration
     [DataContract]
     public sealed class VisionFocusScanSettings
     {
+        // 독립 Bottom Collet/Die AF의 준비각이며 각 모드와 배치 대상 전체에 공통 적용한다.
+        // 구파일의 누락값은 0도다. 생산 Runtime Z-only AF의 현재 자세는 변경하지 않는다.
+        [DataMember] public double PickerTTeachingDeg { get; set; } = 0.0;
         [DataMember] public double MinusRange { get; set; } = 0.2;
         [DataMember] public double PlusRange { get; set; } = 0.2;
         [DataMember] public double Step { get; set; } = 0.02;

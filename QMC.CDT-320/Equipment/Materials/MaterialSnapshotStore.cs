@@ -636,7 +636,7 @@ namespace QMC.CDT320.Materials
                     return;
 
                 AppSettings settings = AppSettingsStore.Current;
-                if (settings != null && settings.SaveMaterialInspectionDetail)
+                if (settings == null || settings.SaveMaterialInspectionDetail)
                     return;
 
                 if (copy == null || copy.Dies == null)
@@ -940,7 +940,7 @@ namespace QMC.CDT320.Materials
         //  - 실제 운전 스냅샷(다이 14,846 / 웨이퍼 39 / 검사 89,076)으로 기존 경로와
         //    바이트 단위 동일 출력을 확인했다.
         //
-        // 안전장치: 모델에 프로퍼티가 추가/삭제되면 아래 개수 가드가 불일치를 감지해
+        // 안전장치: 중첩 Review 검증 자료까지 모델에 프로퍼티가 추가/삭제되면 아래 개수 가드가 불일치를 감지해
         //   기존 리플렉션 복제로 폴백하고 로그를 남긴다. 조용한 데이터 누락이 생기지 않는다.
         private static int _typedCloneUsable = -1;   // -1=미검사, 1=사용, 0=폴백
 
@@ -957,7 +957,11 @@ namespace QMC.CDT320.Materials
                     MatchesTypedCloneShape(typeof(MaterialSnapshot), 11) &&
                     MatchesTypedCloneShape(typeof(CassetteMaterial), 10) &&
                     MatchesTypedCloneShape(typeof(CassetteSlotMaterial), 4) &&
-                    MatchesTypedCloneShape(typeof(WaferMaterial), 82) &&
+                    MatchesTypedCloneShape(typeof(WaferMaterial), 87) &&
+                    MatchesTypedCloneShape(typeof(InputStageReviewSavedVerification), 4) &&
+                    MatchesTypedCloneShape(typeof(InputStageReviewGeometryContext), 14) &&
+                    MatchesTypedCloneShape(typeof(InputStageReviewGeometryTolerance), 5) &&
+                    MatchesTypedCloneShape(typeof(InputStageReviewMeasurement), 12) &&
                     MatchesTypedCloneShape(typeof(OutputReceiveSlotMaterial), 22) &&
                     MatchesTypedCloneShape(typeof(DieMaterial), 30) &&
                     MatchesTypedCloneShape(typeof(DieInspectionRecord), 8) &&

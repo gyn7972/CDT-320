@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.Serialization;
 using QMC.CDT320.VisionComm;
 
@@ -10,6 +10,9 @@ namespace QMC.CDT320.Calibration
         public const string DefaultBottomFinderName = VisionToolIds.BottomInspection.ColletFinder;
 
         [DataMember] public string BottomFinderName { get; set; } = DefaultBottomFinderName;
+        // 캘 시작 및 내부 Bottom AF의 촬영 준비각이다. 정렬 후 적용하는 T 영점 기준과 구분한다.
+        // 구버전 저장 파일에 항목이 없으면 기본값 0도로 읽는다.
+        [DataMember] public double CalibrationStartAngleDeg { get; set; } = 0.0;
         [DataMember] public int VisionTimeoutMs { get; set; } = 5000;
         [DataMember] public double ScoreThreshold { get; set; } = 0.0;
         [DataMember] public double ThetaToleranceDeg { get; set; } = 0.02;
@@ -103,6 +106,8 @@ namespace QMC.CDT320.Calibration
         [DataMember] public double ThetaOffset { get; set; }
         [DataMember] public double TZeroHomeOffset { get; set; }
         [DataMember] public double MeasuredTPosition { get; set; }
+        // 측정 당시 시작각을 보관한다. 이후 파라미터 변경으로 기존 결과의 의미를 바꾸지 않는다.
+        [DataMember] public double CalibrationStartAngleDeg { get; set; } = 0.0;
         [DataMember] public double FinalPickerX { get; set; }
         [DataMember] public double FinalPickerY { get; set; }
         [DataMember] public double FinalPickerZ { get; set; }

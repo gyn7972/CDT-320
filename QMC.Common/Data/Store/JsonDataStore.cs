@@ -15,6 +15,10 @@ namespace QMC.Common.Data.Store
                 if (string.IsNullOrEmpty(path))
                     return DataStoreResult<T>.Ok(new T(), string.Empty, true, "Path is empty.");
 
+                DataStoreResult pending = JsonDataSaveCoordinator.FlushPath(path, false);
+                if (!pending.Success)
+                    return DataStoreResult<T>.Fail(path, pending.Message, pending.Exception);
+
                 if (!File.Exists(path))
                     return DataStoreResult<T>.Ok(new T(), path, true, "File does not exist.");
 
@@ -36,13 +40,36 @@ namespace QMC.Common.Data.Store
 
         public static DataStoreResult Save<T>(T data, string path)
         {
+            if ((object)data == null) return DataStoreResult.Fail(path, "Data is null.");
+            if (string.IsNullOrEmpty(path)) return DataStoreResult.Fail(path, "Path is empty.");
+            try
+            {
+                return JsonDataSaveCoordinator.SaveSynchronously(data, typeof(T), path);
+            }
+            catch (Exception ex)
+            {
+                return DataStoreResult.Fail(path, ex.Message, ex);
+            }
+        }
+
+        internal static DataStoreResult SaveCaptured(object data, Type type, string path)
+        {
+            if (data == null) return DataStoreResult.Fail(path, "Data is null.");
+            return SaveFile(path, stream => JsonPrettySerializer.WriteObject(stream, type, data, CreateSettings()));
+        }
+
+        internal static DataStoreResult SaveSerialized(byte[] payload, string path)
+        {
+            if (payload == null) return DataStoreResult.Fail(path, "Data is null.");
+            return SaveFile(path, stream => stream.Write(payload, 0, payload.Length));
+        }
+
+        private static DataStoreResult SaveFile(string path, Action<Stream> write)
+        {
             string tempPath = null;
 
             try
             {
-                if ((object)data == null)
-                    return DataStoreResult.Fail(path, "Data is null.");
-
                 if (string.IsNullOrEmpty(path))
                     return DataStoreResult.Fail(path, "Path is empty.");
 
@@ -50,10 +77,10 @@ namespace QMC.Common.Data.Store
                 if (!string.IsNullOrEmpty(dir))
                     Directory.CreateDirectory(dir);
 
-                tempPath = path + ".tmp";
+                tempPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
                 using (var fs = File.Create(tempPath))
                 {
-                    JsonPrettySerializer.WriteObject(fs, typeof(T), data, CreateSettings());
+                    write(fs);
                 }
 
                 if (File.Exists(path))
@@ -88,6 +115,9 @@ namespace QMC.Common.Data.Store
                 if (string.IsNullOrEmpty(path))
                     return DataStoreResult.Fail(path, "Path is empty.");
 
+                DataStoreResult pending = JsonDataSaveCoordinator.FlushPath(path, false);
+                if (!pending.Success) return pending;
+
                 if (!File.Exists(path))
                     return DataStoreResult.Ok(path, "File does not exist.");
 
@@ -110,6 +140,9 @@ namespace QMC.Common.Data.Store
                 if (string.IsNullOrEmpty(path))
                     return DataStoreResult.Fail(path, "Path is empty.");
 
+                DataStoreResult pending = JsonDataSaveCoordinator.FlushPath(path, true);
+                if (!pending.Success) return pending;
+
                 if (!Directory.Exists(path))
                     return DataStoreResult.Ok(path, "Directory does not exist.");
 
@@ -131,6 +164,11 @@ namespace QMC.Common.Data.Store
             {
                 if (string.IsNullOrEmpty(sourcePath) || string.IsNullOrEmpty(targetPath))
                     return DataStoreResult.Fail(targetPath, "Source or target path is empty.");
+
+                DataStoreResult pending = JsonDataSaveCoordinator.FlushPath(sourcePath, true);
+                if (!pending.Success) return pending;
+                pending = JsonDataSaveCoordinator.FlushPath(targetPath, true);
+                if (!pending.Success) return pending;
 
                 if (!Directory.Exists(sourcePath))
                     return DataStoreResult.Fail(sourcePath, "Source directory does not exist.");
@@ -159,6 +197,11 @@ namespace QMC.Common.Data.Store
             {
                 if (string.IsNullOrEmpty(oldPath) || string.IsNullOrEmpty(newPath))
                     return DataStoreResult.Fail(newPath, "Old or new path is empty.");
+
+                DataStoreResult pending = JsonDataSaveCoordinator.FlushPath(oldPath, true);
+                if (!pending.Success) return pending;
+                pending = JsonDataSaveCoordinator.FlushPath(newPath, true);
+                if (!pending.Success) return pending;
 
                 if (!Directory.Exists(oldPath))
                     return DataStoreResult.Fail(oldPath, "Source directory does not exist.");

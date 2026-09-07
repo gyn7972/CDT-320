@@ -567,6 +567,7 @@
     <Compile Include="Equipment\Materials\MaterialStateService.Save.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.WaferMove.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.WaferPlacement.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.Display.cs" />
     <Compile Include="Equipment\Materials\MaterialStorage.cs" />
     <Compile Include="Equipment\Materials\RecipeMaterialStateFactory.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.RecipeReset.cs" />
@@ -1436,6 +1437,10 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Form1.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Form1.ParameterSaving.cs">
+      <DependentUpon>Form1.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Form1.Designer.cs">

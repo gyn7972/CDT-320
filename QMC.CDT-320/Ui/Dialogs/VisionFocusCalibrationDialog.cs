@@ -34,6 +34,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             PickerReferenceZ,
             PickerReferenceT,
             DefaultPosition,
+            PickerTTeaching,
             MinusRange,
             PlusRange,
             Step,
@@ -151,6 +152,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private double _pickerReferenceT;
         private string _pickerReferenceFormula = string.Empty;
         private double _defaultPosition;
+        private double _pickerTTeachingDeg = 0.0;
         private double _minusRange = 0.2;
         private double _plusRange = 0.2;
         private double _step = 0.02;
@@ -399,12 +401,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             try
             {
                 string current = Convert.ToString(row.Cells[colSettingValue.Index].Value, CultureInfo.InvariantCulture);
-                using (NumericKeypadDialog dialog = new NumericKeypadDialog(info.Name, current, info.Unit))
+                using (NumericKeypadDialog dialog = new NumericKeypadDialog(
+                    info.Name, current, info.Unit, info.Key == FocusSettingKey.PickerTTeaching))
                 {
                     if (dialog.ShowDialog(this) != DialogResult.OK)
                         return;
 
-                    ApplyNumericSetting(info, dialog.ValueText);
+                    if (!ApplyNumericSetting(info, dialog.ValueText))
+                        return;
                     RefreshSettingGrid();
                 }
             }
@@ -1143,6 +1147,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!SaveSettingsFromUi(false))
                     return;
 
+                double batchPickerTTeachingDeg = _pickerTTeachingDeg;
                 originalKind = _selectedKind;
                 originalSide = _selectedPickerSide;
                 originalPickerNo = _selectedPickerNo;
@@ -1165,6 +1170,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     lblStatus.Text = "Batch " + (index + 1) + "/" + targets.Count +
                                      " " + target.Label + " Focus 측정 중입니다.";
                     VisionFocusScanRequest request = BuildRequest(true);
+                    if (IsBottomFocusKind(originalKind))
+                        request.BottomPickerTargetTDeg = batchPickerTTeachingDeg;
                     var sequence = new VisionFocusScanSequence(host.Machine, request);
                     int result = await sequence.RunAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
                     PopulateSamples(sequence.Result);
@@ -1361,6 +1368,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Kind = _selectedKind,
                 PickerSide = _selectedPickerSide,
                 PickerNo = _selectedPickerNo,
+                BottomPickerTargetTDeg = IsBottomFocusKind(_selectedKind) ? (double?)_pickerTTeachingDeg : null,
                 DefaultPosition = _defaultPosition,
                 MinusRange = useUiRange ? _minusRange : 0.0,
                 PlusRange = useUiRange ? _plusRange : 0.0,
@@ -1546,6 +1554,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _visionBestTimeoutMs = settings.VisionBestTimeoutMs;
                 _focusValueReceiveMode = settings.FocusValueReceiveMode;
                 _returnToDefaultAfterScan = settings.ReturnToDefaultAfterScan;
+                _pickerTTeachingDeg = settings.PickerTTeachingDeg;
                 _autoFocusOnStartEnabled = settings.AutoFocusOnStartEnabled;
                 _autoFocusOnWaferChange = settings.AutoFocusOnWaferChange;
                 _autoFocusOnPickCountEnabled = settings.AutoFocusOnPickCountEnabled;
@@ -1602,6 +1611,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
 
                 VisionFocusScanSettings settings = ResolveSettings(host.Machine, _selectedKind);
+                double previousPickerTTeachingDeg = settings.PickerTTeachingDeg;
+                if (IsBottomFocusKind(_selectedKind))
+                    settings.PickerTTeachingDeg = _pickerTTeachingDeg;
                 settings.MinusRange = _minusRange;
                 settings.PlusRange = _plusRange;
                 settings.Step = _step;
@@ -1657,10 +1669,24 @@ namespace QMC.CDT_320.Ui.Dialogs
                     lblStatus.Text = "Bottom Vision/AF To Bottom Delay Recipe 저장에 실패했습니다. 활성 Recipe를 확인하세요.";
                     return false;
                 }
-                host.SaveMachineSettings();
+                if (!host.SaveMachineSettings())
+                {
+                    lblStatus.Text = "T Teaching을 포함한 Vision Focus Cal 파라미터를 저장하지 못했습니다. 저장 상태를 확인한 후 다시 시도하세요.";
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+                if (IsBottomFocusKind(_selectedKind))
+                {
+                    QMC.Common.Log.Write("Calibration", UserSession.Name, "VisionFocusCalTTeachingSave",
+                        "단독 Bottom Focus T Teaching 설정을 저장했습니다. kind=" + _selectedKind +
+                        ", side=" + _selectedPickerSide + ", pickerNo=" + _selectedPickerNo +
+                        ", oldTDeg=" + previousPickerTTeachingDeg.ToString("R", CultureInfo.InvariantCulture) +
+                        ", newTDeg=" + _pickerTTeachingDeg.ToString("R", CultureInfo.InvariantCulture));
+                }
                 RefreshSavedGrid();
                 if (showMessage)
-                    lblStatus.Text = "Vision Focus Cal 설정값과 Bottom Vision/AF To Bottom Delay Recipe 값을 저장했습니다. Teaching Z는 변경하지 않았습니다.";
+                    lblStatus.Text = "Vision Focus Cal 설정값과 Bottom Vision/AF To Bottom Delay Recipe 값을 저장했습니다. Teaching Z는 변경하지 않았습니다." +
+                                     (IsBottomFocusKind(_selectedKind) ? " T Teaching=" + _pickerTTeachingDeg.ToString("R", CultureInfo.InvariantCulture) + " deg." : string.Empty);
                 return true;
             }
             catch (Exception ex)
@@ -1761,7 +1787,10 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                     string value = Convert.ToString(row.Cells[colSettingValue.Index].Value, CultureInfo.InvariantCulture);
                     if (info.Numeric)
-                        ApplyNumericSetting(info, value);
+                    {
+                        if (!ApplyNumericSetting(info, value))
+                            return false;
+                    }
                     else
                         ApplySettingValue(row);
                 }
@@ -1809,6 +1838,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                      ? "Side Camera Y Focus 기준입니다. 저장값이 없으면 선택 카메라/각도의 Process0/90 티칭값을 사용하며 USE CURRENT로 현재 Camera Y를 적용할 수 있습니다."
                      : "Focus 기준 위치입니다. 저장된 Focus Cal 등록값만 불러오며, USE CURRENT로 현재 축 위치를 덮어쓸 수 있습니다.";
                  AddSettingRow(CreateNumberInfo(FocusSettingKey.DefaultPosition, defaultPositionName, "mm", defaultPositionTip, false), FormatDouble(_defaultPosition), true);
+                if (bottomFocus)
+                {
+                    AddSettingRow(CreateNumberInfo(FocusSettingKey.PickerTTeaching, "T Teaching (deg)", "deg",
+                        "단독 Bottom Focus MOVE DEFAULT/START/BATCH의 Picker T 절대 기준각입니다. 기본값은 0도이며 필요 시 180도 등으로 설정합니다. " +
+                        "Bottom Collet/Bottom Die별로 저장하며 레시피 T 티칭과 독립입니다. Collet Calibration 내부 AF는 콜렛 캘의 T Teaching을 사용하고 생산 Runtime AF는 현재 T를 유지합니다.",
+                        false), _pickerTTeachingDeg.ToString("R", CultureInfo.InvariantCulture), true);
+                }
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.MinusRange, "Rough - Range (mm)", "mm", "Default Pos 기준 Rough 마이너스 방향으로 스캔할 거리입니다.", false), FormatDouble(_minusRange), true);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.PlusRange, "Rough + Range (mm)", "mm", "Default Pos 기준 Rough 플러스 방향으로 스캔할 거리입니다.", false), FormatDouble(_plusRange), true);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.Step, "Rough Step (mm)", "mm", "Rough Focus 측정 지점 사이의 이동 간격입니다.", false), FormatDouble(_step), true);
@@ -1945,17 +1981,35 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        private void ApplyNumericSetting(SettingRowInfo info, string text)
+        private bool ApplyNumericSetting(SettingRowInfo info, string text)
         {
+            if (info.Key == FocusSettingKey.PickerTTeaching)
+            {
+                double pickerTTeachingDeg;
+                if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out pickerTTeachingDeg) ||
+                    double.IsNaN(pickerTTeachingDeg) || double.IsInfinity(pickerTTeachingDeg))
+                {
+                    lblStatus.Text = "T Teaching은 0, 180, -90과 같은 유한한 숫자로 입력하세요. 입력값=" + text;
+                    QMC.Common.Log.Write("Calibration", UserSession.Name, "VisionFocusCalTTeachingInput",
+                        "T Teaching 입력을 거부했습니다. kind=" + _selectedKind + ", value=" + text);
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                ApplyDoubleSetting(info.Key, pickerTTeachingDeg);
+                return true;
+            }
+
             if (info.Integer)
             {
                 int value = ParseInt(text, 0);
                 ApplyIntegerSetting(info.Key, value);
-                return;
+                return true;
             }
 
             double doubleValue = ParseDouble(text, 0.0);
             ApplyDoubleSetting(info.Key, doubleValue);
+            return true;
         }
 
         private void ApplyIntegerSetting(FocusSettingKey key, int value)
@@ -2039,6 +2093,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 case FocusSettingKey.DefaultPosition:
                     _defaultPosition = Clamp(value, -9999.0, 9999.0);
+                    break;
+                case FocusSettingKey.PickerTTeaching:
+                    _pickerTTeachingDeg = value;
                     break;
                 case FocusSettingKey.MinusRange:
                     _minusRange = Clamp(value, 0.0, 100.0);

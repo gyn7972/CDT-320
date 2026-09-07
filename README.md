@@ -56,6 +56,10 @@ QMC.CDT-320/
 - [레시피 변경 생산 상태 초기화 구현 프롬프트](docs/recipe-change-material-reset/01-implementation-prompt.md)
 - [레시피 변경 생산 상태 초기화 구현·검증 체크리스트](docs/recipe-change-material-reset/02-validation-checklist.md)
 - [레시피 변경 시퀀스·인터락 변경 승인 범위](docs/recipe-change-material-reset/03-sequence-interlock-approval.md)
+- [Material 편집·저장 및 Recipe UI 지연 개선 체크리스트](docs/material-edit-save/01-checklist.md)
+- [Material 편집 시퀀스 영향 변경안](docs/material-edit-save/02-approval-plan.md)
+- [GOOD/WAIT/NG/SKIP 및 수동 변경의 다음 운전 반영 분석](docs/material-edit-save/03-manual-state-flow.md)
+- [Material 저장·UI 지연 개선 구현 프롬프트](docs/material-edit-save/04-implementation-prompt.md)
 
 ## 외부 Vision 계약
 

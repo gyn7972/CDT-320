@@ -71,7 +71,7 @@ namespace QMC.CDT320.Materials
         /// UI 등 락 밖 코드가 State 그래프를 직접 순회하는 대신 사용하는 공식 읽기 통로.
         /// 전역 락을 보유하므로 reader는 필요한 값만 복사해 즉시 반환하고,
         /// 무거운 가공/그리기는 반환된 사본으로 락 밖에서 수행한다.
-        /// 락 보유 시간은 MaterialPerfProbe "StateReadLock" 샘플로 계측된다.
+        /// StateReadLock은 대기와 처리 합산이며, StateReadWait/StateReadHold로 구간을 구분한다.
         /// </summary>
         public static T ReadState<T>(Func<MaterialSnapshot, T> reader)
         {
@@ -79,15 +79,20 @@ namespace QMC.CDT320.Materials
                 throw new ArgumentNullException("reader");
 
             long probeToken = MaterialPerfProbe.BeginSample();
+            long holdProbeToken = 0;
             try
             {
                 lock (_stateSync)
                 {
+                    MaterialPerfProbe.EndSample("StateReadWait", probeToken);
+                    holdProbeToken = MaterialPerfProbe.BeginSample();
                     return reader(State);
                 }
             }
             finally
             {
+                if (holdProbeToken != 0)
+                    MaterialPerfProbe.EndSample("StateReadHold", holdProbeToken);
                 MaterialPerfProbe.EndSample("StateReadLock", probeToken);
             }
         }

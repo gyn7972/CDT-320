@@ -2131,20 +2131,31 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
 
                 LotStorage.ActiveInputDieMap = map;
-                PersistPickStatusToMaterialState(map);
+                string saveReason;
+                bool saveRequested = PersistPickStatusToMaterialState(map, out saveReason);
                 var host = FindForm() as Form1;
                 if (host != null && host.Controller != null)
                     host.Controller.ApplyInputDieMap(map, "InputStageMapTransferPage.SavePickStatus");
 
-                _pickStatusDirty = false;
+                _pickStatusDirty = !saveRequested;
                 RefreshDieGrid();
                 mapView.Invalidate();
-                QMC.Common.MessageDialog.Show(this, "Pick Status 저장 완료.",
+                if (!saveRequested)
+                    throw new InvalidOperationException(saveReason);
+
+                QMC.Common.MessageDialog.Show(this, "Pick Status를 Material에 반영하고 저장을 요청했습니다.",
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Pick Status save failed:\r\n" + ex.Message,
+                _pickStatusDirty = true;
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning, "UI", "IN-MAP-PICK-STATUS-FAILED",
+                    "InputStageMapTransferPage", "Pick Status 반영 또는 저장 요청 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this,
+                    "Pick Status 반영 또는 저장 요청에 실패했습니다.\r\n" + ex.Message +
+                    "\r\n\r\n화면이나 메모리에 일부 변경이 반영되었을 수 있으며 저장 완료는 확인되지 않았습니다. " +
+                    "현재 Material 상태와 오류 로그를 확인한 뒤 다시 저장하십시오.",
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
@@ -2152,32 +2163,39 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private void PersistPickStatusToMaterialState(
+        private bool PersistPickStatusToMaterialState(
             DieMap map,
+            out string failureReason,
             double? mappingOffsetX = null,
             double? mappingOffsetY = null,
             string saveReason = "MapTransferPickStatusSave")
         {
+            failureReason = string.Empty;
             try
             {
                 if (map == null || map.Entries == null)
-                    return;
+                {
+                    failureReason = "저장할 Input Die Map 데이터가 없습니다.";
+                    return false;
+                }
 
                 DieMapGenerator.Normalize(map);
                 WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 if (wafer == null)
                 {
+                    failureReason = "InputStage Wafer Material이 없어 상태를 저장할 수 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                         "Input Die 상태 저장을 차단했습니다. InputStage Wafer Material이 없습니다. - Blocked");
-                    return;
+                    return false;
                 }
 
                 string identityReason;
                 if (!MaterialStateService.TryAssignPhysicalDieIds(map, wafer, out identityReason))
                 {
+                    failureReason = "Input Die 물리 식별자 생성에 실패했습니다. " + identityReason;
                     QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                         "Input Die 물리 식별자 생성에 실패했습니다. reason=" + identityReason + " - Failed");
-                    return;
+                    return false;
                 }
 
                 string inputWaferInstanceId = MaterialStateService.EnsureWaferInstanceId(wafer);
@@ -2194,12 +2212,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             inputWaferInstanceId,
                             StringComparison.OrdinalIgnoreCase))
                     {
+                        failureReason = "Die의 Input Wafer 물리 세대가 현재 Stage Wafer와 다릅니다. die=" +
+                            existingDie.DieId + ", dieInstance=" + existingDie.InputWaferInstanceId +
+                            ", stageInstance=" + inputWaferInstanceId;
                         QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                             "Input Pick Status 저장을 차단했습니다. Die의 Input Wafer 물리 세대가 현재 Stage Wafer와 다릅니다. die=" +
                             existingDie.DieId +
                             ", dieInstance=" + existingDie.InputWaferInstanceId +
                             ", stageInstance=" + inputWaferInstanceId + " - Blocked");
-                        return;
+                        return false;
                     }
                 }
 
@@ -2318,14 +2339,21 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             : 0));
                 }
 
-                MaterialStateService.NotifyAndSave(string.IsNullOrWhiteSpace(saveReason)
+                if (!MaterialStateService.TryNotifyAndSave(string.IsNullOrWhiteSpace(saveReason)
                     ? "MapTransferPickStatusSave"
-                    : saveReason);
+                    : saveReason))
+                {
+                    failureReason = "Material 변경을 반영했지만 저장 요청을 등록하지 못했습니다.";
+                    return false;
+                }
+                return true;
             }
             catch (Exception ex)
             {
+                failureReason = "Pick Status Material 반영 또는 저장 요청 실패: " + ex.Message;
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Pick status material save failed: " + ex.Message + " - Failed");
+                return false;
             }
             finally
             {
@@ -5787,6 +5815,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
         private void ApplySelectedDieState()
         {
+            bool saveCompleted = false;
             try
             {
                 if (!EnsureCurrentInputMapMotionReady("Input Die 상태 변경"))
@@ -5862,8 +5891,18 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 LotStorage.ActiveInputDieMap = map;
                 for (int i = 0; i < entries.Count; i++)
                     SyncManualInputPickVisionInspection(entries[i], state);
+                int syncFailureCount = 0;
+                string firstSyncFailure = string.Empty;
                 for (int i = 0; i < entries.Count; i++)
-                    SyncManualDieState(entries[i], "InputMapManualDieState");
+                {
+                    string syncReason;
+                    if (!SyncManualDieState(entries[i], "InputMapManualDieState", out syncReason))
+                    {
+                        syncFailureCount++;
+                        if (syncFailureCount == 1)
+                            firstSyncFailure = syncReason;
+                    }
+                }
 
                 if (state == InputDieManualState.FlyingDie)
                     for (int i = 0; i < entries.Count; i++)
@@ -5873,16 +5912,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (host != null && host.Controller != null)
                     host.Controller.ApplyInputDieMap(map, "InputStageMapTransferPage.ApplySelectedDieState");
 
-                MaterialStateService.TryFlushPendingSave("InputMapManualDieState");
+                saveCompleted = MaterialStateService.TryFlushPendingSave("InputMapManualDieState");
 
                 _selectedEntry = entries[0];
-                _pickStatusDirty = false;
+                _pickStatusDirty = syncFailureCount > 0 || !saveCompleted;
                 _suppressLotProgressOverlay = true;
                 _lastMapSignature = BuildMapSignature(map);
                 _lastMapFrameObjId = map.FrameObjId ?? "";
                 RefreshDieGrid();
                 SelectEntry(entries[0]);
                 mapView.Invalidate();
+
+                if (syncFailureCount > 0)
+                    throw new InvalidOperationException("선택 Die 중 " + syncFailureCount +
+                        "개 상태를 Material에 반영하지 못했습니다.\r\n첫 실패: " + firstSyncFailure);
+                if (!saveCompleted)
+                    throw new InvalidOperationException("Material 변경의 저장 완료를 확인하지 못했습니다.");
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Input Die 상태 일괄 변경 완료. count=" + entries.Count +
@@ -5898,9 +5943,19 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             catch (Exception ex)
             {
+                _pickStatusDirty = true;
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Input Die 상태 변경 실패: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "Input Die 상태 변경 실패:\r\n" + ex.Message,
+                string saveStatus = saveCompleted
+                    ? "현재 Material 데이터의 저장은 완료되었지만 요청한 작업은 모두 완료되지 않았습니다."
+                    : "저장 완료는 확인되지 않았습니다.";
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning, "UI", "IN-MAP-MANUAL-STATE-FAILED",
+                    "InputStageMapTransferPage", "Input Die 상태 변경 실패: " + ex.Message + " " + saveStatus);
+                QMC.Common.MessageDialog.Show(this,
+                    "Input Die 상태 변경 또는 저장에 실패했습니다.\r\n" + ex.Message +
+                    "\r\n\r\n화면이나 메모리에 일부 변경이 반영되었을 수 있습니다. " + saveStatus + " " +
+                    "현재 Material 상태와 오류 로그를 확인한 뒤 다시 적용하십시오.",
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
@@ -6011,12 +6066,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private static void SyncManualDieState(DieMapEntry entry, string reason)
+        private static bool SyncManualDieState(DieMapEntry entry, string reason, out string message)
         {
+            message = string.Empty;
             if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
-                return;
+            {
+                message = "Material에 반영할 Die UID가 없습니다.";
+                return false;
+            }
 
-            string message;
             bool ok = MaterialStateService.ApplyManualDieState(
                 entry.DieUid,
                 entry.IsTarget,
@@ -6031,7 +6089,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Input Die 상태 공통 동기화 실패. die=" + (entry.DieUid ?? "") +
                     ", message=" + message + " - Failed");
+                message = "Input Die 상태를 Material에 반영하지 못했습니다. die=" + entry.DieUid +
+                    ", 원인=" + (message ?? string.Empty);
             }
+            return ok;
         }
 
         private void SetDieStateRadioFromEntry(DieMapEntry entry)

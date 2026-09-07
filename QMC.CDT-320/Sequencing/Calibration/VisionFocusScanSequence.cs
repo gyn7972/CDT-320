@@ -30,6 +30,8 @@ namespace QMC.CDT320.Sequencing.Calibration
         public VisionFocusScanKind Kind { get; set; }
         public VisionFocusPickerSide PickerSide { get; set; }
         public int PickerNo { get; set; } = 1;
+        // null은 기존 호출 정책 유지, 명시적인 0도와 구분한다.
+        public double? BottomPickerTargetTDeg { get; set; }
         public double DefaultPosition { get; set; }
         public double MinusRange { get; set; } = 0.2;
         public double PlusRange { get; set; } = 0.2;
@@ -82,6 +84,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private readonly CDT320_Machine _machine;
         private readonly VisionFocusScanRequest _request;
+        private readonly double? _bottomPickerTargetTDeg;
         private readonly List<double> _scanPositions = new List<double>();
         private readonly Random _simRandom = new Random();
         private IDisposable _focusWorkAreaScope;
@@ -95,6 +98,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             _machine = machine;
             _request = request;
+            _bottomPickerTargetTDeg = request != null ? request.BottomPickerTargetTDeg : null;
             Result = new VisionFocusScanResult();
         }
 
@@ -187,6 +191,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
+                int angleCheck = CheckBottomPickerTeaching(true);
+                if (angleCheck != 0)
+                    return angleCheck;
                 Result.Success = true;
                 Result.BestPosition = _request.DefaultPosition;
                 Result.Message = "Default Position 이동 완료. 대상=" + BuildTargetLabel() +
@@ -308,6 +315,9 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (_request == null)
                 return Fail("VISION-FOCUS-CAL-NO-REQUEST", "VisionFocusScanSequence", "Vision Focus Cal 요청 정보가 없습니다.");
 
+            if (_bottomPickerTargetTDeg.HasValue && !IsBottomFocusKind())
+                return Fail("VISION-FOCUS-T-KIND", "VisionFocusScanSequence", "명시적 Bottom T 설정각은 Bottom Focus에만 사용할 수 있습니다. 대상=" + BuildTargetLabel());
+
             if (requireScanRange)
             {
                 if (_request.FineStep <= 0)
@@ -337,7 +347,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (_machine.OutputStageUnit == null)
                 return Fail("VISION-FOCUS-CAL-NO-OUTPUT-STAGE", "VisionFocusScanSequence", "OutputStageUnit이 없어 OutputCamera Avoid 확인을 실행할 수 없습니다.");
 
-            return 0;
+            return CheckBottomPickerTeaching(false);
         }
 
         private async Task<int> PrepareFocusPositionStepAsync(CancellationToken ct)
@@ -1806,6 +1816,9 @@ namespace QMC.CDT320.Sequencing.Calibration
             try
             {
                 ct.ThrowIfCancellationRequested();
+                int angleCheck = CheckBottomPickerTeaching(true);
+                if (angleCheck != 0)
+                    return angleCheck;
                 AutoVisionChannel channel = ResolveChannel();
                 _useSimulatedVisionFocus = !VisionCommandService.IsConnected(channel);
                 if (_useSimulatedVisionFocus)
@@ -2532,7 +2545,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             int pickerIndex,
             PickerAlignOffset offset)
         {
-            return CalibrationCoordinateService.ResolvePickerZoneTarget(
+            PickerCalibratedZoneTarget target = CalibrationCoordinateService.ResolvePickerZoneTarget(
                 _machine,
                 side,
                 "DieBottomPosition",
@@ -2540,6 +2553,50 @@ namespace QMC.CDT320.Sequencing.Calibration
                 offset,
                 true,
                 true);
+            if (_bottomPickerTargetTDeg.HasValue && !_request.SkipPrepareFocusPosition)
+            {
+                // XYZ 계산은 유지하며 명시한 T에는 레시피/Runtime 보정을 더하지 않는다.
+                target.T = _bottomPickerTargetTDeg.Value;
+                target.Formula += "; effectiveT=BottomPickerTargetTDeg=" + target.T.ToString("F6") +
+                    " (레시피/Runtime T 미적용)";
+            }
+            return target;
+        }
+
+        private int CheckBottomPickerTeaching(bool requireAtTarget)
+        {
+            // 생산 Runtime AF와 기존 Side/null 호출의 자세 정책을 유지한다.
+            if (!IsBottomFocusKind() || _request.SkipPrepareFocusPosition || !_bottomPickerTargetTDeg.HasValue)
+                return 0;
+            PickerAxis tAxis = ResolvePickerTAxis(_request.PickerNo);
+            BaseAxis axis = IsSelectedFront() ? ResolveFrontPickerAxis(tAxis) : ResolveRearPickerAxis(tAxis);
+            double target = _bottomPickerTargetTDeg.Value;
+            string detail = "대상=" + BuildTargetLabel() + ", step=" + CurrentStep +
+                ", source=BottomPickerTargetTDeg, caller=" + (_request.UpdatedBy ?? string.Empty) + ", target=" + target.ToString("F6");
+            if (double.IsNaN(target) || double.IsInfinity(target) || axis == null || axis.Setup == null)
+                return Fail("VISION-FOCUS-T-SETTING", "VisionFocusScanSequence", "AF T 설정값 또는 대상 축 설정이 올바르지 않습니다. " + detail);
+            if (axis.Setup.SoftLimitEnabled &&
+                (double.IsNaN(axis.Setup.SoftLimitMinus) || double.IsInfinity(axis.Setup.SoftLimitMinus) ||
+                 double.IsNaN(axis.Setup.SoftLimitPlus) || double.IsInfinity(axis.Setup.SoftLimitPlus) ||
+                 axis.Setup.SoftLimitMinus > axis.Setup.SoftLimitPlus ||
+                 target < axis.Setup.SoftLimitMinus || target > axis.Setup.SoftLimitPlus))
+                return Fail("VISION-FOCUS-T-LIMIT", "VisionFocusScanSequence", "AF T 설정값이 축 허용 범위를 벗어났습니다. " + detail +
+                    ", min=" + axis.Setup.SoftLimitMinus + ", max=" + axis.Setup.SoftLimitPlus);
+            if (!requireAtTarget)
+                return 0;
+
+            axis.UpdateStatus();
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0 &&
+                !double.IsInfinity(axis.Config.InPositionTolerance) ? axis.Config.InPositionTolerance : 0.01;
+            detail += ", actual=" + axis.ActualPosition.ToString("F6") + ", command=" + axis.CommandPosition.ToString("F6") +
+                ", tolerance=" + tolerance + ", servo=" + axis.IsServoOn + ", alarm=" + axis.IsAlarm +
+                ", moving=" + axis.IsMoving + ", inPosition=" + axis.IsInPosition;
+            if (!axis.IsServoOn || axis.IsAlarm || axis.IsMoving || !axis.IsInPosition ||
+                !(Math.Abs(axis.ActualPosition - target) <= tolerance) ||
+                !(Math.Abs(axis.CommandPosition - target) <= tolerance))
+                return Fail("VISION-FOCUS-T-NOT-READY", "VisionFocusScanSequence", "AF 측정 전 T 도달 확인에 실패했습니다. " + detail);
+            EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-T-READY", "AF T 확인 완료. " + detail);
+            return 0;
         }
 
         private int ResolveMotionTimeoutMs()

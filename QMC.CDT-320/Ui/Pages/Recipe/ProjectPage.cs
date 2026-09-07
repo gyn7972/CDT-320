@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.Common.Data.Store;
 using QMC.Common.Logging;
@@ -24,6 +25,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private RecipeProject _current;
         private string _loadedProjectName = string.Empty;
         private bool _loading;
+        private bool _parameterSaveActionPending;
         private static readonly string[] ColletTypeOptions = { "Flat", "Rim" };
 
         public ProjectPage()
@@ -47,7 +49,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         protected override void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
-            if (!Visible || _loading || listProjects == null || gridProject == null ||
+            if (!Visible || _loading || _parameterSaveActionPending || listProjects == null || gridProject == null ||
                 LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                 return;
 
@@ -139,19 +141,48 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 LoadProject(fileName);
         }
 
-        private void btnNew_Click(object sender, EventArgs e) => OnNew();
+        private async void btnNew_Click(object sender, EventArgs e) => await RunAfterParameterSaveAsync(OnNew);
         private void btnOpen_Click(object sender, EventArgs e) => OnOpen();
-        private void btnCopy_Click(object sender, EventArgs e) => OnCopy();
-        private void btnDelete_Click(object sender, EventArgs e) => OnDelete();
+        private async void btnCopy_Click(object sender, EventArgs e) => await RunAfterParameterSaveAsync(OnCopy);
+        private async void btnDelete_Click(object sender, EventArgs e) => await RunAfterParameterSaveAsync(OnDelete);
         private void btnOpenFolder_Click(object sender, EventArgs e) => OpenPath(RecipeStore.Dir);
         private void btnReload_Click(object sender, EventArgs e) => OnReload();
         private void btnOpenRecipeFolder_Click(object sender, EventArgs e) => OnOpenRecipeFolder();
         private void btnBrowseMap_Click(object sender, EventArgs e) => OnBrowseMap();
         private void btnOpenMap_Click(object sender, EventArgs e) => OnOpenMap();
         private void btnBrowseXml_Click(object sender, EventArgs e) => OnBrowseXmlPath();
-        private void btnApplyCurrent_Click(object sender, EventArgs e) => OnApplyCurrent();
-        private void btnSaveRecipe_Click(object sender, EventArgs e) => OnSaveCurrent();
-        private void btnSaveAs_Click(object sender, EventArgs e) => OnSaveAs();
+        private async void btnApplyCurrent_Click(object sender, EventArgs e) => await RunAfterParameterSaveAsync(OnApplyCurrent);
+        private async void btnSaveRecipe_Click(object sender, EventArgs e) => await RunAfterParameterSaveAsync(OnSaveCurrent);
+        private async void btnSaveAs_Click(object sender, EventArgs e) => await RunAfterParameterSaveAsync(OnSaveAs);
+
+        private async Task RunAfterParameterSaveAsync(Action action)
+        {
+            if (_parameterSaveActionPending || IsDisposed || Disposing) return;
+            _parameterSaveActionPending = true;
+            bool wasEnabled = Enabled;
+            Enabled = false;
+            try
+            {
+                // 대기 중 다른 프로젝트를 선택하거나 같은 파일 작업을 중복 요청하지 못하게 합니다.
+                // 다른 메인 화면 전환은 계속 가능하며, 파일 작업 직전에만 비동기로 저장을 기다립니다.
+                var host = FindForm() as Form1;
+                if (host == null || !await host.FlushParameterSavesBeforeRecipeFileActionAsync()) return;
+                if (IsDisposed || Disposing) return;
+                action();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, Security.UserSession.Name, "RECIPE-FILE-ACTION",
+                    "Recipe 파일 작업을 완료하지 못했습니다. " + ex);
+                if (!IsDisposed && !Disposing)
+                    QMC.Common.MessageDialog.Show(this, ex.Message, "Recipe 파일 작업", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                _parameterSaveActionPending = false;
+                if (!IsDisposed && !Disposing) Enabled = wasEnabled;
+            }
+        }
 
         private void gridMap_CellEndEdit(object sender, DataGridViewCellEventArgs e) => UpdateMapStatus();
 
@@ -645,8 +676,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             try
             {
-                RecipeStore.Delete(name);
-                RecipeDataStore.DeleteRecipe(name);
+                if (!RecipeStore.Delete(name))
+                    throw new IOException("프로젝트 파일을 삭제하지 못했습니다. project=" + name);
+                DataStoreResult deleted = RecipeDataStore.DeleteRecipe(name);
+                if (!deleted.Success)
+                    throw new IOException("프로젝트 파일은 삭제되었지만 Unit Recipe 폴더를 삭제하지 못했습니다. path=" +
+                        deleted.Path + ", detail=" + deleted.Message);
                 EventLogger.Write(EventKind.Event, Security.UserSession.Name, "RECIPE-DEL",
                     "프로젝트를 삭제했습니다. project=" + name);
 

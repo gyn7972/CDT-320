@@ -115,6 +115,7 @@ namespace QMC.CDT_320
                     return false;
                 }
 
+                OnSynchronousParameterSaveSucceeded(null);
                 return true;
             }
             catch (Exception ex)
@@ -503,6 +504,7 @@ namespace QMC.CDT_320
                     "DATA-SAVE",
                     "Machine recipe saved: " + normalizedRecipeName);
 
+                OnSynchronousParameterSaveSucceeded(normalizedRecipeName);
                 return true;
             }
             catch (Exception ex)
@@ -738,7 +740,7 @@ namespace QMC.CDT_320
             btnVision.Click += (s, e) => QMC.CDT_320.Ui.Dialogs.VisionViewDialog.Open(this);
             btnTabSettings.Click += (s, e) => ShowTab(MainTab.Settings);
             btnTabUser.Click += (s, e) => ShowTab(MainTab.User);
-            btnTabExit.Click += (s, e) => RequestApplicationExit();
+            btnTabExit.Click += async (s, e) => await RequestApplicationExitAsync();
             btnTopAlarm.Click += (s, e) => RaiseTestAlarmFromTopButton();
             btnDoorToggle.Click += (s, e) => ToggleDoorSimulationState();
             btnBuzzerStop.Click += (s, e) => StopBuzzerFromTopButton();
@@ -1499,8 +1501,10 @@ namespace QMC.CDT_320
                 button.Selected = selected;
         }
 
-        private void RequestApplicationExit()
+        private async System.Threading.Tasks.Task RequestApplicationExitAsync()
         {
+            if (_parameterSaveExitInProgress) return;
+            _parameterSaveExitInProgress = true;
             try
             {
                 using (var dialog = new MessageBoxYesNo())
@@ -1513,6 +1517,8 @@ namespace QMC.CDT_320
 
                     if (result == DialogResult.Yes)
                     {
+                        if (!await FlushParameterSavesBeforeExitAsync())
+                            return;
                         Log.Write("Main", UserSession.Name, "RequestApplicationExit", "Application exit requested by user. - Ok");
                         QMC.Common.Logging.EventLogger.Write(
                             QMC.Common.Logging.EventKind.Event,
@@ -1553,6 +1559,7 @@ namespace QMC.CDT_320
             }
             finally
             {
+                _parameterSaveExitInProgress = false;
             }
         }
 
@@ -1677,12 +1684,14 @@ namespace QMC.CDT_320
         {
             try
             {
-                SetTextIfChanged(lblBarcodeValue,
-                    ResolveMaterialDisplayId(MaterialLocationKind.InputStage));
+                string input;
+                string good;
+                string ng;
+                if (!MaterialStateService.TryGetProcessingDisplayIds(out input, out good, out ng))
+                    return;
+                SetTextIfChanged(lblBarcodeValue, input);
 
                 // NG 카세트를 쓰지 않는 장비/설정에서는 NG가 항상 "-"로만 보여 잡음이 되므로 GOOD만 표시한다.
-                string good = ResolveMaterialDisplayId(MaterialLocationKind.OutputStageGood);
-                string ng = ResolveMaterialDisplayId(MaterialLocationKind.OutputStageNg);
                 bool showNg = IsNgBinDisplayEnabled() || ng != "-";
                 SetTextIfChanged(lblBinValue,
                     showNg ? "GOOD " + good + "   NG " + ng : "GOOD " + good);
@@ -1749,19 +1758,6 @@ namespace QMC.CDT_320
             {
                 return true;
             }
-        }
-
-        /// <summary>해당 위치 자재의 표시용 ID. 바코드를 읽었으면 바코드값, 없으면 자재 ID, 자재가 없으면 "-".</summary>
-        private static string ResolveMaterialDisplayId(MaterialLocationKind location)
-        {
-            WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(location);
-            if (wafer == null)
-                return "-";
-
-            if (!string.IsNullOrWhiteSpace(wafer.BarcodeId))
-                return wafer.BarcodeId;
-
-            return string.IsNullOrWhiteSpace(wafer.WaferId) ? "-" : wafer.WaferId;
         }
 
         private static void SetTextIfChanged(Control control, string text)

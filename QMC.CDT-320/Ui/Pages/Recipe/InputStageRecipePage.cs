@@ -2397,47 +2397,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void SaveCurrentRecipeData()
         {
-            try
-            {
-                var host = FindHostForm();
-                if (host == null || string.IsNullOrWhiteSpace(host.ActiveRecipeName))
-                    throw new InvalidOperationException("활성 Recipe가 없어 Input Stage 값을 저장할 수 없습니다.");
-
-                if (!host.SaveMachineRecipe(host.ActiveRecipeName))
-                    throw new InvalidOperationException(
-                        "Input Stage Recipe 저장에 실패했습니다. 현재 적용값과 저장 파일의 값이 다를 수 있으며, " +
-                        "재시작하면 이전값으로 복원될 수 있습니다. Alarm/Event Log를 확인하십시오. recipe=" +
-                        host.ActiveRecipeName);
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-            }
+            var host = FindHostForm();
+            if (host == null)
+                throw new InvalidOperationException("Main 화면을 찾을 수 없어 설정을 저장할 수 없습니다.");
+            host.QueueRecipeEditorSave(_InputStageUnit, true);
         }
 
         private void SaveCurrentSettingsData()
         {
-            try
-            {
-                var host = FindHostForm();
-                if (host == null)
-                    throw new InvalidOperationException("Main 화면을 찾을 수 없어 Input Stage Config/Setup 값을 저장할 수 없습니다.");
-
-                if (!host.SaveMachineSettings())
-                    throw new InvalidOperationException(
-                        "Input Stage Config/Setup 저장에 실패했습니다. 현재 적용값과 저장 파일의 값이 다를 수 있으며, " +
-                        "재시작하면 이전값으로 복원될 수 있습니다. Alarm/Event Log를 확인하십시오.");
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-            }
+            var host = FindHostForm();
+            if (host == null)
+                throw new InvalidOperationException("Main 화면을 찾을 수 없어 설정을 저장할 수 없습니다.");
+            host.QueueRecipeEditorSave(_InputStageUnit, false);
         }
 
         private void RefreshView()

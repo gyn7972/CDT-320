@@ -14,6 +14,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 {
     internal sealed class ColletCalibrationSequence : PickerSequenceBase<ColletCalibrationStep>
     {
+        private const double PickerTZeroReferenceDeg = 0.0;
         private const string BottomFinderTargetName = "ColletCalibration;PickerZone=Bottom";
         private const string FineAlignTargetName = "ColletCalibrationFineAlign;PickerZone=Bottom";
         private const double SimColletMaxPixelOffset = 5.0;
@@ -36,7 +37,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         private double _targetPickerZ;
         private double _nominalPickerX;
         private double _nominalPickerY;
-        private double _basePickerT;
+        private double _calibrationStartAngleDeg;
         private double _measuredTPosition;
         private double? _simPickerX;
         private double? _simPickerY;
@@ -211,6 +212,11 @@ namespace QMC.CDT320.Sequencing.Calibration
                 _settings = Context.Machine.VisionUnit.Config.CalibrationData.Collet.Settings;
                 _settings.EnsureDefaults();
                 SetCalibrationMotion(_settings.Motion);
+                // 시작각은 실행 시작 시 고정하고 APPLY T HOME의 영점 기준과 분리한다.
+                _calibrationStartAngleDeg = _settings.CalibrationStartAngleDeg;
+                int angleCheck = CheckCalibrationStartAngle(false);
+                if (angleCheck != 0)
+                    return angleCheck;
                 string referenceReason;
                 if (!IsReferenceCollet() && !IsReferenceColletCalibrationReady(out referenceReason))
                     return Fail("COLLET-CAL-REFERENCE-NOT-READY", Name,
@@ -331,8 +337,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                         _calibrationSide + ", colletNo=" + _colletNo +
                         ", " + focusStartReason +
                         ", Vision Focus Cal에서 Bottom Collet Best Focus를 Apply/Save 후 다시 실행하세요.");
-                // 캘 지점이 곧 0도가 되므로 T는 항상 0도에서 캘한다(공정 티칭각과 무관).
-                _basePickerT = 0.0;
+                // 레시피 T와 무관하게 CheckUnit에서 확정한 캘 시작각을 사용한다.
+                int angleCheck = CheckCalibrationStartAngle(false);
+                if (angleCheck != 0)
+                    return angleCheck;
 
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalMove",
                     "Collet Calibration Bottom 목표 좌표 계산. side=" + _calibrationSide +
@@ -344,7 +352,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", savedColletValid=" + (existingRecord != null && existingRecord.Valid) +
                     ", formulaZ=bottomColletFocusDefaultZ=" + _targetPickerZ.ToString("F6") +
                     ", bottomTeachingZ=" + bottomTeachingZ.ToString("F6") +
-                    ", formulaT=" + startTarget.Formula +
+                    ", formulaT=ColletCalibration.TTeaching=" + _calibrationStartAngleDeg.ToString("F6") +
                     ", xAxis=" + PickerAxis.PickerX +
                     ", yAxis=" + PickerAxis.PickerY +
                     ", zAxis=" + GetPickerZAxis(_colletIndex) +
@@ -370,7 +378,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 result = await MovePickerAxisAndVerifyAsync(
                     GetPickerTAxis(_colletIndex),
-                    _basePickerT,
+                    _calibrationStartAngleDeg,
                     "Collet Calibration T 기준 위치",
                     ct,
                     BottomFinderTargetName,
@@ -378,8 +386,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
-                ApplyPickerAxisPositionForSimulation(GetPickerTAxis(_colletIndex), _basePickerT);
-                UpdateSimulatedPickerPosition(GetPickerTAxis(_colletIndex), _basePickerT);
+                ApplyPickerAxisPositionForSimulation(GetPickerTAxis(_colletIndex), _calibrationStartAngleDeg);
+                UpdateSimulatedPickerPosition(GetPickerTAxis(_colletIndex), _calibrationStartAngleDeg);
 
                 result = await MovePickerAxisAndVerifyAsync(
                     GetPickerZAxis(_colletIndex),
@@ -845,10 +853,50 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
+        private int CheckCalibrationStartAngle(bool requireAtTarget)
+        {
+            BaseAxis axis = GetPickerAxis(GetPickerTAxis(_colletIndex));
+            double target = _calibrationStartAngleDeg;
+            string detail = "side=" + _calibrationSide + ", colletNo=" + _colletNo +
+                ", step=" + CurrentStep + ", source=ColletCalibration.TTeaching, target=" + target.ToString("F6");
+            if (double.IsNaN(target) || double.IsInfinity(target) || axis == null || axis.Setup == null)
+                return Fail("COLLET-CAL-T-SETTING", Name, "캘 T 설정값 또는 대상 축 설정이 올바르지 않습니다. " + detail);
+            if (axis.Setup.SoftLimitEnabled &&
+                (double.IsNaN(axis.Setup.SoftLimitMinus) || double.IsInfinity(axis.Setup.SoftLimitMinus) ||
+                 double.IsNaN(axis.Setup.SoftLimitPlus) || double.IsInfinity(axis.Setup.SoftLimitPlus) ||
+                 axis.Setup.SoftLimitMinus > axis.Setup.SoftLimitPlus ||
+                 target < axis.Setup.SoftLimitMinus || target > axis.Setup.SoftLimitPlus))
+                return Fail("COLLET-CAL-T-LIMIT", Name, "캘 T 설정값이 축 허용 범위를 벗어났습니다. " + detail +
+                    ", min=" + axis.Setup.SoftLimitMinus + ", max=" + axis.Setup.SoftLimitPlus);
+            if (!requireAtTarget)
+                return 0;
+
+            // 하위 AF의 이동을 가릴 수 있는 Sim 캐시 대신 대상 축을 직접 갱신/확인한다.
+            axis.UpdateStatus();
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0 &&
+                !double.IsInfinity(axis.Config.InPositionTolerance) ? axis.Config.InPositionTolerance : 0.01;
+            detail += ", actual=" + axis.ActualPosition.ToString("F6") + ", command=" + axis.CommandPosition.ToString("F6") +
+                ", tolerance=" + tolerance + ", servo=" + axis.IsServoOn + ", alarm=" + axis.IsAlarm +
+                ", moving=" + axis.IsMoving + ", inPosition=" + axis.IsInPosition;
+            if (!axis.IsServoOn || axis.IsAlarm || axis.IsMoving || !axis.IsInPosition ||
+                !(Math.Abs(axis.ActualPosition - target) <= tolerance) ||
+                !(Math.Abs(axis.CommandPosition - target) <= tolerance))
+                return Fail("COLLET-CAL-T-NOT-READY", Name, "최초 캘 측정 전 T 도달 확인에 실패했습니다. " + detail);
+            QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalTReady", "최초 캘 측정 T 확인 완료. " + detail);
+            return 0;
+        }
+
         private async Task<int> FindColletAsync(bool finalFind, CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
+                if (!finalFind)
+                {
+                    int angleCheck = CheckCalibrationStartAngle(true);
+                    if (angleCheck != 0)
+                        return angleCheck;
+                }
                 MatchResultDto match = await RequestColletMatchAsync(ct).ConfigureAwait(false);
                 if (match == null || !match.Success)
                 {
@@ -907,7 +955,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     }
 
                     BaseAxis tAxis = GetPickerAxis(GetPickerTAxis(_colletIndex));
-                    double actual = ReadPickerActual(GetPickerTAxis(_colletIndex), tAxis, _basePickerT);
+                    double actual = ReadPickerActual(GetPickerTAxis(_colletIndex), tAxis, _calibrationStartAngleDeg);
                     double target = CalculateThetaMoveTarget(actual, theta);
                     int moveResult = await MovePickerAxisAndVerifyAsync(
                         GetPickerTAxis(_colletIndex),
@@ -999,7 +1047,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                     double theta = match.AngleDeg;
                     BaseAxis tAxis = GetPickerAxis(GetPickerTAxis(_colletIndex));
-                    double actual = ReadPickerActual(GetPickerTAxis(_colletIndex), tAxis, _basePickerT);
+                    double actual = ReadPickerActual(GetPickerTAxis(_colletIndex), tAxis, _calibrationStartAngleDeg);
                     if (Math.Abs(theta) <= _settings.ThetaToleranceDeg)
                     {
                         QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalTheta",
@@ -1411,6 +1459,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 var request = new VisionFocusScanRequest
                 {
                     Kind = VisionFocusScanKind.BottomCollet,
+                    BottomPickerTargetTDeg = _calibrationStartAngleDeg,
                     PickerSide = _calibrationSide,
                     PickerNo = _colletNo,
                     DefaultPosition = _targetPickerZ,
@@ -1538,7 +1587,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 BaseAxis xAxis = GetPickerAxis(PickerAxis.PickerX);
                 BaseAxis yAxis = GetPickerAxis(PickerAxis.PickerY);
                 BaseAxis zAxis = GetPickerAxis(GetPickerZAxis(_colletIndex));
-                _measuredTPosition = tAxis != null ? tAxis.ActualPosition : _basePickerT;
+                _measuredTPosition = tAxis != null ? tAxis.ActualPosition : _calibrationStartAngleDeg;
                 double finalPickerX = xAxis != null ? xAxis.ActualPosition : _targetPickerX;
                 double finalPickerY = yAxis != null ? yAxis.ActualPosition : _targetPickerY;
                 double finalPickerZ = zAxis != null ? zAxis.ActualPosition : _targetPickerZ;
@@ -1547,7 +1596,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 double referenceTeachingShiftX = IsReferenceCollet() ? finalPickerX - _nominalPickerX : 0.0;
                 double referenceTeachingShiftY = IsReferenceCollet() ? finalPickerY - _nominalPickerY : 0.0;
                 double activeTPcHomeOffset = ResolvePickerTPcHomeOffset(tAxis);
-                double tZeroResidual = _measuredTPosition - _basePickerT;
+                double tZeroResidual = _measuredTPosition - PickerTZeroReferenceDeg;
                 double tZeroHomeOffset = activeTPcHomeOffset + tZeroResidual;
 
                 _calculatedRecord = new ColletCalibrationRecord
@@ -1562,6 +1611,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     OffsetY = colletOffsetY,
                     ThetaOffset = _finalMatch.AngleDeg,
                     TZeroHomeOffset = tZeroHomeOffset,
+                    CalibrationStartAngleDeg = _calibrationStartAngleDeg,
                     MeasuredTPosition = _measuredTPosition,
                     FinalPickerX = finalPickerX,
                     FinalPickerY = finalPickerY,
@@ -1586,7 +1636,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", thetaOffset=" + _calculatedRecord.ThetaOffset.ToString("F6") +
                     ", finalPicker=(" + _calculatedRecord.FinalPickerX.ToString("F6") + "," + _calculatedRecord.FinalPickerY.ToString("F6") + "," + _calculatedRecord.FinalPickerZ.ToString("F6") + "," + _calculatedRecord.FinalPickerT.ToString("F6") + ")" +
                     ", activeTPcHomeOffset=" + activeTPcHomeOffset.ToString("F6") +
-                    ", tZeroResidual=measuredT-baseT=" + _measuredTPosition.ToString("F6") + "-" + _basePickerT.ToString("F6") + "=" + tZeroResidual.ToString("F6") +
+                    ", startAngleDeg=" + _calibrationStartAngleDeg.ToString("F6") +
+                    ", tZeroResidual=measuredT-zeroReference=" + _measuredTPosition.ToString("F6") + "-" + PickerTZeroReferenceDeg.ToString("F6") + "=" + tZeroResidual.ToString("F6") +
                     ", tZeroHomeOffset=activePcOffset+residual=" + activeTPcHomeOffset.ToString("F6") + "+" + tZeroResidual.ToString("F6") + "=" + _calculatedRecord.TZeroHomeOffset.ToString("F6"));
 
                 CurrentStep = ColletCalibrationStep.SaveColletCalibration;
@@ -2542,7 +2593,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             BaseAxis tAxis = GetPickerAxis(GetPickerTAxis(_colletIndex));
             double actualX = ReadPickerActual(PickerAxis.PickerX, xAxis, _targetPickerX);
             double actualY = ReadPickerActual(PickerAxis.PickerY, yAxis, _targetPickerY);
-            double actualT = ReadPickerActual(GetPickerTAxis(_colletIndex), tAxis, _basePickerT);
+            double actualT = ReadPickerActual(GetPickerTAxis(_colletIndex), tAxis, _calibrationStartAngleDeg);
 
             EnsureSimulatedColletTarget(actualX, actualY, actualT, camera);
 
@@ -3179,6 +3230,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             target.OffsetY = source.OffsetY;
             target.ThetaOffset = source.ThetaOffset;
             target.TZeroHomeOffset = source.TZeroHomeOffset;
+            target.CalibrationStartAngleDeg = source.CalibrationStartAngleDeg;
             target.MeasuredTPosition = source.MeasuredTPosition;
             target.FinalPickerX = source.FinalPickerX;
             target.FinalPickerY = source.FinalPickerY;

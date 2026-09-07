@@ -25,6 +25,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             Side,
             ColletNo,
             Finder,
+            CalibrationStartAngle,
             ThetaTolerance,
             MaxThetaIteration,
             ThetaGain,
@@ -77,6 +78,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private VisionFocusPickerSide _side = VisionFocusPickerSide.Front;
         private int _colletNo = 4;
         private string _finder = ColletCalibrationSettings.DefaultBottomFinderName;
+        private double _calibrationStartAngleDeg = 0.0;
         private double _thetaToleranceDeg = 0.02;
         private int _maxThetaIterations = 5;
         private double _thetaGain = 1.0;
@@ -247,7 +249,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             try
             {
                 string current = Convert.ToString(row.Cells[colSettingValue.Index].Value, CultureInfo.InvariantCulture);
-                using (NumericKeypadDialog dialog = new NumericKeypadDialog(info.Name, current, info.Unit))
+                using (NumericKeypadDialog dialog = new NumericKeypadDialog(
+                    info.Name, current, info.Unit, info.Key == SettingKey.CalibrationStartAngle))
                 {
                     if (dialog.ShowDialog(this) != DialogResult.OK)
                         return;
@@ -256,6 +259,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                     if (!TryParseSettingNumber(dialog.ValueText, out numericValue))
                     {
                         lblStatus.Text = info.Name + " 설정값이 숫자가 아닙니다. value=" + dialog.ValueText;
+                        return;
+                    }
+
+                    if (info.Key == SettingKey.CalibrationStartAngle &&
+                        (double.IsNaN(numericValue) || double.IsInfinity(numericValue)))
+                    {
+                        lblStatus.Text = "T Teaching에는 유한한 각도를 입력하세요. value=" + dialog.ValueText;
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
@@ -1164,6 +1175,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 ColletCalibrationSettings settings = data.Settings;
                 settings.EnsureDefaults();
                 _finder = settings.BottomFinderName;
+                _calibrationStartAngleDeg = settings.CalibrationStartAngleDeg;
                 _thetaToleranceDeg = settings.ThetaToleranceDeg;
                 _maxThetaIterations = settings.MaxThetaIterations;
                 _thetaGain = settings.ThetaMoveGain;
@@ -1230,6 +1242,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 ColletCalibrationData data = ResolveData(host.Machine);
                 data.Settings.BottomFinderName = _finder;
+                data.Settings.CalibrationStartAngleDeg = _calibrationStartAngleDeg;
                 data.Settings.ThetaToleranceDeg = _thetaToleranceDeg;
                 data.Settings.MaxThetaIterations = _maxThetaIterations;
                 data.Settings.ThetaMoveGain = _thetaGain;
@@ -1252,6 +1265,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 data.Settings.RunSideAutoFocusAfterCoc = _sideAutoFocus;
                 data.Settings.EnsureDefaults();
                 _finder = data.Settings.BottomFinderName;
+                _calibrationStartAngleDeg = data.Settings.CalibrationStartAngleDeg;
                 _moveVelocity = data.Settings.Motion.MoveVelocity;
                 _moveAcceleration = data.Settings.Motion.MoveAcceleration;
                 _moveDeceleration = data.Settings.Motion.MoveDeceleration;
@@ -1266,11 +1280,17 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return false;
                 }
 
-                host.SaveMachineSettings();
+                if (!host.SaveMachineSettings())
+                {
+                    lblStatus.Text = "T Teaching을 포함한 Collet Calibration 파라미터를 저장하지 못했습니다. 저장 상태를 확인한 후 다시 시도하세요.";
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSaveSettings",
                     "Collet Calibration 설정 저장. side=" + _side +
                     ", colletNo=" + _colletNo +
                     ", finder=" + data.Settings.BottomFinderName +
+                    ", calibrationStartAngleDeg=" + data.Settings.CalibrationStartAngleDeg.ToString("F6") +
                     ", thetaTolDeg=" + data.Settings.ThetaToleranceDeg.ToString("F6") +
                     ", thetaRetry=" + data.Settings.MaxThetaIterations +
                     ", thetaGain=" + data.Settings.ThetaMoveGain.ToString("F6") +
@@ -1456,6 +1476,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return false;
             }
 
+            if (info.Key == SettingKey.CalibrationStartAngle &&
+                (double.IsNaN(value) || double.IsInfinity(value)))
+            {
+                reason = "T Teaching에는 유한한 각도를 입력하세요. value=" + valueText;
+                return false;
+            }
+
             ApplyNumericSetting(info, value);
             return true;
         }
@@ -1470,6 +1497,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddSettingRow(CreateOption(SettingKey.Side, "Side", "캘리브레이션할 Picker Side입니다. Front와 Rear는 각각 별도 #4 기준과 Collet Offset을 저장합니다.", SideOptions), _side == VisionFocusPickerSide.Rear ? "Rear" : "Front");
                 AddSettingRow(CreateOption(SettingKey.ColletNo, "Collet No", "캘리브레이션할 Collet 번호입니다. #4가 Bottom Camera 기준 티칭 위치이며, #3/#2/#1은 #4 기준 피치 위치에서 Offset을 저장합니다.", ColletOptions), _colletNo.ToString(CultureInfo.InvariantCulture));
                 AddSettingRow(CreateText(SettingKey.Finder, "Finder", "Vision PC BottomInspection 채널에 요청할 Finder 이름입니다. Vision PC에 등록된 Collet 검출 이름과 같아야 합니다."), _finder);
+                AddSettingRow(CreateNumber(SettingKey.CalibrationStartAngle, "T Teaching", "deg", "콜렛 캘리브레이션 시작과 Bottom AutoFocus 준비에 사용할 T축 각도입니다. 기본값은 0도이며 확인 시 180도 등으로 지정할 수 있습니다. Front/Rear 전체 콜렛에 공통 적용됩니다. 레시피 T 티칭 및 캘리브레이션 후 T HOME 원점 적용과 별도인 설정입니다.", false), _calibrationStartAngleDeg.ToString("R", CultureInfo.InvariantCulture));
                 AddSettingRow(CreateNumber(SettingKey.ThetaTolerance, "Theta Tol", "deg", "T축 보정 완료 판정 각도입니다. Vision에서 받은 절대 Theta 값이 이 값 이하이면 T 보정 OK로 봅니다.", false), _thetaToleranceDeg.ToString("F6"));
                 AddSettingRow(CreateNumber(SettingKey.MaxThetaIteration, "Theta Retry", "ea", "T축 보정을 반복할 최대 횟수입니다. 이 횟수 안에 Theta Tol 안으로 들어오지 않으면 NG 처리합니다.", true), _maxThetaIterations.ToString(CultureInfo.InvariantCulture));
                 AddSettingRow(CreateNumber(SettingKey.ThetaGain, "Theta Gain", "x", "Vision에서 측정한 Theta를 0으로 만들기 위해 반대 방향으로 곱하는 이동 비율입니다. 1.0은 측정값만큼 보정합니다.", false), _thetaGain.ToString("F3"));
@@ -1575,6 +1603,9 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             switch (info.Key)
             {
+                case SettingKey.CalibrationStartAngle:
+                    _calibrationStartAngleDeg = value;
+                    break;
                 case SettingKey.ThetaTolerance:
                     _thetaToleranceDeg = Math.Max(0.0001, value);
                     break;
