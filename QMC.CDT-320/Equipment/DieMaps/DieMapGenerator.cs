@@ -36,6 +36,9 @@ namespace QMC.CDT320.DieMaps
             public double PitchY = 1.0;
             public bool HasPitch;
             public int DeclaredCount;
+            public bool HasDeclaredCount;
+            public int AuxiliaryCount;
+            public bool HasAuxiliaryCount;
             public int FirstX = -1;
             public int FirstY = -1;
             public double FirstPosX = double.NaN;
@@ -818,14 +821,19 @@ namespace QMC.CDT320.DieMaps
 
             WaferMapTextHeader header = ReadWaferMapTextHeader(path);
             var points = new List<ExternalMapPoint>();
-            Regex pointRegex = new Regex(@"^X=\s*(?<x>[-+]?\d+)\s+Y=\s*(?<y>[-+]?\d+)\s+B=\s*(?<b>[-+]?\d+)", RegexOptions.Compiled);
+            Regex pointRegex = new Regex(@"^\s*X=\s*(?<x>[-+]?\d+)\s+Y=\s*(?<y>[-+]?\d+)\s+B=\s*(?<b>[-+]?\d+)(?=\s|$)", RegexOptions.Compiled);
+            Regex pointStartRegex = new Regex(@"^\s*X\s*=", RegexOptions.Compiled);
             int lineNumber = 0;
             foreach (string line in File.ReadLines(path))
             {
                 lineNumber++;
                 Match match = pointRegex.Match(line ?? "");
                 if (!match.Success)
+                {
+                    if (pointStartRegex.IsMatch(line ?? ""))
+                        throw new InvalidDataException("RAD WaferMap의 X/Y/B 레코드 형식이 잘못되었습니다. line=" + lineNumber);
                     continue;
+                }
 
                 int x;
                 int y;
@@ -846,7 +854,7 @@ namespace QMC.CDT320.DieMaps
                 .FirstOrDefault(group => group.Count() > 1);
             if (duplicate != null)
                 throw new InvalidDataException("RAD WaferMap에 중복 원본 Grid 주소가 있습니다: " + duplicate.Key);
-            if (header.DeclaredCount > 0 && header.DeclaredCount != points.Count)
+            if (header.DeclaredCount != points.Count)
                 throw new InvalidDataException(
                     "RAD Header Die count와 실제 record 수가 다릅니다. header=" + header.DeclaredCount +
                     ", records=" + points.Count);
@@ -913,7 +921,17 @@ namespace QMC.CDT320.DieMaps
                 });
             }
 
-            return Normalize(map);
+            map = Normalize(map);
+            // 실측 RAD 파일은 %가 고유 다이 레코드 수와 일치해도 &가 다를 수 있다.
+            // 실제 수량·중복·좌표 정규화가 성공한 뒤 차이를 기록하며, 원본 & 값으로 다이를 추가하지 않는다.
+            if (header.DeclaredCount != header.AuxiliaryCount)
+            {
+                EventLogger.Write(EventKind.Warning, "SYSTEM", "LOT-MAP-FETCH",
+                    "RAD 웨이퍼맵 헤더의 %와 & 값이 다릅니다. %와 실제 다이 수가 일치하여 파싱을 완료했습니다. file=" +
+                    Path.GetFileName(path) + ", %=" + header.DeclaredCount +
+                    ", &=" + header.AuxiliaryCount + ", actual=" + points.Count);
+            }
+            return map;
         }
 
         // [캠택맵 2026-08-27] RowData 토큰 규약: ___=다이 없음, 숫자=빈코드, @@@=특수 마크 다이.
@@ -1269,13 +1287,22 @@ namespace QMC.CDT320.DieMaps
         {
             var header = new WaferMapTextHeader();
             Regex pitchRegex = new Regex(@"/(?<x>\d{5})/(?<y>\d{5})/", RegexOptions.Compiled);
-            Regex countRegex = new Regex(@"/%(?<first>\d+)/&(?<second>\d+)/", RegexOptions.Compiled);
+            Regex declaredCountRegex = new Regex(@"/%(?<count>[^/]*)(?=/|$)", RegexOptions.Compiled);
+            Regex auxiliaryCountRegex = new Regex(@"/&(?<count>[^/]*)(?=/|$)", RegexOptions.Compiled);
+            Regex pointStartRegex = new Regex(@"^X\s*=", RegexOptions.Compiled);
             Regex firstRegex = new Regex(@"FIRST_X=\s*(?<x>[-+]?\d+)\s+FIRST_Y=\s*(?<y>[-+]?\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
             Regex positionRegex = new Regex(@"FX=\s*(?<x>[-+]?\d+)\s+FY=\s*(?<y>[-+]?\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-            foreach (string line in File.ReadLines(path).Take(30))
+            int lineNumber = 0;
+            foreach (string line in File.ReadLines(path))
             {
-                string text = line ?? "";
+                lineNumber++;
+                string text = (line ?? "").Trim();
+                if (pointStartRegex.IsMatch(text))
+                    break;
+                // RAD의 대괄호 헤더만 읽어 검사 항목명·스펙의 % 문자를 수량으로 오인하지 않는다.
+                if (!text.StartsWith("[", StringComparison.Ordinal))
+                    continue;
                 Match pitch = pitchRegex.Match(text);
                 if (!header.HasPitch && pitch.Success)
                 {
@@ -1284,14 +1311,19 @@ namespace QMC.CDT320.DieMaps
                     header.HasPitch = true;
                 }
 
-                Match count = countRegex.Match(text);
-                if (count.Success)
+                foreach (Match count in declaredCountRegex.Matches(text))
                 {
-                    int first = int.Parse(count.Groups["first"].Value, CultureInfo.InvariantCulture);
-                    int second = int.Parse(count.Groups["second"].Value, CultureInfo.InvariantCulture);
-                    if (first != second)
-                        throw new InvalidDataException("RAD Header의 % count와 & count가 다릅니다. %=" + first + ", &=" + second);
-                    header.DeclaredCount = first;
+                    if (header.HasDeclaredCount)
+                        throw new InvalidDataException("RAD Header의 % 수량이 중복 선언되었습니다. line=" + lineNumber);
+                    header.DeclaredCount = ReadPositiveWaferMapHeaderCount(text, count, "%", lineNumber);
+                    header.HasDeclaredCount = true;
+                }
+                foreach (Match count in auxiliaryCountRegex.Matches(text))
+                {
+                    if (header.HasAuxiliaryCount)
+                        throw new InvalidDataException("RAD Header의 & 수량이 중복 선언되었습니다. line=" + lineNumber);
+                    header.AuxiliaryCount = ReadPositiveWaferMapHeaderCount(text, count, "&", lineNumber);
+                    header.HasAuxiliaryCount = true;
                 }
 
                 Match firstIndex = firstRegex.Match(text);
@@ -1309,7 +1341,22 @@ namespace QMC.CDT320.DieMaps
                 }
             }
 
+            if (!header.HasDeclaredCount || !header.HasAuxiliaryCount)
+                throw new InvalidDataException("RAD Header의 % 또는 & 수량이 없습니다. /%수량/&수량/ 형식을 확인하십시오.");
             return header;
+        }
+
+        private static int ReadPositiveWaferMapHeaderCount(string headerText, Match token, string marker, int lineNumber)
+        {
+            int tokenEnd = token.Index + token.Length;
+            if (tokenEnd >= headerText.Length || headerText[tokenEnd] != '/')
+                throw new InvalidDataException("RAD Header의 " + marker + " 수량 종료 구분자(/)가 없습니다. line=" + lineNumber);
+            string value = token.Groups["count"].Value;
+            int count;
+            if (!int.TryParse(value.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out count) || count <= 0)
+                throw new InvalidDataException("RAD Header의 " + marker + " 수량은 유효한 양의 정수여야 합니다. value=" +
+                    value + ", line=" + lineNumber);
+            return count;
         }
 
         private static string BuildExternalMapDieUid(string frameId, int originalX, int originalY)
