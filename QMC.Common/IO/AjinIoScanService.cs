@@ -254,6 +254,38 @@ namespace QMC.Common.IO
             return true;
         }
 
+        /// <summary>
+        /// 백그라운드 캐시가 아니라 AJIN 보드의 현재 출력 상태를 동기 읽기합니다.
+        /// </summary>
+        public static bool TryReadHardwareOutput(BaseDigitalOutput output, out int errorCode)
+        {
+            errorCode = -1;
+            if (output == null) return false;
+
+            bool raw = false;
+            lock (AxdSyncRoot)
+                errorCode = AXD.ReadOutput(output.Setup.ModuleNo, output.Setup.BitNo, ref raw);
+
+            if (errorCode != 0)
+                return false;
+
+            bool logical = output.Setup.IsNormallyClosed ? !raw : raw;
+            output.ApplyScannedState(logical);
+
+            AjinIoScanService current = Current;
+            if (current != null)
+                current.UpdateCached(
+                    output.Name,
+                    output.Setup.ModuleNo,
+                    output.Setup.BitNo,
+                    true,
+                    logical,
+                    output.Setup.IsNormallyClosed,
+                    0);
+
+            return true;
+        }
+
         public bool TryApplyLatest(BaseDigitalOutput output)
         {
             if (output == null) return false;

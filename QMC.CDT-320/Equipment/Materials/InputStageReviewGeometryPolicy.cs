@@ -207,6 +207,41 @@ namespace QMC.CDT320.Materials
             return true;
         }
 
+        /// <summary>
+        /// 저장 승인이 변경 직전 context와 완전히 같고, 명시적으로 허용된 변경 뒤에는
+        /// 후보 좌표 서명만 달라졌을 때 승인 context를 새 후보 좌표로 재기준화한다.
+        /// 호출자는 임의 편집이 아닌 단일 허용 좌표 갱신 경로에서만 사용해야 한다.
+        /// </summary>
+        public static bool TryRebaseCandidateSignatureAfterAuthorizedUpdate(
+            InputStageReviewGeometryContext approved,
+            InputStageReviewGeometryContext beforeUpdate,
+            InputStageReviewGeometryContext afterUpdate,
+            out InputStageReviewGeometryContext rebased,
+            out string reason)
+        {
+            rebased = null;
+            if (!IsSameContext(approved, beforeUpdate, out reason))
+                return Fail("허용 좌표 갱신 직전 context가 저장 승인과 다릅니다. " + reason, out reason);
+            if (!CheckContext(afterUpdate, out reason))
+                return false;
+            if (!string.Equals(beforeUpdate.WaferId, afterUpdate.WaferId, StringComparison.Ordinal) ||
+                !string.Equals(beforeUpdate.MappingRevision, afterUpdate.MappingRevision, StringComparison.Ordinal) ||
+                !string.Equals(beforeUpdate.ConditionSignature, afterUpdate.ConditionSignature, StringComparison.Ordinal) ||
+                beforeUpdate.SessionGeneration != afterUpdate.SessionGeneration ||
+                beforeUpdate.RequestGeneration != afterUpdate.RequestGeneration ||
+                beforeUpdate.StageTheta != afterUpdate.StageTheta ||
+                beforeUpdate.PitchX != afterUpdate.PitchX || beforeUpdate.PitchY != afterUpdate.PitchY ||
+                beforeUpdate.OriginX != afterUpdate.OriginX || beforeUpdate.OriginY != afterUpdate.OriginY ||
+                beforeUpdate.BaselineOriginX != afterUpdate.BaselineOriginX ||
+                beforeUpdate.BaselineOriginY != afterUpdate.BaselineOriginY ||
+                beforeUpdate.IsSimulation != afterUpdate.IsSimulation)
+                return Fail("허용된 후보 좌표 서명 이외의 Review context가 함께 변경되었습니다.", out reason);
+
+            rebased = afterUpdate.Clone();
+            reason = string.Empty;
+            return true;
+        }
+
         public static bool TryVerify(
             InputStageReviewGeometryContext context,
             IList<InputStageReviewMeasurement> samples,

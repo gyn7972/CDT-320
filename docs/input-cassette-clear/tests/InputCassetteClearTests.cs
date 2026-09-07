@@ -347,6 +347,40 @@ internal static class InputCassetteClearTests
         Require(output.State == WaferMaterialState.Finish && Cassette(CassetteMaterialRole.Good1).Slots[0].HasWafer, "output cassette must remain occupied");
     }
 
+    private static void PickerProductDataGateUsesCurrentAndReservationOnly()
+    {
+        Reset();
+        WaferMaterial input = Wafer(CassetteMaterialRole.Input1, 0);
+        DieMaterial placed = Die(input, "OUTPUT-GATE");
+        WaferMaterial output = Wafer(CassetteMaterialRole.Good1, 0);
+        placed.WaferID_Output = output.WaferId;
+        placed.OutputWaferInstanceId = output.WaferInstanceId;
+        placed.CurrentLocation = MaterialLocation.Cassette(
+            MaterialLocationKind.OutputCassette, CassetteMaterialRole.Good1, 0);
+        output.DieIds.Add(placed.DieId);
+
+        string reason;
+        Require(MaterialStateService.TryValidatePickerProductDataEmpty(out reason),
+            "valid output-side die data must not block picker-empty gate: " + reason);
+
+        placed.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.PickerFront, PickerNo = 2 };
+        Require(!MaterialStateService.TryValidatePickerProductDataEmpty(out reason) && reason.Contains(placed.DieId),
+            "current picker die must block picker-empty gate");
+
+        placed.CurrentLocation = MaterialLocation.Cassette(
+            MaterialLocationKind.OutputCassette, CassetteMaterialRole.Good1, 0);
+        placed.ReservedPickerLocation = MaterialLocationKind.PickerRear;
+        placed.ReservedPickerNo = 3;
+        Require(!MaterialStateService.TryValidatePickerProductDataEmpty(out reason) && reason.Contains("reserved"),
+            "picker reservation must block picker-empty gate");
+
+        placed.ReservedPickerLocation = MaterialLocationKind.Unknown;
+        placed.ReservedPickerNo = -1;
+        placed.CurrentLocation = null;
+        Require(!MaterialStateService.TryValidatePickerProductDataEmpty(out reason),
+            "unknown die location must fail closed");
+    }
+
     private static void FinishGate(WaferMaterialState state)
     {
         Reset();
@@ -427,6 +461,7 @@ internal static class InputCassetteClearTests
         Case("picker_reservation_blocks", () => ActiveDieIsBlocked(MaterialLocationKind.InputCassette, true, false));
         Case("output_linked_picker_reservation_blocks", () => ActiveDieIsBlocked(MaterialLocationKind.InputCassette, true, true));
         Case("output_parent_and_inspection_trace_are_preserved", OutputTraceabilityIsPreserved);
+        Case("picker_product_data_gate_ignores_valid_output_history", PickerProductDataGateUsesCurrentAndReservationOnly);
         Case("ready_wafer_blocks_normal_exchange_only", () => FinishGate(WaferMaterialState.Ready));
         Case("work_ready_wafer_blocks_normal_exchange_only", () => FinishGate(WaferMaterialState.WorkReady));
         Case("working_wafer_blocks_normal_exchange_only", () => FinishGate(WaferMaterialState.Working));

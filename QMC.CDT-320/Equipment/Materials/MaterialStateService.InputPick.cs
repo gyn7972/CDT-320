@@ -3085,6 +3085,10 @@ namespace QMC.CDT320.Materials
             updatedDieCount = 0;
             skippedDieCount = 0;
             detail = string.Empty;
+            InputStageReviewGeometryContext rebaseDiagnosticContext = null;
+            DieMap rebaseDiagnosticMap = null;
+            string rebaseDiagnosticDetail = null;
+            bool approvalRebaseFailed = false;
 
             try
             {
@@ -3096,6 +3100,31 @@ namespace QMC.CDT320.Materials
                     {
                         detail = "InputStage Wafer 또는 Die Map이 없어 미촬영 Die 좌표를 갱신할 수 없습니다.";
                         return false;
+                    }
+
+                    InputStageReviewSavedVerification savedApproval = null;
+                    InputStageReviewGeometryContext contextBeforeUpdate = null;
+                    if (wafer.HasInputStageRunReviewApproval)
+                    {
+                        string approvalReason;
+                        if (!IsInputStageReviewGeometryApprovalUsableCoreNoLock(
+                            wafer, map, out contextBeforeUpdate, out approvalReason))
+                        {
+                            detail = "미촬영 Die 좌표 전파 직전 Review 승인이 현재 좌표와 일치하지 않습니다. " + approvalReason;
+                            return false;
+                        }
+
+                        savedApproval = wafer.InputStageReviewVerification;
+                        bool contextOnlyApproval = savedApproval != null && savedApproval.Measurements != null &&
+                            savedApproval.Measurements.Count == 0 &&
+                            (savedApproval.VerificationId.StartsWith("CONFIRM-CONTEXT-", StringComparison.Ordinal) ||
+                             savedApproval.VerificationId.StartsWith("SIMULATION-DEFAULT-", StringComparison.Ordinal) ||
+                             savedApproval.VerificationId.StartsWith("NONPRODUCTION-MANUAL-", StringComparison.Ordinal));
+                        if (!contextOnlyApproval)
+                        {
+                            detail = "미촬영 Die 좌표 전파는 좌표 context 확인 방식의 Review 승인에서만 승인 서명을 유지할 수 있습니다. 다시 Review 검증이 필요합니다.";
+                            return false;
+                        }
                     }
 
                     foreach (DieMapEntry entry in map.Entries)
@@ -3125,15 +3154,99 @@ namespace QMC.CDT320.Materials
 
                     LotStorage.ActiveInputDieMap = map;
 
+                    if (updatedDieCount > 0 && savedApproval != null)
+                    {
+                        InputStageReviewGeometryContext contextAfterUpdate;
+                        InputStageReviewGeometryContext rebasedContext;
+                        string rebaseReason;
+                        if (!TryBuildInputStageReviewContextNoLock(
+                                wafer, map, savedApproval.Context.SessionGeneration,
+                                savedApproval.Context.RequestGeneration, false,
+                                out contextAfterUpdate, out rebaseReason) ||
+                            !InputStageReviewGeometryPolicy.TryRebaseCandidateSignatureAfterAuthorizedUpdate(
+                                savedApproval.Context, contextBeforeUpdate, contextAfterUpdate,
+                                out rebasedContext, out rebaseReason))
+                        {
+                            wafer.HasInputStageRunReviewApproval = false;
+                            wafer.UpdatedAt = DateTime.Now;
+                            approvalRebaseFailed = true;
+                            rebaseDiagnosticContext = contextAfterUpdate ?? contextBeforeUpdate;
+                            rebaseDiagnosticMap = map;
+                            rebaseDiagnosticDetail = "approvalId=" + (savedApproval.VerificationId ?? "") +
+                                "; referenceDie=" + (referenceDieId ?? "") +
+                                "; updated=" + updatedDieCount.ToString(CultureInfo.InvariantCulture) +
+                                "; skipped=" + skippedDieCount.ToString(CultureInfo.InvariantCulture) +
+                                "; " + rebaseReason;
+                        }
+                        else
+                        {
+                            string previousCandidateSignature = savedApproval.Context.CandidateSignature;
+                            savedApproval.Context = rebasedContext;
+                            wafer.UpdatedAt = DateTime.Now;
+                            InputStageReviewGeometryContext confirmedContext;
+                            string confirmationReason;
+                            if (!IsInputStageReviewGeometryApprovalUsableCoreNoLock(
+                                wafer, map, out confirmedContext, out confirmationReason))
+                            {
+                                wafer.HasInputStageRunReviewApproval = false;
+                                approvalRebaseFailed = true;
+                                rebaseDiagnosticContext = confirmedContext ?? rebasedContext;
+                                rebaseDiagnosticMap = map;
+                                rebaseDiagnosticDetail = "approvalId=" + (savedApproval.VerificationId ?? "") +
+                                    "; referenceDie=" + (referenceDieId ?? "") +
+                                    "; updated=" + updatedDieCount.ToString(CultureInfo.InvariantCulture) +
+                                    "; skipped=" + skippedDieCount.ToString(CultureInfo.InvariantCulture) +
+                                    "; postRebaseCheck=" + confirmationReason;
+                            }
+                            else
+                            {
+                                _inputStageReviewLastRejectionKey = null;
+                                rebaseDiagnosticContext = confirmedContext;
+                                rebaseDiagnosticMap = map;
+                                rebaseDiagnosticDetail = "approvalId=" + (savedApproval.VerificationId ?? "") +
+                                    "; previousCandidateSignature=" + (previousCandidateSignature ?? "") +
+                                    "; currentCandidateSignature=" + (rebasedContext.CandidateSignature ?? "") +
+                                    "; referenceDie=" + (referenceDieId ?? "") +
+                                    "; updated=" + updatedDieCount.ToString(CultureInfo.InvariantCulture) +
+                                    "; skipped=" + skippedDieCount.ToString(CultureInfo.InvariantCulture) +
+                                    "; offsetX=" + offsetX.ToString("R", CultureInfo.InvariantCulture) +
+                                    "; offsetY=" + offsetY.ToString("R", CultureInfo.InvariantCulture);
+                            }
+                        }
+                    }
+
                     // [리뷰 반영 2026-08-05] 좌표 전파는 die.WaferOffset/entry.PosX,Y를 바꾸지만
                     // wafer 키 필드를 건드리지 않는다 — 캐시된 pick 좌표가 굳지 않도록 명시 무효화한다.
                     if (updatedDieCount > 0)
                         InvalidateInputPickContextCacheNoLock();
+
+                    if (!TryNotifyAndSave(string.IsNullOrWhiteSpace(reason)
+                        ? "InputLastVisionOffsetToPendingDies"
+                        : reason))
+                    {
+                        if (savedApproval != null)
+                        {
+                            wafer.HasInputStageRunReviewApproval = false;
+                            wafer.UpdatedAt = DateTime.Now;
+                        }
+                        detail = "마지막 Input Vision 결과와 Review 승인 서명의 Material 저장 요청에 실패했습니다.";
+                        return false;
+                    }
                 }
 
-                NotifyAndSave(string.IsNullOrWhiteSpace(reason)
-                    ? "InputLastVisionOffsetToPendingDies"
-                    : reason);
+                if (rebaseDiagnosticContext != null)
+                    WriteInputStageReviewDiagnostic(approvalRebaseFailed
+                            ? "APPROVAL-VISION-OFFSET-REBASE-REJECT"
+                            : "APPROVAL-VISION-OFFSET-REBASE",
+                        rebaseDiagnosticContext, rebaseDiagnosticMap, rebaseDiagnosticDetail);
+                if (approvalRebaseFailed)
+                {
+                    detail = "마지막 Input Vision 결과는 좌표에 반영했지만 Review 승인 서명을 안전하게 재기준화하지 못해 승인을 해제했습니다. " +
+                        rebaseDiagnosticDetail;
+                    Log.Write("Main", "SYSTEM", "MaterialStateService", detail + " - Failed");
+                    return false;
+                }
+
                 detail = "마지막 Input Vision 결과를 미촬영·미예약 Die 좌표에 적용했습니다. referenceDie=" +
                          (referenceDieId ?? "") +
                          ", updated=" + updatedDieCount +

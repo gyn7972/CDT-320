@@ -1253,6 +1253,51 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        /// <summary>
+        /// 현재 Picker 보유 위치 또는 Picker 예약으로 남은 Die 데이터가 없는지 확인합니다.
+        /// Output Stage/Feeder/Cassette의 정상 Die 이력은 이 검사 대상이 아닙니다.
+        /// </summary>
+        internal static bool TryValidatePickerProductDataEmpty(out string reason)
+        {
+            lock (_stateSync)
+                return TryValidatePickerProductDataEmptyNoLock(out reason);
+        }
+
+        private static bool TryValidatePickerProductDataEmptyNoLock(out string reason)
+        {
+            reason = string.Empty;
+            if (State == null || State.Dies == null)
+            {
+                reason = "Picker 제품 유무를 확인할 Material 상태가 없습니다.";
+                return false;
+            }
+
+            foreach (DieMaterial die in State.Dies)
+            {
+                if (die == null || die.CurrentLocation == null)
+                {
+                    reason = "Die 위치 데이터가 없어 Picker 제품 유무를 확인할 수 없습니다.";
+                    return false;
+                }
+
+                MaterialLocationKind location = die.CurrentLocation.Kind;
+                bool reserved = die.ReservedPickerLocation == MaterialLocationKind.PickerFront ||
+                                die.ReservedPickerLocation == MaterialLocationKind.PickerRear ||
+                                die.ReservedPickerNo > 0;
+                if (reserved || location == MaterialLocationKind.PickerFront ||
+                    location == MaterialLocationKind.PickerRear)
+                {
+                    reason = "Picker 보유/예약 Die 데이터가 남아 있습니다. die=" +
+                             (die.DieId ?? string.Empty) + ", location=" + location + ", picker=" +
+                             (die.CurrentLocation.PickerNo > 0 ? die.CurrentLocation.PickerNo.ToString() : "-") +
+                             ", reserved=" + die.ReservedPickerLocation + "/" + die.ReservedPickerNo +
+                             ". 실물이 없다면 위치/예약 데이터 불일치를 먼저 복구하십시오.";
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public static bool ClearInputCassetteForExchange(out string reason)
         {
             return ClearInputCassetteAllSlotDataCore(true, out reason);
@@ -1306,6 +1351,9 @@ namespace QMC.CDT320.Materials
                 }
             }
 
+            if (!TryValidatePickerProductDataEmptyNoLock(out reason))
+                return false;
+
             foreach (DieMaterial die in State.Dies)
             {
                 if (die == null || die.CurrentLocation == null)
@@ -1314,15 +1362,11 @@ namespace QMC.CDT320.Materials
                     return false;
                 }
                 MaterialLocationKind location = die.CurrentLocation.Kind;
-                bool reserved = die.ReservedPickerLocation == MaterialLocationKind.PickerFront ||
-                                die.ReservedPickerLocation == MaterialLocationKind.PickerRear || die.ReservedPickerNo > 0;
-                // Output 이력 연결이 있어도 Picker 보유/예약 또는 입력 이송 중인 Die는 완료 이력이 아니다.
-                if (reserved || location == MaterialLocationKind.PickerFront || location == MaterialLocationKind.PickerRear ||
-                    location == MaterialLocationKind.InputStage || location == MaterialLocationKind.InputFeeder)
+                // Output 이력 연결이 있어도 입력 이송 중인 Die는 완료 이력이 아니다.
+                if (location == MaterialLocationKind.InputStage || location == MaterialLocationKind.InputFeeder)
                 {
-                    reason = "입력 이송 또는 Picker 보유/예약 Die 데이터가 남아 있습니다. die=" +
-                             (die.DieId ?? "") + ", location=" + location + ", reserved=" +
-                             die.ReservedPickerLocation + "/" + die.ReservedPickerNo +
+                    reason = "입력 이송 Die 데이터가 남아 있습니다. die=" +
+                             (die.DieId ?? "") + ", location=" + location +
                              ". 실물이 없다면 위치/예약 데이터 불일치를 복구하십시오.";
                     return false;
                 }

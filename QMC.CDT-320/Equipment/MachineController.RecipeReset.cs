@@ -142,41 +142,31 @@ namespace QMC.CDT320
                 reason = "장비 객체를 확인할 수 없어 INPUT CST CLEAR를 차단했습니다.";
                 return false;
             }
-            if (!IsRecipeSwitchHardwareInputRequired())
-                return true;
-            if (!QMC.CDT320.Ajin.AjinFactory.IsRealBoardReady)
+            bool requireHardwareOutput = IsRecipeSwitchHardwareInputRequired();
+            if (requireHardwareOutput && !QMC.CDT320.Ajin.AjinFactory.IsRealBoardReady)
             {
                 reason = "실장비 I/O 모드이지만 AJIN 보드가 준비되지 않아 INPUT CST CLEAR의 자재 감지를 확인할 수 없습니다.";
                 return false;
             }
 
-            // 실장비는 Material이 비어 있어도 원본 Ring/FLOW 입력을 재확인합니다.
+            // 실장비는 Material이 비어 있어도 원본 Ring 입력을 재확인합니다.
             // 센서와 저장 위치가 다르면 복구가 필요하므로 센서값으로 Material을 자동 삭제하지 않습니다.
-            if (!TryValidateInputCassetteClearSensorEmpty(
-                    _machine.InputFeederUnit != null ? _machine.InputFeederUnit.WaferFeederRingCheckSensor : null,
-                    "InputFeeder Ring", out reason) ||
-                !TryValidateInputCassetteClearSensorEmpty(
-                    _machine.InputStageUnit != null ? _machine.InputStageUnit.WaferStage8RingCheckSensor : null,
-                    "InputStage 8 Ring", out reason) ||
-                !TryValidateInputCassetteClearSensorEmpty(
-                    _machine.InputStageUnit != null ? _machine.InputStageUnit.WaferStage12RingCheckSensor : null,
-                    "InputStage 12 Ring", out reason))
-                return false;
-
-            for (int side = 0; side < 2; side++)
+            if (requireHardwareOutput)
             {
-                BaseDigitalInput[] flows = side == 0
-                    ? (_machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.FlowChecks : null)
-                    : (_machine.PickerRearUnit != null ? _machine.PickerRearUnit.FlowChecks : null);
-                for (int picker = 0; picker < 4; picker++)
-                {
-                    BaseDigitalInput input = flows != null && picker < flows.Length ? flows[picker] : null;
-                    string sensorName = (side == 0 ? "Front" : "Rear") + " P" + (picker + 1) + " FLOW";
-                    if (!TryValidateInputCassetteClearSensorEmpty(input, sensorName, out reason))
-                        return false;
-                }
+                if (!TryValidateInputCassetteClearSensorEmpty(
+                        _machine.InputFeederUnit != null ? _machine.InputFeederUnit.WaferFeederRingCheckSensor : null,
+                        "InputFeeder Ring", out reason) ||
+                    !TryValidateInputCassetteClearSensorEmpty(
+                        _machine.InputStageUnit != null ? _machine.InputStageUnit.WaferStage8RingCheckSensor : null,
+                        "InputStage 8 Ring", out reason) ||
+                    !TryValidateInputCassetteClearSensorEmpty(
+                        _machine.InputStageUnit != null ? _machine.InputStageUnit.WaferStage12RingCheckSensor : null,
+                        "InputStage 12 Ring", out reason))
+                    return false;
             }
-            return true;
+
+            return TryValidatePickerVacuumOutputsAndMaterial(
+                "INPUT CST CLEAR", requireHardwareOutput, out reason);
         }
 
         private static bool TryValidateInputCassetteClearSensorEmpty(
@@ -195,6 +185,60 @@ namespace QMC.CDT320
                 return false;
             }
             reason = string.Empty;
+            return true;
+        }
+
+        private bool TryValidatePickerVacuumOutputsAndMaterial(
+            string operationName, bool requireHardwareOutput, out string reason)
+        {
+            reason = string.Empty;
+            string materialReason;
+            if (!MaterialStateService.TryValidatePickerProductDataEmpty(out materialReason))
+            {
+                reason = operationName + "을(를) 차단했습니다. Picker 제품 데이터 없음이 확인되지 않았습니다. " +
+                    materialReason;
+                return false;
+            }
+            if (!requireHardwareOutput)
+                return true;
+            if (_machine == null)
+            {
+                reason = operationName + " 전에 Picker Vacuum Output을 확인할 장비 객체가 없습니다.";
+                return false;
+            }
+            if (!QMC.CDT320.Ajin.AjinFactory.IsRealBoardReady)
+            {
+                reason = "실장비 I/O 모드이지만 AJIN 보드가 준비되지 않아 " + operationName +
+                    "의 Picker Vacuum Output을 확인할 수 없습니다.";
+                return false;
+            }
+
+            // Flow 입력은 Vacuum 비인가 상태에도 ON일 수 있으므로 제품 유무 근거로 사용하지 않습니다.
+            // 실제 AJIN 출력과 Picker Material이 모두 비어 있을 때만 초기화/Recipe 변경을 허용합니다.
+            for (int side = 0; side < 2; side++)
+            {
+                BaseDigitalOutput[] vacuums = side == 0
+                    ? (_machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.Vacuums : null)
+                    : (_machine.PickerRearUnit != null ? _machine.PickerRearUnit.Vacuums : null);
+                for (int picker = 0; picker < 4; picker++)
+                {
+                    string outputName = (side == 0 ? "Front" : "Rear") + " P" + (picker + 1) + " VACUUM";
+                    BaseDigitalOutput output = vacuums != null && picker < vacuums.Length ? vacuums[picker] : null;
+                    int errorCode;
+                    if (!AjinIoScanService.TryReadHardwareOutput(output, out errorCode))
+                    {
+                        reason = outputName + " 실제 출력을 읽을 수 없어 " + operationName +
+                            "을(를) 차단했습니다. error=" + errorCode;
+                        return false;
+                    }
+                    if (output.IsOn)
+                    {
+                        reason = outputName + " 실제 출력이 ON이므로 " + operationName +
+                            "을(를) 차단했습니다. Vacuum을 OFF하고 Picker 제품 데이터와 실물을 확인하십시오.";
+                        return false;
+                    }
+                }
+            }
             return true;
         }
 
@@ -392,7 +436,8 @@ namespace QMC.CDT320
                     reason = "실제 제품 감지 신호가 있어 Recipe 전환을 차단했습니다. physical=" + physicalDetail;
                     return false;
                 }
-                if (!TryValidateRecipeSwitchPickerFlows(requireHardwareInput, out reason))
+                if (!TryValidatePickerVacuumOutputsAndMaterial(
+                        "Recipe 전환", requireHardwareInput, out reason))
                     return false;
 
                 string materialRecipe;
@@ -492,35 +537,6 @@ namespace QMC.CDT320
             AppSettings settings = AppSettingsStore.Current;
             return !(DryRun || GlobalDryRun || (settings != null &&
                 (!settings.UseAjin || settings.SimulationMode || settings.DryRunMode || settings.BypassHardware)));
-        }
-
-        private bool TryValidateRecipeSwitchPickerFlows(bool requireHardwareInput, out string reason)
-        {
-            reason = string.Empty;
-            if (!requireHardwareInput)
-                return true;
-
-            // 다른 Recipe 전환에만 원본 실입력을 추가 확인합니다. 강제 FLOW 승인값은 사용하지 않습니다.
-            for (int side = 0; side < 2; side++)
-            {
-                BaseDigitalInput[] flows = side == 0
-                    ? (_machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.FlowChecks : null)
-                    : (_machine.PickerRearUnit != null ? _machine.PickerRearUnit.FlowChecks : null);
-                for (int picker = 0; picker < 4; picker++)
-                {
-                    string sensorName = (side == 0 ? "Front" : "Rear") + " P" + (picker + 1) + " FLOW";
-                    BaseDigitalInput input = flows != null && picker < flows.Length ? flows[picker] : null;
-                    bool detected;
-                    if (!TryReadRecipePresenceSensor(input, sensorName, out detected, out reason))
-                        return false;
-                    if (detected)
-                    {
-                        reason = sensorName + " 실입력이 ON이므로 Recipe 전환을 차단했습니다. 실제 제품을 제거한 후 다시 확인하십시오.";
-                        return false;
-                    }
-                }
-            }
-            return true;
         }
 
         public bool TryResetCompletedRecipeRuntime(string targetRecipeName, out string reason)

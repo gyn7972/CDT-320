@@ -39,6 +39,7 @@ $clearMethods = @(
     'TryValidateCassetteRoleForClearNoLock', 'TryCollectOutputCassetteClearDiesNoLock',
     'TryCollectOutputParentDiesNoLock', 'TryClassifyOutputDiesForDetachNoLock',
     'CanCompleteInputCassetteExchange', 'ClearInputCassetteForExchange',
+    'TryValidatePickerProductDataEmpty', 'TryValidatePickerProductDataEmptyNoLock',
     'TryValidateInputCassetteExchangeNoLock', 'ClearInputCassetteAllSlotDataCore',
     'IsInputClearLocationInScope', 'TryValidateInputCassetteWaferPointersNoLock'
 )

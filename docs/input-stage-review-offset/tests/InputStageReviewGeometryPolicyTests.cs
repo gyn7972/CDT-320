@@ -40,6 +40,8 @@ internal static class InputStageReviewGeometryPolicyTests
             Run("interior expected point cannot silently change candidate geometry", InconsistentExpectedPoint);
             Run("input camera Y sign is applied once", VisionYSign);
             Run("changed session, request, conditions and candidate invalidate evidence", StaleContexts);
+            Run("four completed picks then authorized pending offset rebases candidate only", AuthorizedPendingOffsetRebase);
+            Run("authorized pending offset rebase rejects every unrelated context change", AuthorizedPendingOffsetRejectsOtherChanges);
             Run("evidence snapshots do not alias caller state", EvidenceImmutable);
             Run("persisted JSON context, tolerance and raw samples reverify", EvidenceJsonRoundTrip);
             Run("simulation evidence cannot approve production", Simulation);
@@ -456,6 +458,63 @@ internal static class InputStageReviewGeometryPolicyTests
             var current = original.Clone(); change(current); string reason;
             Assert(!InputStageReviewGeometryPolicy.IsEvidenceUsable(evidence, current, true, out reason), "stale evidence accepted");
         }
+    }
+
+    private static void AuthorizedPendingOffsetRebase()
+    {
+        var approved = Context();
+        var beforeUpdate = approved.Clone();
+        // Four completed picks change progress/result fields, which are deliberately outside this geometry context.
+        var afterUpdate = beforeUpdate.Clone();
+        afterUpdate.CandidateSignature = "candidate-after-pending-offset";
+
+        InputStageReviewGeometryContext rebased;
+        string reason;
+        Assert(InputStageReviewGeometryPolicy.TryRebaseCandidateSignatureAfterAuthorizedUpdate(
+            approved, beforeUpdate, afterUpdate, out rebased, out reason), reason);
+        Assert(rebased != null && rebased.CandidateSignature == afterUpdate.CandidateSignature,
+            "authorized candidate signature was not rebased");
+        Assert(!object.ReferenceEquals(rebased, approved) && !object.ReferenceEquals(rebased, afterUpdate),
+            "rebased context aliases caller state");
+        Assert(InputStageReviewGeometryPolicy.IsSameContext(rebased, afterUpdate, out reason), reason);
+        Assert(!InputStageReviewGeometryPolicy.IsSameContext(approved, afterUpdate, out reason),
+            "strict ordinary context comparison accepted a coordinate change");
+    }
+
+    private static void AuthorizedPendingOffsetRejectsOtherChanges()
+    {
+        var approved = Context();
+        var beforeUpdate = approved.Clone();
+        Action<InputStageReviewGeometryContext>[] changes =
+        {
+            context => context.WaferId = "other", context => context.MappingRevision = "map-2",
+            context => context.ConditionSignature = "condition-2", context => context.SessionGeneration++,
+            context => context.RequestGeneration++, context => context.StageTheta += .001,
+            context => context.PitchX += .001, context => context.PitchY += .001,
+            context => context.OriginX += .001, context => context.OriginY += .001,
+            context => context.BaselineOriginX += .001, context => context.BaselineOriginY += .001,
+            context => context.IsSimulation = true
+        };
+        foreach (var change in changes)
+        {
+            var afterUpdate = beforeUpdate.Clone();
+            afterUpdate.CandidateSignature = "candidate-after-pending-offset";
+            change(afterUpdate);
+            InputStageReviewGeometryContext rebased;
+            string reason;
+            Assert(!InputStageReviewGeometryPolicy.TryRebaseCandidateSignatureAfterAuthorizedUpdate(
+                approved, beforeUpdate, afterUpdate, out rebased, out reason),
+                "unrelated context change was accepted");
+            Assert(rebased == null, "rejected context produced a rebased approval");
+        }
+
+        var staleBefore = beforeUpdate.Clone();
+        staleBefore.CandidateSignature = "already-stale-before-update";
+        InputStageReviewGeometryContext staleRebased;
+        string staleReason;
+        Assert(!InputStageReviewGeometryPolicy.TryRebaseCandidateSignatureAfterAuthorizedUpdate(
+            approved, staleBefore, staleBefore.Clone(), out staleRebased, out staleReason),
+            "pre-existing approval mismatch was accepted");
     }
 
     private static void EvidenceImmutable()
