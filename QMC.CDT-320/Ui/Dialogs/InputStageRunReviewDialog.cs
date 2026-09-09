@@ -42,6 +42,9 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _readOnlyPreview;
         private bool _autoReviewMode;
         private bool _decisionSubmitted;
+        // RUN DIE MAPPING 계열 결정이 제출된 창은 닫지 않고 잠금 유지한다 — 매핑 완료 후
+        // Form1이 같은 창에 새 결과를 재바인딩한다(닫았다 다시 여는 깜빡임 제거).
+        private bool _mappingHoldRequested;
         private bool _reviewStopPending;
         private bool _sequenceCloseRequested;
         private DialogResult _submittedDialogResult = DialogResult.None;
@@ -537,8 +540,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             LogReviewAction("AUTO-RETRY-MAPPING",
                 "T 보정 저장으로 Mapping이 무효화되어 Die Mapping 재실행을 자동 제출합니다.");
-            SubmitAutoReviewDecision(MappingRetryRequested, DialogResult.Retry,
-                "AUTO RUN DIE MAPPING(ThetaCorrection)");
+            SubmitMappingRetryDecision("AUTO RUN DIE MAPPING(ThetaCorrection)");
             return _decisionSubmitted;
         }
 
@@ -676,6 +678,28 @@ namespace QMC.CDT_320.Ui.Dialogs
                 SetStatus("현재 Stage Wafer/DieMap의 읽기 전용 화면입니다. 모션 및 데이터 변경 기능은 연결되지 않았습니다.");
         }
 
+        /// <summary>RUN DIE MAPPING 계열 결정이 제출되어 창을 닫지 않고 유지해야 하는 상태.
+        /// Form1이 시퀀스 종료 통지에서 닫기 대신 잠금 유지를 선택하는 데 사용한다.</summary>
+        public bool IsMappingHoldRequested
+        {
+            get { return _mappingHoldRequested && _decisionSubmitted; }
+        }
+
+        /// <summary>매핑 유지(hold) 창을 재바인딩 가능 상태로 되돌린다. 제출된 결정 사이클을
+        /// 종료해 SetDieMap 등 바인딩 가드가 풀린다 — 재바인딩 직전에 반드시 호출한다.</summary>
+        public void ResumeFromMappingHold()
+        {
+            if (IsDisposed)
+                return;
+
+            _mappingHoldRequested = false;
+            _decisionSubmitted = false;
+            _submittedDialogResult = DialogResult.None;
+            _busy = false;
+            DialogResult = DialogResult.None;
+            LogReviewAction("MAPPING-HOLD-RESUME", "매핑 완료 — 유지 중이던 창의 결정 잠금을 해제합니다.");
+        }
+
         public void SetAutoReviewMode(bool enabled)
         {
             _autoReviewMode = enabled;
@@ -702,6 +726,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         public void CloseFromSequence()
         {
             _decisionSubmitted = true;
+            _mappingHoldRequested = false;
             _sequenceCloseRequested = true;
             if (IsDisposed)
                 return;
@@ -738,6 +763,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
 
             _decisionSubmitted = false;
+            _mappingHoldRequested = false;
             _sequenceCloseRequested = false;
             _submittedDialogResult = DialogResult.None;
             _busy = false;
@@ -1761,7 +1787,15 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void BtnRetryMapping_Click(object sender, EventArgs e)
         {
-            SubmitAutoReviewDecision(MappingRetryRequested, DialogResult.Retry, "RUN DIE MAPPING(RetryMapping)");
+            SubmitMappingRetryDecision("RUN DIE MAPPING(RetryMapping)");
+        }
+
+        // 매핑 재실행 결정은 창 유지 대상으로 표시해 제출한다. 제출이 거부되면 표시를 되돌린다.
+        private void SubmitMappingRetryDecision(string decisionName)
+        {
+            _mappingHoldRequested = true;
+            SubmitAutoReviewDecision(MappingRetryRequested, DialogResult.Retry, decisionName);
+            _mappingHoldRequested = _decisionSubmitted;
         }
         private void BtnMappingSetup_Click(object sender, EventArgs e)
         {
@@ -2120,6 +2154,17 @@ namespace QMC.CDT_320.Ui.Dialogs
                 LogReviewBlocked("CLOSE-BLOCKED",
                     "Auto 대기 중 사용자 창 닫기 차단(결정 미제출)");
                 SetStatus("Auto 대기 중에는 창을 직접 닫을 수 없습니다. 확인 또는 취소/T ALIGN 재시작을 선택하세요.");
+                return;
+            }
+
+            // 매핑 유지 대기 중 사용자 닫기는 허용한다 — 매핑 시퀀스가 정지되어 재바인딩
+            // 요청이 오지 않는 경우의 탈출구. 닫히면 기존 정리 경로가 돌고, 다음 확인 요청은
+            // 새 창으로 열린다.
+            if (IsMappingHoldRequested && e.CloseReason == CloseReason.UserClosing)
+            {
+                LogReviewAction("CLOSE", "매핑 유지 대기 중 사용자 창 닫기 허용");
+                DisposeEncoderRefreshTimer();
+                StopWaferVision();
                 return;
             }
 

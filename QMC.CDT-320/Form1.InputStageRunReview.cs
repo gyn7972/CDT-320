@@ -54,73 +54,46 @@ namespace QMC.CDT_320
 
             if (_inputStageRunReviewDialog != null && !_inputStageRunReviewDialog.IsDisposed)
             {
-                _inputStageRunReviewDialog.Activate();
-                _inputStageRunReviewDialog.BringToFront();
+                InputStageRunReviewDialog held = _inputStageRunReviewDialog;
+                // 매핑 유지 창: 닫지 않고 기다리던 창에 새 결과를 재바인딩하고 잠금을 해제한다.
+                if (held.IsMappingHoldRequested)
+                {
+                    try
+                    {
+                        // 제출 잠금을 먼저 풀어야 SetDieMap 등 바인딩이 가드에 막히지 않는다
+                        // (막히면 화면 맵이 낡은 채 남아 CONFIRM이 "기록되지 않은 좌표 변경"으로 거부된다).
+                        held.ResumeFromMappingHold();
+                        BindInputStageRunReviewSession(held, stage, "REVIEW_REBIND");
+                        StartRunReviewBuzzer();
+                        QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                            "Die Mapping 완료 — 유지 중이던 Review 창에 새 결과를 재바인딩했습니다. - Ok");
+                        held.Activate();
+                        held.BringToFront();
+                        StartInputStageRunReviewEmbeddedVisionAsync(held);
+                    }
+                    catch (Exception rebindEx)
+                    {
+                        QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                            "유지 중이던 Review 창 재바인딩 실패로 창을 닫습니다: " + rebindEx.Message + " - Failed");
+                        stage.FailUserConfirmFromUi(
+                            "InputStage 사용자 확인 화면을 갱신하지 못했습니다. " + rebindEx.Message);
+                        held.CloseFromSequence();
+                    }
+                    return;
+                }
+
+                held.Activate();
+                held.BringToFront();
                 return;
             }
 
             InputStageRunReviewDialog dialog = null;
             try
             {
-                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
-                QMC.CDT320.DieMaps.DieMap stageMap = MaterialStateService.BuildInputDieMapFromStageWafer();
-                if (wafer == null || stageMap == null || stageMap.Entries == null || stageMap.Entries.Count == 0)
-                    throw new InvalidOperationException("InputStage 사용자 확인 화면에 표시할 Wafer/Die Map 데이터가 없습니다.");
-
-                bool alignComplete = wafer.HasInputStageAlignResult && wafer.HasInputStageThetaAlignResult;
-                bool mappingComplete = wafer.HasInputStageDieMappingResult &&
-                                       !wafer.InputStageDieMappingInvalidatedByAlignChange;
-                QMC.CDT320.Recipes.RecipeProject project = _currentRecipe ??
-                    QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
-                QMC.CDT320.Recipes.PickupSubset pickup = project != null
-                    ? (project.InputPickup ?? project.Pickup ?? new QMC.CDT320.Recipes.PickupSubset())
-                    : new QMC.CDT320.Recipes.PickupSubset();
-                string recipeName = project != null && !string.IsNullOrWhiteSpace(project.FileName)
-                    ? project.FileName
-                    : ActiveRecipeName;
-                string mappingReference = !string.IsNullOrWhiteSpace(wafer.DieMapFrameObjId)
-                    ? wafer.DieMapFrameObjId
-                    : stageMap.FrameObjId;
-
                 dialog = new InputStageRunReviewDialog();
                 _inputStageRunReviewDialog = dialog;
                 int sessionGeneration = ++_inputStageRunReviewSessionGeneration;
-                ClearInputStageRunReviewPendingOffset();
-                dialog.SetMode(InputStageRunReviewMode.MappingReview);
-                dialog.SetPickupOptions(pickup);
-                dialog.SetDieMap(stageMap);
-                dialog.SetWorkflowState(
-                    wafer.WaferId,
-                    recipeName,
-                    QMC.CDT320.VisionComm.VisionHub.Wafer != null &&
-                    QMC.CDT320.VisionComm.VisionHub.Wafer.IsConnected,
-                    alignComplete,
-                    mappingReference,
-                    mappingComplete,
-                    "WAITING USER CONFIRM");
-                if (wafer.InputStageAlignManualFallback && !wafer.InputStageAlignManualFallbackThetaDone)
-                    dialog.SetManualAlignFallbackThetaRequired(true);
-                dialog.SetAxisPositions(
-                    stage.CameraX != null ? stage.CameraX.ActualPosition : 0.0,
-                    stage.StageY != null ? stage.StageY.ActualPosition : 0.0,
-                    stage.StageT != null ? stage.StageT.ActualPosition : 0.0);
-                dialog.SetAxisPositionProvider(() => new double[]
-                {
-                    ReadCachedAxisPosition(stage.CameraX),
-                    ReadCachedAxisPosition(stage.StageY),
-                    ReadCachedAxisPosition(stage.StageT)
-                });
-                dialog.SetFailureDetail(
-                    string.Empty,
-                    "확인: 현재 Align/Die Mapping 결과로 Auto PickUp 공정을 계속합니다." + Environment.NewLine +
-                    "취소: Picker Ready를 발행하지 않고 센터 검출/T Align부터 다시 수행한 뒤 Die Mapping과 확인을 반복합니다.");
-                dialog.SetReviewValid(alignComplete && mappingComplete, "USER CONFIRM REQUIRED");
-                dialog.SetNonproductionReviewMode(MaterialStateService.IsInputStageReviewNonProductionMode(
-                    out string nonProductionReviewReason));
-                dialog.SetAutoReviewMode(true);
-                LogInputStageReviewGeometry("REVIEW_OPEN", null,
-                    "wafer=" + (wafer.WaferId ?? "") + "; alignComplete=" + alignComplete +
-                    "; mappingComplete=" + mappingComplete + "; physicalVerification=not-performed", stageMap);
+                BindInputStageRunReviewSession(dialog, stage, "REVIEW_OPEN");
 
                 // [사용자 확정 2026-08-17] 죽은 세션 컨펌 차단 — Auto가 CycleStop 등으로 이미
                 // 종료된 뒤 눌린 결정은 받아줄 시퀀스가 없어 무음으로 사라졌다(15:4x 실사례:
@@ -244,7 +217,7 @@ namespace QMC.CDT_320
 
                 StartRunReviewBuzzer();
                 QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
-                    "Align/Die Mapping 사용자 확인 화면을 표시했습니다. wafer=" + (wafer.WaferId ?? "") + " - Wait");
+                    "Align/Die Mapping 사용자 확인 화면을 표시했습니다. wafer=" + (dialog.WaferId ?? "") + " - Wait");
                 // Main UI 접근을 허용하기 위해 unowned modeless top-level 창으로 연다.
                 // 정리는 FormClosed 기반 CleanupInputStageRunReviewSessionAsync 단일 경로에서 수행한다.
                 dialog.Show();
@@ -262,6 +235,74 @@ namespace QMC.CDT_320
                 if (dialog != null)
                     CleanupInputStageRunReviewSessionAsync(dialog, _inputStageRunReviewSessionGeneration);
             }
+        }
+
+        /// <summary>
+        /// 현재 InputStage Wafer/Die Map 데이터를 Review 창에 바인딩합니다.
+        /// 최초 개창(REVIEW_OPEN)과 매핑 유지 창 재바인딩(REVIEW_REBIND)이 공용으로 사용하며,
+        /// 표시할 데이터가 없으면 예외를 던집니다(호출부가 실패 처리).
+        /// </summary>
+        private void BindInputStageRunReviewSession(
+            InputStageRunReviewDialog dialog,
+            InputStageUnit stage,
+            string logTag)
+        {
+            WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+            QMC.CDT320.DieMaps.DieMap stageMap = MaterialStateService.BuildInputDieMapFromStageWafer();
+            if (wafer == null || stageMap == null || stageMap.Entries == null || stageMap.Entries.Count == 0)
+                throw new InvalidOperationException("InputStage 사용자 확인 화면에 표시할 Wafer/Die Map 데이터가 없습니다.");
+
+            bool alignComplete = wafer.HasInputStageAlignResult && wafer.HasInputStageThetaAlignResult;
+            bool mappingComplete = wafer.HasInputStageDieMappingResult &&
+                                   !wafer.InputStageDieMappingInvalidatedByAlignChange;
+            QMC.CDT320.Recipes.RecipeProject project = _currentRecipe ??
+                QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
+            QMC.CDT320.Recipes.PickupSubset pickup = project != null
+                ? (project.InputPickup ?? project.Pickup ?? new QMC.CDT320.Recipes.PickupSubset())
+                : new QMC.CDT320.Recipes.PickupSubset();
+            string recipeName = project != null && !string.IsNullOrWhiteSpace(project.FileName)
+                ? project.FileName
+                : ActiveRecipeName;
+            string mappingReference = !string.IsNullOrWhiteSpace(wafer.DieMapFrameObjId)
+                ? wafer.DieMapFrameObjId
+                : stageMap.FrameObjId;
+
+            ClearInputStageRunReviewPendingOffset();
+            dialog.SetMode(InputStageRunReviewMode.MappingReview);
+            dialog.SetPickupOptions(pickup);
+            dialog.SetDieMap(stageMap);
+            dialog.SetWorkflowState(
+                wafer.WaferId,
+                recipeName,
+                QMC.CDT320.VisionComm.VisionHub.Wafer != null &&
+                QMC.CDT320.VisionComm.VisionHub.Wafer.IsConnected,
+                alignComplete,
+                mappingReference,
+                mappingComplete,
+                "WAITING USER CONFIRM");
+            if (wafer.InputStageAlignManualFallback && !wafer.InputStageAlignManualFallbackThetaDone)
+                dialog.SetManualAlignFallbackThetaRequired(true);
+            dialog.SetAxisPositions(
+                stage.CameraX != null ? stage.CameraX.ActualPosition : 0.0,
+                stage.StageY != null ? stage.StageY.ActualPosition : 0.0,
+                stage.StageT != null ? stage.StageT.ActualPosition : 0.0);
+            dialog.SetAxisPositionProvider(() => new double[]
+            {
+                ReadCachedAxisPosition(stage.CameraX),
+                ReadCachedAxisPosition(stage.StageY),
+                ReadCachedAxisPosition(stage.StageT)
+            });
+            dialog.SetFailureDetail(
+                string.Empty,
+                "확인: 현재 Align/Die Mapping 결과로 Auto PickUp 공정을 계속합니다." + Environment.NewLine +
+                "취소: Picker Ready를 발행하지 않고 센터 검출/T Align부터 다시 수행한 뒤 Die Mapping과 확인을 반복합니다.");
+            dialog.SetReviewValid(alignComplete && mappingComplete, "USER CONFIRM REQUIRED");
+            dialog.SetNonproductionReviewMode(MaterialStateService.IsInputStageReviewNonProductionMode(
+                out string nonProductionReviewReason));
+            dialog.SetAutoReviewMode(true);
+            LogInputStageReviewGeometry(logTag, null,
+                "wafer=" + (wafer.WaferId ?? "") + "; alignComplete=" + alignComplete +
+                "; mappingComplete=" + mappingComplete + "; physicalVerification=not-performed", stageMap);
         }
 
         /// <summary>
@@ -370,6 +411,9 @@ namespace QMC.CDT_320
                 // ManualStateChanged 경로가 Vision 요청 종료를 await한 뒤 Review 창을 닫는다.
                 if (_inputStageRunReviewVisionTestDialog != null &&
                     !_inputStageRunReviewVisionTestDialog.IsDisposed)
+                    return;
+                // 매핑 유지 창은 닫지 않는다(재바인딩 대기).
+                if (dialog.IsMappingHoldRequested)
                     return;
                 dialog.CloseFromSequence();
             }
@@ -494,7 +538,20 @@ namespace QMC.CDT_320
             }
             ClearInputStageRunReviewPendingOffset();
             if (dialog != null && !dialog.IsDisposed)
+            {
+                // RUN DIE MAPPING 계열 결정으로 끝난 세션은 창을 닫지 않고 잠금 유지한다.
+                // 매핑 완료 후 다음 사용자 확인 요청이 같은 창에 새 결과를 재바인딩한다.
+                if (dialog.IsMappingHoldRequested)
+                {
+                    EndRunReviewBuzzer();
+                    dialog.SetStatusMessage("DIE MAPPING 진행 중입니다. 완료되면 이 화면이 새 결과로 갱신됩니다.");
+                    QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                        "매핑 재실행 대기 — Review 창을 닫지 않고 유지합니다. - Ok");
+                    return;
+                }
+
                 dialog.CloseFromSequence();
+            }
         }
 
         private async void RunInputStageReviewMoveSelectedDieAsync(InputStageRunReviewDialog dialog)
@@ -1986,6 +2043,9 @@ namespace QMC.CDT_320
             }
             else if (reviewDialog != null && !reviewDialog.IsDisposed)
             {
+                // 매핑 유지 창은 닫지 않는다(재바인딩 대기).
+                if (reviewDialog.IsMappingHoldRequested)
+                    return;
                 // Global STOP/Coordinator 종료 중에는 자식 창이 완전히 닫힌 뒤 부모 Review를 닫는다.
                 reviewDialog.CloseFromSequence();
             }

@@ -882,6 +882,40 @@ namespace QMC.CDT320.Sequencing
 
                 double baseX = _mappingAnchorExpectedX;
                 double baseY = _mappingAnchorExpectedY;
+
+                // 수동 폴백 얼라인 웨이퍼는 비전이 다이를 잡지 못해 작업자가 수동 정렬한 상태다.
+                // Anchor 검출/재시도/주변 탐색은 성립하지 않으므로 시도 없이 예상 위치를 Anchor로
+                // 채택하고(fineOffset=0), 좌표 보정은 Review의 다이 검출/Offset 적용이 담당한다.
+                if (_wafer != null && _wafer.InputStageAlignManualFallback)
+                {
+                    _mappingAnchorDetectedX = baseX;
+                    _mappingAnchorDetectedY = baseY;
+                    _mappingFineOffsetX = 0.0;
+                    _mappingFineOffsetY = 0.0;
+                    ResolveDetectedMapCenter(out _dieMapCenterX, out _dieMapCenterY);
+                    _mappedPoints[VisionAlignTargetIds.Center] = new MappedMarkPoint
+                    {
+                        Name = VisionAlignTargetIds.Center,
+                        X = _mappingAnchorDetectedX,
+                        Y = _mappingAnchorDetectedY,
+                        OffsetX = 0.0,
+                        OffsetY = 0.0
+                    };
+
+                    WriteLog("InputStageDieMappingSequence",
+                        "Die Mapping anchor manual fallback engaged. anchor vision skipped on manual-fallback aligned wafer." +
+                        " anchorMapX=" + _mappingAnchorMapX +
+                        ", anchorMapY=" + _mappingAnchorMapY +
+                        ", adoptedAnchorX=expectedX=" + baseX.ToString("F6") +
+                        ", adoptedAnchorY=expectedY=" + baseY.ToString("F6") +
+                        ", fineOffsetX=0, fineOffsetY=0 - Check");
+                    EventLogger.Write(EventKind.Warning, "SYS", "IN-STAGE-DIEMAP-MANUAL-FALLBACK", Name,
+                        "수동 폴백 얼라인 웨이퍼 — Anchor 검출을 생략하고 예상 위치 그대로 진행합니다. Review 화면에서 다이 검출과 Offset 적용으로 좌표를 보정하십시오.");
+
+                    CurrentStep = InputStageDieMappingStep.CalculateDieMap;
+                    return 0;
+                }
+
                 double requestStartX = Stage.CameraX != null ? Stage.CameraX.ActualPosition : baseX;
                 double requestStartY = Stage.StageY != null ? Stage.StageY.ActualPosition : baseY;
                 WriteLog("InputStageDieMappingSequence",
@@ -909,39 +943,6 @@ namespace QMC.CDT320.Sequencing
                     if (_hybridVirtualFrameActive)
                         return Fail("IN-STAGE-DIEMAP-HYBRID-VISION", "Vision",
                             "Die Mapping 예상 Anchor 다이를 찾지 못했습니다. HybridRealVisionSimMotion에서는 가상 X/Y 이동으로 실제 Vision 화면이 바뀌지 않으므로 동일 화면 통신 재시도 후 주변 탐색을 수행하지 않습니다.");
-
-                    // 수동 폴백 얼라인 웨이퍼(파샬)는 명목 원점이라 Anchor 다이 자체가 없을 수 있다.
-                    // 정지하지 않고 예상 위치를 그대로 Anchor로 채택(fineOffset=0)해 Review 화면까지
-                    // 진행시키고, 좌표는 Review의 다이 검출/Offset 적용으로 수동 보정한다.
-                    if (_wafer != null && _wafer.InputStageAlignManualFallback)
-                    {
-                        _mappingAnchorDetectedX = baseX;
-                        _mappingAnchorDetectedY = baseY;
-                        _mappingFineOffsetX = 0.0;
-                        _mappingFineOffsetY = 0.0;
-                        ResolveDetectedMapCenter(out _dieMapCenterX, out _dieMapCenterY);
-                        _mappedPoints[VisionAlignTargetIds.Center] = new MappedMarkPoint
-                        {
-                            Name = VisionAlignTargetIds.Center,
-                            X = _mappingAnchorDetectedX,
-                            Y = _mappingAnchorDetectedY,
-                            OffsetX = 0.0,
-                            OffsetY = 0.0
-                        };
-
-                        WriteLog("InputStageDieMappingSequence",
-                            "Die Mapping anchor manual fallback engaged. anchor vision not found on manual-fallback aligned wafer." +
-                            " anchorMapX=" + _mappingAnchorMapX +
-                            ", anchorMapY=" + _mappingAnchorMapY +
-                            ", adoptedAnchorX=expectedX=" + baseX.ToString("F6") +
-                            ", adoptedAnchorY=expectedY=" + baseY.ToString("F6") +
-                            ", fineOffsetX=0, fineOffsetY=0 - Check");
-                        EventLogger.Write(EventKind.Warning, "SYS", "IN-STAGE-DIEMAP-MANUAL-FALLBACK", Name,
-                            "Die Mapping Anchor 다이를 찾지 못해 예상 위치 그대로 진행합니다(수동 폴백 얼라인 웨이퍼). Review 화면에서 다이 검출과 Offset 적용으로 좌표를 보정하십시오.");
-
-                        CurrentStep = InputStageDieMappingStep.CalculateDieMap;
-                        return 0;
-                    }
 
                     return Fail("IN-STAGE-DIEMAP-CENTER-VISION", "Vision",
                         "Die Mapping 예상 Anchor 다이를 찾지 못했습니다. Align Origin 예상 위치와 반 피치 미만 Fine 탐색을 모두 실패했습니다. " +
