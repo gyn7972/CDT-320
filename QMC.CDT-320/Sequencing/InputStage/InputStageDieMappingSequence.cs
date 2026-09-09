@@ -235,8 +235,36 @@ namespace QMC.CDT320.Sequencing
 
                 string thetaReason;
                 if (!MaterialStateService.IsInputStageThetaAlignComplete(_wafer, out thetaReason))
-                    return Fail("IN-STAGE-DIEMAP-THETA-ALIGN", Stage.Name,
-                        "Die Mapping 전에 InputStage T 보정이 완료되어야 합니다. " + thetaReason);
+                {
+                    // 수동 폴백 웨이퍼는 리뷰까지 가야 사용자가 T CORRECTION을 할 수 있는데
+                    // 리뷰는 매핑된 맵을 전제한다. 알람으로 세우지 않고 현재 StageT 기준 임시
+                    // T를 채워 매핑을 진행한다 — 확정 잠금은 유지되어 Review에서 T CORRECTION을
+                    // 완료해야만 CONFIRM이 열린다.
+                    if (_wafer != null && _wafer.InputStageAlignManualFallback)
+                    {
+                        double nominalReferenceT = Stage.ResolveWaferAlignReferenceT();
+                        double nominalCorrectedT = Stage.StageT != null
+                            ? Stage.StageT.ActualPosition
+                            : nominalReferenceT;
+                        double nominalOffsetT = nominalCorrectedT - nominalReferenceT;
+                        Stage.ApplyWaferAlignThetaResult(nominalReferenceT, nominalCorrectedT, nominalOffsetT);
+                        MaterialStateService.SaveInputStageThetaAlignNominal(
+                            _wafer, nominalReferenceT, nominalCorrectedT, nominalOffsetT);
+                        WriteLog("InputStageDieMappingSequence",
+                            "Manual-fallback wafer without theta result — nominal theta engaged for mapping." +
+                            " referenceT=" + nominalReferenceT.ToString("F6") +
+                            ", correctedT=" + nominalCorrectedT.ToString("F6") +
+                            ", offsetT=" + nominalOffsetT.ToString("F6") +
+                            ", reason=" + thetaReason + " - Check");
+                        EventLogger.Write(EventKind.Warning, "SYS", "IN-STAGE-DIEMAP-THETA-NOMINAL", Name,
+                            "수동 폴백 웨이퍼 — T 보정 결과가 없어 임시 T로 매핑을 진행합니다. Review에서 T CORRECTION을 완료해야 확정할 수 있습니다.");
+                    }
+                    else
+                    {
+                        return Fail("IN-STAGE-DIEMAP-THETA-ALIGN", Stage.Name,
+                            "Die Mapping 전에 InputStage T 보정이 완료되어야 합니다. " + thetaReason);
+                    }
+                }
 
                 if (!Stage.IsWaferAlignThetaResultReady(out thetaReason))
                     return Fail("IN-STAGE-DIEMAP-THETA-RUNTIME", Stage.Name,

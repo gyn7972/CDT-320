@@ -2186,6 +2186,30 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        /// <summary>수동 폴백 웨이퍼가 T 결과 없이 매핑에 진입했을 때 알람 대신 임시 T를 채운다.
+        /// 확정 잠금(InputStageAlignManualFallbackThetaDone)은 유지해 Review에서 T CORRECTION을
+        /// 완료해야만 CONFIRM이 열린다 — 정식 저장은 SaveInputStageThetaAlignResult.</summary>
+        public static void SaveInputStageThetaAlignNominal(WaferMaterial wafer, double referenceT, double correctedT, double offsetT)
+        {
+            try
+            {
+                if (wafer == null)
+                    return;
+
+                wafer.HasInputStageThetaAlignResult = true;
+                wafer.InputStageAlignReferenceT = referenceT;
+                wafer.InputStageAlignCorrectedT = correctedT;
+                wafer.InputStageAlignOffsetT = offsetT;
+                wafer.UpdatedAt = DateTime.Now;
+                NotifyAndSave("InputStageThetaAlignNominal");
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input stage nominal theta align save failed: " + ex.Message + " - Failed");
+            }
+        }
+
         public static void SaveInputStageThetaAlignResult(WaferMaterial wafer, double referenceT, double correctedT, double offsetT)
         {
             try

@@ -1108,13 +1108,11 @@ namespace QMC.CDT_320
             double correctedT = stage.StageT.ActualPosition;
             double offsetT = correctedT - referenceT;
             string limitReason = string.Empty;
-            if (Math.Abs(offsetT) <= 0.000001 ||
-                !stage.IsWaferAlignThetaOffsetWithinLimit(offsetT, out limitReason))
+            // 정렬 결과가 기준과 같아도(Offset 0) 정상적인 보정 완료다 — 저장을 막지 않는다.
+            // 안전 한계 검사만 유지한다.
+            if (!stage.IsWaferAlignThetaOffsetWithinLimit(offsetT, out limitReason))
             {
-                dialog.SetBusy(false,
-                    Math.Abs(offsetT) <= 0.000001
-                        ? "T 보정 Offset이 0이라 저장할 수 없습니다."
-                        : limitReason);
+                dialog.SetBusy(false, limitReason);
                 return;
             }
 
