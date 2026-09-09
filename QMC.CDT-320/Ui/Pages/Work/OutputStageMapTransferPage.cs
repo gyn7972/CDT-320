@@ -1729,6 +1729,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 {
                     slot.IsOutputInspectionDone = false;
                     slot.IsOutputInspectionOk = false;
+                    // 수납 재개 조건은 "DieUid 빈 슬롯"이므로 UID를 소거해야 그 자리에 다시
+                    // 플레이스한다(플라잉 다이 재수납). 날아간 기존 다이 기록은 되돌리지 않는다.
+                    slot.DieUid = "";
                 }
                 if (state == OutputDieManualState.Skip)
                 {
