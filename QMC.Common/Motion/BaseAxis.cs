@@ -234,6 +234,11 @@ namespace QMC.Common.Motion
         /// <summary>이동 명령으로 지정된 목표 위치.</summary>
         public double CommandPosition   { get; protected set; }
 
+        /// <summary>마지막으로 발행된 절대 이동의 최종 목표. CommandPosition은 이동 중 보드 순간
+        /// 지령으로 덮이지만 이 값은 이동이 끝나도 목표를 유지한다. 절대이동 발행 관문에서만
+        /// 기록하며 Stop 시 NaN(목표 무효).</summary>
+        public double LastMoveTarget    { get; protected set; } = double.NaN;
+
         /// <summary>현재 이동 속도.</summary>
         public double CurrentVelocity   { get; protected set; }
 
@@ -352,6 +357,7 @@ namespace QMC.Common.Motion
         {
             lock (_simulationSync)
             {
+                LastMoveTarget  = double.NaN;
                 IsMoving        = false;
                 IsInPosition    = false;
                 CurrentVelocity = 0.0;
@@ -630,6 +636,7 @@ namespace QMC.Common.Motion
                 {
                     ClearMotionFailure();
                     CommandPosition = targetPos;
+                    LastMoveTarget = targetPos;
                     CurrentVelocity = 0.0;
                     _simCommandVelocity = 0.0;
                     IsMoving = false;
@@ -650,6 +657,7 @@ namespace QMC.Common.Motion
                 double acceleration = Config.GetDefaultAcc();
                 double deceleration = Config.GetDefaultDec();
                 CommandPosition = targetPos;
+                LastMoveTarget = targetPos;
                 _simTargetPosition = targetPos;
                 ConfigureSimulationMotionProfile(vel, acceleration, deceleration, true);
                 IsMoving = true;
@@ -693,6 +701,7 @@ namespace QMC.Common.Motion
                 {
                     ClearMotionFailure();
                     CommandPosition = targetPos;
+                    LastMoveTarget = targetPos;
                     CurrentVelocity = 0.0;
                     _simCommandVelocity = 0.0;
                     IsMoving = false;
@@ -718,6 +727,7 @@ namespace QMC.Common.Motion
                     : Config.GetDefaultDec();
 
                 CommandPosition = targetPos;
+                LastMoveTarget = targetPos;
                 _simTargetPosition = targetPos;
                 ConfigureSimulationMotionProfile(vel, acc, dec, true);
                 IsMoving = true;

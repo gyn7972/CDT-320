@@ -780,6 +780,12 @@ namespace QMC.CDT320.Sequencing
             DateTime startWaitBegin = DateTime.UtcNow;
             // [사용자 지시 2026-07-30] 선행축 퇴장 변위 기준점 — 게이트 시작 시점의 선행축 실측 위치.
             double leadingStartActual = leadingPickerX.ActualPosition;
+            // 도달 판정 여유: 선행축이 InPosition 공차만큼 목표에 못 미치고 정지해도
+            // 팔로잉 최종 발행이 가능해야 하므로 공차 + 0.1mm를 추가로 요구한다.
+            double reachMargin = (leadingPickerX.Config != null && leadingPickerX.Config.InPositionTolerance > 0.0
+                ? leadingPickerX.Config.InPositionTolerance
+                : 0.0) + 0.1;
+            double confirmedLeadingGoal = double.NaN;
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
@@ -787,6 +793,19 @@ namespace QMC.CDT320.Sequencing
 
                 double leadingActualNow = leadingPickerX.ActualPosition;
                 double visionActualNow = visionX.ActualPosition;
+                // 도달 가능성: 선행축이 자기 이동 목표까지 다 가줘도 팔로잉 경계가 최종 목표에
+                // 못 미치면 이동(팔로잉 진입)하지 않고 대기한다. 선행축 목표가 갱신되어 도달
+                // 가능해지면 진입하고, 끝내 불가능하면 기존 타임아웃이 대기점 경로로 위임한다.
+                // (순간 지령 CommandPosition이 아닌 발행 목표 LastMoveTarget 기준 — 정지/미발행이면 실측)
+                double leadingGoalNow = leadingPickerX.LastMoveTarget;
+                if (double.IsNaN(leadingGoalNow))
+                    leadingGoalNow = leadingActualNow;
+                double reachableBoundNow = direction > 0
+                    ? leadingGoalNow + homeGap - safetyGap
+                    : leadingGoalNow - homeGap + safetyGap;
+                bool reachableNow = direction > 0
+                    ? finalTarget <= reachableBoundNow - reachMargin
+                    : finalTarget >= reachableBoundNow + reachMargin;
                 // FollowMoveAsync의 경계식과 동일: direction>0 → bound = 선행 + homeGap − safetyGap.
                 double boundNow = direction > 0
                     ? leadingActualNow + homeGap - safetyGap
@@ -804,14 +823,20 @@ namespace QMC.CDT320.Sequencing
                     ? leadingActualNow - leadingStartActual
                     : leadingStartActual - leadingActualNow;
 
-                if (leadingDepartureNow >= FollowStartMinLeadingDepartureMm &&
+                if (reachableNow &&
+                    leadingDepartureNow >= FollowStartMinLeadingDepartureMm &&
                     firstMoveNow >= FollowStartMinFirstMoveMm)
                 {
+                    confirmedLeadingGoal = leadingGoalNow;
                     WriteLog(
                         "InputVisionXPrePosition",
-                        side + " 픽업 퇴장 팔로잉 진입 기회 확보(선행축 퇴장+첫 명령 이동량 확보). " +
+                        side + " 픽업 퇴장 팔로잉 진입 기회 확보(도달 가능+선행축 퇴장+첫 명령 이동량 확보). " +
                         "die=" + dieId +
                         ", leadingActual=" + leadingActualNow.ToString("F3") +
+                        ", leadingGoal=" + leadingGoalNow.ToString("F3") +
+                        ", reachableBound=" + reachableBoundNow.ToString("F3") +
+                        ", reachMargin=" + reachMargin.ToString("F3") +
+                        ", finalTarget=" + finalTarget.ToString("F3") +
                         ", leadingDeparture=" + leadingDepartureNow.ToString("F3") +
                         ", requiredDeparture=" + FollowStartMinLeadingDepartureMm.ToString("F3") +
                         ", visionActual=" + visionActualNow.ToString("F3") +
@@ -826,8 +851,13 @@ namespace QMC.CDT320.Sequencing
                 {
                     WriteLog(
                         "InputVisionXPrePosition",
-                        side + " 픽업 퇴장 팔로잉 진입 기회를 대기합니다(선행축 퇴장/첫 명령 이동량 대기). " +
+                        side + " 픽업 퇴장 팔로잉 진입 기회를 대기합니다(도달 가능성/선행축 퇴장/첫 명령 이동량 대기). " +
                         "die=" + dieId +
+                        ", reachable=" + reachableNow +
+                        ", leadingGoal=" + leadingGoalNow.ToString("F3") +
+                        ", reachableBound=" + reachableBoundNow.ToString("F3") +
+                        ", reachMargin=" + reachMargin.ToString("F3") +
+                        ", finalTarget=" + finalTarget.ToString("F3") +
                         ", leadingActual=" + leadingActualNow.ToString("F3") +
                         ", leadingDeparture=" + leadingDepartureNow.ToString("F3") +
                         ", requiredDeparture=" + FollowStartMinLeadingDepartureMm.ToString("F3") +
@@ -843,6 +873,11 @@ namespace QMC.CDT320.Sequencing
                         "InputVisionXPrePosition",
                         side + " 픽업 퇴장 팔로잉 진입 기회 대기가 타임아웃되어 기존 대기점 경로로 위임합니다. " +
                         "die=" + dieId +
+                        ", reachable=" + reachableNow +
+                        ", leadingGoal=" + leadingGoalNow.ToString("F3") +
+                        ", reachableBound=" + reachableBoundNow.ToString("F3") +
+                        ", reachMargin=" + reachMargin.ToString("F3") +
+                        ", finalTarget=" + finalTarget.ToString("F3") +
                         ", timeoutMs=" + FollowStartWaitTimeoutMs + " - Check");
                     return -24;
                 }
@@ -853,16 +888,18 @@ namespace QMC.CDT320.Sequencing
             WriteLog(
                 "InputVisionXPrePosition",
                 side + " 픽업 퇴장 팔로잉 진입을 시작합니다. leading=" + leadingPickerX.Name +
-                ", leadingCommand=" + leadingPickerX.CommandPosition.ToString("F6") +
+                ", leadingGoal=" + confirmedLeadingGoal.ToString("F6") +
                 ", visionActual=" + visionX.ActualPosition.ToString("F6") +
                 ", visionTarget=" + finalTarget.ToString("F6") +
                 ", die=" + dieId +
                 ", " + gapDetail +
                 ", timeoutMs=" + followTimeoutMs + " - Start");
 
+            // 순간 지령(CommandPosition)이 아닌 발행 목표를 전달 — 내부 교착 감시가 올바른
+            // 리딩 종착 기준으로 동작한다.
             int followResult = await followVisionX.FollowMoveAsync(
                 leadingPickerX,
-                leadingPickerX.CommandPosition,
+                confirmedLeadingGoal,
                 leadingVelocity,
                 leadingAcceleration,
                 leadingDeceleration,

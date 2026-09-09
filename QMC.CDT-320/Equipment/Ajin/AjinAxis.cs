@@ -1754,6 +1754,7 @@ namespace QMC.CDT320.Ajin
                     Math.Abs(CommandPosition - targetPos) <= ExactMatchEpsilonMm)
                 {
                     CommandPosition = targetPos;
+                    LastMoveTarget = targetPos;
                     CurrentVelocity = 0.0;
                     IsMoving = false;
                     IsInPosition = true;
@@ -1823,6 +1824,7 @@ namespace QMC.CDT320.Ajin
                     ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Start");
 
                 CommandPosition = targetPos;
+                LastMoveTarget = targetPos;
                 CurrentVelocity = vel;
                 IsMoving = true;
                 IsInPosition = false;
@@ -1982,6 +1984,7 @@ namespace QMC.CDT320.Ajin
                     ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Start");
 
                 CommandPosition = targetPos;
+                LastMoveTarget = targetPos;
                 CurrentVelocity = vel;
                 IsMoving = true;
                 IsInPosition = false;
