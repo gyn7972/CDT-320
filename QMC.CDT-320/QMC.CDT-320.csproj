@@ -634,6 +634,16 @@
       <DependentUpon>VisionMonitorDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\Common\ModelessDialogHost.cs" />
+    <Compile Include="Ui\Dialogs\WaferMapViewerData.cs" />
+    <Compile Include="Ui\Dialogs\WaferMapViewerView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\WaferMapViewerDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\WaferMapViewerDialog.Designer.cs">
+      <DependentUpon>WaferMapViewerDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\VisionModuleTestDialog.cs">
       <SubType>Form</SubType>
     </Compile>

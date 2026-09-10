@@ -301,6 +301,7 @@ namespace QMC.CDT_320.Ui.Localization
             A("wi.outputFeeder",      "OUTPUT FEEDER",    "OUTPUT FEEDER");
             A("wi.outputCassette",    "OUTPUT CASSETTE",  "OUTPUT CASSETTE");
             A("wi.logic",             "LOGIC",            "LOGIC");
+            A("wi.waferMapViewer",    "웨이퍼맵 확인",    "WAFER MAP VIEWER");
             A("wi.logicLogic",        "LOGIC",            "LOGIC");
             A("wi.logicTimechart",    "TIMECHART",        "TIMECHART");
             A("wi.slotState",         "슬롯 상태",          "Slot State");

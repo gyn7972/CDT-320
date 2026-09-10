@@ -14,6 +14,7 @@ namespace QMC.CDT_320.Ui.Tabs
         internal SidebarButton BtnOutputCassette;
         internal SidebarButton BtnState;
         internal SidebarButton BtnLogic;
+        private SidebarButton btnWaferMapViewer;
         internal System.Windows.Forms.Panel PnlInfoSeparator;
         internal System.Windows.Forms.Panel PnlStatusSeparator;
 
@@ -29,6 +30,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnOutputCassette = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnState = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnLogic = new QMC.CDT_320.Ui.Controls.SidebarButton();
+            this.btnWaferMapViewer = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.PnlInfoSeparator = new System.Windows.Forms.Panel();
             this.PnlStatusSeparator = new System.Windows.Forms.Panel();
             this.PnlSidebar.SuspendLayout();
@@ -177,6 +179,18 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnLogic.TabIndex = 14;
             this.BtnLogic.Text = "LOGIC";
             //
+            // btnWaferMapViewer
+            //
+            this.btnWaferMapViewer.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnWaferMapViewer.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnWaferMapViewer.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
+            this.btnWaferMapViewer.Name = "btnWaferMapViewer";
+            this.btnWaferMapViewer.Selected = false;
+            this.btnWaferMapViewer.Size = new System.Drawing.Size(184, 46);
+            this.btnWaferMapViewer.TabIndex = 15;
+            this.btnWaferMapViewer.Text = "웨이퍼맵 확인";
+            this.btnWaferMapViewer.Click += new System.EventHandler(this.btnWaferMapViewer_Click);
+            //
             // WorkInfoTab
             //
             this.Name = "WorkInfoTab";
@@ -189,6 +203,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputFeeder);
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputCassette);
             this.PnlSidebarButtons.Controls.Add(this.PnlInfoSeparator);
+            this.PnlSidebarButtons.Controls.Add(this.btnWaferMapViewer);
             this.PnlSidebarButtons.Controls.Add(this.BtnState);
             this.PnlSidebarButtons.Controls.Add(this.PnlStatusSeparator);
             this.PnlSidebarButtons.Controls.Add(this.BtnLogic);

@@ -1,10 +1,14 @@
 ﻿using System.ComponentModel;
+using System;
+using System.Windows.Forms;
+using QMC.CDT_320.Ui.Dialogs;
+using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Pages.WorkInfo;
 using QMC.CDT_320.Ui.Security;
 
 namespace QMC.CDT_320.Ui.Tabs
 {
-    /// <summary>?? ?? ? - INPUT/OUTPUT ?? ?? ??.</summary>
+    /// <summary>작업정보 탭 — 장비 상태 페이지와 웨이퍼맵 확인 창.</summary>
     public partial class WorkInfoTab : TabBase
     {
         public WorkInfoTab()
@@ -30,6 +34,29 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnOutputCassette,       "wi.outputCassette",    op, () => Whitened(new OutputCassettePage()));
             RegisterSidebarButton(BtnState,                "wi.state",             op, () => Whitened(new StatePage()));
             RegisterSidebarButton(BtnLogic,                "wi.logic", UserLevel.Engineer, () => Whitened(new LogicDetailPage()));
+
+            // 조회 창은 현재 작업정보 페이지를 유지한 채 연다.
+            AccessPolicy.RegisterFeature("wi.waferMapViewer", op);
+            btnWaferMapViewer.Tag = "i18n:wi.waferMapViewer;level:Operator";
+            btnWaferMapViewer.Text = Lang.T("wi.waferMapViewer");
+        }
+
+        private void btnWaferMapViewer_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (!AccessPolicy.Can("wi.waferMapViewer"))
+                    return;
+
+                ModelessDialogHost.Show("dlg.waferMapViewer", FindForm(), () => new WaferMapViewerDialog());
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", UserSession.Name, "OpenWaferMapViewer",
+                    "웨이퍼맵 확인 창을 열지 못했습니다. " + ex + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "웨이퍼맵 확인 창을 열지 못했습니다.\r\n" + ex.Message,
+                    "웨이퍼맵 확인", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         /// <summary>작업정보 페이지 트리 전체를 훑어 밝은 회색 배경 컨트롤을 흰색으로 통일한다.

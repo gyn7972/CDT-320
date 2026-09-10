@@ -1524,6 +1524,40 @@ namespace QMC.CDT320.Ajin
                     if (waitCode == -3)
                         return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition, effectiveTimeoutMs).ConfigureAwait(false);
 
+                    // 오버라이드 발행 직후 보드가 이동을 막 접수하는 순간의 경합에서는 오버라이드가
+                    // 성공을 반환하고도 반영되지 않을 수 있다 — 축이 직전 지령에서 정지해 보드
+                    // 지령≠목표(-5)로 끝난다. 오버라이드를 발행한 세션에 한해, 정지 상태에서 잔여
+                    // 이동을 일반 이동으로 1회 재발행해 복구한다(완료 검증 포함, 실패 시 기존 실패).
+                    if (waitCode == -5 && overrideCount > 0)
+                    {
+                        double stoppedBoardCommand = 0.0;
+                        string stoppedCommandText = AXM.GetCommandPosition(AxisNo, ref stoppedBoardCommand) == 0
+                            ? FromBoardPosition(stoppedBoardCommand).ToString("F3")
+                            : "-";
+                        QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-RECOVER",
+                            Name + " 최종 오버라이드 미반영 감지 — 정지 상태에서 잔여 이동을 재발행합니다. " +
+                            "boardCommand=" + stoppedCommandText +
+                            ", target=" + trailingTargetPosition.ToString("F3") +
+                            ", overrideCount=" + overrideCount + " - Check");
+                        await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
+                        moveTask = null;
+                        int reissueResult = await MoveAbsoluteAsync(trailingTargetPosition, trailingVelocity).ConfigureAwait(false);
+                        QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-RECOVER",
+                            Name + " 잔여 이동 재발행 결과. result=" + reissueResult +
+                            ", actual=" + ActualPosition.ToString("F3") +
+                            (reissueResult == 0 ? " - Ok" : " - Failed"));
+                        if (reissueResult == 0)
+                        {
+                            QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                                Name + " 팔로잉 이동이 잔여 재발행으로 완료되었습니다. target=" + trailingTargetPosition.ToString("F3") +
+                                ", actual=" + ActualPosition.ToString("F3") +
+                                ", overrideCount=" + overrideCount +
+                                ", elapsedMs=" + stopwatch.ElapsedMilliseconds + " - Ok");
+                            return 0;
+                        }
+                        waitCode = reissueResult;
+                    }
+
                     Stop();
                     await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
                     moveTask = null;
