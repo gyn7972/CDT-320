@@ -8,6 +8,7 @@ using QMC.CDT320.DieMaps;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
 using QMC.CDT_320.Ui;
+using QMC.CDT_320.Ui.Dialogs;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
@@ -273,6 +274,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 _lastWaferStatus = "[SAVE SPEC FAILED] " + ex.Message;
                 UpdateMapSourceInfo();
                 MessageBox.Show("Wafer/Frame Spec 저장 실패: " + ex.Message, "Wafer Spec", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnPreviewWaferMap_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // 편집값의 사본만 전달한다. 미리보기 결과의 Recipe 연결은 후속 적용 단계에서 수행한다.
+                var settings = new WaferMapGenerationSettings(
+                    _nDiameter.Value, _nDieSizeX.Value, _nDieSizeY.Value,
+                    _nPitchX.Value, _nPitchY.Value);
+                using (var dialog = new WaferMapCreateDialog(settings))
+                    dialog.ShowDialog(this);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "UI", "WaferMapCreateDialog",
+                    "맵 생성 미리보기 열기 실패. exception=" + ex + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "맵 생성 미리보기를 열 수 없습니다.\r\n" + ex.Message,
+                    "맵 생성 미리보기", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 

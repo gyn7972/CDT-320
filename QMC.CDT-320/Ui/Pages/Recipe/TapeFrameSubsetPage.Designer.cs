@@ -27,6 +27,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private Panel pnlBaseButtons;
         private Button _btnImportWaferMap;
         private Button btnGridMapCreate;
+        private Button btnPreviewWaferMap;
         private Label lblGridX;
         private NumericUpDown _nGridX;
         private Label lblGridY;
@@ -105,6 +106,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.pnlBaseButtons = new System.Windows.Forms.Panel();
             this._btnImportWaferMap = new System.Windows.Forms.Button();
             this.btnGridMapCreate = new System.Windows.Forms.Button();
+            this.btnPreviewWaferMap = new System.Windows.Forms.Button();
             this.lblGridX = new System.Windows.Forms.Label();
             this._nGridX = new System.Windows.Forms.NumericUpDown();
             this.lblGridY = new System.Windows.Forms.Label();
@@ -350,7 +352,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpBase.Controls.Add(this._nTopBottomEdgeSkip, 3, 3);
             this.tlpBase.Controls.Add(this.lblMapFile, 0, 4);
             this.tlpBase.Controls.Add(this._lblMapFileValue, 1, 4);
-            this.tlpBase.Controls.Add(this.lblBaseHint, 0, 5);
+            this.tlpBase.Controls.Add(this.btnPreviewWaferMap, 0, 5);
+            this.tlpBase.Controls.Add(this.lblBaseHint, 2, 5);
             this.tlpBase.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tlpBase.Location = new System.Drawing.Point(10, 28);
             this.tlpBase.Name = "tlpBase";
@@ -363,7 +366,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpBase.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tlpBase.SetColumnSpan(this.pnlBaseButtons, 3);
             this.tlpBase.SetColumnSpan(this._lblMapFileValue, 4);
-            this.tlpBase.SetColumnSpan(this.lblBaseHint, 5);
+            this.tlpBase.SetColumnSpan(this.btnPreviewWaferMap, 2);
+            this.tlpBase.SetColumnSpan(this.lblBaseHint, 3);
             this.tlpBase.Size = new System.Drawing.Size(735, 223);
             this.tlpBase.TabIndex = 0;
             //
@@ -611,6 +615,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._lblMapFileValue.TabIndex = 16;
             this._lblMapFileValue.Text = "-";
             this._lblMapFileValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // btnPreviewWaferMap
+            //
+            this.btnPreviewWaferMap.Dock = System.Windows.Forms.DockStyle.Top;
+            this.btnPreviewWaferMap.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnPreviewWaferMap.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnPreviewWaferMap.BackColor = System.Drawing.Color.FromArgb(31, 111, 133);
+            this.btnPreviewWaferMap.ForeColor = System.Drawing.Color.White;
+            this.btnPreviewWaferMap.Margin = new System.Windows.Forms.Padding(2, 4, 6, 2);
+            this.btnPreviewWaferMap.Name = "btnPreviewWaferMap";
+            this.btnPreviewWaferMap.Size = new System.Drawing.Size(346, 36);
+            this.btnPreviewWaferMap.TabIndex = 17;
+            this.btnPreviewWaferMap.Text = "맵 생성 미리보기";
+            this.btnPreviewWaferMap.UseVisualStyleBackColor = false;
+            this.toolTipRecipeLocation.SetToolTip(this.btnPreviewWaferMap, "원형 맵을 생성하고 상·하·좌·우 끝줄 개수를 보정하여 확인합니다.");
+            this.btnPreviewWaferMap.Click += new System.EventHandler(this.btnPreviewWaferMap_Click);
             //
             // lblBaseHint
             //
