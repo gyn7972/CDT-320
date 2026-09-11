@@ -10,11 +10,19 @@
         public string Name { get; protected set; }
 
         /// <summary>
-        /// 영속화(저장/로드)에 사용하는 키. 파일명으로 쓰인다.
+        /// Recipe 등 노드 고유 영속화에 사용하는 키. 파일명으로 쓰인다.
         /// 표시용 <see cref="Name"/> 을 리팩터링으로 변경해도 기존 데이터를 계속 읽도록
-        /// 저장 키를 별도로 분리한다. 기본값은 <see cref="Name"/>.
+        /// 저장 키를 별도로 분리한다. Setup / Config는 <see cref="SettingsStorageKey"/>를 사용한다.
+        /// 기본값은 <see cref="Name"/>.
         /// </summary>
         public string StorageKey { get; protected set; }
+
+        /// <summary>
+        /// Setup / Config 파일에만 사용하는 영속화 키.
+        /// Recipe는 기존 호환성을 위해 <see cref="StorageKey"/>를 계속 사용한다.
+        /// 기본값은 <see cref="Name"/>.
+        /// </summary>
+        public string SettingsStorageKey { get; protected set; }
 
         /// <summary>기구적 설정값 데이터 (비형식화된 접근용 ? 하위 클래스에서 섀도잉됨)</summary>
         public ISetupData Setup { get; protected set; }
@@ -29,6 +37,7 @@
         {
             Name = name;
             StorageKey = name;
+            SettingsStorageKey = name;
         }
 
         /// <summary>

@@ -386,9 +386,10 @@ namespace QMC.CDT320.Ajin
                 return ConfigureSimInput(new SimDigitalInput("UnregisteredInput"), 0, 0, false);
 
             string name = catalog.Name;
+            string settingsStorageKey = string.IsNullOrWhiteSpace(catalog.SettingsStorageKey) ? name : catalog.SettingsStorageKey;
             DioMap m = ResolveInputMap(catalog);
             bool simMode = IoSettingsStore.InputSimulation(name, !Ready);
-            return CreateSharedDigitalInput(name, m, simMode);
+            return CreateSharedDigitalInput(name, m, simMode, settingsStorageKey);
         }
 
         [Obsolete("Use AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.xxx). I/O must be registered only in AjinIoCatalog.", true)]
@@ -407,15 +408,16 @@ namespace QMC.CDT320.Ajin
                 return ConfigureSimOutput(new SimDigitalOutput("UnregisteredOutput"), 0, 0, false);
 
             string name = catalog.Name;
+            string settingsStorageKey = string.IsNullOrWhiteSpace(catalog.SettingsStorageKey) ? name : catalog.SettingsStorageKey;
             DioMap m = ResolveOutputMap(catalog);
             bool simMode = IoSettingsStore.OutputSimulation(name, !Ready);
-            return CreateSharedDigitalOutput(name, m, simMode);
+            return CreateSharedDigitalOutput(name, m, simMode, settingsStorageKey);
         }
 
-        internal static BaseDigitalInput CreateSharedDigitalInput(string name, DioMap map, bool simulationMode)
+        internal static BaseDigitalInput CreateSharedDigitalInput(string name, DioMap map, bool simulationMode, string settingsStorageKey = null)
         {
             if (map == null)
-                return ConfigureSimInput(new SimDigitalInput(string.IsNullOrWhiteSpace(name) ? "UnregisteredInput" : name), 0, 0, false);
+                return ConfigureSimInput(new SimDigitalInput(string.IsNullOrWhiteSpace(name) ? "UnregisteredInput" : name, settingsStorageKey), 0, 0, false);
 
             string key = IoKey(false, map.Module, map.Bit, map.Nc);
             lock (IoGate)
@@ -428,8 +430,8 @@ namespace QMC.CDT320.Ajin
                 }
 
                 input = Ready
-                    ? (BaseDigitalInput)new AjinDigitalInput(name, map.Module, map.Bit, map.Nc)
-                    : new SimDigitalInput(name);
+                    ? (BaseDigitalInput)new AjinDigitalInput(name, map.Module, map.Bit, map.Nc, settingsStorageKey)
+                    : new SimDigitalInput(name, settingsStorageKey);
                 ConfigureSimInput(input, map.Module, map.Bit, map.Nc);
                 input.Config.IsSimulationMode = simulationMode || !Ready || input is SimDigitalInput;
                 SharedInputs[key] = input;
@@ -437,10 +439,10 @@ namespace QMC.CDT320.Ajin
             }
         }
 
-        internal static BaseDigitalOutput CreateSharedDigitalOutput(string name, DioMap map, bool simulationMode)
+        internal static BaseDigitalOutput CreateSharedDigitalOutput(string name, DioMap map, bool simulationMode, string settingsStorageKey = null)
         {
             if (map == null)
-                return ConfigureSimOutput(new SimDigitalOutput(string.IsNullOrWhiteSpace(name) ? "UnregisteredOutput" : name), 0, 0, false);
+                return ConfigureSimOutput(new SimDigitalOutput(string.IsNullOrWhiteSpace(name) ? "UnregisteredOutput" : name, settingsStorageKey), 0, 0, false);
 
             string key = IoKey(true, map.Module, map.Bit, map.Nc);
             lock (IoGate)
@@ -453,8 +455,8 @@ namespace QMC.CDT320.Ajin
                 }
 
                 output = Ready
-                    ? (BaseDigitalOutput)new AjinDigitalOutput(name, map.Module, map.Bit, map.Nc)
-                    : new SimDigitalOutput(name);
+                    ? (BaseDigitalOutput)new AjinDigitalOutput(name, map.Module, map.Bit, map.Nc, settingsStorageKey)
+                    : new SimDigitalOutput(name, settingsStorageKey);
                 ConfigureSimOutput(output, map.Module, map.Bit, map.Nc);
                 output.Config.IsSimulationMode = simulationMode || !Ready || output is SimDigitalOutput;
                 SharedOutputs[key] = output;

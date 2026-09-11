@@ -15,9 +15,10 @@ namespace QMC.CDT320.Ajin
             get { return false; }
         }
 
-        public AjinDigitalInput(string name, int moduleNo, int bitNo, bool normallyClosed = false)
+        public AjinDigitalInput(string name, int moduleNo, int bitNo, bool normallyClosed = false, string settingsStorageKey = null)
             : base(name)
         {
+            SettingsStorageKey = string.IsNullOrWhiteSpace(settingsStorageKey) ? name : settingsStorageKey;
             Setup.ModuleNo         = moduleNo;
             Setup.BitNo            = bitNo;
             Setup.IsNormallyClosed = normallyClosed;
@@ -51,7 +52,7 @@ namespace QMC.CDT320.Ajin
                         "배선값은 IO 설정 화면의 명시적 저장으로만 변경됩니다. - Check");
                 }
 
-                return UnitDataStore.SaveConfig(Config, StorageKey);
+                return UnitDataStore.SaveConfig(Config, SettingsStorageKey);
             }
             catch
             {
@@ -71,7 +72,7 @@ namespace QMC.CDT320.Ajin
         //   1) AjinDigitalInput 생성자        → Config.IsSimulationMode = false  (실보드)
         //   2) io_settings.json               → 전부 실보드로 맞춰놔도 여기까지는 false
         //   3) Machine.LoadSettings()         → BaseComponent.LoadSettings() 에서
-        //                                       Config = UnitDataStore.LoadConfig(StorageKey, Config)
+        //                                       Config = UnitDataStore.LoadConfig(SettingsStorageKey, Config)
         //                                       ★EquipmentData\Config\<이름>.json 의 값이 통째로 이긴다★
         //      → 파일에 "IsSimulationMode": true 가 남아 있으면 실보드 포인트가 시뮬로 바뀐다.
         //
@@ -112,7 +113,7 @@ namespace QMC.CDT320.Ajin
                 QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "IO-SIM-FORCE-REAL",
                     "실보드 DI 인데 Config 파일이 시뮬 모드로 지정했습니다. 실신호를 쓰도록 되돌립니다. name=" +
                     Name + ", M" + Setup.ModuleNo + "/B" + Setup.BitNo +
-                    ", 파일=EquipmentData\\Config\\" + StorageKey + ".json - Check");
+                    ", 파일=EquipmentData\\Config\\" + SettingsStorageKey + ".json - Check");
             }
             catch
             {

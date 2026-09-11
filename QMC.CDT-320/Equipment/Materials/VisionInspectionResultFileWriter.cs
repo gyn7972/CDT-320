@@ -25,8 +25,11 @@ namespace QMC.CDT320.Materials
             "LOT_ID,START_TIME,END_TIME,EQP_ID,IN_QTY,PICK_ORIGIN,PLACE_ORIGIN,PICK_CASSETTE_ID,PLACE_CASSETTE_ID,COLLETT_MODEL_NUMBER,COLLET_ID_NUMBER,DT_COUNT";
 
         private const string OutputDieHeader =
-            "CHIP_SEQ,HEAD,PICK_WAFER_ID,PICK_WAFER_ROW,PICK_WAFER_COL,PLACE_WAFER_ID,PLACE_WAFER_ROW,PLACE_WAFER_COL,ChipSizeX,ChipSizeY,DieGapLeft,DieGapRight,DieGapTop,DieGapBottom,ANGLE,TargetBin,placement_offset_x_mm,placement_offset_y_mm";
+            "CHIP_SEQ,HEAD,PICK_WAFER_ID,PICK_WAFER_ROW,PICK_WAFER_COL,PLACE_WAFER_ID,PLACE_WAFER_ROW,PLACE_WAFER_COL,ChipSizeX,ChipSizeY,DieGapLeft,DieGapRight,DieGapTop,DieGapBottom,ANGLE,TargetBin,placement_offset_x_mm,placement_offset_y_mm,Back_Chipping_Top_Size,Back_Chipping_Right_Size,Back_Chipping_Bottom_Size,Back_Chipping_Left_Size,Back_Foreign_Size,Side_Chipping_Bottom,Side_Chipping_Left,Side_Chipping_Top,Side_Chipping_Right";
 
+        private const int LegacyOutputDieColumnCount = 18;
+        private const int OutputInspectionColumnCount = 9;
+        private const int OutputDieColumnCount = LegacyOutputDieColumnCount + OutputInspectionColumnCount;
         private const int RawCacheFileLimit = 8;
         private static readonly Encoding Utf8WithoutBom = new UTF8Encoding(false);
         private static readonly object QueueSyncRoot = new object();
@@ -682,8 +685,29 @@ namespace QMC.CDT320.Materials
                 lines[2] = OutputDieHeader;
                 changed = true;
             }
+            if (UpgradeLegacyOutputDetailLines(lines))
+                changed = true;
             if (changed)
                 WriteAllLinesAtomic(path, lines);
+        }
+
+        private static bool UpgradeLegacyOutputDetailLines(List<string> lines)
+        {
+            if (lines == null || lines.Count <= 3)
+                return false;
+
+            bool changed = false;
+            for (int i = 3; i < lines.Count; i++)
+            {
+                if (ParseCsvLine(lines[i]).Count != LegacyOutputDieColumnCount)
+                    continue;
+
+                // 기존 18개 필드 문자열은 그대로 보존하고 새 검사 컬럼 9개만 공백으로 확장한다.
+                lines[i] += new string(',', OutputInspectionColumnCount);
+                changed = true;
+            }
+
+            return changed;
         }
 
         private static void UpsertOutputCsvLine(
@@ -1063,6 +1087,8 @@ namespace QMC.CDT320.Materials
             DateTime eventAt,
             bool flyingDie = false)
         {
+            DieInspectionRecord side0Record = FindInspection(die, "Side0");
+            DieInspectionRecord side90Record = FindInspection(die, "Side90");
             double bottomItemOffsetX = ReadVisionDouble(
                 bottomRecord,
                 "BottomVision_",
@@ -1087,7 +1113,7 @@ namespace QMC.CDT320.Materials
             string formattedOutputMapY = flyingDie ? "-1" : FormatPaddedIndex(outputMapY);
             string formattedOutputMapX = flyingDie ? "-1" : FormatPaddedIndex(outputMapX);
 
-            var detail = new List<object>(18)
+            var detail = new List<object>(OutputDieColumnCount)
             {
                 die.InputSequenceNo,
                 die.PickedPickerNo > 0 ? die.PickedPickerNo - 1 : -1,
@@ -1110,8 +1136,44 @@ namespace QMC.CDT320.Materials
                 FormatPlaceMetric(placeRecord, "placement_offset_y_mm", false)
             };
 
-            if (detail.Count != 18)
-                throw new InvalidOperationException("OUTPUT 검사 결과 CSV Die 열 수가 18이 아닙니다. count=" + detail.Count);
+            // INPUT CSV와 같은 Bottom/Side 검사 결과를 기존 OUTPUT 18열 뒤에 추가한다.
+            detail.Add(FormatBottomMetric(bottomRecord, "bottom_item_chipping_top", true));
+            detail.Add(FormatBottomMetric(bottomRecord, "bottom_item_chipping_right", true));
+            detail.Add(FormatBottomMetric(bottomRecord, "bottom_item_chipping_bottom", true));
+            detail.Add(FormatBottomMetric(bottomRecord, "bottom_item_chipping_left", true));
+            // Vision의 foreign count와 고객 컬럼의 Size는 의미가 다르므로 INPUT과 동일하게 공백으로 둔다.
+            detail.Add("");
+            detail.Add(FormatSideChippingDepth(
+                side0Record,
+                "Side0Vision_FrontSide_measure_valid",
+                "Side0Vision_FrontSide_ch0_valid",
+                "Side0Vision_FrontSide_ch0_side_item_max_chipping_depth",
+                "Side0Vision_FrontSide_side_item_max_chipping_depth"));
+            detail.Add(FormatSideChippingDepth(
+                side90Record,
+                "Side90Vision_RearSide_measure_valid",
+                "Side90Vision_RearSide_ch1_valid",
+                "Side90Vision_RearSide_ch1_side_item_max_chipping_depth",
+                "Side90Vision_RearSide_side_item_max_chipping_depth"));
+            detail.Add(FormatSideChippingDepth(
+                side0Record,
+                "Side0Vision_RearSide_measure_valid",
+                "Side0Vision_RearSide_ch0_valid",
+                "Side0Vision_RearSide_ch0_side_item_max_chipping_depth",
+                "Side0Vision_RearSide_side_item_max_chipping_depth"));
+            detail.Add(FormatSideChippingDepth(
+                side90Record,
+                "Side90Vision_FrontSide_measure_valid",
+                "Side90Vision_FrontSide_ch1_valid",
+                "Side90Vision_FrontSide_ch1_side_item_max_chipping_depth",
+                "Side90Vision_FrontSide_side_item_max_chipping_depth"));
+
+            if (detail.Count != OutputDieColumnCount)
+            {
+                throw new InvalidOperationException(
+                    "OUTPUT 검사 결과 CSV Die 열 수가 " + OutputDieColumnCount +
+                    "이 아닙니다. count=" + detail.Count);
+            }
 
             var payload = new PlaceWritePayload
             {

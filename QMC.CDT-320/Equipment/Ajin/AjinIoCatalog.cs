@@ -8,6 +8,8 @@ namespace QMC.CDT320.Ajin
         public int No { get; set; }
         public string Address { get; set; }
         public string Name { get; set; }
+        // 표시/ajin-map/Recipe 이름은 유지하면서 동일 이름의 DI/DO Setup/Config 파일만 분리할 때 사용합니다.
+        public string SettingsStorageKey { get; set; }
         public string UnitName { get; set; }
         public int Module { get; set; }
         public int Bit { get; set; }
@@ -78,7 +80,8 @@ namespace QMC.CDT320.Ajin
             DO("BinFeederDown", 4, 7),
             DO("BinFeederClamp", 4, 8),
             DO("BinFeederUnclamp", 4, 9),
-            DO("NgBinCassetteLock", 4, 10),
+            // Lock DI와 논리 이름은 같지만 Setup/Config 파일은 공유하지 않는다.
+            DO("NgBinCassetteLock", 4, 10, "DO_NgBinCassetteLock"),
             DO("NgBinCassetteUnlock", 4, 11),
             DO("BottomVisionBlow", 4, 12),
             DO("BottomVisionBlowOff", 4, 13),
@@ -215,7 +218,8 @@ namespace QMC.CDT320.Ajin
             DI("GoodBin12CassetteCheck0", 2, 16),
             DI("GoodBin12CassetteCheck1", 2, 17),
             DI("NgBinCassetteBw", 2, 18),
-            DI("NgBinCassetteLock", 2, 19),
+            // Lock DO와 논리 이름은 같지만 Setup/Config 파일은 공유하지 않는다.
+            DI("NgBinCassetteLock", 2, 19, false, "DI_NgBinCassetteLock"),
             DI("NgBin8CassetteCheck0", 2, 20),
             DI("NgBin8CassetteCheck1", 2, 21),
             DI("NgBin12CassetteCheck0", 2, 22),
@@ -494,26 +498,28 @@ namespace QMC.CDT320.Ajin
             if (config.Cylinders == null) config.Cylinders = new Dictionary<string, CylMap>();
         }
 
-        private static DioDefault DO(string name, int module, int bit)
+        private static DioDefault DO(string name, int module, int bit, string settingsStorageKey = null)
         {
             return new DioDefault
             {
                 No = ++_outputNo,
                 Address = OutputAddress(module, bit),
                 Name = name,
+                SettingsStorageKey = string.IsNullOrWhiteSpace(settingsStorageKey) ? name : settingsStorageKey,
                 UnitName = DeriveUnitName(name),
                 Module = module,
                 Bit = bit
             };
         }
 
-        private static DioDefault DI(string name, int module, int bit, bool nc = false)
+        private static DioDefault DI(string name, int module, int bit, bool nc = false, string settingsStorageKey = null)
         {
             return new DioDefault
             {
                 No = ++_inputNo,
                 Address = InputAddress(module, bit),
                 Name = name,
+                SettingsStorageKey = string.IsNullOrWhiteSpace(settingsStorageKey) ? name : settingsStorageKey,
                 UnitName = DeriveUnitName(name),
                 Module = module,
                 Bit = bit,

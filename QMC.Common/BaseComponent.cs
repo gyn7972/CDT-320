@@ -62,8 +62,8 @@ namespace QMC.Common
         {
             try
             {
-                bool ok = UnitDataStore.SaveSetup(Setup, StorageKey);
-                ok &= UnitDataStore.SaveConfig(Config, StorageKey);
+                bool ok = UnitDataStore.SaveSetup(Setup, SettingsStorageKey);
+                ok &= UnitDataStore.SaveConfig(Config, SettingsStorageKey);
                 return ok;
             }
             catch
@@ -80,8 +80,8 @@ namespace QMC.Common
         {
             try
             {
-                Setup = UnitDataStore.LoadSetup(StorageKey, Setup);
-                Config = UnitDataStore.LoadConfig(StorageKey, Config);
+                Setup = UnitDataStore.LoadSetup(SettingsStorageKey, Setup);
+                Config = UnitDataStore.LoadConfig(SettingsStorageKey, Config);
             }
             catch
             {

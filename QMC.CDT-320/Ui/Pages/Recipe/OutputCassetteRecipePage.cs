@@ -18,6 +18,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
     /// <summary>Output Cassette 레시피에서 OutCassetteUnit을 조작하는 화면입니다.</summary>
     public partial class OutputCassetteRecipePage : QMC.CDT_320.Ui.Pages.PageBase
     {
+        private const int NgBinManualFeedbackTimeoutMs = 3000;
+
         private OutputCassetteUnit _OutCassetteUnit;
         private readonly Timer _refreshTimer = new Timer();
         private readonly ToolTip _toolTip = new ToolTip();
@@ -1046,22 +1048,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                     // ===== SET: NG BIN LOCK (Lock/Bw 체크 센서 + Lock/Unlock 출력 통합) =====
                     IoCylinderItem.Input("NG BIN LOCK CHECK", () => _OutCassetteUnit.IsNgBinLock()),
-                    IoCylinderItem.Input("NG BIN UNLOCK CHECK", () => _OutCassetteUnit.IsNgBinBW()),
+                    // X082 원신호 설정은 유지하고 B접점 의미값인 Unlock Check로 표시한다.
+                    IoCylinderItem.Input("NG BIN UNLOCK CHECK", () => _OutCassetteUnit.IsNgBinUnlockCheck()),
                     IoCylinderItem.Output("NG BIN LOCK",
                         () => _OutCassetteUnit.NgBinCassetteLockOut != null && _OutCassetteUnit.NgBinCassetteLockOut.IsOn,
-                        on =>
+                        async on =>
                         {
-                            string reason;
-                            if (!VerifyNamedCylinderMove("NgBinCassetteLock", on, out reason))
+                            // 수동 복구 조작은 센서 완료 여부로 출력을 선차단하지 않는다.
+                            // Y042/Y043를 먼저 전환한 뒤 X083/X082 완료 신호를 확인한다.
+                            bool completed = await _OutCassetteUnit.NGBinLockCylinder(
+                                on,
+                                NgBinManualFeedbackTimeoutMs).ConfigureAwait(true);
+                            if (!completed)
                             {
-                                EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-CASSETTE", "NG BIN LOCK output blocked by interlock: " + reason);
-                                return Task.FromResult(-1);
+                                EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-CASSETTE",
+                                    "NG BIN " + (on ? "LOCK" : "UNLOCK") + " feedback timeout.");
+                                return -1;
                             }
-                            if (on)
-                                _OutCassetteUnit.SetNgBinCassetteLock(true);
-                            else
-                                _OutCassetteUnit.SetNgBinCassetteUnlock(true);
-                            return Task.FromResult(0);
+
+                            return 0;
                         },
                         "LOCK", "UNLOCK")
                 });
@@ -1074,15 +1079,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
-        }
-
-        // BaseCylinder가 없는 출력(락/언락)을 레지스트리 가드(CylinderMove)로 검사한다.
-        private bool VerifyNamedCylinderMove(string movingName, bool forwardOn, out string reason)
-        {
-            var context = MotionGuardRuntime.ContextProvider != null ? MotionGuardRuntime.ContextProvider() : null;
-            var request = new MotionGuardRuleContext(movingName, movingName, forwardOn ? 1.0 : 0.0,
-                MotionGuardMoveKind.CylinderMove, string.Empty, null, context);
-            return MotionGuardRuleRegistry.Verify(request, out reason);
         }
 
         private void BindJogPanel()

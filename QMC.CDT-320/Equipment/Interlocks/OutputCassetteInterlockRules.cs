@@ -18,6 +18,21 @@ namespace QMC.CDT320.Interlocks
 
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputLifterZ", "ElevatorZ_Output", "OutputLifterZ"))
             {
+                OutputCassetteUnit cassette = request.Machine.OutputCassetteUnit;
+                string lockReason = string.Empty;
+                if (cassette == null || !cassette.CheckNgBinCassetteLockReady(out lockReason))
+                {
+                    string detail = cassette == null
+                        ? "OutputCassetteUnit 상태를 확인할 수 없습니다."
+                        : lockReason;
+                    bool result = MotionGuardRuleHelpers.Block(
+                        "OutputLifterZ",
+                        "NG BIN LOCK 미완료로 OutputLifterZ 이동이 차단되었습니다. " + detail,
+                        out reason);
+                    LogBlockedReason(reason);
+                    return result;
+                }
+
                 if (request.IsSequenceProcess &&
                     request.MoveKind == MotionGuardMoveKind.AxisTeachingMove &&
                     string.Equals(

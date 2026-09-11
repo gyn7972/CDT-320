@@ -64,6 +64,8 @@ QMC.CDT-320/
 - [Material 편집 시퀀스 영향 변경안](docs/material-edit-save/02-approval-plan.md)
 - [GOOD/WAIT/NG/SKIP 및 수동 변경의 다음 운전 반영 분석](docs/material-edit-save/03-manual-state-flow.md)
 - [Material 저장·UI 지연 개선 구현 프롬프트](docs/material-edit-save/04-implementation-prompt.md)
+- [OUTPUT CSV Bottom/Side 검사 컬럼 확장 구현 프롬프트](docs/output-csv-inspection-columns/01-implementation-prompt.md)
+- [OUTPUT CSV Bottom/Side 검사 컬럼 확장 검증 체크리스트](docs/output-csv-inspection-columns/02-validation-checklist.md)
 
 ## 외부 Vision 계약
 

@@ -208,6 +208,8 @@ namespace QMC.CDT320
 
     public class OutputCassetteUnit : BaseUnit<OutputCassetteSetup, OutputCassetteConfig, OutputCassetteRecipe>, IUnitJogController
     {
+        private const int NgBinLockFeedbackStableMs = 100;
+
         internal const string UnloadReleaseLiftTargetName = "OutputCassette.OutputLifterZ.UnloadReleaseLift";
         internal const double MinUnloadReleaseLiftDistanceMm = 0.001;
         internal const double MaxUnloadReleaseLiftDistanceMm = 2.0;
@@ -1082,19 +1084,40 @@ namespace QMC.CDT320
             SetOutput(NgBinCassetteUnlockOut, on);
         }
 
-        public async Task<bool> NGBinLockCylinder(bool nLock, int timeoutMs = 0)
+        public Task<bool> NGBinLockCylinder(bool nLock, int timeoutMs = 0)
+        {
+            return NGBinLockCylinder(nLock, timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> NGBinLockCylinder(bool nLock, int timeoutMs, CancellationToken ct)
         {
             int timeout = timeoutMs > 0 ? timeoutMs : OutputLifterZ.Setup.MoveTimeoutMs;
             if (nLock)
             {
                 SetNgBinCassetteUnlock(false);
                 SetNgBinCassetteLock(true);
-                return await WaitNgBinLock(timeout);
+            }
+            else
+            {
+                SetNgBinCassetteLock(false);
+                SetNgBinCassetteUnlock(true);
             }
 
-            SetNgBinCassetteLock(false);
-            SetNgBinCassetteUnlock(true);
-            return await WaitUntilAsync(() => !IsNgBinLock(), timeout);
+            Log.Write("Main", "SYSTEM", "NG-BIN-LOCK-COMMAND",
+                "NG bin cassette " + (nLock ? "lock" : "unlock") +
+                " output command issued before feedback check. " +
+                BuildNgBinCassetteLockState() + " - Check");
+
+            bool completed = await WaitNgBinCassetteFeedbackStateAsync(nLock, timeout, ct).ConfigureAwait(false);
+            if (!completed)
+            {
+                Log.Write("Main", "SYSTEM", "NG-BIN-LOCK-FEEDBACK",
+                    "NG bin cassette " + (nLock ? "lock" : "unlock") +
+                    " feedback timeout. timeoutMs=" + timeout + ", " +
+                    BuildNgBinCassetteLockState() + " - Failed");
+            }
+
+            return completed;
         }
 
         public bool IsGoodBin(int nSize)
@@ -1148,12 +1171,18 @@ namespace QMC.CDT320
             return IsAnyCassetteSensorOn(cassette);
         }
 
-        // 시뮬레이션/DryRun에서는 물리 센서 대신 Unlock 출력 상태를 반영한다(출력 누르면 센서 ON).
+        // X082는 UNLOCK CHECK의 B접점 원신호다. 화면/완료 판정에서는 반전한 의미값을 사용한다.
+        // 시뮬레이션/DryRun에서도 Unlock 출력 ON일 때 X082 원신호가 OFF가 되도록 같은 극성을 재현한다.
         public bool IsNgBinBW()
         {
             if (IsOutputCassetteHardwareBypassed())
-                return NgBinCassetteUnlockOut != null && NgBinCassetteUnlockOut.IsOn;
+                return !(NgBinCassetteUnlockOut != null && NgBinCassetteUnlockOut.IsOn);
             return IsDryRunInput(NgBinCassetteBw) || NgBinCassetteBw.IsOn;
+        }
+
+        public bool IsNgBinUnlockCheck()
+        {
+            return !IsNgBinBW();
         }
 
         // 시뮬레이션/DryRun에서는 물리 센서 대신 Lock 출력 상태를 반영한다(출력 누르면 센서 ON).
@@ -1163,6 +1192,31 @@ namespace QMC.CDT320
                 return NgBinCassetteLockOut != null && NgBinCassetteLockOut.IsOn;
             return IsDryRunInput(NgBinCassetteLock) || NgBinCassetteLock.IsOn;
         }
+
+        public bool IsNgBinCassetteLocked()
+        {
+            return IsNgBinBW() && IsNgBinLock();
+        }
+
+        public bool IsNgBinCassetteUnlocked()
+        {
+            return !IsNgBinBW() && !IsNgBinLock();
+        }
+
+        public bool CheckNgBinCassetteLockReady(out string reason)
+        {
+            reason = string.Empty;
+            if (IsOutputCassetteHardwareBypassed())
+                return true;
+
+            if (IsNgBinCassetteLocked())
+                return true;
+
+            reason = "NG bin cassette is not confirmed locked. Required: X082=ON and X083=ON. " +
+                     BuildNgBinCassetteLockState();
+            return false;
+        }
+
         public bool IsBinProtrusionDetectionSensor() { return IsBinProtrusionDetected(); }
         public bool IsBinProtrusionDetected()
         {
@@ -1182,7 +1236,12 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitNgBinLock(int timeoutMs, CancellationToken ct)
         {
-            return await NgBinCassetteLock.WaitUntilStateAsync(true, timeoutMs, ct);
+            return await WaitNgBinCassetteFeedbackStateAsync(true, timeoutMs, ct).ConfigureAwait(false);
+        }
+
+        public async Task<bool> WaitNgBinUnlock(int timeoutMs, CancellationToken ct)
+        {
+            return await WaitNgBinCassetteFeedbackStateAsync(false, timeoutMs, ct).ConfigureAwait(false);
         }
 
         public async Task<bool> WaitBinJutClear(int timeoutMs)
@@ -2428,7 +2487,7 @@ namespace QMC.CDT320
 
         public bool CheckCassetteDirectionReady()
         {
-            return !IsNgBinBW();
+            return IsNgBinCassetteLocked();
         }
 
         public string DescribeOutputLifterZState()
@@ -2489,12 +2548,31 @@ namespace QMC.CDT320
                    "]";
         }
 
+        private string BuildNgBinCassetteLockState()
+        {
+            return "NgBinLockState[" +
+                   "lockOut=" + FormatOutputState(NgBinCassetteLockOut) +
+                   ", unlockOut=" + FormatOutputState(NgBinCassetteUnlockOut) +
+                   ", lockCheck=" + FormatInputState(NgBinCassetteLock) +
+                   ", unlockCheck=" + (IsNgBinUnlockCheck() ? "ON" : "OFF") +
+                   ", unlockInputRaw=" + FormatInputState(NgBinCassetteBw) +
+                   "]";
+        }
+
         private static string FormatInputState(QMC.Common.IO.BaseDigitalInput input)
         {
             if (input == null)
                 return "null";
 
             return input.Name + "=" + (input.IsOn ? "ON" : "OFF");
+        }
+
+        private static string FormatOutputState(QMC.Common.IO.BaseDigitalOutput output)
+        {
+            if (output == null)
+                return "null";
+
+            return output.Name + "=" + (output.IsOn ? "ON" : "OFF");
         }
 
         public BinCassetteSensorState GetCassettePresenceState(int recipeSize)
@@ -2986,6 +3064,32 @@ namespace QMC.CDT320
                 elapsed += 10;
             }
             return condition();
+        }
+
+        private async Task<bool> WaitNgBinCassetteFeedbackStateAsync(bool locked, int timeoutMs, CancellationToken ct)
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            long stableSinceMs = -1;
+            while (timeoutMs <= 0 || watch.ElapsedMilliseconds < timeoutMs)
+            {
+                ct.ThrowIfCancellationRequested();
+                bool expectedState = locked ? IsNgBinCassetteLocked() : IsNgBinCassetteUnlocked();
+                if (expectedState)
+                {
+                    if (stableSinceMs < 0)
+                        stableSinceMs = watch.ElapsedMilliseconds;
+                    else if (watch.ElapsedMilliseconds - stableSinceMs >= NgBinLockFeedbackStableMs)
+                        return true;
+                }
+                else
+                {
+                    stableSinceMs = -1;
+                }
+
+                await Task.Delay(10, ct).ConfigureAwait(false);
+            }
+
+            return false;
         }
     }
 }
