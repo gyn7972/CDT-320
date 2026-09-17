@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -146,7 +146,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     int rowIndex = gridTargets.Rows.Add(
                         target.OrderIndex + 1,
                         target.DieId,
-                        target.DieMapX + " / " + target.DieMapY,
+                        ResolveTargetMapText(target),
                         target.TargetX.ToString("0.###", CultureInfo.InvariantCulture) +
                         " / " +
                         target.TargetY.ToString("0.###", CultureInfo.InvariantCulture));
@@ -788,7 +788,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 mapView.SelectedEntry = entry;
                 lblStatus.Text = "Selected die is not available for PickUp test. die=" +
                                  (entry.DieUid ?? "-") +
-                                 ", map=" + ResolveEntryMapX(entry) + "/" + ResolveEntryMapY(entry) +
+                                 ", " + WaferMapProcessService.FormatMapPosition(entry) +
                                  ", state=" + ResolveMapCellStatus(entry);
             }
             catch (Exception ex)
@@ -871,11 +871,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 return;
 
             lblStatus.Text = "Selected Die: " + _selectedTarget.DieId +
-                             ", map=" + _selectedTarget.DieMapX + "/" + _selectedTarget.DieMapY +
-                             ", target=" +
-                             _selectedTarget.TargetX.ToString("0.###", CultureInfo.InvariantCulture) +
-                             "/" +
-                             _selectedTarget.TargetY.ToString("0.###", CultureInfo.InvariantCulture);
+                             ", " + ResolveTargetMapText(_selectedTarget);
+        }
+
+        private string ResolveTargetMapText(InputStagePickTargetCandidate target)
+        {
+            DieMap map = mapView != null ? mapView.Map : null;
+            DieMapEntry entry = target != null && map != null && map.Entries != null
+                ? map.Entries.FirstOrDefault(e => e != null && e.DieUid == target.DieId &&
+                    e.DieMapX == target.DieMapX && e.DieMapY == target.DieMapY) : null;
+            return WaferMapProcessService.FormatMapPosition(entry);
         }
 
         private static int ResolveEntryMapX(DieMapEntry entry)

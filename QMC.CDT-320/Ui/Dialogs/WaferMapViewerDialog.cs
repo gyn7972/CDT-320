@@ -386,13 +386,12 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (entry == null || _viewMap == null || _data == null)
             {
-                lblSelected.Text = "선택한 다이 없음 · 다이를 누르면 BIN, 원본 주소, 현재 보기의 좌하단 1 기준 주소가 표시됩니다.";
+                lblSelected.Text = "다이를 선택하면 현재 보기의 X/Y와 BIN을 표시합니다. 보기 원점은 좌하단 0,0입니다.";
                 return;
             }
             string token = _data.GetSourceToken(entry);
             lblSelected.Text = (token == "@@@" ? "@@@ 마크" : "BIN " + token) +
-                "   |   원본 X,Y = (" + entry.OriginalMapX + ", " + entry.OriginalMapY + ")" +
-                "   |   보기 좌하단 1 기준 = (" + (entry.DieMapX + 1) + ", " + (_viewMap.DieMapY - entry.DieMapY) + ")" +
+                "   |   " + WaferMapProcessService.FormatMapPosition(entry) +
                 "   |   보기 " + _rotationDegrees + "°";
         }
 

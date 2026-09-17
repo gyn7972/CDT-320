@@ -214,14 +214,14 @@ namespace QMC.CDT_320.Ui.Pages.Material
             // colGridX
             // 
             this.colGridX.FillWeight = 55F;
-            this.colGridX.HeaderText = "GridX";
+            this.colGridX.HeaderText = "맵 X";
             this.colGridX.Name = "colGridX";
             this.colGridX.ReadOnly = true;
             // 
             // colGridY
             // 
             this.colGridY.FillWeight = 55F;
-            this.colGridY.HeaderText = "GridY";
+            this.colGridY.HeaderText = "맵 Y";
             this.colGridY.Name = "colGridY";
             this.colGridY.ReadOnly = true;
             // 
@@ -252,6 +252,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.colX.HeaderText = "X(mm)";
             this.colX.Name = "colX";
             this.colX.ReadOnly = true;
+            this.colX.Visible = false;
             // 
             // colY
             // 
@@ -259,6 +260,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.colY.HeaderText = "Y(mm)";
             this.colY.Name = "colY";
             this.colY.ReadOnly = true;
+            this.colY.Visible = false;
             // 
             // colUid
             // 
@@ -765,4 +767,3 @@ namespace QMC.CDT_320.Ui.Pages.Material
 
     }
 }
-

@@ -316,18 +316,18 @@ namespace QMC.CDT_320.Ui.Pages.Material
 
         private void OnCellClick(DieMapEntry e)
         {
-            _lblCellInfo.Text = $"[{ResolveEntryMapX(e)},{ResolveEntryMapY(e)}]  pos=({e.PosX:F2},{e.PosY:F2})mm  result={e.Result}  bin={e.BinCode}  uid={e.DieUid}";
+            _lblCellInfo.Text = WaferMapProcessService.FormatMapPosition(e) + $"  상태={e.Result}  BIN={e.BinCode}";
             SelectEntryRow(e);
         }
 
-        private static int ResolveEntryMapX(DieMapEntry entry)
+        private static string ResolveEntryMapX(DieMapEntry entry)
         {
-            return DieMapGenerator.ResolveMapIndexX(entry);
+            return WaferMapProcessService.FormatMapCoordinate(entry?.LogicalGridX);
         }
 
-        private static int ResolveEntryMapY(DieMapEntry entry)
+        private static string ResolveEntryMapY(DieMapEntry entry)
         {
-            return DieMapGenerator.ResolveMapIndexY(entry);
+            return WaferMapProcessService.FormatMapCoordinate(entry?.LogicalGridY);
         }
 
         private void SelectEntryRow(DieMapEntry entry)
@@ -362,4 +362,3 @@ namespace QMC.CDT_320.Ui.Pages.Material
         }
     }
 }
-

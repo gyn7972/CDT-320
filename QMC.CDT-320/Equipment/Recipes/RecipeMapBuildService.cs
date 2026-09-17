@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -11,6 +11,7 @@ namespace QMC.CDT320.Recipes
     public sealed class RecipeMapBuildResult
     {
         public bool Success { get; internal set; }
+        public bool PersistenceStarted { get; internal set; }
         public string Message { get; internal set; } = "";
         public string BaseMapPath { get; internal set; } = "";
         public string InputBaseMapPath { get; internal set; } = "";
@@ -86,9 +87,8 @@ namespace QMC.CDT320.Recipes
                 if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
                     throw new FileNotFoundException("Base WaferMap 파일을 찾을 수 없습니다.", sourcePath);
 
-                DieMap parsed = string.Equals(Path.GetExtension(sourcePath), ".txt", StringComparison.OrdinalIgnoreCase)
-                    ? DieMapGenerator.LoadWaferMapTextOrThrow(sourcePath)
-                    : DieMapGenerator.Load(sourcePath);
+                DieMap parsed = WaferMapParserRegistry.LoadRegistration(sourcePath,
+                    outputRole ? project.OutputMapProcessing : project.InputMapProcessing);
                 if (!IsUsableMap(parsed))
                     throw new InvalidDataException("Base WaferMap 파싱 결과가 비어 있습니다: " + sourcePath);
                 if (string.IsNullOrWhiteSpace(parsed.SourceFileName))
@@ -163,6 +163,88 @@ namespace QMC.CDT320.Recipes
             }
             finally
             {
+            }
+        }
+
+        /// <summary>
+        /// 미리보기에서 확정한 원형 맵의 좌표와 생성 조건을 선택 역할에만 저장한다.
+        /// 장비 적용 승인은 기존 Map Create 화면의 FINAL APPLY에서 별도로 수행한다.
+        /// </summary>
+        public static RecipeMapBuildResult CreateGeneratedBaseAndBuildRole(
+            RecipeProject project,
+            GeneratedWaferMap generated,
+            bool outputRole,
+            Func<RecipeProject, bool> persistProject = null)
+        {
+            var result = new RecipeMapBuildResult();
+            ProjectMapState originalState = null;
+            try
+            {
+                ValidateProject(project, true);
+                originalState = CaptureProjectMapState(project);
+                if (generated == null || generated.Count == 0)
+                    throw new InvalidDataException("저장할 생성 맵이 없습니다. 맵 생성 미리보기에서 먼저 맵을 생성하세요.");
+                ValidateGeneratedDieSpecification(project, generated);
+
+                RecipeMapKind baseKind = outputRole ? RecipeMapKind.GoodBin : RecipeMapKind.Input;
+                DieMap baseMap = GeneratedWaferMapCodec.ToDieMapForStorage(
+                    generated, RecipeMapPaths.BuildMapId(project, baseKind) + "-GENERATED-BASE");
+                PreserveLegacyUnselectedRoleApprovals(project, outputRole);
+                baseMap = PrepareBaseMap(project, baseMap);
+                EnsureDistinctGeneratedFrameSpecName(project, outputRole);
+                ApplyBaseDomainToFrame(project, baseMap, outputRole, false);
+
+                string basePath = BuildMapPath(project, RecipeMapPaths.BaseFileSuffix(baseKind));
+                var pendingMaps = new List<PendingMap> { new PendingMap(baseMap, basePath) };
+                RecipeMapPaths.SetConfiguredBaseFileName(project, baseKind, RecipeMapPaths.MakeConfigRelativePath(basePath));
+                if (outputRole)
+                {
+                    DieMap goodMap = BuildDerivedMap(project, baseMap, RecipeMapKind.GoodBin, null);
+                    DieMap ngMap = BuildDerivedMap(project, baseMap, RecipeMapKind.NgBin, null);
+                    string goodPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.GoodBin));
+                    string ngPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.NgBin));
+                    RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.GoodBin, RecipeMapPaths.MakeConfigRelativePath(goodPath));
+                    RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.NgBin, RecipeMapPaths.MakeConfigRelativePath(ngPath));
+                    RecipeMapPaths.InvalidateApproval(project, false, true);
+                    pendingMaps.Add(new PendingMap(goodMap, goodPath));
+                    pendingMaps.Add(new PendingMap(ngMap, ngPath));
+                    result.OutputBaseMapPath = basePath;
+                    result.GoodMapPath = goodPath;
+                    result.NgMapPath = ngPath;
+                    result.RoleMap = goodMap;
+                }
+                else
+                {
+                    DieMap inputMap = BuildDerivedMap(project, baseMap, RecipeMapKind.Input, null);
+                    string inputPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.Input));
+                    RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.Input, RecipeMapPaths.MakeConfigRelativePath(inputPath));
+                    RecipeMapPaths.InvalidateApproval(project, true, false);
+                    pendingMaps.Add(new PendingMap(inputMap, inputPath));
+                    result.InputBaseMapPath = basePath;
+                    result.InputMapPath = inputPath;
+                    result.RoleMap = inputMap;
+                }
+
+                result.PersistenceStarted = true;
+                SaveMapFamiliesAtomically(pendingMaps, BuildProjectCommit(project, persistProject));
+                result.BaseMapPath = basePath;
+                result.BaseMap = baseMap;
+                result.AddressCount = baseMap.Entries.Count;
+                result.TargetCount = baseMap.Entries.Count(entry => entry.IsTarget);
+                result.Success = true;
+                result.Message = (outputRole ? "Output Base와 Good/NG" : "Input Base와 Input") +
+                    " 맵 저장 완료. Map Create 화면에서 확인한 후 FINAL APPLY를 누르세요.";
+                return result;
+            }
+            catch (Exception ex)
+            {
+                RestoreProjectMapState(project, originalState);
+                result.Success = false;
+                result.Message = ex.Message;
+                QMC.Common.Log.Write("Main", "RECIPE", "RecipeMapBuildService",
+                    "생성 미리보기 맵 저장 실패. project=" + (project != null ? project.FileName : "") +
+                    ", role=" + (outputRole ? "OUTPUT" : "INPUT") + ", error=" + ex + " - Failed");
+                return result;
             }
         }
 
@@ -338,6 +420,7 @@ namespace QMC.CDT320.Recipes
                 {
                     string inputBaseSourcePath = RecipeMapPaths.ResolveBaseConfigured(project, RecipeMapKind.Input);
                     DieMap inputBaseMap = LoadConfiguredMapWithSidecar(inputBaseSourcePath, "Input Base WaferMap");
+                    ValidateGeneratedFrameForRebuild(project, inputBaseMap, RecipeMapKind.Input);
                     inputBaseMap = PrepareBaseMap(project, inputBaseMap);
                     ApplyBaseDomainToFrame(project, inputBaseMap, false, true);
 
@@ -367,6 +450,7 @@ namespace QMC.CDT320.Recipes
                 {
                     string outputBaseSourcePath = RecipeMapPaths.ResolveBaseConfigured(project, RecipeMapKind.GoodBin);
                     DieMap outputBaseMap = LoadConfiguredMapWithSidecar(outputBaseSourcePath, "Output Base WaferMap");
+                    ValidateGeneratedFrameForRebuild(project, outputBaseMap, RecipeMapKind.GoodBin);
                     outputBaseMap = PrepareBaseMap(project, outputBaseMap);
                     ApplyBaseDomainToFrame(project, outputBaseMap, true, true);
 
@@ -443,9 +527,14 @@ namespace QMC.CDT320.Recipes
                 if (kind != RecipeMapKind.Input && kind != RecipeMapKind.GoodBin && kind != RecipeMapKind.NgBin)
                     throw new ArgumentOutOfRangeException(nameof(kind));
 
+                string unsupportedReason;
+                if (!RecipeDieMapResolver.IsSupportedForEquipment(editedRoleMap, out unsupportedReason))
+                    throw new InvalidOperationException(unsupportedReason);
+
                 string basePath = RecipeMapPaths.ResolveBaseConfigured(project, kind);
                 string baseRoleName = kind == RecipeMapKind.Input ? "Input" : "Output";
                 DieMap baseMap = LoadConfiguredMapWithSidecar(basePath, baseRoleName + " Base WaferMap");
+                ValidateGeneratedFrameForRebuild(project, baseMap, kind);
                 List<DieMapEntry> baseEntries = BuildUniqueAddressEntries(baseMap);
                 if (baseEntries.Count == 0)
                     throw new InvalidDataException(baseRoleName + " Base WaferMap의 OriginalMap 주소가 비어 있습니다.");
@@ -458,6 +547,8 @@ namespace QMC.CDT320.Recipes
                     throw new InvalidDataException(kind + " DieMap이 Project 소유 JSON 형식이 아닙니다. Recipe → 웨이퍼 사양에서 해당 역할 Base WaferMap을 다시 연결하세요.");
 
                 DieMap roleMap = LoadConfiguredMapWithSidecar(rolePath, kind + " DieMap");
+                if (!RecipeDieMapResolver.IsSupportedForEquipment(roleMap, out unsupportedReason))
+                    throw new InvalidOperationException(unsupportedReason);
                 EnsureSameAddressDomain(baseMap, roleMap, kind.ToString());
                 string mismatch;
                 TapeFrameSubset roleFrame = RecipeDieMapResolver.ResolveFrame(project, kind);
@@ -465,11 +556,11 @@ namespace QMC.CDT320.Recipes
                     throw new InvalidDataException(kind + " DieMap과 Project Frame 설정이 일치하지 않습니다: " + mismatch);
 
                 EnsureSameAddressDomain(baseMap, editedRoleMap, "편집 Mask");
-                Dictionary<string, DieMapEntry> editedByAddress = BuildCompatibleMask(baseEntries, editedRoleMap);
+                Dictionary<string, DieMapEntry> editedByAddress = BuildCompatibleMask(baseEntries, editedRoleMap, HasGeneratedDefinition(baseMap));
                 DieMap savedRoleMap = CloneMap(roleMap);
                 foreach (DieMapEntry entry in savedRoleMap.Entries.Where(item => item != null))
                 {
-                    string address = BuildAddressKey(ResolveOriginalX(entry), ResolveOriginalY(entry));
+                    string address = BuildStoredAddressKey(savedRoleMap, entry);
                     DieMapEntry edited = editedByAddress[address];
                     entry.IsTarget = edited.IsTarget;
                     entry.Result = edited.IsTarget ? DieResult.Unknown : DieResult.NG;
@@ -528,6 +619,9 @@ namespace QMC.CDT320.Recipes
                 TapeFrameSubset frame = RecipeDieMapResolver.ResolveFrame(project, kind);
                 if (frame == null)
                     throw new InvalidDataException("Recipe Frame 설정이 없습니다. kind=" + kind);
+
+                if (HasGeneratedDefinition(baseMap))
+                    return BuildGeneratedDerivedMap(project, baseMap, kind, existingRoleMask);
 
                 double dieSizeX = ResolvePositive(project.Die.WidthMm, baseMap.DieSizeX, 1.0);
                 double dieSizeY = ResolvePositive(project.Die.HeightMm, baseMap.DieSizeY, 1.0);
@@ -591,6 +685,7 @@ namespace QMC.CDT320.Recipes
                     OriginX = -centerGridX * pitchX,
                     OriginY = DieMapGenerator.CalculateCenteredOriginY(gridY, pitchY),
                     SourceFileName = baseMap.SourceFileName,
+                    SourceContentHash = baseMap.SourceContentHash,
                     SourceFormat = baseMap.SourceFormat,
                     SourcePitchFromFile = baseMap.SourcePitchFromFile,
                     SourceDeclaredCount = baseMap.SourceDeclaredCount,
@@ -611,7 +706,8 @@ namespace QMC.CDT320.Recipes
                     bool isTarget = hasMask ? mask.IsTarget : source.IsTarget;
                     int binCode = hasMask ? mask.BinCode : source.BinCode;
                     int localX = localOffsetX + originalX - minX;
-                    int localY = localOffsetY + maxY - originalY;
+                    int localY = localOffsetY + (string.Equals(baseMap.SourceFormat, "CAMTEK RowData", StringComparison.Ordinal)
+                        ? originalY - minY : maxY - originalY);
                     double equipmentGridX = localX - centerGridX;
                     double equipmentGridY = DieMapGenerator.CalculateEquipmentGridY(localY, gridY);
 
@@ -626,6 +722,8 @@ namespace QMC.CDT320.Recipes
                         IsTarget = isTarget,
                         Result = isTarget ? DieResult.Unknown : DieResult.NG,
                         BinCode = isTarget ? (binCode > 0 ? binCode : 1) : 0,
+                        SourceBinCode = source.SourceBinCode ?? source.BinCode,
+                        SourceToken = source.SourceToken,
                         EquipmentGridX = equipmentGridX,
                         EquipmentGridY = equipmentGridY,
                         PosX = equipmentGridX * pitchX,
@@ -651,6 +749,24 @@ namespace QMC.CDT320.Recipes
 
         private static DieMap PrepareBaseMap(RecipeProject project, DieMap source)
         {
+            if (HasGeneratedDefinition(source))
+            {
+                ValidateGeneratedMap(source);
+                GeneratedWaferMap generated = GeneratedWaferMapCodec.Restore(source.Generation);
+                ValidateGeneratedDieSpecification(project, generated);
+                DieMap preserved = CloneMap(source);
+                preserved.FrameObjId = RecipeMapPaths.SanitizeFileName(project.FileName) + "-BASE-WAFER-MAP";
+                preserved.CreatedAt = DateTime.Now;
+                foreach (DieMapEntry entry in preserved.Entries)
+                {
+                    entry.SequenceNo = entry.IsTarget ? entry.SequenceNo : 0;
+                    entry.Result = entry.IsTarget ? DieResult.Unknown : DieResult.NG;
+                    entry.BinCode = entry.IsTarget ? Math.Max(1, entry.BinCode) : 0;
+                    entry.DieUid = BuildBaseDieUid(project, entry.OriginalMapX, entry.OriginalMapY);
+                }
+                return preserved;
+            }
+
             List<DieMapEntry> entries = BuildUniqueAddressEntries(source);
             if (entries.Count == 0)
                 throw new InvalidDataException("Base WaferMap 원본 주소가 없습니다.");
@@ -683,6 +799,7 @@ namespace QMC.CDT320.Recipes
                 OriginX = -centerGridX * pitchX,
                 OriginY = DieMapGenerator.CalculateCenteredOriginY(gridY, pitchY),
                 SourceFileName = source.SourceFileName,
+                SourceContentHash = source.SourceContentHash,
                 SourceFormat = source.SourceFormat,
                 SourcePitchFromFile = source.SourcePitchFromFile,
                 SourceDeclaredCount = source.SourceDeclaredCount,
@@ -699,7 +816,8 @@ namespace QMC.CDT320.Recipes
                 int originalX = ResolveOriginalX(entry);
                 int originalY = ResolveOriginalY(entry);
                 int localX = originalX - minX;
-                int localY = maxY - originalY;
+                int localY = string.Equals(source.SourceFormat, "CAMTEK RowData", StringComparison.Ordinal)
+                    ? originalY - minY : maxY - originalY;
                 double equipmentGridX = localX - centerGridX;
                 double equipmentGridY = DieMapGenerator.CalculateEquipmentGridY(localY, gridY);
                 map.Entries.Add(new DieMapEntry
@@ -713,6 +831,8 @@ namespace QMC.CDT320.Recipes
                     IsTarget = entry.IsTarget,
                     Result = entry.IsTarget ? DieResult.Unknown : DieResult.NG,
                     BinCode = entry.IsTarget ? (entry.BinCode > 0 ? entry.BinCode : 1) : 0,
+                    SourceBinCode = entry.SourceBinCode ?? entry.BinCode,
+                    SourceToken = entry.SourceToken,
                     EquipmentGridX = equipmentGridX,
                     EquipmentGridY = equipmentGridY,
                     PosX = equipmentGridX * pitchX,
@@ -722,6 +842,128 @@ namespace QMC.CDT320.Recipes
             }
 
             return DieMapGenerator.Normalize(map);
+        }
+
+        private static DieMap BuildGeneratedDerivedMap(
+            RecipeProject project,
+            DieMap baseMap,
+            RecipeMapKind kind,
+            DieMap existingRoleMask)
+        {
+            ValidateGeneratedFrameForRebuild(project, baseMap, kind);
+            List<DieMapEntry> baseEntries = BuildUniqueAddressEntries(baseMap);
+            Dictionary<string, DieMapEntry> maskByAddress = BuildCompatibleMask(baseEntries, existingRoleMask, true);
+            DieMap map = CloneMap(baseMap);
+            map.FrameObjId = RecipeMapPaths.BuildMapId(project, kind);
+            map.CreatedAt = DateTime.Now;
+            foreach (DieMapEntry entry in map.Entries)
+            {
+                DieMapEntry mask;
+                if (maskByAddress.TryGetValue(BuildAddressKey(entry.OriginalMapX, entry.OriginalMapY), out mask))
+                {
+                    entry.IsTarget = mask.IsTarget;
+                    entry.BinCode = mask.BinCode;
+                }
+                entry.SequenceNo = 0;
+                entry.Result = entry.IsTarget ? DieResult.Unknown : DieResult.NG;
+                entry.BinCode = entry.IsTarget ? Math.Max(1, entry.BinCode) : 0;
+                entry.DieUid = BuildRoleDieUid(project, kind, entry.OriginalMapX, entry.OriginalMapY);
+            }
+
+            PickupSubset pickup = kind == RecipeMapKind.Input
+                ? (project.InputPickup ?? project.Pickup ?? new PickupSubset())
+                : (project.OutputPickup ?? project.Pickup ?? new PickupSubset());
+            PickupSequenceGenerator.ApplySequenceNumbers(map, pickup);
+            return map;
+        }
+
+        private static bool HasGeneratedDefinition(DieMap map)
+        {
+            return map != null && (map.Generation != null ||
+                string.Equals(map.SourceFormat, GeneratedWaferMapCodec.SourceFormat, StringComparison.Ordinal));
+        }
+
+        private static void EnsureDistinctGeneratedFrameSpecName(RecipeProject project, bool outputRole)
+        {
+            TapeFrameSubset selected = outputRole ? project.OutputFrame : project.InputFrame;
+            TapeFrameSubset other = outputRole ? project.InputFrame : project.OutputFrame;
+            if (selected == null || other == null)
+                return;
+            if (ReferenceEquals(selected, other))
+            {
+                selected = RecipeProjectConsistencyService.CloneFrame(selected);
+                if (outputRole) project.OutputFrame = selected;
+                else project.InputFrame = selected;
+            }
+
+            string selectedName = (selected.FrameSpecName ?? "").Trim();
+            string otherName = (other.FrameSpecName ?? "").Trim();
+            if (selectedName.Length == 0 || otherName.Length == 0 ||
+                !string.Equals(selectedName, otherName, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            // MaterialSpecs는 이름으로 Upsert하므로 다른 역할의 물리 간격/회전을 덮지 않도록 선택 역할만 분리한다.
+            selected.FrameSpecName = selectedName + (outputRole ? "_OUTPUT" : "_INPUT");
+        }
+
+        private static void PreserveLegacyUnselectedRoleApprovals(RecipeProject project, bool outputRole)
+        {
+            if (project.MapApprovalVersion > 0)
+                return;
+
+            RecipeMapKind[] unselected = outputRole
+                ? new[] { RecipeMapKind.Input }
+                : new[] { RecipeMapKind.GoodBin, RecipeMapKind.NgBin };
+            var preserved = new List<Tuple<RecipeMapKind, DieMap, string>>();
+            // Version 0에서 실제로 사용 가능했던 역할 파일을 모두 읽은 후에 승인 버전을 바꾼다.
+            foreach (RecipeMapKind kind in unselected)
+            {
+                string sourcePath;
+                string reason;
+                DieMap map = RecipeDieMapResolver.LoadCompatibleMap(project, kind, out sourcePath, out reason);
+                if (IsUsableMap(map) && !string.IsNullOrWhiteSpace(sourcePath) &&
+                    RecipeMapPaths.IsMapApproved(project, kind, map, out reason))
+                    preserved.Add(Tuple.Create(kind, map, sourcePath));
+            }
+
+            RecipeMapPaths.InvalidateApproval(project, true, true);
+            foreach (Tuple<RecipeMapKind, DieMap, string> item in preserved)
+            {
+                // 구형 fallback은 같은 검증 파일을 역할 경로로 명시할 뿐, 파일/형상/Mask는 변경하지 않는다.
+                RecipeMapPaths.SetConfiguredFileName(project, item.Item1, RecipeMapPaths.MakeConfigRelativePath(item.Item3));
+                RecipeMapPaths.ApproveMap(project, item.Item1, item.Item2);
+            }
+        }
+
+        private static void ValidateGeneratedMap(DieMap map)
+        {
+            string reason;
+            if (!GeneratedWaferMapCodec.ValidateForStorage(map, out reason))
+                throw new InvalidDataException("생성 맵 데이터가 올바르지 않습니다: " + reason);
+        }
+
+        private static void ValidateGeneratedDieSpecification(RecipeProject project, GeneratedWaferMap generated)
+        {
+            if (!NearlyEqual(project.Die.WidthMm, (double)generated.Settings.DieSizeXMm) ||
+                !NearlyEqual(project.Die.HeightMm, (double)generated.Settings.DieSizeYMm))
+            {
+                throw new InvalidDataException("미리보기의 다이 크기가 공통 다이 사양과 다릅니다. " +
+                    "레시피 → 다이 사양에서 크기를 먼저 저장한 후 맵 생성 미리보기를 다시 열어 생성하세요.");
+            }
+        }
+
+        private static void ValidateGeneratedFrameForRebuild(RecipeProject project, DieMap map, RecipeMapKind kind)
+        {
+            if (!HasGeneratedDefinition(map))
+                return;
+            ValidateGeneratedMap(map);
+            ValidateGeneratedDieSpecification(project, GeneratedWaferMapCodec.Restore(map.Generation));
+            string reason;
+            if (!RecipeDieMapResolver.IsCompatibleWithFrame(map, RecipeDieMapResolver.ResolveFrame(project, kind), out reason))
+            {
+                throw new InvalidDataException(kind + " 생성 맵과 웨이퍼 사양이 다릅니다. " +
+                    "맵 생성 미리보기에서 다시 생성하여 저장하세요. " + reason);
+            }
         }
 
         private static void ApplyBaseDomainToFrame(
@@ -734,6 +976,19 @@ namespace QMC.CDT320.Recipes
             TapeFrameSubset frame = outputRole ? project.OutputFrame : project.InputFrame;
             if (frame == null)
                 throw new InvalidDataException((outputRole ? "Output" : "Input") + " Frame 설정이 없습니다.");
+
+            if (HasGeneratedDefinition(baseMap))
+            {
+                ValidateGeneratedMap(baseMap);
+                GeneratedWaferMap generated = GeneratedWaferMapCodec.Restore(baseMap.Generation);
+                frame.DieMapX = baseMap.DieMapX;
+                frame.DieMapY = baseMap.DieMapY;
+                frame.OuterDiameterMm = (double)generated.Settings.OuterDiameterMm;
+                frame.PitchX = (double)generated.Settings.GapXMm;
+                frame.PitchY = (double)generated.Settings.GapYMm;
+                frame.Rotate = RecipeDieMapResolver.GetGeneratedRotationToken(generated.RotationDegrees);
+                preserveConfiguredGrid = false;
+            }
 
             frame.DieMapX = preserveConfiguredGrid
                 ? Math.Max(Math.Max(1, frame.DieMapX), Math.Max(1, baseMap.DieMapX))
@@ -842,6 +1097,15 @@ namespace QMC.CDT320.Recipes
             if (!IsUsableMap(actual))
                 throw new IOException("저장한 DieMap을 다시 읽을 수 없습니다: " + path);
 
+            if (HasGeneratedDefinition(expected) || HasGeneratedDefinition(actual))
+            {
+                ValidateGeneratedMap(expected);
+                ValidateGeneratedMap(actual);
+                if (!string.Equals(RecipeMapPaths.ComputeApprovalHash(expected),
+                    RecipeMapPaths.ComputeApprovalHash(actual), StringComparison.Ordinal))
+                    throw new InvalidDataException("저장 후 생성 맵 조건 또는 좌표가 달라졌습니다: " + path);
+            }
+
             if (expected.Entries == null || actual.Entries == null || expected.Entries.Count != actual.Entries.Count)
                 throw new InvalidDataException("저장 후 DieMap 엔트리 수가 달라졌습니다: " + path);
 
@@ -866,11 +1130,11 @@ namespace QMC.CDT320.Recipes
             }
 
             Dictionary<string, DieMapEntry> expectedByAddress = BuildUniqueAddressEntries(expected).ToDictionary(
-                entry => BuildAddressKey(ResolveOriginalX(entry), ResolveOriginalY(entry)),
+                entry => BuildStoredAddressKey(expected, entry),
                 entry => entry,
                 StringComparer.OrdinalIgnoreCase);
             Dictionary<string, DieMapEntry> actualByAddress = BuildUniqueAddressEntries(actual).ToDictionary(
-                entry => BuildAddressKey(ResolveOriginalX(entry), ResolveOriginalY(entry)),
+                entry => BuildStoredAddressKey(actual, entry),
                 entry => entry,
                 StringComparer.OrdinalIgnoreCase);
             if (!new HashSet<string>(expectedByAddress.Keys, StringComparer.OrdinalIgnoreCase)
@@ -897,6 +1161,26 @@ namespace QMC.CDT320.Recipes
 
         private static void EnsureSameAddressDomain(DieMap baseMap, DieMap roleMap, string roleName)
         {
+            if (HasGeneratedDefinition(baseMap) || HasGeneratedDefinition(roleMap))
+            {
+                ValidateGeneratedMap(baseMap);
+                ValidateGeneratedMap(roleMap);
+                GeneratedWaferMapDefinition first = baseMap.Generation;
+                GeneratedWaferMapDefinition second = roleMap.Generation;
+                if (first == null || second == null || first.Version != second.Version ||
+                    first.OuterDiameterMm != second.OuterDiameterMm ||
+                    first.DieSizeXMm != second.DieSizeXMm || first.DieSizeYMm != second.DieSizeYMm ||
+                    first.GapXMm != second.GapXMm || first.GapYMm != second.GapYMm ||
+                    first.RotationDegrees != second.RotationDegrees ||
+                    first.EdgeTop != second.EdgeTop || first.EdgeBottom != second.EdgeBottom ||
+                    first.EdgeLeft != second.EdgeLeft || first.EdgeRight != second.EdgeRight ||
+                    first.EdgeMarginMm != second.EdgeMarginMm || first.TotalCount != second.TotalCount)
+                {
+                    throw new InvalidDataException(roleName + " 생성 맵의 생성 조건/회전/외곽 여백/끝줄·전체 개수 보정이 Base WaferMap과 다릅니다.");
+                }
+                // 같은 정의의 두 맵은 위 Validate에서 local/원본 주소, 실제 좌표와 원점까지 각각 검증한다.
+            }
+
             HashSet<string> baseAddresses = BuildAddressSet(baseMap);
             HashSet<string> roleAddresses = BuildAddressSet(roleMap);
             if (!baseAddresses.SetEquals(roleAddresses))
@@ -910,7 +1194,7 @@ namespace QMC.CDT320.Recipes
         {
             return new HashSet<string>(
                 BuildUniqueAddressEntries(map).Select(entry =>
-                    BuildAddressKey(ResolveOriginalX(entry), ResolveOriginalY(entry))),
+                    BuildStoredAddressKey(map, entry)),
                 StringComparer.OrdinalIgnoreCase);
         }
 
@@ -1070,6 +1354,7 @@ namespace QMC.CDT320.Recipes
                 OriginX = source.OriginX,
                 OriginY = source.OriginY,
                 SourceFileName = source.SourceFileName ?? "",
+                SourceContentHash = source.SourceContentHash,
                 SourceFormat = source.SourceFormat ?? "",
                 SourcePitchFromFile = source.SourcePitchFromFile,
                 SourceDeclaredCount = source.SourceDeclaredCount,
@@ -1077,6 +1362,7 @@ namespace QMC.CDT320.Recipes
                 SourceFirstY = source.SourceFirstY,
                 SourceFirstPosX = source.SourceFirstPosX,
                 SourceFirstPosY = source.SourceFirstPosY,
+                Generation = GeneratedWaferMapCodec.CloneDefinition(source.Generation),
                 CreatedAt = source.CreatedAt,
                 Entries = (source.Entries ?? new List<DieMapEntry>())
                     .Where(entry => entry != null)
@@ -1091,6 +1377,10 @@ namespace QMC.CDT320.Recipes
                         IsTarget = entry.IsTarget,
                         Result = entry.Result,
                         BinCode = entry.BinCode,
+                        SourceBinCode = entry.SourceBinCode,
+                        SourceToken = entry.SourceToken,
+                        LogicalGridX = entry.LogicalGridX,
+                        LogicalGridY = entry.LogicalGridY,
                         PosX = entry.PosX,
                         PosY = entry.PosY,
                         EquipmentGridX = entry.EquipmentGridX,
@@ -1140,15 +1430,19 @@ namespace QMC.CDT320.Recipes
 
         private static Dictionary<string, DieMapEntry> BuildCompatibleMask(
             List<DieMapEntry> baseEntries,
-            DieMap existingRoleMask)
+            DieMap existingRoleMask,
+            bool preserveGeneratedRaw = false)
         {
             var empty = new Dictionary<string, DieMapEntry>(StringComparer.OrdinalIgnoreCase);
             if (!IsUsableMap(existingRoleMask))
                 return empty;
 
             List<DieMapEntry> maskEntries = BuildUniqueAddressEntries(existingRoleMask);
-            var baseKeys = new HashSet<string>(baseEntries.Select(e => BuildAddressKey(ResolveOriginalX(e), ResolveOriginalY(e))), StringComparer.OrdinalIgnoreCase);
-            var maskKeys = new HashSet<string>(maskEntries.Select(e => BuildAddressKey(ResolveOriginalX(e), ResolveOriginalY(e))), StringComparer.OrdinalIgnoreCase);
+            Func<DieMapEntry, string> address = preserveGeneratedRaw
+                ? (Func<DieMapEntry, string>)(e => BuildAddressKey(e.OriginalMapX, e.OriginalMapY))
+                : e => BuildAddressKey(ResolveOriginalX(e), ResolveOriginalY(e));
+            var baseKeys = new HashSet<string>(baseEntries.Select(address), StringComparer.OrdinalIgnoreCase);
+            var maskKeys = new HashSet<string>(maskEntries.Select(address), StringComparer.OrdinalIgnoreCase);
             if (!baseKeys.SetEquals(maskKeys))
             {
                 throw new InvalidDataException(
@@ -1157,7 +1451,7 @@ namespace QMC.CDT320.Recipes
             }
 
             return maskEntries.ToDictionary(
-                e => BuildAddressKey(ResolveOriginalX(e), ResolveOriginalY(e)),
+                address,
                 e => e,
                 StringComparer.OrdinalIgnoreCase);
         }
@@ -1169,7 +1463,7 @@ namespace QMC.CDT320.Recipes
 
             var groups = map.Entries
                 .Where(e => e != null)
-                .GroupBy(e => BuildAddressKey(ResolveOriginalX(e), ResolveOriginalY(e)), StringComparer.OrdinalIgnoreCase)
+                .GroupBy(e => BuildStoredAddressKey(map, e), StringComparer.OrdinalIgnoreCase)
                 .ToList();
             IGrouping<string, DieMapEntry> duplicate = groups.FirstOrDefault(group => group.Count() > 1);
             if (duplicate != null)
@@ -1198,6 +1492,14 @@ namespace QMC.CDT320.Recipes
         private static string BuildAddressKey(int x, int y)
         {
             return x.ToString(CultureInfo.InvariantCulture) + "," + y.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static string BuildStoredAddressKey(DieMap map, DieMapEntry entry)
+        {
+            // 확장 초안의 음수 raw 주소는 미설정 sentinel이 아니라 원본 격자의 유효 주소다.
+            return HasGeneratedDefinition(map)
+                ? BuildAddressKey(entry.OriginalMapX, entry.OriginalMapY)
+                : BuildAddressKey(ResolveOriginalX(entry), ResolveOriginalY(entry));
         }
 
         private static string BuildBaseDieUid(RecipeProject project, int x, int y)

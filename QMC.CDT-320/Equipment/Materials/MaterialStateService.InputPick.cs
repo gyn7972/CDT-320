@@ -2504,6 +2504,15 @@ namespace QMC.CDT320.Materials
                     CreatedAt = wafer.UpdatedAt
                 };
 
+                if (wafer.InputPreparedMap != null && string.Equals(wafer.InputPreparedMapInstanceId, wafer.WaferInstanceId, StringComparison.OrdinalIgnoreCase))
+                {
+                    map.SourceFileName = wafer.InputPreparedMap.SourceFileName;
+                    map.SourceFormat = wafer.InputPreparedMap.SourceFormat;
+                    map.SourceContentHash = wafer.InputPreparedMap.SourceContentHash;
+                    map.ProcessTransform = WaferMapProcessService.CloneTransform(wafer.InputPreparedMap.ProcessTransform);
+                    if (map.ProcessTransform != null) map.ProcessTransform.IsAbsolutePosition = true;
+                }
+
                 int index = 0;
                 foreach (DieMaterial die in dies.OrderBy(d => d.Wafer_IndexY).ThenBy(d => d.Wafer_IndexX))
                 {
@@ -2521,6 +2530,10 @@ namespace QMC.CDT320.Materials
                         IsTarget = die.IsInputTarget,
                         Result = die.Result,
                         BinCode = die.Input_BinCode,
+                        SourceBinCode = die.InputSourceBinCode,
+                        SourceToken = die.InputSourceToken,
+                        LogicalGridX = die.InputLogicalGridX,
+                        LogicalGridY = die.InputLogicalGridY,
                         EquipmentGridX = die.Wafer_IndexX - Math.Max(0, maxX) / 2.0,
                         EquipmentGridY = DieMapGenerator.CalculateEquipmentGridY(die.Wafer_IndexY, maxY + 1),
                         PosX = die.WaferOffset != null && die.WaferOffset.IsValid ? die.WaferOffset.X : originX + pitchX * die.Wafer_IndexX,
@@ -2600,6 +2613,9 @@ namespace QMC.CDT320.Materials
                         DieMapY = slot.DieMapY,
                         OriginalMapX = slot.OriginalMapX >= 0 ? slot.OriginalMapX : slot.DieMapX,
                         OriginalMapY = slot.OriginalMapY >= 0 ? slot.OriginalMapY : slot.DieMapY,
+                        SourceBinCode = slot.SourceBinCode,
+                        LogicalGridX = slot.LogicalGridX,
+                        LogicalGridY = slot.LogicalGridY,
                         IsTarget = slot.IsTarget,
                         Result = slot.Result,
                         BinCode = slot.BinCode,

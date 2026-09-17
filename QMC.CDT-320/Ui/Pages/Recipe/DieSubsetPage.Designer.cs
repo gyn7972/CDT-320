@@ -158,7 +158,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpDieSpec.Size = new System.Drawing.Size(539, 200);
             this.grpDieSpec.TabIndex = 0;
             this.grpDieSpec.TabStop = false;
-            this.grpDieSpec.Text = "Die specification";
+            this.grpDieSpec.Text = "다이 사양";
             // 
             // tlpDie
             // 
@@ -201,7 +201,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblSpecLibrary.Name = "lblSpecLibrary";
             this.lblSpecLibrary.Size = new System.Drawing.Size(214, 33);
             this.lblSpecLibrary.TabIndex = 25;
-            this.lblSpecLibrary.Text = "Spec library";
+            this.lblSpecLibrary.Text = "저장 사양";
             this.lblSpecLibrary.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _cbSpecLibrary
@@ -231,7 +231,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnLoadSpec.Name = "btnLoadSpec";
             this.btnLoadSpec.Size = new System.Drawing.Size(114, 26);
             this.btnLoadSpec.TabIndex = 27;
-            this.btnLoadSpec.Text = "LOAD SPEC";
+            this.btnLoadSpec.Text = "사양 불러오기";
             this.btnLoadSpec.UseVisualStyleBackColor = false;
             this.btnLoadSpec.Click += new System.EventHandler(this.btnLoadSpec_Click);
             // 
@@ -251,7 +251,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnSaveSpec.Name = "btnSaveSpec";
             this.btnSaveSpec.Size = new System.Drawing.Size(114, 26);
             this.btnSaveSpec.TabIndex = 28;
-            this.btnSaveSpec.Text = "SAVE SPEC";
+            this.btnSaveSpec.Text = "사양 저장·적용";
             this.btnSaveSpec.UseVisualStyleBackColor = false;
             this.btnSaveSpec.Click += new System.EventHandler(this.btnSaveSpec_Click);
             // 
@@ -263,7 +263,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblName.Name = "lblName";
             this.lblName.Size = new System.Drawing.Size(214, 34);
             this.lblName.TabIndex = 1;
-            this.lblName.Text = "Spec name";
+            this.lblName.Text = "사양 이름";
             this.lblName.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _tbName
@@ -285,7 +285,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblWidth.Name = "lblWidth";
             this.lblWidth.Size = new System.Drawing.Size(214, 34);
             this.lblWidth.TabIndex = 3;
-            this.lblWidth.Text = "Width (mm)";
+            this.lblWidth.Text = "가로 (mm)";
             this.lblWidth.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _nW
@@ -322,7 +322,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblHeight.Name = "lblHeight";
             this.lblHeight.Size = new System.Drawing.Size(214, 34);
             this.lblHeight.TabIndex = 5;
-            this.lblHeight.Text = "Height (mm)";
+            this.lblHeight.Text = "세로 (mm)";
             this.lblHeight.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _nH
@@ -359,7 +359,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblThickness.Name = "lblThickness";
             this.lblThickness.Size = new System.Drawing.Size(214, 34);
             this.lblThickness.TabIndex = 7;
-            this.lblThickness.Text = "Thickness (mm)";
+            this.lblThickness.Text = "두께 (mm)";
             this.lblThickness.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _nT
@@ -401,7 +401,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpTolerance.Size = new System.Drawing.Size(539, 167);
             this.grpTolerance.TabIndex = 1;
             this.grpTolerance.TabStop = false;
-            this.grpTolerance.Text = "Tolerances (mm)";
+            this.grpTolerance.Text = "허용 오차 (mm)";
             // 
             // tlpTol
             // 
@@ -437,7 +437,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblWidthLower.Name = "lblWidthLower";
             this.lblWidthLower.Size = new System.Drawing.Size(214, 34);
             this.lblWidthLower.TabIndex = 10;
-            this.lblWidthLower.Text = "Width lower";
+            this.lblWidthLower.Text = "가로 하한";
             this.lblWidthLower.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _nWLow
@@ -468,7 +468,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblWidthUpper.Name = "lblWidthUpper";
             this.lblWidthUpper.Size = new System.Drawing.Size(214, 34);
             this.lblWidthUpper.TabIndex = 12;
-            this.lblWidthUpper.Text = "Width upper";
+            this.lblWidthUpper.Text = "가로 상한";
             this.lblWidthUpper.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _nWUp
@@ -494,7 +494,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblHeightLower.Name = "lblHeightLower";
             this.lblHeightLower.Size = new System.Drawing.Size(214, 34);
             this.lblHeightLower.TabIndex = 14;
-            this.lblHeightLower.Text = "Height lower";
+            this.lblHeightLower.Text = "세로 하한";
             this.lblHeightLower.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _nHLow
@@ -525,7 +525,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblHeightUpper.Name = "lblHeightUpper";
             this.lblHeightUpper.Size = new System.Drawing.Size(214, 34);
             this.lblHeightUpper.TabIndex = 16;
-            this.lblHeightUpper.Text = "Height upper";
+            this.lblHeightUpper.Text = "세로 상한";
             this.lblHeightUpper.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _nHUp
@@ -556,7 +556,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpVision.Size = new System.Drawing.Size(539, 133);
             this.grpVision.TabIndex = 2;
             this.grpVision.TabStop = false;
-            this.grpVision.Text = "Vision inspection thresholds (mm)";
+            this.grpVision.Text = "비전 검사 기준 (mm)";
             // 
             // tlpVis
             // 
@@ -589,7 +589,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblChippingDepth.Name = "lblChippingDepth";
             this.lblChippingDepth.Size = new System.Drawing.Size(214, 34);
             this.lblChippingDepth.TabIndex = 19;
-            this.lblChippingDepth.Text = "Chipping depth max";
+            this.lblChippingDepth.Text = "치핑 깊이 최대";
             this.lblChippingDepth.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _nChipDepth
@@ -615,7 +615,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblChippingLength.Name = "lblChippingLength";
             this.lblChippingLength.Size = new System.Drawing.Size(214, 34);
             this.lblChippingLength.TabIndex = 21;
-            this.lblChippingLength.Text = "Chipping length max";
+            this.lblChippingLength.Text = "치핑 길이 최대";
             this.lblChippingLength.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _nChipLen
@@ -641,7 +641,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblForeignSize.Name = "lblForeignSize";
             this.lblForeignSize.Size = new System.Drawing.Size(214, 34);
             this.lblForeignSize.TabIndex = 23;
-            this.lblForeignSize.Text = "Foreign size max";
+            this.lblForeignSize.Text = "이물 크기 최대";
             this.lblForeignSize.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _nForeign
@@ -740,8 +740,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblButtonMeaning.Padding = new System.Windows.Forms.Padding(10, 8, 10, 8);
             this.lblButtonMeaning.Size = new System.Drawing.Size(487, 127);
             this.lblButtonMeaning.TabIndex = 2;
-            this.lblButtonMeaning.Text = "버튼 의미\r\n• LOAD SPEC : library → 화면 (아직 미적용)\r\n• 상단 SAVE : 화면 → 현재 Recipe + 연결 맵 재생성" +
-    "\r\n• SAVE SPEC : library 저장 + 현재 Recipe 적용\r\n• Reload : 저장하지 않은 변경을 버리고 Recipe 재로드" +
+            this.lblButtonMeaning.Text = "버튼 의미\r\n• 사양 불러오기 : 저장 사양 → 화면 (아직 미적용)\r\n• 상단 저장 : 화면 → 현재 레시피 + 연결 맵 재생성" +
+    "\r\n• 사양 저장·적용 : library 저장 + 현재 Recipe 적용\r\n• Reload : 저장하지 않은 변경을 버리고 Recipe 재로드" +
     "";
             // 
             // grpOperationStatus

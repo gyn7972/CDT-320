@@ -1215,12 +1215,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             return new object[]
             {
                 ResolvePreviewSequence(entry) > 0 ? ResolvePreviewSequence(entry).ToString() : "-",
-                entry.DieMapX,
-                entry.DieMapY,
-                FormatGrid(entry.EquipmentGridX),
-                FormatGrid(entry.EquipmentGridY),
-                entry.OriginalMapX >= 0 ? entry.OriginalMapX.ToString() : "-",
-                entry.OriginalMapY >= 0 ? entry.OriginalMapY.ToString() : "-",
+                WaferMapProcessService.FormatMapCoordinate(entry.LogicalGridX),
+                WaferMapProcessService.FormatMapCoordinate(entry.LogicalGridY),
+                "", "", "", "",
                 ResolveDieStateText(entry),
                 entry.Result,
                 entry.BinCode,
@@ -1251,8 +1248,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             lblPitchGapXValue.Text = _dieMap != null ? (_dieMap.PitchX - _dieMap.DieSizeX).ToString("F4") : "-";
             lblPitchGapYValue.Text = _dieMap != null ? (_dieMap.PitchY - _dieMap.DieSizeY).ToString("F4") : "-";
             lblWaferDiameterValue.Text = _dieMap != null ? _dieMap.OuterDiameterMm.ToString("F3") : "-";
-            lblMappingOriginValue.Text = _dieMap != null
-                ? _dieMap.OriginX.ToString("F3") + " / " + _dieMap.OriginY.ToString("F3")
+            lblMappingOriginValue.Text = _dieMap != null && _dieMap.ProcessTransform != null
+                ? (_dieMap.ProcessTransform.Settings != null ? _dieMap.ProcessTransform.Settings.GridOrigin : WaferMapGridOrigin.TopLeft).ToString()
                 : "-";
             RefreshSelectedDieInformation();
         }
@@ -1264,14 +1261,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 ? (string.IsNullOrWhiteSpace(entry.DieUid) ? "-" : entry.DieUid)
                 : "-";
             lblEquipmentGridValue.Text = entry != null
-                ? FormatGrid(entry.EquipmentGridX) + " / " + FormatGrid(entry.EquipmentGridY)
+                ? WaferMapProcessService.FormatMapPosition(entry)
                 : "-";
             lblOriginalMapValue.Text = entry != null
-                ? (entry.OriginalMapX >= 0 ? entry.OriginalMapX.ToString() : "-") + " / " +
-                  (entry.OriginalMapY >= 0 ? entry.OriginalMapY.ToString() : "-")
+                ? entry.BinCode.ToString()
                 : "-";
             lblSelectedPositionValue.Text = entry != null
-                ? entry.PosX.ToString("F3") + " / " + entry.PosY.ToString("F3")
+                ? ResolveDieStateText(entry)
                 : "-";
             lblSelectedSequenceValue.Text = entry != null && ResolvePreviewSequence(entry) > 0
                 ? ResolvePreviewSequence(entry).ToString()

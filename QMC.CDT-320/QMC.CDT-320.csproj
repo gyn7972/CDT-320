@@ -537,6 +537,7 @@
     <Compile Include="Equipment\Recipes\RecipeMapPaths.cs" />
     <Compile Include="Equipment\Recipes\RecipeDieMapResolver.cs" />
     <Compile Include="Equipment\Recipes\RecipeMapBuildService.cs" />
+    <Compile Include="Equipment\Recipes\GeneratedWaferFrameProjection.cs" />
     <Compile Include="Equipment\Recipes\RecipeProjectConsistencyService.cs" />
     <Compile Include="Equipment\Recipes\RecipeProjectCloneService.cs" />
     <Compile Include="Equipment\Recipes\RecipeColletZApplyService.cs" />
@@ -562,6 +563,7 @@
     <Compile Include="Equipment\Materials\MaterialStateService.Clear.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.DieOps.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.InputPick.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.WaferMapProcessing.cs" />
     <Compile Include="Equipment\Materials\InputStageReviewGeometryPolicy.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.InputStageReviewGeometry.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.OutputReceive.cs" />
@@ -605,8 +607,23 @@
     <Compile Include="Equipment\Bin\BinCodeMap.cs" />
     <!-- Equipment / DieMaps (310 ?�식) -->
     <Compile Include="Equipment\DieMaps\DieMap.cs" />
+    <Compile Include="Equipment\DieMaps\WaferMapProcessService.cs" />
+    <Compile Include="Equipment\DieMaps\WaferMapParserRegistry.cs" />
+    <Compile Include="Equipment\Recipes\RecipeMapProcessSettingsService.cs" />
+    <Compile Include="Equipment\Recipes\RecipeInputMapSource.cs" />
+    <Compile Include="Equipment\Recipes\RecipeMapPreviewService.cs" />
+    <Compile Include="Ui\Pages\Recipe\TapeFrameSubsetPage.MapProcessing.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\WaferMapProcessSettingsDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\WaferMapProcessSettingsDialog.Designer.cs">
+      <DependentUpon>WaferMapProcessSettingsDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Equipment\DieMaps\DieMapGenerator.cs" />
     <Compile Include="Equipment\DieMaps\WaferMapGeneration.cs" />
+    <Compile Include="Equipment\DieMaps\GeneratedWaferMapCodec.cs" />
     <Compile Include="Equipment\DieMaps\PickupSequenceGenerator.cs" />
     <Compile Include="Equipment\DieMaps\DieMapSaver.cs" />
     <!-- Equipment / Jobs (310 ?�식) -->
@@ -866,6 +883,9 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Ui\Controls\Styles\VerticalLabel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\Styles\WaferMapView.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Ui\Controls\Styles\LiveLotMapView.cs">
@@ -1357,6 +1377,10 @@
     <Compile Include="Ui\Pages\Recipe\MapCreatePage.Designer.cs">
       <DependentUpon>MapCreatePage.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Pages\Recipe\MapCreatePage.Preview.cs">
+      <DependentUpon>MapCreatePage.cs</DependentUpon>
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Ui\Pages\Recipe\MapCreatePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -1461,6 +1485,14 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Form1.RecipeReset.cs">
+      <DependentUpon>Form1.cs</DependentUpon>
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Form1.WaferMapProcessing.cs">
+      <DependentUpon>Form1.cs</DependentUpon>
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Form1.WaferMapGeneration.cs">
       <DependentUpon>Form1.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>

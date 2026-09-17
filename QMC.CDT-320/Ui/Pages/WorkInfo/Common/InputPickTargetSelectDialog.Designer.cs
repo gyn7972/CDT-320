@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
@@ -256,6 +256,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.colTarget.HeaderText = "Target X/Y";
             this.colTarget.Name = "colTarget";
             this.colTarget.ReadOnly = true;
+            this.colTarget.Visible = false;
             this.colTarget.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             //
             // lblPrepared

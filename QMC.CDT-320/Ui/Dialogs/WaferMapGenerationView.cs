@@ -94,12 +94,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             double x = (e.X - _layout.CenterX) / _layout.Scale;
             double y = (_layout.CenterY - e.Y) / _layout.Scale;
             GeneratedWaferDie anchor = _map.Dies[0];
-            int column = anchor.RawColumn + (int)Math.Round((x - (double)anchor.CenterXMm) / (double)_map.Settings.CenterStepXMm);
-            int row = anchor.RawRow + (int)Math.Round((y - (double)anchor.CenterYMm) / (double)_map.Settings.CenterStepYMm);
+            int column = anchor.Column + (int)Math.Round((x - (double)anchor.CenterXMm) / (double)_map.DisplayStepXMm);
+            int row = anchor.Row + (int)Math.Round((y - (double)anchor.CenterYMm) / (double)_map.DisplayStepYMm);
             GeneratedWaferDie hit;
             if (!_hitMap.TryGetValue(AddressKey(column, row), out hit) ||
-                Math.Abs(x - (double)hit.CenterXMm) > (double)_map.Settings.DieSizeXMm / 2.0 ||
-                Math.Abs(y - (double)hit.CenterYMm) > (double)_map.Settings.DieSizeYMm / 2.0)
+                Math.Abs(x - (double)hit.CenterXMm) > (double)_map.DisplayDieSizeXMm / 2.0 ||
+                Math.Abs(y - (double)hit.CenterYMm) > (double)_map.DisplayDieSizeYMm / 2.0)
                 hit = null;
             _selectedDie = hit;
             Action<GeneratedWaferDie> selected = DieSelected;
@@ -247,11 +247,21 @@ namespace QMC.CDT_320.Ui.Dialogs
             Dictionary<long, GeneratedWaferDie> existingHitMap, CancellationToken token)
         {
             double radius = Math.Max((double)map.BoundaryRadiusMm, (double)map.Settings.OuterDiameterMm / 2.0);
+            double halfWidth = radius;
+            double halfHeight = radius;
+            int boundsIndex = 0;
+            foreach (GeneratedWaferDie die in map.Dies)
+            {
+                if ((boundsIndex++ & 1023) == 0) token.ThrowIfCancellationRequested();
+                halfWidth = Math.Max(halfWidth, Math.Abs((double)die.CenterXMm) + (double)map.DisplayDieSizeXMm / 2.0);
+                halfHeight = Math.Max(halfHeight, Math.Abs((double)die.CenterYMm) + (double)map.DisplayDieSizeYMm / 2.0);
+            }
             var layout = new RenderLayout
             {
                 CenterX = size.Width / 2F,
                 CenterY = size.Height / 2F,
-                Scale = Math.Max(0.000001, Math.Min(Math.Max(1, size.Width - 54), Math.Max(1, size.Height - 54)) / (2.0 * radius)) * zoom
+                Scale = Math.Max(0.000001, Math.Min(Math.Max(1, size.Width - 54) / (2.0 * halfWidth),
+                    Math.Max(1, size.Height - 54) / (2.0 * halfHeight))) * zoom
             };
             var hitMap = existingHitMap ?? new Dictionary<long, GeneratedWaferDie>(map.Count);
             Bitmap bitmap = new Bitmap(size.Width, size.Height);
@@ -259,8 +269,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 using (Graphics graphics = Graphics.FromImage(bitmap))
                 using (var dieBrush = new SolidBrush(Color.FromArgb(42, 178, 108)))
+                using (var outsideBrush = new SolidBrush(Color.FromArgb(230, 62, 55)))
                 using (var gridPen = new Pen(Color.FromArgb(28, 85, 60)))
+                using (var outsideGridPen = new Pen(Color.FromArgb(105, 28, 26)))
                 using (var outlinePen = new Pen(Color.FromArgb(158, 180, 194), 1F))
+                using (var allowedPen = new Pen(Color.FromArgb(245, 196, 66), 1.2F) { DashStyle = DashStyle.Dash })
                 using (var axisPen = new Pen(Color.FromArgb(145, 150, 165, 180)))
                 using (var axisBrush = new SolidBrush(Color.FromArgb(180, 194, 205)))
                 using (var font = new Font("맑은 고딕", 9F))
@@ -271,18 +284,25 @@ namespace QMC.CDT_320.Ui.Dialogs
                     foreach (GeneratedWaferDie die in map.Dies)
                     {
                         if ((index++ & 1023) == 0) token.ThrowIfCancellationRequested();
-                        if (existingHitMap == null) hitMap.Add(AddressKey(die.RawColumn, die.RawRow), die);
+                        if (existingHitMap == null) hitMap.Add(AddressKey(die.Column, die.Row), die);
                         RectangleF rectangle = DieRectangle(map, die, layout);
                         if (rectangle.Right < 0 || rectangle.Bottom < 0 || rectangle.Left > size.Width || rectangle.Top > size.Height) continue;
-                        graphics.FillRectangle(dieBrush, rectangle);
+                        bool inside = map.IsWithinBoundary(die);
+                        graphics.FillRectangle(inside ? dieBrush : outsideBrush, rectangle);
                         if (rectangle.Width >= 4F && rectangle.Height >= 4F)
-                            graphics.DrawRectangle(gridPen, rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height);
+                            graphics.DrawRectangle(inside ? gridPen : outsideGridPen, rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height);
                     }
                     token.ThrowIfCancellationRequested();
                     graphics.SmoothingMode = SmoothingMode.AntiAlias;
                     float waferSize = (float)((double)map.Settings.OuterDiameterMm * layout.Scale);
                     graphics.DrawEllipse(outlinePen, layout.CenterX - waferSize / 2F,
                         layout.CenterY - waferSize / 2F, waferSize, waferSize);
+                    if (map.Settings.GenerationVersion >= 2 && map.BoundaryRadiusMm > 0m)
+                    {
+                        float allowedSize = (float)((double)map.BoundaryRadiusMm * 2.0 * layout.Scale);
+                        graphics.DrawEllipse(allowedPen, layout.CenterX - allowedSize / 2F,
+                            layout.CenterY - allowedSize / 2F, allowedSize, allowedSize);
+                    }
                     graphics.DrawLine(axisPen, 10F, layout.CenterY, size.Width - 10F, layout.CenterY);
                     graphics.DrawLine(axisPen, layout.CenterX, 10F, layout.CenterX, size.Height - 10F);
                     graphics.DrawString("-X", font, axisBrush, 10F, layout.CenterY + 3F);
@@ -302,8 +322,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private static RectangleF DieRectangle(GeneratedWaferMap map, GeneratedWaferDie die, RenderLayout layout)
         {
-            float width = (float)((double)map.Settings.DieSizeXMm * layout.Scale);
-            float height = (float)((double)map.Settings.DieSizeYMm * layout.Scale);
+            float width = (float)((double)map.DisplayDieSizeXMm * layout.Scale);
+            float height = (float)((double)map.DisplayDieSizeYMm * layout.Scale);
             float centerX = layout.CenterX + (float)((double)die.CenterXMm * layout.Scale);
             float centerY = layout.CenterY - (float)((double)die.CenterYMm * layout.Scale);
             return new RectangleF(centerX - width / 2F, centerY - height / 2F, width, height);

@@ -1564,6 +1564,7 @@ namespace QMC.CDT320.Materials
             InvalidateInputPickContextCacheNoLock();
 
             ClearInputStageWaferProcessingFieldsNoLock(wafer);
+            ClearPreparedWaferMapsForNewInstanceNoLock(wafer);
             wafer.DieIds = new List<string>();
             wafer.InputStageProcessingGeneration = wafer.InputStageProcessingGeneration + 1;
             wafer.WaferInstanceId = CreateWaferInstanceId();
@@ -1866,6 +1867,9 @@ namespace QMC.CDT320.Materials
             if (MaterialSpecs.Data == null)
                 return;
 
+            // 생성 맵의 사양 일치와 장비 사용 가능 각도를 MaterialSpecs 기록 전에 검증한다.
+            // 90/270도 초안을 실제 정렬/검사에 사용하지 않으며 기존 장비 사양 계약을 유지한다.
+            frame = GeneratedWaferFrameProjection.Resolve(project, frame, mapFileName);
             EnsureDieSpecFromRecipe(project, project.Die != null ? project.Die.DieSpecName : "");
             bool externalMap = RecipeDieMapResolver.IsExternalFrame(frame);
             int dieMapX = externalMap

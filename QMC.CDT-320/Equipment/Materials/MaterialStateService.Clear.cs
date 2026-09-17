@@ -376,6 +376,8 @@ namespace QMC.CDT320.Materials
             if (wafer == null)
                 return;
 
+            wafer.OutputReceivePreparedMap = null;
+            wafer.OutputReceivePreparedMapInstanceId = null;
             wafer.OutputResultFileSessionStartedAt = null;
             wafer.OutputReceiveSourceWaferId = string.Empty;
             wafer.OutputReceiveSourceWaferInstanceId = string.Empty;

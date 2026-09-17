@@ -163,8 +163,13 @@ namespace QMC.CDT320.Materials
                 EnsureTapeFrameSpecFromFrame(project, frame, specName, project.InputDieMapFileName);
                 if (project.OutputFrame != null && !string.IsNullOrWhiteSpace(project.OutputFrame.FrameSpecName))
                     EnsureTapeFrameSpecFromFrame(project, project.OutputFrame, project.OutputFrame.FrameSpecName.Trim(), project.GoodBinDieMapFileName);
-                if (project.Frame != null && !ReferenceEquals(project.Frame, frame) && !string.IsNullOrWhiteSpace(project.Frame.FrameSpecName))
-                    EnsureTapeFrameSpecFromFrame(project, project.Frame, project.Frame.FrameSpecName.Trim(), "");
+                string legacySpecName = project.Frame != null ? (project.Frame.FrameSpecName ?? "").Trim() : "";
+                // 구형 Frame 별칭을 마지막에 저장하면 동일 이름 Input/Output의 물리 사양과 MapFileName을 덮어쓴다.
+                // 이미 역할별로 동기화한 이름은 유지하고, 별도 이름인 구형 사양만 기존처럼 동기화한다.
+                if (project.Frame != null && !ReferenceEquals(project.Frame, frame) && !string.IsNullOrWhiteSpace(legacySpecName) &&
+                    !string.Equals(legacySpecName, specName, StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(legacySpecName, project.OutputFrame != null ? (project.OutputFrame.FrameSpecName ?? "").Trim() : "", StringComparison.OrdinalIgnoreCase))
+                    EnsureTapeFrameSpecFromFrame(project, project.Frame, legacySpecName, "");
                 return specName;
             }
             catch (Exception ex)

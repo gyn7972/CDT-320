@@ -8,6 +8,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private ToolTip toolTipRecipeLocation;
         private TableLayoutPanel editorLayout;
+        private Button btnProcessMapSettings;
 
         // 프리셋 바 (그룹 아님 — 화면 전체에 적용되는 사양 라이브러리 조작)
         private Panel pnlSpecPreset;
@@ -75,6 +76,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         // 미사용 보존 컨트롤(좌표 계산에 연결된 곳이 없어 화면에서 숨긴다)
         private Label lblRotate;
+        private Label lblSavedMapSummary;
         private ComboBox _cbRotate;
 
         protected override void Dispose(bool disposing)
@@ -91,6 +93,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.components = new System.ComponentModel.Container();
             this.toolTipRecipeLocation = new System.Windows.Forms.ToolTip(this.components);
             this.editorLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.btnProcessMapSettings = new System.Windows.Forms.Button();
             this.pnlSpecPreset = new System.Windows.Forms.Panel();
             this.tlpSpecPreset = new System.Windows.Forms.TableLayoutPanel();
             this.lblSpecLibrary = new System.Windows.Forms.Label();
@@ -146,6 +149,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpMapSource = new System.Windows.Forms.GroupBox();
             this._tbMapSourceInfo = new System.Windows.Forms.TextBox();
             this.lblRotate = new System.Windows.Forms.Label();
+            this.lblSavedMapSummary = new System.Windows.Forms.Label();
             this._cbRotate = new System.Windows.Forms.ComboBox();
             this._editorPanel.SuspendLayout();
             this.editorLayout.SuspendLayout();
@@ -187,9 +191,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.editorLayout.Name = "editorLayout";
             this.editorLayout.RowCount = 4;
             this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
-            this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 42F));
-            this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 32F));
-            this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 26F));
+            this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 47F));
+            this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 30F));
+            this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 23F));
             this.editorLayout.SetRowSpan(this.grpMapSource, 4);
             this.editorLayout.Size = new System.Drawing.Size(1510, 678);
             this.editorLayout.TabIndex = 0;
@@ -239,7 +243,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblSpecLibrary.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblSpecLibrary.Size = new System.Drawing.Size(106, 36);
             this.lblSpecLibrary.TabIndex = 0;
-            this.lblSpecLibrary.Text = "Saved spec";
+            this.lblSpecLibrary.Text = "저장 사양";
             this.lblSpecLibrary.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // _cbSpecLibrary
@@ -263,7 +267,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnLoadSpec.Name = "btnLoadSpec";
             this.btnLoadSpec.Size = new System.Drawing.Size(106, 36);
             this.btnLoadSpec.TabIndex = 2;
-            this.btnLoadSpec.Text = "LOAD SPEC";
+            this.btnLoadSpec.Text = "사양 불러오기";
             this.toolTipRecipeLocation.SetToolTip(this.btnLoadSpec, "선택한 저장 사양을 화면 값으로만 불러옵니다. Recipe에는 SAVE를 눌러야 반영됩니다.");
             this.btnLoadSpec.UseVisualStyleBackColor = true;
             this.btnLoadSpec.Click += new System.EventHandler(this.btnLoadSpec_Click);
@@ -280,7 +284,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnSaveSpec.Name = "btnSaveSpec";
             this.btnSaveSpec.Size = new System.Drawing.Size(106, 36);
             this.btnSaveSpec.TabIndex = 3;
-            this.btnSaveSpec.Text = "SAVE SPEC";
+            this.btnSaveSpec.Text = "사양 저장·적용";
             this.toolTipRecipeLocation.SetToolTip(this.btnSaveSpec, "Recipe 저장과 함께 현재 역할 값을 저장 사양 라이브러리에 기록합니다.");
             this.btnSaveSpec.UseVisualStyleBackColor = false;
             this.btnSaveSpec.Click += new System.EventHandler(this.btnSaveSpec_Click);
@@ -296,7 +300,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblName.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblName.Size = new System.Drawing.Size(86, 36);
             this.lblName.TabIndex = 4;
-            this.lblName.Text = "Spec name";
+            this.lblName.Text = "사양 이름";
             this.lblName.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // _tbName
@@ -325,7 +329,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpBase.Size = new System.Drawing.Size(755, 259);
             this.grpBase.TabIndex = 1;
             this.grpBase.TabStop = false;
-            this.grpBase.Text = "① 기준 격자 (Base) — 변경하면 GRID MAP CREATE 필요";
+            this.grpBase.Text = "① 웨이퍼 / 맵 생성 — Grid는 저장된 맵의 격자";
             //
             // tlpBase
             //
@@ -352,13 +356,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpBase.Controls.Add(this._nTopBottomEdgeSkip, 3, 3);
             this.tlpBase.Controls.Add(this.lblMapFile, 0, 4);
             this.tlpBase.Controls.Add(this._lblMapFileValue, 1, 4);
-            this.tlpBase.Controls.Add(this.btnPreviewWaferMap, 0, 5);
-            this.tlpBase.Controls.Add(this.lblBaseHint, 2, 5);
+            this.tlpBase.Controls.Add(this.lblSavedMapSummary, 0, 5);
+            this.tlpBase.Controls.Add(this.btnPreviewWaferMap, 0, 6);
+            this.tlpBase.Controls.Add(this.lblBaseHint, 2, 6);
             this.tlpBase.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tlpBase.Location = new System.Drawing.Point(10, 28);
             this.tlpBase.Name = "tlpBase";
-            this.tlpBase.RowCount = 6;
+            this.tlpBase.RowCount = 7;
             this.tlpBase.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
+            this.tlpBase.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpBase.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpBase.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpBase.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
@@ -368,6 +374,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpBase.SetColumnSpan(this._lblMapFileValue, 4);
             this.tlpBase.SetColumnSpan(this.btnPreviewWaferMap, 2);
             this.tlpBase.SetColumnSpan(this.lblBaseHint, 3);
+            this.tlpBase.SetColumnSpan(this.lblSavedMapSummary, 5);
             this.tlpBase.Size = new System.Drawing.Size(735, 223);
             this.tlpBase.TabIndex = 0;
             //
@@ -382,7 +389,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblWaferRole.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblWaferRole.Size = new System.Drawing.Size(146, 36);
             this.lblWaferRole.TabIndex = 0;
-            this.lblWaferRole.Text = "Wafer role";
+            this.lblWaferRole.Text = "웨이퍼 구분";
             this.lblWaferRole.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // _cbWaferRole
@@ -403,7 +410,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             //
             // pnlBaseButtons
             //
-            this.pnlBaseButtons.Controls.Add(this.btnGridMapCreate);
             this.pnlBaseButtons.Controls.Add(this._btnImportWaferMap);
             this.pnlBaseButtons.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pnlBaseButtons.Location = new System.Drawing.Point(356, 2);
@@ -414,14 +420,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             //
             // _btnImportWaferMap
             //
-            this._btnImportWaferMap.Dock = System.Windows.Forms.DockStyle.Left;
+            this._btnImportWaferMap.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnImportWaferMap.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnImportWaferMap.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this._btnImportWaferMap.Location = new System.Drawing.Point(0, 0);
             this._btnImportWaferMap.Name = "_btnImportWaferMap";
             this._btnImportWaferMap.Size = new System.Drawing.Size(180, 36);
             this._btnImportWaferMap.TabIndex = 0;
-            this._btnImportWaferMap.Text = "LOAD WAFER MAP";
+            this._btnImportWaferMap.Text = "웨이퍼 맵 불러오기";
             this._btnImportWaferMap.UseVisualStyleBackColor = true;
             this._btnImportWaferMap.Click += new System.EventHandler(this.btnImportWaferMap_Click);
             //
@@ -437,6 +443,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnGridMapCreate.Size = new System.Drawing.Size(190, 36);
             this.btnGridMapCreate.TabIndex = 1;
             this.btnGridMapCreate.Text = "GRID MAP CREATE";
+            this.btnGridMapCreate.Visible = false;
+            this.btnGridMapCreate.Enabled = false;
             this.btnGridMapCreate.UseVisualStyleBackColor = false;
             this.btnGridMapCreate.Click += new System.EventHandler(this.btnGridMapCreate_Click);
             //
@@ -450,7 +458,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblGridX.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblGridX.Size = new System.Drawing.Size(146, 30);
             this.lblGridX.TabIndex = 3;
-            this.lblGridX.Text = "Grid X (count)";
+            this.lblGridX.Text = "현재 맵 Grid X";
             this.lblGridX.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // _nGridX
@@ -458,8 +466,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._nGridX.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nGridX.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._nGridX.Margin = new System.Windows.Forms.Padding(2);
-            this._nGridX.Maximum = new decimal(new int[] { 9999, 0, 0, 0});
-            this._nGridX.Minimum = new decimal(new int[] { 1, 0, 0, 0});
+            this._nGridX.Maximum = 1000000M;
+            this._nGridX.Minimum = 0M;
+            this._nGridX.Enabled = false;
+            this._nGridX.ReadOnly = true;
+            this._nGridX.TabStop = false;
             this._nGridX.Name = "_nGridX";
             this._nGridX.Size = new System.Drawing.Size(200, 25);
             this._nGridX.TabIndex = 4;
@@ -475,7 +486,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblGridY.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblGridY.Size = new System.Drawing.Size(126, 30);
             this.lblGridY.TabIndex = 5;
-            this.lblGridY.Text = "Grid Y (count)";
+            this.lblGridY.Text = "현재 맵 Grid Y";
             this.lblGridY.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // _nGridY
@@ -483,8 +494,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._nGridY.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nGridY.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._nGridY.Margin = new System.Windows.Forms.Padding(2);
-            this._nGridY.Maximum = new decimal(new int[] { 9999, 0, 0, 0});
-            this._nGridY.Minimum = new decimal(new int[] { 1, 0, 0, 0});
+            this._nGridY.Maximum = 1000000M;
+            this._nGridY.Minimum = 0M;
+            this._nGridY.Enabled = false;
+            this._nGridY.ReadOnly = true;
+            this._nGridY.TabStop = false;
             this._nGridY.Name = "_nGridY";
             this._nGridY.Size = new System.Drawing.Size(200, 25);
             this._nGridY.TabIndex = 6;
@@ -500,17 +514,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblDiameter.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblDiameter.Size = new System.Drawing.Size(146, 30);
             this.lblDiameter.TabIndex = 7;
-            this.lblDiameter.Text = "Outer diameter (mm)";
+            this.lblDiameter.Text = "웨이퍼 직경 (mm)";
             this.lblDiameter.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // _nDiameter
             //
-            this._nDiameter.DecimalPlaces = 1;
+            this._nDiameter.DecimalPlaces = 3;
             this._nDiameter.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nDiameter.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._nDiameter.Margin = new System.Windows.Forms.Padding(2);
-            this._nDiameter.Maximum = new decimal(new int[] { 1000, 0, 0, 0});
-            this._nDiameter.Minimum = new decimal(new int[] { 1, 0, 0, 0});
+            this._nDiameter.Maximum = 2147483.647M;
+            this._nDiameter.Minimum = 0M;
             this._nDiameter.Name = "_nDiameter";
             this._nDiameter.Size = new System.Drawing.Size(200, 25);
             this._nDiameter.TabIndex = 8;
@@ -535,9 +549,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._cbEdgeSkipMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbEdgeSkipMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbEdgeSkipMode.Items.AddRange(new object[] {
-            "GRID COUNT",
-            "MM",
-            "EXTERNAL MAP"});
+            "격자 수 (GRID)",
+            "거리 (MM)",
+            "외부 맵 (EXTERNAL MAP)"});
             this._cbEdgeSkipMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbEdgeSkipMode.Name = "_cbEdgeSkipMode";
             this._cbEdgeSkipMode.Size = new System.Drawing.Size(200, 25);
@@ -554,7 +568,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblEdgeLR.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblEdgeLR.Size = new System.Drawing.Size(146, 30);
             this.lblEdgeLR.TabIndex = 11;
-            this.lblEdgeLR.Text = "Edge skip L/R";
+            this.lblEdgeLR.Text = "가장자리 제외 좌우";
             this.lblEdgeLR.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // _nSideEdgeSkip
@@ -577,7 +591,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblEdgeTB.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblEdgeTB.Size = new System.Drawing.Size(126, 30);
             this.lblEdgeTB.TabIndex = 13;
-            this.lblEdgeTB.Text = "Edge skip T/B";
+            this.lblEdgeTB.Text = "가장자리 제외 상하";
             this.lblEdgeTB.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // _nTopBottomEdgeSkip
@@ -600,7 +614,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblMapFile.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblMapFile.Size = new System.Drawing.Size(146, 30);
             this.lblMapFile.TabIndex = 15;
-            this.lblMapFile.Text = "Recipe map file";
+            this.lblMapFile.Text = "등록 맵 파일";
             this.lblMapFile.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // _lblMapFileValue
@@ -629,7 +643,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnPreviewWaferMap.TabIndex = 17;
             this.btnPreviewWaferMap.Text = "맵 생성 미리보기";
             this.btnPreviewWaferMap.UseVisualStyleBackColor = false;
-            this.toolTipRecipeLocation.SetToolTip(this.btnPreviewWaferMap, "원형 맵을 생성하고 상·하·좌·우 끝줄 개수를 보정하여 확인합니다.");
+            this.toolTipRecipeLocation.SetToolTip(this.btnPreviewWaferMap, "원형 맵의 내부 여백, 회전, 상·하·좌·우 끝줄과 전체 다이 개수를 확인하고 저장합니다.");
             this.btnPreviewWaferMap.Click += new System.EventHandler(this.btnPreviewWaferMap_Click);
             //
             // lblBaseHint
@@ -641,8 +655,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblBaseHint.Name = "lblBaseHint";
             this.lblBaseHint.Size = new System.Drawing.Size(729, 30);
             this.lblBaseHint.TabIndex = 17;
-            this.lblBaseHint.Text = "이 그룹 값은 LOAD WAFER MAP / GRID MAP CREATE로만 맵에 반영됩니다.";
+            this.lblBaseHint.Text = "맵 생성 미리보기에서 여백·회전·개수 조건을 확인하고 저장하세요.";
             this.lblBaseHint.TextAlign = System.Drawing.ContentAlignment.TopLeft;
+            this.lblSavedMapSummary.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblSavedMapSummary.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblSavedMapSummary.ForeColor = System.Drawing.Color.FromArgb(31, 111, 133);
+            this.lblSavedMapSummary.Margin = new System.Windows.Forms.Padding(2);
+            this.lblSavedMapSummary.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblSavedMapSummary.Name = "lblSavedMapSummary";
+            this.lblSavedMapSummary.Text = "저장 맵: —개  |  회전: —";
+            this.lblSavedMapSummary.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // lblRotate
             //
@@ -682,7 +704,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpDie.Size = new System.Drawing.Size(755, 196);
             this.grpDie.TabIndex = 2;
             this.grpDie.TabStop = false;
-            this.grpDie.Text = "② 다이 배치 — 변경하면 상단 SAVE로 좌표 재계산";
+            this.grpDie.Text = "② 다이 배치 (mm)";
             //
             // tlpDie
             //
@@ -727,7 +749,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblDieSizeX.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblDieSizeX.Size = new System.Drawing.Size(146, 32);
             this.lblDieSizeX.TabIndex = 0;
-            this.lblDieSizeX.Text = "Die size X (mm)";
+            this.lblDieSizeX.Text = "다이 가로 (mm)";
             this.lblDieSizeX.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // _nDieSizeX
@@ -737,7 +759,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._nDieSizeX.Enabled = false;
             this._nDieSizeX.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._nDieSizeX.Margin = new System.Windows.Forms.Padding(2);
-            this._nDieSizeX.Maximum = new decimal(new int[] { 1000, 0, 0, 0});
+            this._nDieSizeX.Maximum = 2147483.647M;
             this._nDieSizeX.Name = "_nDieSizeX";
             this._nDieSizeX.ReadOnly = true;
             this._nDieSizeX.Size = new System.Drawing.Size(200, 25);
@@ -755,7 +777,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblDieSizeY.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblDieSizeY.Size = new System.Drawing.Size(126, 32);
             this.lblDieSizeY.TabIndex = 2;
-            this.lblDieSizeY.Text = "Die size Y (mm)";
+            this.lblDieSizeY.Text = "다이 세로 (mm)";
             this.lblDieSizeY.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // _nDieSizeY
@@ -765,7 +787,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._nDieSizeY.Enabled = false;
             this._nDieSizeY.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._nDieSizeY.Margin = new System.Windows.Forms.Padding(2);
-            this._nDieSizeY.Maximum = new decimal(new int[] { 1000, 0, 0, 0});
+            this._nDieSizeY.Maximum = 2147483.647M;
             this._nDieSizeY.Name = "_nDieSizeY";
             this._nDieSizeY.ReadOnly = true;
             this._nDieSizeY.Size = new System.Drawing.Size(200, 25);
@@ -797,7 +819,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblPitchX.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblPitchX.Size = new System.Drawing.Size(146, 32);
             this.lblPitchX.TabIndex = 5;
-            this.lblPitchX.Text = "DIE GAP X (mm)";
+            this.lblPitchX.Text = "다이 간격 X (mm)";
             this.lblPitchX.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // _nPitchX
@@ -807,7 +829,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._nPitchX.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._nPitchX.Increment = new decimal(new int[] { 1, 0, 0, 131072});
             this._nPitchX.Margin = new System.Windows.Forms.Padding(2);
-            this._nPitchX.Maximum = new decimal(new int[] { 50, 0, 0, 0});
+            this._nPitchX.Maximum = 2147483.647M;
             this._nPitchX.Name = "_nPitchX";
             this._nPitchX.Size = new System.Drawing.Size(200, 25);
             this._nPitchX.TabIndex = 6;
@@ -822,7 +844,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblPitchY.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblPitchY.Size = new System.Drawing.Size(126, 32);
             this.lblPitchY.TabIndex = 7;
-            this.lblPitchY.Text = "DIE GAP Y (mm)";
+            this.lblPitchY.Text = "다이 간격 Y (mm)";
             this.lblPitchY.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // _nPitchY
@@ -832,7 +854,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._nPitchY.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._nPitchY.Increment = new decimal(new int[] { 1, 0, 0, 131072});
             this._nPitchY.Margin = new System.Windows.Forms.Padding(2);
-            this._nPitchY.Maximum = new decimal(new int[] { 50, 0, 0, 0});
+            this._nPitchY.Maximum = 2147483.647M;
             this._nPitchY.Name = "_nPitchY";
             this._nPitchY.Size = new System.Drawing.Size(200, 25);
             this._nPitchY.TabIndex = 8;
@@ -874,7 +896,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblDieHint.Name = "lblDieHint";
             this.lblDieHint.Size = new System.Drawing.Size(729, 30);
             this.lblDieHint.TabIndex = 11;
-            this.lblDieHint.Text = "DIE GAP을 바꾸면 상단 SAVE로 역할 맵 좌표가 다시 계산됩니다.";
+            this.lblDieHint.Text = "생성 맵의 DIE GAP 변경은 미리보기에서 다시 생성 후 저장하세요.";
             this.lblDieHint.TextAlign = System.Drawing.ContentAlignment.TopLeft;
             //
             // grpResult
@@ -923,7 +945,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnGridCountPreview.Name = "btnGridCountPreview";
             this.btnGridCountPreview.Size = new System.Drawing.Size(146, 36);
             this.btnGridCountPreview.TabIndex = 0;
-            this.btnGridCountPreview.Text = "COUNT CHECK";
+            this.btnGridCountPreview.Text = "저장 맵 개수 확인";
             this.toolTipRecipeLocation.SetToolTip(this.btnGridCountPreview, "현재 Grid/DIE GAP/Die/Wafer Diameter 기준으로 생성 가능 개수를 계산합니다. 파일은 바뀌지 않습니다.");
             this.btnGridCountPreview.UseVisualStyleBackColor = true;
             this.btnGridCountPreview.Click += new System.EventHandler(this.btnGridCountPreview_Click);
@@ -984,6 +1006,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             //
             this.grpMapSource.BackColor = System.Drawing.Color.White;
             this.grpMapSource.Controls.Add(this._tbMapSourceInfo);
+            this.grpMapSource.Controls.Add(this.btnProcessMapSettings);
+            this.btnProcessMapSettings.Name = "btnProcessMapSettings";
+            this.btnProcessMapSettings.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.btnProcessMapSettings.Height = 42;
+            this.btnProcessMapSettings.Text = "공정 맵 설정 · 사용 모드 / 형식 / 회전 / 좌표 기준";
+            this.btnProcessMapSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnProcessMapSettings.BackColor = System.Drawing.Color.FromArgb(230, 88, 31);
+            this.btnProcessMapSettings.ForeColor = System.Drawing.Color.White;
+            this.btnProcessMapSettings.Click += new System.EventHandler(this.btnProcessMapSettings_Click);
             this.grpMapSource.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpMapSource.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpMapSource.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(35)))), ((int)(((byte)(45)))), ((int)(((byte)(57)))));

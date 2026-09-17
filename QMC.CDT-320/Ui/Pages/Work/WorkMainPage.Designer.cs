@@ -838,7 +838,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             // 
             // lotMapView
             // 
-            this.lotMapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
+            this.lotMapView.BackColor = QMC.CDT_320.Ui.Controls.WaferMapPalette.ViewBackground;
             this.lotMapView.Caption = "Die Map";
             this.lotMapView.CompactUsedBounds = true;
             this.lotMapView.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -858,7 +858,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             // 
             // outputGoodLotMapView
             // 
-            this.outputGoodLotMapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
+            this.outputGoodLotMapView.BackColor = QMC.CDT_320.Ui.Controls.WaferMapPalette.ViewBackground;
             this.outputGoodLotMapView.Caption = "OUTPUT GOOD MAP   -";
             this.outputGoodLotMapView.CompactUsedBounds = true;
             this.outputGoodLotMapView.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -878,7 +878,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             // 
             // outputNgLotMapView
             // 
-            this.outputNgLotMapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
+            this.outputNgLotMapView.BackColor = QMC.CDT_320.Ui.Controls.WaferMapPalette.ViewBackground;
             this.outputNgLotMapView.Caption = "OUTPUT NG MAP   -";
             this.outputNgLotMapView.CompactUsedBounds = true;
             this.outputNgLotMapView.Dock = System.Windows.Forms.DockStyle.Fill;

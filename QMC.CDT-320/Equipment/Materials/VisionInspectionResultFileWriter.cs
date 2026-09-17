@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using QMC.Common;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Recipes;
+using QMC.CDT320.DieMaps;
 
 namespace QMC.CDT320.Materials
 {
@@ -19,18 +20,21 @@ namespace QMC.CDT320.Materials
     internal static class VisionInspectionResultFileWriter
     {
         private const string InputHeader =
-            "Lot_ID,Material_ID,Presence,Recipe_Name,Picker_Number,Result,Fail_Code,Loading_Substrate_ID,Loading_Substrate_Y,Loading_Substrate_X,Pick_Position_X,Pick_Position_Y,Pick_Offset_X,Pick_Offset_Y,Pick_Offset_T,Pick_StartTime,Pick_EndTime,Unloading_Substrate_ID,Unloading_Substrate_Y,Unloading_Substrate_X,Pre_Place_Position_X,Pre_Place_Position_Y,Pre_Place_Offset_X,Pre_Place_Offset_Y,Pre_Place_Offset_T,Pre_Place_StartTime,Pre_Place_EndTime,Die_Width,Die_Height,Back_Chipping_Top_Size,Back_Chipping_Right_Size,Back_Chipping_Bottom_Size,Back_Chipping_Left_Size,Back_Foreign_Size,Side_Chipping_Bottom,Side_Chipping_Left,Side_Chipping_Top,Side_Chipping_Right,Post_Place_Offset_X,Post_Place_Offset_Y,Post_Place_Offset_T,Post_Place_Top_Gap_Min,Post_Place_Top_Gap_Max,Post_Place_Top_Gap_Avg,Post_Place_Left_Gap_Min,Post_Place_Left_Gap_Max,Post_Place_Left_Gap_Avg,Post_Place_Bottom_Gap_Min,Post_Place_Bottom_Gap_Max,Post_Place_Bottom_Gap_Avg,Post_Place_Right_Gap_Min,Post_Place_Right_Gap_Max,Post_Place_Right_Gap_Avg,Post_Place_Angle,Post_Place_Result_Code,";
+            "Lot_ID,Material_ID,Presence,Recipe_Name,Picker_Number,Result,Fail_Code,Loading_Substrate_ID,Loading_Substrate_X,Loading_Substrate_Y,Pick_Position_X,Pick_Position_Y,Pick_Offset_X,Pick_Offset_Y,Pick_Offset_T,Pick_StartTime,Pick_EndTime,Unloading_Substrate_ID,Unloading_Substrate_X,Unloading_Substrate_Y,Pre_Place_Position_X,Pre_Place_Position_Y,Pre_Place_Offset_X,Pre_Place_Offset_Y,Pre_Place_Offset_T,Pre_Place_StartTime,Pre_Place_EndTime,Die_Width,Die_Height,Back_Chipping_Top_Size,Back_Chipping_Right_Size,Back_Chipping_Bottom_Size,Back_Chipping_Left_Size,Back_Foreign_Size,Side_Chipping_Bottom,Side_Chipping_Left,Side_Chipping_Top,Side_Chipping_Right,Post_Place_Offset_X,Post_Place_Offset_Y,Post_Place_Offset_T,Post_Place_Top_Gap_Min,Post_Place_Top_Gap_Max,Post_Place_Top_Gap_Avg,Post_Place_Left_Gap_Min,Post_Place_Left_Gap_Max,Post_Place_Left_Gap_Avg,Post_Place_Bottom_Gap_Min,Post_Place_Bottom_Gap_Max,Post_Place_Bottom_Gap_Avg,Post_Place_Right_Gap_Min,Post_Place_Right_Gap_Max,Post_Place_Right_Gap_Avg,Post_Place_Angle,Post_Place_Result_Code,";
 
         private const string OutputSummaryHeader =
             "LOT_ID,START_TIME,END_TIME,EQP_ID,IN_QTY,PICK_ORIGIN,PLACE_ORIGIN,PICK_CASSETTE_ID,PLACE_CASSETTE_ID,COLLETT_MODEL_NUMBER,COLLET_ID_NUMBER,DT_COUNT";
 
         private const string OutputDieHeader =
-            "CHIP_SEQ,HEAD,PICK_WAFER_ID,PICK_WAFER_ROW,PICK_WAFER_COL,PLACE_WAFER_ID,PLACE_WAFER_ROW,PLACE_WAFER_COL,ChipSizeX,ChipSizeY,DieGapLeft,DieGapRight,DieGapTop,DieGapBottom,ANGLE,TargetBin,placement_offset_x_mm,placement_offset_y_mm,Back_Chipping_Top_Size,Back_Chipping_Right_Size,Back_Chipping_Bottom_Size,Back_Chipping_Left_Size,Back_Foreign_Size,Side_Chipping_Bottom,Side_Chipping_Left,Side_Chipping_Top,Side_Chipping_Right";
+            "CHIP_SEQ,HEAD,PICK_WAFER_ID,PICK_WAFER_X,PICK_WAFER_Y,PLACE_WAFER_ID,PLACE_WAFER_X,PLACE_WAFER_Y,ChipSizeX,ChipSizeY,DieGapLeft,DieGapRight,DieGapTop,DieGapBottom,ANGLE,TargetBin,placement_offset_x_mm,placement_offset_y_mm,Back_Chipping_Top_Size,Back_Chipping_Right_Size,Back_Chipping_Bottom_Size,Back_Chipping_Left_Size,Back_Foreign_Size,Side_Chipping_Bottom,Side_Chipping_Left,Side_Chipping_Top,Side_Chipping_Right";
 
         private const int LegacyOutputDieColumnCount = 18;
         private const int OutputInspectionColumnCount = 9;
         private const int OutputDieColumnCount = LegacyOutputDieColumnCount + OutputInspectionColumnCount;
         private const int RawCacheFileLimit = 8;
+        // V2: X/Y 순서, 적용 좌표 +1, Front 1~4 / Rear 5~8.
+        // 이전 CSV에는 픽커 위치가 없어 HEAD를 복원할 수 없으므로 같은 파일에 혼합하지 않는다.
+        private const string MapCoordinateSuffix = "_MapXY_V2";
         private static readonly Encoding Utf8WithoutBom = new UTF8Encoding(false);
         private static readonly object QueueSyncRoot = new object();
         private static readonly object FileSyncRoot = new object();
@@ -75,7 +79,7 @@ namespace QMC.CDT320.Materials
 
                 Enqueue(new WriteRequest
                 {
-                    CsvPath = Path.Combine(inputDir, stem + ".csv"),
+                    CsvPath = Path.Combine(inputDir, stem + MapCoordinateSuffix + ".csv"),
                     CsvPreamble = InputHeader,
                     CsvLine = BuildInputResultLine(
                         recipeName,
@@ -130,12 +134,13 @@ namespace QMC.CDT320.Materials
                     inputSessionStartedAt.ToString("yyyyMMddHH", CultureInfo.InvariantCulture);
                 string inputDir = Path.Combine(MaterialSnapshotStore.RootDir, "INPUT");
                 OutputReceiveSlotMaterial slot = ResolveSlot(outputWafer, die, receiveTarget);
+                ValidateOutputPlacement(outputWafer, die, slot);
 
                 if (bottomRecord != null)
                 {
                     Enqueue(new WriteRequest
                     {
-                        CsvPath = Path.Combine(inputDir, inputStem + ".csv"),
+                        CsvPath = Path.Combine(inputDir, inputStem + MapCoordinateSuffix + ".csv"),
                         CsvPreamble = InputHeader,
                         CsvLine = BuildInputResultLine(
                             recipeName,
@@ -184,7 +189,7 @@ namespace QMC.CDT320.Materials
 
         /// <summary>
         /// Flying Die(유실) 판정 다이를 NG 출력 결과 파일에 기록한다.
-        /// 플레이스가 없으므로 PlaceRow/Col=-1, bin=255로 기록하고, 검사 레코드(Bottom/후검사)가 있으면 함께 싣는다.
+        /// 플레이스가 없으므로 Place X/Y은 빈칸, bin=255로 기록하고, 검사 레코드(Bottom/후검사)가 있으면 함께 싣는다.
         /// </summary>
         public static void EnqueueFlyingDieResult(
             string recipeName,
@@ -596,7 +601,7 @@ namespace QMC.CDT320.Materials
                 SafeFileName(equipmentId) + "_" +
                 place.SessionStartedAt.ToString("yyyyMMddHHmm", CultureInfo.InvariantCulture);
             string outputDir = Path.Combine(MaterialSnapshotStore.RootDir, "OUTPUT");
-            string csvPath = Path.Combine(outputDir, stem + ".csv");
+            string csvPath = Path.Combine(outputDir, stem + MapCoordinateSuffix + ".csv");
             string rawPath = Path.Combine(outputDir, "Raw", stem + ".txt");
 
             lock (FileSyncRoot)
@@ -644,7 +649,7 @@ namespace QMC.CDT320.Materials
             if (lines.Count == 0)
                 lines.Add(preamble);
             else if (!string.Equals(lines[0], preamble, StringComparison.Ordinal))
-                lines[0] = preamble;
+                throw new InvalidDataException("INPUT 결과 CSV 형식이 다릅니다. 기존 파일을 보존합니다. path=" + path);
             else
                 return;
 
@@ -674,20 +679,10 @@ namespace QMC.CDT320.Materials
                 return;
             }
 
-            bool changed = false;
-            if (!string.Equals(lines[0], OutputSummaryHeader, StringComparison.Ordinal))
-            {
-                lines[0] = OutputSummaryHeader;
-                changed = true;
-            }
-            if (!string.Equals(lines[2], OutputDieHeader, StringComparison.Ordinal))
-            {
-                lines[2] = OutputDieHeader;
-                changed = true;
-            }
+            if (!string.Equals(lines[0], OutputSummaryHeader, StringComparison.Ordinal) ||
+                !string.Equals(lines[2], OutputDieHeader, StringComparison.Ordinal))
+                throw new InvalidDataException("OUTPUT 결과 CSV 형식이 다릅니다. 기존 파일을 보존합니다. path=" + path);
             if (UpgradeLegacyOutputDetailLines(lines))
-                changed = true;
-            if (changed)
                 WriteAllLinesAtomic(path, lines);
         }
 
@@ -725,6 +720,11 @@ namespace QMC.CDT320.Materials
             bool replaced = false;
             for (int i = 3; i < lines.Count; i++)
             {
+                // 센터의 음수 좌표는 정상이다. 미배치(Flying Die)는 빈 Place 좌표로 별도 구분한다.
+                List<string> existingFields = ParseCsvLine(lines[i]);
+                bool existingFlyingDie = existingFields.Count > 7 &&
+                    string.IsNullOrEmpty(existingFields[6]) && string.IsNullOrEmpty(existingFields[7]);
+                if (existingFlyingDie != place.FlyingDie) continue;
                 string currentKey = BuildCsvKey(lines[i], place.DetailKeyColumns ?? new[] { 5, 6, 7 });
                 if (!string.Equals(currentKey, place.DetailKey, StringComparison.OrdinalIgnoreCase))
                     continue;
@@ -944,15 +944,11 @@ namespace QMC.CDT320.Materials
             InspectionAlignmentSnapshot bottomAlignment = FindAlignment(bottomRecord);
             VisionOffset pickOffset = inputVisionRecord != null ? inputVisionRecord.Offset : null;
 
-            int pickerIndex = die.PickedPickerNo > 0
-                ? die.PickedPickerNo - 1
-                : ReadIntMeasurement(bottomRecord, "BottomPickerNo", -1) - 1;
-            int inputMapY = ResolveMapIndex(die.Wafer_OriginalIndexY, die.Wafer_IndexY);
-            int inputMapX = ResolveMapIndex(die.Wafer_OriginalIndexX, die.Wafer_IndexX);
-            int outputMapSourceY = outputSlot != null ? outputSlot.DieMapY : die.Bin_IndexY;
-            int outputMapSourceX = outputSlot != null ? outputSlot.DieMapX : die.Bin_IndexX;
-            int outputMapY = outputMapSourceY >= 0 ? outputMapSourceY + 1 : -1;
-            int outputMapX = outputMapSourceX >= 0 ? outputMapSourceX + 1 : -1;
+            int headNumber = RequireResultHeadNumber(die);
+            double inputMapY = RequireMapCoordinate(die.InputLogicalGridY, "Input Y", die.DieId);
+            double inputMapX = RequireMapCoordinate(die.InputLogicalGridX, "Input X", die.DieId);
+            double? outputMapY = outputSlot == null ? (double?)null : RequireMapCoordinate(outputSlot.LogicalGridY, "Output Y", die.DieId);
+            double? outputMapX = outputSlot == null ? (double?)null : RequireMapCoordinate(outputSlot.LogicalGridX, "Output X", die.DieId);
 
             double bottomItemOffsetX = ReadVisionDouble(
                 bottomRecord,
@@ -977,15 +973,15 @@ namespace QMC.CDT320.Materials
             values.Add(die.DieId);
             values.Add("Exist");
             values.Add(recipeName);
-            values.Add(pickerIndex >= 0 ? pickerIndex.ToString(CultureInfo.InvariantCulture) : "");
+            values.Add(headNumber.ToString(CultureInfo.InvariantCulture));
             // Result/Fail Code는 Bottom 단독이 아니라 Side0/Side90 판정까지 종합해 기록한다.
             values.Add(ToCombinedLegacyResult(bottomRecord, side0Record, side90Record));
             values.Add(JoinList(CollectFailCodes(die, bottomRecord, side0Record, side90Record)));
 
             // Loading/Pick 정보: 10열
             values.Add(die.WaferID_Input);
-            values.Add(FormatIndex(inputMapY));
-            values.Add(FormatIndex(inputMapX));
+            values.Add(WaferMapProcessService.FormatMapCoordinate(inputMapX, ""));
+            values.Add(WaferMapProcessService.FormatMapCoordinate(inputMapY, ""));
             values.Add(FormatMicrometers(pickAlignment != null ? pickAlignment.X : double.NaN));
             values.Add(FormatMicrometers(pickAlignment != null ? pickAlignment.Y : double.NaN));
             values.Add(FormatMicrometers(pickOffset != null ? pickOffset.X : double.NaN));
@@ -998,8 +994,8 @@ namespace QMC.CDT320.Materials
 
             // Unloading/Pre-Place 정보: 10열
             values.Add(die.WaferID_Output);
-            values.Add(FormatIndex(outputMapY));
-            values.Add(FormatIndex(outputMapX));
+            values.Add(WaferMapProcessService.FormatMapCoordinate(outputMapX, ""));
+            values.Add(WaferMapProcessService.FormatMapCoordinate(outputMapY, ""));
             values.Add(FormatMicrometers(bottomAlignment != null ? bottomAlignment.X : double.NaN));
             values.Add(FormatMicrometers(bottomAlignment != null ? bottomAlignment.Y : double.NaN));
             values.Add(FormatMicrometers(bottomItemOffsetX));
@@ -1099,30 +1095,29 @@ namespace QMC.CDT320.Materials
                 "BottomVision_",
                 "bottom_item_offset_y",
                 ReadMeasurement(bottomRecord, "BottomItemOffsetY"));
-            int inputMapY = ResolveMapIndex(die.Wafer_OriginalIndexY, die.Wafer_IndexY);
-            int inputMapX = ResolveMapIndex(die.Wafer_OriginalIndexX, die.Wafer_IndexX);
-            int outputMapSourceY = outputSlot != null ? outputSlot.DieMapY : die.Bin_IndexY;
-            int outputMapSourceX = outputSlot != null ? outputSlot.DieMapX : die.Bin_IndexX;
-            int outputMapY = outputMapSourceY >= 0 ? outputMapSourceY + 1 : -1;
-            int outputMapX = outputMapSourceX >= 0 ? outputMapSourceX + 1 : -1;
+            if (!flyingDie) ValidateOutputPlacement(outputWafer, die, outputSlot);
+            double inputMapY = RequireMapCoordinate(die.InputLogicalGridY, "Input Y", die.DieId);
+            double inputMapX = RequireMapCoordinate(die.InputLogicalGridX, "Input X", die.DieId);
+            double? outputMapY = flyingDie ? (double?)null : RequireMapCoordinate(outputSlot != null ? outputSlot.LogicalGridY : null, "Output Y", die.DieId);
+            double? outputMapX = flyingDie ? (double?)null : RequireMapCoordinate(outputSlot != null ? outputSlot.LogicalGridX : null, "Output X", die.DieId);
             int targetBin = flyingDie ? 255 : (outputSlot != null ? outputSlot.BinCode : die.Output_BinCode);
             int totalCount = ResolveOutputTotalCount(outputWafer);
             string outputWaferId = string.IsNullOrWhiteSpace(outputWafer.WaferId)
                 ? "UNKNOWN_OUTPUT_WAFER"
                 : outputWafer.WaferId.Trim();
-            string formattedOutputMapY = flyingDie ? "-1" : FormatPaddedIndex(outputMapY);
-            string formattedOutputMapX = flyingDie ? "-1" : FormatPaddedIndex(outputMapX);
+            string formattedOutputMapY = WaferMapProcessService.FormatMapCoordinate(outputMapY, "");
+            string formattedOutputMapX = WaferMapProcessService.FormatMapCoordinate(outputMapX, "");
 
             var detail = new List<object>(OutputDieColumnCount)
             {
                 die.InputSequenceNo,
-                die.PickedPickerNo > 0 ? die.PickedPickerNo - 1 : -1,
+                RequireResultHeadNumber(die),
                 die.WaferID_Input,
-                FormatIndex(inputMapY),
-                FormatIndex(inputMapX),
+                WaferMapProcessService.FormatMapCoordinate(inputMapX, ""),
+                WaferMapProcessService.FormatMapCoordinate(inputMapY, ""),
                 outputWaferId,
-                formattedOutputMapY,
                 formattedOutputMapX,
+                formattedOutputMapY,
                 FormatBottomSize(bottomRecord, "bottom_item_width", "bottom_width_mm"),
                 FormatBottomSize(bottomRecord, "bottom_item_height", "bottom_height_mm"),
                 FormatPlaceMetric(placeRecord, "placement_item_left_gap_avg", true),
@@ -1178,6 +1173,9 @@ namespace QMC.CDT320.Materials
             var payload = new PlaceWritePayload
             {
                 RecipeName = recipeName ?? "",
+                PickOrigin = die.InputMapGridOrigin.HasValue ? die.InputMapGridOrigin.Value.ToString() : "",
+                PlaceOrigin = ResolveAppliedOutputOrigin(outputWafer),
+                FlyingDie = flyingDie,
                 LotId = lotId ?? "",
                 ReworkCount = Lot.NormalizeReworkCount(reworkCount),
                 OutputSide = outputSide,
@@ -1189,19 +1187,19 @@ namespace QMC.CDT320.Materials
                 DetailLine = CsvLine(detail),
                 DetailKey = string.Join(
                     "\u001f",
-                    new[] { outputWaferId, formattedOutputMapY, formattedOutputMapX }),
+                    new[] { outputWaferId, formattedOutputMapX, formattedOutputMapY }),
                 RawLine = ReadRawMeasurement(placeRecord, "OutputVisionRaw"),
                 HasBottomCorrection = flyingDie || (IsFinite(bottomItemOffsetX) && IsFinite(bottomItemOffsetY)),
-                HasOutputCoordinates = flyingDie || (outputMapSourceY >= 0 && outputMapSourceX >= 0)
+                HasOutputCoordinates = flyingDie || (outputMapY.HasValue && outputMapX.HasValue)
             };
 
             if (flyingDie)
             {
-                // PlaceRow/Col이 전부 -1이라 입력 좌표 열(3,4)로 행을 식별한다.
+                // 미배치는 입력 웨이퍼 ID와 적용 좌표로 식별하여 서로 다른 웨이퍼의 같은 좌표를 구분한다.
                 payload.DetailKey = string.Join(
                     "\u001f",
-                    new[] { outputWaferId, FormatIndex(inputMapY), FormatIndex(inputMapX) });
-                payload.DetailKeyColumns = new[] { 5, 3, 4 };
+                    new[] { outputWaferId, die.WaferID_Input ?? "", WaferMapProcessService.FormatMapCoordinate(inputMapX, ""), WaferMapProcessService.FormatMapCoordinate(inputMapY, "") });
+                payload.DetailKeyColumns = new[] { 5, 2, 3, 4 };
             }
 
             return payload;
@@ -1228,8 +1226,8 @@ namespace QMC.CDT320.Materials
                 endAt.ToString("yyyy-MM-dd-HH:mm", CultureInfo.InvariantCulture),
                 machineNumber,
                 totalCount,
-                metadata.PickOrigin,
-                metadata.PlaceOrigin,
+                place.PickOrigin,
+                place.PlaceOrigin,
                 metadata.InputCassetteId,
                 placeCassetteId,
                 metadata.ColletModelNumber,
@@ -1288,12 +1286,6 @@ namespace QMC.CDT320.Materials
                     metadata.OutputCassetteId = project.OutputCassetteId ?? "";
                     metadata.ColletModelNumber = project.ColletModelNum ?? "";
                     metadata.ColletIdNumber = project.ColletLotNum ?? "";
-                    metadata.PickOrigin = project.InputPickup != null
-                        ? project.InputPickup.StartCorner.ToString()
-                        : "";
-                    metadata.PlaceOrigin = project.OutputPickup != null
-                        ? project.OutputPickup.StartCorner.ToString()
-                        : "";
                     loaded = true;
                 }
             }
@@ -1609,19 +1601,51 @@ namespace QMC.CDT320.Materials
             return string.Join("|", values.Where(v => !string.IsNullOrWhiteSpace(v)).Select(v => v.Trim()));
         }
 
-        private static int ResolveMapIndex(int original, int local)
+        private static int RequireResultHeadNumber(DieMaterial die)
         {
-            return original >= 0 ? original : local;
+            if (die == null || die.PickedPickerNo < 1 || die.PickedPickerNo > 4 ||
+                (die.PickedPickerLocation != MaterialLocationKind.PickerFront &&
+                 die.PickedPickerLocation != MaterialLocationKind.PickerRear))
+                throw new InvalidDataException("결과에 기록할 픽커 위치/번호가 없습니다. die=" + die?.DieId +
+                    ", location=" + die?.PickedPickerLocation + ", picker=" + die?.PickedPickerNo);
+
+            // 로컬 P4/P3/P2/P1에 대해 Front=4/3/2/1, Rear=5/6/7/8.
+            // 처리 순서나 현재 배치 위치가 아닌 해당 다이의 픽업 이력을 사용한다.
+            return die.PickedPickerLocation == MaterialLocationKind.PickerRear ? 9 - die.PickedPickerNo : die.PickedPickerNo;
         }
 
-        private static string FormatIndex(int value)
+        private static double RequireMapCoordinate(double? coordinate, string name, string dieId)
         {
-            return value >= 0 ? value.ToString(CultureInfo.InvariantCulture) : "";
+            if (!coordinate.HasValue || !IsFinite(coordinate.Value))
+                throw new InvalidDataException("결과에 기록할 적용 맵 좌표가 없습니다. " + name + ", die=" + dieId +
+                    ". 현재 Recipe나 원본 주소로 대신 계산할 수 없습니다.");
+            return coordinate.Value;
         }
 
-        private static string FormatPaddedIndex(int value)
+        private static void ValidateOutputPlacement(WaferMaterial wafer, DieMaterial die, OutputReceiveSlotMaterial slot)
         {
-            return value >= 0 ? value.ToString("D3", CultureInfo.InvariantCulture) : "";
+            if (wafer == null || die == null || slot == null ||
+                string.IsNullOrWhiteSpace(die.DieId) || string.IsNullOrWhiteSpace(wafer.WaferId) ||
+                string.IsNullOrWhiteSpace(wafer.WaferInstanceId) ||
+                !string.Equals(wafer.OutputReceivePreparedMapInstanceId, wafer.WaferInstanceId, StringComparison.Ordinal) ||
+                !string.Equals(slot.DieUid, die.DieId, StringComparison.Ordinal) ||
+                (!string.IsNullOrEmpty(slot.SourceDieUid) && !string.Equals(slot.SourceDieUid, die.DieId, StringComparison.Ordinal)) ||
+                !string.Equals(die.WaferID_Output, wafer.WaferId, StringComparison.Ordinal) ||
+                !string.Equals(die.OutputWaferInstanceId, wafer.WaferInstanceId, StringComparison.Ordinal) ||
+                die.Bin_IndexX != slot.DieMapX || die.Bin_IndexY != slot.DieMapY)
+                throw new InvalidDataException("결과 저장 대상 다이와 실제 Output 슬롯/물리 웨이퍼가 일치하지 않습니다.");
+            DieMap map = wafer.OutputReceivePreparedMap;
+            DieMapEntry entry = map != null && map.Entries != null
+                ? map.Entries.SingleOrDefault(e => e != null && e.DieMapX == slot.DieMapX && e.DieMapY == slot.DieMapY) : null;
+            if (entry == null || entry.LogicalGridX != slot.LogicalGridX || entry.LogicalGridY != slot.LogicalGridY)
+                throw new InvalidDataException("결과 저장 좌표가 해당 웨이퍼에 적용된 Output 맵 좌표와 일치하지 않습니다.");
+        }
+
+        private static string ResolveAppliedOutputOrigin(WaferMaterial wafer)
+        {
+            WaferMapProcessTransform transform = wafer != null && wafer.OutputReceivePreparedMap != null
+                ? wafer.OutputReceivePreparedMap.ProcessTransform : null;
+            return transform == null ? "" : (transform.Settings != null ? transform.Settings.GridOrigin : WaferMapGridOrigin.TopLeft).ToString();
         }
 
         private static string FormatMicrometers(double millimeters)
@@ -1813,6 +1837,9 @@ namespace QMC.CDT320.Materials
 
         private sealed class PlaceWritePayload
         {
+            public string PickOrigin { get; set; }
+            public string PlaceOrigin { get; set; }
+            public bool FlyingDie { get; set; }
             public string RecipeName { get; set; }
             public string LotId { get; set; }
             public int ReworkCount { get; set; }
@@ -1838,8 +1865,6 @@ namespace QMC.CDT320.Materials
             public string OutputCassetteId { get; set; } = "";
             public string ColletModelNumber { get; set; } = "";
             public string ColletIdNumber { get; set; } = "";
-            public string PickOrigin { get; set; } = "";
-            public string PlaceOrigin { get; set; } = "";
         }
 
         private sealed class RecipeMetadataCacheEntry

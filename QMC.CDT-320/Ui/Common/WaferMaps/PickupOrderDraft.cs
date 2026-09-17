@@ -167,6 +167,9 @@ namespace QMC.CDT_320.Ui.Common.WaferMaps
                 EdgeSkipMode = source.EdgeSkipMode, SideEdgeSkip = source.SideEdgeSkip,
                 TopBottomEdgeSkip = source.TopBottomEdgeSkip, SourceFileName = source.SourceFileName,
                 SourceFormat = source.SourceFormat, SourcePitchFromFile = source.SourcePitchFromFile,
+                Generation = GeneratedWaferMapCodec.CloneDefinition(source.Generation),
+                SourceContentHash = source.SourceContentHash,
+                ProcessTransform = WaferMapProcessService.CloneTransform(source.ProcessTransform),
                 SourceDeclaredCount = source.SourceDeclaredCount, SourceFirstX = source.SourceFirstX,
                 SourceFirstY = source.SourceFirstY, SourceFirstPosX = source.SourceFirstPosX,
                 SourceFirstPosY = source.SourceFirstPosY, CreatedAt = source.CreatedAt,
@@ -174,6 +177,8 @@ namespace QMC.CDT_320.Ui.Common.WaferMaps
                 {
                     Index = e.Index, SequenceNo = e.SequenceNo, DieMapX = e.DieMapX, DieMapY = e.DieMapY,
                     OriginalMapX = e.OriginalMapX, OriginalMapY = e.OriginalMapY,
+                    SourceBinCode = e.SourceBinCode, SourceToken = e.SourceToken,
+                    LogicalGridX = e.LogicalGridX, LogicalGridY = e.LogicalGridY,
                     IsTarget = e.IsTarget, Result = e.Result, BinCode = e.BinCode,
                     PosX = e.PosX, PosY = e.PosY, EquipmentGridX = e.EquipmentGridX,
                     EquipmentGridY = e.EquipmentGridY, DieUid = e.DieUid

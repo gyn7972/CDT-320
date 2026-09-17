@@ -45,6 +45,16 @@ namespace QMC.CDT320.Materials
                     return false;
                 }
 
+                if (outputWafer.OutputReceiveTotalCount > 0 &&
+                    (outputWafer.OutputReceivePreparedMap != null ||
+                     (outputWafer.OutputReceiveSlots != null && outputWafer.OutputReceiveSlots.Count > 0)))
+                {
+                    // 같은 물리 웨이퍼의 재개에서는 슬롯·점유·다음 인덱스를 초기화하지 않는다.
+                    if (ResolveOutputReceiveOrderCached(side, outputWafer) == null)
+                        throw new InvalidDataException("저장된 Output 수납 순서를 복원하지 못했습니다.");
+                    return true;
+                }
+
                 // 출력 수령 계획은 레시피의 원형 빈맵(side별)에서 타겟 슬롯을 소스로 한다.
                 string binMapReason;
                 DieMap binMap = LoadRecipeBinMap(side, out binMapReason);
@@ -59,6 +69,7 @@ namespace QMC.CDT320.Materials
                 }
 
                 var project = RecipeStore.LoadLastOrDefaultCached();
+                binMap = WaferMapProcessService.Prepare(binMap, project != null ? project.OutputMapProcessing : null, side.ToString());
                 PickupSubset pickup = ResolveOutputPickup(project);
                 List<DieMapEntry> ordered = BuildOutputReceiveOrder(binMap, pickup);
                 if (ordered.Count == 0)
@@ -68,6 +79,10 @@ namespace QMC.CDT320.Materials
                     LogOutputReceivePlanBlocked(side, reason + ", wafer=" + outputWafer.WaferId);
                     return false;
                 }
+
+                for (int i = 0; i < ordered.Count; i++) ordered[i].SequenceNo = i + 1;
+                outputWafer.OutputReceivePreparedMap = WaferMapProcessService.CloneMap(binMap);
+                outputWafer.OutputReceivePreparedMapInstanceId = EnsureWaferInstanceIdNoLock(outputWafer);
 
                 // [사용자 승인 2026-07-27] 계획 재초기화 시 수령 순서 캐시를 최신으로 갱신.
                 _outputReceiveOrderCache[side] =
@@ -193,10 +208,42 @@ namespace QMC.CDT320.Materials
 
             System.Collections.Generic.KeyValuePair<string, List<DieMapEntry>> cached;
             string outputWaferInstanceId = EnsureWaferInstanceIdNoLock(outputWafer);
+            if (outputWafer.OutputReceivePreparedMap != null &&
+                !string.Equals(outputWafer.OutputReceivePreparedMapInstanceId, outputWaferInstanceId, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("저장된 Output 작업 맵의 물리 웨이퍼 식별자가 다릅니다.");
             if (_outputReceiveOrderCache.TryGetValue(side, out cached) &&
                 string.Equals(cached.Key, outputWaferInstanceId, StringComparison.OrdinalIgnoreCase) &&
                 cached.Value != null && cached.Value.Count > 0)
                 return cached.Value;
+
+            if (outputWafer.OutputReceivePreparedMap != null &&
+                string.Equals(outputWafer.OutputReceivePreparedMapInstanceId, outputWaferInstanceId, StringComparison.OrdinalIgnoreCase))
+            {
+                DieMap snapshot = WaferMapProcessService.CloneMap(outputWafer.OutputReceivePreparedMap);
+                WaferMapProcessService.ValidateGeometry(snapshot);
+                List<DieMapEntry> restored = snapshot.Entries.Where(entry => entry.IsTarget && entry.SequenceNo > 0)
+                    .OrderBy(entry => entry.SequenceNo).ToList();
+                ValidatePreparedOutputReceiveOrder(outputWafer, restored);
+                _outputReceiveOrderCache[side] = new System.Collections.Generic.KeyValuePair<string, List<DieMapEntry>>(outputWaferInstanceId, restored);
+                return restored;
+            }
+            if (outputWafer.OutputReceiveSlots != null && outputWafer.OutputReceiveSlots.Count > 0)
+            {
+                // 구형 저장 상태도 실제 슬롯 좌표를 복원하며 현재 레시피로 목표를 바꾸지 않는다.
+                List<DieMapEntry> restored = outputWafer.OutputReceiveSlots.Where(slot => slot != null)
+                    .OrderBy(slot => slot.OrderIndex).Select(slot => new DieMapEntry
+                    {
+                        Index = slot.OrderIndex, SequenceNo = slot.OrderIndex + 1,
+                        DieMapX = slot.DieMapX, DieMapY = slot.DieMapY,
+                        OriginalMapX = slot.OriginalMapX, OriginalMapY = slot.OriginalMapY,
+                        LogicalGridX = slot.LogicalGridX, LogicalGridY = slot.LogicalGridY,
+                        SourceBinCode = slot.SourceBinCode, IsTarget = true,
+                        PosX = slot.PosX, PosY = slot.PosY, BinCode = slot.BinCode
+                    }).ToList();
+                ValidatePreparedOutputReceiveOrder(outputWafer, restored);
+                _outputReceiveOrderCache[side] = new System.Collections.Generic.KeyValuePair<string, List<DieMapEntry>>(outputWaferInstanceId, restored);
+                return restored;
+            }
 
             DieMap binMap = LoadRecipeBinMap(side);
             if (binMap == null)
@@ -1478,6 +1525,7 @@ namespace QMC.CDT320.Materials
                 DieMap map = RecipeDieMapResolver.LoadCompatibleMap(project, RecipeMapKind.Input, out path, out reason);
                 if (map != null)
                 {
+                    map = WaferMapProcessService.Prepare(map, project.InputMapProcessing, "Input");
                     PickupSequenceGenerator.ApplySequenceNumbers(map, ResolveInputPickup(project));
                     Log.Write("Main", "SYSTEM", "MaterialStateService",
                         "공정 테스트 입력 DieMap 로드 완료. path=" + path +
@@ -1739,6 +1787,12 @@ namespace QMC.CDT320.Materials
                 die.Wafer_OriginalIndexY = originalY;
                 die.InputSequenceNo = entry.SequenceNo;
                 die.Input_BinCode = entry.IsTarget ? entry.BinCode : 0;
+                die.InputSourceBinCode = entry.SourceBinCode;
+                die.InputSourceToken = entry.SourceToken;
+                die.InputLogicalGridX = entry.LogicalGridX;
+                die.InputLogicalGridY = entry.LogicalGridY;
+                die.InputMapGridOrigin = map.ProcessTransform == null ? (WaferMapGridOrigin?)null :
+                    (map.ProcessTransform.Settings != null ? map.ProcessTransform.Settings.GridOrigin : WaferMapGridOrigin.TopLeft);
                 die.IsInputTarget = entry.IsTarget;
                 die.Output_BinCode = 0;
                 die.Bin_IndexX = -1;
@@ -1994,9 +2048,12 @@ namespace QMC.CDT320.Materials
             if (!IsUsableSourceMap(binMap))
                 binMap = DieMapGenerator.GenerateRect(5, 5, 1.0, 1.0, 0.0, 0.0, side == QMC.CDT320.BinSide.Ng ? "PROCESS-TEST-NG" : "PROCESS-TEST-GOOD");
             binMap = DieMapGenerator.Normalize(binMap);
-
+            binMap = WaferMapProcessService.Prepare(binMap, project != null ? project.OutputMapProcessing : null, side.ToString());
             PickupSubset pickup = ResolveOutputPickup(project);
             List<DieMapEntry> ordered = BuildOutputReceiveOrder(binMap, pickup);
+            for (int i = 0; i < ordered.Count; i++) ordered[i].SequenceNo = i + 1;
+            wafer.OutputReceivePreparedMap = WaferMapProcessService.CloneMap(binMap);
+            wafer.OutputReceivePreparedMapInstanceId = EnsureWaferInstanceIdNoLock(wafer);
 
             wafer.OutputReceiveSourceWaferId = sourceWaferId ?? "";
             WaferMaterial sourceWafer = State.Wafers.FirstOrDefault(w =>
@@ -2293,6 +2350,9 @@ namespace QMC.CDT320.Materials
                     DieMapY = ResolveEntryMapY(entry),
                     OriginalMapX = DieMapGenerator.ResolveOriginalMapIndexX(entry),
                     OriginalMapY = DieMapGenerator.ResolveOriginalMapIndexY(entry),
+                    LogicalGridX = entry.LogicalGridX,
+                    LogicalGridY = entry.LogicalGridY,
+                    SourceBinCode = entry.SourceBinCode,
                     IsTarget = true,
                     Result = DieResult.Unknown,
                     BinCode = binCode,

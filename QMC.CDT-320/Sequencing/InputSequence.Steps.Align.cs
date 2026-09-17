@@ -1,6 +1,7 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 using System;
+using QMC.CDT320.Recipes;
 using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
@@ -72,7 +73,7 @@ namespace QMC.CDT320.Sequencing
             AppSettings settings = AppSettingsStore.Current;
             InputStageUnit stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
             bool prefixRequired = stage != null && stage.Config != null && stage.Config.UseBarcodeLotPrefixCheck;
-            if (settings != null && !settings.UseInputWaferBarcode && !settings.UseLotNetworkWaferMap && !prefixRequired)
+            if (settings != null && !settings.UseInputWaferBarcode && !RecipeInputMapSource.UsesRemoteForActiveRecipe(settings) && !prefixRequired)
                 return false;
 
             stageWafer = ResolveStageWaferFromRuntimeState();

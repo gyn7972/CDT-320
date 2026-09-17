@@ -302,13 +302,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (lblWaferDiaCaption != null)
                 lblWaferDiaCaption.Text = "Wafer Diameter (mm)";
             if (lblAxisXCaption != null)
-                lblAxisXCaption.Text = "Input Camera X (mm)";
+                lblAxisXCaption.Text = "맵 X";
             if (lblAxisYCaption != null)
-                lblAxisYCaption.Text = "Input Stage Y (mm)";
+                lblAxisYCaption.Text = "맵 Y";
             if (lblBinRankCaption != null)
-                lblBinRankCaption.Text = "Equipment Grid X/Y";
+                lblBinRankCaption.Text = "BIN";
             if (lblDieNumCaption != null)
-                lblDieNumCaption.Text = "Original DieMap X/Y";
+                lblDieNumCaption.Text = "공정 순서";
 
         }
 
@@ -985,6 +985,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return null;
 
                 // 현재 기준: 전환 화면 preview도 레시피 웨이퍼맵 X/Y 원본 인덱스를 그대로 사용한다.
+                map = WaferMapProcessService.Prepare(map, recipe.InputMapProcessing, "Input");
                 PickupSequenceGenerator.ApplySequenceNumbers(map, recipe.InputPickup ?? recipe.Pickup ?? new PickupSubset());
                 return DieMapGenerator.Normalize(map);
             }
@@ -1075,12 +1076,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private static bool IsMappedMapCompatibleWithApprovedRecipeMap(DieMap mapped, DieMap approved)
+        private static bool IsMappedMapCompatibleWithApprovedRecipeMap(DieMap mapped, DieMap approved,
+            WaferMapProcessSettings settings)
         {
             try
             {
                 string reason;
-                return RecipeDieMapResolver.IsMappedInputCompatibleWithRecipe(mapped, approved, out reason);
+                return RecipeDieMapResolver.IsMappedInputCompatibleWithRecipe(mapped, approved, out reason, settings);
             }
             catch
             {
@@ -1132,7 +1134,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         !string.Equals(wafer.InputMapApprovalHashAtMapping, project.InputMapApprovalHash,
                             StringComparison.OrdinalIgnoreCase) ||
                         !TryLoadApprovedInputRecipeMap(project, out approved, out reason) ||
-                        !IsMappedMapCompatibleWithApprovedRecipeMap(current, approved))
+                        !IsMappedMapCompatibleWithApprovedRecipeMap(current, approved, project.InputMapProcessing))
                     {
                         QMC.Common.MessageDialog.Show(this,
                             "현재 Mapping 결과가 활성 Recipe의 FINAL APPLY 맵과 일치하지 않습니다.\r\n" +
@@ -1279,7 +1281,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                      string.IsNullOrWhiteSpace(stageWafer.InputMapApprovalHashAtMapping) ||
                      !string.Equals(stageWafer.InputMapApprovalHashAtMapping, activeProject.InputMapApprovalHash,
                          StringComparison.OrdinalIgnoreCase) ||
-                     !IsMappedMapCompatibleWithApprovedRecipeMap(mappedWaferMap, approvedRecipeMap)))
+                     !IsMappedMapCompatibleWithApprovedRecipeMap(mappedWaferMap, approvedRecipeMap, activeProject.InputMapProcessing)))
                 {
                     return false;
                 }
@@ -1472,7 +1474,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         string.IsNullOrWhiteSpace(stageWafer.InputMapApprovalHashAtMapping) ||
                         !string.Equals(stageWafer.InputMapApprovalHashAtMapping, activeProject.InputMapApprovalHash,
                             StringComparison.OrdinalIgnoreCase) ||
-                        !IsMappedMapCompatibleWithApprovedRecipeMap(mappedWaferMap, approvedRecipeMap))
+                        !IsMappedMapCompatibleWithApprovedRecipeMap(mappedWaferMap, approvedRecipeMap, activeProject.InputMapProcessing))
                     {
                         if (_mapPositionsAreMachineAbsolute)
                             ApplyMap(null, "INPUT MAP REMAP / FINAL APPLY REQUIRED", false);
@@ -1608,6 +1610,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
 
                 return (map.FrameObjId ?? "") + "|" +
+                    (map.ProcessTransform != null ? map.ProcessTransform.SettingsKey : "") + "|" +
                     map.DieMapX.ToString() + "|" +
                     map.DieMapY.ToString() + "|" +
                     map.PitchX.ToString("F6") + "|" +
@@ -1709,10 +1712,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     double centerX;
                     double centerY;
                     ResolveInputProcessCenter(out centerX, out centerY);
-                    lblAxisX.Text = centerX.ToString("F3");
-                    lblAxisY.Text = centerY.ToString("F3");
-                    lblBinRank.Text = "0 / 0";
-                    lblDieNum.Text = "- / -";
+                    lblAxisX.Text = "-";
+                    lblAxisY.Text = "-";
+                    lblBinRank.Text = "-";
+                    lblDieNum.Text = "-";
                 }
                 else
                 {
@@ -1732,12 +1735,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (entry == null)
                 return;
 
-            lblAxisX.Text = ResolveInputDisplayProcessX(map, entry).ToString("F3");
-            lblAxisY.Text = ResolveInputDisplayProcessY(map, entry).ToString("F3");
-            lblBinRank.Text = FormatEquipmentGrid(entry.EquipmentGridX) + " / " +
-                FormatEquipmentGrid(entry.EquipmentGridY);
-            lblDieNum.Text = DieMapGenerator.ResolveOriginalMapIndexX(entry).ToString() + " / " +
-                DieMapGenerator.ResolveOriginalMapIndexY(entry).ToString();
+            lblAxisX.Text = WaferMapProcessService.FormatMapCoordinate(entry.LogicalGridX);
+            lblAxisY.Text = WaferMapProcessService.FormatMapCoordinate(entry.LogicalGridY);
+            lblBinRank.Text = ResolveInputDisplayBin(entry).ToString();
+            lblDieNum.Text = entry.SequenceNo > 0 ? entry.SequenceNo.ToString() : "-";
         }
 
         private double ResolveInputDisplayProcessX(DieMap map, DieMapEntry entry)
@@ -1827,6 +1828,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 OriginY = convertPreviewToAbsolute ? centerY + source.OriginY : source.OriginY,
                 SourceFileName = source.SourceFileName,
                 SourceFormat = source.SourceFormat,
+                SourceContentHash = source.SourceContentHash,
+                ProcessTransform = WaferMapProcessService.CloneTransform(source.ProcessTransform),
                 SourcePitchFromFile = source.SourcePitchFromFile,
                 SourceDeclaredCount = source.SourceDeclaredCount,
                 SourceFirstX = source.SourceFirstX,
@@ -1835,6 +1838,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 SourceFirstPosY = source.SourceFirstPosY,
                 CreatedAt = source.CreatedAt
             };
+
+            if (convertPreviewToAbsolute && result.ProcessTransform != null)
+                result.ProcessTransform.IsAbsolutePosition = true;
 
             foreach (DieMapEntry entry in source.Entries)
             {
@@ -1849,6 +1855,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     DieMapY = entry.DieMapY,
                     OriginalMapX = entry.OriginalMapX,
                     OriginalMapY = entry.OriginalMapY,
+                    SourceBinCode = entry.SourceBinCode,
+                    SourceToken = entry.SourceToken,
+                    LogicalGridX = entry.LogicalGridX,
+                    LogicalGridY = entry.LogicalGridY,
                     IsTarget = entry.IsTarget,
                     Result = entry.Result,
                     BinCode = entry.BinCode,
@@ -2301,6 +2311,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     die.Wafer_IndexY = mapY;
                     die.Wafer_OriginalIndexX = DieMapGenerator.ResolveOriginalMapIndexX(entry);
                     die.Wafer_OriginalIndexY = DieMapGenerator.ResolveOriginalMapIndexY(entry);
+                    die.InputLogicalGridX = entry.LogicalGridX;
+                    die.InputLogicalGridY = entry.LogicalGridY;
+                    die.InputMapGridOrigin = map.ProcessTransform == null ? (WaferMapGridOrigin?)null :
+                        (map.ProcessTransform.Settings != null ? map.ProcessTransform.Settings.GridOrigin : WaferMapGridOrigin.TopLeft);
                     die.InputSequenceNo = entry.SequenceNo;
                     die.Input_BinCode = entry.IsTarget ? entry.BinCode : 0;
                     die.IsInputTarget = entry.IsTarget;
@@ -3685,8 +3699,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 if (entry != null)
                     StoreManualInputDieDetectSentPosition(map, entry, targetX, targetY);
-                lblAxisX.Text = targetX.ToString("F3");
-                lblAxisY.Text = targetY.ToString("F3");
+                lblAxisX.Text = WaferMapProcessService.FormatMapCoordinate(entry != null ? entry.LogicalGridX : null);
+                lblAxisY.Text = WaferMapProcessService.FormatMapCoordinate(entry != null ? entry.LogicalGridY : null);
                 QMC.Common.MessageDialog.Show(this, targetDescription + " 이동 완료.",
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
@@ -3809,8 +3823,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
-                lblAxisX.Text = entry.PosX.ToString("F3");
-                lblAxisY.Text = entry.PosY.ToString("F3");
+                ApplySelectedInputCoordinateInfo(mapView.Map, entry);
                 QMC.Common.MessageDialog.Show(this,
                     ResolvePickerMoveTitle(side, pickerNo) + " 좌표 이동 완료.",
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -6523,8 +6536,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
         private static string BuildEntryMapText(DieMapEntry entry)
         {
-            return "[" + DieMapGenerator.ResolveOriginalMapIndexX(entry) + "," +
-                DieMapGenerator.ResolveOriginalMapIndexY(entry) + "]";
+            return WaferMapProcessService.FormatMapPosition(entry);
         }
 
         private string ResolveInputDieGridStateText(DieMapEntry entry)
@@ -6585,10 +6597,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                         int rowIndex = gridDieList.Rows.Add(
                             entry.IsTarget && entry.SequenceNo > 0 ? (object)entry.SequenceNo : "",
-                            DieMapGenerator.ResolveOriginalMapIndexX(entry),
-                            DieMapGenerator.ResolveOriginalMapIndexY(entry),
-                            FormatEquipmentGrid(entry.EquipmentGridX),
-                            FormatEquipmentGrid(entry.EquipmentGridY),
+                            WaferMapProcessService.FormatMapCoordinate(entry.LogicalGridX),
+                            WaferMapProcessService.FormatMapCoordinate(entry.LogicalGridY),
+                            "",
+                            "",
                             ResolveInputDieGridStateText(entry),
                             ResolveInputDisplayResult(entry),
                             ResolveInputDisplayBin(entry),
@@ -6745,4 +6757,3 @@ namespace QMC.CDT_320.Ui.Pages.Work
         }
     }
 }
-

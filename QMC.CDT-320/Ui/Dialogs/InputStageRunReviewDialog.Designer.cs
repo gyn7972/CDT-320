@@ -779,7 +779,7 @@
             // 
             // colMapX
             // 
-            this.colMapX.HeaderText = "MAP X";
+            this.colMapX.HeaderText = "맵 X";
             this.colMapX.MinimumWidth = 6;
             this.colMapX.Name = "colMapX";
             this.colMapX.ReadOnly = true;
@@ -788,7 +788,7 @@
             // 
             // colMapY
             // 
-            this.colMapY.HeaderText = "MAP Y";
+            this.colMapY.HeaderText = "맵 Y";
             this.colMapY.MinimumWidth = 6;
             this.colMapY.Name = "colMapY";
             this.colMapY.ReadOnly = true;
@@ -800,6 +800,7 @@
             this.colGridX.HeaderText = "GRID X";
             this.colGridX.MinimumWidth = 6;
             this.colGridX.Name = "colGridX";
+            this.colGridX.Visible = false;
             this.colGridX.ReadOnly = true;
             this.colGridX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colGridX.Width = 62;
@@ -809,6 +810,7 @@
             this.colGridY.HeaderText = "GRID Y";
             this.colGridY.MinimumWidth = 6;
             this.colGridY.Name = "colGridY";
+            this.colGridY.Visible = false;
             this.colGridY.ReadOnly = true;
             this.colGridY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colGridY.Width = 62;
@@ -818,6 +820,7 @@
             this.colOriginalX.HeaderText = "ORG X";
             this.colOriginalX.MinimumWidth = 6;
             this.colOriginalX.Name = "colOriginalX";
+            this.colOriginalX.Visible = false;
             this.colOriginalX.ReadOnly = true;
             this.colOriginalX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colOriginalX.Width = 58;
@@ -827,6 +830,7 @@
             this.colOriginalY.HeaderText = "ORG Y";
             this.colOriginalY.MinimumWidth = 6;
             this.colOriginalY.Name = "colOriginalY";
+            this.colOriginalY.Visible = false;
             this.colOriginalY.ReadOnly = true;
             this.colOriginalY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colOriginalY.Width = 58;
@@ -863,6 +867,7 @@
             this.colPosX.HeaderText = "MACHINE X";
             this.colPosX.MinimumWidth = 6;
             this.colPosX.Name = "colPosX";
+            this.colPosX.Visible = false;
             this.colPosX.ReadOnly = true;
             this.colPosX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colPosX.Width = 82;
@@ -872,6 +877,7 @@
             this.colPosY.HeaderText = "MACHINE Y";
             this.colPosY.MinimumWidth = 6;
             this.colPosY.Name = "colPosY";
+            this.colPosY.Visible = false;
             this.colPosY.ReadOnly = true;
             this.colPosY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colPosY.Width = 82;
@@ -1801,7 +1807,7 @@
             this.lblEquipmentGridCaption.Name = "lblEquipmentGridCaption";
             this.lblEquipmentGridCaption.Size = new System.Drawing.Size(137, 15);
             this.lblEquipmentGridCaption.TabIndex = 20;
-            this.lblEquipmentGridCaption.Text = "Equipment Grid";
+            this.lblEquipmentGridCaption.Text = "맵 X/Y";
             this.lblEquipmentGridCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblEquipmentGridValue
@@ -1827,7 +1833,7 @@
             this.lblOriginalMapCaption.Name = "lblOriginalMapCaption";
             this.lblOriginalMapCaption.Size = new System.Drawing.Size(137, 15);
             this.lblOriginalMapCaption.TabIndex = 22;
-            this.lblOriginalMapCaption.Text = "Original Map";
+            this.lblOriginalMapCaption.Text = "BIN";
             this.lblOriginalMapCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblOriginalMapValue
@@ -1853,7 +1859,7 @@
             this.lblMappingOriginCaption.Name = "lblMappingOriginCaption";
             this.lblMappingOriginCaption.Size = new System.Drawing.Size(137, 15);
             this.lblMappingOriginCaption.TabIndex = 24;
-            this.lblMappingOriginCaption.Text = "Mapping Origin";
+            this.lblMappingOriginCaption.Text = "맵 원점";
             this.lblMappingOriginCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblMappingOriginValue
@@ -1931,7 +1937,7 @@
             this.lblSelectedPositionCaption.Name = "lblSelectedPositionCaption";
             this.lblSelectedPositionCaption.Size = new System.Drawing.Size(137, 27);
             this.lblSelectedPositionCaption.TabIndex = 30;
-            this.lblSelectedPositionCaption.Text = "Selected X/Y";
+            this.lblSelectedPositionCaption.Text = "상태";
             this.lblSelectedPositionCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblSelectedPositionValue

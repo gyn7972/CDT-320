@@ -26,7 +26,7 @@ namespace QMC.CDT_320.Ui.Controls
     /// Material 이벤트는 dirty 표시만 하고, 단일 Worker가 일관된 표시 사본을 만든다.
     /// UI Timer는 완료된 사본만 적용하며, Paint에서 Material 조회나 전역 쓰기를 하지 않는다.
     /// </summary>
-    public class LiveLotMapView : QMC.CDT320.Ui.Controls.DieMapView
+    public class LiveLotMapView : WaferMapView
     {
         private const int RefreshIntervalMs = 100;
         private System.Windows.Forms.Timer _refresh;
@@ -49,26 +49,11 @@ namespace QMC.CDT_320.Ui.Controls
         private string _displayWaferKey = "";
         private long _signature = long.MinValue;
 
-        // 부드러운 모던 팔레트 — 회색 기계 룩 대신 밝은 뉴트럴 + 은은한 테두리/아웃라인.
-        protected override Color MapBorderColor => WaferMapPalette.WaferOutline;
-        protected override float MapBorderWidth => 2f;          // 얇은 1px 대신 또렷한 2px 프레임
-        protected override int MapBorderInset => 3;             // 가장자리에서 3px 들여써 카드처럼 분리
-        protected override string OverlayFontFamily => "맑은 고딕";
-        protected override bool ShowTechnicalInfoLine => false;   // pitch/zoom 등 기술 라인 숨김
-
         public LiveLotMapView()
         {
-            BackColor = Color.FromArgb(0xF6, 0xF8, 0xFA);
-            // 현재 기준: 작업 메인도 Input/Output 전환 화면과 같은 DieMapView 렌더러를 사용한다.
-            CompactUsedBounds = true;
-            ShowWaferOutline = true;
-            ShowEquipmentAxes = true;
-            // SKIP도 Input/Output 전환 화면과 동일하게 표시한다.
-            EntryVisibilityPredicate = entry => entry != null;
+            // 공통 뷰어에 실제 작업 상태 표시만 연결한다. 편집 화면에는 이 조회 기능을 연결하지 않는다.
             CellColorResolver = ResolveLiveEntryColor;
             CellStatusResolver = ResolveLiveEntryStatusText;
-            CellTextResolver = entry => "";
-            LegendItemsResolver = WaferMapDisplayStyle.BuildLegend;
         }
 
         /// <summary>그리드 크기 — 외부에서 Recipe.Frame.GridX 로 설정 가능.</summary>
@@ -421,6 +406,8 @@ namespace QMC.CDT_320.Ui.Controls
                     h = h * 31 + entry.DieMapY;
                     h = h * 31 + entry.OriginalMapX;
                     h = h * 31 + entry.OriginalMapY;
+                    h = h * 31 + entry.LogicalGridX.GetHashCode();
+                    h = h * 31 + entry.LogicalGridY.GetHashCode();
                     h = h * 31 + entry.EquipmentGridX.GetHashCode();
                     h = h * 31 + entry.EquipmentGridY.GetHashCode();
                     h = h * 31 + entry.PosX.GetHashCode();

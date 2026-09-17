@@ -17,6 +17,13 @@ namespace QMC.CDT320.Lots
 
         internal static bool TryValidate(string barcode, InputStageUnit stage, out string reason)
         {
+            DieMap prepared;
+            return TryValidate(barcode, stage, out prepared, out reason);
+        }
+
+        internal static bool TryValidate(string barcode, InputStageUnit stage, out DieMap prepared, out string reason)
+        {
+            prepared = null;
             reason = "";
             try
             {
@@ -26,7 +33,7 @@ namespace QMC.CDT320.Lots
                     reason = "네트워크 웨이퍼맵 설정을 읽을 수 없습니다.";
                     return false;
                 }
-                if (!settings.UseLotNetworkWaferMap)
+                if (!RecipeInputMapSource.UsesRemoteForActiveRecipe(settings))
                     return true;
                 if (string.IsNullOrWhiteSpace(LotWaferMapFetchService.ResolveNetworkFolder()))
                 {
@@ -45,12 +52,24 @@ namespace QMC.CDT320.Lots
                     reason = "웨이퍼맵을 확인할 InputStage 자재가 없습니다.";
                     return false;
                 }
+                // 도입 전부터 매핑된 자재는 저장된 Material 맵으로 재개한다. 새 원본을 덮어쓰지 않는다.
+                if (wafer.HasInputStageDieMappingResult && wafer.InputPreparedMap == null) return true;
                 TapeFrameSpec frame = ResolveInputFrameSpec(wafer);
                 if (frame == null)
                 {
                     reason = "웨이퍼맵을 대조할 입력 웨이퍼 사양을 찾을 수 없습니다. spec=" +
                              (wafer.TapeFrameSpecName ?? "");
                     return false;
+                }
+
+                RecipeProject project = RecipeStore.LoadLastOrDefaultCached();
+                WaferMapProcessSettings profile = project != null ? project.InputMapProcessing : null;
+                DieMap pinned = MaterialStateService.GetPreparedInputMap(wafer, barcode, true);
+                if (pinned != null)
+                {
+                    prepared = WaferMapProcessService.Prepare(pinned, profile, "Input");
+                    string pinnedCode;
+                    return TryValidateParsedMap(prepared, frame, stage, out pinnedCode, out reason);
                 }
 
                 LotWaferMapSlotInfo info;
@@ -68,7 +87,8 @@ namespace QMC.CDT320.Lots
                 }
 
                 // 캐시 통계만 믿지 않고 Mapping과 동일한 포맷 파서로 새 객체를 읽는다.
-                DieMap map = LotWaferMapFetchService.LoadConfiguredFormatOrThrow(info.LocalPath);
+                DieMap map = WaferMapProcessService.Prepare(
+                    LotWaferMapFetchService.LoadConfiguredFormatOrThrow(info.LocalPath), profile, "Input");
                 string failureCode;
                 if (!TryValidateParsedMap(map, frame, stage, out failureCode, out reason))
                 {
@@ -80,6 +100,7 @@ namespace QMC.CDT320.Lots
                     reason = "웨이퍼맵 사전 확인 중 입력 웨이퍼 사양이 변경되었습니다. 현재 사양으로 다시 확인하세요.";
                     return false;
                 }
+                prepared = map;
                 return true;
             }
             catch (OperationCanceledException)

@@ -582,7 +582,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 string activeRecipeName = host.ActiveRecipeName;
                 CDT320_Machine machine = host.Machine;
                 AppSettings startSettings = AppSettingsStore.Current;
-                bool checkedUse = startSettings != null && startSettings.UseLotNetworkWaferMap;
+                bool checkedUse = startSettings != null && RecipeInputMapSource.UsesRemoteForActiveRecipe(startSettings);
                 string checkedFolder = checkedUse ? LotWaferMapFetchService.ResolveNetworkFolder() : "";
                 RefreshLotUi(true);
                 string folderError = await LotWaferMapFetchService.CheckLotStartFolderAsync(lotId);
@@ -596,7 +596,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
                 // 백그라운드 검사 완료부터 UI 재개 사이에 바뀐 설정도 이전 검사로 승인하지 않는다.
                 AppSettings currentSettings = AppSettingsStore.Current;
-                if (currentSettings == null || currentSettings.UseLotNetworkWaferMap != checkedUse ||
+                if (currentSettings == null || RecipeInputMapSource.UsesRemoteForActiveRecipe(currentSettings) != checkedUse ||
                     (checkedUse && !string.Equals(checkedFolder, LotWaferMapFetchService.ResolveNetworkFolder(), StringComparison.Ordinal)))
                 {
                     QMC.Common.MessageDialog.Show(this,

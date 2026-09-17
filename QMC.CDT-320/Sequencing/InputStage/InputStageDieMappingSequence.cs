@@ -1711,6 +1711,8 @@ namespace QMC.CDT320.Sequencing
                     OriginX = originX,
                     OriginY = originY,
                     SourceFileName = sourceMap != null ? sourceMap.SourceFileName : "",
+                    SourceContentHash = sourceMap != null ? sourceMap.SourceContentHash : null,
+                    ProcessTransform = WaferMapProcessService.CloneTransform(sourceMap != null ? sourceMap.ProcessTransform : null),
                     SourceFormat = sourceMap != null ? sourceMap.SourceFormat : "",
                     SourcePitchFromFile = sourceMap != null && sourceMap.SourcePitchFromFile,
                     SourceDeclaredCount = sourceMap != null ? sourceMap.SourceDeclaredCount : 0,
@@ -1720,6 +1722,8 @@ namespace QMC.CDT320.Sequencing
                     SourceFirstPosY = sourceMap != null ? sourceMap.SourceFirstPosY : double.NaN,
                     CreatedAt = DateTime.Now
                 };
+
+                if (_dieMap.ProcessTransform != null) _dieMap.ProcessTransform.IsAbsolutePosition = true;
 
                 _waferMap = new WaferMapData
                 {
@@ -1782,6 +1786,10 @@ namespace QMC.CDT320.Sequencing
                             IsTarget = target,
                             Result = DieResult.Unknown,
                             BinCode = target ? (sourceEntry != null ? sourceEntry.BinCode : 0) : 0,
+                            SourceBinCode = sourceEntry != null ? sourceEntry.SourceBinCode : null,
+                            SourceToken = sourceEntry != null ? sourceEntry.SourceToken : null,
+                            LogicalGridX = sourceEntry != null ? sourceEntry.LogicalGridX : null,
+                            LogicalGridY = sourceEntry != null ? sourceEntry.LogicalGridY : null,
                             EquipmentGridX = sourceEntry != null ? sourceEntry.EquipmentGridX : mapX - Math.Max(0, dieMapX - 1) / 2.0,
                             EquipmentGridY = sourceEntry != null
                                 ? sourceEntry.EquipmentGridY
@@ -2067,18 +2075,45 @@ namespace QMC.CDT320.Sequencing
                 LastSourceInputDieMapFailure = "";
                 LastSourceInputDieMapFailureCode = "";
 
+                RecipeProject processProject = RecipeStore.LoadLastOrDefaultCached();
+                WaferMapProcessSettings processSettings = processProject != null ? processProject.InputMapProcessing : null;
+                bool networkMode = IsLotNetworkWaferMapModeActive();
+                string processBarcode = wafer != null ? (wafer.BarcodeId ?? "") : "";
+                DieMap prepared = MaterialStateService.GetPreparedInputMap(wafer, processBarcode, networkMode);
+                if (prepared != null)
+                {
+                    prepared = WaferMapProcessService.Prepare(prepared, processSettings, "Input");
+                    if (networkMode)
+                    {
+                        string code;
+                        string reason;
+                        if (!InputWaferMapPreflightService.TryValidateParsedMap(prepared, frameSpec, Stage, out code, out reason))
+                        {
+                            LastSourceInputDieMapFailureCode = code;
+                            LastSourceInputDieMapFailure = reason;
+                            return null;
+                        }
+                        ApplyPickupBinSelectionFilter(prepared);
+                    }
+                    return ApplyInputPickupSequence(prepared);
+                }
+
                 // [P4 2026-08-22] LOT 네트워크 웨이퍼맵 모드: 이 웨이퍼 슬롯의 다운로드 맵을 사용한다.
                 // 모드 ON에서 로트 맵 확보 실패는 레시피/기타 소스로 폴백하지 않는다(잘못된 맵 진행 금지,
                 // 팀장님 확정 — 파일 없음/불일치는 알람 정지).
-                if (IsLotNetworkWaferMapModeActive())
+                if (networkMode)
                     return ResolveLotNetworkInputDieMap(wafer, frameSpec);
 
                 bool recipeMapConfigured = IsRecipeInputDieMapConfigured();
                 DieMap recipeMap = LoadRecipeInputDieMap(frameSpec);
                 if (IsUsableSourceMap(recipeMap))
+                {
+                    recipeMap = WaferMapProcessService.Prepare(recipeMap, processSettings, "Input");
+                    MaterialStateService.PinPreparedInputMap(wafer, processBarcode, false, recipeMap);
                     return ApplyInputPickupSequence(recipeMap);
+                }
 
-                if (IsManagedInputMapApprovalRequired())
+                if (IsManagedInputMapApprovalRequired() || processSettings != null)
                 {
                     WriteLog("InputStageDieMappingSequence",
                         "Managed Recipe input map is not FINAL APPLY approved. Material/Active fallback is blocked. reason=" +
@@ -2116,6 +2151,8 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
+                LastSourceInputDieMapFailureCode = "IN-STAGE-MAP-PREPARE";
+                LastSourceInputDieMapFailure = ex.Message;
                 WriteLog("InputStageDieMappingSequence", "Source input die map resolve failed: " + ex.Message + " - Failed");
                 return null;
             }
@@ -2124,23 +2161,20 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        // [P4 2026-08-22] LOT 네트워크 맵 모드 활성 판정: 스위치 ON + 폴더 설정(비면 강제 OFF).
-        // [검토수정 2026-08-22] 예외를 "기능 꺼짐"으로 조용히 바꾸지 않는다 — 흔적 없이 레시피 맵으로
-        // 폴백하면 BIN 필터가 빠진 채 전량 픽업되는데 추적이 불가능하다. 기록 후 안전값(false) 반환.
+        // 폴더 누락도 원격 모드 ON으로 판정한다. 확보 단계에서 알람을 내며 등록 맵으로 대체하지 않는다.
         internal static bool IsLotNetworkWaferMapModeActive()
         {
             try
             {
                 AppSettings settings = AppSettingsStore.Current;
-                return settings != null &&
-                       settings.UseLotNetworkWaferMap &&
-                       QMC.CDT320.Lots.LotWaferMapFetchService.IsConfigured;
+                if (settings == null) throw new InvalidOperationException("웨이퍼맵 사용 모드 설정을 읽을 수 없습니다.");
+                return RecipeInputMapSource.UsesRemoteForActiveRecipe(settings);
             }
             catch (Exception ex)
             {
                 QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "SYSTEM", "LOT-MAP-MODE",
-                    "LOT 네트워크 맵 모드 판정 실패 — 안전을 위해 기존 레시피 맵 경로로 동작합니다. error=" + ex.Message);
-                return false;
+                    "LOT 네트워크 맵 모드 판정 실패 — 다른 소스 맵으로 대체하지 않고 중단합니다. error=" + ex.Message);
+                throw;
             }
         }
 
@@ -2192,7 +2226,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                LastSourceInputDieMapFailureCode = "LOT-MAP-FILE-MISSING";
+                LastSourceInputDieMapFailureCode = "LOT-MAP-FORMAT";
                 LastSourceInputDieMapFailure =
                     "LOT 웨이퍼맵 파싱에 실패했습니다. file=" + slotInfo.LocalPath + ", error=" + ex.Message;
                 return null;
@@ -2200,7 +2234,7 @@ namespace QMC.CDT320.Sequencing
 
             if (!IsUsableSourceMap(map))
             {
-                LastSourceInputDieMapFailureCode = "LOT-MAP-FILE-MISSING";
+                LastSourceInputDieMapFailureCode = "LOT-MAP-FORMAT";
                 LastSourceInputDieMapFailure =
                     "LOT 웨이퍼맵이 비어 있습니다. file=" + slotInfo.LocalPath;
                 return null;
@@ -2229,6 +2263,9 @@ namespace QMC.CDT320.Sequencing
                     ", lot=" + (string.IsNullOrWhiteSpace(lotId) ? "-" : lotId));
             }
 
+            RecipeProject processProject = RecipeStore.LoadLastOrDefaultCached();
+            map = WaferMapProcessService.Prepare(map, processProject != null ? processProject.InputMapProcessing : null, "Input");
+            MaterialStateService.PinPreparedInputMap(wafer, barcode, true, map);
             int filteredOut = ApplyPickupBinSelectionFilter(map);
 
             // [검토수정 2026-08-22] 선택 BIN이 이 웨이퍼에 하나도 없으면 "0개 픽업으로 조용히 완주"가
@@ -3702,4 +3739,3 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
-

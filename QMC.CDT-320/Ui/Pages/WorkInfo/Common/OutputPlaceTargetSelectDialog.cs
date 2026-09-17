@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
@@ -319,13 +320,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     "Target: " + mode +
                     " / " + GetOutputSide() +
                     " / order=" + target.OrderIndex +
-                    " / map=" + target.DieMapX + "," + target.DieMapY +
-                    " / target=" + target.TargetX.ToString("F3") + "," + target.TargetY.ToString("F3") + " mm";
+                    " / " + ResolveTargetMapText(target);
 
                 AddInfo("Target Mode", mode);
                 AddInfo("Output Stage", GetOutputSide().ToString());
                 AddInfo("Target Order", target.OrderIndex.ToString(CultureInfo.InvariantCulture));
-                AddInfo("Target Map X/Y", target.DieMapX + " / " + target.DieMapY);
+                AddInfo("맵 X/Y", ResolveTargetMapText(target));
                 AddInfo("Target X/Y", target.TargetX.ToString("F6") + " / " + target.TargetY.ToString("F6") + " mm");
                 AddInfo("Final OutputStageY", coordinate.OutputStageY.ToString("F6") + " mm");
                 AddInfo("Final PickerX", coordinate.PickerX.ToString("F6") + " mm");
@@ -439,7 +439,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 "Die=" + ResolveLoadedDieId() + "\r\n" +
                 "Stage=" + GetOutputSide() + "\r\n" +
                 "Order=" + target.OrderIndex + "\r\n" +
-                "Map=" + target.DieMapX + "," + target.DieMapY + "\r\n" +
+                ResolveTargetMapText(target) + "\r\n" +
                 "진행하시겠습니까?",
                 "Output Place Test", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (confirm != DialogResult.Yes)
@@ -654,6 +654,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private bool IsAutoTargetMode()
         {
             return _cmbTargetMode == null || _cmbTargetMode.SelectedIndex <= 0;
+        }
+
+        private string ResolveTargetMapText(OutputStageReceiveTarget target)
+        {
+            return MaterialStateService.ReadState(state =>
+            {
+                MaterialLocationKind location = GetOutputSide() == BinSide.Ng
+                    ? MaterialLocationKind.OutputStageNg : MaterialLocationKind.OutputStageGood;
+                WaferMaterial wafer = state != null && state.Wafers != null
+                    ? state.Wafers.FirstOrDefault(w => w != null && w.CurrentLocation != null && w.CurrentLocation.Kind == location) : null;
+                OutputReceiveSlotMaterial slot = target != null && wafer != null && wafer.OutputReceiveSlots != null
+                    ? wafer.OutputReceiveSlots.FirstOrDefault(s => s != null && s.OrderIndex == target.OrderIndex &&
+                        s.DieMapX == target.DieMapX && s.DieMapY == target.DieMapY) : null;
+                return "X=" + WaferMapProcessService.FormatMapCoordinate(slot != null ? slot.LogicalGridX : null) +
+                    "  Y=" + WaferMapProcessService.FormatMapCoordinate(slot != null ? slot.LogicalGridY : null);
+            });
         }
 
         private BinSide GetOutputSide()

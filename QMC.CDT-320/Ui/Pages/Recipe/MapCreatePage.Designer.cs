@@ -89,7 +89,7 @@
             this._cbMapLibrary = new System.Windows.Forms.ComboBox();
             this._btnMapLoad = new System.Windows.Forms.Button();
             this.mapViewPanel = new System.Windows.Forms.Panel();
-            this._mapView = new QMC.CDT320.Ui.Controls.DieMapView();
+            this._mapView = new QMC.CDT_320.Ui.Controls.WaferMapView();
             this.rightLayout = new System.Windows.Forms.TableLayoutPanel();
             this.settingSection = new System.Windows.Forms.TableLayoutPanel();
             this.lblSettingTitle = new System.Windows.Forms.Label();
@@ -193,7 +193,7 @@
             this.lblHeader.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
             this.lblHeader.Size = new System.Drawing.Size(1678, 30);
             this.lblHeader.TabIndex = 0;
-            this.lblHeader.Text = "DIE MAP CREATE";
+            this.lblHeader.Text = "다이 맵 생성";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // contentLayout
@@ -240,12 +240,12 @@
             this.lblMapTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblMapTitle.Size = new System.Drawing.Size(1257, 26);
             this.lblMapTitle.TabIndex = 0;
-            this.lblMapTitle.Text = "DIE MAP";
+            this.lblMapTitle.Text = "다이 맵";
             this.lblMapTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // mapPanel
             // 
-            this.mapPanel.BackColor = System.Drawing.Color.Black;
+            this.mapPanel.BackColor = QMC.CDT_320.Ui.Controls.WaferMapPalette.ViewBackground;
             this.mapPanel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.mapPanel.Controls.Add(this.mapEditorLayout);
             this.mapPanel.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -313,13 +313,13 @@
             this._btnMapLoad.Name = "_btnMapLoad";
             this._btnMapLoad.Size = new System.Drawing.Size(118, 26);
             this._btnMapLoad.TabIndex = 1;
-            this._btnMapLoad.Text = "LOAD SPEC";
+            this._btnMapLoad.Text = "사양 불러오기";
             this._btnMapLoad.UseVisualStyleBackColor = false;
             this._btnMapLoad.Click += new System.EventHandler(this._btnMapLoad_Click);
             // 
             // mapViewPanel
             // 
-            this.mapViewPanel.BackColor = System.Drawing.Color.Black;
+            this.mapViewPanel.BackColor = QMC.CDT_320.Ui.Controls.WaferMapPalette.ViewBackground;
             this.mapViewPanel.Controls.Add(this._mapView);
             this.mapViewPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mapViewPanel.Location = new System.Drawing.Point(0, 34);
@@ -330,9 +330,9 @@
             // 
             // _mapView
             // 
-            this._mapView.BackColor = System.Drawing.Color.Black;
+            this._mapView.BackColor = QMC.CDT_320.Ui.Controls.WaferMapPalette.ViewBackground;
             this._mapView.Caption = "Recipe Die Map";
-            this._mapView.CompactUsedBounds = false;
+            this._mapView.CompactUsedBounds = true;
             this._mapView.Dock = System.Windows.Forms.DockStyle.Fill;
             this._mapView.EnableRectangleSelection = false;
             this._mapView.Location = new System.Drawing.Point(0, 0);
@@ -340,7 +340,7 @@
             this._mapView.Name = "_mapView";
             this._mapView.SelectedEntry = null;
             this._mapView.ShowEquipmentAxes = false;
-            this._mapView.ShowWaferOutline = false;
+            this._mapView.ShowWaferOutline = true;
             this._mapView.Size = new System.Drawing.Size(1255, 807);
             this._mapView.TabIndex = 0;
             // 
@@ -423,7 +423,7 @@
             this.lblSettingTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblSettingTitle.Size = new System.Drawing.Size(420, 25);
             this.lblSettingTitle.TabIndex = 0;
-            this.lblSettingTitle.Text = "DIE MAP SETTING";
+            this.lblSettingTitle.Text = "맵 사양 · 확인용";
             this.lblSettingTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblChipCountXKey
@@ -438,7 +438,7 @@
             this.lblChipCountXKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblChipCountXKey.Size = new System.Drawing.Size(174, 28);
             this.lblChipCountXKey.TabIndex = 1;
-            this.lblChipCountXKey.Text = "FRAME SPEC NAME";
+            this.lblChipCountXKey.Text = "웨이퍼 사양 이름";
             this.lblChipCountXKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this._recipeLocationToolTip.SetToolTip(this.lblChipCountXKey, "Recipe → 웨이퍼 사양 → Spec name에서 설정합니다.");
             // 
@@ -467,7 +467,7 @@
             this.lblChipCountYKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblChipCountYKey.Size = new System.Drawing.Size(174, 28);
             this.lblChipCountYKey.TabIndex = 3;
-            this.lblChipCountYKey.Text = "GRID X";
+            this.lblChipCountYKey.Text = "격자 수 X";
             this.lblChipCountYKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this._recipeLocationToolTip.SetToolTip(this.lblChipCountYKey, "Recipe → 웨이퍼 사양 → LOAD WAFER MAP에서 결정됩니다.");
             // 
@@ -480,7 +480,7 @@
             this._nGridX.Location = new System.Drawing.Point(177, 57);
             this._nGridX.Margin = new System.Windows.Forms.Padding(1);
             this._nGridX.Maximum = new decimal(new int[] {
-            500,
+            1000000,
             0,
             0,
             0});
@@ -495,7 +495,7 @@
             this._nGridX.TabIndex = 4;
             this._nGridX.TabStop = false;
             this._nGridX.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this._recipeLocationToolTip.SetToolTip(this._nGridX, "Recipe → 웨이퍼 사양 → LOAD WAFER MAP에서 결정됩니다.");
+            this._recipeLocationToolTip.SetToolTip(this._nGridX, "Recipe → 웨이퍼 사양 → 맵 생성 미리보기 저장 또는 LOAD WAFER MAP 결과입니다.");
             this._nGridX.Value = new decimal(new int[] {
             50,
             0,
@@ -514,7 +514,7 @@
             this.lblChipPitchXKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblChipPitchXKey.Size = new System.Drawing.Size(174, 28);
             this.lblChipPitchXKey.TabIndex = 5;
-            this.lblChipPitchXKey.Text = "GRID Y";
+            this.lblChipPitchXKey.Text = "격자 수 Y";
             this.lblChipPitchXKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this._recipeLocationToolTip.SetToolTip(this.lblChipPitchXKey, "Recipe → 웨이퍼 사양 → LOAD WAFER MAP에서 결정됩니다.");
             // 
@@ -527,7 +527,7 @@
             this._nGridY.Location = new System.Drawing.Point(177, 87);
             this._nGridY.Margin = new System.Windows.Forms.Padding(1);
             this._nGridY.Maximum = new decimal(new int[] {
-            500,
+            1000000,
             0,
             0,
             0});
@@ -542,7 +542,7 @@
             this._nGridY.TabIndex = 6;
             this._nGridY.TabStop = false;
             this._nGridY.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this._recipeLocationToolTip.SetToolTip(this._nGridY, "Recipe → 웨이퍼 사양 → LOAD WAFER MAP에서 결정됩니다.");
+            this._recipeLocationToolTip.SetToolTip(this._nGridY, "Recipe → 웨이퍼 사양 → 맵 생성 미리보기 저장 또는 LOAD WAFER MAP 결과입니다.");
             this._nGridY.Value = new decimal(new int[] {
             50,
             0,
@@ -561,7 +561,7 @@
             this.lblChipPitchYKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblChipPitchYKey.Size = new System.Drawing.Size(174, 28);
             this.lblChipPitchYKey.TabIndex = 7;
-            this.lblChipPitchYKey.Text = "PITCH GAP X";
+            this.lblChipPitchYKey.Text = "다이 간격 X (mm)";
             this.lblChipPitchYKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this._recipeLocationToolTip.SetToolTip(this.lblChipPitchYKey, "Recipe → 웨이퍼 사양 → Pitch X에서 설정합니다.");
             // 
@@ -604,7 +604,7 @@
             this.lblWaferDiameterKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblWaferDiameterKey.Size = new System.Drawing.Size(174, 28);
             this.lblWaferDiameterKey.TabIndex = 9;
-            this.lblWaferDiameterKey.Text = "PITCH GAP Y";
+            this.lblWaferDiameterKey.Text = "다이 간격 Y (mm)";
             this.lblWaferDiameterKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this._recipeLocationToolTip.SetToolTip(this.lblWaferDiameterKey, "Recipe → 웨이퍼 사양 → Pitch Y에서 설정합니다.");
             // 
@@ -647,7 +647,7 @@
             this._lblDieSizeXKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this._lblDieSizeXKey.Size = new System.Drawing.Size(174, 28);
             this._lblDieSizeXKey.TabIndex = 11;
-            this._lblDieSizeXKey.Text = "DIE SIZE X";
+            this._lblDieSizeXKey.Text = "다이 가로 (mm)";
             this._lblDieSizeXKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this._recipeLocationToolTip.SetToolTip(this._lblDieSizeXKey, "Recipe → 다이 사양 → Width에서 설정합니다.");
             // 
@@ -695,7 +695,7 @@
             this._lblDieSizeYKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this._lblDieSizeYKey.Size = new System.Drawing.Size(174, 28);
             this._lblDieSizeYKey.TabIndex = 13;
-            this._lblDieSizeYKey.Text = "DIE SIZE Y";
+            this._lblDieSizeYKey.Text = "다이 세로 (mm)";
             this._lblDieSizeYKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this._recipeLocationToolTip.SetToolTip(this._lblDieSizeYKey, "Recipe → 다이 사양 → Height에서 설정합니다.");
             // 
@@ -743,13 +743,13 @@
             this.lblAxisXKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblAxisXKey.Size = new System.Drawing.Size(174, 28);
             this.lblAxisXKey.TabIndex = 11;
-            this.lblAxisXKey.Text = "WAFER DIAMETER";
+            this.lblAxisXKey.Text = "웨이퍼 직경 (mm)";
             this.lblAxisXKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this._recipeLocationToolTip.SetToolTip(this.lblAxisXKey, "Recipe → 웨이퍼 사양 → Outer diameter에서 설정합니다.");
             // 
             // _nDiameter
             // 
-            this._nDiameter.DecimalPlaces = 1;
+            this._nDiameter.DecimalPlaces = 3;
             this._nDiameter.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nDiameter.Enabled = false;
             this._nDiameter.Font = new System.Drawing.Font("Consolas", 10F);
@@ -791,7 +791,7 @@
             this._lblEdgeSkipModeKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this._lblEdgeSkipModeKey.Size = new System.Drawing.Size(174, 28);
             this._lblEdgeSkipModeKey.TabIndex = 17;
-            this._lblEdgeSkipModeKey.Text = "EDGE SKIP MODE";
+            this._lblEdgeSkipModeKey.Text = "가장자리 제외 방식";
             this._lblEdgeSkipModeKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this._recipeLocationToolTip.SetToolTip(this._lblEdgeSkipModeKey, "Recipe → 웨이퍼 사양 → Edge skip mode에서 설정합니다.");
             // 
@@ -803,9 +803,9 @@
             this._cbEdgeSkipMode.Font = new System.Drawing.Font("Consolas", 10F);
             this._cbEdgeSkipMode.FormattingEnabled = true;
             this._cbEdgeSkipMode.Items.AddRange(new object[] {
-            "GRID COUNT",
-            "MM",
-            "EXTERNAL MAP"});
+            "격자 수 (GRID)",
+            "거리 (MM)",
+            "외부 맵 (EXTERNAL MAP)"});
             this._cbEdgeSkipMode.Location = new System.Drawing.Point(177, 267);
             this._cbEdgeSkipMode.Margin = new System.Windows.Forms.Padding(1);
             this._cbEdgeSkipMode.Name = "_cbEdgeSkipMode";
@@ -825,7 +825,7 @@
             this.lblAxisYKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblAxisYKey.Size = new System.Drawing.Size(174, 28);
             this.lblAxisYKey.TabIndex = 13;
-            this.lblAxisYKey.Text = "EDGE SKIP L/R, T/B";
+            this.lblAxisYKey.Text = "가장자리 제외 좌우 / 상하";
             this.lblAxisYKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this._recipeLocationToolTip.SetToolTip(this.lblAxisYKey, "Recipe → 웨이퍼 사양 → Edge skip에서 설정합니다.");
             // 
@@ -1048,7 +1048,7 @@
             this.rbBinGood.Size = new System.Drawing.Size(204, 40);
             this.rbBinGood.TabIndex = 0;
             this.rbBinGood.TabStop = true;
-            this.rbBinGood.Text = "GOOD BIN MAP";
+            this.rbBinGood.Text = "양품 맵";
             // 
             // rbBinNg
             // 
@@ -1059,7 +1059,7 @@
             this.rbBinNg.Size = new System.Drawing.Size(204, 40);
             this.rbBinNg.TabIndex = 1;
             this.rbBinNg.TabStop = true;
-            this.rbBinNg.Text = "NG BIN MAP";
+            this.rbBinNg.Text = "불량 맵";
             // 
             // actionSection
             // 
@@ -1101,7 +1101,7 @@
             this.lblActionTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblActionTitle.Size = new System.Drawing.Size(420, 25);
             this.lblActionTitle.TabIndex = 0;
-            this.lblActionTitle.Text = "ACTION";
+            this.lblActionTitle.Text = "작업";
             this.lblActionTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _tbMapApplyInfo
@@ -1120,7 +1120,7 @@
             this._tbMapApplyInfo.Size = new System.Drawing.Size(412, 112);
             this._tbMapApplyInfo.TabIndex = 1;
             this._tbMapApplyInfo.TabStop = false;
-            this._tbMapApplyInfo.Text = "No Recipe map loaded.";
+            this._tbMapApplyInfo.Text = "등록된 레시피 맵이 없습니다.";
             // 
             // btnCreate
             // 
@@ -1312,4 +1312,3 @@
         }
     }
 }
-

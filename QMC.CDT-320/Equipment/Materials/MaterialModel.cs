@@ -275,6 +275,9 @@ namespace QMC.CDT320.Materials
     [DataContract]
     public class OutputReceiveSlotMaterial
     {
+        [DataMember(EmitDefaultValue = false)] public double? LogicalGridX { get; set; }
+        [DataMember(EmitDefaultValue = false)] public double? LogicalGridY { get; set; }
+        [DataMember(EmitDefaultValue = false)] public int? SourceBinCode { get; set; }
         [DataMember] public int OrderIndex { get; set; }
         [DataMember] public int SequenceNo { get; set; }
         [DataMember] public int DieMapX { get; set; }
@@ -583,6 +586,12 @@ namespace QMC.CDT320.Materials
         /// 새 wafer 투입(비보존 매핑) 경로마다 증가하며, 이전 Align/Mapping/Review 승인 상속을 차단한다.
         /// </summary>
         [DataMember] public int InputStageProcessingGeneration { get; set; }
+        [DataMember(EmitDefaultValue = false)] public QMC.CDT320.DieMaps.DieMap InputPreparedMap { get; set; }
+        [DataMember(EmitDefaultValue = false)] public string InputPreparedMapInstanceId { get; set; }
+        [DataMember(EmitDefaultValue = false)] public string InputPreparedMapBarcode { get; set; }
+        [DataMember] public bool InputPreparedMapUsesNetwork { get; set; }
+        [DataMember(EmitDefaultValue = false)] public QMC.CDT320.DieMaps.DieMap OutputReceivePreparedMap { get; set; }
+        [DataMember(EmitDefaultValue = false)] public string OutputReceivePreparedMapInstanceId { get; set; }
         [DataMember] public string OutputReceiveSourceWaferId { get; set; } = "";
         [DataMember] public string OutputReceiveSourceWaferInstanceId { get; set; } = "";
         [DataMember] public int OutputReceiveDieMapX { get; set; }
@@ -655,6 +664,12 @@ namespace QMC.CDT320.Materials
         [DataMember] public string OutputWaferInstanceId { get; set; } = "";
         [DataMember] public DateTime? OutputResultFileSessionStartedAt { get; set; }
         [DataMember] public int Input_BinCode { get; set; }
+        [DataMember(EmitDefaultValue = false)] public int? InputSourceBinCode { get; set; }
+        [DataMember(EmitDefaultValue = false)] public string InputSourceToken { get; set; }
+        [DataMember(EmitDefaultValue = false)] public double? InputLogicalGridX { get; set; }
+        [DataMember(EmitDefaultValue = false)] public double? InputLogicalGridY { get; set; }
+        // 해당 물리 다이에 적용한 원점. 이전 상태 파일에서 생략된 값은 알 수 없음(null)으로 유지한다.
+        [DataMember(EmitDefaultValue = false)] public QMC.CDT320.DieMaps.WaferMapGridOrigin? InputMapGridOrigin { get; set; }
         [DataMember] public bool IsInputTarget { get; set; } = true;
         [DataMember] public int Output_BinCode { get; set; }
         [DataMember] public int Wafer_IndexX { get; set; } = -1;

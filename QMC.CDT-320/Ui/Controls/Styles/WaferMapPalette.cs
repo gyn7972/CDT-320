@@ -10,6 +10,8 @@ namespace QMC.CDT_320.Ui.Controls
     /// </summary>
     public static class WaferMapPalette
     {
+        public static readonly Color ViewBackground = Color.FromArgb(0xDD, 0xDD, 0xDD);
+
         // ── 다이 진행 상태 (여정: 대기 → 비전 → 픽업/안착) ──
         public static readonly Color Wait      = Color.FromArgb(0xCC, 0xDD, 0xEE); // 검사 대기 (기존 다수파 값 유지)
         public static readonly Color Vision    = Color.FromArgb(0xF5, 0xA6, 0x23); // 검사 완료 — PrimaryBright (구 F2C14E·F5BE34 흡수)

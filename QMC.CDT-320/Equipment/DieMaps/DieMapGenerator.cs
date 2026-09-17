@@ -479,6 +479,32 @@ namespace QMC.CDT320.DieMaps
             if (map == null)
                 return null;
 
+            // 생성 정의가 있는 맵은 좌표/주소/크기/Index를 추정 보정하지 않는다.
+            // Recipe 경계의 Codec.Validate가 손상 여부를 판단할 수 있도록 원본 값을 보존한다.
+            // SourceFormat만 복사한 런타임 절대좌표 맵은 기존 정규화 경로를 사용한다.
+            if (map.Generation != null)
+            {
+                if (map.Entries != null)
+                {
+                    foreach (DieMapEntry entry in map.Entries)
+                    {
+                        if (entry == null)
+                            continue;
+                        if (string.IsNullOrWhiteSpace(entry.DieUid))
+                            entry.DieUid = BuildDefaultDieUid(map, entry);
+                        if (!entry.IsTarget)
+                        {
+                            entry.SequenceNo = 0;
+                            if (entry.Result == DieResult.Unknown)
+                                entry.Result = DieResult.NG;
+                            if (entry.BinCode == 0)
+                                entry.BinCode = 255;
+                        }
+                    }
+                }
+                return map;
+            }
+
             if (map.Entries == null)
                 map.Entries = new List<DieMapEntry>();
             else
@@ -588,37 +614,49 @@ namespace QMC.CDT320.DieMaps
                     sw.WriteLine("FrameObjId," + EscapeCsv(map.FrameObjId));
                     sw.WriteLine($"DieMapX,{map.DieMapX}");
                     sw.WriteLine($"DieMapY,{map.DieMapY}");
-                    sw.WriteLine($"PitchX,{map.PitchX.ToString(CultureInfo.InvariantCulture)}");
-                    sw.WriteLine($"PitchY,{map.PitchY.ToString(CultureInfo.InvariantCulture)}");
-                    sw.WriteLine($"DieSizeX,{map.DieSizeX.ToString(CultureInfo.InvariantCulture)}");
-                    sw.WriteLine($"DieSizeY,{map.DieSizeY.ToString(CultureInfo.InvariantCulture)}");
-                    sw.WriteLine($"OuterDiameterMm,{map.OuterDiameterMm.ToString(CultureInfo.InvariantCulture)}");
+                    sw.WriteLine($"PitchX,{FormatCsvNumber(map, map.PitchX)}");
+                    sw.WriteLine($"PitchY,{FormatCsvNumber(map, map.PitchY)}");
+                    sw.WriteLine($"DieSizeX,{FormatCsvNumber(map, map.DieSizeX)}");
+                    sw.WriteLine($"DieSizeY,{FormatCsvNumber(map, map.DieSizeY)}");
+                    sw.WriteLine($"OuterDiameterMm,{FormatCsvNumber(map, map.OuterDiameterMm)}");
                     sw.WriteLine("EdgeSkipMode," + EscapeCsv(map.EdgeSkipMode));
-                    sw.WriteLine($"SideEdgeSkip,{map.SideEdgeSkip.ToString(CultureInfo.InvariantCulture)}");
-                    sw.WriteLine($"TopBottomEdgeSkip,{map.TopBottomEdgeSkip.ToString(CultureInfo.InvariantCulture)}");
-                    sw.WriteLine($"OriginX,{map.OriginX.ToString(CultureInfo.InvariantCulture)}");
-                    sw.WriteLine($"OriginY,{map.OriginY.ToString(CultureInfo.InvariantCulture)}");
+                    sw.WriteLine($"SideEdgeSkip,{FormatCsvNumber(map, map.SideEdgeSkip)}");
+                    sw.WriteLine($"TopBottomEdgeSkip,{FormatCsvNumber(map, map.TopBottomEdgeSkip)}");
+                    sw.WriteLine($"OriginX,{FormatCsvNumber(map, map.OriginX)}");
+                    sw.WriteLine($"OriginY,{FormatCsvNumber(map, map.OriginY)}");
                     sw.WriteLine("SourceFileName," + EscapeCsv(map.SourceFileName));
                     sw.WriteLine("SourceFormat," + EscapeCsv(map.SourceFormat));
+                    if (!string.IsNullOrEmpty(map.SourceContentHash))
+                        sw.WriteLine("SourceContentHash," + EscapeCsv(map.SourceContentHash));
+                    if (map.ProcessTransform != null)
+                        sw.WriteLine("ProcessTransform," + EscapeCsv(WaferMapProcessService.SerializeTransform(map.ProcessTransform)));
+                    if (map.Generation != null)
+                        sw.WriteLine("Generation," + EscapeCsv(GeneratedWaferMapCodec.SerializeDefinition(map.Generation)));
                     sw.WriteLine($"SourcePitchFromFile,{map.SourcePitchFromFile}");
                     sw.WriteLine($"SourceDeclaredCount,{map.SourceDeclaredCount}");
                     sw.WriteLine($"SourceFirstX,{map.SourceFirstX}");
                     sw.WriteLine($"SourceFirstY,{map.SourceFirstY}");
-                    sw.WriteLine($"SourceFirstPosX,{map.SourceFirstPosX.ToString(CultureInfo.InvariantCulture)}");
-                    sw.WriteLine($"SourceFirstPosY,{map.SourceFirstPosY.ToString(CultureInfo.InvariantCulture)}");
+                    sw.WriteLine($"SourceFirstPosX,{FormatCsvNumber(map, map.SourceFirstPosX)}");
+                    sw.WriteLine($"SourceFirstPosY,{FormatCsvNumber(map, map.SourceFirstPosY)}");
                     sw.WriteLine($"CreatedAt,{map.CreatedAt:yyyy-MM-dd HH:mm:ss}");
                     sw.WriteLine();
-                    sw.WriteLine("Index,SequenceNo,DieMapX,DieMapY,OriginalMapX,OriginalMapY,IsTarget,Result,BinCode,X,Y,EquipmentGridX,EquipmentGridY,DieUid");
+                    bool processMetadata = map.Entries.Any(e => e.SourceBinCode.HasValue || e.SourceToken != null || e.LogicalGridX.HasValue || e.LogicalGridY.HasValue);
+                    sw.WriteLine("Index,SequenceNo,DieMapX,DieMapY,OriginalMapX,OriginalMapY,IsTarget,Result,BinCode,X,Y,EquipmentGridX,EquipmentGridY,DieUid" +
+                        (processMetadata ? ",SourceBinCode,SourceToken,LogicalGridX,LogicalGridY" : ""));
                     foreach (var e in map.Entries)
                     {
                         sw.WriteLine(string.Join(",",
                             e.Index, e.SequenceNo, e.DieMapX, e.DieMapY, e.OriginalMapX, e.OriginalMapY, e.IsTarget, e.Result,
                              e.BinCode,
-                             e.PosX.ToString(CultureInfo.InvariantCulture),
-                             e.PosY.ToString(CultureInfo.InvariantCulture),
-                             e.EquipmentGridX.ToString(CultureInfo.InvariantCulture),
-                             e.EquipmentGridY.ToString(CultureInfo.InvariantCulture),
-                             EscapeCsv(e.DieUid)));
+                             FormatCsvNumber(map, e.PosX),
+                             FormatCsvNumber(map, e.PosY),
+                             FormatCsvNumber(map, e.EquipmentGridX),
+                             FormatCsvNumber(map, e.EquipmentGridY),
+                             EscapeCsv(e.DieUid)) + (processMetadata ? "," + string.Join(",",
+                                 e.SourceBinCode.HasValue ? e.SourceBinCode.Value.ToString(CultureInfo.InvariantCulture) : "",
+                                 EscapeCsv(e.SourceToken),
+                                 e.LogicalGridX.HasValue ? e.LogicalGridX.Value.ToString("R", CultureInfo.InvariantCulture) : "",
+                                 e.LogicalGridY.HasValue ? e.LogicalGridY.Value.ToString("R", CultureInfo.InvariantCulture) : "") : ""));
                     }
                 }
             }
@@ -913,6 +951,8 @@ namespace QMC.CDT320.DieMaps
                     IsTarget = target,
                     Result = DieResult.Unknown,
                     BinCode = target ? point.Bin : 0,
+                    SourceBinCode = point.Bin,
+                    SourceToken = point.Bin.ToString(CultureInfo.InvariantCulture),
                     EquipmentGridX = equipmentGridX,
                     EquipmentGridY = equipmentGridY,
                     PosX = equipmentGridX * pitchX,
@@ -1103,6 +1143,8 @@ namespace QMC.CDT320.DieMaps
                         // @@@=비대상 예약 빈코드 255를 파서에서 직접 기록(팀장님 지시 2026-08-27).
                         // 숫자 bin 0 이하는 RAD와 동일하게 0 → Normalize가 255로 확정.
                         BinCode = mark ? 255 : (target ? bin : 0),
+                        SourceBinCode = mark ? 255 : bin,
+                        SourceToken = token,
                         EquipmentGridX = equipmentGridX,
                         EquipmentGridY = equipmentGridY,
                         PosX = equipmentGridX * pitchX,
@@ -1359,7 +1401,7 @@ namespace QMC.CDT320.DieMaps
             return count;
         }
 
-        private static string BuildExternalMapDieUid(string frameId, int originalX, int originalY)
+        internal static string BuildExternalMapDieUid(string frameId, int originalX, int originalY)
         {
             string safeFrame = SanitizeId(frameId);
             return safeFrame + "-X" + originalX.ToString("0000", CultureInfo.InvariantCulture) +
@@ -1402,6 +1444,21 @@ namespace QMC.CDT320.DieMaps
                     else if (k.Equals("OriginY",StringComparison.OrdinalIgnoreCase)) map.OriginY = double.Parse(v, CultureInfo.InvariantCulture);
                     else if (k.Equals("SourceFileName", StringComparison.OrdinalIgnoreCase)) map.SourceFileName = v;
                     else if (k.Equals("SourceFormat", StringComparison.OrdinalIgnoreCase)) map.SourceFormat = v;
+                    else if (k.Equals("SourceContentHash", StringComparison.OrdinalIgnoreCase)) map.SourceContentHash = v;
+                    else if (k.Equals("ProcessTransform", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (map.ProcessTransform != null) throw new InvalidDataException("공정 맵 변환 이력이 CSV에 중복되어 있습니다.");
+                        map.ProcessTransform = WaferMapProcessService.DeserializeTransform(v);
+                        if (map.ProcessTransform == null) throw new InvalidDataException("공정 맵 변환 이력이 비어 있습니다.");
+                    }
+                    else if (k.Equals("Generation", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (map.Generation != null)
+                            throw new InvalidDataException("생성 맵 정의가 CSV에 중복되어 있습니다.");
+                        map.Generation = GeneratedWaferMapCodec.DeserializeDefinition(v);
+                        if (map.Generation == null)
+                            throw new InvalidDataException("생성 맵 정의가 비어 있습니다.");
+                    }
                     else if (k.Equals("SourcePitchFromFile", StringComparison.OrdinalIgnoreCase)) map.SourcePitchFromFile = bool.Parse(v);
                     else if (k.Equals("SourceDeclaredCount", StringComparison.OrdinalIgnoreCase)) map.SourceDeclaredCount = int.Parse(v, CultureInfo.InvariantCulture);
                     else if (k.Equals("SourceFirstX", StringComparison.OrdinalIgnoreCase)) map.SourceFirstX = int.Parse(v, CultureInfo.InvariantCulture);
@@ -1416,9 +1473,11 @@ namespace QMC.CDT320.DieMaps
                 bool hasSequenceNo = false;
                 bool hasOriginalMapAddress = false;
                 bool hasEquipmentGrid = false;
+                bool hasProcessMetadata = false;
                 if (i < lines.Length && lines[i].StartsWith("Index", StringComparison.OrdinalIgnoreCase))
                 {
                     string header = lines[i];
+                    hasProcessMetadata = header.EndsWith(",SourceBinCode,SourceToken,LogicalGridX,LogicalGridY", StringComparison.OrdinalIgnoreCase);
                     hasSequenceNo = header.IndexOf("SequenceNo", StringComparison.OrdinalIgnoreCase) >= 0;
                     hasOriginalMapAddress =
                         header.IndexOf("OriginalMapX", StringComparison.OrdinalIgnoreCase) >= 0 &&
@@ -1429,6 +1488,10 @@ namespace QMC.CDT320.DieMaps
                     i++;
                 }
 
+                bool generated = map.Generation != null;
+                if (generated && (!hasSequenceNo || !hasOriginalMapAddress || !hasEquipmentGrid))
+                    throw new InvalidDataException("생성 맵 CSV의 주소/좌표 열이 누락되었습니다.");
+
                 // Entries
                 while (i < lines.Length)
                 {
@@ -1437,10 +1500,14 @@ namespace QMC.CDT320.DieMaps
                     var p = ParseCsvLine(line);
                     for (int j = 0; j < p.Length; j++)
                         p[j] = p[j] != null ? p[j].Trim() : "";
+                    if (generated)
+                        ValidateGeneratedCsvRecord(hasProcessMetadata ? p.Take(14).ToArray() : p);
                     int sequenceOffset = hasSequenceNo ? 1 : 0;
                     int originalAddressOffset = hasOriginalMapAddress ? 2 : 0;
                     int equipmentGridOffset = hasEquipmentGrid ? 2 : 0;
                     int requiredLength = 8 + sequenceOffset + originalAddressOffset + equipmentGridOffset;
+                    if (hasProcessMetadata && p.Length != 18)
+                        throw new InvalidDataException("공정 맵 CSV의 원본/논리 좌표 데이터가 누락되었습니다.");
                     if (p.Length < requiredLength) continue;
                     int sequenceNo = 0;
                     if (hasSequenceNo)
@@ -1475,15 +1542,53 @@ namespace QMC.CDT320.DieMaps
                         EquipmentGridY = hasEquipmentGrid && double.TryParse(p[9 + valueOffset], NumberStyles.Any, CultureInfo.InvariantCulture, out var equipmentY)
                             ? equipmentY
                             : double.NaN,
-                        DieUid   = p.Length >= 9 + valueOffset + equipmentGridOffset
+                        DieUid   = hasProcessMetadata && p.Length >= 18 ? p[13] : p.Length >= 9 + valueOffset + equipmentGridOffset
                             ? string.Join(",", p.Skip(8 + valueOffset + equipmentGridOffset))
                             : ""
                     };
+                    if (hasProcessMetadata)
+                    {
+                        if (p.Length != 18 || !hasSequenceNo || !hasOriginalMapAddress || !hasEquipmentGrid)
+                            throw new InvalidDataException("공정 맵 CSV의 원본/논리 좌표 열이 누락되었습니다.");
+                        entry.SourceBinCode = p[14].Length == 0 ? (int?)null : int.Parse(p[14], CultureInfo.InvariantCulture);
+                        entry.SourceToken = p[15].Length == 0 ? null : p[15];
+                        entry.LogicalGridX = p[16].Length == 0 ? (double?)null : double.Parse(p[16], CultureInfo.InvariantCulture);
+                        entry.LogicalGridY = p[17].Length == 0 ? (double?)null : double.Parse(p[17], CultureInfo.InvariantCulture);
+                    }
                     map.Entries.Add(entry);
                 }
                 return Normalize(map);
             }
             catch { return null; }
+        }
+
+        private static string FormatCsvNumber(DieMap map, double value)
+        {
+            // 신규 맵은 CSV 대체 파일로 읽어도 좌표 승인 해시가 동일하도록 double 전체 정밀도를 저장한다.
+            return value.ToString(map.Generation != null || map.ProcessTransform != null ? "R" : null, CultureInfo.InvariantCulture);
+        }
+
+        private static void ValidateGeneratedCsvRecord(string[] fields)
+        {
+            if (fields.Length != 14)
+                throw new InvalidDataException("생성 맵 CSV의 셀 열 수가 올바르지 않습니다.");
+            foreach (int index in new[] { 0, 1, 2, 3, 4, 5, 8 })
+            {
+                int value;
+                if (!int.TryParse(fields[index], NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
+                    throw new InvalidDataException("생성 맵 CSV의 정수 값이 올바르지 않습니다. 열=" + index);
+            }
+            bool target;
+            DieResult result;
+            if (!bool.TryParse(fields[6], out target) || !Enum.TryParse(fields[7], out result) || !Enum.IsDefined(typeof(DieResult), result))
+                throw new InvalidDataException("생성 맵 CSV의 대상/결과 값이 올바르지 않습니다.");
+            foreach (int index in new[] { 9, 10, 11, 12 })
+            {
+                double value;
+                if (!double.TryParse(fields[index], NumberStyles.Float, CultureInfo.InvariantCulture, out value) ||
+                    double.IsNaN(value) || double.IsInfinity(value))
+                    throw new InvalidDataException("생성 맵 CSV의 좌표 값이 올바르지 않습니다. 열=" + index);
+            }
         }
 
         private static string EscapeCsv(string value)

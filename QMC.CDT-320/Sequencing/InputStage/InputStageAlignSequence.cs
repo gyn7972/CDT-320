@@ -266,7 +266,7 @@ namespace QMC.CDT320.Sequencing
                 AppSettings barcodeSettings = AppSettingsStore.Current;
                 if (barcodeSettings == null || Stage.Config == null)
                     return Fail("IN-STAGE-ALIGN-BARCODE-SETTING", Stage.Name, "얼라인 전 바코드 검사 설정을 확인할 수 없습니다.");
-                if (barcodeSettings.UseLotNetworkWaferMap || Stage.Config.UseBarcodeLotPrefixCheck)
+                if (RecipeInputMapSource.UsesRemoteForActiveRecipe(barcodeSettings) || Stage.Config.UseBarcodeLotPrefixCheck)
                 {
                     if (!_wafer.BarcodeConfirmed || !InputFeederLoadToStageSequence.IsUsableBarcode(_wafer.BarcodeId))
                         return Fail("IN-STAGE-ALIGN-BARCODE-REQUIRED", Stage.Name,
@@ -2802,9 +2802,23 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 // 현재 기준: 새 wafer align 소스는 recipe/current wafer를 우선하고 이전 active map은 마지막 fallback으로만 사용한다.
+                RecipeProject project = RecipeStore.LoadLastOrDefaultCached();
+                WaferMapProcessSettings settings = project != null ? project.InputMapProcessing : null;
+                bool network = AppSettingsStore.Current != null && RecipeInputMapSource.UsesRemoteForActiveRecipe(AppSettingsStore.Current);
+                string barcode = wafer != null ? wafer.BarcodeId ?? "" : "";
+                DieMap prepared = MaterialStateService.GetPreparedInputMap(wafer, barcode, network);
+                if (prepared != null)
+                    return WaferMapProcessService.Prepare(prepared, settings, "Input");
+                if (network)
+                    throw new InvalidOperationException("얼라인 전에 바코드 웨이퍼맵 사전 확인과 준비를 완료해야 합니다. 등록 맵으로 대체할 수 없습니다.");
                 DieMap recipeMap = LoadRecipeInputDieMap();
                 if (IsUsableSourceMap(recipeMap))
+                {
+                    recipeMap = WaferMapProcessService.Prepare(recipeMap, settings, "Input");
+                    if (wafer != null && !wafer.HasInputStageDieMappingResult)
+                        MaterialStateService.PinPreparedInputMap(wafer, barcode, false, recipeMap);
                     return recipeMap;
+                }
 
                 if (IsManagedInputMapApprovalRequired())
                     return null;
@@ -2861,11 +2875,13 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 RecipeProject project = RecipeStore.LoadLastOrDefault();
-                return project != null && project.MapApprovalVersion > 0;
+                return (project != null && (project.MapApprovalVersion > 0 || project.InputMapProcessing != null)) ||
+                    (AppSettingsStore.Current != null && RecipeInputMapSource.UsesRemoteForActiveRecipe(AppSettingsStore.Current));
             }
-            catch
+            catch (Exception ex)
             {
-                return false;
+                WriteLog("InputStageAlignSequence", "맵 승인 조건을 읽지 못해 얼라인 대체 맵 사용을 차단합니다. " + ex.Message + " - Failed");
+                return true;
             }
         }
 
@@ -3305,4 +3321,3 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
-

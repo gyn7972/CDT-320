@@ -45,6 +45,7 @@ QMC.CDT-320/
 - [Input Wafer 바코드 LOT 검사 구현 프롬프트](docs/input-wafer-barcode-validation/01-implementation-prompt.md)
 - [Input Wafer 바코드 LOT 검사 및 수동 복구 검증](docs/input-wafer-barcode-validation/02-validation-checklist.md)
 - [EventLogPage 파일 조회·실시간 표시 구조](docs/ui/event-log-view.md)
+- [웨이퍼 맵 생성·회전·저장 사용 방법](docs/ui/wafer-map-create.md)
 - [축·IO·실린더 정의 코드 탐색표](docs/architecture/equipment-definition-code-map.md)
 - [자동 시컨스 전체 흐름도](docs/architecture/auto-sequence-flow.md)
 - [Manual Sequence OUTPUT ALL 동작과 검증](docs/manual-output-all/README.md)

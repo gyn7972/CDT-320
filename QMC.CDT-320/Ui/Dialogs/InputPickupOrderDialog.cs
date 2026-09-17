@@ -164,7 +164,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     for (int i = page; i < Math.Min(Count, page + 10); i++)
                     {
                         DieMapEntry entry = _draft.Order[i];
-                        int row = gridOrder.Rows.Add(i + 1, entry.DieMapX, entry.DieMapY, i == 0 ? "START" : i == Count - 1 ? "END" : "WAIT");
+                        int row = gridOrder.Rows.Add(i + 1, WaferMapProcessService.FormatMapCoordinate(entry.LogicalGridX), WaferMapProcessService.FormatMapCoordinate(entry.LogicalGridY), i == 0 ? "START" : i == Count - 1 ? "END" : "WAIT");
                         gridOrder.Rows[row].Tag = i;
                     }
                     _renderedPage = page;
@@ -190,9 +190,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 DieMapEntry selected = Count > 0 ? _draft.Order[_selectedIndex] : null;
                 DieMapEntry start = Count > 0 ? _draft.Order[0] : null;
                 lblSequence.Text = selected == null ? "-" : (_selectedIndex + 1).ToString("D3");
-                lblSelectedMap.Text = selected == null ? "픽업 대상 없음" : "MAP (" + selected.DieMapX + ", " + selected.DieMapY + ")";
+                lblSelectedMap.Text = selected == null ? "픽업 대상 없음" : WaferMapProcessService.FormatMapPosition(selected);
                 lblPosition.Text = selected == null ? "X - / Y -" : "X " + selected.PosX.ToString("F3", CultureInfo.InvariantCulture) + "    Y " + selected.PosY.ToString("F3", CultureInfo.InvariantCulture) + " mm";
-                lblStart.Text = start == null ? "시작 다이 없음" : "시작 1번  ·  MAP (" + start.DieMapX + ", " + start.DieMapY + ")";
+                lblStart.Text = start == null ? "시작 다이 없음" : "시작 1번  ·  " + WaferMapProcessService.FormatMapPosition(start);
                 lblPage.Text = Count == 0 ? "0 / 0" : (page + 1) + "–" + Math.Min(Count, page + 10) + " / " + Count.ToString("N0");
                 lblTotal.Text = "/ " + Count.ToString("N0");
                 lblStatus.Text = _draft != null && _draft.IsReadOnly ? "읽기 전용 순서 확인" :

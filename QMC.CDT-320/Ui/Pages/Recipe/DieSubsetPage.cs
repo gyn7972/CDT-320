@@ -86,7 +86,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 SetOperationStatus(
                     "LOAD SPEC",
-                    "'" + specName + "' 값을 화면에만 불러왔습니다. 아직 현재 Recipe에는 반영되지 않았습니다. 상단 SAVE 또는 SAVE SPEC을 누르세요.",
+                    "'" + specName + "' 값을 화면에만 불러왔습니다. 아직 현재 Recipe에는 반영되지 않았습니다. 상단 [저장] 또는 [사양 저장·적용]을 누르세요.",
                     false);
             }
             catch (Exception ex)
@@ -246,7 +246,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     recipePersisted = true;
                 }
 
-                // 상단 SAVE도 실행 중 MaterialSpec 참조가 이전 값으로 남지 않도록
+                // 상단 저장도 실행 중 MaterialSpec 참조가 이전 값으로 남지 않도록
                 // 동일 이름의 runtime spec을 동기화하고 실제 파일 재읽기로 검증한다.
                 if (!saveSpecButton)
                 {
@@ -261,7 +261,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 UpdateCurrentRecipeInfo();
 
                 string mapResult = hasInputBaseMap || hasOutputBaseMap
-                    ? "연결된 역할별 Base와 파생 맵도 새 Die 크기로 재생성했습니다. 공정 사용 전 Map Create에서 해당 역할을 확인하고 FINAL APPLY 하세요."
+                    ? "연결된 역할별 Base와 파생 맵도 새 Die 크기로 재생성했습니다. 공정 사용 전 다이 맵 생성에서 해당 역할을 확인하고 [맵 확인 및 적용]을 누르세요."
                     : "Input/Output Base WaferMap이 연결되지 않아 Recipe 값만 저장했습니다.";
                 SetOperationStatus(
                     saveSpecButton ? "SAVE SPEC COMPLETE" : "SAVE COMPLETE",
@@ -394,7 +394,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
             SetOperationStatus(
                 "UNSAVED CHANGES",
-                "화면 값이 변경되었습니다. 현재 Recipe 파일과 실행 데이터에는 아직 반영되지 않았습니다. 상단 SAVE 또는 SAVE SPEC을 누르세요.",
+                "화면 값이 변경되었습니다. 현재 Recipe 파일과 실행 데이터에는 아직 반영되지 않았습니다. 상단 [저장] 또는 [사양 저장·적용]을 누르세요.",
                 false);
         }
 
@@ -419,7 +419,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ? "연결 안 됨"
                 : (File.Exists(outputBaseMap) ? Path.GetFileName(outputBaseMap) : "파일 없음: " + outputBaseMap);
 
-            _lblCurrentRecipeInfo.Text = "현재 Recipe : " + recipeName +
+            _lblCurrentRecipeInfo.Text = "현재 레시피: " + recipeName +
                 "\r\nBase WaferMap : Input=" + inputMapState + " / Output=" + outputMapState;
         }
 

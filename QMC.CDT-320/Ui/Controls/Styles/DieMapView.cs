@@ -53,6 +53,12 @@ namespace QMC.CDT320.Ui.Controls
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<DieMapEntry, string> CellTextResolver { get; set; }
 
+        /// <summary>공정 순서의 자릿수가 늘어도 셀 안에 맞춰 표시한다. 기본 표시는 기존 크기를 유지한다.</summary>
+        public bool FitCellTextToCell { get; set; }
+
+        /// <summary>확대/이동 중에도 제목·범례·적용 좌표 영역을 맵으로 덮지 않는다.</summary>
+        public bool KeepOverlaysVisible { get; set; }
+
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<DieMapEntry, string> CellStatusResolver { get; set; }
@@ -161,76 +167,95 @@ namespace QMC.CDT320.Ui.Controls
             VisibleBounds bounds;
             GetMapLayout(out mapRect, out contentRect, out cell, out bounds);
 
-            // 셀 그리기
-            foreach (var entry in _map.Entries)
+            var mapGraphicsState = KeepOverlaysVisible ? g.Save() : null;
+            try
             {
-                if (entry == null)
-                    continue;
-                if (!IsEntryVisible(entry))
-                    continue;
-
-                float x = mapRect.Left + ToViewX(entry, bounds) * cell.Width;
-                float y = mapRect.Top + ToViewY(entry, bounds) * cell.Height;
-                RectangleF dieRect = GetDieRect(x, y, cell);
-                if (dieRect.Left > Width || dieRect.Top > Height || dieRect.Right < 0 || dieRect.Bottom < 0)
-                    continue;
-                Color c = ResolveCellColor(entry);
-                using (var br = new SolidBrush(c))
-                    g.FillRectangle(br, dieRect);
-                if (dieRect.Width >= 2.0F && dieRect.Height >= 2.0F)
+                if (KeepOverlaysVisible)
+                    g.SetClip(GetMapViewport(), System.Drawing.Drawing2D.CombineMode.Intersect);
+                // 셀 그리기
+                foreach (var entry in _map.Entries)
                 {
-                    using (var gridPen = new Pen(Color.FromArgb(75, ResolveOverlayTextColor()), 0.7F))
-                        g.DrawRectangle(gridPen, dieRect.X, dieRect.Y,
-                            Math.Max(0.1F, dieRect.Width - 0.5F),
-                            Math.Max(0.1F, dieRect.Height - 0.5F));
-                }
+                    if (entry == null)
+                        continue;
+                    if (!IsEntryVisible(entry))
+                        continue;
 
-                string cellText = CellTextResolver != null
-                    ? CellTextResolver(entry)
-                    : (entry.SequenceNo > 0 ? entry.SequenceNo.ToString() : "");
-                float textCellSize = Math.Min(cell.DieWidth, cell.DieHeight);
-                if (entry.IsTarget && !string.IsNullOrWhiteSpace(cellText) && textCellSize >= 16)
-                {
-                    using (var br = new SolidBrush(textColor))
-                    using (var f = new Font("Consolas", Math.Max(6F, textCellSize * 0.32F), FontStyle.Regular))
+                    float x = mapRect.Left + ToViewX(entry, bounds) * cell.Width;
+                    float y = mapRect.Top + ToViewY(entry, bounds) * cell.Height;
+                    RectangleF dieRect = GetDieRect(x, y, cell);
+                    if (dieRect.Left > Width || dieRect.Top > Height || dieRect.Right < 0 || dieRect.Bottom < 0)
+                        continue;
+                    Color c = ResolveCellColor(entry);
+                    using (var br = new SolidBrush(c))
+                        g.FillRectangle(br, dieRect);
+                    if (dieRect.Width >= 2.0F && dieRect.Height >= 2.0F)
                     {
-                        SizeF size = g.MeasureString(cellText, f);
-                        if (size.Width <= dieRect.Width - 2.0F && size.Height <= dieRect.Height - 2.0F)
-                            g.DrawString(cellText, f, br, dieRect.Left + (dieRect.Width - size.Width) / 2.0F, dieRect.Top + (dieRect.Height - size.Height) / 2.0F);
+                        using (var gridPen = new Pen(Color.FromArgb(75, ResolveOverlayTextColor()), 0.7F))
+                            g.DrawRectangle(gridPen, dieRect.X, dieRect.Y,
+                                Math.Max(0.1F, dieRect.Width - 0.5F),
+                                Math.Max(0.1F, dieRect.Height - 0.5F));
+                    }
+
+                    string cellText = CellTextResolver != null
+                        ? CellTextResolver(entry)
+                        : (entry.SequenceNo > 0 ? entry.SequenceNo.ToString() : "");
+                    float textCellSize = Math.Min(cell.DieWidth, cell.DieHeight);
+                    if (entry.IsTarget && !string.IsNullOrWhiteSpace(cellText) && textCellSize >= 16)
+                    {
+                        float fontSize = Math.Max(6F, textCellSize * 0.32F);
+                        if (FitCellTextToCell)
+                        {
+                            using (var measureFont = new Font("Consolas", fontSize, FontStyle.Regular))
+                            {
+                                SizeF measured = g.MeasureString(cellText, measureFont);
+                                float fit = Math.Min((dieRect.Width - 2F) / measured.Width, (dieRect.Height - 2F) / measured.Height);
+                                fontSize = Math.Max(6F, fontSize * Math.Min(1F, fit));
+                            }
+                        }
+                        using (var br = new SolidBrush(textColor))
+                        using (var f = new Font("Consolas", fontSize, FontStyle.Regular))
+                        {
+                            SizeF size = g.MeasureString(cellText, f);
+                            if (size.Width <= dieRect.Width - 2.0F && size.Height <= dieRect.Height - 2.0F)
+                                g.DrawString(cellText, f, br, dieRect.Left + (dieRect.Width - size.Width) / 2.0F, dieRect.Top + (dieRect.Height - size.Height) / 2.0F);
+                        }
                     }
                 }
+
+                // 실제 외경은 셀 위에 그려야 Target 셀이 외곽선을 덮지 않는다.
+                if (ShowWaferOutline)
+                    DrawPhysicalWaferOutline(g, mapRect, cell, bounds);
+
+                // 작업자에게는 적용 맵 좌표만 표시한다. 기구 중심 좌표 축은 표시하지 않는다.
+
+                DrawSelectedEntries(g, mapRect, cell, bounds);
+
+                if (_selected != null && IsEntryVisible(_selected))
+                {
+                    float x = mapRect.Left + ToViewX(_selected, bounds) * cell.Width;
+                    float y = mapRect.Top + ToViewY(_selected, bounds) * cell.Height;
+                    RectangleF dieRect = GetDieRect(x, y, cell);
+                    using (var pen = new Pen(WaferMapPalette.Selection, Math.Max(2.0F, Math.Min(4.0F, Math.Min(cell.DieWidth, cell.DieHeight) / 6.0F))))
+                        g.DrawRectangle(pen, dieRect.X, dieRect.Y, Math.Max(1.0F, dieRect.Width - 1.0F), Math.Max(1.0F, dieRect.Height - 1.0F));
+                }
+
+                // hover 강조
+                if (_hover != null && IsEntryVisible(_hover))
+                {
+                    float x = mapRect.Left + ToViewX(_hover, bounds) * cell.Width;
+                    float y = mapRect.Top + ToViewY(_hover, bounds) * cell.Height;
+                    RectangleF dieRect = GetDieRect(x, y, cell);
+                    using (var pen = new Pen(WaferMapPalette.Hover, 2f))
+                        g.DrawRectangle(pen, dieRect.X, dieRect.Y, Math.Max(1.0F, dieRect.Width - 1.0F), Math.Max(1.0F, dieRect.Height - 1.0F));
+                }
+
+                if (_rectangleSelecting && EnableRectangleSelection)
+                    DrawSelectionRectangle(g);
             }
-
-            // 실제 외경은 셀 위에 그려야 Target 셀이 외곽선을 덮지 않는다.
-            if (ShowWaferOutline)
-                DrawPhysicalWaferOutline(g, mapRect, cell, bounds);
-
-            if (ShowEquipmentAxes)
-                DrawEquipmentAxes(g, mapRect, contentRect, cell, bounds);
-
-            DrawSelectedEntries(g, mapRect, cell, bounds);
-
-            if (_selected != null && IsEntryVisible(_selected))
+            finally
             {
-                float x = mapRect.Left + ToViewX(_selected, bounds) * cell.Width;
-                float y = mapRect.Top + ToViewY(_selected, bounds) * cell.Height;
-                RectangleF dieRect = GetDieRect(x, y, cell);
-                using (var pen = new Pen(WaferMapPalette.Selection, Math.Max(2.0F, Math.Min(4.0F, Math.Min(cell.DieWidth, cell.DieHeight) / 6.0F))))
-                    g.DrawRectangle(pen, dieRect.X, dieRect.Y, Math.Max(1.0F, dieRect.Width - 1.0F), Math.Max(1.0F, dieRect.Height - 1.0F));
+                if (mapGraphicsState != null) g.Restore(mapGraphicsState);
             }
-
-            // hover 강조
-            if (_hover != null && IsEntryVisible(_hover))
-            {
-                float x = mapRect.Left + ToViewX(_hover, bounds) * cell.Width;
-                float y = mapRect.Top + ToViewY(_hover, bounds) * cell.Height;
-                RectangleF dieRect = GetDieRect(x, y, cell);
-                using (var pen = new Pen(WaferMapPalette.Hover, 2f))
-                    g.DrawRectangle(pen, dieRect.X, dieRect.Y, Math.Max(1.0F, dieRect.Width - 1.0F), Math.Max(1.0F, dieRect.Height - 1.0F));
-            }
-
-            if (_rectangleSelecting && EnableRectangleSelection)
-                DrawSelectionRectangle(g);
 
             // 좌상단 정보
             using (var br = new SolidBrush(textColor))
@@ -240,26 +265,37 @@ namespace QMC.CDT320.Ui.Controls
                 {
                     string dieSizeInfo = FormatDieSizeInfo();
                     string waferInfo = _map.OuterDiameterMm > 0.0
-                        ? $"wafer={_map.OuterDiameterMm:F2}mm"
+                        ? $"wafer={_map.OuterDiameterMm:F3}mm"
                         : "wafer=(not set)";
                     string info = bounds.Compacted
                         ? $"{bounds.Width}×{bounds.Height} display={bounds.VisibleCount}  source={_map.DieMapX}×{_map.DieMapY}  step=({_map.PitchX:F3},{_map.PitchY:F3})mm  {dieSizeInfo}  {waferInfo}  zoom={_zoom * 100.0F:F0}%"
                         : $"{_map.DieMapX}×{_map.DieMapY}  step=({_map.PitchX:F3},{_map.PitchY:F3})mm  {dieSizeInfo}  {waferInfo}  total={_map.TotalCells}  zoom={_zoom * 100.0F:F0}%";
-                    if (ShowEquipmentAxes)
-                        info += "  center=(0,0) X:L-/R+ Y:D-/U+";
+                    if (_map.Generation != null)
+                        info += "  rotation=" + _map.Generation.RotationDegrees + "° CW";
+                    if (_map.ProcessTransform != null)
+                        info += "  맵 원점=" + (_map.ProcessTransform.Settings != null
+                            ? _map.ProcessTransform.Settings.GridOrigin : WaferMapGridOrigin.TopLeft);
                     g.DrawString(info, f, br, 8, 24);
                 }
                 if (_hover != null && IsEntryVisible(_hover))
                 {
                     string status = CellStatusResolver != null ? CellStatusResolver(_hover) : _hover.Result.ToString();
-                    int rawX = _hover.OriginalMapX >= 0 ? _hover.OriginalMapX : _hover.DieMapX;
-                    int rawY = _hover.OriginalMapY >= 0 ? _hover.OriginalMapY : _hover.DieMapY;
-                    string h = $"seq={_hover.SequenceNo} local=[{_hover.DieMapX},{_hover.DieMapY}] raw=[{rawX},{rawY}] grid=({_hover.EquipmentGridX:F1},{_hover.EquipmentGridY:F1}) axis=({_hover.PosX:F3},{_hover.PosY:F3}) state={status} bin={_hover.BinCode}";
+                    string h = WaferMapProcessService.FormatMapPosition(_hover) +
+                        $"  순서={_hover.SequenceNo}  상태={status}  BIN={_hover.BinCode}";
+                    if (!_hover.LogicalGridX.HasValue || !_hover.LogicalGridY.HasValue)
+                        h += "  (적용 맵 좌표 없음)";
                     g.DrawString(h, f, br, 8, Height - 18);
                 }
             }
 
-            DrawLegend(g, Math.Max(1, Width - 16), 8, (int)(contentRect.Bottom + 6.0F));
+            DrawLegend(g, Math.Max(1, Width - 16), 8,
+                (int)((KeepOverlaysVisible ? GetMapViewport().Bottom : contentRect.Bottom) + 6.0F));
+        }
+
+        private RectangleF GetMapViewport()
+        {
+            int legendH = 11 + LegendRowHeight * MeasureLegendRows(Math.Max(1, Width - 16));
+            return new RectangleF(8, 48, Math.Max(1, Width - 16), Math.Max(1, Height - 48 - legendH - 30));
         }
 
         private void DrawPhysicalWaferOutline(Graphics g, RectangleF mapRect, CellMetrics cell, VisibleBounds bounds)
@@ -277,8 +313,8 @@ namespace QMC.CDT320.Ui.Controls
                 return;
 
             float diameter = (float)(diameterMm * scale);
-            float centerX = mapRect.Left + (float)(Math.Max(0, _map.DieMapX - 1) / 2.0 - bounds.MinX + 0.5) * cell.Width;
-            float centerY = mapRect.Top + (float)(Math.Max(0, _map.DieMapY - 1) / 2.0 - bounds.MinY + 0.5) * cell.Height;
+            float centerX = mapRect.Left + (float)(ResolveWaferZeroIndex(true) - bounds.MinX + 0.5) * cell.Width;
+            float centerY = mapRect.Top + (float)(ResolveWaferZeroIndex(false) - bounds.MinY + 0.5) * cell.Height;
             using (var pen = new Pen(WaferOutlineColor, 1.4F))
                 g.DrawEllipse(pen, centerX - diameter / 2.0F, centerY - diameter / 2.0F, diameter, diameter);
         }
@@ -288,8 +324,8 @@ namespace QMC.CDT320.Ui.Controls
             if (_map == null)
                 return;
 
-            double centerX = Math.Max(0, _map.DieMapX - 1) / 2.0;
-            double centerY = Math.Max(0, _map.DieMapY - 1) / 2.0;
+            double centerX = ResolveWaferZeroIndex(true);
+            double centerY = ResolveWaferZeroIndex(false);
             float zeroX = mapRect.Left + (float)(centerX - bounds.MinX + 0.5) * cell.Width;
             float zeroY = mapRect.Top + (float)(centerY - bounds.MinY + 0.5) * cell.Height;
             Color axisColor = WaferMapPalette.AxisFor(BackColor);
@@ -301,8 +337,8 @@ namespace QMC.CDT320.Ui.Controls
                 g.DrawLine(pen, zeroX, contentRect.Bottom, zeroX, contentRect.Top);
                 g.DrawString("-X", font, brush, contentRect.Left - 2F, zeroY + 2F);
                 g.DrawString("+X", font, brush, contentRect.Right - 20F, zeroY + 2F);
-                g.DrawString("+Y", font, brush, zeroX + 3F, contentRect.Top - 16F);
-                g.DrawString("-Y", font, brush, zeroX + 3F, contentRect.Bottom + 1F);
+                g.DrawString(_map.Generation != null ? "-Y" : "+Y", font, brush, zeroX + 3F, contentRect.Top - 16F);
+                g.DrawString(_map.Generation != null ? "+Y" : "-Y", font, brush, zeroX + 3F, contentRect.Bottom + 1F);
                 g.DrawString("0,0", font, brush, zeroX + 3F, zeroY + 2F);
             }
         }
@@ -480,6 +516,7 @@ namespace QMC.CDT320.Ui.Controls
         private DieMapEntry HitTest(int mouseX, int mouseY)
         {
             if (_map == null) return null;
+            if (KeepOverlaysVisible && !GetMapViewport().Contains(mouseX, mouseY)) return null;
             RectangleF mapRect;
             CellMetrics cell;
             VisibleBounds bounds;
@@ -783,6 +820,18 @@ namespace QMC.CDT320.Ui.Controls
             return _map.OuterDiameterMm;
         }
 
+        private double ResolveWaferZeroIndex(bool horizontal)
+        {
+            if (_map == null) return 0.0;
+            double origin = horizontal ? _map.OriginX : _map.OriginY;
+            double pitch = horizontal ? _map.PitchX : _map.PitchY;
+            // 생성 맵의 원점은 실제 웨이퍼 중심 기준이다. 외곽 절삭 후 사용 격자 중앙으로 옮기지 않는다.
+            if (_map.Generation != null && pitch > 0.0 && !double.IsNaN(pitch) && !double.IsInfinity(pitch) &&
+                !double.IsNaN(origin) && !double.IsInfinity(origin))
+                return -origin / pitch;
+            return Math.Max(0, (horizontal ? _map.DieMapX : _map.DieMapY) - 1) / 2.0;
+        }
+
         private PhysicalBounds CalculatePhysicalContentBounds(
             VisibleBounds bounds,
             double pitchX,
@@ -802,9 +851,9 @@ namespace QMC.CDT320.Ui.Controls
             if (diameter > 0.0 && _map != null)
             {
                 double waferCenterX =
-                    (Math.Max(0, _map.DieMapX - 1) / 2.0 - bounds.MinX + 0.5) * pitchX;
+                    (ResolveWaferZeroIndex(true) - bounds.MinX + 0.5) * pitchX;
                 double waferCenterY =
-                    (Math.Max(0, _map.DieMapY - 1) / 2.0 - bounds.MinY + 0.5) * pitchY;
+                    (ResolveWaferZeroIndex(false) - bounds.MinY + 0.5) * pitchY;
                 double radius = diameter / 2.0;
                 result.MinX = Math.Min(result.MinX, waferCenterX - radius);
                 result.MinY = Math.Min(result.MinY, waferCenterY - radius);

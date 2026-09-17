@@ -1076,6 +1076,9 @@ namespace QMC.CDT320.Materials
                 return null;
             var text = new StringBuilder();
             AppendInputStageReviewValue(text, runtimeModeSignature);
+            // 기존 승인 서명은 유지하되 신규 공정 설정이 있으면 회전/원점 변경도 승인 조건으로 묶는다.
+            if (recipe.InputMapProcessing != null)
+                AppendInputStageReviewValue(text, WaferMapProcessService.GetSettingsKey(recipe.InputMapProcessing));
             AppendInputStageReviewValue(text, wafer.WaferInstanceId, wafer.InputStageProcessingGeneration,
                 wafer.InputStageAlignResultRunId, wafer.InputStageDieMappingAlignRunId, wafer.InputStageAlignResultMode,
                 wafer.InputStageDieMappingResultMode, wafer.InputMapApprovalHashAtMapping,

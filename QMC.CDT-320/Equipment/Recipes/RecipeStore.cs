@@ -179,6 +179,8 @@ namespace QMC.CDT320.Recipes
                     "Project recipe 저장 완료. path=" + path);
                 if (File.Exists(backupPath))
                     File.Delete(backupPath);
+                // 저장 직후에는 파일 시각 정밀도와 무관하게 활성 공정 설정을 다시 읽는다.
+                lock (_lastCacheSync) _lastCacheProject = null;
                 return true;
             }
             catch (Exception ex)
@@ -531,6 +533,11 @@ namespace QMC.CDT320.Recipes
         // DieMap 생성 기준은 Input/Output(Bin)을 분리하고 Frame은 기존 레시피 호환 폴백으로 유지한다.
         [DataMember] public TapeFrameSubset       InputFrame    { get; set; }
         [DataMember] public TapeFrameSubset       OutputFrame   { get; set; }
+        // null은 구형 레시피의 기존 맵 사용 방식을 유지한다. 역할별 설정을 저장한 뒤부터 적용한다.
+        // null은 구형 레시피 호환이다. 공정 맵 설정을 저장할 때만 원격/등록 모드를 명시적으로 고정한다.
+        [DataMember(EmitDefaultValue = false)] public bool? InputUseRemoteWaferMap { get; set; }
+        [DataMember(EmitDefaultValue = false)] public QMC.CDT320.DieMaps.WaferMapProcessSettings InputMapProcessing { get; set; }
+        [DataMember(EmitDefaultValue = false)] public QMC.CDT320.DieMaps.WaferMapProcessSettings OutputMapProcessing { get; set; }
         [DataMember] public LoadTapeFrameSubset   LoadFrame     { get; set; } = new LoadTapeFrameSubset();
         [DataMember] public UnloadTapeFrameSubset UnloadFrame   { get; set; } = new UnloadTapeFrameSubset();
         [DataMember] public ModuleSubset          Module        { get; set; } = new ModuleSubset();

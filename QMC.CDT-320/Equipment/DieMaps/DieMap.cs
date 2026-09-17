@@ -22,6 +22,12 @@ namespace QMC.CDT320.DieMaps
         [DataMember] public bool      IsTarget { get; set; } = true;
         [DataMember] public DieResult Result   { get; set; } = DieResult.Unknown;
         [DataMember] public int       BinCode  { get; set; } = 0;
+        /// <summary>파싱 당시 BIN. 공정용 BIN/Target 변경과 별도로 보존한다.</summary>
+        [DataMember(EmitDefaultValue = false)] public int? SourceBinCode { get; set; }
+        [DataMember(EmitDefaultValue = false)] public string SourceToken { get; set; }
+        /// <summary>레시피에서 선택한 원점을 기준으로 한 사용자 Grid. 배열 인덱스가 아니다.</summary>
+        [DataMember(EmitDefaultValue = false)] public double? LogicalGridX { get; set; }
+        [DataMember(EmitDefaultValue = false)] public double? LogicalGridY { get; set; }
         /// <summary>모터 좌표 (mm).</summary>
         [DataMember] public double    PosX        { get; set; }
         [DataMember] public double    PosY        { get; set; }
@@ -78,6 +84,11 @@ namespace QMC.CDT320.DieMaps
         /// <summary>원본 Header FX/FY를 mm로 변환한 값. 없으면 NaN.</summary>
         [DataMember] public double SourceFirstPosX { get; set; } = double.NaN;
         [DataMember] public double SourceFirstPosY { get; set; } = double.NaN;
+        /// <summary>맵 생성 미리보기의 재현 가능한 원본 입력·회전·끝줄 보정. 구형/외부 맵은 null.</summary>
+        [DataMember(EmitDefaultValue = false)] public GeneratedWaferMapDefinition Generation { get; set; }
+        [DataMember(EmitDefaultValue = false)] public string SourceContentHash { get; set; }
+        /// <summary>웨이퍼 준비 시 확정한 회전/원점 이력. 생성 맵 정의와 장비 절대좌표를 구분한다.</summary>
+        [DataMember(EmitDefaultValue = false)] public WaferMapProcessTransform ProcessTransform { get; set; }
         [DataMember] public List<DieMapEntry> Entries { get; set; } = new List<DieMapEntry>();
         [DataMember] public DateTime CreatedAt { get; set; } = DateTime.Now;
 

@@ -111,8 +111,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 _cbUseLotNetworkWaferMap.Checked = cfg.UseLotNetworkWaferMap;
                 // [캠택맵 2026-08-27] 네트워크 맵 파일 포맷 — 명시 선택(자동 판별 없음). 기본 Rad.
                 _cbNetworkWaferMapFormat.Items.Clear();
-                _cbNetworkWaferMapFormat.Items.Add("RAD TXT (X= Y= B=)");
-                _cbNetworkWaferMapFormat.Items.Add("CAMTEK (RowData)");
+                _cbNetworkWaferMapFormat.Items.Add("구형 형식: 삼성 (RAD)");
+                _cbNetworkWaferMapFormat.Items.Add("구형 형식: CAMTEK");
                 _cbNetworkWaferMapFormat.SelectedIndex =
                     string.Equals((cfg.NetworkWaferMapFormat ?? "").Trim(), "Camtek",
                         StringComparison.OrdinalIgnoreCase) ? 1 : 0;
@@ -173,6 +173,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         // [P4 2026-08-22] LOT 네트워크 맵 사용 스위치 — 즉시 저장.
         private void _cbUseLotNetworkWaferMap_CheckedChanged(object sender, EventArgs e)
         {
+            if (!_cbUseLotNetworkWaferMap.Enabled) return;
             if (_loadingSettings)
                 return;
 
@@ -199,6 +200,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         // [캠택맵 2026-08-27] 네트워크 웨이퍼맵 포맷 — 변경 즉시 저장(USE 스위치 저장 패턴 미러) + 변경 로그 1줄.
         private void _cbNetworkWaferMapFormat_SelectedIndexChanged(object sender, EventArgs e)
         {
+            if (!_cbNetworkWaferMapFormat.Enabled) return;
             if (_loadingSettings)
                 return;
 

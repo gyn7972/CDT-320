@@ -51,9 +51,8 @@ namespace QMC.CDT_320.Ui.Tabs
 
             HideUnimplementedSidebarButtons();
 
-            // 레시피 사이드바 메뉴는 로케일과 무관하게 대문자 영어로 표시한다.
-            // (번역 데이터/권한 Tag는 그대로 두고 표시 텍스트만 영어로 오버라이드)
-            ApplyEnglishMenuLabels();
+            // 권한 Tag와 메뉴 키를 유지하고 현재 언어의 표시명을 사용한다.
+            ApplyLocalizedMenuLabels();
             Lang.LanguageChanged += OnLanguageChangedMenu;
         }
 
@@ -84,21 +83,21 @@ namespace QMC.CDT_320.Ui.Tabs
             }
         }
 
-        /// <summary>사이드바 메뉴 버튼 텍스트를 영어(대문자)로 강제한다. Tag(i18n/권한)는 유지.</summary>
-        private void ApplyEnglishMenuLabels()
+        /// <summary>사이드바 메뉴에 현재 언어를 적용한다. Tag(i18n/권한)는 유지.</summary>
+        private void ApplyLocalizedMenuLabels()
         {
             try
             {
                 foreach (var kv in SidebarButtons)
                 {
                     if (kv.Value == null) continue;
-                    string en = Lang.TEn(kv.Key);
-                    if (!string.IsNullOrEmpty(en)) kv.Value.Text = en.ToUpperInvariant();
+                    string label = Lang.T(kv.Key);
+                    if (!string.IsNullOrEmpty(label)) kv.Value.Text = label;
                 }
                 if (BtnDieMapSetup != null)
                 {
-                    string en = Lang.TEn("recipe.dieMapSetup");
-                    if (!string.IsNullOrEmpty(en)) BtnDieMapSetup.Text = en.ToUpperInvariant();
+                    string label = Lang.T("recipe.dieMapSetup");
+                    if (!string.IsNullOrEmpty(label)) BtnDieMapSetup.Text = label;
                 }
             }
             catch { }
@@ -112,11 +111,11 @@ namespace QMC.CDT_320.Ui.Tabs
 
         private void OnLanguageChangedMenu()
         {
-            // Lang.Apply 가 동기적으로 Text 를 되돌린 뒤에 다시 영어로 덮어쓰도록 지연 실행.
+            // 공통 언어 적용 이후에도 현재 언어의 메뉴 표시를 유지한다.
             try
             {
-                if (IsDisposed || !IsHandleCreated) { ApplyEnglishMenuLabels(); return; }
-                BeginInvoke((Action)ApplyEnglishMenuLabels);
+                if (IsDisposed || !IsHandleCreated) { ApplyLocalizedMenuLabels(); return; }
+                BeginInvoke((Action)ApplyLocalizedMenuLabels);
             }
             catch { }
         }

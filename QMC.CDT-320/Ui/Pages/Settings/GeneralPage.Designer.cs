@@ -811,7 +811,7 @@
             this.lblNetworkWaferMapFolder.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblNetworkWaferMapFolder.Size = new System.Drawing.Size(344, 30);
             this.lblNetworkWaferMapFolder.TabIndex = 32;
-            this.lblNetworkWaferMapFolder.Text = "NETWORK WAFER MAP FOLDER";
+            this.lblNetworkWaferMapFolder.Text = "원격 맵 폴더 · 모드는 레시피에서 설정";
             this.lblNetworkWaferMapFolder.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // networkWaferMapLayout
@@ -842,7 +842,8 @@
             this._cbUseLotNetworkWaferMap.Name = "_cbUseLotNetworkWaferMap";
             this._cbUseLotNetworkWaferMap.Size = new System.Drawing.Size(100, 28);
             this._cbUseLotNetworkWaferMap.TabIndex = 0;
-            this._cbUseLotNetworkWaferMap.Text = "USE";
+            this._cbUseLotNetworkWaferMap.Text = "구형 기본";
+            this._cbUseLotNetworkWaferMap.Enabled = false;
             this._cbUseLotNetworkWaferMap.UseVisualStyleBackColor = true;
             this._cbUseLotNetworkWaferMap.CheckedChanged += new System.EventHandler(this._cbUseLotNetworkWaferMap_CheckedChanged);
             // 
@@ -872,6 +873,7 @@
             // _cbNetworkWaferMapFormat
             // 
             this._cbNetworkWaferMapFormat.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._cbNetworkWaferMapFormat.Enabled = false;
             this._cbNetworkWaferMapFormat.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbNetworkWaferMapFormat.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbNetworkWaferMapFormat.Location = new System.Drawing.Point(593, 2);

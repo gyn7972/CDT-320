@@ -261,7 +261,7 @@ namespace QMC.CDT_320
             return LotSessionService.IsLotActive ? (LotSessionService.ActiveLotId ?? string.Empty).Trim() : string.Empty;
         }
 
-        private bool TryValidateRecipeApplyUiState(out string reason)
+        private bool TryValidateRecipeApplyUiState(out string reason, Form mapEditor = null)
         {
             reason = string.Empty;
             if ((_inputStageRunReviewDialog != null && !_inputStageRunReviewDialog.IsDisposed) ||
@@ -276,7 +276,9 @@ namespace QMC.CDT_320
                 return false;
             }
             // 기존 확인창의 callback이 옛 Material/파라미터를 뒤늦게 적용하지 않도록 닫힌 상태에서만 진입합니다.
-            if (Application.OpenForms.Cast<Form>().Any(form => form != this && !form.IsDisposed && form.Modal))
+            // 맵 저장을 요청한 편집창만 제외한다. 다른 확인창과 Review 종료 조건은 동일하게 검사한다.
+            if (Application.OpenForms.Cast<Form>().Any(form =>
+                form != this && form != mapEditor && !form.IsDisposed && form.Modal))
             {
                 reason = "열려 있는 작업 확인/편집 창을 먼저 닫은 뒤 레시피를 적용하십시오.";
                 return false;

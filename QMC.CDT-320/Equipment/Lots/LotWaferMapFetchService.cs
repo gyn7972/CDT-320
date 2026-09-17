@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using QMC.CDT320.DieMaps;
+using QMC.CDT320.Recipes;
 using QMC.Common.Logging;
 
 namespace QMC.CDT320.Lots
@@ -29,6 +30,7 @@ namespace QMC.CDT320.Lots
         public DateTime FileWriteUtc;
         public long FileLength;
         public DateTime ParsedAtUtc;
+        public WaferMapSourceFormat ParsedFormat;
     }
 
     /// <summary>
@@ -77,10 +79,7 @@ namespace QMC.CDT320.Lots
         {
             get
             {
-                AppSettings settings = AppSettingsStore.Current;
-                return settings != null &&
-                       string.Equals((settings.NetworkWaferMapFormat ?? "").Trim(), "Camtek",
-                           StringComparison.OrdinalIgnoreCase);
+                return ResolveConfiguredFormat() == WaferMapSourceFormat.Camtek;
             }
         }
 
@@ -92,21 +91,25 @@ namespace QMC.CDT320.Lots
         /// </summary>
         internal static DieMap LoadConfiguredFormatOrThrow(string path)
         {
-            bool camtek = IsCamtekFormatConfigured;
+            WaferMapSourceFormat format = ResolveConfiguredFormat();
             try
             {
-                return camtek
-                    ? DieMapGenerator.LoadCamtekWaferMapTextOrThrow(path)
-                    : DieMapGenerator.LoadWaferMapTextOrThrow(path);
+                return WaferMapParserRegistry.Load(path, format);
             }
             catch (ArgumentException) { throw; }
             catch (FileNotFoundException) { throw; }
             catch (Exception ex)
             {
                 throw new InvalidDataException(
-                    "format=" + (camtek ? "Camtek" : "Rad") +
+                    "format=" + format +
                     " — 설정과 실제 파일 포맷이 다른지 확인하세요. " + ex.Message, ex);
             }
+        }
+
+        internal static WaferMapSourceFormat ResolveConfiguredFormat()
+        {
+            RecipeProject project = RecipeStore.LoadLastOrDefaultCached();
+            return RecipeInputMapSource.ResolveFormat(project, AppSettingsStore.Current);
         }
 
         /// <summary>설정 화면 [연결 확인]용: 폴더 존재 + 목록 조회를 타임아웃 안에 시도한다.</summary>
@@ -157,23 +160,25 @@ namespace QMC.CDT320.Lots
                 AppSettings settings = AppSettingsStore.Current;
                 if (settings == null)
                     return BuildLotStartFolderError(normalizedLotId, folder, "네트워크 웨이퍼맵 설정을 읽을 수 없습니다.");
-                if (!settings.UseLotNetworkWaferMap)
+                if (!RecipeInputMapSource.UsesRemoteForActiveRecipe(settings))
                     return "";
 
+                string checkedRecipe = RecipeStore.GetLastProjectName();
                 folder = ResolveNetworkFolder();
                 if (string.IsNullOrWhiteSpace(folder))
                     return BuildLotStartFolderError(normalizedLotId, folder,
-                        "USE가 켜져 있지만 NETWORK WAFER MAP FOLDER 경로가 비어 있습니다.");
+                        "레시피가 원격 맵 사용으로 설정되어 있지만 공통 폴더 경로가 비어 있습니다.");
 
                 // UI를 멈추지 않고 기존 5초 제한 안에서 확인한다. LOT/Recipe 기록은 이 검사 후 수행한다.
                 string accessDetail = "";
                 bool accessible = await Task.Run(() => TryCheckFolderAccessible(folder, out accessDetail)).ConfigureAwait(false);
                 AppSettings currentSettings = AppSettingsStore.Current;
-                if (currentSettings == null || !currentSettings.UseLotNetworkWaferMap ||
+                if (currentSettings == null || !RecipeInputMapSource.UsesRemoteForActiveRecipe(currentSettings) ||
+                    !string.Equals(checkedRecipe, RecipeStore.GetLastProjectName(), StringComparison.OrdinalIgnoreCase) ||
                     !string.Equals(folder, ResolveNetworkFolder(), StringComparison.Ordinal))
                 {
                     return BuildLotStartFolderError(normalizedLotId, folder,
-                        "접근 확인 중 USE 또는 폴더 설정이 변경되었습니다. 현재 설정을 확인한 후 다시 시작하세요.");
+                        "접근 확인 중 레시피·맵 사용 모드 또는 공통 폴더 설정이 변경되었습니다. 현재 설정을 확인한 후 다시 시작하세요.");
                 }
                 if (!accessible)
                     return BuildLotStartFolderError(normalizedLotId, folder, accessDetail);
@@ -384,6 +389,7 @@ namespace QMC.CDT320.Lots
             {
                 var fi = new FileInfo(localPath);
                 if (fi.Exists &&
+                    info.ParsedFormat == ResolveConfiguredFormat() &&
                     fi.LastWriteTimeUtc == info.FileWriteUtc &&
                     fi.Length == info.FileLength)
                 {
@@ -410,7 +416,8 @@ namespace QMC.CDT320.Lots
             long fileLength = fileStat.Length;
 
             // [캠택맵 2026-08-27] 설정 포맷(Rad/Camtek)에 따라 파서 선택.
-            DieMap map = LoadConfiguredFormatOrThrow(localPath);
+            WaferMapSourceFormat parsedFormat = ResolveConfiguredFormat();
+            DieMap map = WaferMapParserRegistry.Load(localPath, parsedFormat);
             var info = new LotWaferMapSlotInfo
             {
                 Barcode = barcode,
@@ -418,7 +425,8 @@ namespace QMC.CDT320.Lots
                 DieCount = map != null && map.Entries != null ? map.Entries.Count : 0,
                 FileWriteUtc = fileWriteUtc,
                 FileLength = fileLength,
-                ParsedAtUtc = DateTime.UtcNow
+                ParsedAtUtc = DateTime.UtcNow,
+                ParsedFormat = parsedFormat
             };
 
             if (map != null && map.Entries != null)

@@ -29,7 +29,14 @@
         private System.Windows.Forms.Label lblCounts;
         private System.Windows.Forms.Label lblSelection;
         private System.Windows.Forms.Label lblStatus;
+        private System.Windows.Forms.Label lblBoundaryStatus;
+        private System.Windows.Forms.Label lblEdgeMargin;
+        private System.Windows.Forms.Label lblTotalCount;
+        private System.Windows.Forms.Label lblRotation;
+        private System.Windows.Forms.ComboBox cmbRotation;
         private System.Windows.Forms.NumericUpDown numDiameter;
+        private System.Windows.Forms.NumericUpDown numEdgeMargin;
+        private System.Windows.Forms.NumericUpDown numTotalCount;
         private System.Windows.Forms.NumericUpDown numDieX;
         private System.Windows.Forms.NumericUpDown numDieY;
         private System.Windows.Forms.NumericUpDown numGapX;
@@ -45,6 +52,7 @@
         private System.Windows.Forms.Button btnRestore;
         private System.Windows.Forms.Button btnFit;
         private System.Windows.Forms.Button btnClose;
+        private System.Windows.Forms.Button btnSave;
         private System.Windows.Forms.ToolTip toolTip;
         private WaferMapGenerationView mapView;
 
@@ -84,7 +92,14 @@
             this.lblCounts = new System.Windows.Forms.Label();
             this.lblSelection = new System.Windows.Forms.Label();
             this.lblStatus = new System.Windows.Forms.Label();
+            this.lblBoundaryStatus = new System.Windows.Forms.Label();
+            this.lblEdgeMargin = new System.Windows.Forms.Label();
+            this.lblTotalCount = new System.Windows.Forms.Label();
+            this.lblRotation = new System.Windows.Forms.Label();
+            this.cmbRotation = new System.Windows.Forms.ComboBox();
             this.numDiameter = new System.Windows.Forms.NumericUpDown();
+            this.numEdgeMargin = new System.Windows.Forms.NumericUpDown();
+            this.numTotalCount = new System.Windows.Forms.NumericUpDown();
             this.numDieX = new System.Windows.Forms.NumericUpDown();
             this.numDieY = new System.Windows.Forms.NumericUpDown();
             this.numGapX = new System.Windows.Forms.NumericUpDown();
@@ -100,6 +115,7 @@
             this.btnRestore = new System.Windows.Forms.Button();
             this.btnFit = new System.Windows.Forms.Button();
             this.btnClose = new System.Windows.Forms.Button();
+            this.btnSave = new System.Windows.Forms.Button();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
             this.mapView = new WaferMapGenerationView();
             this.panelRoot.SuspendLayout();
@@ -114,6 +130,8 @@
             this.groupSettings.SuspendLayout();
             this.groupEdges.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.numDiameter)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numEdgeMargin)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numTotalCount)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numDieX)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numDieY)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numGapX)).BeginInit();
@@ -161,12 +179,14 @@
             this.panelPreview.ColumnCount = 1;
             this.panelPreview.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.panelPreview.Controls.Add(this.mapView, 0, 0);
-            this.panelPreview.Controls.Add(this.lblSelection, 0, 1);
+            this.panelPreview.Controls.Add(this.lblBoundaryStatus, 0, 1);
+            this.panelPreview.Controls.Add(this.lblSelection, 0, 2);
             this.panelPreview.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelPreview.Margin = new System.Windows.Forms.Padding(0, 0, 12, 0);
             this.panelPreview.Name = "panelPreview";
-            this.panelPreview.RowCount = 2;
+            this.panelPreview.RowCount = 3;
             this.panelPreview.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.panelPreview.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 52F));
             this.panelPreview.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 60F));
             this.panelPreview.TabIndex = 0;
             // mapView
@@ -185,6 +205,13 @@
             this.lblSelection.Name = "lblSelection";
             this.lblSelection.Padding = new System.Windows.Forms.Padding(4, 5, 4, 0);
             this.lblSelection.Text = "다이를 클릭하면 원본 주소와 웨이퍼 중심 기준 위치를 표시합니다.\r\n마우스 휠: 확대/축소 · +Y: 위쪽";
+            this.lblBoundaryStatus.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblBoundaryStatus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblBoundaryStatus.ForeColor = System.Drawing.Color.FromArgb(48, 66, 79);
+            this.lblBoundaryStatus.Margin = new System.Windows.Forms.Padding(0);
+            this.lblBoundaryStatus.Name = "lblBoundaryStatus";
+            this.lblBoundaryStatus.Padding = new System.Windows.Forms.Padding(4, 5, 4, 0);
+            this.lblBoundaryStatus.Text = "내부 여백을 뺀 원 안에 다이 전체가 들어오는지 확인합니다.";
             // panelOptions
             this.panelOptions.AutoScroll = true;
             this.panelOptions.Controls.Add(this.panelOptionsLayout);
@@ -207,10 +234,10 @@
             this.panelOptionsLayout.Name = "panelOptionsLayout";
             this.panelOptionsLayout.Padding = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.panelOptionsLayout.RowCount = 5;
-            this.panelOptionsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 256F));
+            this.panelOptionsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 324F));
             this.panelOptionsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
-            this.panelOptionsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 110F));
-            this.panelOptionsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 218F));
+            this.panelOptionsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 130F));
+            this.panelOptionsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 250F));
             this.panelOptionsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.panelOptionsLayout.TabIndex = 0;
             // groupSettings
@@ -221,7 +248,7 @@
             this.groupSettings.Padding = new System.Windows.Forms.Padding(8);
             this.groupSettings.TabIndex = 0;
             this.groupSettings.TabStop = false;
-            this.groupSettings.Text = "웨이퍼 사양 · mm";
+            this.groupSettings.Text = "입력 사양 (0° 기준) · mm";
             // panelSettings
             this.panelSettings.ColumnCount = 2;
             this.panelSettings.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 54F));
@@ -236,21 +263,27 @@
             this.panelSettings.Controls.Add(this.numGapX, 1, 3);
             this.panelSettings.Controls.Add(this.lblGapY, 0, 4);
             this.panelSettings.Controls.Add(this.numGapY, 1, 4);
-            this.panelSettings.Controls.Add(this.lblStepX, 0, 5);
-            this.panelSettings.Controls.Add(this.txtStepX, 1, 5);
-            this.panelSettings.Controls.Add(this.lblStepY, 0, 6);
-            this.panelSettings.Controls.Add(this.txtStepY, 1, 6);
+            this.panelSettings.Controls.Add(this.lblEdgeMargin, 0, 5);
+            this.panelSettings.Controls.Add(this.numEdgeMargin, 1, 5);
+            this.panelSettings.Controls.Add(this.lblStepX, 0, 6);
+            this.panelSettings.Controls.Add(this.txtStepX, 1, 6);
+            this.panelSettings.Controls.Add(this.lblStepY, 0, 7);
+            this.panelSettings.Controls.Add(this.txtStepY, 1, 7);
+            this.panelSettings.Controls.Add(this.lblRotation, 0, 8);
+            this.panelSettings.Controls.Add(this.cmbRotation, 1, 8);
             this.panelSettings.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelSettings.Margin = new System.Windows.Forms.Padding(0);
             this.panelSettings.Name = "panelSettings";
-            this.panelSettings.RowCount = 7;
-            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
+            this.panelSettings.RowCount = 9;
+            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.panelSettings.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
             this.panelSettings.TabIndex = 0;
             // labels
             this.lblDiameter.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -275,11 +308,11 @@
             this.lblGapY.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblStepX.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStepX.Name = "lblStepX";
-            this.lblStepX.Text = "CENTER STEP X";
+            this.lblStepX.Text = "현재 방향 STEP X";
             this.lblStepX.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblStepY.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStepY.Name = "lblStepY";
-            this.lblStepY.Text = "CENTER STEP Y";
+            this.lblStepY.Text = "현재 방향 STEP Y";
             this.lblStepY.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // numeric settings
             this.numDiameter.DecimalPlaces = 3;
@@ -325,6 +358,19 @@
             this.numGapY.TabIndex = 4;
             this.numGapY.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.numGapY.ValueChanged += new System.EventHandler(this.settings_ValueChanged);
+            this.lblEdgeMargin.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblEdgeMargin.Name = "lblEdgeMargin";
+            this.lblEdgeMargin.Text = "내부 여백 (mm)";
+            this.lblEdgeMargin.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.numEdgeMargin.DecimalPlaces = 3;
+            this.numEdgeMargin.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.numEdgeMargin.Increment = 0.001M;
+            this.numEdgeMargin.Maximum = 2147483.647M;
+            this.numEdgeMargin.Name = "numEdgeMargin";
+            this.numEdgeMargin.TabIndex = 5;
+            this.numEdgeMargin.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.numEdgeMargin.Value = 0.200M;
+            this.numEdgeMargin.ValueChanged += new System.EventHandler(this.settings_ValueChanged);
             // center step display
             this.txtStepX.BackColor = System.Drawing.Color.FromArgb(230, 235, 239);
             this.txtStepX.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -338,6 +384,17 @@
             this.txtStepY.ReadOnly = true;
             this.txtStepY.TabStop = false;
             this.txtStepY.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            // rotation: clockwise, absolute from the original map
+            this.lblRotation.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblRotation.Name = "lblRotation";
+            this.lblRotation.Text = "회전 (시계 방향)";
+            this.lblRotation.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.cmbRotation.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.cmbRotation.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbRotation.Items.AddRange(new object[] { "0°", "90° (미리보기 전용)", "180°", "270° (미리보기 전용)" });
+            this.cmbRotation.Name = "cmbRotation";
+            this.cmbRotation.TabIndex = 5;
+            this.cmbRotation.SelectedIndexChanged += new System.EventHandler(this.cmbRotation_SelectedIndexChanged);
             // btnGenerate
             this.btnGenerate.BackColor = System.Drawing.Color.FromArgb(33, 102, 135);
             this.btnGenerate.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -357,7 +414,7 @@
             this.lblCounts.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.lblCounts.Name = "lblCounts";
             this.lblCounts.Padding = new System.Windows.Forms.Padding(8);
-            this.lblCounts.Text = "생성 다이: —\r\n사용 영역: —\r\n후보 격자: —\r\n끝줄 실제: —";
+            this.lblCounts.Text = "생성 다이: —\r\n현재 맵 격자: —\r\n끝줄 실제: —\r\n원 영역 초과: —";
             // groupEdges
             this.groupEdges.Controls.Add(this.panelEdges);
             this.groupEdges.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -367,7 +424,7 @@
             this.groupEdges.Padding = new System.Windows.Forms.Padding(8);
             this.groupEdges.TabIndex = 3;
             this.groupEdges.TabStop = false;
-            this.groupEdges.Text = "원본 끝줄에 남길 개수";
+            this.groupEdges.Text = "현재 방향의 끝줄 / 전체 개수";
             // panelEdges
             this.panelEdges.ColumnCount = 2;
             this.panelEdges.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 54F));
@@ -380,11 +437,14 @@
             this.panelEdges.Controls.Add(this.numEdgeLeft, 1, 2);
             this.panelEdges.Controls.Add(this.lblEdgeRight, 0, 3);
             this.panelEdges.Controls.Add(this.numEdgeRight, 1, 3);
-            this.panelEdges.Controls.Add(this.btnApplyEdges, 0, 4);
+            this.panelEdges.Controls.Add(this.lblTotalCount, 0, 4);
+            this.panelEdges.Controls.Add(this.numTotalCount, 1, 4);
+            this.panelEdges.Controls.Add(this.btnApplyEdges, 0, 5);
             this.panelEdges.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelEdges.Margin = new System.Windows.Forms.Padding(0);
             this.panelEdges.Name = "panelEdges";
-            this.panelEdges.RowCount = 5;
+            this.panelEdges.RowCount = 6;
+            this.panelEdges.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.panelEdges.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.panelEdges.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.panelEdges.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
@@ -410,36 +470,52 @@
             this.lblEdgeRight.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // edge count inputs
             this.numEdgeTop.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.numEdgeTop.Maximum = 0M;
+            this.numEdgeTop.Maximum = 1000000M;
+            this.numEdgeTop.Minimum = 1M;
             this.numEdgeTop.Name = "numEdgeTop";
             this.numEdgeTop.TabIndex = 0;
             this.numEdgeTop.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.numEdgeTop.ValueChanged += new System.EventHandler(this.edgeCount_ValueChanged);
             this.numEdgeBottom.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.numEdgeBottom.Maximum = 0M;
+            this.numEdgeBottom.Maximum = 1000000M;
+            this.numEdgeBottom.Minimum = 1M;
             this.numEdgeBottom.Name = "numEdgeBottom";
             this.numEdgeBottom.TabIndex = 1;
             this.numEdgeBottom.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.numEdgeBottom.ValueChanged += new System.EventHandler(this.edgeCount_ValueChanged);
             this.numEdgeLeft.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.numEdgeLeft.Maximum = 0M;
+            this.numEdgeLeft.Maximum = 1000000M;
+            this.numEdgeLeft.Minimum = 1M;
             this.numEdgeLeft.Name = "numEdgeLeft";
             this.numEdgeLeft.TabIndex = 2;
             this.numEdgeLeft.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.numEdgeLeft.ValueChanged += new System.EventHandler(this.edgeCount_ValueChanged);
             this.numEdgeRight.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.numEdgeRight.Maximum = 0M;
+            this.numEdgeRight.Maximum = 1000000M;
+            this.numEdgeRight.Minimum = 1M;
             this.numEdgeRight.Name = "numEdgeRight";
             this.numEdgeRight.TabIndex = 3;
             this.numEdgeRight.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.numEdgeRight.ValueChanged += new System.EventHandler(this.edgeCount_ValueChanged);
+            this.lblTotalCount.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblTotalCount.Name = "lblTotalCount";
+            this.lblTotalCount.Text = "전체 다이 목표 개수";
+            this.lblTotalCount.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.numTotalCount.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.numTotalCount.Maximum = 1000000M;
+            this.numTotalCount.Minimum = 1M;
+            this.numTotalCount.Name = "numTotalCount";
+            this.numTotalCount.TabIndex = 4;
+            this.numTotalCount.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.numTotalCount.Value = 1M;
+            this.numTotalCount.ValueChanged += new System.EventHandler(this.edgeCount_ValueChanged);
             // btnApplyEdges
             this.panelEdges.SetColumnSpan(this.btnApplyEdges, 2);
             this.btnApplyEdges.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnApplyEdges.Margin = new System.Windows.Forms.Padding(3, 6, 3, 0);
             this.btnApplyEdges.Name = "btnApplyEdges";
             this.btnApplyEdges.TabIndex = 4;
-            this.btnApplyEdges.Text = "외곽 보정 적용";
+            this.btnApplyEdges.Text = "개수 적용 / 재생성";
             this.btnApplyEdges.UseVisualStyleBackColor = true;
             this.btnApplyEdges.Click += new System.EventHandler(this.btnApplyEdges_Click);
             // panelTools
@@ -471,11 +547,13 @@
             this.btnFit.UseVisualStyleBackColor = true;
             this.btnFit.Click += new System.EventHandler(this.btnFit_Click);
             // panelFooter
-            this.panelFooter.ColumnCount = 2;
+            this.panelFooter.ColumnCount = 3;
             this.panelFooter.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.panelFooter.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 148F));
             this.panelFooter.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 104F));
             this.panelFooter.Controls.Add(this.lblStatus, 0, 0);
-            this.panelFooter.Controls.Add(this.btnClose, 1, 0);
+            this.panelFooter.Controls.Add(this.btnSave, 1, 0);
+            this.panelFooter.Controls.Add(this.btnClose, 2, 0);
             this.panelFooter.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelFooter.Margin = new System.Windows.Forms.Padding(0);
             this.panelFooter.Name = "panelFooter";
@@ -497,18 +575,36 @@
             this.btnClose.Text = "닫기";
             this.btnClose.UseVisualStyleBackColor = true;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
+            this.btnSave.BackColor = System.Drawing.Color.FromArgb(230, 88, 31);
+            this.btnSave.ForeColor = System.Drawing.Color.White;
+            this.btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnSave.Margin = new System.Windows.Forms.Padding(0, 8, 8, 8);
+            this.btnSave.Name = "btnSave";
+            this.btnSave.Enabled = false;
+            this.btnSave.TabIndex = 1;
+            this.btnSave.Text = "SAVE MAP";
+            this.btnSave.UseVisualStyleBackColor = false;
+            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
             // toolTip
             this.toolTip.SetToolTip(this.numGapX, "다이 사이의 빈 간격(mm)입니다. 중심 간 거리 = DIE X + GAP X.");
             this.toolTip.SetToolTip(this.numGapY, "다이 사이의 빈 간격(mm)입니다. 중심 간 거리 = DIE Y + GAP Y.");
-            this.toolTip.SetToolTip(this.btnGenerate, "참고식의 중심 간 거리 사각형과 반경 여유 0.2 mm로 계산합니다. 녹색은 실제 다이 크기입니다.");
-            this.toolTip.SetToolTip(this.groupEdges, "항상 최초 원본의 네 끝줄에서 중심에 가까운 다이를 남깁니다. 보정은 누적하지 않습니다.");
-            this.toolTip.SetToolTip(this.btnApplyEdges, "입력한 개수를 원본에 적용합니다. 서로 겹치는 끝줄은 동시에 유지할 수 있는 개수여야 합니다.");
+            this.toolTip.SetToolTip(this.btnGenerate, "현재 입력 사양으로 기본 원형 맵을 새로 만듭니다. 끝줄과 전체 개수 입력도 AUTO 결과로 초기화됩니다.");
+            this.toolTip.SetToolTip(this.groupEdges, "상·하·좌·우 끝줄과 전체 다이 개수를 함께 지정합니다. 원본보다 늘리거나 줄일 수 있습니다.");
+            this.toolTip.SetToolTip(this.btnApplyEdges, "입력한 끝줄·전체 개수에 맞춰 원형 맵의 중심 배치를 자동으로 맞춥니다. 격자 수는 결과로 계산합니다. 범위를 초과한 다이는 빨간색으로 표시하며, 저장한 배치를 그대로 사용합니다.");
+            this.toolTip.SetToolTip(this.numEdgeMargin, "웨이퍼 원에서 안쪽으로 비울 반경 여백입니다. 허용 반경 = 직경/2 - 여백. DIE GAP과 다른 값입니다.");
+            this.toolTip.SetToolTip(this.numDiameter, "외경을 편집한 뒤 개수 적용 / 재생성을 누르면 요청 개수를 유지하며 새 사양으로 계산합니다. AUTO는 개수도 기본값으로 다시 계산합니다.");
+            this.toolTip.SetToolTip(this.cmbRotation, "회전만 바꾸면 기본 맵으로 돌아갑니다. 사양 편집 중에는 개수 적용 / 재생성 또는 AUTO로 함께 적용합니다. 90°·270°는 설정 저장만 가능하며 장비 적용은 차단됩니다.");
+            this.toolTip.SetToolTip(this.btnRestore, "마지막으로 생성에 성공한 사양·회전과 그 AUTO 기본 맵으로 복원합니다. 미적용 편집값과 개수 보정을 되돌립니다.");
+            this.toolTip.SetToolTip(this.numDieX, "미리보기용 입력입니다. 저장하려면 Recipe > 다이 사양의 다이 X/Y와 같아야 합니다.");
+            this.toolTip.SetToolTip(this.numDieY, "미리보기용 입력입니다. 저장하려면 Recipe > 다이 사양의 다이 X/Y와 같아야 합니다.");
             // WaferMapCreateDialog
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 17F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(241, 244, 247);
             this.CancelButton = this.btnClose;
-            this.ClientSize = new System.Drawing.Size(1280, 900);
+            this.ClientSize = new System.Drawing.Size(1280, 980);
             this.Controls.Add(this.panelRoot);
             this.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.MinimizeBox = false;
@@ -533,6 +629,8 @@
             this.groupSettings.ResumeLayout(false);
             this.groupEdges.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.numDiameter)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numEdgeMargin)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numTotalCount)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numDieX)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numDieY)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numGapX)).EndInit();

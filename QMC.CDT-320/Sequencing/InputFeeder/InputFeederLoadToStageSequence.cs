@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using QMC.CDT320.Barcode;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
+using QMC.CDT320.DieMaps;
+using QMC.CDT320.Recipes;
 
 using QMC.CDT320.Interlocks;
 using QMC.Common.Motion;
@@ -497,7 +499,7 @@ namespace QMC.CDT320.Sequencing
                     InputStageUnit disabledStage = ResolveStage();
                     AppSettings disabledSettings = AppSettingsStore.Current;
                     if ((disabledStage != null && disabledStage.Config != null && disabledStage.Config.UseBarcodeLotPrefixCheck) ||
-                        (disabledSettings != null && disabledSettings.UseLotNetworkWaferMap))
+                        (disabledSettings != null && RecipeInputMapSource.UsesRemoteForActiveRecipe(disabledSettings)))
                         return Fail("IN-BARCODE-VALIDATION-DISABLED", "Barcode",
                             "LOT 바코드 검사 또는 네트워크 맵 사용 시 USE INPUT WAFER BARCODE를 켜야 합니다. 얼라인 전에 설정을 확인하십시오.");
                     CurrentStep = InputFeederLoadToStageStep.MoveInputStageProcessPosition;
@@ -930,26 +932,38 @@ namespace QMC.CDT320.Sequencing
                     stage, expectedRecipe, expectedConfig, expectedSettings, expectedContext,
                     instanceId, originalWaferId, originalBarcode, originalConfirmed);
                 string failure;
+                QMC.CDT320.DieMaps.DieMap preparedMap = null;
                 bool valid = TryValidateInputBarcodePolicy(stage, candidate, out failure);
+                bool mapValidationFailed = false;
                 if (valid)
                 {
                     // SMB 판독은 동기 API이므로 UI 스레드를 막지 않는다. 완료 후 취소와 대상/설정을 다시 확인한다.
                     string mapFailure = string.Empty;
                     valid = await Task.Run(
-                        () => InputWaferMapPreflightService.TryValidate(candidate, stage, out mapFailure), ct).ConfigureAwait(false);
+                        () => InputWaferMapPreflightService.TryValidate(candidate, stage, out preparedMap, out mapFailure), ct).ConfigureAwait(false);
                     failure = mapFailure;
+                    mapValidationFailed = !valid;
                 }
                 ct.ThrowIfCancellationRequested();
                 current = RequireUnchangedBarcodeValidationContext(
                     stage, expectedRecipe, expectedConfig, expectedSettings, expectedContext,
                     instanceId, originalWaferId, originalBarcode, originalConfirmed);
 
+                // 바코드가 정상인데 원격 맵 확보/형식 검사가 실패한 경우는 시퀀스 알람으로 중단한다.
+                // 기존 호출자의 Avoid 복귀 및 Fail/Alarm 처리를 사용하며 바코드 재입력 창으로 대체하지 않는다.
+                if (mapValidationFailed && RecipeInputMapSource.UsesRemoteForActiveRecipe(expectedSettings))
+                    throw new System.IO.InvalidDataException("원격 Input 웨이퍼맵 검사 실패. barcode=" + candidate +
+                        ", 원인=" + failure + " 원격 맵과 구분자를 확인한 뒤 다시 시작하세요.");
+
                 if (valid)
                 {
                     if (current.BarcodeConfirmed &&
                         string.Equals(current.BarcodeId, candidate, StringComparison.Ordinal) &&
                         string.Equals(current.WaferId, candidate, StringComparison.Ordinal))
+                    {
+                        if (preparedMap != null) MaterialStateService.PinPreparedInputMap(current, candidate, true, preparedMap);
                         return current;
+                    }
                     if (!allowRecovery)
                         throw new InvalidOperationException("얼라인 전에 확정된 바코드가 필요합니다. 먼저 웨이퍼 바코드 확인 절차를 완료하십시오.");
                     if (HasInputBarcodeProcessingStarted(current))
@@ -967,6 +981,7 @@ namespace QMC.CDT320.Sequencing
                         !string.Equals(current.WaferId, candidate, StringComparison.Ordinal))
                         throw new InvalidOperationException("Input Wafer 바코드 적용 후 물리 Wafer/확정값이 변경되었습니다.");
                     stage.SetCurrentWaferMaterial(current);
+                    if (preparedMap != null) MaterialStateService.PinPreparedInputMap(current, candidate, true, preparedMap);
                     ct.ThrowIfCancellationRequested();
                     return current;
                 }
@@ -1088,8 +1103,9 @@ namespace QMC.CDT320.Sequencing
                 stage.Config.UseBarcodeLotPrefixCheck.ToString(), stage.Config.BarcodeLotPrefixLength.ToString(),
                 recipe.DieMap != null ? recipe.DieMap.PickupBinFilterCsv ?? string.Empty : string.Empty,
                 MaterialStateService.DescribePickupBinSelection(),
-                settings.UseInputWaferBarcode.ToString(), settings.UseLotNetworkWaferMap.ToString(),
-                settings.NetworkWaferMapFolder ?? string.Empty, settings.NetworkWaferMapFormat ?? string.Empty
+                settings.UseInputWaferBarcode.ToString(), RecipeInputMapSource.UsesRemoteForActiveRecipe(settings).ToString(),
+                settings.NetworkWaferMapFolder ?? string.Empty, settings.NetworkWaferMapFormat ?? string.Empty,
+                WaferMapProcessService.GetSettingsKey(RecipeStore.LoadLastOrDefaultCached()?.InputMapProcessing)
             });
         }
 
@@ -1879,5 +1895,3 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
-
-

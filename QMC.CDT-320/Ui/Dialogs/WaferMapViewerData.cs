@@ -123,6 +123,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     SequenceNo = entry.SequenceNo,
                     DieMapX = x,
                     DieMapY = y,
+                    // 독립 파일 뷰어의 현재 보기 좌표. 실제 공정/Recipe에는 적용하지 않는다.
+                    LogicalGridX = x,
+                    LogicalGridY = view.DieMapY - 1 - y,
                     OriginalMapX = entry.OriginalMapX,
                     OriginalMapY = entry.OriginalMapY,
                     IsTarget = entry.IsTarget,

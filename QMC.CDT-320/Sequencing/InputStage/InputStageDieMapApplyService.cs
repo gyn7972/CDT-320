@@ -590,6 +590,12 @@ namespace QMC.CDT320.Sequencing
                 die.Wafer_OriginalIndexY = originalY;
                 die.InputSequenceNo = entry.SequenceNo;
                 die.Input_BinCode = entry.IsTarget ? entry.BinCode : 0;
+                die.InputSourceBinCode = entry.SourceBinCode;
+                die.InputSourceToken = entry.SourceToken;
+                die.InputLogicalGridX = entry.LogicalGridX;
+                die.InputLogicalGridY = entry.LogicalGridY;
+                die.InputMapGridOrigin = map.ProcessTransform == null ? (WaferMapGridOrigin?)null :
+                    (map.ProcessTransform.Settings != null ? map.ProcessTransform.Settings.GridOrigin : WaferMapGridOrigin.TopLeft);
                 die.IsInputTarget = entry.IsTarget;
                 die.Output_BinCode = 0;
                 die.Bin_IndexX = -1;

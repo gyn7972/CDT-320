@@ -101,7 +101,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             _btnSave = new Button
             {
-                Dock = DockStyle.Right, Width = 150, Text = "SAVE",
+                Dock = DockStyle.Right, Width = 150, Text = "저장",
                 FlatStyle = FlatStyle.Flat, BackColor = UiTheme.Accent, ForeColor = Color.White,
                 Font = UiTheme.ButtonFont
             };
@@ -109,7 +109,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             var btnLoad = new Button
             {
-                Dock = DockStyle.Right, Width = 150, Text = "Reload",
+                Dock = DockStyle.Right, Width = 150, Text = "새로고침",
                 FlatStyle = FlatStyle.Flat, BackColor = Color.White, Font = UiTheme.ButtonFont
             };
             btnLoad.Click += (s, e) =>
@@ -162,7 +162,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             if (string.IsNullOrEmpty(name)) { _project = null; _lblProject.Text = "(no project)"; return; }
             _project = RecipeStore.Load(name);
-            _lblProject.Text = _project != null ? "Project: " + _project.FileName : "(load failed: " + name + ")";
+            _lblProject.Text = _project != null ? "레시피: " + _project.FileName : "(load failed: " + name + ")";
 
             // 누락된 subset 자동 보충
             if (_project != null)
@@ -287,4 +287,3 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             };
     }
 }
-

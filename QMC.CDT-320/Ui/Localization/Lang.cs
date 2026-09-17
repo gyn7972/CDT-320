@@ -163,25 +163,25 @@ namespace QMC.CDT_320.Ui.Localization
             // 사이드바 (레시피 - 320: FRONT/REAR Head)
             A("recipe.section",       "레시피",            "Recipe");
             A("recipe.project",       "프로젝트",           "Project");
-            A("recipe.inputCassette", "INPUT CASSETTE",   "INPUT CASSETTE");
-            A("recipe.inputFeeder",   "INPUT FEEDER",     "INPUT FEEDER");
-            A("recipe.inputStage",    "INPUT STAGE",      "INPUT STAGE");
-            A("recipe.frontHead",     "FRONT HEAD",       "FRONT HEAD");
-            A("recipe.visionStage",   "VISION STAGE",     "VISION STAGE");
-            A("recipe.rearHead",      "REAR HEAD",        "REAR HEAD");
-            A("recipe.outputFeeder",  "OUTPUT FEEDER",    "OUTPUT FEEDER");
-            A("recipe.outputCassette","OUTPUT CASSETTE",  "OUTPUT CASSETTE");
-            A("recipe.outputStage",   "OUTPUT STAGE",     "OUTPUT STAGE");
+            A("recipe.inputCassette", "입력 카세트",   "INPUT CASSETTE");
+            A("recipe.inputFeeder",   "입력 이송부",     "INPUT FEEDER");
+            A("recipe.inputStage",    "입력 스테이지",      "INPUT STAGE");
+            A("recipe.frontHead",     "전면 헤드",       "FRONT HEAD");
+            A("recipe.visionStage",   "비전 스테이지",     "VISION STAGE");
+            A("recipe.rearHead",      "후면 헤드",        "REAR HEAD");
+            A("recipe.outputFeeder",  "출력 이송부",    "OUTPUT FEEDER");
+            A("recipe.outputCassette","출력 카세트",  "OUTPUT CASSETTE");
+            A("recipe.outputStage",   "출력 스테이지",     "OUTPUT STAGE");
 
-            A("recipe.inputCreate", "INPUT CREATE", "INPUT CREATE");
-            A("recipe.outputCreate", "OUTPUT CREATE", "OUTPUT CREATE");
-            A("recipe.calibration", "CALIBRATION", "CALIBRATION");
+            A("recipe.inputCreate", "입력 맵 생성", "INPUT CREATE");
+            A("recipe.outputCreate", "출력 맵 생성", "OUTPUT CREATE");
+            A("recipe.calibration", "보정", "CALIBRATION");
 
-            A("recipe.forceControl", "FORCE CONTROL", "FORCE CONTROL");
-            A("recipe.inputVision",   "INPUT VISION",     "INPUT VISION");
-            A("recipe.bottomVision",  "BOTTOM VISION",    "BOTTOM VISION");
-            A("recipe.sideVision",    "SIDE VISION",      "SIDE VISION");
-            A("recipe.outputVision",  "OUTPUT VISION",    "OUTPUT VISION");
+            A("recipe.forceControl", "가압 제어", "FORCE CONTROL");
+            A("recipe.inputVision",   "입력 비전",     "INPUT VISION");
+            A("recipe.bottomVision",  "하부 비전",    "BOTTOM VISION");
+            A("recipe.sideVision",    "측면 비전",      "SIDE VISION");
+            A("recipe.outputVision",  "출력 비전",    "OUTPUT VISION");
             
 
             // 설정 탭
@@ -266,7 +266,7 @@ namespace QMC.CDT_320.Ui.Localization
             A("work.needlePosMode",   "니들 위치 확인모드",    "Needle Pos Check");
 
             // 310 이식 — 머터리얼 / 레시피 Subset
-            A("recipe.binCode",       "BIN CODE MAP",         "BIN CODE MAP");
+            A("recipe.binCode",       "빈 코드 맵",         "BIN CODE MAP");
             A("recipe.dieSubset",     "다이 사양",           "Die Spec");
             A("recipe.moduleSubset",  "모듈 옵션",           "Module Options");
             A("recipe.outputSubset",  "출력 옵션",           "Output Options");
@@ -371,14 +371,14 @@ namespace QMC.CDT_320.Ui.Localization
             A("hist.col.desc",        "DESCRIPTION",      "DESCRIPTION");
 
             // 레시피 서브
-            A("recipe.lowerVision",   "LOWER VISION",     "LOWER VISION");
-            A("recipe.inputMapCreate","INPUT DIE MAP CREATE", "INPUT DIE MAP CREATE");
-            A("recipe.outputMapCreate","OUTPUT DIE MAP CREATE","OUTPUT DIE MAP CREATE");
-            A("recipe.binMapCreate",  "BIN DIE MAP CREATE",  "BIN DIE MAP CREATE");
+            A("recipe.lowerVision",   "하부 비전",     "LOWER VISION");
+            A("recipe.inputMapCreate","입력 다이 맵 생성", "INPUT DIE MAP CREATE");
+            A("recipe.outputMapCreate","출력 다이 맵 생성","OUTPUT DIE MAP CREATE");
+            A("recipe.binMapCreate",  "출력 다이 맵 생성",  "BIN DIE MAP CREATE");
             // [명칭 정정 2026-08-17] 이 메뉴는 다이맵 편집기가 아니라 InputStage 비전 얼라인
             //   티칭 포인트(StageY/VisionX/offset) 다이얼로그다. 이름 때문에 INPUT/BIN DIE MAP
             //   CREATE와 같은 계열로 오인됐다. 키(recipe.dieMapSetup)는 유지하고 표기만 바꾼다.
-            A("recipe.dieMapSetup",   "INPUT ALIGN TEACH", "INPUT ALIGN TEACH");
+            A("recipe.dieMapSetup",   "입력 정렬 티칭", "INPUT ALIGN TEACH");
 
             // 설정 서브
             A("set.general",          "GENERAL",          "GENERAL");

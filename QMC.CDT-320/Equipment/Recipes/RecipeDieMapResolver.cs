@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -29,6 +29,8 @@ namespace QMC.CDT320.Recipes
                     DieMap configuredMap = DieMapGenerator.Load(configuredPath);
                     if (IsUsableMap(configuredMap))
                     {
+                        if (!IsSupportedForEquipment(configuredMap, out reason))
+                            return null;
                         string mismatch;
                         if (IsCompatibleWithFrame(configuredMap, frame, out mismatch))
                         {
@@ -57,6 +59,8 @@ namespace QMC.CDT320.Recipes
                     DieMap sidecarCsvMap = LoadCompatibleSidecarCsv(configuredPath, frame, out sidecarCsvPath, out sidecarCsvReason);
                     if (IsUsableMap(sidecarCsvMap))
                     {
+                        if (!IsSupportedForEquipment(sidecarCsvMap, out reason))
+                            return null;
                         sidecarCsvMap = DieMapGenerator.Normalize(sidecarCsvMap);
                         string approvalReason;
                         if (RecipeMapPaths.IsMapApproved(project, kind, sidecarCsvMap, out approvalReason))
@@ -90,9 +94,13 @@ namespace QMC.CDT320.Recipes
                     DieMap externalMap = LoadExternalSourceMap(project, frame, kind, out sourcePath);
                     if (IsUsableMap(externalMap))
                     {
+                        if (!IsSupportedForEquipment(externalMap, out reason))
+                            return null;
                         string mismatch;
                         if (IsCompatibleWithFrame(externalMap, frame, out mismatch))
                         {
+                            if (!RecipeMapPaths.IsMapApproved(project, kind, externalMap, out reason))
+                                return null;
                             return DieMapGenerator.Normalize(externalMap);
                         }
 
@@ -185,11 +193,36 @@ namespace QMC.CDT320.Recipes
                    map.EdgeSkipMode.IndexOf("External", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        /// <summary>생성 설정의 저장 가능 여부와 현재 실장비의 사용 가능 여부를 분리한다.</summary>
+        public static bool IsSupportedForEquipment(DieMap map, out string reason)
+        {
+            reason = "";
+            if (map == null || (map.Generation == null &&
+                !string.Equals(map.SourceFormat, GeneratedWaferMapCodec.SourceFormat, StringComparison.Ordinal)))
+                return true;
+
+            // 생성 정의의 누락/변조 및 V2 외곽 초과는 승인 hash가 있더라도 장비에 사용할 수 없다.
+            if (!GeneratedWaferMapCodec.Validate(map, out reason))
+                return false;
+            int angle = map.Generation.RotationDegrees;
+            if (angle != 90 && angle != 270)
+                return true;
+
+            reason = "현재 장비에서는 " + angle + "° 회전 맵을 사용할 수 없습니다. " +
+                "미리보기와 설정 저장만 가능하며 FINAL APPLY와 장비 사용은 차단됩니다. " +
+                "맵 생성 미리보기에서 0° 또는 180°로 다시 생성하여 저장하세요.";
+            return false;
+        }
+
         public static bool IsCompatibleWithFrame(DieMap map, TapeFrameSubset frame, out string reason)
         {
             reason = "";
             try
             {
+                if (map != null && (map.Generation != null ||
+                    string.Equals(map.SourceFormat, GeneratedWaferMapCodec.SourceFormat, StringComparison.Ordinal)))
+                    return IsGeneratedMapCompatibleWithFrame(map, frame, out reason);
+
                 if (!IsUsableMap(map) || frame == null)
                     return true;
 
@@ -253,11 +286,54 @@ namespace QMC.CDT320.Recipes
             }
         }
 
+        public static string GetGeneratedRotationToken(int degrees)
+        {
+            switch (degrees)
+            {
+                case 0: return "None";
+                case 90: return "CW90";
+                case 180: return "Rotate180";
+                case 270: return "CCW90";
+                default: throw new ArgumentOutOfRangeException(nameof(degrees), "맵 회전 각도는 0°, 90°, 180°, 270°만 지원합니다.");
+            }
+        }
+
+        private static bool IsGeneratedMapCompatibleWithFrame(DieMap map, TapeFrameSubset frame, out string reason)
+        {
+            // 설정 초안의 물리 사양 일치 여부다. 장비 사용은 IsSupportedForEquipment에서 별도로 차단한다.
+            if (!GeneratedWaferMapCodec.ValidateForStorage(map, out reason))
+                return false;
+            if (frame == null)
+            {
+                reason = "생성 맵의 역할 웨이퍼 사양이 없습니다.";
+                return false;
+            }
+
+            GeneratedWaferMapDefinition definition = map.Generation;
+            bool matches = frame.DieMapX == map.DieMapX && frame.DieMapY == map.DieMapY &&
+                Math.Abs(frame.OuterDiameterMm - (double)definition.OuterDiameterMm) <= 0.000001 &&
+                Math.Abs(frame.DieSizeX - (double)definition.DieSizeXMm) <= 0.000001 &&
+                Math.Abs(frame.DieSizeY - (double)definition.DieSizeYMm) <= 0.000001 &&
+                Math.Abs(frame.PitchX - (double)definition.GapXMm) <= 0.000001 &&
+                Math.Abs(frame.PitchY - (double)definition.GapYMm) <= 0.000001 &&
+                string.Equals(string.IsNullOrWhiteSpace(frame.Rotate) ? "None" : frame.Rotate,
+                    GetGeneratedRotationToken(definition.RotationDegrees), StringComparison.OrdinalIgnoreCase);
+            if (!matches)
+            {
+                reason = "생성 맵의 Grid/직경/다이 크기/Gap/회전과 역할 웨이퍼 사양이 다릅니다. " +
+                    "맵 생성 미리보기에서 다시 생성하고 저장하세요.";
+                return false;
+            }
+            reason = "";
+            return true;
+        }
+
         /// <summary>
         /// Center-relative 승인 역할 맵과 Mapping 완료 절대좌표 맵이 같은 Grid/Pitch/원본 주소인지 확인한다.
         /// Runtime의 Result/Target 상태는 공정 중 바뀔 수 있으므로 좌표 domain만 비교한다.
         /// </summary>
-        public static bool IsMappedInputCompatibleWithRecipe(DieMap mapped, DieMap approved, out string reason)
+        public static bool IsMappedInputCompatibleWithRecipe(DieMap mapped, DieMap approved, out string reason,
+            WaferMapProcessSettings processSettings = null)
         {
             reason = "";
             try
@@ -267,6 +343,13 @@ namespace QMC.CDT320.Recipes
                     reason = "mapped 또는 approved Input 맵이 비어 있습니다.";
                     return false;
                 }
+
+                if (!IsSupportedForEquipment(approved, out reason))
+                    return false;
+
+                // 기준 맵 승인/90·270 차단을 먼저 확인하고 공정에 적용한 방향으로 주소를 비교한다.
+                if (processSettings != null)
+                    approved = WaferMapProcessService.Prepare(approved, processSettings, "Input");
 
                 DieMapGenerator.Normalize(mapped);
                 DieMapGenerator.Normalize(approved);
