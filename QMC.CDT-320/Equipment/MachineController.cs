@@ -102,6 +102,7 @@ namespace QMC.CDT320
         private DateTime _recipeRunGateVerifiedAtUtc = DateTime.MinValue;
         private readonly object _recipeOperationLock = new object();
         private bool _recipeApplyOperationActive;
+        private bool _inputMapModeSaveActive;
         private CancellationTokenSource _recipeStartAttemptCts;
         private long _recipeConfigurationGeneration;
         public SharedRailXMotionService SharedRailX { get; private set; }
@@ -218,7 +219,7 @@ namespace QMC.CDT320
                     return _recipeStartAttemptCts != null;
             }
         }
-        private bool HasActiveEquipmentOperation =>
+        internal bool HasActiveEquipmentOperation =>
             IsSequenceRunning ||
             IsManualBusy ||
             IsInputStageRunReviewManualActive ||

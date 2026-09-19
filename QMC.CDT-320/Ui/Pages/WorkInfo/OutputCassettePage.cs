@@ -8,6 +8,7 @@ using QMC.CDT320;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Dialogs;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
@@ -27,6 +28,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         public OutputCassettePage()
         {
             InitializeComponent();
+            BindLocalizedCaptions();
             WireEvents();
 
             _timer = new Timer { Interval = 200 };
@@ -39,6 +41,46 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             };
             VisibleChanged += (s, e) => { if (Visible) _timer.Start(); else _timer.Stop(); };
             HandleDestroyed += (s, e) => _timer.Stop();
+        }
+
+        private void BindLocalizedCaptions()
+        {
+            Lang.Bind(lblHeader, "OUTPUT CASSETTE");
+            Lang.Bind(grpSlotState, "SLOT STATE");
+            Lang.Bind(lblSlotNoTitle, "Slot No");
+            Lang.Bind(btnPrev, "PREV");
+            Lang.Bind(btnNext, "NEXT");
+            Lang.Bind(lblGood1Check, "GOOD 1단");
+            Lang.Bind(lblGood2Check, "GOOD 2단");
+            Lang.Bind(lblNgCheck, "NG");
+            Lang.Bind(lblLifterAxisTitle, "LIFTER AXIS Z");
+            Lang.Bind(lblSlotStateTitle, "State");
+            Lang.Bind(btnReady, "LIFTER READY");
+            Lang.Bind(grpLifter, "LIFTER");
+            Lang.Bind(lblLegendReadyText, "READY");
+            Lang.Bind(lblLegendEmptyText, "EMPTY");
+            Lang.Bind(lblLegendWorkingText, "WORKING");
+            Lang.Bind(lblLegendFinishText, "FINISH");
+            Lang.Bind(lblLegendWorkReadyText, "WORK READY");
+            Lang.Bind(grpAction, "ACTION");
+            Lang.Bind(btnMap, "GOOD BIN MAPPING");
+            Lang.Bind(btnCstExchange, "GOOD CST EXCHANGE");
+            Lang.Bind(btnCstExchangeNg, "NG CST EXCHANGE");
+            Lang.Bind(btnCstClear, "GOOD CST CLEAR");
+            Lang.Bind(btnCstClearNg, "NG CST CLEAR");
+            Lang.Bind(btnMapNg, "NG BIN MAPPING");
+            Lang.Bind(btnLoad, "GOOD BIN LOADING");
+            Lang.Bind(btnLoadNg, "NG BIN LOADING");
+            Lang.Bind(btnUnload, "GOOD BIN UNLOADING");
+            Lang.Bind(btnUnloadNg, "NG BIN UNLOADING");
+            Lang.Bind(btnStop, "STOP");
+            Lang.Bind(grpDataOnly, "MATERIAL DATA ONLY");
+            Lang.Bind(lblDataOnlyWarning, "DATA ONLY / NO MOTION — 실물 위치를 확인한 후 Material 데이터만 이동/삭제하십시오. 장비는 움직이지 않습니다.");
+            Lang.Bind(lblDataOnlySourceTitle, "SOURCE");
+            Lang.Bind(lblDataOnlyDestTitle, "DEST");
+            Lang.Bind(lblDataOnlyMaterialTitle, "MATERIAL");
+            Lang.Bind(btnDataOnlyMove, "MOVE DATA");
+            Lang.Bind(btnDataOnlyDelete, "DELETE DATA");
         }
 
         private Form1 GetHost() => FindForm() as Form1;
@@ -1167,8 +1209,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private void RefreshSelectedSlotState()
         {
             lblSlotNoValue.Text = _selectedMaterialSlot >= 0
-                ? GetCassetteRoleDisplay(_selectedCassetteRole) + " / " + (_selectedMaterialSlot + 1).ToString("00")
-                : GetCassetteRoleDisplay(_selectedCassetteRole) + " / -";
+                ? Lang.Display(GetCassetteRoleDisplay(_selectedCassetteRole)) + " / " + (_selectedMaterialSlot + 1).ToString("00")
+                : Lang.Display(GetCassetteRoleDisplay(_selectedCassetteRole)) + " / -";
 
             var snapshot = MaterialStorage.State;
             var cassette = snapshot != null && snapshot.Cassettes != null
@@ -1179,7 +1221,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 : null;
             var wafer = ResolveCassetteSlotWafer(snapshot, _selectedCassetteRole, _selectedMaterialSlot, slot);
             WaferMaterialState state = wafer != null ? WaferMaterialStateText.Normalize(wafer.State) : WaferMaterialState.Empty;
-            lblSlotStateValue.Text = wafer != null ? WaferMaterialStateText.ToDisplayName(state) : "-";
+            lblSlotStateValue.Text = wafer != null ? Lang.Display(WaferMaterialStateText.ToDisplayName(state)) : "-";
             lblSlotStateValue.BackColor = System.Drawing.Color.White;   // 값 라벨은 흰색
         }
 

@@ -13,6 +13,7 @@ namespace QMC.CDT320.Materials
             wafer.InputPreparedMapInstanceId = null;
             wafer.InputPreparedMapBarcode = null;
             wafer.InputPreparedMapUsesNetwork = false;
+            wafer.InputMapUseRemoteSnapshot = null;
             wafer.OutputReceivePreparedMap = null;
             wafer.OutputReceivePreparedMapInstanceId = null;
         }
@@ -43,6 +44,57 @@ namespace QMC.CDT320.Materials
                     Math.Abs(entry.PosX - slot.PosX) > 0.000001 || Math.Abs(entry.PosY - slot.PosY) > 0.000001)
                     throw new InvalidDataException("저장된 Output 맵과 수납 슬롯의 순서·다이 주소·위치가 다릅니다. index=" + i);
             }
+        }
+
+        public static bool HasStartedInputMapWork()
+        {
+            return ReadState(state => state != null && state.Wafers != null && state.Wafers.Any(wafer =>
+                wafer != null && wafer.CurrentLocation != null &&
+                (wafer.CurrentLocation.Kind == MaterialLocationKind.InputStage || wafer.CurrentLocation.Kind == MaterialLocationKind.InputFeeder) &&
+                (wafer.InputMapUseRemoteSnapshot.HasValue || wafer.InputPreparedMap != null ||
+                 wafer.HasInputStageDieMappingResult || wafer.BarcodeSequencePerformed)));
+        }
+
+        // RecipeInputMapSource의 모드 저장/투입 잠금 안에서 호출한다. 모션이나 맵 생성은 하지 않는다.
+        internal static bool? GetInputMapModeSnapshot(WaferMaterial expected)
+        {
+            lock (_stateSync)
+            {
+                WaferMaterial current = ResolveInputMapModeWaferNoLock(expected);
+                if (current.InputMapUseRemoteSnapshot.HasValue) return current.InputMapUseRemoteSnapshot;
+                if (current.InputPreparedMap != null &&
+                    string.Equals(current.InputPreparedMapInstanceId, current.WaferInstanceId, StringComparison.OrdinalIgnoreCase))
+                    return current.InputPreparedMapUsesNetwork;
+                return null;
+            }
+        }
+
+        internal static void PinInputMapMode(WaferMaterial expected, bool network)
+        {
+            lock (_stateSync)
+            {
+                WaferMaterial current = ResolveInputMapModeWaferNoLock(expected);
+                if (current.InputMapUseRemoteSnapshot.HasValue && current.InputMapUseRemoteSnapshot.Value != network)
+                    throw new InvalidDataException("현재 웨이퍼에 고정된 입력 맵 사용 모드를 변경할 수 없습니다.");
+                current.InputMapUseRemoteSnapshot = network;
+            }
+            if (!TryNotifyAndSave("InputWaferMapModePinned") || !TryFlushPendingSave("InputWaferMapModePinned"))
+                throw new IOException("현재 웨이퍼의 입력 맵 사용 모드를 저장하지 못했습니다. 투입을 중단합니다.");
+        }
+
+        private static WaferMaterial ResolveInputMapModeWaferNoLock(WaferMaterial expected)
+        {
+            if (expected == null || string.IsNullOrWhiteSpace(expected.WaferInstanceId))
+                throw new InvalidDataException("입력 맵 모드를 고정할 물리 웨이퍼 식별자가 없습니다.");
+            WaferMaterial current = State.Wafers.FirstOrDefault(wafer => wafer != null &&
+                string.Equals(wafer.WaferInstanceId, expected.WaferInstanceId, StringComparison.OrdinalIgnoreCase) &&
+                wafer.CurrentLocation != null && (wafer.CurrentLocation.Kind == MaterialLocationKind.InputStage ||
+                wafer.CurrentLocation.Kind == MaterialLocationKind.InputFeeder));
+            if (current == null) throw new InvalidDataException("입력 맵 모드를 준비하는 동안 웨이퍼가 변경되었습니다.");
+            if (State.Wafers.Any(wafer => wafer != null && wafer != current && wafer.CurrentLocation != null &&
+                (wafer.CurrentLocation.Kind == MaterialLocationKind.InputStage || wafer.CurrentLocation.Kind == MaterialLocationKind.InputFeeder)))
+                throw new InvalidDataException("입력 스테이지/이동부의 이전 웨이퍼 처리를 먼저 완료해야 합니다.");
+            return current;
         }
 
         public static DieMap GetPreparedInputMap(WaferMaterial wafer, string barcode, bool network)

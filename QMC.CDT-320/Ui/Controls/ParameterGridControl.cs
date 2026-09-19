@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.Windows.Forms;
+using QMC.CDT_320.Ui.Localization;
 using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Controls
 {
-    public partial class ParameterGridControl : UserControl
+    public partial class ParameterGridControl : UserControl, ILocalizedView
     {
         private readonly List<ParameterGridItem> _items = new List<ParameterGridItem>();
         private readonly HashSet<string> _collapsedGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -117,6 +118,7 @@ namespace QMC.CDT_320.Ui.Controls
                 InitializeComponent();
                 grid.ShowCellToolTips = true;
                 grid.Paint += Grid_ActionHeaderPaint;
+                ApplyLanguage();
             }
             catch
             {
@@ -125,6 +127,19 @@ namespace QMC.CDT_320.Ui.Controls
             finally
             {
             }
+        }
+
+        /// <summary>표시만 갱신하며, 편집 중인 값과 선택 행 및 파라미터 모델은 그대로 유지한다.</summary>
+        public void ApplyLanguage()
+        {
+            colName.HeaderText = Lang.Display("PARAMETER");
+            colValue.HeaderText = Lang.Display("VALUE");
+            colUnit.HeaderText = Lang.Display("UNIT");
+            colScope.HeaderText = Lang.Display("SCOPE");
+            HideParameterDescription();
+            foreach (DataGridViewRow row in grid.Rows)
+                ApplyDescriptionToolTip(row, row.Tag as ParameterGridItem);
+            grid.Invalidate();
         }
 
         public void SetItems(IEnumerable<ParameterGridItem> items)
@@ -354,7 +369,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        private string BuildHeaderText(ParameterGridItem header, bool collapsed)
+        private string BuildHeaderText(ParameterGridItem header, bool collapsed, bool translate = false)
         {
             int count = 0;
             if (header != null)
@@ -368,6 +383,8 @@ namespace QMC.CDT_320.Ui.Controls
 
             string arrow = collapsed ? "▶" : "▼";
             string name = header != null ? (header.DisplayName ?? string.Empty) : string.Empty;
+            if (translate)
+                name = Lang.Display(name);
             return arrow + " " + name + " (" + count + ")";
         }
 
@@ -422,7 +439,7 @@ namespace QMC.CDT_320.Ui.Controls
                 var item = hit.RowIndex >= 0 && hit.ColumnIndex >= 0 && !grid.IsCurrentCellInEditMode
                     ? grid.Rows[hit.RowIndex].Tag as ParameterGridItem
                     : null;
-                string description = item != null ? item.Description : null;
+                string description = item != null ? Lang.Display(item.Description) : null;
                 if (string.IsNullOrWhiteSpace(description))
                 {
                     HideParameterDescription();
@@ -437,7 +454,7 @@ namespace QMC.CDT_320.Ui.Controls
                 _descriptionItem = item;
                 _descriptionText = description;
                 grid.ShowCellToolTips = false;
-                parameterDescriptionToolTip.ToolTipTitle = item.DisplayName ?? string.Empty;
+                parameterDescriptionToolTip.ToolTipTitle = Lang.Display(item.DisplayName ?? string.Empty);
                 parameterDescriptionToolTip.Show(description, grid, e.X + 16, e.Y + 20, 15000);
             }
             catch (Exception ex)
@@ -471,7 +488,7 @@ namespace QMC.CDT_320.Ui.Controls
                 if (row == null || item == null)
                     return;
 
-                string description = item.Description ?? string.Empty;
+                string description = Lang.Display(item.Description ?? string.Empty);
                 foreach (DataGridViewCell cell in row.Cells)
                     cell.ToolTipText = description;
             }
@@ -921,8 +938,8 @@ namespace QMC.CDT_320.Ui.Controls
                     current = Convert.ToBoolean(item.Getter());
 
                 bool next = !current;
-                string message = item.DisplayName + " 값을 " + (next ? "True" : "False") + "로 변경하시겠습니까?";
-                DialogResult result = QMC.Common.MessageDialog.Show(this, message, "Parameter Change", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                string message = Lang.Display(item.DisplayName) + " 값을 " + Lang.Display(next ? "True" : "False") + "로 변경하시겠습니까?";
+                DialogResult result = QMC.Common.MessageDialog.Show(this, message, Lang.Display("Parameter Change"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (result != DialogResult.Yes)
                     return;
 
@@ -955,7 +972,7 @@ namespace QMC.CDT_320.Ui.Controls
                 // 자유 텍스트 모드: 수식 평가 없이 입력 그대로 커밋, 유효성은 항목 setter가 정규화).
                 bool freeText = item.ValueType == ParameterGridValueType.Text;
                 string currentText = FormatValue(item);
-                using (var dialog = new NumericKeypadDialog(item.DisplayName, currentText, item.GetUnit(), freeText))
+                using (var dialog = new NumericKeypadDialog(Lang.Display(item.DisplayName), currentText, Lang.Display(item.GetUnit()), freeText))
                 {
                     if (dialog.ShowDialog(this) != DialogResult.OK)
                         return;
@@ -1140,18 +1157,40 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
-                if (e.RowIndex < 0 || e.ColumnIndex != colScope.Index)
+                if (e.RowIndex < 0)
                     return;
 
                 var item = grid.Rows[e.RowIndex].Tag as ParameterGridItem;
-                if (item == null || item.IsGroupHeader || e.Value == null)
+                if (item == null)
                     return;
 
-                e.Value = item.Scope.ToString().ToUpperInvariant();
-                e.FormattingApplied = true;
+                // 셀의 원본 값, Key, 옵션 문자열은 파싱/티칭에서 사용하므로 표시 단계에서만 번역한다.
+                if (e.ColumnIndex == colName.Index)
+                {
+                    bool collapsed = !string.IsNullOrEmpty(item.GroupKey) && _collapsedGroups.Contains(item.GroupKey);
+                    e.Value = item.IsGroupHeader
+                        ? BuildHeaderText(item, collapsed, true)
+                        : (!string.IsNullOrEmpty(item.GroupKey) ? "     ·   " : string.Empty) + Lang.Display(item.DisplayName);
+                    e.FormattingApplied = true;
+                }
+                else if (!item.IsGroupHeader && e.ColumnIndex == colScope.Index)
+                {
+                    e.Value = Lang.Display(item.Scope.ToString().ToUpperInvariant());
+                    e.FormattingApplied = true;
+                }
+                else if (!item.IsGroupHeader &&
+                    (e.ColumnIndex == colUnit.Index ||
+                     (e.ColumnIndex == colValue.Index && item.ValueType == ParameterGridValueType.Bool) ||
+                     (item.SupportsTeaching && (e.ColumnIndex == colMove.Index || e.ColumnIndex == colTeach.Index))))
+                {
+                    e.Value = Lang.Display(Convert.ToString(e.Value, CultureInfo.InvariantCulture));
+                    e.FormattingApplied = true;
+                }
+                // Selection/Text 값은 편집 컨트롤 초기화에도 쓰이므로 원문을 유지한다.
             }
-            catch
+            catch (Exception ex)
             {
+                EventLogger.Write(EventKind.Warning, "UI", "PARAM-GRID", "표시 언어 적용 실패: " + ex.Message);
             }
             finally
             {
@@ -1222,7 +1261,7 @@ namespace QMC.CDT_320.Ui.Controls
                     return;
 
                 DataGridViewCellStyle headerStyle = grid.ColumnHeadersDefaultCellStyle;
-                TextRenderer.DrawText(e.Graphics, "ACTION", headerStyle.Font, union, headerStyle.ForeColor,
+                TextRenderer.DrawText(e.Graphics, Lang.Display("ACTION"), headerStyle.Font, union, headerStyle.ForeColor,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
             }
             catch (Exception ex)

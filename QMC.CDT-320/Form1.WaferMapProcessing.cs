@@ -32,6 +32,86 @@ namespace QMC.CDT_320
             }
         }
 
+        private void OnInputMapModeActivated(RecipeProject project)
+        {
+            try
+            {
+                if (IsDisposed || Disposing || !IsHandleCreated) return;
+                if (InvokeRequired)
+                {
+                    BeginInvoke(new Action(() => OnInputMapModeActivated(project)));
+                    return;
+                }
+                if (_currentRecipe != null && project != null &&
+                    string.Equals(ActiveRecipeName, project.FileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    RecipeProject latest = RecipeStore.Load(project.FileName);
+                    if (latest == null) throw new InvalidDataException("적용된 입력 맵 사용 모드를 다시 읽지 못했습니다.");
+                    _currentRecipe.InputUseRemoteWaferMap = latest.InputUseRemoteWaferMap;
+                    _currentRecipe.NextInputUseRemoteWaferMap = latest.NextInputUseRemoteWaferMap;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "InputMapMode", "입력 모드 표시 갱신 실패: " + ex + " - Failed");
+            }
+        }
+
+        private bool TrySaveInputMapMode(string targetName, bool requested, out RecipeProject saved, out string reason)
+        {
+            saved = null;
+            reason = string.Empty;
+            IDisposable lease;
+            if (!Controller.TryBeginInputMapModeSave(targetName, out lease, out reason)) return false;
+            bool persisted = false;
+            try
+            {
+                using (lease)
+                lock (RecipeInputMapSource.ModeSync)
+                {
+                    RecipeApplyFileSnapshot files = RecipeApplyFileSnapshot.Capture(targetName);
+                    RecipeProject current = RecipeStore.Load(targetName);
+                    if (current == null || !string.Equals(RecipeStore.GetLastProjectName(), targetName, StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException("입력 맵 사용 모드를 저장할 활성 레시피가 변경되었습니다.");
+                    bool defer = Controller.HasActiveEquipmentOperation || MaterialStateService.HasStartedInputMapWork();
+                    bool oldMode = RecipeInputMapSource.UsesRemote(current, AppSettingsStore.Current);
+                    RecipeProject updated = RecipeInputMapSource.CreateModeRequest(current, AppSettingsStore.Current, requested, defer);
+                    if (!files.IsCurrent(out reason)) return false;
+                    if (!defer && oldMode && !requested)
+                    {
+                        MaterialStateService.ResetPickupBinSelectionToAll("RecipeInputMapModeOff:" + targetName);
+                        if (!MaterialStateService.TryFlushPendingSave("RecipeInputMapModeOff:" + targetName))
+                            throw new IOException("등록 모드의 BIN 선택 초기화를 저장하지 못했습니다.");
+                    }
+                    bool? expectedActive = updated.InputUseRemoteWaferMap;
+                    bool? expectedNext = updated.NextInputUseRemoteWaferMap;
+                    persisted = true;
+                    if (!RecipeStore.Save(updated)) throw new IOException("입력 맵 사용 모드 저장에 실패했습니다.");
+                    files = files.CaptureAfterProjectSave();
+                    saved = RecipeStore.Load(targetName);
+                    if (saved == null || saved.InputUseRemoteWaferMap != expectedActive ||
+                        saved.NextInputUseRemoteWaferMap != expectedNext || !files.IsCurrent(out reason))
+                        throw new InvalidDataException("저장된 입력 맵 사용 모드가 요청과 다릅니다. " + reason);
+                    _currentRecipe = saved;
+                    Log.Write("Main", UserSession.Name, "RecipeMapProcessing",
+                        "입력 맵 사용 모드 저장. recipe=" + targetName + ", " +
+                        RecipeInputMapSource.DescribeMode(saved, AppSettingsStore.Current) + " - Ok");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                saved = null;
+                if (persisted)
+                {
+                    reason = "입력 모드 저장 확인에 실패했습니다. 레시피를 정상 적용하기 전까지 START가 차단됩니다. " + ex.Message;
+                    Controller.BlockRecipeStartAfterFailedApply(reason);
+                    throw new InvalidOperationException(reason, ex);
+                }
+                throw;
+            }
+        }
+
         internal bool TrySaveAndApplyWaferMapProcessing(RecipeProject project,
             WaferMapProcessSettings input, WaferMapProcessSettings output,
             WaferMapProcessSettingsDialog editor, out RecipeProject savedProject, out string reason)
@@ -52,6 +132,12 @@ namespace QMC.CDT_320
                 if (!string.Equals(targetName, NormalizeRecipeName(ActiveRecipeName), StringComparison.OrdinalIgnoreCase) ||
                     !string.Equals(targetName, NormalizeRecipeName(Controller.ActiveRecipeName), StringComparison.OrdinalIgnoreCase))
                     throw new InvalidOperationException("현재 불러온 활성 레시피에서만 맵 설정을 적용할 수 있습니다.");
+                RecipeProject modeProject = RecipeStore.Load(targetName);
+                bool onlyMode = modeProject != null &&
+                    WaferMapProcessService.GetSettingsKey(modeProject.InputMapProcessing) == WaferMapProcessService.GetSettingsKey(input) &&
+                    WaferMapProcessService.GetSettingsKey(modeProject.OutputMapProcessing) == WaferMapProcessService.GetSettingsKey(output);
+                if (onlyMode)
+                    return TrySaveInputMapMode(targetName, editor.InputUsesRemote, out savedProject, out reason);
                 if (!TryValidateRecipeApplyUiState(out reason, editor)) return false;
 
                 MaterialSnapshot expectedState;

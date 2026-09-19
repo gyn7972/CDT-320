@@ -10,6 +10,7 @@ using QMC.Common.Alarms;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320.VisionComm;
 using QMC.CDT_320.Ui.Dialogs;
 
@@ -26,6 +27,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         public InputStagePage()
         {
             InitializeComponent();
+            BindLocalizedCaptions();
             ConfigureInfoLayoutForReadableText();
             WireEvents();
 
@@ -39,6 +41,43 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             };
             VisibleChanged += (s, e) => { if (Visible) _timer.Start(); else _timer.Stop(); };
             HandleDestroyed += (s, e) => _timer.Stop();
+        }
+
+        private void BindLocalizedCaptions()
+        {
+            Lang.Bind(lblHeader, "INPUT STAGE");
+            Lang.Bind(grpState, "WORK INFO");
+            Lang.Bind(lblStageExistTitle, "STAGE EXIST");
+            Lang.Bind(lblStageAlignTitle, "STAGE ALIGN");
+            Lang.Bind(lblStageAlignOffsetTitle, "ALIGN OFFSET");
+            Lang.Bind(lblStageBarcodeTitle, "STAGE BARCODE");
+            Lang.Bind(lblStageChipAlignTitle, "STAGE CHIP ALIGN");
+            Lang.Bind(lblStageChipAlignOffsetTitle, "DIE MAP OFFSET");
+            Lang.Bind(lblStageFinishTitle, "STAGE FINISH");
+            Lang.Bind(grpCounters, "COUNTER");
+            Lang.Bind(lblNeedleUsingTitle, "NEEDLE USING");
+            Lang.Bind(lblJellPadUsingTitle, "JELL PAD USING");
+            Lang.Bind(grpInfo, "INFO");
+            Lang.Bind(lblStageAxisYTitle, "STAGE AXIS Y");
+            Lang.Bind(lblStageAxisTTitle, "STAGE AXIS T");
+            Lang.Bind(lblStageAxisZTitle, "STAGE AXIS Z");
+            Lang.Bind(lblStageAxisXTitle, "VISION AXIS X");
+            Lang.Bind(label1, "NEEDLE AXIS X");
+            Lang.Bind(lblNeedleAxisZTitle, "NEEDLE AXIS Z");
+            Lang.Bind(label3, "EJECT PIN AXIS Z");
+            Lang.Bind(lblNeedleVacuum, "NEEDLE VACUUM");
+            Lang.Bind(grpCylinder, "NEEDLE INFO");
+            Lang.Bind(lblExpendingTitle, "EXPENDING");
+            Lang.Bind(lblNeedleUpDownTitle, "NEEDLE UP/DOWN");
+            Lang.Bind(grpAction, "ACTION");
+            Lang.Bind(btnWfAlign, "WAFER ALIGN");
+            Lang.Bind(btnWfBarcode, "WAFER BARCODE");
+            Lang.Bind(btnPrepareLoad, "PREP LOAD");
+            Lang.Bind(btnDieMapping, "DIE MAPPING");
+            Lang.Bind(btnPrepareUnload, "PREP UNLOAD");
+            Lang.Bind(btnMoveAvoid, "AVOID");
+            Lang.Bind(btnVisionWafer, "VISION: WAFER");
+            Lang.Bind(btnStop, "STOP");
         }
 
         private Form1 GetHost() => FindForm() as Form1;
@@ -785,17 +824,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 string stageFinishReason;
                 bool stageFinishComplete = MaterialStateService.IsInputStageFinishComplete(out stageFinishReason);
 
-                lblStageExistValue.Text = hasWafer ? "WAFER" : "EMPTY";
-                lblStageAlignValue.Text = alignComplete ? "COMPLETE" : "INCOMPLETE";
+                lblStageExistValue.Text = Lang.Display(hasWafer ? "WAFER" : "EMPTY");
+                lblStageAlignValue.Text = Lang.Display(alignComplete ? "COMPLETE" : "INCOMPLETE");
                 lblStageAlignOffsetValue.Text = currentWafer != null && currentWafer.HasInputStageAlignResult && alignResultUsable
                     ? FormatOffset(currentWafer.InputStageAlignOffsetX, currentWafer.InputStageAlignOffsetY)
                     : FormatOffset(stage.WaferAlignOffsetX, stage.WaferAlignOffsetY);
                 lblStageBarcodeValue.Text = ResolveStageWaferId(stage, currentWafer);
-                lblStageChipAlignValue.Text = dieMapComplete ? "COMPLETE" : "INCOMPLETE";
+                lblStageChipAlignValue.Text = Lang.Display(dieMapComplete ? "COMPLETE" : "INCOMPLETE");
                 lblStageChipAlignOffsetValue.Text = currentWafer != null && currentWafer.HasInputStageDieMappingResult && mappingResultUsable
                     ? FormatOffset(currentWafer.InputStageDieMappingOffsetX, currentWafer.InputStageDieMappingOffsetY)
                     : FormatOffset(stage.DieMappingOffsetX, stage.DieMappingOffsetY);
-                lblStageFinishValue.Text = stageFinishComplete ? "COMPLETE" : "INCOMPLETE";
+                lblStageFinishValue.Text = Lang.Display(stageFinishComplete ? "COMPLETE" : "INCOMPLETE");
 
                 lblVisionAxisXValue.Text = AxisUnitConverter.FormatDisplay(stage.CameraX.ActualPosition, stage.CameraX, "0.###", true);
                 lblStageAxisTValue.Text = AxisUnitConverter.FormatDisplay(stage.StageT.ActualPosition, stage.StageT, "0.###", true);
@@ -805,7 +844,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 lblNeedleAxisZValue.Text = AxisUnitConverter.FormatDisplay(stage.NeedleZ.ActualPosition, stage.NeedleZ, "0.###", true);
                 label4.Text = AxisUnitConverter.FormatDisplay(stage.EjectPinZ.ActualPosition, stage.EjectPinZ, "0.###", true);
                 lblExpendingValue.Text = AxisUnitConverter.FormatDisplay(stage.ExpanderZ.ActualPosition, stage.ExpanderZ, "0.###", true);
-                lblNeedleUpDownValue.Text = stage.NeedleZ.IsMoving ? "MOVING" : "STOP";
+                lblNeedleUpDownValue.Text = Lang.Display(stage.NeedleZ.IsMoving ? "MOVING" : "STOP");
                 dotNeedleVacuum.IsOn = stage.IsInputStageSimulationOrDryRun() ? hasWafer : stage.NeedleVacuum.IsOn;
                 RefreshMaterialDetail(false);
             }

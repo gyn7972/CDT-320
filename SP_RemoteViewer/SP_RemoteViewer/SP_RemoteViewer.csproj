@@ -75,7 +75,7 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
-    <None Include="README.md" />
+    <None Include="..\..\docs\markdown\SP_RemoteViewer__SP_RemoteViewer__README.md" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

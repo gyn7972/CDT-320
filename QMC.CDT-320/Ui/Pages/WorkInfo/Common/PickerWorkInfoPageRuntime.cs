@@ -10,6 +10,7 @@ using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Ui.Localization;
 using QMC.Common.IO;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
@@ -211,6 +212,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _btnStop = btnStop;
             _actionControls = actionControls;
 
+            BindLocalizedCaptions();
             WireEvents();
             _timer = new System.Windows.Forms.Timer { Interval = 200 };
             _timer.Tick += (s, e) =>
@@ -402,6 +404,63 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
+        private void BindLocalizedCaptions()
+        {
+            Lang.Bind(_lblHeader, _side == PickerSequenceSide.Front ? "FRONT PICKER" : "REAR PICKER");
+            BindCaption("grpState", "WORK INFO");
+            BindCaption("lblHeadZoneTitle", "HEAD ZONE");
+            BindCaption("lblHead1Title", "HEAD #1");
+            BindCaption("lblHead2Title", "HEAD #2");
+            BindCaption("lblHead3Title", "HEAD #3");
+            BindCaption("lblHead4Title", "HEAD #4");
+            BindCaption("lblColletChangeTitle", "COLLET CHANGE");
+            BindCaption("lblAutoPosTitle", "AUTO POSITION");
+            BindCaption("lblColletCleaningTitle", "COLLET CLEANING");
+            BindCaption("lblColletCheckTitle", "COLLET CHECK");
+            BindCaption("grpCounters", "COUNTER");
+            BindCaption("lblColletCleanTitle", "LAST CLEAN");
+            BindCaption("lblPickFailTitle", "PICK FAIL");
+            BindCaption("lblPlaceFailTitle", "PLACE FAIL");
+            BindCaption("btnCountClear", "COUNT CLEAR");
+            BindCaption("grpInfo", "INFO");
+            BindCaption("lblProcessDetailTitle", "PROCESS");
+            BindCaption("lblAxis1Title", "PICKER X");
+            BindCaption("lblAxis2Title", "PICKER Y");
+            BindCaption("lblAxis3Title", "PICKER T#1");
+            BindCaption("lblAxis4Title", "PICKER Z#1");
+            BindCaption("lblAxis5Title", "PICKER T#2");
+            BindCaption("lblAxis6Title", "PICKER Z#2");
+            BindCaption("lblAxis7Title", "PICKER T#3");
+            BindCaption("lblAxis8Title", "PICKER Z#3");
+            BindCaption("lblAxis9Title", "PICKER T#4");
+            BindCaption("lblAxis10Title", "PICKER Z#4");
+            BindCaption("grpSensor", "SENSOR STATE");
+            BindCaption("lblHeadDieTitle", "HEAD DIE");
+            BindCaption("btnHead1Select", "HEAD 1");
+            BindCaption("btnHead2Select", "HEAD 2");
+            BindCaption("btnHead3Select", "HEAD 3");
+            BindCaption("btnHead4Select", "HEAD 4");
+            BindCaption("grpAction", "ACTION");
+            BindCaption("btnInput", "PICK UP");
+            BindCaption("btnInspect", "INSPECT");
+            BindCaption("btnBottom", "BOTTOM");
+            BindCaption("btnSide", "SIDE");
+            BindCaption("btnOutput", "PLACE");
+            BindCaption("btnPickUpTest", "PICKUP TEST");
+            BindCaption("btnAjinLineMapTest", "LINE MAP TEST");
+            BindCaption("btnAjinLineMoveTest", "LINE MOVE TEST");
+            BindCaption("btnVisionBottomInspect", "VISION: BOTTOM INSP");
+            BindCaption("btnVisionFrontSide", "VISION: FRONT SIDE");
+            BindCaption("btnVisionRearSide", "VISION: REAR SIDE");
+            BindCaption("btnStop", "STOP");
+        }
+
+        private void BindCaption(string controlName, string original)
+        {
+            foreach (Control control in _owner.Controls.Find(controlName, true))
+                Lang.Bind(control, original);
+        }
+
         private void SetEmptyMonitor()
         {
             for (int i = 0; i < _headValueLabels.Length; i++)
@@ -421,7 +480,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 if (_colletUseTitleLabels[i] != null)
                 {
-                    _colletUseTitleLabels[i].Text = "#" + (i + 1) + " COLLET USE";
+                    _colletUseTitleLabels[i].Text = "#" + (i + 1) + " " + Lang.Display("COLLET USE");
                     _colletUseTitleLabels[i].BackColor = Color.FromArgb(0xC8, 0xC8, 0xC8);
                     _colletUseTitleLabels[i].ForeColor = Color.Black;
                 }
@@ -456,14 +515,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (index < _headValueLabels.Length && _headValueLabels[index] != null)
                 {
                     string headState = ResolveHeadState(machine, pickerNo, flow, pickedDie);
-                    _headValueLabels[index].Text = headState;
+                    _headValueLabels[index].Text = headState.StartsWith("PICK / ", StringComparison.Ordinal)
+                        ? Lang.Display("PICK") + headState.Substring(4)
+                        : Lang.Display(headState);
                     _headValueLabels[index].ForeColor = IsPickedHeadState(headState) ? Color.Lime : Color.Black;
                 }
 
                 bool usePicker = UsePicker(machine, pickerNo);
                 if (index < _colletUseTitleLabels.Length && _colletUseTitleLabels[index] != null)
                 {
-                    _colletUseTitleLabels[index].Text = "#" + pickerNo + (usePicker ? " COLLET USE" : " COLLET UNUSED");
+                    _colletUseTitleLabels[index].Text = "#" + pickerNo + " " + Lang.Display(usePicker ? "COLLET USE" : "COLLET UNUSED");
                     _colletUseTitleLabels[index].BackColor = usePicker ? Color.FromArgb(0x00, 0xB0, 0x50) : Color.FromArgb(0x96, 0x96, 0x96);
                     _colletUseTitleLabels[index].ForeColor = usePicker ? Color.White : Color.Gainsboro;
                 }
@@ -475,9 +536,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
 
                 if (index < _vacuumLabels.Length && _vacuumLabels[index] != null)
-                    _vacuumLabels[index].Text = "VACUUM #" + pickerNo + "\r\n: " + (vacuumDisplay ? "ON" : "OFF");
+                    _vacuumLabels[index].Text = Lang.Display("VACUUM") + " #" + pickerNo + "\r\n: " + Lang.Display(vacuumDisplay ? "ON" : "OFF");
                 if (index < _blowLabels.Length && _blowLabels[index] != null)
-                    _blowLabels[index].Text = "BLOW #" + pickerNo + "\r\n: " + (blow ? "ON" : "OFF");
+                    _blowLabels[index].Text = Lang.Display("BLOW") + " #" + pickerNo + "\r\n: " + Lang.Display(blow ? "ON" : "OFF");
 
                 if (index < _vacuumDots.Length)
                     SetDot(_vacuumDots[index], vacuumDisplay);
@@ -485,10 +546,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     SetDot(_blowDots[index], blow);
             }
 
-            _lblColletChangeValue.Text = cdaOk ? "READY" : "CHECK";
-            _lblAutoPosValue.Text = IsGroupInPosition(machine, "AvoidPosition") ? "AVOID" : "MOVING";
-            _lblColletCleaningValue.Text = vacuumOk ? "READY" : "CHECK";
-            _lblColletCheckValue.Text = cdaOk && vacuumOk ? "READY" : "CHECK";
+            _lblColletChangeValue.Text = Lang.Display(cdaOk ? "READY" : "CHECK");
+            _lblAutoPosValue.Text = Lang.Display(IsGroupInPosition(machine, "AvoidPosition") ? "AVOID" : "MOVING");
+            _lblColletCleaningValue.Text = Lang.Display(vacuumOk ? "READY" : "CHECK");
+            _lblColletCheckValue.Text = Lang.Display(cdaOk && vacuumOk ? "READY" : "CHECK");
             UpdateColletCleaningHistoryDisplay();
             _lblPickFailValue.Text = GetPickFailCount(machine) + " ea";
             _lblPlaceFailValue.Text = GetPlaceFailCount(machine) + " ea";
@@ -1894,6 +1955,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     _lblHeadZoneValue.ForeColor = Color.Black;
                     break;
             }
+
+            // 상태 판정과 색상은 원래 토큰을 사용하고 화면 문구만 번역한다.
+            _lblHeadZoneValue.Text = Lang.Display(_lblHeadZoneValue.Text);
         }
 
         private string ResolveHeadProcess(CDT320_Machine machine, string encoderZone)
@@ -1987,7 +2051,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             string encoderZone = ResolveEncoderHeadZone(machine);
             string encoderText = string.IsNullOrWhiteSpace(encoderZone)
                 ? string.Empty
-                : " / ENC=" + encoderZone;
+                : " / " + Lang.Display("ENC") + "=" + Lang.Display(encoderZone);
 
             if (string.IsNullOrWhiteSpace(flowProcess) || flowProcess == "-")
                 return string.IsNullOrWhiteSpace(encoderText) ? "-" : encoderText.TrimStart(' ', '/');
@@ -2000,25 +2064,25 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (IsStableProcess(flowProcess) &&
                     IsStableProcess(_lastStableProcess) &&
                     !string.Equals(_lastStableProcess, flowProcess, StringComparison.OrdinalIgnoreCase))
-                    return _lastStableProcess + " -> " + flowProcess + " 이동 중" + encoderText;
+                    return Lang.Display(_lastStableProcess) + " -> " + Lang.Display(flowProcess) + " 이동 중" + encoderText;
 
-                return flowProcess + " 위치 이동 중" + encoderText;
+                return Lang.Display(flowProcess) + " 위치 이동 중" + encoderText;
             }
 
             switch (flowProcess)
             {
                 case "AVOID":
-                    return "AVOID 대기" + encoderText;
+                    return Lang.Display("AVOID") + " 대기" + encoderText;
                 case "PICKUP":
-                    return "PICKUP 공정 진행 중" + encoderText;
+                    return Lang.Display("PICKUP") + " 공정 진행 중" + encoderText;
                 case "BOTTOM":
-                    return "BOTTOM 검사 진행 중" + encoderText;
+                    return Lang.Display("BOTTOM") + " 검사 진행 중" + encoderText;
                 case "SIDE":
-                    return "SIDE 검사 진행 중" + encoderText;
+                    return Lang.Display("SIDE") + " 검사 진행 중" + encoderText;
                 case "PLACE":
-                    return "PLACE 공정 진행 중" + encoderText;
+                    return Lang.Display("PLACE") + " 공정 진행 중" + encoderText;
                 default:
-                    return flowProcess + encoderText;
+                    return Lang.Display(flowProcess) + encoderText;
             }
         }
 

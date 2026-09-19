@@ -41,7 +41,7 @@ namespace QMC.CDT320
             reason = string.Empty;
             lock (_recipeOperationLock)
             {
-                if (_recipeApplyOperationActive)
+                if (_recipeApplyOperationActive || _inputMapModeSaveActive)
                 {
                     reason = "Recipe 적용 및 Material 초기화 중에는 해당 동작을 시작할 수 없습니다. action=" +
                         (operationName ?? string.Empty);
@@ -247,7 +247,7 @@ namespace QMC.CDT320
             reason = string.Empty;
             lock (_recipeOperationLock)
             {
-                if (_recipeApplyOperationActive)
+                if (_recipeApplyOperationActive || _inputMapModeSaveActive)
                 {
                     reason = "다른 Recipe 저장/적용 작업이 이미 진행 중입니다.";
                     return false;

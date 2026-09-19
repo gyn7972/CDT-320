@@ -269,7 +269,7 @@ namespace QMC.CDT320
             {
                 lock (_recipeOperationLock)
                 {
-                    if (_recipeApplyOperationActive)
+                    if (_recipeApplyOperationActive || _inputMapModeSaveActive)
                     {
                         reason = "다른 Recipe 저장/적용 작업이 이미 진행 중입니다.";
                         return false;
@@ -447,6 +447,37 @@ namespace QMC.CDT320
             }
         }
 
+        // 입력 모드만 예약하는 저장이다. 기존 모션을 막는 전체 Recipe 적용 플래그를 설정하지 않는다.
+        internal bool TryBeginInputMapModeSave(string recipeName, out IDisposable lease, out string reason)
+        {
+            lease = null;
+            reason = string.Empty;
+            lock (_recipeOperationLock)
+            {
+                if (_recipeApplyOperationActive || _inputMapModeSaveActive || _recipeStartAttemptCts != null ||
+                    !string.Equals(ActiveRecipeName, recipeName, StringComparison.OrdinalIgnoreCase) ||
+                    !string.IsNullOrWhiteSpace(_recipeApplyFailureReason))
+                {
+                    reason = "레시피 적용/START 준비 상태가 변경되었습니다. 완료 후 입력 맵 사용 모드를 다시 저장하세요.";
+                    return false;
+                }
+                _inputMapModeSaveActive = true;
+                lease = new InputMapModeSaveLease(this);
+                return true;
+            }
+        }
+
+        private sealed class InputMapModeSaveLease : IDisposable
+        {
+            private MachineController _owner;
+            internal InputMapModeSaveLease(MachineController owner) { _owner = owner; }
+            public void Dispose()
+            {
+                MachineController owner = System.Threading.Interlocked.Exchange(ref _owner, null);
+                if (owner != null) lock (owner._recipeOperationLock) owner._inputMapModeSaveActive = false;
+            }
+        }
+
         public void NotifyRecipeConfigurationApplied()
         {
             lock (_recipeOperationLock)
@@ -467,7 +498,7 @@ namespace QMC.CDT320
 
             lock (_recipeOperationLock)
             {
-                if (_recipeApplyOperationActive)
+                if (_recipeApplyOperationActive || _inputMapModeSaveActive)
                 {
                     reason = "Recipe 저장/적용 작업이 진행 중이므로 START를 시작할 수 없습니다.";
                     return false;

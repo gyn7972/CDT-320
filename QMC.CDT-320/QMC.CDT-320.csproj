@@ -1765,5 +1765,14 @@
       <LogicalName>QMC.CDT_320.Resources.Logo.ico</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Ui\Localization\Resources\DisplayAliases.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\DisplayStrings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\DisplayStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\Strings.ja.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\Strings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\Strings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\Strings.zh-CN.resx" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -536,6 +536,8 @@ namespace QMC.CDT320.Recipes
         // null은 구형 레시피의 기존 맵 사용 방식을 유지한다. 역할별 설정을 저장한 뒤부터 적용한다.
         // null은 구형 레시피 호환이다. 공정 맵 설정을 저장할 때만 원격/등록 모드를 명시적으로 고정한다.
         [DataMember(EmitDefaultValue = false)] public bool? InputUseRemoteWaferMap { get; set; }
+        // 현재 웨이퍼의 모드를 유지하면서 다음 입력 웨이퍼부터 사용할 예약값이다.
+        [DataMember(EmitDefaultValue = false)] public bool? NextInputUseRemoteWaferMap { get; set; }
         [DataMember(EmitDefaultValue = false)] public QMC.CDT320.DieMaps.WaferMapProcessSettings InputMapProcessing { get; set; }
         [DataMember(EmitDefaultValue = false)] public QMC.CDT320.DieMaps.WaferMapProcessSettings OutputMapProcessing { get; set; }
         [DataMember] public LoadTapeFrameSubset   LoadFrame     { get; set; } = new LoadTapeFrameSubset();

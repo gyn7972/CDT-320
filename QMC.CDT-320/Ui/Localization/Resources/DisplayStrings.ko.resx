@@ -1,0 +1,2489 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 기존 Display 호출 호환용 한국어 문구. 키는 고정 식별자이며 문구 수정 시 변경하지 않습니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="display.1.collet.used" xml:space="preserve">
+    <value>1번 콜렛 사용 횟수</value>
+  </data>
+  <data name="display.2.collet.used" xml:space="preserve">
+    <value>2번 콜렛 사용 횟수</value>
+  </data>
+  <data name="display.accounts" xml:space="preserve">
+    <value>계정 관리</value>
+  </data>
+  <data name="display.action" xml:space="preserve">
+    <value>동작</value>
+  </data>
+  <data name="display.active.lot.id" xml:space="preserve">
+    <value>작업중인 LOT ID</value>
+  </data>
+  <data name="display.add" xml:space="preserve">
+    <value>추가</value>
+  </data>
+  <data name="display.admin" xml:space="preserve">
+    <value>관리자</value>
+  </data>
+  <data name="display.af.process.z.pick.place" xml:space="preserve">
+    <value>AF 공정 Z (픽업/배치)</value>
+  </data>
+  <data name="display.af.z.update.limit" xml:space="preserve">
+    <value>AF Z 갱신 한계</value>
+  </data>
+  <data name="display.alarm.master" xml:space="preserve">
+    <value>알람 마스터</value>
+  </data>
+  <data name="display.alarm.titleCase" xml:space="preserve">
+    <value>알람</value>
+  </data>
+  <data name="display.alarm.uppercase" xml:space="preserve">
+    <value>알람</value>
+  </data>
+  <data name="display.align.center.tolerance" xml:space="preserve">
+    <value>정렬 중심 허용 오차</value>
+  </data>
+  <data name="display.align.complete" xml:space="preserve">
+    <value>정렬 완료</value>
+  </data>
+  <data name="display.align.confirm" xml:space="preserve">
+    <value>얼라인 확인 요청</value>
+  </data>
+  <data name="display.align.iterations" xml:space="preserve">
+    <value>정렬 반복 횟수</value>
+  </data>
+  <data name="display.align.match.fail" xml:space="preserve">
+    <value>얼라인 매칭 실패</value>
+  </data>
+  <data name="display.align.offset.titleCase" xml:space="preserve">
+    <value>정렬 보정값</value>
+  </data>
+  <data name="display.align.offset.uppercase" xml:space="preserve">
+    <value>정렬 보정값</value>
+  </data>
+  <data name="display.align.pitch.tolerance" xml:space="preserve">
+    <value>정렬 피치 허용 오차</value>
+  </data>
+  <data name="display.align.search.points" xml:space="preserve">
+    <value>정렬 탐색 지점 수</value>
+  </data>
+  <data name="display.align.t.effective.max" xml:space="preserve">
+    <value>정렬 T 유효 최댓값</value>
+  </data>
+  <data name="display.align.t.limit" xml:space="preserve">
+    <value>정렬 T 보정 한계</value>
+  </data>
+  <data name="display.align.threshold" xml:space="preserve">
+    <value>정렬 판정 기준</value>
+  </data>
+  <data name="display.align.vision.retry" xml:space="preserve">
+    <value>정렬 비전 재시도 횟수</value>
+  </data>
+  <data name="display.align.vision.setting" xml:space="preserve">
+    <value>정렬 비전 설정</value>
+  </data>
+  <data name="display.align.vision.timeout" xml:space="preserve">
+    <value>정렬 비전 제한 시간</value>
+  </data>
+  <data name="display.alignment.solver" xml:space="preserve">
+    <value>정렬 계산</value>
+  </data>
+  <data name="display.apply" xml:space="preserve">
+    <value>적용</value>
+  </data>
+  <data name="display.auto.pos.setup" xml:space="preserve">
+    <value>자동셋팅 위치</value>
+  </data>
+  <data name="display.auto.position" xml:space="preserve">
+    <value>자동 위치</value>
+  </data>
+  <data name="display.auto.position.setup.mode" xml:space="preserve">
+    <value>자동위치 설정모드</value>
+  </data>
+  <data name="display.auto.run" xml:space="preserve">
+    <value>자동 운전</value>
+  </data>
+  <data name="display.avoid" xml:space="preserve">
+    <value>회피</value>
+  </data>
+  <data name="display.avoid.position" xml:space="preserve">
+    <value>회피 위치</value>
+  </data>
+  <data name="display.axis.setup" xml:space="preserve">
+    <value>축 셋업</value>
+  </data>
+  <data name="display.barcode" xml:space="preserve">
+    <value>바코드</value>
+  </data>
+  <data name="display.barcode.camera.result.timeout" xml:space="preserve">
+    <value>바코드 카메라 결과 제한 시간</value>
+  </data>
+  <data name="display.barcode.camera.shot.offset" xml:space="preserve">
+    <value>바코드 카메라 촬영 오프셋</value>
+  </data>
+  <data name="display.barcode.confirm" xml:space="preserve">
+    <value>바코드 확인 요청</value>
+  </data>
+  <data name="display.barcode.lot.check" xml:space="preserve">
+    <value>바코드 LOT 검사</value>
+  </data>
+  <data name="display.barcode.position" xml:space="preserve">
+    <value>바코드 위치</value>
+  </data>
+  <data name="display.barcode.use.camera" xml:space="preserve">
+    <value>바코드 카메라 사용</value>
+  </data>
+  <data name="display.bin" xml:space="preserve">
+    <value>빈</value>
+  </data>
+  <data name="display.bin.array.file" xml:space="preserve">
+    <value>빈 배열파일</value>
+  </data>
+  <data name="display.bin.array.monitor" xml:space="preserve">
+    <value>빈 배열 모니터링</value>
+  </data>
+  <data name="display.bin.code.map.mixedCase" xml:space="preserve">
+    <value>빈 코드 맵</value>
+  </data>
+  <data name="display.bin.code.map.uppercase" xml:space="preserve">
+    <value>빈 코드 맵</value>
+  </data>
+  <data name="display.bin.die.map.create" xml:space="preserve">
+    <value>출력 다이 맵 생성</value>
+  </data>
+  <data name="display.bin.id" xml:space="preserve">
+    <value>빈 ID :</value>
+  </data>
+  <data name="display.blow" xml:space="preserve">
+    <value>블로우</value>
+  </data>
+  <data name="display.both" xml:space="preserve">
+    <value>양쪽 감지</value>
+  </data>
+  <data name="display.bottom" xml:space="preserve">
+    <value>하부</value>
+  </data>
+  <data name="display.bottom.approach.premotion.dist" xml:space="preserve">
+    <value>하부 검사 접근 선행 이동 거리</value>
+  </data>
+  <data name="display.bottom.flying.z.down.distance" xml:space="preserve">
+    <value>하부 검사 이동 중 Z 하강 거리</value>
+  </data>
+  <data name="display.bottom.flying.z.down.mode" xml:space="preserve">
+    <value>하부 검사 이동 중 Z 하강 모드</value>
+  </data>
+  <data name="display.bottom.motion.setting" xml:space="preserve">
+    <value>하부 검사 동작 설정</value>
+  </data>
+  <data name="display.bottom.p1.side.p4.overlap" xml:space="preserve">
+    <value>하부 검사 P1 / 측면 검사 P4 동시 진행</value>
+  </data>
+  <data name="display.bottom.place.correction.limit" xml:space="preserve">
+    <value>하부 검사 배치 보정 한계</value>
+  </data>
+  <data name="display.bottom.position" xml:space="preserve">
+    <value>하부 검사 위치</value>
+  </data>
+  <data name="display.bottom.side.clear" xml:space="preserve">
+    <value>하부·측면 검사 초기화</value>
+  </data>
+  <data name="display.bottom.to.pick" xml:space="preserve">
+    <value>하부 검사 → 픽업 Z 보정</value>
+  </data>
+  <data name="display.bottom.to.place" xml:space="preserve">
+    <value>하부 검사 → 배치 Z 보정</value>
+  </data>
+  <data name="display.bottom.vision" xml:space="preserve">
+    <value>하부 비전</value>
+  </data>
+  <data name="display.buzzer.off" xml:space="preserve">
+    <value>부저 끄기</value>
+  </data>
+  <data name="display.buzzer.stop" xml:space="preserve">
+    <value>부저&#13;&#10;정지</value>
+  </data>
+  <data name="display.calibration" xml:space="preserve">
+    <value>보정</value>
+  </data>
+  <data name="display.camera.setup" xml:space="preserve">
+    <value>카메라 셋업</value>
+  </data>
+  <data name="display.cancel" xml:space="preserve">
+    <value>취소</value>
+  </data>
+  <data name="display.caption" xml:space="preserve">
+    <value>캡션</value>
+  </data>
+  <data name="display.capture.timeout" xml:space="preserve">
+    <value>촬영 제한 시간</value>
+  </data>
+  <data name="display.cassette.exchange.position" xml:space="preserve">
+    <value>카세트 교환 위치</value>
+  </data>
+  <data name="display.cassette.id" xml:space="preserve">
+    <value>카세트 ID</value>
+  </data>
+  <data name="display.cassette.level" xml:space="preserve">
+    <value>카세트 단수</value>
+  </data>
+  <data name="display.cassette.load.position" xml:space="preserve">
+    <value>카세트 로딩 위치</value>
+  </data>
+  <data name="display.cassette.mapped" xml:space="preserve">
+    <value>카세트 매핑 완료</value>
+  </data>
+  <data name="display.cassette.position" xml:space="preserve">
+    <value>카세트 위치</value>
+  </data>
+  <data name="display.cassette.role" xml:space="preserve">
+    <value>카세트 구분</value>
+  </data>
+  <data name="display.cassette.slot" xml:space="preserve">
+    <value>카세트 슬롯</value>
+  </data>
+  <data name="display.cassette.unload.position" xml:space="preserve">
+    <value>카세트 언로딩 위치</value>
+  </data>
+  <data name="display.ccs.check" xml:space="preserve">
+    <value>CCS 검수 확인</value>
+  </data>
+  <data name="display.ccs.inspection" xml:space="preserve">
+    <value>CCS 검사</value>
+  </data>
+  <data name="display.cdt.320" xml:space="preserve">
+    <value>CDT-320</value>
+  </data>
+  <data name="display.check" xml:space="preserve">
+    <value>확인</value>
+  </data>
+  <data name="display.chinese" xml:space="preserve">
+    <value>중국어</value>
+  </data>
+  <data name="display.clamp" xml:space="preserve">
+    <value>고정</value>
+  </data>
+  <data name="display.clear.all.count" xml:space="preserve">
+    <value>전체 사용 횟수 초기화</value>
+  </data>
+  <data name="display.clear.titleCase" xml:space="preserve">
+    <value>지우기</value>
+  </data>
+  <data name="display.clear.uppercase" xml:space="preserve">
+    <value>초기화</value>
+  </data>
+  <data name="display.code" xml:space="preserve">
+    <value>코드</value>
+  </data>
+  <data name="display.collet.1.pick.overdrive" xml:space="preserve">
+    <value>콜렛 1 픽업 오버드라이브</value>
+  </data>
+  <data name="display.collet.2.pick.overdrive" xml:space="preserve">
+    <value>콜렛 2 픽업 오버드라이브</value>
+  </data>
+  <data name="display.collet.3.pick.overdrive" xml:space="preserve">
+    <value>콜렛 3 픽업 오버드라이브</value>
+  </data>
+  <data name="display.collet.4.pick.overdrive" xml:space="preserve">
+    <value>콜렛 4 픽업 오버드라이브</value>
+  </data>
+  <data name="display.collet.change" xml:space="preserve">
+    <value>콜렛 교체</value>
+  </data>
+  <data name="display.collet.change.mode" xml:space="preserve">
+    <value>콜렛 교체모드</value>
+  </data>
+  <data name="display.collet.changing" xml:space="preserve">
+    <value>콜렛 교체중</value>
+  </data>
+  <data name="display.collet.check" xml:space="preserve">
+    <value>콜렛 확인</value>
+  </data>
+  <data name="display.collet.check.mode" xml:space="preserve">
+    <value>콜렛 확인 모드</value>
+  </data>
+  <data name="display.collet.cleaning" xml:space="preserve">
+    <value>콜렛 청소</value>
+  </data>
+  <data name="display.collet.cleaning.mode" xml:space="preserve">
+    <value>콜렛 클리닝 모드</value>
+  </data>
+  <data name="display.collet.exchange.position" xml:space="preserve">
+    <value>콜렛 교체 위치</value>
+  </data>
+  <data name="display.collet.rotation.center" xml:space="preserve">
+    <value>콜렛 회전 중심</value>
+  </data>
+  <data name="display.collet.unused" xml:space="preserve">
+    <value>콜렛 미사용</value>
+  </data>
+  <data name="display.collet.use" xml:space="preserve">
+    <value>콜렛 사용</value>
+  </data>
+  <data name="display.complete.titleCase" xml:space="preserve">
+    <value>완료</value>
+  </data>
+  <data name="display.complete.uppercase" xml:space="preserve">
+    <value>완료</value>
+  </data>
+  <data name="display.completed.titleCase" xml:space="preserve">
+    <value>완료</value>
+  </data>
+  <data name="display.completed.uppercase" xml:space="preserve">
+    <value>완료</value>
+  </data>
+  <data name="display.config" xml:space="preserve">
+    <value>설정</value>
+  </data>
+  <data name="display.config.dry.run" xml:space="preserve">
+    <value>공운전 설정</value>
+  </data>
+  <data name="display.connect" xml:space="preserve">
+    <value>연결</value>
+  </data>
+  <data name="display.connected" xml:space="preserve">
+    <value>연결됨</value>
+  </data>
+  <data name="display.cont.up.time" xml:space="preserve">
+    <value>연속 가동 시간</value>
+  </data>
+  <data name="display.continue" xml:space="preserve">
+    <value>계속</value>
+  </data>
+  <data name="display.coord" xml:space="preserve">
+    <value>좌표계</value>
+  </data>
+  <data name="display.count" xml:space="preserve">
+    <value>횟수</value>
+  </data>
+  <data name="display.count.clear" xml:space="preserve">
+    <value>횟수 초기화</value>
+  </data>
+  <data name="display.counter" xml:space="preserve">
+    <value>집계</value>
+  </data>
+  <data name="display.cst.clear" xml:space="preserve">
+    <value>카세트 교체 완료</value>
+  </data>
+  <data name="display.cst.exchange" xml:space="preserve">
+    <value>카세트 교체 준비</value>
+  </data>
+  <data name="display.current.loc" xml:space="preserve">
+    <value>현재 위치</value>
+  </data>
+  <data name="display.cycle.run" xml:space="preserve">
+    <value>사이클 운전</value>
+  </data>
+  <data name="display.cycle.stop" xml:space="preserve">
+    <value>사이클 정지</value>
+  </data>
+  <data name="display.cycle.stopped" xml:space="preserve">
+    <value>사이클 정지</value>
+  </data>
+  <data name="display.cycle.time" xml:space="preserve">
+    <value>사이클 시간</value>
+  </data>
+  <data name="display.cylinder" xml:space="preserve">
+    <value>실린더</value>
+  </data>
+  <data name="display.cylinder.info" xml:space="preserve">
+    <value>실린더 정보</value>
+  </data>
+  <data name="display.data" xml:space="preserve">
+    <value>데이터</value>
+  </data>
+  <data name="display.data.all.clear" xml:space="preserve">
+    <value>전체 데이터 삭제</value>
+  </data>
+  <data name="display.data.clear" xml:space="preserve">
+    <value>데이터 삭제</value>
+  </data>
+  <data name="display.data.create" xml:space="preserve">
+    <value>데이터 생성</value>
+  </data>
+  <data name="display.data.only.no.motion.material" xml:space="preserve">
+    <value>데이터만 변경 / 장비 이동 없음 — 실물 위치를 확인한 후 자재 데이터만 이동/삭제하십시오. 장비는 움직이지 않습니다.</value>
+  </data>
+  <data name="display.date" xml:space="preserve">
+    <value>일시</value>
+  </data>
+  <data name="display.delete" xml:space="preserve">
+    <value>삭제</value>
+  </data>
+  <data name="display.delete.data" xml:space="preserve">
+    <value>데이터 삭제</value>
+  </data>
+  <data name="display.description" xml:space="preserve">
+    <value>내용</value>
+  </data>
+  <data name="display.dest" xml:space="preserve">
+    <value>도착 위치</value>
+  </data>
+  <data name="display.developer.mode" xml:space="preserve">
+    <value>개발자 모드</value>
+  </data>
+  <data name="display.die.id" xml:space="preserve">
+    <value>다이 ID</value>
+  </data>
+  <data name="display.die.map" xml:space="preserve">
+    <value>다이 맵</value>
+  </data>
+  <data name="display.die.map.complete" xml:space="preserve">
+    <value>다이 맵 완료</value>
+  </data>
+  <data name="display.die.map.fine.offset.x.limit" xml:space="preserve">
+    <value>다이 맵 미세 보정 X 한계</value>
+  </data>
+  <data name="display.die.map.fine.offset.y.limit" xml:space="preserve">
+    <value>다이 맵 미세 보정 Y 한계</value>
+  </data>
+  <data name="display.die.map.generator" xml:space="preserve">
+    <value>다이 맵 생성기</value>
+  </data>
+  <data name="display.die.map.grid" xml:space="preserve">
+    <value>다이 맵 격자</value>
+  </data>
+  <data name="display.die.map.obj.id" xml:space="preserve">
+    <value>다이 맵 객체 ID</value>
+  </data>
+  <data name="display.die.map.offset.mixedCase" xml:space="preserve">
+    <value>다이 맵 보정값</value>
+  </data>
+  <data name="display.die.map.offset.uppercase" xml:space="preserve">
+    <value>다이 맵 보정값</value>
+  </data>
+  <data name="display.die.map.slots" xml:space="preserve">
+    <value>다이 맵 슬롯 수</value>
+  </data>
+  <data name="display.die.mapping" xml:space="preserve">
+    <value>다이 매핑</value>
+  </data>
+  <data name="display.die.result.routing.mode" xml:space="preserve">
+    <value>다이 검사 결과 배출 모드</value>
+  </data>
+  <data name="display.die.spec" xml:space="preserve">
+    <value>다이 규격</value>
+  </data>
+  <data name="display.digital" xml:space="preserve">
+    <value>디지털 입출력</value>
+  </data>
+  <data name="display.digital.link" xml:space="preserve">
+    <value>디지털 입출력</value>
+  </data>
+  <data name="display.disable" xml:space="preserve">
+    <value>사용 안 함</value>
+  </data>
+  <data name="display.disconnect" xml:space="preserve">
+    <value>해제</value>
+  </data>
+  <data name="display.disconnected" xml:space="preserve">
+    <value>연결되지 않음</value>
+  </data>
+  <data name="display.door.close.multiline" xml:space="preserve">
+    <value>도어&#13;&#10;닫힘</value>
+  </data>
+  <data name="display.door.close.singleLine" xml:space="preserve">
+    <value>도어 닫힘</value>
+  </data>
+  <data name="display.door.open.multiline" xml:space="preserve">
+    <value>도어&#13;&#10;열림</value>
+  </data>
+  <data name="display.door.open.singleLine" xml:space="preserve">
+    <value>도어 열림</value>
+  </data>
+  <data name="display.down" xml:space="preserve">
+    <value>하강</value>
+  </data>
+  <data name="display.dry.run" xml:space="preserve">
+    <value>공운전</value>
+  </data>
+  <data name="display.dry.run.mode" xml:space="preserve">
+    <value>드라이런 모드</value>
+  </data>
+  <data name="display.dt.count" xml:space="preserve">
+    <value>DT 횟수</value>
+  </data>
+  <data name="display.dynamic.wait.extra.margin" xml:space="preserve">
+    <value>동적 대기 추가 여유 거리</value>
+  </data>
+  <data name="display.e.stop" xml:space="preserve">
+    <value>비상 정지</value>
+  </data>
+  <data name="display.ea.suffix" xml:space="preserve">
+    <value> 개</value>
+  </data>
+  <data name="display.ea.unit" xml:space="preserve">
+    <value>개</value>
+  </data>
+  <data name="display.eject.pin.axis.z" xml:space="preserve">
+    <value>이젝트 핀 Z축</value>
+  </data>
+  <data name="display.eject.pin.pick.offset" xml:space="preserve">
+    <value>이젝트 핀 픽업 오프셋</value>
+  </data>
+  <data name="display.eject.pin.z" xml:space="preserve">
+    <value>이젝트 핀 Z</value>
+  </data>
+  <data name="display.empty" xml:space="preserve">
+    <value>비어 있음</value>
+  </data>
+  <data name="display.empty.map" xml:space="preserve">
+    <value>빈 맵</value>
+  </data>
+  <data name="display.enable" xml:space="preserve">
+    <value>사용</value>
+  </data>
+  <data name="display.enc" xml:space="preserve">
+    <value>엔코더</value>
+  </data>
+  <data name="display.engineer" xml:space="preserve">
+    <value>엔지니어</value>
+  </data>
+  <data name="display.english" xml:space="preserve">
+    <value>영어</value>
+  </data>
+  <data name="display.err.down.count" xml:space="preserve">
+    <value>이상 정지 횟수</value>
+  </data>
+  <data name="display.err.down.time" xml:space="preserve">
+    <value>이상 정지 시간</value>
+  </data>
+  <data name="display.event" xml:space="preserve">
+    <value>이벤트</value>
+  </data>
+  <data name="display.exchange.input.side.x" xml:space="preserve">
+    <value>콜렛 교체 투입 측 X</value>
+  </data>
+  <data name="display.exchange.output.side.x" xml:space="preserve">
+    <value>콜렛 교체 배출 측 X</value>
+  </data>
+  <data name="display.exist" xml:space="preserve">
+    <value>자재 있음</value>
+  </data>
+  <data name="display.exit" xml:space="preserve">
+    <value>종료</value>
+  </data>
+  <data name="display.expander.z" xml:space="preserve">
+    <value>익스팬더 Z</value>
+  </data>
+  <data name="display.expending" xml:space="preserve">
+    <value>확장 위치</value>
+  </data>
+  <data name="display.false" xml:space="preserve">
+    <value>아니요</value>
+  </data>
+  <data name="display.feeder.clamp" xml:space="preserve">
+    <value>이송부 클램프</value>
+  </data>
+  <data name="display.feeder.up.down" xml:space="preserve">
+    <value>이송부 상승 / 하강</value>
+  </data>
+  <data name="display.filter.setting" xml:space="preserve">
+    <value>필터 설정</value>
+  </data>
+  <data name="display.finish" xml:space="preserve">
+    <value>완료</value>
+  </data>
+  <data name="display.force.control" xml:space="preserve">
+    <value>가압 제어</value>
+  </data>
+  <data name="display.frame.size" xml:space="preserve">
+    <value>프레임 크기</value>
+  </data>
+  <data name="display.front.head" xml:space="preserve">
+    <value>전면 피커</value>
+  </data>
+  <data name="display.front.picker" xml:space="preserve">
+    <value>전면 피커</value>
+  </data>
+  <data name="display.front.picker.head.1.die" xml:space="preserve">
+    <value>전면 피커 헤드 #1 다이</value>
+  </data>
+  <data name="display.front.picker.head.2.die" xml:space="preserve">
+    <value>전면 피커 헤드 #2 다이</value>
+  </data>
+  <data name="display.front.picker.head.3.die" xml:space="preserve">
+    <value>전면 피커 헤드 #3 다이</value>
+  </data>
+  <data name="display.front.picker.head.4.die" xml:space="preserve">
+    <value>전면 피커 헤드 #4 다이</value>
+  </data>
+  <data name="display.front.picker.use" xml:space="preserve">
+    <value>전면 피커 사용</value>
+  </data>
+  <data name="display.front.y" xml:space="preserve">
+    <value>전면 Y</value>
+  </data>
+  <data name="display.fronthead.seq" xml:space="preserve">
+    <value>전면 피커 시퀀스</value>
+  </data>
+  <data name="display.general" xml:space="preserve">
+    <value>일반 설정</value>
+  </data>
+  <data name="display.good.1" xml:space="preserve">
+    <value>양품 1단</value>
+  </data>
+  <data name="display.good.2" xml:space="preserve">
+    <value>양품 2단</value>
+  </data>
+  <data name="display.good.bin.loading" xml:space="preserve">
+    <value>양품 빈 투입</value>
+  </data>
+  <data name="display.good.bin.mapping" xml:space="preserve">
+    <value>양품 빈 매핑</value>
+  </data>
+  <data name="display.good.bin.unloading" xml:space="preserve">
+    <value>양품 빈 배출</value>
+  </data>
+  <data name="display.good.cassette.exchange.position" xml:space="preserve">
+    <value>양품 카세트 교환 위치</value>
+  </data>
+  <data name="display.good.cassette.load.position" xml:space="preserve">
+    <value>양품 카세트 로딩 위치</value>
+  </data>
+  <data name="display.good.cassette.unload.position" xml:space="preserve">
+    <value>양품 카세트 언로딩 위치</value>
+  </data>
+  <data name="display.good.clamp" xml:space="preserve">
+    <value>양품 클램프</value>
+  </data>
+  <data name="display.good.clamp.lift" xml:space="preserve">
+    <value>양품 클램프 승강</value>
+  </data>
+  <data name="display.good.count.mixedCase" xml:space="preserve">
+    <value>양품 수량</value>
+  </data>
+  <data name="display.good.count.uppercase" xml:space="preserve">
+    <value>양품 수량</value>
+  </data>
+  <data name="display.good.cst.clear" xml:space="preserve">
+    <value>양품 카세트 교체 완료</value>
+  </data>
+  <data name="display.good.cst.exchange" xml:space="preserve">
+    <value>양품 카세트 교체 준비</value>
+  </data>
+  <data name="display.good.exist" xml:space="preserve">
+    <value>양품 빈 유무</value>
+  </data>
+  <data name="display.good.first.slot.position" xml:space="preserve">
+    <value>양품 첫 슬롯 위치</value>
+  </data>
+  <data name="display.good.guide" xml:space="preserve">
+    <value>양품 가이드</value>
+  </data>
+  <data name="display.good.load" xml:space="preserve">
+    <value>양품 투입 준비</value>
+  </data>
+  <data name="display.good.loading.z.position" xml:space="preserve">
+    <value>양품 로딩 Z 위치</value>
+  </data>
+  <data name="display.good.ng.offset" xml:space="preserve">
+    <value>양품/불량 오프셋</value>
+  </data>
+  <data name="display.good.output.pickup.cap" xml:space="preserve">
+    <value>양품 배출 여유에 따른 픽업 제한</value>
+  </data>
+  <data name="display.good.process" xml:space="preserve">
+    <value>양품 작업 위치</value>
+  </data>
+  <data name="display.good.stage.y" xml:space="preserve">
+    <value>양품 스테이지 Y축</value>
+  </data>
+  <data name="display.good.stage.z" xml:space="preserve">
+    <value>양품 스테이지 Z축</value>
+  </data>
+  <data name="display.good.state" xml:space="preserve">
+    <value>양품 상태</value>
+  </data>
+  <data name="display.good.titleCase" xml:space="preserve">
+    <value>양품</value>
+  </data>
+  <data name="display.good.unload" xml:space="preserve">
+    <value>양품 배출 준비</value>
+  </data>
+  <data name="display.good.unloading.z.position" xml:space="preserve">
+    <value>양품 언로딩 Z 위치</value>
+  </data>
+  <data name="display.good.uppercase" xml:space="preserve">
+    <value>양품</value>
+  </data>
+  <data name="display.good.wafer.barcode.position" xml:space="preserve">
+    <value>양품 웨이퍼 바코드 위치</value>
+  </data>
+  <data name="display.good.wafer.load.avoid.position" xml:space="preserve">
+    <value>양품 웨이퍼 로딩 회피 위치</value>
+  </data>
+  <data name="display.good.wafer.load.position" xml:space="preserve">
+    <value>양품 웨이퍼 로딩 위치</value>
+  </data>
+  <data name="display.good.wafer.unload.avoid.position" xml:space="preserve">
+    <value>양품 웨이퍼 언로딩 회피 위치</value>
+  </data>
+  <data name="display.good.wafer.unload.position" xml:space="preserve">
+    <value>양품 웨이퍼 언로딩 위치</value>
+  </data>
+  <data name="display.good.y" xml:space="preserve">
+    <value>양품 Y</value>
+  </data>
+  <data name="display.good.z" xml:space="preserve">
+    <value>양품 Z</value>
+  </data>
+  <data name="display.good1" xml:space="preserve">
+    <value>양품 1단</value>
+  </data>
+  <data name="display.good1.mapping.end.z.position" xml:space="preserve">
+    <value>양품 1단 매핑 종료 Z 위치</value>
+  </data>
+  <data name="display.good1.mapping.start.z.position" xml:space="preserve">
+    <value>양품 1단 매핑 시작 Z 위치</value>
+  </data>
+  <data name="display.good2" xml:space="preserve">
+    <value>양품 2단</value>
+  </data>
+  <data name="display.good2.first.slot.position" xml:space="preserve">
+    <value>양품 2단 첫 슬롯 위치</value>
+  </data>
+  <data name="display.good2.mapping.end.z.position" xml:space="preserve">
+    <value>양품 2단 매핑 종료 Z 위치</value>
+  </data>
+  <data name="display.good2.mapping.start.z.position" xml:space="preserve">
+    <value>양품 2단 매핑 시작 Z 위치</value>
+  </data>
+  <data name="display.grade" xml:space="preserve">
+    <value>등급</value>
+  </data>
+  <data name="display.grid" xml:space="preserve">
+    <value>격자</value>
+  </data>
+  <data name="display.guest" xml:space="preserve">
+    <value>방문자</value>
+  </data>
+  <data name="display.head.1.numberSign" xml:space="preserve">
+    <value>헤드 #1</value>
+  </data>
+  <data name="display.head.1.plain" xml:space="preserve">
+    <value>헤드 1</value>
+  </data>
+  <data name="display.head.2.numberSign" xml:space="preserve">
+    <value>헤드 #2</value>
+  </data>
+  <data name="display.head.2.plain" xml:space="preserve">
+    <value>헤드 2</value>
+  </data>
+  <data name="display.head.3.numberSign" xml:space="preserve">
+    <value>헤드 #3</value>
+  </data>
+  <data name="display.head.3.plain" xml:space="preserve">
+    <value>헤드 3</value>
+  </data>
+  <data name="display.head.4.numberSign" xml:space="preserve">
+    <value>헤드 #4</value>
+  </data>
+  <data name="display.head.4.plain" xml:space="preserve">
+    <value>헤드 4</value>
+  </data>
+  <data name="display.head.axis.t" xml:space="preserve">
+    <value>피커 T축</value>
+  </data>
+  <data name="display.head.blow" xml:space="preserve">
+    <value>피커 블로우</value>
+  </data>
+  <data name="display.head.die" xml:space="preserve">
+    <value>헤드 다이</value>
+  </data>
+  <data name="display.head.pick.overdrive" xml:space="preserve">
+    <value>헤드 픽업 오버드라이브</value>
+  </data>
+  <data name="display.head.vacuum" xml:space="preserve">
+    <value>피커 진공</value>
+  </data>
+  <data name="display.head.zone" xml:space="preserve">
+    <value>헤드 위치</value>
+  </data>
+  <data name="display.height.sensor" xml:space="preserve">
+    <value>높이 센서</value>
+  </data>
+  <data name="display.history" xml:space="preserve">
+    <value>이력</value>
+  </data>
+  <data name="display.host" xml:space="preserve">
+    <value>호스트</value>
+  </data>
+  <data name="display.idle" xml:space="preserve">
+    <value>대기</value>
+  </data>
+  <data name="display.inch" xml:space="preserve">
+    <value>인치</value>
+  </data>
+  <data name="display.inch.select" xml:space="preserve">
+    <value>인치 선택</value>
+  </data>
+  <data name="display.incomplete.titleCase" xml:space="preserve">
+    <value>미완료</value>
+  </data>
+  <data name="display.incomplete.uppercase" xml:space="preserve">
+    <value>미완료</value>
+  </data>
+  <data name="display.index" xml:space="preserve">
+    <value>번호</value>
+  </data>
+  <data name="display.info.titleCase" xml:space="preserve">
+    <value>정보</value>
+  </data>
+  <data name="display.info.uppercase" xml:space="preserve">
+    <value>정보</value>
+  </data>
+  <data name="display.init" xml:space="preserve">
+    <value>초기화</value>
+  </data>
+  <data name="display.init.all" xml:space="preserve">
+    <value>전체 초기화</value>
+  </data>
+  <data name="display.initializing.titleCase" xml:space="preserve">
+    <value>초기화 중</value>
+  </data>
+  <data name="display.initializing.uppercase" xml:space="preserve">
+    <value>초기화 중</value>
+  </data>
+  <data name="display.input" xml:space="preserve">
+    <value>입력</value>
+  </data>
+  <data name="display.input.align.teach" xml:space="preserve">
+    <value>입력 정렬 티칭</value>
+  </data>
+  <data name="display.input.cassette" xml:space="preserve">
+    <value>입력 카세트</value>
+  </data>
+  <data name="display.input.create" xml:space="preserve">
+    <value>입력 맵 생성</value>
+  </data>
+  <data name="display.input.cst.status" xml:space="preserve">
+    <value>입력 카세트 상태</value>
+  </data>
+  <data name="display.input.die.map.create" xml:space="preserve">
+    <value>입력 다이 맵 생성</value>
+  </data>
+  <data name="display.input.die.map.switch" xml:space="preserve">
+    <value>입력 다이 맵 전환</value>
+  </data>
+  <data name="display.input.die.vision.fail.action" xml:space="preserve">
+    <value>투입 다이 비전 실패 처리</value>
+  </data>
+  <data name="display.input.die.vision.retry" xml:space="preserve">
+    <value>투입 다이 비전 재시도 횟수</value>
+  </data>
+  <data name="display.input.die.vision.setting" xml:space="preserve">
+    <value>투입 다이 비전 설정</value>
+  </data>
+  <data name="display.input.die.vision.wait.retry.limit" xml:space="preserve">
+    <value>투입 다이 비전 대기 재시도 한계</value>
+  </data>
+  <data name="display.input.feeder" xml:space="preserve">
+    <value>입력 이송부</value>
+  </data>
+  <data name="display.input.safety.offset" xml:space="preserve">
+    <value>투입 측 안전 오프셋</value>
+  </data>
+  <data name="display.input.seq" xml:space="preserve">
+    <value>입력 시퀀스</value>
+  </data>
+  <data name="display.input.stage.die.map" xml:space="preserve">
+    <value>입력 스테이지 다이 맵</value>
+  </data>
+  <data name="display.input.stage.titleCase" xml:space="preserve">
+    <value>입력 스테이지</value>
+  </data>
+  <data name="display.input.stage.uppercase" xml:space="preserve">
+    <value>입력 스테이지</value>
+  </data>
+  <data name="display.input.target" xml:space="preserve">
+    <value>입력 대상</value>
+  </data>
+  <data name="display.input.vision" xml:space="preserve">
+    <value>입력 비전</value>
+  </data>
+  <data name="display.input.vision.picker.1.x.offset" xml:space="preserve">
+    <value>투입 비전 → 피커 1 X 오프셋</value>
+  </data>
+  <data name="display.input.vision.picker.1.y.offset" xml:space="preserve">
+    <value>투입 비전 → 피커 1 Y 오프셋</value>
+  </data>
+  <data name="display.input.vision.picker.2.x.offset" xml:space="preserve">
+    <value>투입 비전 → 피커 2 X 오프셋</value>
+  </data>
+  <data name="display.input.vision.picker.2.y.offset" xml:space="preserve">
+    <value>투입 비전 → 피커 2 Y 오프셋</value>
+  </data>
+  <data name="display.input.vision.picker.3.x.offset" xml:space="preserve">
+    <value>투입 비전 → 피커 3 X 오프셋</value>
+  </data>
+  <data name="display.input.vision.picker.3.y.offset" xml:space="preserve">
+    <value>투입 비전 → 피커 3 Y 오프셋</value>
+  </data>
+  <data name="display.input.vision.picker.4.x.offset" xml:space="preserve">
+    <value>투입 비전 → 피커 4 X 오프셋</value>
+  </data>
+  <data name="display.input.vision.picker.4.y.offset" xml:space="preserve">
+    <value>투입 비전 → 피커 4 Y 오프셋</value>
+  </data>
+  <data name="display.inspect" xml:space="preserve">
+    <value>검사</value>
+  </data>
+  <data name="display.inspect.b" xml:space="preserve">
+    <value>하부 검사</value>
+  </data>
+  <data name="display.inspect.s" xml:space="preserve">
+    <value>측면 검사</value>
+  </data>
+  <data name="display.interlock.registry" xml:space="preserve">
+    <value>인터락 검사</value>
+  </data>
+  <data name="display.irq.no" xml:space="preserve">
+    <value>인터럽트 번호 (IRQ)</value>
+  </data>
+  <data name="display.japanese" xml:space="preserve">
+    <value>일본어</value>
+  </data>
+  <data name="display.jell.pad.using" xml:space="preserve">
+    <value>젤 패드 사용 횟수</value>
+  </data>
+  <data name="display.jell.pad.using.count" xml:space="preserve">
+    <value>젤 패드 사용 횟수</value>
+  </data>
+  <data name="display.job.queue" xml:space="preserve">
+    <value>작업 대기열</value>
+  </data>
+  <data name="display.korean" xml:space="preserve">
+    <value>한국어</value>
+  </data>
+  <data name="display.lamp" xml:space="preserve">
+    <value>표시등</value>
+  </data>
+  <data name="display.language" xml:space="preserve">
+    <value>언어</value>
+  </data>
+  <data name="display.last.clean" xml:space="preserve">
+    <value>최근 청소</value>
+  </data>
+  <data name="display.level.2.offset" xml:space="preserve">
+    <value>2단 오프셋</value>
+  </data>
+  <data name="display.lift.wafer.loading" xml:space="preserve">
+    <value>웨이퍼 투입</value>
+  </data>
+  <data name="display.lift.wafer.mapping" xml:space="preserve">
+    <value>웨이퍼 매핑</value>
+  </data>
+  <data name="display.lift.wafer.unloading" xml:space="preserve">
+    <value>웨이퍼 배출</value>
+  </data>
+  <data name="display.lifter" xml:space="preserve">
+    <value>리프터</value>
+  </data>
+  <data name="display.lifter.axis.z" xml:space="preserve">
+    <value>리프터 Z축</value>
+  </data>
+  <data name="display.lifter.init" xml:space="preserve">
+    <value>승강부 초기화</value>
+  </data>
+  <data name="display.lifter.ready" xml:space="preserve">
+    <value>리프터 준비</value>
+  </data>
+  <data name="display.light.setup" xml:space="preserve">
+    <value>조명 셋업</value>
+  </data>
+  <data name="display.light.source" xml:space="preserve">
+    <value>조명</value>
+  </data>
+  <data name="display.line.map.test" xml:space="preserve">
+    <value>라인 맵 시험</value>
+  </data>
+  <data name="display.line.move.test" xml:space="preserve">
+    <value>직선 이동 시험</value>
+  </data>
+  <data name="display.live" xml:space="preserve">
+    <value>실시간 영상</value>
+  </data>
+  <data name="display.load.position" xml:space="preserve">
+    <value>로딩 위치</value>
+  </data>
+  <data name="display.load.time" xml:space="preserve">
+    <value>부하 시간</value>
+  </data>
+  <data name="display.load.wafer" xml:space="preserve">
+    <value>로드 웨이퍼</value>
+  </data>
+  <data name="display.loading.offset" xml:space="preserve">
+    <value>로딩 오프셋</value>
+  </data>
+  <data name="display.loading.z.position" xml:space="preserve">
+    <value>로딩 Z 위치</value>
+  </data>
+  <data name="display.location" xml:space="preserve">
+    <value>위치</value>
+  </data>
+  <data name="display.log.settings" xml:space="preserve">
+    <value>로그 설정</value>
+  </data>
+  <data name="display.log.titleCase" xml:space="preserve">
+    <value>로그</value>
+  </data>
+  <data name="display.log.uppercase" xml:space="preserve">
+    <value>로그</value>
+  </data>
+  <data name="display.logic" xml:space="preserve">
+    <value>시퀀스 상태</value>
+  </data>
+  <data name="display.lot.id" xml:space="preserve">
+    <value>로트 ID</value>
+  </data>
+  <data name="display.lot.id.input" xml:space="preserve">
+    <value>LOT ID 입력</value>
+  </data>
+  <data name="display.lower.vision" xml:space="preserve">
+    <value>하부 비전</value>
+  </data>
+  <data name="display.lv1.first.slot.position" xml:space="preserve">
+    <value>1단 첫 슬롯 위치</value>
+  </data>
+  <data name="display.lv1.mapping.end.z.position" xml:space="preserve">
+    <value>1단 매핑 종료 Z 위치</value>
+  </data>
+  <data name="display.lv1.mapping.start.z.position" xml:space="preserve">
+    <value>1단 매핑 시작 Z 위치</value>
+  </data>
+  <data name="display.lv2.first.slot.position" xml:space="preserve">
+    <value>2단 첫 슬롯 위치</value>
+  </data>
+  <data name="display.lv2.mapping.end.z.position" xml:space="preserve">
+    <value>2단 매핑 종료 Z 위치</value>
+  </data>
+  <data name="display.lv2.mapping.start.z.position" xml:space="preserve">
+    <value>2단 매핑 시작 Z 위치</value>
+  </data>
+  <data name="display.main" xml:space="preserve">
+    <value>메인 화면</value>
+  </data>
+  <data name="display.maintenance" xml:space="preserve">
+    <value>보전 담당</value>
+  </data>
+  <data name="display.manual" xml:space="preserve">
+    <value>수동 운전</value>
+  </data>
+  <data name="display.manual.die.cumulative.x.limit" xml:space="preserve">
+    <value>수동 다이 누적 X 보정 한계</value>
+  </data>
+  <data name="display.manual.die.cumulative.y.limit" xml:space="preserve">
+    <value>수동 다이 누적 Y 보정 한계</value>
+  </data>
+  <data name="display.manual.die.offset.x.limit" xml:space="preserve">
+    <value>수동 다이 X 보정 한계</value>
+  </data>
+  <data name="display.manual.die.offset.y.limit" xml:space="preserve">
+    <value>수동 다이 Y 보정 한계</value>
+  </data>
+  <data name="display.map.x.y" xml:space="preserve">
+    <value>맵 X/Y</value>
+  </data>
+  <data name="display.mapping.end.z.position" xml:space="preserve">
+    <value>매핑 종료 Z 위치</value>
+  </data>
+  <data name="display.mapping.min.on.travel" xml:space="preserve">
+    <value>매핑 감지 최소 이동 거리</value>
+  </data>
+  <data name="display.mapping.start.z.position" xml:space="preserve">
+    <value>매핑 시작 Z 위치</value>
+  </data>
+  <data name="display.mapping.window.ratio" xml:space="preserve">
+    <value>매핑 감지 구간 비율</value>
+  </data>
+  <data name="display.material" xml:space="preserve">
+    <value>자재 정보</value>
+  </data>
+  <data name="display.material.data.only" xml:space="preserve">
+    <value>자재 데이터 관리</value>
+  </data>
+  <data name="display.message.edit" xml:space="preserve">
+    <value>메시지 편집</value>
+  </data>
+  <data name="display.mode" xml:space="preserve">
+    <value>모드</value>
+  </data>
+  <data name="display.module.options" xml:space="preserve">
+    <value>모듈 옵션</value>
+  </data>
+  <data name="display.motion" xml:space="preserve">
+    <value>모션</value>
+  </data>
+  <data name="display.move" xml:space="preserve">
+    <value>이동</value>
+  </data>
+  <data name="display.move.data" xml:space="preserve">
+    <value>데이터 이동</value>
+  </data>
+  <data name="display.moving" xml:space="preserve">
+    <value>이동 중</value>
+  </data>
+  <data name="display.mtbf" xml:space="preserve">
+    <value>MTBF</value>
+  </data>
+  <data name="display.mttr" xml:space="preserve">
+    <value>MTTR</value>
+  </data>
+  <data name="display.needle.area.center.x" xml:space="preserve">
+    <value>니들 작업 영역 중심 X</value>
+  </data>
+  <data name="display.needle.area.center.y" xml:space="preserve">
+    <value>니들 작업 영역 중심 Y</value>
+  </data>
+  <data name="display.needle.area.radius" xml:space="preserve">
+    <value>니들 작업 영역 반경</value>
+  </data>
+  <data name="display.needle.axis.x" xml:space="preserve">
+    <value>니들 X축</value>
+  </data>
+  <data name="display.needle.axis.z" xml:space="preserve">
+    <value>니들 Z축</value>
+  </data>
+  <data name="display.needle.info" xml:space="preserve">
+    <value>니들 정보</value>
+  </data>
+  <data name="display.needle.pickup.setting" xml:space="preserve">
+    <value>니들 픽업 설정</value>
+  </data>
+  <data name="display.needle.pin.cal.position" xml:space="preserve">
+    <value>니들 핀 보정 위치</value>
+  </data>
+  <data name="display.needle.pos.check" xml:space="preserve">
+    <value>니들 위치 확인모드</value>
+  </data>
+  <data name="display.needle.separate.distance" xml:space="preserve">
+    <value>니들 분리 거리</value>
+  </data>
+  <data name="display.needle.separate.speed" xml:space="preserve">
+    <value>니들 분리 속도</value>
+  </data>
+  <data name="display.needle.unit.change.mode" xml:space="preserve">
+    <value>니들 유닛 교체모드</value>
+  </data>
+  <data name="display.needle.unit.changing" xml:space="preserve">
+    <value>니들 유닛 교체중</value>
+  </data>
+  <data name="display.needle.up.down.compactSeparator" xml:space="preserve">
+    <value>니들 상승/하강</value>
+  </data>
+  <data name="display.needle.up.down.spacedSeparator" xml:space="preserve">
+    <value>니들 상승 / 하강</value>
+  </data>
+  <data name="display.needle.used" xml:space="preserve">
+    <value>니들 사용 횟수</value>
+  </data>
+  <data name="display.needle.using" xml:space="preserve">
+    <value>니들 사용 횟수</value>
+  </data>
+  <data name="display.needle.using.count" xml:space="preserve">
+    <value>니들 사용 횟수</value>
+  </data>
+  <data name="display.needle.vacuum" xml:space="preserve">
+    <value>니들 진공</value>
+  </data>
+  <data name="display.needle.vacuum.off.settle" xml:space="preserve">
+    <value>니들 진공 해제 안정화 시간</value>
+  </data>
+  <data name="display.needle.x" xml:space="preserve">
+    <value>니들 X</value>
+  </data>
+  <data name="display.needle.z" xml:space="preserve">
+    <value>니들 Z</value>
+  </data>
+  <data name="display.next.receive.index" xml:space="preserve">
+    <value>다음 받기 인덱스</value>
+  </data>
+  <data name="display.next.titleCase" xml:space="preserve">
+    <value>다음</value>
+  </data>
+  <data name="display.next.uppercase" xml:space="preserve">
+    <value>다음</value>
+  </data>
+  <data name="display.ng" xml:space="preserve">
+    <value>불량</value>
+  </data>
+  <data name="display.ng.bin.loading" xml:space="preserve">
+    <value>불량 빈 투입</value>
+  </data>
+  <data name="display.ng.bin.mapping" xml:space="preserve">
+    <value>불량 빈 매핑</value>
+  </data>
+  <data name="display.ng.bin.unloading" xml:space="preserve">
+    <value>불량 빈 배출</value>
+  </data>
+  <data name="display.ng.cassette.exchange.position" xml:space="preserve">
+    <value>불량 카세트 교환 위치</value>
+  </data>
+  <data name="display.ng.cassette.load.position" xml:space="preserve">
+    <value>불량 카세트 로딩 위치</value>
+  </data>
+  <data name="display.ng.cassette.unload.position" xml:space="preserve">
+    <value>불량 카세트 언로딩 위치</value>
+  </data>
+  <data name="display.ng.clamp" xml:space="preserve">
+    <value>불량 클램프</value>
+  </data>
+  <data name="display.ng.clamp.lift" xml:space="preserve">
+    <value>불량 클램프 승강</value>
+  </data>
+  <data name="display.ng.code" xml:space="preserve">
+    <value>불량 코드</value>
+  </data>
+  <data name="display.ng.count.mixedCase" xml:space="preserve">
+    <value>불량 수량</value>
+  </data>
+  <data name="display.ng.count.uppercase" xml:space="preserve">
+    <value>불량 수량</value>
+  </data>
+  <data name="display.ng.cst.clear" xml:space="preserve">
+    <value>불량 카세트 교체 완료</value>
+  </data>
+  <data name="display.ng.cst.exchange" xml:space="preserve">
+    <value>불량 카세트 교체 준비</value>
+  </data>
+  <data name="display.ng.exist" xml:space="preserve">
+    <value>불량 빈 유무</value>
+  </data>
+  <data name="display.ng.first.slot.position" xml:space="preserve">
+    <value>불량 첫 슬롯 위치</value>
+  </data>
+  <data name="display.ng.guide" xml:space="preserve">
+    <value>불량 가이드</value>
+  </data>
+  <data name="display.ng.load" xml:space="preserve">
+    <value>불량 투입 준비</value>
+  </data>
+  <data name="display.ng.loading.z.position" xml:space="preserve">
+    <value>불량 로딩 Z 위치</value>
+  </data>
+  <data name="display.ng.mapping.end.z.position" xml:space="preserve">
+    <value>불량 매핑 종료 Z 위치</value>
+  </data>
+  <data name="display.ng.mapping.start.z.position" xml:space="preserve">
+    <value>불량 매핑 시작 Z 위치</value>
+  </data>
+  <data name="display.ng.process" xml:space="preserve">
+    <value>불량 작업 위치</value>
+  </data>
+  <data name="display.ng.stage.y" xml:space="preserve">
+    <value>불량 스테이지 Y축</value>
+  </data>
+  <data name="display.ng.state" xml:space="preserve">
+    <value>불량 상태</value>
+  </data>
+  <data name="display.ng.unload" xml:space="preserve">
+    <value>불량 배출 준비</value>
+  </data>
+  <data name="display.ng.unloading.z.position" xml:space="preserve">
+    <value>불량 언로딩 Z 위치</value>
+  </data>
+  <data name="display.ng.wafer.barcode.position" xml:space="preserve">
+    <value>불량 웨이퍼 바코드 위치</value>
+  </data>
+  <data name="display.ng.wafer.load.avoid.position" xml:space="preserve">
+    <value>불량 웨이퍼 로딩 회피 위치</value>
+  </data>
+  <data name="display.ng.wafer.load.position" xml:space="preserve">
+    <value>불량 웨이퍼 로딩 위치</value>
+  </data>
+  <data name="display.ng.wafer.unload.avoid.position" xml:space="preserve">
+    <value>불량 웨이퍼 언로딩 회피 위치</value>
+  </data>
+  <data name="display.ng.wafer.unload.position" xml:space="preserve">
+    <value>불량 웨이퍼 언로딩 위치</value>
+  </data>
+  <data name="display.ng.y" xml:space="preserve">
+    <value>불량 Y</value>
+  </data>
+  <data name="display.none.titleCase" xml:space="preserve">
+    <value>미로그인</value>
+  </data>
+  <data name="display.none.uppercase" xml:space="preserve">
+    <value>상태 없음</value>
+  </data>
+  <data name="display.norm.down.time" xml:space="preserve">
+    <value>통상 정지 시간</value>
+  </data>
+  <data name="display.off" xml:space="preserve">
+    <value>꺼짐</value>
+  </data>
+  <data name="display.offset.monitor" xml:space="preserve">
+    <value>보정값 모니터</value>
+  </data>
+  <data name="display.ok" xml:space="preserve">
+    <value>확인</value>
+  </data>
+  <data name="display.on" xml:space="preserve">
+    <value>켜짐</value>
+  </data>
+  <data name="display.open" xml:space="preserve">
+    <value>열기</value>
+  </data>
+  <data name="display.operator" xml:space="preserve">
+    <value>운전자</value>
+  </data>
+  <data name="display.output" xml:space="preserve">
+    <value>출력</value>
+  </data>
+  <data name="display.output.cassette" xml:space="preserve">
+    <value>출력 카세트</value>
+  </data>
+  <data name="display.output.create" xml:space="preserve">
+    <value>출력 맵 생성</value>
+  </data>
+  <data name="display.output.cst.status" xml:space="preserve">
+    <value>출력 카세트 상태</value>
+  </data>
+  <data name="display.output.die.map.create" xml:space="preserve">
+    <value>출력 다이 맵 생성</value>
+  </data>
+  <data name="display.output.die.map.switch" xml:space="preserve">
+    <value>출력 다이 맵 전환</value>
+  </data>
+  <data name="display.output.feeder" xml:space="preserve">
+    <value>출력 이송부</value>
+  </data>
+  <data name="display.output.options" xml:space="preserve">
+    <value>출력 옵션</value>
+  </data>
+  <data name="display.output.result.network.copy.folder" xml:space="preserve">
+    <value>배출 결과 네트워크 복사 폴더</value>
+  </data>
+  <data name="display.output.safety.offset" xml:space="preserve">
+    <value>배출 측 안전 오프셋</value>
+  </data>
+  <data name="display.output.seq" xml:space="preserve">
+    <value>출력 시퀀스</value>
+  </data>
+  <data name="display.output.stage.die.map" xml:space="preserve">
+    <value>출력 스테이지 다이 맵</value>
+  </data>
+  <data name="display.output.stage.good.material" xml:space="preserve">
+    <value>출력 스테이지 양품 자재</value>
+  </data>
+  <data name="display.output.stage.ng.material" xml:space="preserve">
+    <value>출력 스테이지 불량 자재</value>
+  </data>
+  <data name="display.output.stage.titleCase" xml:space="preserve">
+    <value>출력 스테이지</value>
+  </data>
+  <data name="display.output.stage.uppercase" xml:space="preserve">
+    <value>출력 스테이지</value>
+  </data>
+  <data name="display.output.stage.z" xml:space="preserve">
+    <value>출력 스테이지 Z축</value>
+  </data>
+  <data name="display.output.vision" xml:space="preserve">
+    <value>출력 비전</value>
+  </data>
+  <data name="display.output.vision.picker.1.x.offset" xml:space="preserve">
+    <value>배출 비전 → 피커 1 X 오프셋</value>
+  </data>
+  <data name="display.output.vision.picker.1.y.offset" xml:space="preserve">
+    <value>배출 비전 → 피커 1 Y 오프셋</value>
+  </data>
+  <data name="display.output.vision.picker.2.x.offset" xml:space="preserve">
+    <value>배출 비전 → 피커 2 X 오프셋</value>
+  </data>
+  <data name="display.output.vision.picker.2.y.offset" xml:space="preserve">
+    <value>배출 비전 → 피커 2 Y 오프셋</value>
+  </data>
+  <data name="display.output.vision.picker.3.x.offset" xml:space="preserve">
+    <value>배출 비전 → 피커 3 X 오프셋</value>
+  </data>
+  <data name="display.output.vision.picker.3.y.offset" xml:space="preserve">
+    <value>배출 비전 → 피커 3 Y 오프셋</value>
+  </data>
+  <data name="display.output.vision.picker.4.x.offset" xml:space="preserve">
+    <value>배출 비전 → 피커 4 X 오프셋</value>
+  </data>
+  <data name="display.output.vision.picker.4.y.offset" xml:space="preserve">
+    <value>배출 비전 → 피커 4 Y 오프셋</value>
+  </data>
+  <data name="display.parameter" xml:space="preserve">
+    <value>항목</value>
+  </data>
+  <data name="display.parameter.change" xml:space="preserve">
+    <value>파라미터 변경</value>
+  </data>
+  <data name="display.pick" xml:space="preserve">
+    <value>픽업</value>
+  </data>
+  <data name="display.pick.fail" xml:space="preserve">
+    <value>픽업 실패</value>
+  </data>
+  <data name="display.pick.fail.qty" xml:space="preserve">
+    <value>픽업 실패 수량</value>
+  </data>
+  <data name="display.pick.lift.position" xml:space="preserve">
+    <value>픽업 상승 거리</value>
+  </data>
+  <data name="display.pick.lift.wait" xml:space="preserve">
+    <value>픽업 상승 대기 시간</value>
+  </data>
+  <data name="display.pick.position" xml:space="preserve">
+    <value>픽업 위치</value>
+  </data>
+  <data name="display.pick.runtime.offset" xml:space="preserve">
+    <value>픽업 실시간 보정</value>
+  </data>
+  <data name="display.pick.sensor" xml:space="preserve">
+    <value>픽업(센서)</value>
+  </data>
+  <data name="display.pick.settle" xml:space="preserve">
+    <value>픽업 안정화 시간</value>
+  </data>
+  <data name="display.pick.up" xml:space="preserve">
+    <value>픽업</value>
+  </data>
+  <data name="display.picker.1.coc.valid" xml:space="preserve">
+    <value>피커 1 회전 중심 유효</value>
+  </data>
+  <data name="display.picker.1.coc.x" xml:space="preserve">
+    <value>피커 1 회전 중심 X</value>
+  </data>
+  <data name="display.picker.1.coc.y" xml:space="preserve">
+    <value>피커 1 회전 중심 Y</value>
+  </data>
+  <data name="display.picker.1.pickup.mechanical.t" xml:space="preserve">
+    <value>피커 1 픽업 기구 T</value>
+  </data>
+  <data name="display.picker.1.pickup.mechanical.x" xml:space="preserve">
+    <value>피커 1 픽업 기구 X</value>
+  </data>
+  <data name="display.picker.1.pickup.mechanical.y" xml:space="preserve">
+    <value>피커 1 픽업 기구 Y</value>
+  </data>
+  <data name="display.picker.1.place.mechanical.t" xml:space="preserve">
+    <value>피커 1 배치 기구 T</value>
+  </data>
+  <data name="display.picker.1.place.mechanical.x" xml:space="preserve">
+    <value>피커 1 배치 기구 X</value>
+  </data>
+  <data name="display.picker.1.place.mechanical.y" xml:space="preserve">
+    <value>피커 1 배치 기구 Y</value>
+  </data>
+  <data name="display.picker.1.use" xml:space="preserve">
+    <value>피커 1 사용</value>
+  </data>
+  <data name="display.picker.2.coc.valid" xml:space="preserve">
+    <value>피커 2 회전 중심 유효</value>
+  </data>
+  <data name="display.picker.2.coc.x" xml:space="preserve">
+    <value>피커 2 회전 중심 X</value>
+  </data>
+  <data name="display.picker.2.coc.y" xml:space="preserve">
+    <value>피커 2 회전 중심 Y</value>
+  </data>
+  <data name="display.picker.2.pickup.mechanical.t" xml:space="preserve">
+    <value>피커 2 픽업 기구 T</value>
+  </data>
+  <data name="display.picker.2.pickup.mechanical.x" xml:space="preserve">
+    <value>피커 2 픽업 기구 X</value>
+  </data>
+  <data name="display.picker.2.pickup.mechanical.y" xml:space="preserve">
+    <value>피커 2 픽업 기구 Y</value>
+  </data>
+  <data name="display.picker.2.place.mechanical.t" xml:space="preserve">
+    <value>피커 2 배치 기구 T</value>
+  </data>
+  <data name="display.picker.2.place.mechanical.x" xml:space="preserve">
+    <value>피커 2 배치 기구 X</value>
+  </data>
+  <data name="display.picker.2.place.mechanical.y" xml:space="preserve">
+    <value>피커 2 배치 기구 Y</value>
+  </data>
+  <data name="display.picker.2.use" xml:space="preserve">
+    <value>피커 2 사용</value>
+  </data>
+  <data name="display.picker.3.coc.valid" xml:space="preserve">
+    <value>피커 3 회전 중심 유효</value>
+  </data>
+  <data name="display.picker.3.coc.x" xml:space="preserve">
+    <value>피커 3 회전 중심 X</value>
+  </data>
+  <data name="display.picker.3.coc.y" xml:space="preserve">
+    <value>피커 3 회전 중심 Y</value>
+  </data>
+  <data name="display.picker.3.pickup.mechanical.t" xml:space="preserve">
+    <value>피커 3 픽업 기구 T</value>
+  </data>
+  <data name="display.picker.3.pickup.mechanical.x" xml:space="preserve">
+    <value>피커 3 픽업 기구 X</value>
+  </data>
+  <data name="display.picker.3.pickup.mechanical.y" xml:space="preserve">
+    <value>피커 3 픽업 기구 Y</value>
+  </data>
+  <data name="display.picker.3.place.mechanical.t" xml:space="preserve">
+    <value>피커 3 배치 기구 T</value>
+  </data>
+  <data name="display.picker.3.place.mechanical.x" xml:space="preserve">
+    <value>피커 3 배치 기구 X</value>
+  </data>
+  <data name="display.picker.3.place.mechanical.y" xml:space="preserve">
+    <value>피커 3 배치 기구 Y</value>
+  </data>
+  <data name="display.picker.3.use" xml:space="preserve">
+    <value>피커 3 사용</value>
+  </data>
+  <data name="display.picker.4.coc.valid" xml:space="preserve">
+    <value>피커 4 회전 중심 유효</value>
+  </data>
+  <data name="display.picker.4.coc.x" xml:space="preserve">
+    <value>피커 4 회전 중심 X</value>
+  </data>
+  <data name="display.picker.4.coc.y" xml:space="preserve">
+    <value>피커 4 회전 중심 Y</value>
+  </data>
+  <data name="display.picker.4.pickup.mechanical.t" xml:space="preserve">
+    <value>피커 4 픽업 기구 T</value>
+  </data>
+  <data name="display.picker.4.pickup.mechanical.x" xml:space="preserve">
+    <value>피커 4 픽업 기구 X</value>
+  </data>
+  <data name="display.picker.4.pickup.mechanical.y" xml:space="preserve">
+    <value>피커 4 픽업 기구 Y</value>
+  </data>
+  <data name="display.picker.4.place.mechanical.t" xml:space="preserve">
+    <value>피커 4 배치 기구 T</value>
+  </data>
+  <data name="display.picker.4.place.mechanical.x" xml:space="preserve">
+    <value>피커 4 배치 기구 X</value>
+  </data>
+  <data name="display.picker.4.place.mechanical.y" xml:space="preserve">
+    <value>피커 4 배치 기구 Y</value>
+  </data>
+  <data name="display.picker.4.use" xml:space="preserve">
+    <value>피커 4 사용</value>
+  </data>
+  <data name="display.picker.motion.only.test" xml:space="preserve">
+    <value>피커 모션 단독 시험</value>
+  </data>
+  <data name="display.picker.pitch.x" xml:space="preserve">
+    <value>피커 X 피치</value>
+  </data>
+  <data name="display.picker.pitch.y" xml:space="preserve">
+    <value>피커 Y 피치</value>
+  </data>
+  <data name="display.picker.safe.for.waferstage" xml:space="preserve">
+    <value>웨이퍼 스테이지 안전 거리</value>
+  </data>
+  <data name="display.picker.setting" xml:space="preserve">
+    <value>피커 설정</value>
+  </data>
+  <data name="display.picker.t" xml:space="preserve">
+    <value>피커 T (공통)</value>
+  </data>
+  <data name="display.picker.t.1" xml:space="preserve">
+    <value>피커 T축 #1</value>
+  </data>
+  <data name="display.picker.t.2" xml:space="preserve">
+    <value>피커 T축 #2</value>
+  </data>
+  <data name="display.picker.t.3" xml:space="preserve">
+    <value>피커 T축 #3</value>
+  </data>
+  <data name="display.picker.t.4" xml:space="preserve">
+    <value>피커 T축 #4</value>
+  </data>
+  <data name="display.picker.t1" xml:space="preserve">
+    <value>피커 T1</value>
+  </data>
+  <data name="display.picker.t2" xml:space="preserve">
+    <value>피커 T2</value>
+  </data>
+  <data name="display.picker.t3" xml:space="preserve">
+    <value>피커 T3</value>
+  </data>
+  <data name="display.picker.t4" xml:space="preserve">
+    <value>피커 T4</value>
+  </data>
+  <data name="display.picker.x" xml:space="preserve">
+    <value>피커 X축</value>
+  </data>
+  <data name="display.picker.x.input.side.avoid" xml:space="preserve">
+    <value>피커 X 투입 측 회피</value>
+  </data>
+  <data name="display.picker.x.output.side.avoid" xml:space="preserve">
+    <value>피커 X 배출 측 회피</value>
+  </data>
+  <data name="display.picker.y" xml:space="preserve">
+    <value>피커 Y축</value>
+  </data>
+  <data name="display.picker.y.facing.x.clearance" xml:space="preserve">
+    <value>피커 Y 대향 시 X 안전 간격</value>
+  </data>
+  <data name="display.picker.y.out.distance" xml:space="preserve">
+    <value>피커 Y 후퇴 거리</value>
+  </data>
+  <data name="display.picker.z.1" xml:space="preserve">
+    <value>피커 Z축 #1</value>
+  </data>
+  <data name="display.picker.z.2" xml:space="preserve">
+    <value>피커 Z축 #2</value>
+  </data>
+  <data name="display.picker.z.3" xml:space="preserve">
+    <value>피커 Z축 #3</value>
+  </data>
+  <data name="display.picker.z.4" xml:space="preserve">
+    <value>피커 Z축 #4</value>
+  </data>
+  <data name="display.picker.z.approach.speed" xml:space="preserve">
+    <value>피커 Z 접근 속도</value>
+  </data>
+  <data name="display.picker.z.pre.pick.distance" xml:space="preserve">
+    <value>피커 Z 픽업 전 대기 거리</value>
+  </data>
+  <data name="display.picker.z.runtime.offset" xml:space="preserve">
+    <value>피커 Z축 실시간 보정</value>
+  </data>
+  <data name="display.picker.z1" xml:space="preserve">
+    <value>피커 Z1</value>
+  </data>
+  <data name="display.picker.z2" xml:space="preserve">
+    <value>피커 Z2</value>
+  </data>
+  <data name="display.picker.z3" xml:space="preserve">
+    <value>피커 Z3</value>
+  </data>
+  <data name="display.picker.z4" xml:space="preserve">
+    <value>피커 Z4</value>
+  </data>
+  <data name="display.pickup" xml:space="preserve">
+    <value>픽업</value>
+  </data>
+  <data name="display.pickup.bin.filter" xml:space="preserve">
+    <value>픽업 BIN 필터</value>
+  </data>
+  <data name="display.pickup.bin.setting" xml:space="preserve">
+    <value>픽업 BIN 설정</value>
+  </data>
+  <data name="display.pickup.conti.coordinate" xml:space="preserve">
+    <value>픽업 연속 보간 좌표계</value>
+  </data>
+  <data name="display.pickup.conti.max.travel" xml:space="preserve">
+    <value>픽업 연속 보간 최대 이동 거리</value>
+  </data>
+  <data name="display.pickup.conti.spline.curve" xml:space="preserve">
+    <value>픽업 연속 보간 스플라인 곡률 %</value>
+  </data>
+  <data name="display.pickup.conti.timeout" xml:space="preserve">
+    <value>픽업 연속 보간 제한 시간</value>
+  </data>
+  <data name="display.pickup.conti.use.global.speed.scale" xml:space="preserve">
+    <value>픽업 연속 보간 공통 속도 배율 사용</value>
+  </data>
+  <data name="display.pickup.conti.xy.mid.ratio" xml:space="preserve">
+    <value>픽업 연속 보간 XY 중간 지점 비율</value>
+  </data>
+  <data name="display.pickup.conti.y.max.corr" xml:space="preserve">
+    <value>픽업 연속 보간 Y 최대 보정 거리</value>
+  </data>
+  <data name="display.pickup.dynamic.wait" xml:space="preserve">
+    <value>픽업 동적 대기</value>
+  </data>
+  <data name="display.pickup.entry.z.predown" xml:space="preserve">
+    <value>픽업 진입 시 Z 선행 하강</value>
+  </data>
+  <data name="display.pickup.mechanical.offset.limit" xml:space="preserve">
+    <value>픽업 기구 오프셋 한계</value>
+  </data>
+  <data name="display.pickup.mechanical.offset.t.limit" xml:space="preserve">
+    <value>픽업 기구 T 오프셋 한계</value>
+  </data>
+  <data name="display.pickup.sequence" xml:space="preserve">
+    <value>픽업 순서</value>
+  </data>
+  <data name="display.pickup.setting" xml:space="preserve">
+    <value>픽업 설정</value>
+  </data>
+  <data name="display.pickup.sync.lift.acc" xml:space="preserve">
+    <value>픽업 동기 상승 가속도</value>
+  </data>
+  <data name="display.pickup.sync.lift.dec" xml:space="preserve">
+    <value>픽업 동기 상승 감속도</value>
+  </data>
+  <data name="display.pickup.sync.lift.distance" xml:space="preserve">
+    <value>픽업 동기 상승 거리</value>
+  </data>
+  <data name="display.pickup.sync.lift.settle" xml:space="preserve">
+    <value>픽업 동기 상승 안정화 시간</value>
+  </data>
+  <data name="display.pickup.sync.lift.velocity" xml:space="preserve">
+    <value>픽업 동기 상승 속도</value>
+  </data>
+  <data name="display.pickup.test" xml:space="preserve">
+    <value>픽업 시험</value>
+  </data>
+  <data name="display.pickup.transfer.mode" xml:space="preserve">
+    <value>픽업 이송 모드</value>
+  </data>
+  <data name="display.pickup.z.motion.mode" xml:space="preserve">
+    <value>픽업 Z 동작 모드</value>
+  </data>
+  <data name="display.place" xml:space="preserve">
+    <value>안착</value>
+  </data>
+  <data name="display.place.blow.delay" xml:space="preserve">
+    <value>배치 블로우 지연 시간</value>
+  </data>
+  <data name="display.place.conti.coordinate" xml:space="preserve">
+    <value>배치 연속 보간 좌표계</value>
+  </data>
+  <data name="display.place.conti.die.fallback" xml:space="preserve">
+    <value>배치 연속 보간 다이 두께 기본값</value>
+  </data>
+  <data name="display.place.conti.max.acc" xml:space="preserve">
+    <value>배치 연속 보간 최대 가속도</value>
+  </data>
+  <data name="display.place.conti.max.dec" xml:space="preserve">
+    <value>배치 연속 보간 최대 감속도</value>
+  </data>
+  <data name="display.place.conti.max.travel" xml:space="preserve">
+    <value>배치 연속 보간 최대 이동 거리</value>
+  </data>
+  <data name="display.place.conti.max.vel" xml:space="preserve">
+    <value>배치 연속 보간 최대 속도</value>
+  </data>
+  <data name="display.place.conti.near.avoid" xml:space="preserve">
+    <value>배치 연속 보간 회피 근접 거리</value>
+  </data>
+  <data name="display.place.conti.node0.speed" xml:space="preserve">
+    <value>배치 연속 보간 지점 0 속도 %</value>
+  </data>
+  <data name="display.place.conti.node1.speed" xml:space="preserve">
+    <value>배치 연속 보간 지점 1 속도 %</value>
+  </data>
+  <data name="display.place.conti.node2.speed" xml:space="preserve">
+    <value>배치 연속 보간 지점 2 속도 %</value>
+  </data>
+  <data name="display.place.conti.node3.speed" xml:space="preserve">
+    <value>배치 연속 보간 지점 3 속도 %</value>
+  </data>
+  <data name="display.place.conti.node4.speed" xml:space="preserve">
+    <value>배치 연속 보간 지점 4 속도 %</value>
+  </data>
+  <data name="display.place.conti.overdrive" xml:space="preserve">
+    <value>배치 연속 보간 오버드라이브</value>
+  </data>
+  <data name="display.place.conti.spline.curve" xml:space="preserve">
+    <value>배치 연속 보간 스플라인 곡률 %</value>
+  </data>
+  <data name="display.place.conti.tape.fallback" xml:space="preserve">
+    <value>배치 연속 보간 테이프 두께 기본값</value>
+  </data>
+  <data name="display.place.conti.timeout" xml:space="preserve">
+    <value>배치 연속 보간 제한 시간</value>
+  </data>
+  <data name="display.place.conti.use.global.speed.scale" xml:space="preserve">
+    <value>배치 연속 보간 공통 속도 배율 사용</value>
+  </data>
+  <data name="display.place.conti.xy.mid.ratio" xml:space="preserve">
+    <value>배치 연속 보간 XY 중간 지점 비율</value>
+  </data>
+  <data name="display.place.conti.z1.step1.clear" xml:space="preserve">
+    <value>배치 연속 보간 Z1 1단계 여유 거리</value>
+  </data>
+  <data name="display.place.conti.z1.step2.clear" xml:space="preserve">
+    <value>배치 연속 보간 Z1 2단계 여유 거리</value>
+  </data>
+  <data name="display.place.delay" xml:space="preserve">
+    <value>배치 지연 시간</value>
+  </data>
+  <data name="display.place.entry.z.predown" xml:space="preserve">
+    <value>배치 진입 시 Z 선행 하강</value>
+  </data>
+  <data name="display.place.fail" xml:space="preserve">
+    <value>안착 실패</value>
+  </data>
+  <data name="display.place.fail.qty" xml:space="preserve">
+    <value>안착 실패 수량</value>
+  </data>
+  <data name="display.place.mechanical.offset.limit" xml:space="preserve">
+    <value>배치 기구 오프셋 한계</value>
+  </data>
+  <data name="display.place.mechanical.offset.t.limit" xml:space="preserve">
+    <value>배치 기구 T 오프셋 한계</value>
+  </data>
+  <data name="display.place.motion.mode" xml:space="preserve">
+    <value>배치 동작 모드</value>
+  </data>
+  <data name="display.place.motion.setting" xml:space="preserve">
+    <value>배치 동작 설정</value>
+  </data>
+  <data name="display.place.position" xml:space="preserve">
+    <value>배치 위치</value>
+  </data>
+  <data name="display.place.release.dwell" xml:space="preserve">
+    <value>배치 흡착 해제 대기 시간</value>
+  </data>
+  <data name="display.place.runtime.offset" xml:space="preserve">
+    <value>플레이스 실시간 보정</value>
+  </data>
+  <data name="display.place.z.overdrive" xml:space="preserve">
+    <value>배치 Z 오버드라이브</value>
+  </data>
+  <data name="display.port" xml:space="preserve">
+    <value>포트</value>
+  </data>
+  <data name="display.position.check" xml:space="preserve">
+    <value>위치 확인</value>
+  </data>
+  <data name="display.position.teach" xml:space="preserve">
+    <value>위치 티칭</value>
+  </data>
+  <data name="display.predown.needle.work.radius" xml:space="preserve">
+    <value>선행 하강 니들 작업 반경</value>
+  </data>
+  <data name="display.prep.load" xml:space="preserve">
+    <value>투입 준비</value>
+  </data>
+  <data name="display.prep.unload" xml:space="preserve">
+    <value>배출 준비</value>
+  </data>
+  <data name="display.prev.titleCase" xml:space="preserve">
+    <value>이전</value>
+  </data>
+  <data name="display.prev.uppercase" xml:space="preserve">
+    <value>이전</value>
+  </data>
+  <data name="display.process" xml:space="preserve">
+    <value>공정</value>
+  </data>
+  <data name="display.process.position" xml:space="preserve">
+    <value>공정 위치</value>
+  </data>
+  <data name="display.process.position.0" xml:space="preserve">
+    <value>공정 위치 (0°)</value>
+  </data>
+  <data name="display.process.position.90" xml:space="preserve">
+    <value>공정 위치 (90°)</value>
+  </data>
+  <data name="display.process.test.data" xml:space="preserve">
+    <value>공정 시험 데이터</value>
+  </data>
+  <data name="display.project" xml:space="preserve">
+    <value>프로젝트</value>
+  </data>
+  <data name="display.project.name.plain" xml:space="preserve">
+    <value>프로젝트 이름</value>
+  </data>
+  <data name="display.project.name.withColon" xml:space="preserve">
+    <value>프로젝트 :</value>
+  </data>
+  <data name="display.property" xml:space="preserve">
+    <value>항목</value>
+  </data>
+  <data name="display.ratio" xml:space="preserve">
+    <value>비율</value>
+  </data>
+  <data name="display.ready.position" xml:space="preserve">
+    <value>준비 위치</value>
+  </data>
+  <data name="display.ready.titleCase" xml:space="preserve">
+    <value>준비</value>
+  </data>
+  <data name="display.ready.uppercase" xml:space="preserve">
+    <value>준비</value>
+  </data>
+  <data name="display.real.vision.in.simulation" xml:space="preserve">
+    <value>시뮬레이션에서 실제 비전 사용</value>
+  </data>
+  <data name="display.rear.entry.predown.stagey.limit" xml:space="preserve">
+    <value>후면 진입 선행 하강 스테이지 Y 한계</value>
+  </data>
+  <data name="display.rear.head" xml:space="preserve">
+    <value>후면 피커</value>
+  </data>
+  <data name="display.rear.picker" xml:space="preserve">
+    <value>후면 피커</value>
+  </data>
+  <data name="display.rear.picker.head.1.die" xml:space="preserve">
+    <value>후면 피커 헤드 #1 다이</value>
+  </data>
+  <data name="display.rear.picker.head.2.die" xml:space="preserve">
+    <value>후면 피커 헤드 #2 다이</value>
+  </data>
+  <data name="display.rear.picker.head.3.die" xml:space="preserve">
+    <value>후면 피커 헤드 #3 다이</value>
+  </data>
+  <data name="display.rear.picker.head.4.die" xml:space="preserve">
+    <value>후면 피커 헤드 #4 다이</value>
+  </data>
+  <data name="display.rear.picker.use" xml:space="preserve">
+    <value>후면 피커 사용</value>
+  </data>
+  <data name="display.rear.y" xml:space="preserve">
+    <value>후면 Y</value>
+  </data>
+  <data name="display.rearhead.seq" xml:space="preserve">
+    <value>후면 피커 시퀀스</value>
+  </data>
+  <data name="display.reason" xml:space="preserve">
+    <value>사유</value>
+  </data>
+  <data name="display.receive.good" xml:space="preserve">
+    <value>양품 다이 받기</value>
+  </data>
+  <data name="display.receive.ng" xml:space="preserve">
+    <value>불량 다이 받기</value>
+  </data>
+  <data name="display.receive.progress" xml:space="preserve">
+    <value>받기 진행 수량</value>
+  </data>
+  <data name="display.recipe.titleCase" xml:space="preserve">
+    <value>레시피</value>
+  </data>
+  <data name="display.recipe.uppercase" xml:space="preserve">
+    <value>레시피</value>
+  </data>
+  <data name="display.recovery.time" xml:space="preserve">
+    <value>이상 복귀 시간</value>
+  </data>
+  <data name="display.reference" xml:space="preserve">
+    <value>기준</value>
+  </data>
+  <data name="display.remote.viewer" xml:space="preserve">
+    <value>원격 뷰어</value>
+  </data>
+  <data name="display.reset" xml:space="preserve">
+    <value>초기화</value>
+  </data>
+  <data name="display.reset.alarm" xml:space="preserve">
+    <value>알람 해제</value>
+  </data>
+  <data name="display.result" xml:space="preserve">
+    <value>결과</value>
+  </data>
+  <data name="display.reticle.position" xml:space="preserve">
+    <value>레티클 위치</value>
+  </data>
+  <data name="display.retry" xml:space="preserve">
+    <value>재시도</value>
+  </data>
+  <data name="display.run.order.mode" xml:space="preserve">
+    <value>운전 순서 모드</value>
+  </data>
+  <data name="display.running" xml:space="preserve">
+    <value>운전 중</value>
+  </data>
+  <data name="display.safety.setting" xml:space="preserve">
+    <value>안전 설정</value>
+  </data>
+  <data name="display.save" xml:space="preserve">
+    <value>저장</value>
+  </data>
+  <data name="display.scan.jog.velocity" xml:space="preserve">
+    <value>스캔/조그 속도</value>
+  </data>
+  <data name="display.scan.settle.time" xml:space="preserve">
+    <value>스캔 안정화 시간</value>
+  </data>
+  <data name="display.scope" xml:space="preserve">
+    <value>구분</value>
+  </data>
+  <data name="display.selected" xml:space="preserve">
+    <value>선택 위치</value>
+  </data>
+  <data name="display.self.check.mode" xml:space="preserve">
+    <value>자주검사 모드</value>
+  </data>
+  <data name="display.self.inspection" xml:space="preserve">
+    <value>자주 검사</value>
+  </data>
+  <data name="display.self.test" xml:space="preserve">
+    <value>자가 진단</value>
+  </data>
+  <data name="display.sensor.state" xml:space="preserve">
+    <value>센서 상태</value>
+  </data>
+  <data name="display.sequence" xml:space="preserve">
+    <value>순서</value>
+  </data>
+  <data name="display.session" xml:space="preserve">
+    <value>세션</value>
+  </data>
+  <data name="display.setting" xml:space="preserve">
+    <value>설정</value>
+  </data>
+  <data name="display.settings" xml:space="preserve">
+    <value>설정</value>
+  </data>
+  <data name="display.setup.simulation.mode" xml:space="preserve">
+    <value>장비 시뮬레이션 모드</value>
+  </data>
+  <data name="display.setup.titleCase" xml:space="preserve">
+    <value>설정</value>
+  </data>
+  <data name="display.setup.uppercase" xml:space="preserve">
+    <value>장비 설정</value>
+  </data>
+  <data name="display.shutdown" xml:space="preserve">
+    <value>설비 종료</value>
+  </data>
+  <data name="display.side.position" xml:space="preserve">
+    <value>측면 검사 위치</value>
+  </data>
+  <data name="display.side.titleCase" xml:space="preserve">
+    <value>구분</value>
+  </data>
+  <data name="display.side.uppercase" xml:space="preserve">
+    <value>측면</value>
+  </data>
+  <data name="display.side.vision" xml:space="preserve">
+    <value>측면 비전</value>
+  </data>
+  <data name="display.sim.vision.ng.rate" xml:space="preserve">
+    <value>시뮬레이션 비전 불량 비율 (%)</value>
+  </data>
+  <data name="display.simulation.mode" xml:space="preserve">
+    <value>시뮬레이션 모드</value>
+  </data>
+  <data name="display.simulator.link" xml:space="preserve">
+    <value>시뮬레이터 연결</value>
+  </data>
+  <data name="display.skip" xml:space="preserve">
+    <value>건너뛰기</value>
+  </data>
+  <data name="display.skip.run.review.sim" xml:space="preserve">
+    <value>운전 전 확인 생략 (시뮬레이션)</value>
+  </data>
+  <data name="display.slot" xml:space="preserve">
+    <value>슬롯</value>
+  </data>
+  <data name="display.slot.count" xml:space="preserve">
+    <value>슬롯 수</value>
+  </data>
+  <data name="display.slot.no.abbreviated" xml:space="preserve">
+    <value>슬롯 번호</value>
+  </data>
+  <data name="display.slot.no.plain" xml:space="preserve">
+    <value>슬롯 번호</value>
+  </data>
+  <data name="display.slot.pitch" xml:space="preserve">
+    <value>슬롯 간격</value>
+  </data>
+  <data name="display.slot.state.titleCase" xml:space="preserve">
+    <value>슬롯 상태</value>
+  </data>
+  <data name="display.slot.state.uppercase" xml:space="preserve">
+    <value>슬롯 상태</value>
+  </data>
+  <data name="display.source" xml:space="preserve">
+    <value>출발 위치</value>
+  </data>
+  <data name="display.source.cassette" xml:space="preserve">
+    <value>출발 카세트</value>
+  </data>
+  <data name="display.source.pos" xml:space="preserve">
+    <value>출발 위치</value>
+  </data>
+  <data name="display.source.slot" xml:space="preserve">
+    <value>출발 슬롯</value>
+  </data>
+  <data name="display.source.wafer" xml:space="preserve">
+    <value>원본 웨이퍼</value>
+  </data>
+  <data name="display.spec.diameter" xml:space="preserve">
+    <value>규격 직경</value>
+  </data>
+  <data name="display.spec.grid.x" xml:space="preserve">
+    <value>규격 격자 X</value>
+  </data>
+  <data name="display.spec.grid.y" xml:space="preserve">
+    <value>규격 격자 Y</value>
+  </data>
+  <data name="display.spec.pitch.gap.x" xml:space="preserve">
+    <value>규격 피치 간격 X</value>
+  </data>
+  <data name="display.spec.pitch.gap.y" xml:space="preserve">
+    <value>규격 피치 간격 Y</value>
+  </data>
+  <data name="display.stage" xml:space="preserve">
+    <value>스테이지</value>
+  </data>
+  <data name="display.stage.align" xml:space="preserve">
+    <value>웨이퍼 정렬</value>
+  </data>
+  <data name="display.stage.axis.t" xml:space="preserve">
+    <value>스테이지 T축</value>
+  </data>
+  <data name="display.stage.axis.y" xml:space="preserve">
+    <value>스테이지 Y축</value>
+  </data>
+  <data name="display.stage.axis.z" xml:space="preserve">
+    <value>스테이지 Z축</value>
+  </data>
+  <data name="display.stage.barcode" xml:space="preserve">
+    <value>웨이퍼 바코드</value>
+  </data>
+  <data name="display.stage.chip.align" xml:space="preserve">
+    <value>다이 정렬</value>
+  </data>
+  <data name="display.stage.exist" xml:space="preserve">
+    <value>웨이퍼 유무</value>
+  </data>
+  <data name="display.stage.finish" xml:space="preserve">
+    <value>스테이지 작업 완료</value>
+  </data>
+  <data name="display.stage.init" xml:space="preserve">
+    <value>스테이지 초기화</value>
+  </data>
+  <data name="display.stage.needle.cyl.info" xml:space="preserve">
+    <value>스테이지·니들 실린더 정보</value>
+  </data>
+  <data name="display.stage.ready" xml:space="preserve">
+    <value>스테이지 준비</value>
+  </data>
+  <data name="display.start.titleCase" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="display.start.uppercase" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="display.state.titleCase" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="display.state.uppercase" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="display.status" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="display.stop.after.drain" xml:space="preserve">
+    <value>피커 자재 배출 후 정지</value>
+  </data>
+  <data name="display.stop.titleCase" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="display.stop.uppercase" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="display.stopped.titleCase" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="display.stopped.uppercase" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="display.switch" xml:space="preserve">
+    <value>스위치</value>
+  </data>
+  <data name="display.sync.lift.settle" xml:space="preserve">
+    <value>동기 상승 안정화 시간</value>
+  </data>
+  <data name="display.tape.frame.spec" xml:space="preserve">
+    <value>테이프 프레임 규격</value>
+  </data>
+  <data name="display.teach" xml:space="preserve">
+    <value>티칭</value>
+  </data>
+  <data name="display.time" xml:space="preserve">
+    <value>시간</value>
+  </data>
+  <data name="display.timechart" xml:space="preserve">
+    <value>시간 차트</value>
+  </data>
+  <data name="display.total.count" xml:space="preserve">
+    <value>전체 수량</value>
+  </data>
+  <data name="display.true" xml:space="preserve">
+    <value>예</value>
+  </data>
+  <data name="display.unclamp" xml:space="preserve">
+    <value>고정 해제</value>
+  </data>
+  <data name="display.unit.titleCase" xml:space="preserve">
+    <value>장치</value>
+  </data>
+  <data name="display.unit.uppercase" xml:space="preserve">
+    <value>단위</value>
+  </data>
+  <data name="display.unknown.titleCase" xml:space="preserve">
+    <value>미확인</value>
+  </data>
+  <data name="display.unknown.uppercase" xml:space="preserve">
+    <value>미확인</value>
+  </data>
+  <data name="display.unload.position" xml:space="preserve">
+    <value>언로딩 위치</value>
+  </data>
+  <data name="display.unload.release.lift.distance" xml:space="preserve">
+    <value>언로딩 해제 상승 거리</value>
+  </data>
+  <data name="display.unload.wafer" xml:space="preserve">
+    <value>언로드 웨이퍼</value>
+  </data>
+  <data name="display.unloading.offset" xml:space="preserve">
+    <value>언로딩 오프셋</value>
+  </data>
+  <data name="display.unloading.z.position" xml:space="preserve">
+    <value>언로딩 Z 위치</value>
+  </data>
+  <data name="display.up" xml:space="preserve">
+    <value>상승</value>
+  </data>
+  <data name="display.up.time" xml:space="preserve">
+    <value>가동 시간</value>
+  </data>
+  <data name="display.update" xml:space="preserve">
+    <value>수정</value>
+  </data>
+  <data name="display.updated" xml:space="preserve">
+    <value>갱신 시간</value>
+  </data>
+  <data name="display.uph" xml:space="preserve">
+    <value>UPH</value>
+  </data>
+  <data name="display.uptime" xml:space="preserve">
+    <value>가동률</value>
+  </data>
+  <data name="display.use.ajin.axl.dll" xml:space="preserve">
+    <value>아진 보드 사용 (AXL.dll)</value>
+  </data>
+  <data name="display.use.ng.cassette" xml:space="preserve">
+    <value>불량 카세트 사용</value>
+  </data>
+  <data name="display.user.login" xml:space="preserve">
+    <value>사용자 로그인</value>
+  </data>
+  <data name="display.user.titleCase" xml:space="preserve">
+    <value>사용자</value>
+  </data>
+  <data name="display.user.uppercase" xml:space="preserve">
+    <value>사용자</value>
+  </data>
+  <data name="display.vacuum" xml:space="preserve">
+    <value>진공</value>
+  </data>
+  <data name="display.vacuum.before.pick.delay" xml:space="preserve">
+    <value>픽업 전 진공 지연 시간</value>
+  </data>
+  <data name="display.value.titleCase" xml:space="preserve">
+    <value>값</value>
+  </data>
+  <data name="display.value.uppercase" xml:space="preserve">
+    <value>값</value>
+  </data>
+  <data name="display.vision" xml:space="preserve">
+    <value>비전</value>
+  </data>
+  <data name="display.vision.align" xml:space="preserve">
+    <value>비전 얼라인</value>
+  </data>
+  <data name="display.vision.align.fail" xml:space="preserve">
+    <value>비전 정렬 실패</value>
+  </data>
+  <data name="display.vision.area.center.x" xml:space="preserve">
+    <value>비전 작업 영역 중심 X</value>
+  </data>
+  <data name="display.vision.area.center.y" xml:space="preserve">
+    <value>비전 작업 영역 중심 Y</value>
+  </data>
+  <data name="display.vision.area.radius" xml:space="preserve">
+    <value>비전 작업 영역 반경</value>
+  </data>
+  <data name="display.vision.axis.x" xml:space="preserve">
+    <value>비전 X축</value>
+  </data>
+  <data name="display.vision.bin" xml:space="preserve">
+    <value>비전: 빈</value>
+  </data>
+  <data name="display.vision.bottom.insp" xml:space="preserve">
+    <value>비전: 하부 검사</value>
+  </data>
+  <data name="display.vision.cal.position" xml:space="preserve">
+    <value>비전 보정 위치</value>
+  </data>
+  <data name="display.vision.front.side" xml:space="preserve">
+    <value>비전: 전면 측면</value>
+  </data>
+  <data name="display.vision.link" xml:space="preserve">
+    <value>비전 연결</value>
+  </data>
+  <data name="display.vision.match.error" xml:space="preserve">
+    <value>비전 매칭 에러</value>
+  </data>
+  <data name="display.vision.offset.setting" xml:space="preserve">
+    <value>비전 오프셋 설정</value>
+  </data>
+  <data name="display.vision.operator.confirm.timeout.sec" xml:space="preserve">
+    <value>비전 작업자 확인 제한 시간 (초)</value>
+  </data>
+  <data name="display.vision.rear.side" xml:space="preserve">
+    <value>비전: 후면 측면</value>
+  </data>
+  <data name="display.vision.stage" xml:space="preserve">
+    <value>비전 스테이지</value>
+  </data>
+  <data name="display.vision.test" xml:space="preserve">
+    <value>비전 시험</value>
+  </data>
+  <data name="display.vision.use" xml:space="preserve">
+    <value>비전 사용</value>
+  </data>
+  <data name="display.vision.view" xml:space="preserve">
+    <value>비전 화면</value>
+  </data>
+  <data name="display.vision.wafer" xml:space="preserve">
+    <value>비전: 웨이퍼</value>
+  </data>
+  <data name="display.vision.x" xml:space="preserve">
+    <value>비전 X</value>
+  </data>
+  <data name="display.wafer.align" xml:space="preserve">
+    <value>웨이퍼 정렬</value>
+  </data>
+  <data name="display.wafer.barcode" xml:space="preserve">
+    <value>웨이퍼 바코드</value>
+  </data>
+  <data name="display.wafer.barcode.position" xml:space="preserve">
+    <value>웨이퍼 바코드 위치</value>
+  </data>
+  <data name="display.wafer.complete.run.mode" xml:space="preserve">
+    <value>웨이퍼 완료 후 운전 방식</value>
+  </data>
+  <data name="display.wafer.id.plain" xml:space="preserve">
+    <value>웨이퍼 ID</value>
+  </data>
+  <data name="display.wafer.id.withColon" xml:space="preserve">
+    <value>웨이퍼 ID :</value>
+  </data>
+  <data name="display.wafer.load.avoid.position" xml:space="preserve">
+    <value>웨이퍼 로딩 회피 위치</value>
+  </data>
+  <data name="display.wafer.load.position" xml:space="preserve">
+    <value>웨이퍼 로딩 위치</value>
+  </data>
+  <data name="display.wafer.map.open" xml:space="preserve">
+    <value>웨이퍼 맵 오픈</value>
+  </data>
+  <data name="display.wafer.map.viewer" xml:space="preserve">
+    <value>웨이퍼맵 확인</value>
+  </data>
+  <data name="display.wafer.material" xml:space="preserve">
+    <value>웨이퍼 자재 정보</value>
+  </data>
+  <data name="display.wafer.spec" xml:space="preserve">
+    <value>웨이퍼 사양</value>
+  </data>
+  <data name="display.wafer.t" xml:space="preserve">
+    <value>웨이퍼 T</value>
+  </data>
+  <data name="display.wafer.titleCase" xml:space="preserve">
+    <value>웨이퍼</value>
+  </data>
+  <data name="display.wafer.unload.avoid.position" xml:space="preserve">
+    <value>웨이퍼 언로딩 회피 위치</value>
+  </data>
+  <data name="display.wafer.unload.position" xml:space="preserve">
+    <value>웨이퍼 언로딩 위치</value>
+  </data>
+  <data name="display.wafer.uppercase" xml:space="preserve">
+    <value>웨이퍼</value>
+  </data>
+  <data name="display.wafer.y" xml:space="preserve">
+    <value>웨이퍼 Y</value>
+  </data>
+  <data name="display.warning" xml:space="preserve">
+    <value>경고</value>
+  </data>
+  <data name="display.work.area.setting" xml:space="preserve">
+    <value>작업 영역 설정</value>
+  </data>
+  <data name="display.work.bin.qty" xml:space="preserve">
+    <value>작업 빈 수량</value>
+  </data>
+  <data name="display.work.info.titleCase" xml:space="preserve">
+    <value>작업 정보</value>
+  </data>
+  <data name="display.work.info.uppercase" xml:space="preserve">
+    <value>작업 정보</value>
+  </data>
+  <data name="display.work.map" xml:space="preserve">
+    <value>작업 맵</value>
+  </data>
+  <data name="display.work.qty" xml:space="preserve">
+    <value>작업 수량</value>
+  </data>
+  <data name="display.work.ready" xml:space="preserve">
+    <value>작업 준비</value>
+  </data>
+  <data name="display.work.time" xml:space="preserve">
+    <value>작업 시간</value>
+  </data>
+  <data name="display.work.titleCase" xml:space="preserve">
+    <value>작업</value>
+  </data>
+  <data name="display.work.uppercase" xml:space="preserve">
+    <value>작업</value>
+  </data>
+  <data name="display.working" xml:space="preserve">
+    <value>작업 중</value>
+  </data>
+  <data name="display.x.pitch" xml:space="preserve">
+    <value>피치 배수</value>
+  </data>
+  <data name="display.zoom.lens" xml:space="preserve">
+    <value>줌 렌즈</value>
+  </data>
+</root>

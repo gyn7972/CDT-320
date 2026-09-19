@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320.VisionComm;
 using QMC.CDT_320.Ui.Dialogs;
 using QMC.Common.IO;
@@ -25,6 +26,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         public OutputStagePage()
         {
             InitializeComponent();
+            BindLocalizedCaptions();
             WireEvents();
             WireVisionButtons();
 
@@ -47,6 +49,48 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             btnVisionBin.Click += (s, e) =>
                 VisionModuleTestDialog.Open(this, VisionHub.Bin, "Bin Vision");
+        }
+
+        private void BindLocalizedCaptions()
+        {
+            Lang.Bind(lblHeader, "OUTPUT STAGE");
+            Lang.Bind(grpState, "WORK INFO");
+            Lang.Bind(lblGoodExistTitle, "GOOD EXIST");
+            Lang.Bind(lblGoodStateTitle, "GOOD STATE");
+            Lang.Bind(lblNgExistTitle, "NG EXIST");
+            Lang.Bind(lblNgStateTitle, "NG STATE");
+            Lang.Bind(grpCounters, "COUNTER");
+            Lang.Bind(lblGoodCountTitle, "GOOD COUNT");
+            Lang.Bind(lblNgCountTitle, "NG COUNT");
+            Lang.Bind(lblTotalCountTitle, "TOTAL COUNT");
+            Lang.Bind(grpCylinder, "CYLINDER INFO");
+            Lang.Bind(lblGoodGuideTitle, "GOOD GUIDE");
+            Lang.Bind(lblGoodClampTitle, "GOOD CLAMP LIFT");
+            Lang.Bind(lblGoodClampStateTitle, "GOOD CLAMP");
+            Lang.Bind(lblNgGuideTitle, "NG GUIDE");
+            Lang.Bind(lblNgClampTitle, "NG CLAMP LIFT");
+            Lang.Bind(lblNgClampStateTitle, "NG CLAMP");
+            Lang.Bind(grpInfo, "INFO");
+            Lang.Bind(lblGoodYTitle, "GOOD STAGE Y");
+            Lang.Bind(lblGoodZTitle, "GOOD STAGE Z");
+            Lang.Bind(lblNgYTitle, "NG STAGE Y");
+            Lang.Bind(lblVisionXTitle, "VISION AXIS X");
+            Lang.Bind(grpAction, "ACTION");
+            Lang.Bind(btnStageReady, "GOOD LOAD");
+            Lang.Bind(btnNgStageReady, "NG LOAD");
+            Lang.Bind(btnGoodProcess, "GOOD PROCESS");
+            Lang.Bind(btnNgProcess, "NG PROCESS");
+            Lang.Bind(btnGoodReceive, "RECEIVE GOOD");
+            Lang.Bind(btnNgReceive, "RECEIVE NG");
+            Lang.Bind(btnGoodUnload, "GOOD UNLOAD");
+            Lang.Bind(btnNgUnload, "NG UNLOAD");
+            Lang.Bind(btnInspect, "INSPECT");
+            Lang.Bind(btnStageInit, "AVOID");
+            Lang.Bind(btnVisionBin, "VISION: BIN");
+            Lang.Bind(btnStop, "STOP");
+            Lang.Bind(lblMaterialTitle, "STAGE");
+            Lang.Bind(rdoGoodMaterial, "GOOD");
+            Lang.Bind(rdoNgMaterial, "NG");
         }
 
         private Form1 GetHost()
@@ -638,32 +682,32 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (stage != null && stage.OutputCameraX != null)
                     lblVisionXValue.Text = AxisUnitConverter.FormatDisplay(stage.OutputCameraX.ActualPosition, stage.OutputCameraX, "0.###", true);
 
-                lblGoodGuideValue.Text = ResolveUpDownState(
+                lblGoodGuideValue.Text = Lang.Display(ResolveUpDownState(
                     stage != null && stage.IsBinGuideUp(BinSide.Good),
-                    stage != null && stage.IsBinGuideDown(BinSide.Good));
-                lblGoodClampValue.Text = ResolveUpDownState(
+                    stage != null && stage.IsBinGuideDown(BinSide.Good)));
+                lblGoodClampValue.Text = Lang.Display(ResolveUpDownState(
                     stage != null && stage.IsBinGuideClampLiftUp(BinSide.Good),
-                    stage != null && stage.IsBinGuideClampLiftDown(BinSide.Good));
-                lblGoodClampStateValue.Text = ResolveClampState(
+                    stage != null && stage.IsBinGuideClampLiftDown(BinSide.Good)));
+                lblGoodClampStateValue.Text = Lang.Display(ResolveClampState(
                     stage != null && stage.IsBinGuideClamped(BinSide.Good),
-                    stage != null && stage.IsBinGuideUnclamped(BinSide.Good));
-                lblNgGuideValue.Text = ResolveUpDownState(
+                    stage != null && stage.IsBinGuideUnclamped(BinSide.Good)));
+                lblNgGuideValue.Text = Lang.Display(ResolveUpDownState(
                     stage != null && stage.IsBinGuideUp(BinSide.Ng),
-                    stage != null && stage.IsBinGuideDown(BinSide.Ng));
-                lblNgClampValue.Text = ResolveUpDownState(
+                    stage != null && stage.IsBinGuideDown(BinSide.Ng)));
+                lblNgClampValue.Text = Lang.Display(ResolveUpDownState(
                     stage != null && stage.IsBinGuideClampLiftUp(BinSide.Ng),
-                    stage != null && stage.IsBinGuideClampLiftDown(BinSide.Ng));
-                lblNgClampStateValue.Text = ResolveClampState(
+                    stage != null && stage.IsBinGuideClampLiftDown(BinSide.Ng)));
+                lblNgClampStateValue.Text = Lang.Display(ResolveClampState(
                     stage != null && stage.IsBinGuideClamped(BinSide.Ng),
-                    stage != null && stage.IsBinGuideUnclamped(BinSide.Ng));
+                    stage != null && stage.IsBinGuideUnclamped(BinSide.Ng)));
 
                 WaferMaterial good = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood);
                 WaferMaterial ng = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg);
 
-                lblGoodExistValue.Text = good != null ? "BIN" : "EMPTY";
-                lblGoodStateValue.Text = good != null ? WaferMaterialStateText.ToDisplayName(good.State) : "INCOMPLETE";
-                lblNgExistValue.Text = ng != null ? "BIN" : "EMPTY";
-                lblNgStateValue.Text = ng != null ? WaferMaterialStateText.ToDisplayName(ng.State) : "INCOMPLETE";
+                lblGoodExistValue.Text = Lang.Display(good != null ? "BIN" : "EMPTY");
+                lblGoodStateValue.Text = Lang.Display(good != null ? WaferMaterialStateText.ToDisplayName(good.State) : "INCOMPLETE");
+                lblNgExistValue.Text = Lang.Display(ng != null ? "BIN" : "EMPTY");
+                lblNgStateValue.Text = Lang.Display(ng != null ? WaferMaterialStateText.ToDisplayName(ng.State) : "INCOMPLETE");
                 lblGoodCountValue.Text = good != null ? "1 ea" : "0 ea";
                 lblNgCountValue.Text = ng != null ? "1 ea" : "0 ea";
                 lblTotalCountValue.Text = ((good != null ? 1 : 0) + (ng != null ? 1 : 0)) + " ea";

@@ -28,51 +28,51 @@ namespace QMC.CDT_320
 
             try
             {
-            try
-            {
-                if (QMC.Common.Win32Timer.SetHighResolution())
+                try
+                {
+                    if (QMC.Common.Win32Timer.SetHighResolution())
+                    {
+                        QMC.Common.Logging.EventLogger.Write(
+                            QMC.Common.Logging.EventKind.Event,
+                            "NONE",
+                            "WIN32-TIMER",
+                            "High resolution timer enabled. resolution=1ms");
+                    }
+                }
+                catch (Exception ex)
                 {
                     QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
+                        QMC.Common.Logging.EventKind.Warning,
                         "NONE",
                         "WIN32-TIMER",
-                        "High resolution timer enabled. resolution=1ms");
+                        "High resolution timer enable failed: " + ex.Message);
                 }
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.Logging.EventLogger.Write(
-                    QMC.Common.Logging.EventKind.Warning,
-                    "NONE",
-                    "WIN32-TIMER",
-                    "High resolution timer enable failed: " + ex.Message);
-            }
 
-            // 전역 예외 핸들러 — 시작/런타임 중 처리되지 않은 예외가 조용히 프로세스를
-            // 종료시키는 것을 막고, 원인을 로그 + 메시지박스로 남긴다 (AGENTS.md 예외 규칙).
-            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
-            Application.ThreadException += (s, e) => HandleFatalException(e.Exception, "UI-THREAD");
-            AppDomain.CurrentDomain.UnhandledException += (s, e) => HandleFatalException(e.ExceptionObject as Exception, "APP-DOMAIN");
+                // 전역 예외 핸들러 — 시작/런타임 중 처리되지 않은 예외가 조용히 프로세스를
+                // 종료시키는 것을 막고, 원인을 로그 + 메시지박스로 남긴다 (AGENTS.md 예외 규칙).
+                Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+                Application.ThreadException += (s, e) => HandleFatalException(e.Exception, "UI-THREAD");
+                AppDomain.CurrentDomain.UnhandledException += (s, e) => HandleFatalException(e.ExceptionObject as Exception, "APP-DOMAIN");
 
-            // 저장된 로그 저장방식/경로를 로거에 주입한다(로그 쓰기/읽기 경로 일치). 앱 시작 시 1회, 이후 로그부터 적용.
-            try
-            {
-                var logCfg = QMC.CDT320.AppSettingsStore.Current;
-                QMC.Common.Logging.EventLogger.ConfigureLogPathsByName(logCfg.LogSplitByKind, logCfg.LogAllDir, logCfg.LogKindPaths);
-            }
-            catch { }
+                // 저장된 로그 저장방식/경로를 로거에 주입한다(로그 쓰기/읽기 경로 일치). 앱 시작 시 1회, 이후 로그부터 적용.
+                try
+                {
+                    var logCfg = QMC.CDT320.AppSettingsStore.Current;
+                    QMC.Common.Logging.EventLogger.ConfigureLogPathsByName(logCfg.LogSplitByKind, logCfg.LogAllDir, logCfg.LogKindPaths);
+                }
+                catch { }
 
-            // 기존에 쌓인 이벤트 로그의 메시지 종류를 번역 카탈로그에 1회 시드한다(백그라운드).
-            // 메시지편집 페이지가 과거 메시지까지 바로 보이도록 하되, UI 시작은 막지 않는다(마커로 1회만 실행).
-            QMC.Common.Logging.MessageCatalog.SeedFromLogsInBackground();
+                // 기존에 쌓인 이벤트 로그의 메시지 종류를 번역 카탈로그에 1회 시드한다(백그라운드).
+                // 메시지편집 페이지가 과거 메시지까지 바로 보이도록 하되, UI 시작은 막지 않는다(마커로 1회만 실행).
+                QMC.Common.Logging.MessageCatalog.SeedFromLogsInBackground();
 
-            // 로그 보존기간 관리 시작 — 보존일수(설정)가 지난 로그를 Log\Archive 에 압축 보관한다.
-            // (시작 30초 후 1회 + 24시간마다, 백그라운드. 보존일수 0 이면 아무것도 하지 않음)
-            QMC.CDT320.LogRetentionService.Start();
+                // 로그 보존기간 관리 시작 — 보존일수(설정)가 지난 로그를 Log\Archive 에 압축 보관한다.
+                // (시작 30초 후 1회 + 24시간마다, 백그라운드. 보존일수 0 이면 아무것도 하지 않음)
+                QMC.CDT320.LogRetentionService.Start();
 
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Form1());
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new Form1());
             }
             finally
             {

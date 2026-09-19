@@ -723,6 +723,8 @@ namespace QMC.CDT_320
         public Form1()
         {
             InitializeComponent();
+            QMC.CDT320.Recipes.RecipeInputMapSource.ModeActivated += OnInputMapModeActivated;
+            Disposed += (sender, args) => QMC.CDT320.Recipes.RecipeInputMapSource.ModeActivated -= OnInputMapModeActivated;
             // To do: [앱 아이콘] 메인 창 타이틀바/작업표시줄 아이콘 - exe에 박힌 로고 적용 (2026-08-05 지시).
             QMC.CDT_320.Ui.AppIcons.ApplyMainIcon(this);
             UiDoubleBuffer.Enable(this);
@@ -877,13 +879,13 @@ namespace QMC.CDT_320
 
             if (_topDoorClosed)
             {
-                btnDoorToggle.Text = "DOOR\r\nCLOSE";
+                btnDoorToggle.Text = Lang.Display("DOOR\r\nCLOSE");
                 btnDoorToggle.BackColor = Color.FromArgb(48, 92, 76);
                 btnDoorToggle.FlatAppearance.BorderColor = Color.FromArgb(110, 150, 136);
             }
             else
             {
-                btnDoorToggle.Text = "DOOR\r\nOPEN";
+                btnDoorToggle.Text = Lang.Display("DOOR\r\nOPEN");
                 btnDoorToggle.BackColor = Color.FromArgb(122, 46, 46);
                 btnDoorToggle.FlatAppearance.BorderColor = Color.FromArgb(210, 90, 74);
             }
@@ -1129,6 +1131,8 @@ namespace QMC.CDT_320
             lblTitle          .Tag = "i18n:app.title";
             lblUserCaption    .Tag = "i18n:header.user";
             lblTimeCaption    .Tag = "i18n:header.time";
+            Lang.Bind(btnTopAlarm, "ALARM");
+            Lang.Bind(btnBuzzerStop, "BUZZER\r\nSTOP");
 
             Lang.LanguageChanged    += OnLocalizationChanged;
             UserSession.UserChanged += OnUserChanged;
@@ -1565,13 +1569,24 @@ namespace QMC.CDT_320
 
         private void OnLocalizationChanged()
         {
+            if (IsDisposed) return;
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(OnLocalizationChanged));
+                return;
+            }
             Lang.Apply(this);
-            // 언어 변경 후 메인 폼 전체 표시 문구를 다시 적용합니다.
+            // 별도 창은 메인 폼의 Controls에 포함되지 않으므로 열린 팝업에도 표시 문구를 적용한다.
+            foreach (Form dialog in Application.OpenForms.Cast<Form>().ToArray())
+                if (!ReferenceEquals(dialog, this)) Lang.Apply(dialog);
+            UpdateDoorToggleButton();
+            RefreshStateBig();
+            lblUserValue.Text = UserSession.Name + " (" + Lang.Display(UserSession.Level.ToString()) + ")";
         }
 
         private void OnUserChanged()
         {
-            lblUserValue.Text = UserSession.Name + " (" + UserSession.Level + ")";
+            lblUserValue.Text = UserSession.Name + " (" + Lang.Display(UserSession.Level.ToString()) + ")";
             RefreshStateBig();
 
             // Apply permission state.
@@ -1631,7 +1646,7 @@ namespace QMC.CDT_320
         private void RefreshStateBig()
         {
             var ms = Controller?.Status ?? QMC.CDT320.EquipmentStatus.Idle;
-            SetTextIfChanged(lblStateBig, FormatEquipmentStatus(ms));
+            SetTextIfChanged(lblStateBig, Lang.Display(FormatEquipmentStatus(ms)));
             System.Drawing.Color c;
             switch (ms)
             {

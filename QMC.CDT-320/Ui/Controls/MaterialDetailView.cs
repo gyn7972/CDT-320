@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Windows.Forms;
+using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Controls
 {
-    public sealed partial class MaterialDetailView : UserControl
+    public sealed partial class MaterialDetailView : UserControl, ILocalizedView
     {
         public event EventHandler<MaterialDetailEditEventArgs> EditRequested;
         public event EventHandler CreateDataRequested;
@@ -17,11 +18,36 @@ namespace QMC.CDT_320.Ui.Controls
 
         // 직전에 표시한 내용의 signature. 동일하면 그리드 전체 재구성을 생략한다.
         private string _lastSignature;
+        private string _displayTitle = "MATERIAL";
 
         public MaterialDetailView()
         {
             InitializeComponent();
+            Lang.Bind(btnCreateData, "DATA CREATE");
+            Lang.Bind(btnCreateProcessTestData, "PROCESS TEST DATA");
+            Lang.Bind(btnClearData, "DATA CLEAR");
+            Lang.Bind(btnClearAllData, "DATA ALL CLEAR");
+            Lang.Bind(btnClearInspectionData, "BOTTOM/SIDE CLEAR");
+            ApplyLanguage();
             Clear();
+        }
+
+        public void ApplyLanguage()
+        {
+            grpMaterialDetail.Text = Lang.Display(_displayTitle);
+            colName.HeaderText = Lang.Display("Property");
+            colValue.HeaderText = Lang.Display("Value");
+            gridMaterial.Invalidate();
+        }
+
+        private void gridMaterial_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            // 이름 열의 표시만 번역한다. 편집 이벤트에서 사용하는 원본 행과 Key/Value는 보존한다.
+            if (e.RowIndex >= 0 && e.ColumnIndex == colName.Index && e.Value is string name)
+            {
+                e.Value = Lang.Display(name);
+                e.FormattingApplied = true;
+            }
         }
 
         public bool ShowProcessTestDataButton
@@ -73,7 +99,8 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
             _lastSignature = signature;
 
-            grpMaterialDetail.Text = normalizedTitle;
+            _displayTitle = normalizedTitle;
+            grpMaterialDetail.Text = Lang.Display(_displayTitle);
 
             string selectedKey = "";
             string selectedName = "";

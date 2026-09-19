@@ -512,8 +512,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             string formatText = format == WaferMapSourceFormat.Samsung || format == WaferMapSourceFormat.Rad ? "삼성 (RAD)" :
                 format == WaferMapSourceFormat.Camtek ? "CAMTEK" : format == WaferMapSourceFormat.Circle ? "서클 (등록 생성 맵)" : "미지원 형식 (" + format + ")";
             SetReadOnlyRow(gridInputMap, "MonitorInputSource", "입력 맵 사용",
-                (network ? "원격 다운로드" : "등록 맵 사용") + (project.InputUseRemoteWaferMap.HasValue ? " · 레시피 설정" : " · 구형 공통값"),
-                ProcessMapOwnerToolTip + "\r\n입력 맵 사용에서 원격/등록 모드를 선택합니다. 구형 레시피는 저장 전까지 기존 공통값을 따릅니다. 레시피 이름으로 모드를 자동 변경하지 않습니다.");
+                RecipeInputMapSource.DescribeMode(project, settings) + (project.InputUseRemoteWaferMap.HasValue ? "" : " · 구형 공통값"),
+                ProcessMapOwnerToolTip + "\r\n입력 맵 사용에서 원격/등록 모드를 선택합니다. 공정 중 저장하면 현재 웨이퍼는 유지하고 다음 웨이퍼부터 적용합니다. 구형 레시피는 저장 전까지 기존 공통값을 따릅니다. 레시피 이름으로 모드를 자동 변경하지 않습니다.");
             SetReadOnlyRow(gridInputMap, "MonitorInputFormat", "입력 원격 맵 형식",
                 settings == null && inherited ? "설정 확인 불가" : (network ? "" : "미적용 · ") + formatText + (inherited ? " (공통 설정)" : " (레시피 설정)"),
                 ProcessMapOwnerToolTip + "\r\n설정 대상 입력(INPUT) → 원격 맵 구분자를 선택하세요. 원격 사용 시에만 파일 형식을 검사합니다.\r\n'기존 설정 사용'이면 설정 → 일반의 구형 형식 기본값을 따릅니다. 이 창에서 삼성(RAD) 또는 CAMTEK을 지정하면 레시피에 고정됩니다. 형식 불일치는 알람 처리됩니다.");

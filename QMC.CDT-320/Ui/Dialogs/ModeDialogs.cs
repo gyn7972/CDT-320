@@ -1,4 +1,4 @@
-using System.Windows.Forms;
+﻿using System.Windows.Forms;
 using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Dialogs
@@ -128,7 +128,10 @@ namespace QMC.CDT_320.Ui.Dialogs
     {
         public CcsInspectionDialog() : base("dlg.ccsInspection")
         {
-            AddAction("OK", width: 140);
+            // 검사 결과 토큰 OK는 유지하고, 확인 버튼과 구분되는 결과 표시명을 사용한다.
+            var goodButton = AddAction("OK", width: 140);
+            goodButton.Tag = "i18n:inspection.good";
+            goodButton.Text = Lang.T("inspection.good");
             AddAction("NG", width: 140);
             AddAction("STOP", width: 140);
         }

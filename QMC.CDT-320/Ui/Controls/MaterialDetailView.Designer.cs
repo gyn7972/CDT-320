@@ -104,6 +104,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.gridMaterial.Size = new System.Drawing.Size(536, 434);
             this.gridMaterial.TabIndex = 0;
             this.gridMaterial.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridMaterial_CellDoubleClick);
+            this.gridMaterial.CellFormatting += new System.Windows.Forms.DataGridViewCellFormattingEventHandler(this.gridMaterial_CellFormatting);
             // 
             // colName
             // 

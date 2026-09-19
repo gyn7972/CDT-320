@@ -1354,6 +1354,7 @@ namespace QMC.CDT320.Materials
                 InputPreparedMapInstanceId = source.InputPreparedMapInstanceId,
                 InputPreparedMapBarcode = source.InputPreparedMapBarcode,
                 InputPreparedMapUsesNetwork = source.InputPreparedMapUsesNetwork,
+                InputMapUseRemoteSnapshot = source.InputMapUseRemoteSnapshot,
                 OutputReceivePreparedMap = QMC.CDT320.DieMaps.WaferMapProcessService.CloneMap(source.OutputReceivePreparedMap),
                 OutputReceivePreparedMapInstanceId = source.OutputReceivePreparedMapInstanceId,
                 OutputReceiveSourceWaferId = source.OutputReceiveSourceWaferId,

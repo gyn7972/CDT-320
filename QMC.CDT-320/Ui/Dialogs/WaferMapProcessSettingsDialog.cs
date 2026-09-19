@@ -33,10 +33,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             _saveAndApply = saveAndApply ?? throw new ArgumentNullException(nameof(saveAndApply));
             _input = WaferMapProcessService.CloneSettings(project.InputMapProcessing);
             _output = WaferMapProcessService.CloneSettings(project.OutputMapProcessing);
-            cmbInputSource.SelectedIndex = RecipeInputMapSource.UsesRemote(project, QMC.CDT320.AppSettingsStore.Current) ? 0 : 1;
-            lblSourceHint.Text = project.InputUseRemoteWaferMap.HasValue
-                ? "입력 사용 모드는 레시피별로 저장됩니다. 출력은 항상 등록 맵을 사용합니다."
-                : "기존 공통 설정을 불러왔습니다. 저장하면 이 레시피의 사용 모드로 고정됩니다.";
+            cmbInputSource.SelectedIndex = RecipeInputMapSource.RequestedUsesRemote(project, QMC.CDT320.AppSettingsStore.Current) ? 0 : 1;
+            lblSourceHint.Text = RecipeInputMapSource.DescribeMode(project, QMC.CDT320.AppSettingsStore.Current) +
+                "\r\n시작 전: 바로 적용 · 투입 시작 후: 다음 웨이퍼 적용";
+            btnSave.Text = "설정 저장 및 적용";
             lblRecipe.Text = "레시피: " + project.FileName + "   ·   입력 / 출력 설정";
             mapView.CellTextResolver = entry => entry.LogicalGridX == 0 && entry.LogicalGridY == 0
                 ? "1,1" : entry.SequenceNo > 0 ? entry.SequenceNo.ToString(CultureInfo.InvariantCulture) : "";

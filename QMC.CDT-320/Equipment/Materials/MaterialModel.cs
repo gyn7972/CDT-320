@@ -590,6 +590,8 @@ namespace QMC.CDT320.Materials
         [DataMember(EmitDefaultValue = false)] public string InputPreparedMapInstanceId { get; set; }
         [DataMember(EmitDefaultValue = false)] public string InputPreparedMapBarcode { get; set; }
         [DataMember] public bool InputPreparedMapUsesNetwork { get; set; }
+        // 투입 시작에서 고정한다. 바코드 실패/정지/재시작으로 같은 웨이퍼의 모드가 바뀌지 않는다.
+        [DataMember(EmitDefaultValue = false)] public bool? InputMapUseRemoteSnapshot { get; set; }
         [DataMember(EmitDefaultValue = false)] public QMC.CDT320.DieMaps.DieMap OutputReceivePreparedMap { get; set; }
         [DataMember(EmitDefaultValue = false)] public string OutputReceivePreparedMapInstanceId { get; set; }
         [DataMember] public string OutputReceiveSourceWaferId { get; set; } = "";

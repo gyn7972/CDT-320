@@ -112,6 +112,11 @@
     <Compile Include="IO\BaseDigitalInput.cs" />
     <Compile Include="IO\BaseDigitalOutput.cs" />
     <Compile Include="IO\IoData.cs" />
+    <Compile Include="Localization\ILocalizationSource.cs" />
+    <Compile Include="Localization\ILocalizedView.cs" />
+    <Compile Include="Localization\LocalizationService.cs" />
+    <Compile Include="Localization\ResourceLocalizationSource.cs" />
+    <Compile Include="Localization\WinFormsLocalizationBinder.cs" />
     <Compile Include="Logging\ConsoleLogger.cs" />
     <Compile Include="Logging\EventKind.cs" />
     <Compile Include="Logging\EventLogger.cs" />
@@ -193,6 +198,12 @@
     <EmbeddedResource Include="Ui\MessageBox\MessageBoxYesNoRetry.resx">
       <DependentUpon>MessageBoxYesNoRetry.cs</DependentUpon>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Localization\Resources\CommonStrings.ja.resx" />
+    <EmbeddedResource Include="Localization\Resources\CommonStrings.ko.resx" />
+    <EmbeddedResource Include="Localization\Resources\CommonStrings.resx" />
+    <EmbeddedResource Include="Localization\Resources\CommonStrings.zh-CN.resx" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

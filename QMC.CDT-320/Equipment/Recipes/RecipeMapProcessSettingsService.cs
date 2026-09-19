@@ -23,6 +23,7 @@ namespace QMC.CDT320.Recipes
                 updated = (RecipeProject)serializer.ReadObject(stream);
             }
             updated.InputUseRemoteWaferMap = inputUsesNetwork;
+            updated.NextInputUseRemoteWaferMap = null;
             updated.InputMapProcessing = WaferMapProcessService.CloneSettings(input);
             updated.OutputMapProcessing = WaferMapProcessService.CloneSettings(output);
             foreach (RecipeMapKind kind in new[] { RecipeMapKind.Input, RecipeMapKind.GoodBin, RecipeMapKind.NgBin })

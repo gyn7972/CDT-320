@@ -1,0 +1,2489 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 기존 Display 호출 호환용 영어 문구. 키는 고정 식별자이며 문구 수정 시 변경하지 않습니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="display.1.collet.used" xml:space="preserve">
+    <value>#1 Collet Used</value>
+  </data>
+  <data name="display.2.collet.used" xml:space="preserve">
+    <value>#2 Collet Used</value>
+  </data>
+  <data name="display.accounts" xml:space="preserve">
+    <value>Accounts</value>
+  </data>
+  <data name="display.action" xml:space="preserve">
+    <value>ACTION</value>
+  </data>
+  <data name="display.active.lot.id" xml:space="preserve">
+    <value>Active LOT ID</value>
+  </data>
+  <data name="display.add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="display.admin" xml:space="preserve">
+    <value>Admin</value>
+  </data>
+  <data name="display.af.process.z.pick.place" xml:space="preserve">
+    <value>AF PROCESS Z (PICK/PLACE)</value>
+  </data>
+  <data name="display.af.z.update.limit" xml:space="preserve">
+    <value>AF Z UPDATE LIMIT</value>
+  </data>
+  <data name="display.alarm.master" xml:space="preserve">
+    <value>Alarm Master</value>
+  </data>
+  <data name="display.alarm.titleCase" xml:space="preserve">
+    <value>Alarm</value>
+  </data>
+  <data name="display.alarm.uppercase" xml:space="preserve">
+    <value>ALARM</value>
+  </data>
+  <data name="display.align.center.tolerance" xml:space="preserve">
+    <value>ALIGN CENTER TOLERANCE</value>
+  </data>
+  <data name="display.align.complete" xml:space="preserve">
+    <value>Align Complete</value>
+  </data>
+  <data name="display.align.confirm" xml:space="preserve">
+    <value>ALIGN CONFIRM</value>
+  </data>
+  <data name="display.align.iterations" xml:space="preserve">
+    <value>ALIGN ITERATIONS</value>
+  </data>
+  <data name="display.align.match.fail" xml:space="preserve">
+    <value>ALIGN MATCH FAIL</value>
+  </data>
+  <data name="display.align.offset.titleCase" xml:space="preserve">
+    <value>Align Offset</value>
+  </data>
+  <data name="display.align.offset.uppercase" xml:space="preserve">
+    <value>ALIGN OFFSET</value>
+  </data>
+  <data name="display.align.pitch.tolerance" xml:space="preserve">
+    <value>ALIGN PITCH TOLERANCE</value>
+  </data>
+  <data name="display.align.search.points" xml:space="preserve">
+    <value>ALIGN SEARCH POINTS</value>
+  </data>
+  <data name="display.align.t.effective.max" xml:space="preserve">
+    <value>ALIGN T EFFECTIVE MAX</value>
+  </data>
+  <data name="display.align.t.limit" xml:space="preserve">
+    <value>ALIGN T LIMIT</value>
+  </data>
+  <data name="display.align.threshold" xml:space="preserve">
+    <value>ALIGN THRESHOLD</value>
+  </data>
+  <data name="display.align.vision.retry" xml:space="preserve">
+    <value>ALIGN VISION RETRY</value>
+  </data>
+  <data name="display.align.vision.setting" xml:space="preserve">
+    <value>ALIGN VISION SETTING</value>
+  </data>
+  <data name="display.align.vision.timeout" xml:space="preserve">
+    <value>ALIGN VISION TIMEOUT</value>
+  </data>
+  <data name="display.alignment.solver" xml:space="preserve">
+    <value>AlignmentSolver</value>
+  </data>
+  <data name="display.apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="display.auto.pos.setup" xml:space="preserve">
+    <value>AUTO POS SETUP</value>
+  </data>
+  <data name="display.auto.position" xml:space="preserve">
+    <value>AUTO POSITION</value>
+  </data>
+  <data name="display.auto.position.setup.mode" xml:space="preserve">
+    <value>Auto Position Setup Mode</value>
+  </data>
+  <data name="display.auto.run" xml:space="preserve">
+    <value>AUTO RUN</value>
+  </data>
+  <data name="display.avoid" xml:space="preserve">
+    <value>AVOID</value>
+  </data>
+  <data name="display.avoid.position" xml:space="preserve">
+    <value>AVOID POSITION</value>
+  </data>
+  <data name="display.axis.setup" xml:space="preserve">
+    <value>Axis Setup</value>
+  </data>
+  <data name="display.barcode" xml:space="preserve">
+    <value>BARCODE</value>
+  </data>
+  <data name="display.barcode.camera.result.timeout" xml:space="preserve">
+    <value>BARCODE CAMERA RESULT TIMEOUT</value>
+  </data>
+  <data name="display.barcode.camera.shot.offset" xml:space="preserve">
+    <value>BARCODE CAMERA SHOT OFFSET</value>
+  </data>
+  <data name="display.barcode.confirm" xml:space="preserve">
+    <value>BARCODE CONFIRM</value>
+  </data>
+  <data name="display.barcode.lot.check" xml:space="preserve">
+    <value>BARCODE LOT CHECK</value>
+  </data>
+  <data name="display.barcode.position" xml:space="preserve">
+    <value>BARCODE POSITION</value>
+  </data>
+  <data name="display.barcode.use.camera" xml:space="preserve">
+    <value>BARCODE USE CAMERA</value>
+  </data>
+  <data name="display.bin" xml:space="preserve">
+    <value>BIN</value>
+  </data>
+  <data name="display.bin.array.file" xml:space="preserve">
+    <value>Bin Array File</value>
+  </data>
+  <data name="display.bin.array.monitor" xml:space="preserve">
+    <value>Bin Array Monitor</value>
+  </data>
+  <data name="display.bin.code.map.mixedCase" xml:space="preserve">
+    <value>BinCodeMap</value>
+  </data>
+  <data name="display.bin.code.map.uppercase" xml:space="preserve">
+    <value>BIN CODE MAP</value>
+  </data>
+  <data name="display.bin.die.map.create" xml:space="preserve">
+    <value>BIN DIE MAP CREATE</value>
+  </data>
+  <data name="display.bin.id" xml:space="preserve">
+    <value>Bin ID :</value>
+  </data>
+  <data name="display.blow" xml:space="preserve">
+    <value>BLOW</value>
+  </data>
+  <data name="display.both" xml:space="preserve">
+    <value>BOTH</value>
+  </data>
+  <data name="display.bottom" xml:space="preserve">
+    <value>BOTTOM</value>
+  </data>
+  <data name="display.bottom.approach.premotion.dist" xml:space="preserve">
+    <value>BOTTOM APPROACH PREMOTION DIST</value>
+  </data>
+  <data name="display.bottom.flying.z.down.distance" xml:space="preserve">
+    <value>BOTTOM FLYING Z DOWN DISTANCE</value>
+  </data>
+  <data name="display.bottom.flying.z.down.mode" xml:space="preserve">
+    <value>BOTTOM FLYING Z DOWN MODE</value>
+  </data>
+  <data name="display.bottom.motion.setting" xml:space="preserve">
+    <value>BOTTOM MOTION SETTING</value>
+  </data>
+  <data name="display.bottom.p1.side.p4.overlap" xml:space="preserve">
+    <value>BOTTOM P1 + SIDE P4 OVERLAP</value>
+  </data>
+  <data name="display.bottom.place.correction.limit" xml:space="preserve">
+    <value>BOTTOM PLACE CORRECTION LIMIT</value>
+  </data>
+  <data name="display.bottom.position" xml:space="preserve">
+    <value>BOTTOM POSITION</value>
+  </data>
+  <data name="display.bottom.side.clear" xml:space="preserve">
+    <value>BOTTOM/SIDE CLEAR</value>
+  </data>
+  <data name="display.bottom.to.pick" xml:space="preserve">
+    <value>BOTTOM TO PICK</value>
+  </data>
+  <data name="display.bottom.to.place" xml:space="preserve">
+    <value>BOTTOM TO PLACE</value>
+  </data>
+  <data name="display.bottom.vision" xml:space="preserve">
+    <value>BOTTOM VISION</value>
+  </data>
+  <data name="display.buzzer.off" xml:space="preserve">
+    <value>BUZZER OFF</value>
+  </data>
+  <data name="display.buzzer.stop" xml:space="preserve">
+    <value>BUZZER&#13;&#10;STOP</value>
+  </data>
+  <data name="display.calibration" xml:space="preserve">
+    <value>CALIBRATION</value>
+  </data>
+  <data name="display.camera.setup" xml:space="preserve">
+    <value>Camera Setup</value>
+  </data>
+  <data name="display.cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="display.caption" xml:space="preserve">
+    <value>Caption</value>
+  </data>
+  <data name="display.capture.timeout" xml:space="preserve">
+    <value>CAPTURE TIMEOUT</value>
+  </data>
+  <data name="display.cassette.exchange.position" xml:space="preserve">
+    <value>CASSETTE EXCHANGE POSITION</value>
+  </data>
+  <data name="display.cassette.id" xml:space="preserve">
+    <value>Cassette ID</value>
+  </data>
+  <data name="display.cassette.level" xml:space="preserve">
+    <value>CASSETTE LEVEL</value>
+  </data>
+  <data name="display.cassette.load.position" xml:space="preserve">
+    <value>CASSETTE LOAD POSITION</value>
+  </data>
+  <data name="display.cassette.mapped" xml:space="preserve">
+    <value>Cassette Mapped</value>
+  </data>
+  <data name="display.cassette.position" xml:space="preserve">
+    <value>Cassette Position</value>
+  </data>
+  <data name="display.cassette.role" xml:space="preserve">
+    <value>Cassette Role</value>
+  </data>
+  <data name="display.cassette.slot" xml:space="preserve">
+    <value>Cassette Slot</value>
+  </data>
+  <data name="display.cassette.unload.position" xml:space="preserve">
+    <value>CASSETTE UNLOAD POSITION</value>
+  </data>
+  <data name="display.ccs.check" xml:space="preserve">
+    <value>CCS Check</value>
+  </data>
+  <data name="display.ccs.inspection" xml:space="preserve">
+    <value>CCS INSPECTION</value>
+  </data>
+  <data name="display.cdt.320" xml:space="preserve">
+    <value>CDT-320</value>
+  </data>
+  <data name="display.check" xml:space="preserve">
+    <value>CHECK</value>
+  </data>
+  <data name="display.chinese" xml:space="preserve">
+    <value>Chinese</value>
+  </data>
+  <data name="display.clamp" xml:space="preserve">
+    <value>CLAMP</value>
+  </data>
+  <data name="display.clear.all.count" xml:space="preserve">
+    <value>Clear All Count</value>
+  </data>
+  <data name="display.clear.titleCase" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="display.clear.uppercase" xml:space="preserve">
+    <value>CLEAR</value>
+  </data>
+  <data name="display.code" xml:space="preserve">
+    <value>CODE</value>
+  </data>
+  <data name="display.collet.1.pick.overdrive" xml:space="preserve">
+    <value>COLLET 1 PICK OVERDRIVE</value>
+  </data>
+  <data name="display.collet.2.pick.overdrive" xml:space="preserve">
+    <value>COLLET 2 PICK OVERDRIVE</value>
+  </data>
+  <data name="display.collet.3.pick.overdrive" xml:space="preserve">
+    <value>COLLET 3 PICK OVERDRIVE</value>
+  </data>
+  <data name="display.collet.4.pick.overdrive" xml:space="preserve">
+    <value>COLLET 4 PICK OVERDRIVE</value>
+  </data>
+  <data name="display.collet.change" xml:space="preserve">
+    <value>COLLET CHANGE</value>
+  </data>
+  <data name="display.collet.change.mode" xml:space="preserve">
+    <value>Collet Change Mode</value>
+  </data>
+  <data name="display.collet.changing" xml:space="preserve">
+    <value>COLLET CHANGING</value>
+  </data>
+  <data name="display.collet.check" xml:space="preserve">
+    <value>COLLET CHECK</value>
+  </data>
+  <data name="display.collet.check.mode" xml:space="preserve">
+    <value>Collet Check Mode</value>
+  </data>
+  <data name="display.collet.cleaning" xml:space="preserve">
+    <value>COLLET CLEANING</value>
+  </data>
+  <data name="display.collet.cleaning.mode" xml:space="preserve">
+    <value>Collet Cleaning Mode</value>
+  </data>
+  <data name="display.collet.exchange.position" xml:space="preserve">
+    <value>COLLET EXCHANGE POSITION</value>
+  </data>
+  <data name="display.collet.rotation.center" xml:space="preserve">
+    <value>COLLET ROTATION CENTER</value>
+  </data>
+  <data name="display.collet.unused" xml:space="preserve">
+    <value>COLLET UNUSED</value>
+  </data>
+  <data name="display.collet.use" xml:space="preserve">
+    <value>COLLET USE</value>
+  </data>
+  <data name="display.complete.titleCase" xml:space="preserve">
+    <value>Complete</value>
+  </data>
+  <data name="display.complete.uppercase" xml:space="preserve">
+    <value>COMPLETE</value>
+  </data>
+  <data name="display.completed.titleCase" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="display.completed.uppercase" xml:space="preserve">
+    <value>COMPLETED</value>
+  </data>
+  <data name="display.config" xml:space="preserve">
+    <value>CONFIG</value>
+  </data>
+  <data name="display.config.dry.run" xml:space="preserve">
+    <value>CONFIG DRY RUN</value>
+  </data>
+  <data name="display.connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="display.connected" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="display.cont.up.time" xml:space="preserve">
+    <value>Cont Up Time</value>
+  </data>
+  <data name="display.continue" xml:space="preserve">
+    <value>CONTINUE</value>
+  </data>
+  <data name="display.coord" xml:space="preserve">
+    <value>coord</value>
+  </data>
+  <data name="display.count" xml:space="preserve">
+    <value>count</value>
+  </data>
+  <data name="display.count.clear" xml:space="preserve">
+    <value>COUNT CLEAR</value>
+  </data>
+  <data name="display.counter" xml:space="preserve">
+    <value>COUNTER</value>
+  </data>
+  <data name="display.cst.clear" xml:space="preserve">
+    <value>CST CLEAR</value>
+  </data>
+  <data name="display.cst.exchange" xml:space="preserve">
+    <value>CST EXCHANGE</value>
+  </data>
+  <data name="display.current.loc" xml:space="preserve">
+    <value>Current Loc</value>
+  </data>
+  <data name="display.cycle.run" xml:space="preserve">
+    <value>CYCLE RUN</value>
+  </data>
+  <data name="display.cycle.stop" xml:space="preserve">
+    <value>CYCLE STOP</value>
+  </data>
+  <data name="display.cycle.stopped" xml:space="preserve">
+    <value>CycleStopped</value>
+  </data>
+  <data name="display.cycle.time" xml:space="preserve">
+    <value>CYCLE TIME</value>
+  </data>
+  <data name="display.cylinder" xml:space="preserve">
+    <value>CYLINDER</value>
+  </data>
+  <data name="display.cylinder.info" xml:space="preserve">
+    <value>CYLINDER INFO</value>
+  </data>
+  <data name="display.data" xml:space="preserve">
+    <value>DATA</value>
+  </data>
+  <data name="display.data.all.clear" xml:space="preserve">
+    <value>DATA ALL CLEAR</value>
+  </data>
+  <data name="display.data.clear" xml:space="preserve">
+    <value>DATA CLEAR</value>
+  </data>
+  <data name="display.data.create" xml:space="preserve">
+    <value>DATA CREATE</value>
+  </data>
+  <data name="display.data.only.no.motion.material" xml:space="preserve">
+    <value>DATA ONLY / NO MOTION — 실물 위치를 확인한 후 Material 데이터만 이동/삭제하십시오. 장비는 움직이지 않습니다.</value>
+  </data>
+  <data name="display.date" xml:space="preserve">
+    <value>DATE</value>
+  </data>
+  <data name="display.delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="display.delete.data" xml:space="preserve">
+    <value>DELETE DATA</value>
+  </data>
+  <data name="display.description" xml:space="preserve">
+    <value>DESCRIPTION</value>
+  </data>
+  <data name="display.dest" xml:space="preserve">
+    <value>DEST</value>
+  </data>
+  <data name="display.developer.mode" xml:space="preserve">
+    <value>DEVELOPER MODE</value>
+  </data>
+  <data name="display.die.id" xml:space="preserve">
+    <value>Die ID</value>
+  </data>
+  <data name="display.die.map" xml:space="preserve">
+    <value>DIE MAP</value>
+  </data>
+  <data name="display.die.map.complete" xml:space="preserve">
+    <value>DieMap Complete</value>
+  </data>
+  <data name="display.die.map.fine.offset.x.limit" xml:space="preserve">
+    <value>DIE MAP FINE OFFSET X LIMIT</value>
+  </data>
+  <data name="display.die.map.fine.offset.y.limit" xml:space="preserve">
+    <value>DIE MAP FINE OFFSET Y LIMIT</value>
+  </data>
+  <data name="display.die.map.generator" xml:space="preserve">
+    <value>DieMap generator</value>
+  </data>
+  <data name="display.die.map.grid" xml:space="preserve">
+    <value>DieMap Grid</value>
+  </data>
+  <data name="display.die.map.obj.id" xml:space="preserve">
+    <value>DieMap ObjId</value>
+  </data>
+  <data name="display.die.map.offset.mixedCase" xml:space="preserve">
+    <value>DieMap Offset</value>
+  </data>
+  <data name="display.die.map.offset.uppercase" xml:space="preserve">
+    <value>DIE MAP OFFSET</value>
+  </data>
+  <data name="display.die.map.slots" xml:space="preserve">
+    <value>DieMap Slots</value>
+  </data>
+  <data name="display.die.mapping" xml:space="preserve">
+    <value>DIE MAPPING</value>
+  </data>
+  <data name="display.die.result.routing.mode" xml:space="preserve">
+    <value>DIE RESULT ROUTING MODE</value>
+  </data>
+  <data name="display.die.spec" xml:space="preserve">
+    <value>Die Spec</value>
+  </data>
+  <data name="display.digital" xml:space="preserve">
+    <value>DIGITAL</value>
+  </data>
+  <data name="display.digital.link" xml:space="preserve">
+    <value>DIGITAL LINK</value>
+  </data>
+  <data name="display.disable" xml:space="preserve">
+    <value>DISABLE</value>
+  </data>
+  <data name="display.disconnect" xml:space="preserve">
+    <value>Disconnect</value>
+  </data>
+  <data name="display.disconnected" xml:space="preserve">
+    <value>Disconnected</value>
+  </data>
+  <data name="display.door.close.multiline" xml:space="preserve">
+    <value>DOOR&#13;&#10;CLOSE</value>
+  </data>
+  <data name="display.door.close.singleLine" xml:space="preserve">
+    <value>DOOR CLOSE</value>
+  </data>
+  <data name="display.door.open.multiline" xml:space="preserve">
+    <value>DOOR&#13;&#10;OPEN</value>
+  </data>
+  <data name="display.door.open.singleLine" xml:space="preserve">
+    <value>DOOR OPEN</value>
+  </data>
+  <data name="display.down" xml:space="preserve">
+    <value>DOWN</value>
+  </data>
+  <data name="display.dry.run" xml:space="preserve">
+    <value>DRY RUN</value>
+  </data>
+  <data name="display.dry.run.mode" xml:space="preserve">
+    <value>DRY RUN MODE</value>
+  </data>
+  <data name="display.dt.count" xml:space="preserve">
+    <value>DT Count</value>
+  </data>
+  <data name="display.dynamic.wait.extra.margin" xml:space="preserve">
+    <value>DYNAMIC WAIT EXTRA MARGIN</value>
+  </data>
+  <data name="display.e.stop" xml:space="preserve">
+    <value>E-STOP</value>
+  </data>
+  <data name="display.ea.suffix" xml:space="preserve">
+    <value> ea</value>
+  </data>
+  <data name="display.ea.unit" xml:space="preserve">
+    <value>ea</value>
+  </data>
+  <data name="display.eject.pin.axis.z" xml:space="preserve">
+    <value>EJECT PIN AXIS Z</value>
+  </data>
+  <data name="display.eject.pin.pick.offset" xml:space="preserve">
+    <value>EJECT PIN PICK OFFSET</value>
+  </data>
+  <data name="display.eject.pin.z" xml:space="preserve">
+    <value>EJECT PIN Z</value>
+  </data>
+  <data name="display.empty" xml:space="preserve">
+    <value>EMPTY</value>
+  </data>
+  <data name="display.empty.map" xml:space="preserve">
+    <value>Empty Map</value>
+  </data>
+  <data name="display.enable" xml:space="preserve">
+    <value>ENABLE</value>
+  </data>
+  <data name="display.enc" xml:space="preserve">
+    <value>ENC</value>
+  </data>
+  <data name="display.engineer" xml:space="preserve">
+    <value>Engineer</value>
+  </data>
+  <data name="display.english" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="display.err.down.count" xml:space="preserve">
+    <value>Err Down Count</value>
+  </data>
+  <data name="display.err.down.time" xml:space="preserve">
+    <value>Err Down Time</value>
+  </data>
+  <data name="display.event" xml:space="preserve">
+    <value>EVENT</value>
+  </data>
+  <data name="display.exchange.input.side.x" xml:space="preserve">
+    <value>EXCHANGE INPUT SIDE X</value>
+  </data>
+  <data name="display.exchange.output.side.x" xml:space="preserve">
+    <value>EXCHANGE OUTPUT SIDE X</value>
+  </data>
+  <data name="display.exist" xml:space="preserve">
+    <value>EXIST</value>
+  </data>
+  <data name="display.exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="display.expander.z" xml:space="preserve">
+    <value>EXPANDER Z</value>
+  </data>
+  <data name="display.expending" xml:space="preserve">
+    <value>EXPENDING</value>
+  </data>
+  <data name="display.false" xml:space="preserve">
+    <value>False</value>
+  </data>
+  <data name="display.feeder.clamp" xml:space="preserve">
+    <value>FEEDER CLAMP</value>
+  </data>
+  <data name="display.feeder.up.down" xml:space="preserve">
+    <value>FEEDER UP DOWN</value>
+  </data>
+  <data name="display.filter.setting" xml:space="preserve">
+    <value>FILTER SETTING</value>
+  </data>
+  <data name="display.finish" xml:space="preserve">
+    <value>FINISH</value>
+  </data>
+  <data name="display.force.control" xml:space="preserve">
+    <value>FORCE CONTROL</value>
+  </data>
+  <data name="display.frame.size" xml:space="preserve">
+    <value>Frame Size</value>
+  </data>
+  <data name="display.front.head" xml:space="preserve">
+    <value>FRONT HEAD</value>
+  </data>
+  <data name="display.front.picker" xml:space="preserve">
+    <value>FRONT PICKER</value>
+  </data>
+  <data name="display.front.picker.head.1.die" xml:space="preserve">
+    <value>FRONT PICKER HEAD #1 DIE</value>
+  </data>
+  <data name="display.front.picker.head.2.die" xml:space="preserve">
+    <value>FRONT PICKER HEAD #2 DIE</value>
+  </data>
+  <data name="display.front.picker.head.3.die" xml:space="preserve">
+    <value>FRONT PICKER HEAD #3 DIE</value>
+  </data>
+  <data name="display.front.picker.head.4.die" xml:space="preserve">
+    <value>FRONT PICKER HEAD #4 DIE</value>
+  </data>
+  <data name="display.front.picker.use" xml:space="preserve">
+    <value>FRONT PICKER USE</value>
+  </data>
+  <data name="display.front.y" xml:space="preserve">
+    <value>FRONT Y</value>
+  </data>
+  <data name="display.fronthead.seq" xml:space="preserve">
+    <value>FRONTHEAD SEQ</value>
+  </data>
+  <data name="display.general" xml:space="preserve">
+    <value>GENERAL</value>
+  </data>
+  <data name="display.good.1" xml:space="preserve">
+    <value>GOOD 1단</value>
+  </data>
+  <data name="display.good.2" xml:space="preserve">
+    <value>GOOD 2단</value>
+  </data>
+  <data name="display.good.bin.loading" xml:space="preserve">
+    <value>GOOD BIN LOADING</value>
+  </data>
+  <data name="display.good.bin.mapping" xml:space="preserve">
+    <value>GOOD BIN MAPPING</value>
+  </data>
+  <data name="display.good.bin.unloading" xml:space="preserve">
+    <value>GOOD BIN UNLOADING</value>
+  </data>
+  <data name="display.good.cassette.exchange.position" xml:space="preserve">
+    <value>GOOD CASSETTE EXCHANGE POSITION</value>
+  </data>
+  <data name="display.good.cassette.load.position" xml:space="preserve">
+    <value>GOOD CASSETTE LOAD POSITION</value>
+  </data>
+  <data name="display.good.cassette.unload.position" xml:space="preserve">
+    <value>GOOD CASSETTE UNLOAD POSITION</value>
+  </data>
+  <data name="display.good.clamp" xml:space="preserve">
+    <value>GOOD CLAMP</value>
+  </data>
+  <data name="display.good.clamp.lift" xml:space="preserve">
+    <value>GOOD CLAMP LIFT</value>
+  </data>
+  <data name="display.good.count.mixedCase" xml:space="preserve">
+    <value>GOOD Count</value>
+  </data>
+  <data name="display.good.count.uppercase" xml:space="preserve">
+    <value>GOOD COUNT</value>
+  </data>
+  <data name="display.good.cst.clear" xml:space="preserve">
+    <value>GOOD CST CLEAR</value>
+  </data>
+  <data name="display.good.cst.exchange" xml:space="preserve">
+    <value>GOOD CST EXCHANGE</value>
+  </data>
+  <data name="display.good.exist" xml:space="preserve">
+    <value>GOOD EXIST</value>
+  </data>
+  <data name="display.good.first.slot.position" xml:space="preserve">
+    <value>GOOD FIRST SLOT POSITION</value>
+  </data>
+  <data name="display.good.guide" xml:space="preserve">
+    <value>GOOD GUIDE</value>
+  </data>
+  <data name="display.good.load" xml:space="preserve">
+    <value>GOOD LOAD</value>
+  </data>
+  <data name="display.good.loading.z.position" xml:space="preserve">
+    <value>GOOD LOADING Z POSITION</value>
+  </data>
+  <data name="display.good.ng.offset" xml:space="preserve">
+    <value>GOOD/NG OFFSET</value>
+  </data>
+  <data name="display.good.output.pickup.cap" xml:space="preserve">
+    <value>GOOD OUTPUT PICKUP CAP</value>
+  </data>
+  <data name="display.good.process" xml:space="preserve">
+    <value>GOOD PROCESS</value>
+  </data>
+  <data name="display.good.stage.y" xml:space="preserve">
+    <value>GOOD STAGE Y</value>
+  </data>
+  <data name="display.good.stage.z" xml:space="preserve">
+    <value>GOOD STAGE Z</value>
+  </data>
+  <data name="display.good.state" xml:space="preserve">
+    <value>GOOD STATE</value>
+  </data>
+  <data name="display.good.titleCase" xml:space="preserve">
+    <value>Good</value>
+  </data>
+  <data name="display.good.unload" xml:space="preserve">
+    <value>GOOD UNLOAD</value>
+  </data>
+  <data name="display.good.unloading.z.position" xml:space="preserve">
+    <value>GOOD UNLOADING Z POSITION</value>
+  </data>
+  <data name="display.good.uppercase" xml:space="preserve">
+    <value>GOOD</value>
+  </data>
+  <data name="display.good.wafer.barcode.position" xml:space="preserve">
+    <value>GOOD WAFER BARCODE POSITION</value>
+  </data>
+  <data name="display.good.wafer.load.avoid.position" xml:space="preserve">
+    <value>GOOD WAFER LOAD AVOID POSITION</value>
+  </data>
+  <data name="display.good.wafer.load.position" xml:space="preserve">
+    <value>GOOD WAFER LOAD POSITION</value>
+  </data>
+  <data name="display.good.wafer.unload.avoid.position" xml:space="preserve">
+    <value>GOOD WAFER UNLOAD AVOID POSITION</value>
+  </data>
+  <data name="display.good.wafer.unload.position" xml:space="preserve">
+    <value>GOOD WAFER UNLOAD POSITION</value>
+  </data>
+  <data name="display.good.y" xml:space="preserve">
+    <value>GOOD Y</value>
+  </data>
+  <data name="display.good.z" xml:space="preserve">
+    <value>GOOD Z</value>
+  </data>
+  <data name="display.good1" xml:space="preserve">
+    <value>GOOD1</value>
+  </data>
+  <data name="display.good1.mapping.end.z.position" xml:space="preserve">
+    <value>GOOD1 MAPPING END Z POSITION</value>
+  </data>
+  <data name="display.good1.mapping.start.z.position" xml:space="preserve">
+    <value>GOOD1 MAPPING START Z POSITION</value>
+  </data>
+  <data name="display.good2" xml:space="preserve">
+    <value>GOOD2</value>
+  </data>
+  <data name="display.good2.first.slot.position" xml:space="preserve">
+    <value>GOOD2 FIRST SLOT POSITION</value>
+  </data>
+  <data name="display.good2.mapping.end.z.position" xml:space="preserve">
+    <value>GOOD2 MAPPING END Z POSITION</value>
+  </data>
+  <data name="display.good2.mapping.start.z.position" xml:space="preserve">
+    <value>GOOD2 MAPPING START Z POSITION</value>
+  </data>
+  <data name="display.grade" xml:space="preserve">
+    <value>Grade</value>
+  </data>
+  <data name="display.grid" xml:space="preserve">
+    <value>Grid</value>
+  </data>
+  <data name="display.guest" xml:space="preserve">
+    <value>Guest</value>
+  </data>
+  <data name="display.head.1.numberSign" xml:space="preserve">
+    <value>HEAD #1</value>
+  </data>
+  <data name="display.head.1.plain" xml:space="preserve">
+    <value>HEAD 1</value>
+  </data>
+  <data name="display.head.2.numberSign" xml:space="preserve">
+    <value>HEAD #2</value>
+  </data>
+  <data name="display.head.2.plain" xml:space="preserve">
+    <value>HEAD 2</value>
+  </data>
+  <data name="display.head.3.numberSign" xml:space="preserve">
+    <value>HEAD #3</value>
+  </data>
+  <data name="display.head.3.plain" xml:space="preserve">
+    <value>HEAD 3</value>
+  </data>
+  <data name="display.head.4.numberSign" xml:space="preserve">
+    <value>HEAD #4</value>
+  </data>
+  <data name="display.head.4.plain" xml:space="preserve">
+    <value>HEAD 4</value>
+  </data>
+  <data name="display.head.axis.t" xml:space="preserve">
+    <value>HEAD AXIS T</value>
+  </data>
+  <data name="display.head.blow" xml:space="preserve">
+    <value>HEAD BLOW</value>
+  </data>
+  <data name="display.head.die" xml:space="preserve">
+    <value>HEAD DIE</value>
+  </data>
+  <data name="display.head.pick.overdrive" xml:space="preserve">
+    <value>HEAD PICK OVERDRIVE</value>
+  </data>
+  <data name="display.head.vacuum" xml:space="preserve">
+    <value>HEAD VACUUM</value>
+  </data>
+  <data name="display.head.zone" xml:space="preserve">
+    <value>HEAD ZONE</value>
+  </data>
+  <data name="display.height.sensor" xml:space="preserve">
+    <value>HEIGHT SENSOR</value>
+  </data>
+  <data name="display.history" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="display.host" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="display.idle" xml:space="preserve">
+    <value>IDLE</value>
+  </data>
+  <data name="display.inch" xml:space="preserve">
+    <value>Inch</value>
+  </data>
+  <data name="display.inch.select" xml:space="preserve">
+    <value>INCH SELECT</value>
+  </data>
+  <data name="display.incomplete.titleCase" xml:space="preserve">
+    <value>Incomplete</value>
+  </data>
+  <data name="display.incomplete.uppercase" xml:space="preserve">
+    <value>INCOMPLETE</value>
+  </data>
+  <data name="display.index" xml:space="preserve">
+    <value>INDEX</value>
+  </data>
+  <data name="display.info.titleCase" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="display.info.uppercase" xml:space="preserve">
+    <value>INFO</value>
+  </data>
+  <data name="display.init" xml:space="preserve">
+    <value>Init</value>
+  </data>
+  <data name="display.init.all" xml:space="preserve">
+    <value>Init All</value>
+  </data>
+  <data name="display.initializing.titleCase" xml:space="preserve">
+    <value>Initializing</value>
+  </data>
+  <data name="display.initializing.uppercase" xml:space="preserve">
+    <value>INITIALIZING</value>
+  </data>
+  <data name="display.input" xml:space="preserve">
+    <value>INPUT</value>
+  </data>
+  <data name="display.input.align.teach" xml:space="preserve">
+    <value>INPUT ALIGN TEACH</value>
+  </data>
+  <data name="display.input.cassette" xml:space="preserve">
+    <value>INPUT CASSETTE</value>
+  </data>
+  <data name="display.input.create" xml:space="preserve">
+    <value>INPUT CREATE</value>
+  </data>
+  <data name="display.input.cst.status" xml:space="preserve">
+    <value>INPUT CST STATUS</value>
+  </data>
+  <data name="display.input.die.map.create" xml:space="preserve">
+    <value>INPUT DIE MAP CREATE</value>
+  </data>
+  <data name="display.input.die.map.switch" xml:space="preserve">
+    <value>INPUT Die Map Switch</value>
+  </data>
+  <data name="display.input.die.vision.fail.action" xml:space="preserve">
+    <value>INPUT DIE VISION FAIL ACTION</value>
+  </data>
+  <data name="display.input.die.vision.retry" xml:space="preserve">
+    <value>INPUT DIE VISION RETRY</value>
+  </data>
+  <data name="display.input.die.vision.setting" xml:space="preserve">
+    <value>INPUT DIE VISION SETTING</value>
+  </data>
+  <data name="display.input.die.vision.wait.retry.limit" xml:space="preserve">
+    <value>INPUT DIE VISION WAIT RETRY LIMIT</value>
+  </data>
+  <data name="display.input.feeder" xml:space="preserve">
+    <value>INPUT FEEDER</value>
+  </data>
+  <data name="display.input.safety.offset" xml:space="preserve">
+    <value>INPUT SAFETY OFFSET</value>
+  </data>
+  <data name="display.input.seq" xml:space="preserve">
+    <value>INPUT SEQ</value>
+  </data>
+  <data name="display.input.stage.die.map" xml:space="preserve">
+    <value>INPUT STAGE DIE MAP</value>
+  </data>
+  <data name="display.input.stage.titleCase" xml:space="preserve">
+    <value>Input Stage</value>
+  </data>
+  <data name="display.input.stage.uppercase" xml:space="preserve">
+    <value>INPUT STAGE</value>
+  </data>
+  <data name="display.input.target" xml:space="preserve">
+    <value>Input Target</value>
+  </data>
+  <data name="display.input.vision" xml:space="preserve">
+    <value>INPUT VISION</value>
+  </data>
+  <data name="display.input.vision.picker.1.x.offset" xml:space="preserve">
+    <value>INPUT VISION -&gt; PICKER 1 X OFFSET</value>
+  </data>
+  <data name="display.input.vision.picker.1.y.offset" xml:space="preserve">
+    <value>INPUT VISION -&gt; PICKER 1 Y OFFSET</value>
+  </data>
+  <data name="display.input.vision.picker.2.x.offset" xml:space="preserve">
+    <value>INPUT VISION -&gt; PICKER 2 X OFFSET</value>
+  </data>
+  <data name="display.input.vision.picker.2.y.offset" xml:space="preserve">
+    <value>INPUT VISION -&gt; PICKER 2 Y OFFSET</value>
+  </data>
+  <data name="display.input.vision.picker.3.x.offset" xml:space="preserve">
+    <value>INPUT VISION -&gt; PICKER 3 X OFFSET</value>
+  </data>
+  <data name="display.input.vision.picker.3.y.offset" xml:space="preserve">
+    <value>INPUT VISION -&gt; PICKER 3 Y OFFSET</value>
+  </data>
+  <data name="display.input.vision.picker.4.x.offset" xml:space="preserve">
+    <value>INPUT VISION -&gt; PICKER 4 X OFFSET</value>
+  </data>
+  <data name="display.input.vision.picker.4.y.offset" xml:space="preserve">
+    <value>INPUT VISION -&gt; PICKER 4 Y OFFSET</value>
+  </data>
+  <data name="display.inspect" xml:space="preserve">
+    <value>INSPECT</value>
+  </data>
+  <data name="display.inspect.b" xml:space="preserve">
+    <value>INSPECT_B</value>
+  </data>
+  <data name="display.inspect.s" xml:space="preserve">
+    <value>INSPECT_S</value>
+  </data>
+  <data name="display.interlock.registry" xml:space="preserve">
+    <value>InterlockRegistry</value>
+  </data>
+  <data name="display.irq.no" xml:space="preserve">
+    <value>IRQ NO.</value>
+  </data>
+  <data name="display.japanese" xml:space="preserve">
+    <value>Japanese</value>
+  </data>
+  <data name="display.jell.pad.using" xml:space="preserve">
+    <value>JELL PAD USING</value>
+  </data>
+  <data name="display.jell.pad.using.count" xml:space="preserve">
+    <value>JELL PAD USING COUNT</value>
+  </data>
+  <data name="display.job.queue" xml:space="preserve">
+    <value>JobQueue</value>
+  </data>
+  <data name="display.korean" xml:space="preserve">
+    <value>Korean</value>
+  </data>
+  <data name="display.lamp" xml:space="preserve">
+    <value>LAMP</value>
+  </data>
+  <data name="display.language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="display.last.clean" xml:space="preserve">
+    <value>LAST CLEAN</value>
+  </data>
+  <data name="display.level.2.offset" xml:space="preserve">
+    <value>LEVEL 2 OFFSET</value>
+  </data>
+  <data name="display.lift.wafer.loading" xml:space="preserve">
+    <value>LIFT WAFER LOADING</value>
+  </data>
+  <data name="display.lift.wafer.mapping" xml:space="preserve">
+    <value>LIFT WAFER MAPPING</value>
+  </data>
+  <data name="display.lift.wafer.unloading" xml:space="preserve">
+    <value>LIFT WAFER UNLOADING</value>
+  </data>
+  <data name="display.lifter" xml:space="preserve">
+    <value>LIFTER</value>
+  </data>
+  <data name="display.lifter.axis.z" xml:space="preserve">
+    <value>LIFTER AXIS Z</value>
+  </data>
+  <data name="display.lifter.init" xml:space="preserve">
+    <value>LIFTER Init</value>
+  </data>
+  <data name="display.lifter.ready" xml:space="preserve">
+    <value>LIFTER READY</value>
+  </data>
+  <data name="display.light.setup" xml:space="preserve">
+    <value>Light Setup</value>
+  </data>
+  <data name="display.light.source" xml:space="preserve">
+    <value>LIGHT SOURCE</value>
+  </data>
+  <data name="display.line.map.test" xml:space="preserve">
+    <value>LINE MAP TEST</value>
+  </data>
+  <data name="display.line.move.test" xml:space="preserve">
+    <value>LINE MOVE TEST</value>
+  </data>
+  <data name="display.live" xml:space="preserve">
+    <value>Live</value>
+  </data>
+  <data name="display.load.position" xml:space="preserve">
+    <value>LOAD POSITION</value>
+  </data>
+  <data name="display.load.time" xml:space="preserve">
+    <value>Load Time</value>
+  </data>
+  <data name="display.load.wafer" xml:space="preserve">
+    <value>Load Wafer</value>
+  </data>
+  <data name="display.loading.offset" xml:space="preserve">
+    <value>LOADING OFFSET</value>
+  </data>
+  <data name="display.loading.z.position" xml:space="preserve">
+    <value>LOADING Z POSITION</value>
+  </data>
+  <data name="display.location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="display.log.settings" xml:space="preserve">
+    <value>LOG SETTINGS</value>
+  </data>
+  <data name="display.log.titleCase" xml:space="preserve">
+    <value>Log</value>
+  </data>
+  <data name="display.log.uppercase" xml:space="preserve">
+    <value>LOG</value>
+  </data>
+  <data name="display.logic" xml:space="preserve">
+    <value>LOGIC</value>
+  </data>
+  <data name="display.lot.id" xml:space="preserve">
+    <value>Lot ID</value>
+  </data>
+  <data name="display.lot.id.input" xml:space="preserve">
+    <value>LOT ID INPUT</value>
+  </data>
+  <data name="display.lower.vision" xml:space="preserve">
+    <value>LOWER VISION</value>
+  </data>
+  <data name="display.lv1.first.slot.position" xml:space="preserve">
+    <value>LV1 FIRST SLOT POSITION</value>
+  </data>
+  <data name="display.lv1.mapping.end.z.position" xml:space="preserve">
+    <value>LV1 MAPPING END Z POSITION</value>
+  </data>
+  <data name="display.lv1.mapping.start.z.position" xml:space="preserve">
+    <value>LV1 MAPPING START Z POSITION</value>
+  </data>
+  <data name="display.lv2.first.slot.position" xml:space="preserve">
+    <value>LV2 FIRST SLOT POSITION</value>
+  </data>
+  <data name="display.lv2.mapping.end.z.position" xml:space="preserve">
+    <value>LV2 MAPPING END Z POSITION</value>
+  </data>
+  <data name="display.lv2.mapping.start.z.position" xml:space="preserve">
+    <value>LV2 MAPPING START Z POSITION</value>
+  </data>
+  <data name="display.main" xml:space="preserve">
+    <value>Main</value>
+  </data>
+  <data name="display.maintenance" xml:space="preserve">
+    <value>Maintenance</value>
+  </data>
+  <data name="display.manual" xml:space="preserve">
+    <value>MANUAL</value>
+  </data>
+  <data name="display.manual.die.cumulative.x.limit" xml:space="preserve">
+    <value>MANUAL DIE CUMULATIVE X LIMIT</value>
+  </data>
+  <data name="display.manual.die.cumulative.y.limit" xml:space="preserve">
+    <value>MANUAL DIE CUMULATIVE Y LIMIT</value>
+  </data>
+  <data name="display.manual.die.offset.x.limit" xml:space="preserve">
+    <value>MANUAL DIE OFFSET X LIMIT</value>
+  </data>
+  <data name="display.manual.die.offset.y.limit" xml:space="preserve">
+    <value>MANUAL DIE OFFSET Y LIMIT</value>
+  </data>
+  <data name="display.map.x.y" xml:space="preserve">
+    <value>Map X/Y</value>
+  </data>
+  <data name="display.mapping.end.z.position" xml:space="preserve">
+    <value>MAPPING END Z POSITION</value>
+  </data>
+  <data name="display.mapping.min.on.travel" xml:space="preserve">
+    <value>MAPPING MIN ON TRAVEL</value>
+  </data>
+  <data name="display.mapping.start.z.position" xml:space="preserve">
+    <value>MAPPING START Z POSITION</value>
+  </data>
+  <data name="display.mapping.window.ratio" xml:space="preserve">
+    <value>MAPPING WINDOW RATIO</value>
+  </data>
+  <data name="display.material" xml:space="preserve">
+    <value>MATERIAL</value>
+  </data>
+  <data name="display.material.data.only" xml:space="preserve">
+    <value>MATERIAL DATA ONLY</value>
+  </data>
+  <data name="display.message.edit" xml:space="preserve">
+    <value>MESSAGE EDIT</value>
+  </data>
+  <data name="display.mode" xml:space="preserve">
+    <value>mode</value>
+  </data>
+  <data name="display.module.options" xml:space="preserve">
+    <value>Module Options</value>
+  </data>
+  <data name="display.motion" xml:space="preserve">
+    <value>MOTION</value>
+  </data>
+  <data name="display.move" xml:space="preserve">
+    <value>MOVE</value>
+  </data>
+  <data name="display.move.data" xml:space="preserve">
+    <value>MOVE DATA</value>
+  </data>
+  <data name="display.moving" xml:space="preserve">
+    <value>MOVING</value>
+  </data>
+  <data name="display.mtbf" xml:space="preserve">
+    <value>MTBF</value>
+  </data>
+  <data name="display.mttr" xml:space="preserve">
+    <value>MTTR</value>
+  </data>
+  <data name="display.needle.area.center.x" xml:space="preserve">
+    <value>NEEDLE AREA CENTER X</value>
+  </data>
+  <data name="display.needle.area.center.y" xml:space="preserve">
+    <value>NEEDLE AREA CENTER Y</value>
+  </data>
+  <data name="display.needle.area.radius" xml:space="preserve">
+    <value>NEEDLE AREA RADIUS</value>
+  </data>
+  <data name="display.needle.axis.x" xml:space="preserve">
+    <value>NEEDLE AXIS X</value>
+  </data>
+  <data name="display.needle.axis.z" xml:space="preserve">
+    <value>NEEDLE AXIS Z</value>
+  </data>
+  <data name="display.needle.info" xml:space="preserve">
+    <value>NEEDLE INFO</value>
+  </data>
+  <data name="display.needle.pickup.setting" xml:space="preserve">
+    <value>NEEDLE PICKUP SETTING</value>
+  </data>
+  <data name="display.needle.pin.cal.position" xml:space="preserve">
+    <value>NEEDLE PIN CAL POSITION</value>
+  </data>
+  <data name="display.needle.pos.check" xml:space="preserve">
+    <value>Needle Pos Check</value>
+  </data>
+  <data name="display.needle.separate.distance" xml:space="preserve">
+    <value>NEEDLE SEPARATE DISTANCE</value>
+  </data>
+  <data name="display.needle.separate.speed" xml:space="preserve">
+    <value>NEEDLE SEPARATE SPEED</value>
+  </data>
+  <data name="display.needle.unit.change.mode" xml:space="preserve">
+    <value>Needle Unit Change Mode</value>
+  </data>
+  <data name="display.needle.unit.changing" xml:space="preserve">
+    <value>NEEDLE UNIT CHANGING</value>
+  </data>
+  <data name="display.needle.up.down.compactSeparator" xml:space="preserve">
+    <value>NEEDLE UP/DOWN</value>
+  </data>
+  <data name="display.needle.up.down.spacedSeparator" xml:space="preserve">
+    <value>NEEDLE UP / DOWN</value>
+  </data>
+  <data name="display.needle.used" xml:space="preserve">
+    <value>Needle Used</value>
+  </data>
+  <data name="display.needle.using" xml:space="preserve">
+    <value>NEEDLE USING</value>
+  </data>
+  <data name="display.needle.using.count" xml:space="preserve">
+    <value>NEEDLE USING COUNT</value>
+  </data>
+  <data name="display.needle.vacuum" xml:space="preserve">
+    <value>NEEDLE VACUUM</value>
+  </data>
+  <data name="display.needle.vacuum.off.settle" xml:space="preserve">
+    <value>NEEDLE VACUUM OFF SETTLE</value>
+  </data>
+  <data name="display.needle.x" xml:space="preserve">
+    <value>NEEDLE X</value>
+  </data>
+  <data name="display.needle.z" xml:space="preserve">
+    <value>NEEDLE Z</value>
+  </data>
+  <data name="display.next.receive.index" xml:space="preserve">
+    <value>Next Receive Index</value>
+  </data>
+  <data name="display.next.titleCase" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="display.next.uppercase" xml:space="preserve">
+    <value>NEXT</value>
+  </data>
+  <data name="display.ng" xml:space="preserve">
+    <value>NG</value>
+  </data>
+  <data name="display.ng.bin.loading" xml:space="preserve">
+    <value>NG BIN LOADING</value>
+  </data>
+  <data name="display.ng.bin.mapping" xml:space="preserve">
+    <value>NG BIN MAPPING</value>
+  </data>
+  <data name="display.ng.bin.unloading" xml:space="preserve">
+    <value>NG BIN UNLOADING</value>
+  </data>
+  <data name="display.ng.cassette.exchange.position" xml:space="preserve">
+    <value>NG CASSETTE EXCHANGE POSITION</value>
+  </data>
+  <data name="display.ng.cassette.load.position" xml:space="preserve">
+    <value>NG CASSETTE LOAD POSITION</value>
+  </data>
+  <data name="display.ng.cassette.unload.position" xml:space="preserve">
+    <value>NG CASSETTE UNLOAD POSITION</value>
+  </data>
+  <data name="display.ng.clamp" xml:space="preserve">
+    <value>NG CLAMP</value>
+  </data>
+  <data name="display.ng.clamp.lift" xml:space="preserve">
+    <value>NG CLAMP LIFT</value>
+  </data>
+  <data name="display.ng.code" xml:space="preserve">
+    <value>NG Code</value>
+  </data>
+  <data name="display.ng.count.mixedCase" xml:space="preserve">
+    <value>NG Count</value>
+  </data>
+  <data name="display.ng.count.uppercase" xml:space="preserve">
+    <value>NG COUNT</value>
+  </data>
+  <data name="display.ng.cst.clear" xml:space="preserve">
+    <value>NG CST CLEAR</value>
+  </data>
+  <data name="display.ng.cst.exchange" xml:space="preserve">
+    <value>NG CST EXCHANGE</value>
+  </data>
+  <data name="display.ng.exist" xml:space="preserve">
+    <value>NG EXIST</value>
+  </data>
+  <data name="display.ng.first.slot.position" xml:space="preserve">
+    <value>NG FIRST SLOT POSITION</value>
+  </data>
+  <data name="display.ng.guide" xml:space="preserve">
+    <value>NG GUIDE</value>
+  </data>
+  <data name="display.ng.load" xml:space="preserve">
+    <value>NG LOAD</value>
+  </data>
+  <data name="display.ng.loading.z.position" xml:space="preserve">
+    <value>NG LOADING Z POSITION</value>
+  </data>
+  <data name="display.ng.mapping.end.z.position" xml:space="preserve">
+    <value>NG MAPPING END Z POSITION</value>
+  </data>
+  <data name="display.ng.mapping.start.z.position" xml:space="preserve">
+    <value>NG MAPPING START Z POSITION</value>
+  </data>
+  <data name="display.ng.process" xml:space="preserve">
+    <value>NG PROCESS</value>
+  </data>
+  <data name="display.ng.stage.y" xml:space="preserve">
+    <value>NG STAGE Y</value>
+  </data>
+  <data name="display.ng.state" xml:space="preserve">
+    <value>NG STATE</value>
+  </data>
+  <data name="display.ng.unload" xml:space="preserve">
+    <value>NG UNLOAD</value>
+  </data>
+  <data name="display.ng.unloading.z.position" xml:space="preserve">
+    <value>NG UNLOADING Z POSITION</value>
+  </data>
+  <data name="display.ng.wafer.barcode.position" xml:space="preserve">
+    <value>NG WAFER BARCODE POSITION</value>
+  </data>
+  <data name="display.ng.wafer.load.avoid.position" xml:space="preserve">
+    <value>NG WAFER LOAD AVOID POSITION</value>
+  </data>
+  <data name="display.ng.wafer.load.position" xml:space="preserve">
+    <value>NG WAFER LOAD POSITION</value>
+  </data>
+  <data name="display.ng.wafer.unload.avoid.position" xml:space="preserve">
+    <value>NG WAFER UNLOAD AVOID POSITION</value>
+  </data>
+  <data name="display.ng.wafer.unload.position" xml:space="preserve">
+    <value>NG WAFER UNLOAD POSITION</value>
+  </data>
+  <data name="display.ng.y" xml:space="preserve">
+    <value>NG Y</value>
+  </data>
+  <data name="display.none.titleCase" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="display.none.uppercase" xml:space="preserve">
+    <value>NONE</value>
+  </data>
+  <data name="display.norm.down.time" xml:space="preserve">
+    <value>Norm Down Time</value>
+  </data>
+  <data name="display.off" xml:space="preserve">
+    <value>OFF</value>
+  </data>
+  <data name="display.offset.monitor" xml:space="preserve">
+    <value>OFFSET MONITOR</value>
+  </data>
+  <data name="display.ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="display.on" xml:space="preserve">
+    <value>ON</value>
+  </data>
+  <data name="display.open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="display.operator" xml:space="preserve">
+    <value>Operator</value>
+  </data>
+  <data name="display.output" xml:space="preserve">
+    <value>OUTPUT</value>
+  </data>
+  <data name="display.output.cassette" xml:space="preserve">
+    <value>OUTPUT CASSETTE</value>
+  </data>
+  <data name="display.output.create" xml:space="preserve">
+    <value>OUTPUT CREATE</value>
+  </data>
+  <data name="display.output.cst.status" xml:space="preserve">
+    <value>OUTPUT CST STATUS</value>
+  </data>
+  <data name="display.output.die.map.create" xml:space="preserve">
+    <value>OUTPUT DIE MAP CREATE</value>
+  </data>
+  <data name="display.output.die.map.switch" xml:space="preserve">
+    <value>OUTPUT Die Map Switch</value>
+  </data>
+  <data name="display.output.feeder" xml:space="preserve">
+    <value>OUTPUT FEEDER</value>
+  </data>
+  <data name="display.output.options" xml:space="preserve">
+    <value>Output Options</value>
+  </data>
+  <data name="display.output.result.network.copy.folder" xml:space="preserve">
+    <value>OUTPUT RESULT NETWORK COPY FOLDER</value>
+  </data>
+  <data name="display.output.safety.offset" xml:space="preserve">
+    <value>OUTPUT SAFETY OFFSET</value>
+  </data>
+  <data name="display.output.seq" xml:space="preserve">
+    <value>OUTPUT SEQ</value>
+  </data>
+  <data name="display.output.stage.die.map" xml:space="preserve">
+    <value>OUTPUT STAGE DIE MAP</value>
+  </data>
+  <data name="display.output.stage.good.material" xml:space="preserve">
+    <value>OUTPUT STAGE GOOD MATERIAL</value>
+  </data>
+  <data name="display.output.stage.ng.material" xml:space="preserve">
+    <value>OUTPUT STAGE NG MATERIAL</value>
+  </data>
+  <data name="display.output.stage.titleCase" xml:space="preserve">
+    <value>Output Stage</value>
+  </data>
+  <data name="display.output.stage.uppercase" xml:space="preserve">
+    <value>OUTPUT STAGE</value>
+  </data>
+  <data name="display.output.stage.z" xml:space="preserve">
+    <value>OUTPUT STAGE Z</value>
+  </data>
+  <data name="display.output.vision" xml:space="preserve">
+    <value>OUTPUT VISION</value>
+  </data>
+  <data name="display.output.vision.picker.1.x.offset" xml:space="preserve">
+    <value>OUTPUT VISION -&gt; PICKER 1 X OFFSET</value>
+  </data>
+  <data name="display.output.vision.picker.1.y.offset" xml:space="preserve">
+    <value>OUTPUT VISION -&gt; PICKER 1 Y OFFSET</value>
+  </data>
+  <data name="display.output.vision.picker.2.x.offset" xml:space="preserve">
+    <value>OUTPUT VISION -&gt; PICKER 2 X OFFSET</value>
+  </data>
+  <data name="display.output.vision.picker.2.y.offset" xml:space="preserve">
+    <value>OUTPUT VISION -&gt; PICKER 2 Y OFFSET</value>
+  </data>
+  <data name="display.output.vision.picker.3.x.offset" xml:space="preserve">
+    <value>OUTPUT VISION -&gt; PICKER 3 X OFFSET</value>
+  </data>
+  <data name="display.output.vision.picker.3.y.offset" xml:space="preserve">
+    <value>OUTPUT VISION -&gt; PICKER 3 Y OFFSET</value>
+  </data>
+  <data name="display.output.vision.picker.4.x.offset" xml:space="preserve">
+    <value>OUTPUT VISION -&gt; PICKER 4 X OFFSET</value>
+  </data>
+  <data name="display.output.vision.picker.4.y.offset" xml:space="preserve">
+    <value>OUTPUT VISION -&gt; PICKER 4 Y OFFSET</value>
+  </data>
+  <data name="display.parameter" xml:space="preserve">
+    <value>PARAMETER</value>
+  </data>
+  <data name="display.parameter.change" xml:space="preserve">
+    <value>Parameter Change</value>
+  </data>
+  <data name="display.pick" xml:space="preserve">
+    <value>PICK</value>
+  </data>
+  <data name="display.pick.fail" xml:space="preserve">
+    <value>PICK FAIL</value>
+  </data>
+  <data name="display.pick.fail.qty" xml:space="preserve">
+    <value>PICK Fail Qty</value>
+  </data>
+  <data name="display.pick.lift.position" xml:space="preserve">
+    <value>PICK LIFT POSITION</value>
+  </data>
+  <data name="display.pick.lift.wait" xml:space="preserve">
+    <value>PICK LIFT WAIT</value>
+  </data>
+  <data name="display.pick.position" xml:space="preserve">
+    <value>PICK POSITION</value>
+  </data>
+  <data name="display.pick.runtime.offset" xml:space="preserve">
+    <value>PICK RUNTIME OFFSET</value>
+  </data>
+  <data name="display.pick.sensor" xml:space="preserve">
+    <value>PICK(SENSOR)</value>
+  </data>
+  <data name="display.pick.settle" xml:space="preserve">
+    <value>PICK SETTLE</value>
+  </data>
+  <data name="display.pick.up" xml:space="preserve">
+    <value>PICK UP</value>
+  </data>
+  <data name="display.picker.1.coc.valid" xml:space="preserve">
+    <value>PICKER 1 COC VALID</value>
+  </data>
+  <data name="display.picker.1.coc.x" xml:space="preserve">
+    <value>PICKER 1 COC X</value>
+  </data>
+  <data name="display.picker.1.coc.y" xml:space="preserve">
+    <value>PICKER 1 COC Y</value>
+  </data>
+  <data name="display.picker.1.pickup.mechanical.t" xml:space="preserve">
+    <value>PICKER 1 PICKUP MECHANICAL T</value>
+  </data>
+  <data name="display.picker.1.pickup.mechanical.x" xml:space="preserve">
+    <value>PICKER 1 PICKUP MECHANICAL X</value>
+  </data>
+  <data name="display.picker.1.pickup.mechanical.y" xml:space="preserve">
+    <value>PICKER 1 PICKUP MECHANICAL Y</value>
+  </data>
+  <data name="display.picker.1.place.mechanical.t" xml:space="preserve">
+    <value>PICKER 1 PLACE MECHANICAL T</value>
+  </data>
+  <data name="display.picker.1.place.mechanical.x" xml:space="preserve">
+    <value>PICKER 1 PLACE MECHANICAL X</value>
+  </data>
+  <data name="display.picker.1.place.mechanical.y" xml:space="preserve">
+    <value>PICKER 1 PLACE MECHANICAL Y</value>
+  </data>
+  <data name="display.picker.1.use" xml:space="preserve">
+    <value>PICKER 1 USE</value>
+  </data>
+  <data name="display.picker.2.coc.valid" xml:space="preserve">
+    <value>PICKER 2 COC VALID</value>
+  </data>
+  <data name="display.picker.2.coc.x" xml:space="preserve">
+    <value>PICKER 2 COC X</value>
+  </data>
+  <data name="display.picker.2.coc.y" xml:space="preserve">
+    <value>PICKER 2 COC Y</value>
+  </data>
+  <data name="display.picker.2.pickup.mechanical.t" xml:space="preserve">
+    <value>PICKER 2 PICKUP MECHANICAL T</value>
+  </data>
+  <data name="display.picker.2.pickup.mechanical.x" xml:space="preserve">
+    <value>PICKER 2 PICKUP MECHANICAL X</value>
+  </data>
+  <data name="display.picker.2.pickup.mechanical.y" xml:space="preserve">
+    <value>PICKER 2 PICKUP MECHANICAL Y</value>
+  </data>
+  <data name="display.picker.2.place.mechanical.t" xml:space="preserve">
+    <value>PICKER 2 PLACE MECHANICAL T</value>
+  </data>
+  <data name="display.picker.2.place.mechanical.x" xml:space="preserve">
+    <value>PICKER 2 PLACE MECHANICAL X</value>
+  </data>
+  <data name="display.picker.2.place.mechanical.y" xml:space="preserve">
+    <value>PICKER 2 PLACE MECHANICAL Y</value>
+  </data>
+  <data name="display.picker.2.use" xml:space="preserve">
+    <value>PICKER 2 USE</value>
+  </data>
+  <data name="display.picker.3.coc.valid" xml:space="preserve">
+    <value>PICKER 3 COC VALID</value>
+  </data>
+  <data name="display.picker.3.coc.x" xml:space="preserve">
+    <value>PICKER 3 COC X</value>
+  </data>
+  <data name="display.picker.3.coc.y" xml:space="preserve">
+    <value>PICKER 3 COC Y</value>
+  </data>
+  <data name="display.picker.3.pickup.mechanical.t" xml:space="preserve">
+    <value>PICKER 3 PICKUP MECHANICAL T</value>
+  </data>
+  <data name="display.picker.3.pickup.mechanical.x" xml:space="preserve">
+    <value>PICKER 3 PICKUP MECHANICAL X</value>
+  </data>
+  <data name="display.picker.3.pickup.mechanical.y" xml:space="preserve">
+    <value>PICKER 3 PICKUP MECHANICAL Y</value>
+  </data>
+  <data name="display.picker.3.place.mechanical.t" xml:space="preserve">
+    <value>PICKER 3 PLACE MECHANICAL T</value>
+  </data>
+  <data name="display.picker.3.place.mechanical.x" xml:space="preserve">
+    <value>PICKER 3 PLACE MECHANICAL X</value>
+  </data>
+  <data name="display.picker.3.place.mechanical.y" xml:space="preserve">
+    <value>PICKER 3 PLACE MECHANICAL Y</value>
+  </data>
+  <data name="display.picker.3.use" xml:space="preserve">
+    <value>PICKER 3 USE</value>
+  </data>
+  <data name="display.picker.4.coc.valid" xml:space="preserve">
+    <value>PICKER 4 COC VALID</value>
+  </data>
+  <data name="display.picker.4.coc.x" xml:space="preserve">
+    <value>PICKER 4 COC X</value>
+  </data>
+  <data name="display.picker.4.coc.y" xml:space="preserve">
+    <value>PICKER 4 COC Y</value>
+  </data>
+  <data name="display.picker.4.pickup.mechanical.t" xml:space="preserve">
+    <value>PICKER 4 PICKUP MECHANICAL T</value>
+  </data>
+  <data name="display.picker.4.pickup.mechanical.x" xml:space="preserve">
+    <value>PICKER 4 PICKUP MECHANICAL X</value>
+  </data>
+  <data name="display.picker.4.pickup.mechanical.y" xml:space="preserve">
+    <value>PICKER 4 PICKUP MECHANICAL Y</value>
+  </data>
+  <data name="display.picker.4.place.mechanical.t" xml:space="preserve">
+    <value>PICKER 4 PLACE MECHANICAL T</value>
+  </data>
+  <data name="display.picker.4.place.mechanical.x" xml:space="preserve">
+    <value>PICKER 4 PLACE MECHANICAL X</value>
+  </data>
+  <data name="display.picker.4.place.mechanical.y" xml:space="preserve">
+    <value>PICKER 4 PLACE MECHANICAL Y</value>
+  </data>
+  <data name="display.picker.4.use" xml:space="preserve">
+    <value>PICKER 4 USE</value>
+  </data>
+  <data name="display.picker.motion.only.test" xml:space="preserve">
+    <value>PICKER MOTION ONLY TEST</value>
+  </data>
+  <data name="display.picker.pitch.x" xml:space="preserve">
+    <value>PICKER PITCH X</value>
+  </data>
+  <data name="display.picker.pitch.y" xml:space="preserve">
+    <value>PICKER PITCH Y</value>
+  </data>
+  <data name="display.picker.safe.for.waferstage" xml:space="preserve">
+    <value>PICKER SAFE FOR WAFERSTAGE</value>
+  </data>
+  <data name="display.picker.setting" xml:space="preserve">
+    <value>PICKER SETTING</value>
+  </data>
+  <data name="display.picker.t" xml:space="preserve">
+    <value>PICKER T (공통)</value>
+  </data>
+  <data name="display.picker.t.1" xml:space="preserve">
+    <value>PICKER T#1</value>
+  </data>
+  <data name="display.picker.t.2" xml:space="preserve">
+    <value>PICKER T#2</value>
+  </data>
+  <data name="display.picker.t.3" xml:space="preserve">
+    <value>PICKER T#3</value>
+  </data>
+  <data name="display.picker.t.4" xml:space="preserve">
+    <value>PICKER T#4</value>
+  </data>
+  <data name="display.picker.t1" xml:space="preserve">
+    <value>PICKER T1</value>
+  </data>
+  <data name="display.picker.t2" xml:space="preserve">
+    <value>PICKER T2</value>
+  </data>
+  <data name="display.picker.t3" xml:space="preserve">
+    <value>PICKER T3</value>
+  </data>
+  <data name="display.picker.t4" xml:space="preserve">
+    <value>PICKER T4</value>
+  </data>
+  <data name="display.picker.x" xml:space="preserve">
+    <value>PICKER X</value>
+  </data>
+  <data name="display.picker.x.input.side.avoid" xml:space="preserve">
+    <value>PICKER X INPUT-SIDE AVOID</value>
+  </data>
+  <data name="display.picker.x.output.side.avoid" xml:space="preserve">
+    <value>PICKER X OUTPUT-SIDE AVOID</value>
+  </data>
+  <data name="display.picker.y" xml:space="preserve">
+    <value>PICKER Y</value>
+  </data>
+  <data name="display.picker.y.facing.x.clearance" xml:space="preserve">
+    <value>PICKER Y FACING X CLEARANCE</value>
+  </data>
+  <data name="display.picker.y.out.distance" xml:space="preserve">
+    <value>PICKER Y OUT DISTANCE</value>
+  </data>
+  <data name="display.picker.z.1" xml:space="preserve">
+    <value>PICKER Z#1</value>
+  </data>
+  <data name="display.picker.z.2" xml:space="preserve">
+    <value>PICKER Z#2</value>
+  </data>
+  <data name="display.picker.z.3" xml:space="preserve">
+    <value>PICKER Z#3</value>
+  </data>
+  <data name="display.picker.z.4" xml:space="preserve">
+    <value>PICKER Z#4</value>
+  </data>
+  <data name="display.picker.z.approach.speed" xml:space="preserve">
+    <value>PICKER Z APPROACH SPEED</value>
+  </data>
+  <data name="display.picker.z.pre.pick.distance" xml:space="preserve">
+    <value>PICKER Z PRE PICK DISTANCE</value>
+  </data>
+  <data name="display.picker.z.runtime.offset" xml:space="preserve">
+    <value>PICKER Z RUNTIME OFFSET</value>
+  </data>
+  <data name="display.picker.z1" xml:space="preserve">
+    <value>PICKER Z1</value>
+  </data>
+  <data name="display.picker.z2" xml:space="preserve">
+    <value>PICKER Z2</value>
+  </data>
+  <data name="display.picker.z3" xml:space="preserve">
+    <value>PICKER Z3</value>
+  </data>
+  <data name="display.picker.z4" xml:space="preserve">
+    <value>PICKER Z4</value>
+  </data>
+  <data name="display.pickup" xml:space="preserve">
+    <value>PICKUP</value>
+  </data>
+  <data name="display.pickup.bin.filter" xml:space="preserve">
+    <value>PICKUP BIN FILTER</value>
+  </data>
+  <data name="display.pickup.bin.setting" xml:space="preserve">
+    <value>PICKUP BIN SETTING</value>
+  </data>
+  <data name="display.pickup.conti.coordinate" xml:space="preserve">
+    <value>PICKUP CONTI COORDINATE</value>
+  </data>
+  <data name="display.pickup.conti.max.travel" xml:space="preserve">
+    <value>PICKUP CONTI MAX TRAVEL</value>
+  </data>
+  <data name="display.pickup.conti.spline.curve" xml:space="preserve">
+    <value>PICKUP CONTI SPLINE CURVE %</value>
+  </data>
+  <data name="display.pickup.conti.timeout" xml:space="preserve">
+    <value>PICKUP CONTI TIMEOUT</value>
+  </data>
+  <data name="display.pickup.conti.use.global.speed.scale" xml:space="preserve">
+    <value>PICKUP CONTI USE GLOBAL SPEED SCALE</value>
+  </data>
+  <data name="display.pickup.conti.xy.mid.ratio" xml:space="preserve">
+    <value>PICKUP CONTI XY MID RATIO</value>
+  </data>
+  <data name="display.pickup.conti.y.max.corr" xml:space="preserve">
+    <value>PICKUP CONTI Y MAX CORR</value>
+  </data>
+  <data name="display.pickup.dynamic.wait" xml:space="preserve">
+    <value>PICKUP DYNAMIC WAIT</value>
+  </data>
+  <data name="display.pickup.entry.z.predown" xml:space="preserve">
+    <value>PICKUP ENTRY Z PREDOWN</value>
+  </data>
+  <data name="display.pickup.mechanical.offset.limit" xml:space="preserve">
+    <value>PICKUP MECHANICAL OFFSET LIMIT</value>
+  </data>
+  <data name="display.pickup.mechanical.offset.t.limit" xml:space="preserve">
+    <value>PICKUP MECHANICAL OFFSET T LIMIT</value>
+  </data>
+  <data name="display.pickup.sequence" xml:space="preserve">
+    <value>Pickup Sequence</value>
+  </data>
+  <data name="display.pickup.setting" xml:space="preserve">
+    <value>PICKUP SETTING</value>
+  </data>
+  <data name="display.pickup.sync.lift.acc" xml:space="preserve">
+    <value>PICKUP SYNC LIFT ACC</value>
+  </data>
+  <data name="display.pickup.sync.lift.dec" xml:space="preserve">
+    <value>PICKUP SYNC LIFT DEC</value>
+  </data>
+  <data name="display.pickup.sync.lift.distance" xml:space="preserve">
+    <value>PICKUP SYNC LIFT DISTANCE</value>
+  </data>
+  <data name="display.pickup.sync.lift.settle" xml:space="preserve">
+    <value>PICKUP SYNC LIFT SETTLE</value>
+  </data>
+  <data name="display.pickup.sync.lift.velocity" xml:space="preserve">
+    <value>PICKUP SYNC LIFT VELOCITY</value>
+  </data>
+  <data name="display.pickup.test" xml:space="preserve">
+    <value>PICKUP TEST</value>
+  </data>
+  <data name="display.pickup.transfer.mode" xml:space="preserve">
+    <value>PICKUP TRANSFER MODE</value>
+  </data>
+  <data name="display.pickup.z.motion.mode" xml:space="preserve">
+    <value>PICKUP Z MOTION MODE</value>
+  </data>
+  <data name="display.place" xml:space="preserve">
+    <value>PLACE</value>
+  </data>
+  <data name="display.place.blow.delay" xml:space="preserve">
+    <value>PLACE BLOW DELAY</value>
+  </data>
+  <data name="display.place.conti.coordinate" xml:space="preserve">
+    <value>PLACE CONTI COORDINATE</value>
+  </data>
+  <data name="display.place.conti.die.fallback" xml:space="preserve">
+    <value>PLACE CONTI DIE FALLBACK</value>
+  </data>
+  <data name="display.place.conti.max.acc" xml:space="preserve">
+    <value>PLACE CONTI MAX ACC</value>
+  </data>
+  <data name="display.place.conti.max.dec" xml:space="preserve">
+    <value>PLACE CONTI MAX DEC</value>
+  </data>
+  <data name="display.place.conti.max.travel" xml:space="preserve">
+    <value>PLACE CONTI MAX TRAVEL</value>
+  </data>
+  <data name="display.place.conti.max.vel" xml:space="preserve">
+    <value>PLACE CONTI MAX VEL</value>
+  </data>
+  <data name="display.place.conti.near.avoid" xml:space="preserve">
+    <value>PLACE CONTI NEAR AVOID</value>
+  </data>
+  <data name="display.place.conti.node0.speed" xml:space="preserve">
+    <value>PLACE CONTI NODE0 SPEED %</value>
+  </data>
+  <data name="display.place.conti.node1.speed" xml:space="preserve">
+    <value>PLACE CONTI NODE1 SPEED %</value>
+  </data>
+  <data name="display.place.conti.node2.speed" xml:space="preserve">
+    <value>PLACE CONTI NODE2 SPEED %</value>
+  </data>
+  <data name="display.place.conti.node3.speed" xml:space="preserve">
+    <value>PLACE CONTI NODE3 SPEED %</value>
+  </data>
+  <data name="display.place.conti.node4.speed" xml:space="preserve">
+    <value>PLACE CONTI NODE4 SPEED %</value>
+  </data>
+  <data name="display.place.conti.overdrive" xml:space="preserve">
+    <value>PLACE CONTI OVERDRIVE</value>
+  </data>
+  <data name="display.place.conti.spline.curve" xml:space="preserve">
+    <value>PLACE CONTI SPLINE CURVE %</value>
+  </data>
+  <data name="display.place.conti.tape.fallback" xml:space="preserve">
+    <value>PLACE CONTI TAPE FALLBACK</value>
+  </data>
+  <data name="display.place.conti.timeout" xml:space="preserve">
+    <value>PLACE CONTI TIMEOUT</value>
+  </data>
+  <data name="display.place.conti.use.global.speed.scale" xml:space="preserve">
+    <value>PLACE CONTI USE GLOBAL SPEED SCALE</value>
+  </data>
+  <data name="display.place.conti.xy.mid.ratio" xml:space="preserve">
+    <value>PLACE CONTI XY MID RATIO</value>
+  </data>
+  <data name="display.place.conti.z1.step1.clear" xml:space="preserve">
+    <value>PLACE CONTI Z1 STEP1 CLEAR</value>
+  </data>
+  <data name="display.place.conti.z1.step2.clear" xml:space="preserve">
+    <value>PLACE CONTI Z1 STEP2 CLEAR</value>
+  </data>
+  <data name="display.place.delay" xml:space="preserve">
+    <value>PLACE DELAY</value>
+  </data>
+  <data name="display.place.entry.z.predown" xml:space="preserve">
+    <value>PLACE ENTRY Z PREDOWN</value>
+  </data>
+  <data name="display.place.fail" xml:space="preserve">
+    <value>PLACE FAIL</value>
+  </data>
+  <data name="display.place.fail.qty" xml:space="preserve">
+    <value>PLACE Fail Qty</value>
+  </data>
+  <data name="display.place.mechanical.offset.limit" xml:space="preserve">
+    <value>PLACE MECHANICAL OFFSET LIMIT</value>
+  </data>
+  <data name="display.place.mechanical.offset.t.limit" xml:space="preserve">
+    <value>PLACE MECHANICAL OFFSET T LIMIT</value>
+  </data>
+  <data name="display.place.motion.mode" xml:space="preserve">
+    <value>PLACE MOTION MODE</value>
+  </data>
+  <data name="display.place.motion.setting" xml:space="preserve">
+    <value>PLACE MOTION SETTING</value>
+  </data>
+  <data name="display.place.position" xml:space="preserve">
+    <value>PLACE POSITION</value>
+  </data>
+  <data name="display.place.release.dwell" xml:space="preserve">
+    <value>PLACE RELEASE DWELL</value>
+  </data>
+  <data name="display.place.runtime.offset" xml:space="preserve">
+    <value>PLACE RUNTIME OFFSET</value>
+  </data>
+  <data name="display.place.z.overdrive" xml:space="preserve">
+    <value>PLACE Z OVERDRIVE</value>
+  </data>
+  <data name="display.port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="display.position.check" xml:space="preserve">
+    <value>POSITION CHECK</value>
+  </data>
+  <data name="display.position.teach" xml:space="preserve">
+    <value>Position Teach</value>
+  </data>
+  <data name="display.predown.needle.work.radius" xml:space="preserve">
+    <value>PREDOWN NEEDLE WORK RADIUS</value>
+  </data>
+  <data name="display.prep.load" xml:space="preserve">
+    <value>PREP LOAD</value>
+  </data>
+  <data name="display.prep.unload" xml:space="preserve">
+    <value>PREP UNLOAD</value>
+  </data>
+  <data name="display.prev.titleCase" xml:space="preserve">
+    <value>Prev</value>
+  </data>
+  <data name="display.prev.uppercase" xml:space="preserve">
+    <value>PREV</value>
+  </data>
+  <data name="display.process" xml:space="preserve">
+    <value>PROCESS</value>
+  </data>
+  <data name="display.process.position" xml:space="preserve">
+    <value>PROCESS POSITION</value>
+  </data>
+  <data name="display.process.position.0" xml:space="preserve">
+    <value>PROCESS POSITION (0°)</value>
+  </data>
+  <data name="display.process.position.90" xml:space="preserve">
+    <value>PROCESS POSITION (90°)</value>
+  </data>
+  <data name="display.process.test.data" xml:space="preserve">
+    <value>PROCESS TEST DATA</value>
+  </data>
+  <data name="display.project" xml:space="preserve">
+    <value>Project</value>
+  </data>
+  <data name="display.project.name.plain" xml:space="preserve">
+    <value>Project Name</value>
+  </data>
+  <data name="display.project.name.withColon" xml:space="preserve">
+    <value>Project Name :</value>
+  </data>
+  <data name="display.property" xml:space="preserve">
+    <value>Property</value>
+  </data>
+  <data name="display.ratio" xml:space="preserve">
+    <value>ratio</value>
+  </data>
+  <data name="display.ready.position" xml:space="preserve">
+    <value>READY POSITION</value>
+  </data>
+  <data name="display.ready.titleCase" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="display.ready.uppercase" xml:space="preserve">
+    <value>READY</value>
+  </data>
+  <data name="display.real.vision.in.simulation" xml:space="preserve">
+    <value>REAL VISION IN SIMULATION</value>
+  </data>
+  <data name="display.rear.entry.predown.stagey.limit" xml:space="preserve">
+    <value>REAR ENTRY PREDOWN STAGEY LIMIT</value>
+  </data>
+  <data name="display.rear.head" xml:space="preserve">
+    <value>REAR HEAD</value>
+  </data>
+  <data name="display.rear.picker" xml:space="preserve">
+    <value>REAR PICKER</value>
+  </data>
+  <data name="display.rear.picker.head.1.die" xml:space="preserve">
+    <value>REAR PICKER HEAD #1 DIE</value>
+  </data>
+  <data name="display.rear.picker.head.2.die" xml:space="preserve">
+    <value>REAR PICKER HEAD #2 DIE</value>
+  </data>
+  <data name="display.rear.picker.head.3.die" xml:space="preserve">
+    <value>REAR PICKER HEAD #3 DIE</value>
+  </data>
+  <data name="display.rear.picker.head.4.die" xml:space="preserve">
+    <value>REAR PICKER HEAD #4 DIE</value>
+  </data>
+  <data name="display.rear.picker.use" xml:space="preserve">
+    <value>REAR PICKER USE</value>
+  </data>
+  <data name="display.rear.y" xml:space="preserve">
+    <value>REAR Y</value>
+  </data>
+  <data name="display.rearhead.seq" xml:space="preserve">
+    <value>REARHEAD SEQ</value>
+  </data>
+  <data name="display.reason" xml:space="preserve">
+    <value>Reason</value>
+  </data>
+  <data name="display.receive.good" xml:space="preserve">
+    <value>RECEIVE GOOD</value>
+  </data>
+  <data name="display.receive.ng" xml:space="preserve">
+    <value>RECEIVE NG</value>
+  </data>
+  <data name="display.receive.progress" xml:space="preserve">
+    <value>Receive Progress</value>
+  </data>
+  <data name="display.recipe.titleCase" xml:space="preserve">
+    <value>Recipe</value>
+  </data>
+  <data name="display.recipe.uppercase" xml:space="preserve">
+    <value>RECIPE</value>
+  </data>
+  <data name="display.recovery.time" xml:space="preserve">
+    <value>Recovery Time</value>
+  </data>
+  <data name="display.reference" xml:space="preserve">
+    <value>REFERENCE</value>
+  </data>
+  <data name="display.remote.viewer" xml:space="preserve">
+    <value>Remote Viewer</value>
+  </data>
+  <data name="display.reset" xml:space="preserve">
+    <value>RESET</value>
+  </data>
+  <data name="display.reset.alarm" xml:space="preserve">
+    <value>RESET ALARM</value>
+  </data>
+  <data name="display.result" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="display.reticle.position" xml:space="preserve">
+    <value>RETICLE POSITION</value>
+  </data>
+  <data name="display.retry" xml:space="preserve">
+    <value>RETRY</value>
+  </data>
+  <data name="display.run.order.mode" xml:space="preserve">
+    <value>RUN ORDER MODE</value>
+  </data>
+  <data name="display.running" xml:space="preserve">
+    <value>Running</value>
+  </data>
+  <data name="display.safety.setting" xml:space="preserve">
+    <value>SAFETY SETTING</value>
+  </data>
+  <data name="display.save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="display.scan.jog.velocity" xml:space="preserve">
+    <value>SCAN/JOG VELOCITY</value>
+  </data>
+  <data name="display.scan.settle.time" xml:space="preserve">
+    <value>SCAN SETTLE TIME</value>
+  </data>
+  <data name="display.scope" xml:space="preserve">
+    <value>SCOPE</value>
+  </data>
+  <data name="display.selected" xml:space="preserve">
+    <value>Selected</value>
+  </data>
+  <data name="display.self.check.mode" xml:space="preserve">
+    <value>Self-Check Mode</value>
+  </data>
+  <data name="display.self.inspection" xml:space="preserve">
+    <value>SELF INSPECTION</value>
+  </data>
+  <data name="display.self.test" xml:space="preserve">
+    <value>Self-Test</value>
+  </data>
+  <data name="display.sensor.state" xml:space="preserve">
+    <value>SENSOR STATE</value>
+  </data>
+  <data name="display.sequence" xml:space="preserve">
+    <value>Sequence</value>
+  </data>
+  <data name="display.session" xml:space="preserve">
+    <value>Session</value>
+  </data>
+  <data name="display.setting" xml:space="preserve">
+    <value>SETTING</value>
+  </data>
+  <data name="display.settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="display.setup.simulation.mode" xml:space="preserve">
+    <value>SETUP SIMULATION MODE</value>
+  </data>
+  <data name="display.setup.titleCase" xml:space="preserve">
+    <value>Setup</value>
+  </data>
+  <data name="display.setup.uppercase" xml:space="preserve">
+    <value>SETUP</value>
+  </data>
+  <data name="display.shutdown" xml:space="preserve">
+    <value>SHUTDOWN</value>
+  </data>
+  <data name="display.side.position" xml:space="preserve">
+    <value>SIDE POSITION</value>
+  </data>
+  <data name="display.side.titleCase" xml:space="preserve">
+    <value>Side</value>
+  </data>
+  <data name="display.side.uppercase" xml:space="preserve">
+    <value>SIDE</value>
+  </data>
+  <data name="display.side.vision" xml:space="preserve">
+    <value>SIDE VISION</value>
+  </data>
+  <data name="display.sim.vision.ng.rate" xml:space="preserve">
+    <value>SIM VISION NG RATE (%)</value>
+  </data>
+  <data name="display.simulation.mode" xml:space="preserve">
+    <value>SIMULATION MODE</value>
+  </data>
+  <data name="display.simulator.link" xml:space="preserve">
+    <value>Simulator Link</value>
+  </data>
+  <data name="display.skip" xml:space="preserve">
+    <value>SKIP</value>
+  </data>
+  <data name="display.skip.run.review.sim" xml:space="preserve">
+    <value>SKIP RUN REVIEW (SIM)</value>
+  </data>
+  <data name="display.slot" xml:space="preserve">
+    <value>Slot</value>
+  </data>
+  <data name="display.slot.count" xml:space="preserve">
+    <value>SLOT COUNT</value>
+  </data>
+  <data name="display.slot.no.abbreviated" xml:space="preserve">
+    <value>Slot No.</value>
+  </data>
+  <data name="display.slot.no.plain" xml:space="preserve">
+    <value>Slot No</value>
+  </data>
+  <data name="display.slot.pitch" xml:space="preserve">
+    <value>SLOT PITCH</value>
+  </data>
+  <data name="display.slot.state.titleCase" xml:space="preserve">
+    <value>Slot State</value>
+  </data>
+  <data name="display.slot.state.uppercase" xml:space="preserve">
+    <value>SLOT STATE</value>
+  </data>
+  <data name="display.source" xml:space="preserve">
+    <value>SOURCE</value>
+  </data>
+  <data name="display.source.cassette" xml:space="preserve">
+    <value>Source Cassette</value>
+  </data>
+  <data name="display.source.pos" xml:space="preserve">
+    <value>Source Pos</value>
+  </data>
+  <data name="display.source.slot" xml:space="preserve">
+    <value>Source Slot</value>
+  </data>
+  <data name="display.source.wafer" xml:space="preserve">
+    <value>Source Wafer</value>
+  </data>
+  <data name="display.spec.diameter" xml:space="preserve">
+    <value>Spec Diameter</value>
+  </data>
+  <data name="display.spec.grid.x" xml:space="preserve">
+    <value>Spec Grid X</value>
+  </data>
+  <data name="display.spec.grid.y" xml:space="preserve">
+    <value>Spec Grid Y</value>
+  </data>
+  <data name="display.spec.pitch.gap.x" xml:space="preserve">
+    <value>Spec Pitch Gap X</value>
+  </data>
+  <data name="display.spec.pitch.gap.y" xml:space="preserve">
+    <value>Spec Pitch Gap Y</value>
+  </data>
+  <data name="display.stage" xml:space="preserve">
+    <value>STAGE</value>
+  </data>
+  <data name="display.stage.align" xml:space="preserve">
+    <value>STAGE ALIGN</value>
+  </data>
+  <data name="display.stage.axis.t" xml:space="preserve">
+    <value>STAGE AXIS T</value>
+  </data>
+  <data name="display.stage.axis.y" xml:space="preserve">
+    <value>STAGE AXIS Y</value>
+  </data>
+  <data name="display.stage.axis.z" xml:space="preserve">
+    <value>STAGE AXIS Z</value>
+  </data>
+  <data name="display.stage.barcode" xml:space="preserve">
+    <value>STAGE BARCODE</value>
+  </data>
+  <data name="display.stage.chip.align" xml:space="preserve">
+    <value>STAGE CHIP ALIGN</value>
+  </data>
+  <data name="display.stage.exist" xml:space="preserve">
+    <value>STAGE EXIST</value>
+  </data>
+  <data name="display.stage.finish" xml:space="preserve">
+    <value>STAGE FINISH</value>
+  </data>
+  <data name="display.stage.init" xml:space="preserve">
+    <value>STAGE INIT</value>
+  </data>
+  <data name="display.stage.needle.cyl.info" xml:space="preserve">
+    <value>STAGE &amp; NEEDLE Cyl Info</value>
+  </data>
+  <data name="display.stage.ready" xml:space="preserve">
+    <value>STAGE READY</value>
+  </data>
+  <data name="display.start.titleCase" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="display.start.uppercase" xml:space="preserve">
+    <value>START</value>
+  </data>
+  <data name="display.state.titleCase" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="display.state.uppercase" xml:space="preserve">
+    <value>STATE</value>
+  </data>
+  <data name="display.status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="display.stop.after.drain" xml:space="preserve">
+    <value>STOP AFTER DRAIN</value>
+  </data>
+  <data name="display.stop.titleCase" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="display.stop.uppercase" xml:space="preserve">
+    <value>STOP</value>
+  </data>
+  <data name="display.stopped.titleCase" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="display.stopped.uppercase" xml:space="preserve">
+    <value>STOPPED</value>
+  </data>
+  <data name="display.switch" xml:space="preserve">
+    <value>SWITCH</value>
+  </data>
+  <data name="display.sync.lift.settle" xml:space="preserve">
+    <value>SYNC LIFT SETTLE</value>
+  </data>
+  <data name="display.tape.frame.spec" xml:space="preserve">
+    <value>TapeFrame Spec</value>
+  </data>
+  <data name="display.teach" xml:space="preserve">
+    <value>TEACH</value>
+  </data>
+  <data name="display.time" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="display.timechart" xml:space="preserve">
+    <value>TIMECHART</value>
+  </data>
+  <data name="display.total.count" xml:space="preserve">
+    <value>TOTAL COUNT</value>
+  </data>
+  <data name="display.true" xml:space="preserve">
+    <value>True</value>
+  </data>
+  <data name="display.unclamp" xml:space="preserve">
+    <value>UNCLAMP</value>
+  </data>
+  <data name="display.unit.titleCase" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="display.unit.uppercase" xml:space="preserve">
+    <value>UNIT</value>
+  </data>
+  <data name="display.unknown.titleCase" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="display.unknown.uppercase" xml:space="preserve">
+    <value>UNKNOWN</value>
+  </data>
+  <data name="display.unload.position" xml:space="preserve">
+    <value>UNLOAD POSITION</value>
+  </data>
+  <data name="display.unload.release.lift.distance" xml:space="preserve">
+    <value>UNLOAD RELEASE LIFT DISTANCE</value>
+  </data>
+  <data name="display.unload.wafer" xml:space="preserve">
+    <value>Unload Wafer</value>
+  </data>
+  <data name="display.unloading.offset" xml:space="preserve">
+    <value>UNLOADING OFFSET</value>
+  </data>
+  <data name="display.unloading.z.position" xml:space="preserve">
+    <value>UNLOADING Z POSITION</value>
+  </data>
+  <data name="display.up" xml:space="preserve">
+    <value>UP</value>
+  </data>
+  <data name="display.up.time" xml:space="preserve">
+    <value>Up Time</value>
+  </data>
+  <data name="display.update" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="display.updated" xml:space="preserve">
+    <value>Updated</value>
+  </data>
+  <data name="display.uph" xml:space="preserve">
+    <value>UPH</value>
+  </data>
+  <data name="display.uptime" xml:space="preserve">
+    <value>Uptime %</value>
+  </data>
+  <data name="display.use.ajin.axl.dll" xml:space="preserve">
+    <value>UseAjin (AXL.dll)</value>
+  </data>
+  <data name="display.use.ng.cassette" xml:space="preserve">
+    <value>USE NG CASSETTE</value>
+  </data>
+  <data name="display.user.login" xml:space="preserve">
+    <value>USER LOGIN</value>
+  </data>
+  <data name="display.user.titleCase" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="display.user.uppercase" xml:space="preserve">
+    <value>USER</value>
+  </data>
+  <data name="display.vacuum" xml:space="preserve">
+    <value>VACUUM</value>
+  </data>
+  <data name="display.vacuum.before.pick.delay" xml:space="preserve">
+    <value>VACUUM BEFORE PICK DELAY</value>
+  </data>
+  <data name="display.value.titleCase" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="display.value.uppercase" xml:space="preserve">
+    <value>VALUE</value>
+  </data>
+  <data name="display.vision" xml:space="preserve">
+    <value>VISION</value>
+  </data>
+  <data name="display.vision.align" xml:space="preserve">
+    <value>Vision Align</value>
+  </data>
+  <data name="display.vision.align.fail" xml:space="preserve">
+    <value>VISION ALIGN FAIL</value>
+  </data>
+  <data name="display.vision.area.center.x" xml:space="preserve">
+    <value>VISION AREA CENTER X</value>
+  </data>
+  <data name="display.vision.area.center.y" xml:space="preserve">
+    <value>VISION AREA CENTER Y</value>
+  </data>
+  <data name="display.vision.area.radius" xml:space="preserve">
+    <value>VISION AREA RADIUS</value>
+  </data>
+  <data name="display.vision.axis.x" xml:space="preserve">
+    <value>VISION AXIS X</value>
+  </data>
+  <data name="display.vision.bin" xml:space="preserve">
+    <value>VISION: BIN</value>
+  </data>
+  <data name="display.vision.bottom.insp" xml:space="preserve">
+    <value>VISION: BOTTOM INSP</value>
+  </data>
+  <data name="display.vision.cal.position" xml:space="preserve">
+    <value>Vision Cal Position</value>
+  </data>
+  <data name="display.vision.front.side" xml:space="preserve">
+    <value>VISION: FRONT SIDE</value>
+  </data>
+  <data name="display.vision.link" xml:space="preserve">
+    <value>Vision Link</value>
+  </data>
+  <data name="display.vision.match.error" xml:space="preserve">
+    <value>Vision Match Error</value>
+  </data>
+  <data name="display.vision.offset.setting" xml:space="preserve">
+    <value>VISION OFFSET SETTING</value>
+  </data>
+  <data name="display.vision.operator.confirm.timeout.sec" xml:space="preserve">
+    <value>VISION OPERATOR CONFIRM TIMEOUT (SEC)</value>
+  </data>
+  <data name="display.vision.rear.side" xml:space="preserve">
+    <value>VISION: REAR SIDE</value>
+  </data>
+  <data name="display.vision.stage" xml:space="preserve">
+    <value>VISION STAGE</value>
+  </data>
+  <data name="display.vision.test" xml:space="preserve">
+    <value>VISION TEST</value>
+  </data>
+  <data name="display.vision.use" xml:space="preserve">
+    <value>VISION USE</value>
+  </data>
+  <data name="display.vision.view" xml:space="preserve">
+    <value>Vision View</value>
+  </data>
+  <data name="display.vision.wafer" xml:space="preserve">
+    <value>VISION: WAFER</value>
+  </data>
+  <data name="display.vision.x" xml:space="preserve">
+    <value>VISION X</value>
+  </data>
+  <data name="display.wafer.align" xml:space="preserve">
+    <value>WAFER ALIGN</value>
+  </data>
+  <data name="display.wafer.barcode" xml:space="preserve">
+    <value>WAFER BARCODE</value>
+  </data>
+  <data name="display.wafer.barcode.position" xml:space="preserve">
+    <value>WAFER BARCODE POSITION</value>
+  </data>
+  <data name="display.wafer.complete.run.mode" xml:space="preserve">
+    <value>WAFER COMPLETE RUN MODE</value>
+  </data>
+  <data name="display.wafer.id.plain" xml:space="preserve">
+    <value>Wafer ID</value>
+  </data>
+  <data name="display.wafer.id.withColon" xml:space="preserve">
+    <value>Wafer ID :</value>
+  </data>
+  <data name="display.wafer.load.avoid.position" xml:space="preserve">
+    <value>WAFER LOAD AVOID POSITION</value>
+  </data>
+  <data name="display.wafer.load.position" xml:space="preserve">
+    <value>WAFER LOAD POSITION</value>
+  </data>
+  <data name="display.wafer.map.open" xml:space="preserve">
+    <value>Wafer Map Open</value>
+  </data>
+  <data name="display.wafer.map.viewer" xml:space="preserve">
+    <value>WAFER MAP VIEWER</value>
+  </data>
+  <data name="display.wafer.material" xml:space="preserve">
+    <value>WAFER MATERIAL</value>
+  </data>
+  <data name="display.wafer.spec" xml:space="preserve">
+    <value>Wafer Spec</value>
+  </data>
+  <data name="display.wafer.t" xml:space="preserve">
+    <value>WAFER T</value>
+  </data>
+  <data name="display.wafer.titleCase" xml:space="preserve">
+    <value>Wafer</value>
+  </data>
+  <data name="display.wafer.unload.avoid.position" xml:space="preserve">
+    <value>WAFER UNLOAD AVOID POSITION</value>
+  </data>
+  <data name="display.wafer.unload.position" xml:space="preserve">
+    <value>WAFER UNLOAD POSITION</value>
+  </data>
+  <data name="display.wafer.uppercase" xml:space="preserve">
+    <value>WAFER</value>
+  </data>
+  <data name="display.wafer.y" xml:space="preserve">
+    <value>WAFER Y</value>
+  </data>
+  <data name="display.warning" xml:space="preserve">
+    <value>WARNING</value>
+  </data>
+  <data name="display.work.area.setting" xml:space="preserve">
+    <value>WORK AREA SETTING</value>
+  </data>
+  <data name="display.work.bin.qty" xml:space="preserve">
+    <value>Work BIN Qty</value>
+  </data>
+  <data name="display.work.info.titleCase" xml:space="preserve">
+    <value>Work Info</value>
+  </data>
+  <data name="display.work.info.uppercase" xml:space="preserve">
+    <value>WORK INFO</value>
+  </data>
+  <data name="display.work.map" xml:space="preserve">
+    <value>Work Map</value>
+  </data>
+  <data name="display.work.qty" xml:space="preserve">
+    <value>Work Qty</value>
+  </data>
+  <data name="display.work.ready" xml:space="preserve">
+    <value>WORK READY</value>
+  </data>
+  <data name="display.work.time" xml:space="preserve">
+    <value>Work Time</value>
+  </data>
+  <data name="display.work.titleCase" xml:space="preserve">
+    <value>Work</value>
+  </data>
+  <data name="display.work.uppercase" xml:space="preserve">
+    <value>WORK</value>
+  </data>
+  <data name="display.working" xml:space="preserve">
+    <value>WORKING</value>
+  </data>
+  <data name="display.x.pitch" xml:space="preserve">
+    <value>x pitch</value>
+  </data>
+  <data name="display.zoom.lens" xml:space="preserve">
+    <value>ZOOM LENS</value>
+  </data>
+</root>

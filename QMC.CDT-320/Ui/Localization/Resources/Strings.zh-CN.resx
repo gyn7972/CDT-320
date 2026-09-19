@@ -1,0 +1,233 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="app.title" xml:space="preserve">
+    <value>CDT-320 设备</value>
+  </data>
+  <data name="header.time" xml:space="preserve">
+    <value>时间</value>
+  </data>
+  <data name="header.user" xml:space="preserve">
+    <value>用户</value>
+  </data>
+  <data name="material.bin" xml:space="preserve">
+    <value>Bin 码映射</value>
+  </data>
+  <data name="material.diemap" xml:space="preserve">
+    <value>晶圆图</value>
+  </data>
+  <data name="recipe.binCode" xml:space="preserve">
+    <value>Bin 码映射</value>
+  </data>
+  <data name="recipe.dieSubset" xml:space="preserve">
+    <value>Die 规格</value>
+  </data>
+  <data name="recipe.loadFrame" xml:space="preserve">
+    <value>上料晶圆</value>
+  </data>
+  <data name="recipe.moduleSubset" xml:space="preserve">
+    <value>模块选项</value>
+  </data>
+  <data name="recipe.outputSubset" xml:space="preserve">
+    <value>输出选项</value>
+  </data>
+  <data name="recipe.project" xml:space="preserve">
+    <value>项目</value>
+  </data>
+  <data name="recipe.tapeFrameSubset" xml:space="preserve">
+    <value>晶圆规格</value>
+  </data>
+  <data name="recipe.unloadFrame" xml:space="preserve">
+    <value>下料晶圆</value>
+  </data>
+  <data name="selftest.alignment" xml:space="preserve">
+    <value>对位求解器</value>
+  </data>
+  <data name="selftest.binCode" xml:space="preserve">
+    <value>Bin 码映射</value>
+  </data>
+  <data name="selftest.dieMap" xml:space="preserve">
+    <value>晶圆图生成器</value>
+  </data>
+  <data name="selftest.interlock" xml:space="preserve">
+    <value>联锁注册</value>
+  </data>
+  <data name="selftest.jobQueue" xml:space="preserve">
+    <value>作业队列</value>
+  </data>
+  <data name="set.digital" xml:space="preserve">
+    <value>数字 I/O</value>
+  </data>
+  <data name="set.general" xml:space="preserve">
+    <value>通用</value>
+  </data>
+  <data name="set.lamp" xml:space="preserve">
+    <value>信号灯</value>
+  </data>
+  <data name="set.motion" xml:space="preserve">
+    <value>运动</value>
+  </data>
+  <data name="set.selfTest" xml:space="preserve">
+    <value>自我诊断</value>
+  </data>
+  <data name="set.simulator" xml:space="preserve">
+    <value>模拟器</value>
+  </data>
+  <data name="set.visionLink" xml:space="preserve">
+    <value>视觉连接</value>
+  </data>
+  <data name="settings.remoteViewer" xml:space="preserve">
+    <value>远程查看器</value>
+  </data>
+  <data name="status.barcode" xml:space="preserve">
+    <value>Wafer ID</value>
+  </data>
+  <data name="status.bin" xml:space="preserve">
+    <value>Bin ID</value>
+  </data>
+  <data name="status.mapEmpty" xml:space="preserve">
+    <value>映射: 空</value>
+  </data>
+  <data name="status.pick" xml:space="preserve">
+    <value>拾取</value>
+  </data>
+  <data name="status.project" xml:space="preserve">
+    <value>项目</value>
+  </data>
+  <data name="status.reference" xml:space="preserve">
+    <value>参考</value>
+  </data>
+  <data name="status.vision" xml:space="preserve">
+    <value>视觉</value>
+  </data>
+  <data name="tab.exit" xml:space="preserve">
+    <value>退出</value>
+  </data>
+  <data name="tab.history" xml:space="preserve">
+    <value>历史</value>
+  </data>
+  <data name="tab.recipe" xml:space="preserve">
+    <value>配方</value>
+  </data>
+  <data name="tab.settings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="tab.user" xml:space="preserve">
+    <value>用户</value>
+  </data>
+  <data name="tab.work" xml:space="preserve">
+    <value>工作</value>
+  </data>
+  <data name="tab.workInfo" xml:space="preserve">
+    <value>工作信息</value>
+  </data>
+  <data name="wi.frontHead" xml:space="preserve">
+    <value>前端头</value>
+  </data>
+  <data name="wi.inputCassette" xml:space="preserve">
+    <value>输入卡匣</value>
+  </data>
+  <data name="wi.outputCassette" xml:space="preserve">
+    <value>输出卡匣</value>
+  </data>
+  <data name="wi.rearHead" xml:space="preserve">
+    <value>后端头</value>
+  </data>
+  <data name="wi.state" xml:space="preserve">
+    <value>STATE</value>
+  </data>
+  <data name="wi.visionTest" xml:space="preserve">
+    <value>VISION TEST</value>
+  </data>
+  <data name="work.cycleRun" xml:space="preserve">
+    <value>循环运行</value>
+  </data>
+  <data name="work.cycleStop" xml:space="preserve">
+    <value>循环停止</value>
+  </data>
+  <data name="work.dieMap" xml:space="preserve">
+    <value>晶圆图</value>
+  </data>
+  <data name="work.init" xml:space="preserve">
+    <value>初始化</value>
+  </data>
+  <data name="work.inputCst" xml:space="preserve">
+    <value>输入卡匣</value>
+  </data>
+  <data name="work.outputCst" xml:space="preserve">
+    <value>输出卡匣</value>
+  </data>
+  <data name="work.ready" xml:space="preserve">
+    <value>READY</value>
+  </data>
+  <data name="work.start" xml:space="preserve">
+    <value>开始</value>
+  </data>
+  <data name="work.stop" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="work.visionAlign" xml:space="preserve">
+    <value>视觉对位</value>
+  </data>
+  <data name="work.waferMapOpen" xml:space="preserve">
+    <value>打开晶圆图</value>
+  </data>
+</root>

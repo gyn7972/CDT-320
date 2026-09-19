@@ -261,6 +261,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-ALIGN-WAFER", "Material",
                         "InputStage wafer data was not found. CurrentWaferMaterial=null, MaterialLocation=InputStage empty.");
 
+                RecipeInputMapSource.BeginWafer(_wafer);
                 // 수동/STEP 얼라인도 Auto의 바코드 검사를 우회하지 않는다.
                 // 이 단계는 값을 정정하거나 판독 모션을 시작하지 않고, 확정된 후보만 검사한다.
                 AppSettings barcodeSettings = AppSettingsStore.Current;

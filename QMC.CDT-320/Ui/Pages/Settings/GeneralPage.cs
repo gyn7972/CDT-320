@@ -8,7 +8,7 @@ using QMC.CDT_320.Ui.Localization;
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
     /// <summary>Settings - General.</summary>
-    public partial class GeneralPage : PageBase
+    public partial class GeneralPage : PageBase, ILocalizedView
     {
         private bool _loadingSettings;
 
@@ -32,20 +32,64 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblBinArray.Tag = "i18n:set.gen.binArr";
             lblVisionMatch.Text = Lang.T("set.gen.visionMatchErr");
             lblVisionMatch.Tag = "i18n:set.gen.visionMatchErr";
-            lblSimulationMode.Text = "SIMULATION MODE";
-            lblDryRunMode.Text = "DRY RUN MODE";
-            lblDeveloperMode.Text = "DEVELOPER MODE";
-            lblPickerMotionOnlyTestMode.Text = "PICKER MOTION ONLY TEST";
-            lblWaferCompleteRunMode.Text = "WAFER COMPLETE RUN MODE";
-            lblUseOutputGoodPickupCap.Text = "GOOD OUTPUT PICKUP CAP";
-            lblUseVision.Text = "VISION USE";
-            lblUseRealVisionInSimulation.Text = "REAL VISION IN SIMULATION";
-            lblSkipRunReviewInSimulation.Text = "SKIP RUN REVIEW (SIM)";
-            lblPickRuntimeOffset.Text = "PICK RUNTIME OFFSET";
-            lblPlaceRuntimeOffset.Text = "PLACE RUNTIME OFFSET";
-            lblPickerZRuntimeOffset.Text = "PICKER Z RUNTIME OFFSET";
+            Lang.Bind(grpSetting, "SETTING");
+            Lang.Bind(lblSimulationMode, "SIMULATION MODE");
+            Lang.Bind(lblDryRunMode, "DRY RUN MODE");
+            Lang.Bind(lblDeveloperMode, "DEVELOPER MODE");
+            Lang.Bind(lblPickerMotionOnlyTestMode, "PICKER MOTION ONLY TEST");
+            Lang.Bind(lblWaferCompleteRunMode, "WAFER COMPLETE RUN MODE");
+            Lang.Bind(lblUseOutputGoodPickupCap, "GOOD OUTPUT PICKUP CAP");
+            Lang.Bind(lblUseVision, "VISION USE");
+            Lang.Bind(lblUseRealVisionInSimulation, "REAL VISION IN SIMULATION");
+            Lang.Bind(lblSkipRunReviewInSimulation, "SKIP RUN REVIEW (SIM)");
+            Lang.Bind(lblPickRuntimeOffset, "PICK RUNTIME OFFSET");
+            Lang.Bind(lblPlaceRuntimeOffset, "PLACE RUNTIME OFFSET");
+            Lang.Bind(lblPickerZRuntimeOffset, "PICKER Z RUNTIME OFFSET");
+            Lang.Bind(btnResetPickRuntimeOffset, "RESET");
+            Lang.Bind(btnResetPlaceRuntimeOffset, "RESET");
+            Lang.Bind(btnResetPickerZRuntimeOffset, "RESET");
+            Lang.Bind(btnRuntimeFilterSettings, "FILTER SETTING");
+            Lang.Bind(btnRuntimeOffsetMonitor, "OFFSET MONITOR");
+            Lang.Bind(lblVisionOperatorConfirmTimeout, "VISION OPERATOR CONFIRM TIMEOUT (SEC)");
+            Lang.Bind(lblSimulationVisionNgRate, "SIM VISION NG RATE (%)");
+            Lang.Bind(lblOutputResultNetworkCopyFolder, "OUTPUT RESULT NETWORK COPY FOLDER");
+            Lang.Bind(_cbAjin, "UseAjin (AXL.dll)");
+            Lang.Bind(lblIrq, "IRQ NO.");
+            Lang.Bind(btnLogSettings, "LOG SETTINGS");
 
             grpAjin.Tag = "level:Maintenance";
+        }
+
+        public void ApplyLanguage()
+        {
+            // 항목과 선택값은 그대로 두고 표시만 다시 그린다. 언어 변경으로 설정을 저장하지 않는다.
+            Invalidate(true);
+        }
+
+        private void LocalizedCombo_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            ComboBox combo = sender as ComboBox;
+            e.DrawBackground();
+            if (combo == null || e.Index < 0 || e.Index >= combo.Items.Count)
+                return;
+
+            string original = combo.GetItemText(combo.Items[e.Index]);
+            if (ReferenceEquals(combo, _cbLang))
+            {
+                switch (original)
+                {
+                    case Lang.Ko: original = "Korean"; break;
+                    case Lang.En: original = "English"; break;
+                    case Lang.Zh: original = "Chinese"; break;
+                    case Lang.Ja: original = "Japanese"; break;
+                }
+            }
+
+            TextRenderer.DrawText(e.Graphics, Lang.Display(original), e.Font ?? combo.Font, e.Bounds,
+                combo.Enabled ? e.ForeColor : System.Drawing.SystemColors.GrayText,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine |
+                TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            e.DrawFocusRectangle();
         }
 
         private void ApplyGeneralLayout()

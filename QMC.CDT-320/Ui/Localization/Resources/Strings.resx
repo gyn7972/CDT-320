@@ -1,0 +1,788 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="app.title" xml:space="preserve">
+    <value>CDT-320</value>
+  </data>
+  <data name="dlg.alignConfirm" xml:space="preserve">
+    <value>ALIGN CONFIRM</value>
+  </data>
+  <data name="dlg.alignMatchFail" xml:space="preserve">
+    <value>ALIGN MATCH FAIL</value>
+  </data>
+  <data name="dlg.autoPos" xml:space="preserve">
+    <value>AUTO POS SETUP</value>
+  </data>
+  <data name="dlg.barcodeConfirm" xml:space="preserve">
+    <value>BARCODE CONFIRM</value>
+  </data>
+  <data name="dlg.ccsInspection" xml:space="preserve">
+    <value>CCS INSPECTION</value>
+  </data>
+  <data name="dlg.colletChange" xml:space="preserve">
+    <value>COLLET CHANGING</value>
+  </data>
+  <data name="dlg.colletCleaning" xml:space="preserve">
+    <value>COLLET CLEANING</value>
+  </data>
+  <data name="dlg.login" xml:space="preserve">
+    <value>USER LOGIN</value>
+  </data>
+  <data name="dlg.lotIdInput" xml:space="preserve">
+    <value>LOT ID INPUT</value>
+  </data>
+  <data name="dlg.needleChange" xml:space="preserve">
+    <value>NEEDLE UNIT CHANGING</value>
+  </data>
+  <data name="dlg.pickFail" xml:space="preserve">
+    <value>PICK FAIL</value>
+  </data>
+  <data name="dlg.placeFail" xml:space="preserve">
+    <value>PLACE FAIL</value>
+  </data>
+  <data name="dlg.posCheck" xml:space="preserve">
+    <value>POSITION CHECK</value>
+  </data>
+  <data name="dlg.selfInspection" xml:space="preserve">
+    <value>SELF INSPECTION</value>
+  </data>
+  <data name="dlg.visionAlignFail" xml:space="preserve">
+    <value>VISION ALIGN FAIL</value>
+  </data>
+  <data name="header.state.none" xml:space="preserve">
+    <value>NONE</value>
+  </data>
+  <data name="header.time" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="header.user" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="hist.alarm" xml:space="preserve">
+    <value>ALARM</value>
+  </data>
+  <data name="hist.col.code" xml:space="preserve">
+    <value>CODE</value>
+  </data>
+  <data name="hist.col.date" xml:space="preserve">
+    <value>DATE</value>
+  </data>
+  <data name="hist.col.desc" xml:space="preserve">
+    <value>DESCRIPTION</value>
+  </data>
+  <data name="hist.col.index" xml:space="preserve">
+    <value>INDEX</value>
+  </data>
+  <data name="hist.col.user" xml:space="preserve">
+    <value>USER</value>
+  </data>
+  <data name="hist.data" xml:space="preserve">
+    <value>DATA</value>
+  </data>
+  <data name="hist.event" xml:space="preserve">
+    <value>EVENT</value>
+  </data>
+  <data name="hist.frontHeadSeq" xml:space="preserve">
+    <value>FRONTHEAD SEQ</value>
+  </data>
+  <data name="hist.inputSeq" xml:space="preserve">
+    <value>INPUT SEQ</value>
+  </data>
+  <data name="hist.msgEdit" xml:space="preserve">
+    <value>MESSAGE EDIT</value>
+  </data>
+  <data name="hist.outputSeq" xml:space="preserve">
+    <value>OUTPUT SEQ</value>
+  </data>
+  <data name="hist.rearHeadSeq" xml:space="preserve">
+    <value>REARHEAD SEQ</value>
+  </data>
+  <data name="hist.warning" xml:space="preserve">
+    <value>WARNING</value>
+  </data>
+  <data name="hist.work" xml:space="preserve">
+    <value>WORK</value>
+  </data>
+  <data name="inspection.good" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="material.bin" xml:space="preserve">
+    <value>BIN CODE MAP</value>
+  </data>
+  <data name="material.diemap" xml:space="preserve">
+    <value>DIE MAP</value>
+  </data>
+  <data name="recipe.binCode" xml:space="preserve">
+    <value>BIN CODE MAP</value>
+  </data>
+  <data name="recipe.binMapCreate" xml:space="preserve">
+    <value>BIN DIE MAP CREATE</value>
+  </data>
+  <data name="recipe.bottomVision" xml:space="preserve">
+    <value>BOTTOM VISION</value>
+  </data>
+  <data name="recipe.calibration" xml:space="preserve">
+    <value>CALIBRATION</value>
+  </data>
+  <data name="recipe.dieMapSetup" xml:space="preserve">
+    <value>INPUT ALIGN TEACH</value>
+  </data>
+  <data name="recipe.dieSubset" xml:space="preserve">
+    <value>Die Spec</value>
+  </data>
+  <data name="recipe.forceControl" xml:space="preserve">
+    <value>FORCE CONTROL</value>
+  </data>
+  <data name="recipe.frontHead" xml:space="preserve">
+    <value>FRONT HEAD</value>
+  </data>
+  <data name="recipe.inputCassette" xml:space="preserve">
+    <value>INPUT CASSETTE</value>
+  </data>
+  <data name="recipe.inputCreate" xml:space="preserve">
+    <value>INPUT CREATE</value>
+  </data>
+  <data name="recipe.inputFeeder" xml:space="preserve">
+    <value>INPUT FEEDER</value>
+  </data>
+  <data name="recipe.inputMapCreate" xml:space="preserve">
+    <value>INPUT DIE MAP CREATE</value>
+  </data>
+  <data name="recipe.inputStage" xml:space="preserve">
+    <value>INPUT STAGE</value>
+  </data>
+  <data name="recipe.inputVision" xml:space="preserve">
+    <value>INPUT VISION</value>
+  </data>
+  <data name="recipe.loadFrame" xml:space="preserve">
+    <value>Load Wafer</value>
+  </data>
+  <data name="recipe.lowerVision" xml:space="preserve">
+    <value>LOWER VISION</value>
+  </data>
+  <data name="recipe.moduleSubset" xml:space="preserve">
+    <value>Module Options</value>
+  </data>
+  <data name="recipe.outputCassette" xml:space="preserve">
+    <value>OUTPUT CASSETTE</value>
+  </data>
+  <data name="recipe.outputCreate" xml:space="preserve">
+    <value>OUTPUT CREATE</value>
+  </data>
+  <data name="recipe.outputFeeder" xml:space="preserve">
+    <value>OUTPUT FEEDER</value>
+  </data>
+  <data name="recipe.outputMapCreate" xml:space="preserve">
+    <value>OUTPUT DIE MAP CREATE</value>
+  </data>
+  <data name="recipe.outputStage" xml:space="preserve">
+    <value>OUTPUT STAGE</value>
+  </data>
+  <data name="recipe.outputSubset" xml:space="preserve">
+    <value>Output Options</value>
+  </data>
+  <data name="recipe.outputVision" xml:space="preserve">
+    <value>OUTPUT VISION</value>
+  </data>
+  <data name="recipe.pickupSubset" xml:space="preserve">
+    <value>Pickup Sequence</value>
+  </data>
+  <data name="recipe.project" xml:space="preserve">
+    <value>Project</value>
+  </data>
+  <data name="recipe.rearHead" xml:space="preserve">
+    <value>REAR HEAD</value>
+  </data>
+  <data name="recipe.section" xml:space="preserve">
+    <value>Recipe</value>
+  </data>
+  <data name="recipe.sideVision" xml:space="preserve">
+    <value>SIDE VISION</value>
+  </data>
+  <data name="recipe.tapeFrameSubset" xml:space="preserve">
+    <value>Wafer Spec</value>
+  </data>
+  <data name="recipe.unloadFrame" xml:space="preserve">
+    <value>Unload Wafer</value>
+  </data>
+  <data name="recipe.visionStage" xml:space="preserve">
+    <value>VISION STAGE</value>
+  </data>
+  <data name="selftest.alignment" xml:space="preserve">
+    <value>AlignmentSolver</value>
+  </data>
+  <data name="selftest.binCode" xml:space="preserve">
+    <value>BinCodeMap</value>
+  </data>
+  <data name="selftest.dieMap" xml:space="preserve">
+    <value>DieMap generator</value>
+  </data>
+  <data name="selftest.interlock" xml:space="preserve">
+    <value>InterlockRegistry</value>
+  </data>
+  <data name="selftest.jobQueue" xml:space="preserve">
+    <value>JobQueue</value>
+  </data>
+  <data name="set.axisSetup" xml:space="preserve">
+    <value>Axis Setup</value>
+  </data>
+  <data name="set.barcode" xml:space="preserve">
+    <value>BARCODE</value>
+  </data>
+  <data name="set.cameraSetup" xml:space="preserve">
+    <value>Camera Setup</value>
+  </data>
+  <data name="set.connStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="set.connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="set.connected" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="set.cylinder" xml:space="preserve">
+    <value>CYLINDER</value>
+  </data>
+  <data name="set.digital" xml:space="preserve">
+    <value>DIGITAL</value>
+  </data>
+  <data name="set.digitalLink" xml:space="preserve">
+    <value>DIGITAL LINK</value>
+  </data>
+  <data name="set.disconnect" xml:space="preserve">
+    <value>Disconnect</value>
+  </data>
+  <data name="set.disconnected" xml:space="preserve">
+    <value>Disconnected</value>
+  </data>
+  <data name="set.gen.binArr" xml:space="preserve">
+    <value>Bin Array File</value>
+  </data>
+  <data name="set.gen.language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="set.gen.visionMatchErr" xml:space="preserve">
+    <value>Vision Match Error</value>
+  </data>
+  <data name="set.general" xml:space="preserve">
+    <value>GENERAL</value>
+  </data>
+  <data name="set.heightSensor" xml:space="preserve">
+    <value>HEIGHT SENSOR</value>
+  </data>
+  <data name="set.host" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="set.ioControl" xml:space="preserve">
+    <value>DIGITAL LINK</value>
+  </data>
+  <data name="set.lamp" xml:space="preserve">
+    <value>LAMP</value>
+  </data>
+  <data name="set.language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="set.lightSetup" xml:space="preserve">
+    <value>Light Setup</value>
+  </data>
+  <data name="set.lightSource" xml:space="preserve">
+    <value>LIGHT SOURCE</value>
+  </data>
+  <data name="set.log" xml:space="preserve">
+    <value>LOG</value>
+  </data>
+  <data name="set.motion" xml:space="preserve">
+    <value>MOTION</value>
+  </data>
+  <data name="set.port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="set.section" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="set.selfTest" xml:space="preserve">
+    <value>Self-Test</value>
+  </data>
+  <data name="set.simulator" xml:space="preserve">
+    <value>Simulator Link</value>
+  </data>
+  <data name="set.switch" xml:space="preserve">
+    <value>SWITCH</value>
+  </data>
+  <data name="set.teach" xml:space="preserve">
+    <value>Position Teach</value>
+  </data>
+  <data name="set.visionLink" xml:space="preserve">
+    <value>Vision Link</value>
+  </data>
+  <data name="set.zoomLens" xml:space="preserve">
+    <value>ZOOM LENS</value>
+  </data>
+  <data name="settings.alarmMaster" xml:space="preserve">
+    <value>Alarm Master</value>
+  </data>
+  <data name="settings.remoteViewer" xml:space="preserve">
+    <value>Remote Viewer</value>
+  </data>
+  <data name="stage.needleCylInfo" xml:space="preserve">
+    <value>STAGE &amp; NEEDLE Cyl Info</value>
+  </data>
+  <data name="status.barcode" xml:space="preserve">
+    <value>Wafer ID :</value>
+  </data>
+  <data name="status.bin" xml:space="preserve">
+    <value>Bin ID :</value>
+  </data>
+  <data name="status.mapEmpty" xml:space="preserve">
+    <value>Empty Map</value>
+  </data>
+  <data name="status.pick" xml:space="preserve">
+    <value>PICK</value>
+  </data>
+  <data name="status.project" xml:space="preserve">
+    <value>Project Name :</value>
+  </data>
+  <data name="status.reference" xml:space="preserve">
+    <value>REFERENCE</value>
+  </data>
+  <data name="status.vision" xml:space="preserve">
+    <value>VISION</value>
+  </data>
+  <data name="tab.exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="tab.history" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="tab.recipe" xml:space="preserve">
+    <value>Recipe</value>
+  </data>
+  <data name="tab.settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="tab.user" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="tab.work" xml:space="preserve">
+    <value>Work</value>
+  </data>
+  <data name="tab.workInfo" xml:space="preserve">
+    <value>Work Info</value>
+  </data>
+  <data name="user.accounts" xml:space="preserve">
+    <value>Accounts</value>
+  </data>
+  <data name="user.session" xml:space="preserve">
+    <value>Session</value>
+  </data>
+  <data name="wi.collet1Use" xml:space="preserve">
+    <value>#1 Collet Used</value>
+  </data>
+  <data name="wi.collet2Use" xml:space="preserve">
+    <value>#2 Collet Used</value>
+  </data>
+  <data name="wi.exist" xml:space="preserve">
+    <value>EXIST</value>
+  </data>
+  <data name="wi.expending" xml:space="preserve">
+    <value>EXPENDING</value>
+  </data>
+  <data name="wi.feederClamp" xml:space="preserve">
+    <value>FEEDER CLAMP</value>
+  </data>
+  <data name="wi.feederUpDown" xml:space="preserve">
+    <value>FEEDER UP DOWN</value>
+  </data>
+  <data name="wi.frontHead" xml:space="preserve">
+    <value>FRONT HEAD</value>
+  </data>
+  <data name="wi.head.autoPos" xml:space="preserve">
+    <value>AUTO POSITION</value>
+  </data>
+  <data name="wi.head.colletChange" xml:space="preserve">
+    <value>COLLET CHANGE</value>
+  </data>
+  <data name="wi.head.colletCheck" xml:space="preserve">
+    <value>COLLET CHECK</value>
+  </data>
+  <data name="wi.head.colletCleaning" xml:space="preserve">
+    <value>COLLET CLEANING</value>
+  </data>
+  <data name="wi.head.countClear" xml:space="preserve">
+    <value>Clear All Count</value>
+  </data>
+  <data name="wi.head.initAll" xml:space="preserve">
+    <value>Init All</value>
+  </data>
+  <data name="wi.head1" xml:space="preserve">
+    <value>HEAD #1</value>
+  </data>
+  <data name="wi.head2" xml:space="preserve">
+    <value>HEAD #2</value>
+  </data>
+  <data name="wi.headAxisT" xml:space="preserve">
+    <value>HEAD AXIS T</value>
+  </data>
+  <data name="wi.headBlow" xml:space="preserve">
+    <value>HEAD BLOW</value>
+  </data>
+  <data name="wi.headVacuum" xml:space="preserve">
+    <value>HEAD VACUUM</value>
+  </data>
+  <data name="wi.inputCassette" xml:space="preserve">
+    <value>INPUT CASSETTE</value>
+  </data>
+  <data name="wi.inputFeeder" xml:space="preserve">
+    <value>INPUT FEEDER</value>
+  </data>
+  <data name="wi.inputStage" xml:space="preserve">
+    <value>INPUT STAGE</value>
+  </data>
+  <data name="wi.jellPadUsing" xml:space="preserve">
+    <value>JELL PAD USING COUNT</value>
+  </data>
+  <data name="wi.legend.empty" xml:space="preserve">
+    <value>EMPTY</value>
+  </data>
+  <data name="wi.legend.finish" xml:space="preserve">
+    <value>FINISH</value>
+  </data>
+  <data name="wi.legend.ready" xml:space="preserve">
+    <value>READY</value>
+  </data>
+  <data name="wi.legend.workReady" xml:space="preserve">
+    <value>WORK READY</value>
+  </data>
+  <data name="wi.legend.working" xml:space="preserve">
+    <value>WORKING</value>
+  </data>
+  <data name="wi.liftWaferLoading" xml:space="preserve">
+    <value>LIFT WAFER LOADING</value>
+  </data>
+  <data name="wi.liftWaferMapping" xml:space="preserve">
+    <value>LIFT WAFER MAPPING</value>
+  </data>
+  <data name="wi.liftWaferUnloading" xml:space="preserve">
+    <value>LIFT WAFER UNLOADING</value>
+  </data>
+  <data name="wi.lifter" xml:space="preserve">
+    <value>LIFTER</value>
+  </data>
+  <data name="wi.lifterInit" xml:space="preserve">
+    <value>LIFTER Init</value>
+  </data>
+  <data name="wi.lifterReady" xml:space="preserve">
+    <value>LIFTER READY</value>
+  </data>
+  <data name="wi.logic" xml:space="preserve">
+    <value>LOGIC</value>
+  </data>
+  <data name="wi.logicLogic" xml:space="preserve">
+    <value>LOGIC</value>
+  </data>
+  <data name="wi.logicTimechart" xml:space="preserve">
+    <value>TIMECHART</value>
+  </data>
+  <data name="wi.needleUpDown" xml:space="preserve">
+    <value>NEEDLE UP / DOWN</value>
+  </data>
+  <data name="wi.needleUsing" xml:space="preserve">
+    <value>NEEDLE USING COUNT</value>
+  </data>
+  <data name="wi.outGoodCount" xml:space="preserve">
+    <value>GOOD Count</value>
+  </data>
+  <data name="wi.outNgCount" xml:space="preserve">
+    <value>NG Count</value>
+  </data>
+  <data name="wi.outStageZ" xml:space="preserve">
+    <value>OUTPUT STAGE Z</value>
+  </data>
+  <data name="wi.outputCassette" xml:space="preserve">
+    <value>OUTPUT CASSETTE</value>
+  </data>
+  <data name="wi.outputFeeder" xml:space="preserve">
+    <value>OUTPUT FEEDER</value>
+  </data>
+  <data name="wi.outputStage" xml:space="preserve">
+    <value>OUTPUT STAGE</value>
+  </data>
+  <data name="wi.pickFail" xml:space="preserve">
+    <value>PICK Fail Qty</value>
+  </data>
+  <data name="wi.placeFail" xml:space="preserve">
+    <value>PLACE Fail Qty</value>
+  </data>
+  <data name="wi.rearHead" xml:space="preserve">
+    <value>REAR HEAD</value>
+  </data>
+  <data name="wi.slotNo" xml:space="preserve">
+    <value>Slot No.</value>
+  </data>
+  <data name="wi.slotState" xml:space="preserve">
+    <value>Slot State</value>
+  </data>
+  <data name="wi.stageAlign" xml:space="preserve">
+    <value>STAGE ALIGN</value>
+  </data>
+  <data name="wi.stageBarcode" xml:space="preserve">
+    <value>STAGE BARCODE</value>
+  </data>
+  <data name="wi.stageChipAlign" xml:space="preserve">
+    <value>STAGE CHIP ALIGN</value>
+  </data>
+  <data name="wi.stageExist" xml:space="preserve">
+    <value>STAGE EXIST</value>
+  </data>
+  <data name="wi.stageFinish" xml:space="preserve">
+    <value>STAGE FINISH</value>
+  </data>
+  <data name="wi.stageInit" xml:space="preserve">
+    <value>STAGE INIT</value>
+  </data>
+  <data name="wi.stageReady" xml:space="preserve">
+    <value>STAGE READY</value>
+  </data>
+  <data name="wi.state" xml:space="preserve">
+    <value>STATE</value>
+  </data>
+  <data name="wi.visionTest" xml:space="preserve">
+    <value>VISION TEST</value>
+  </data>
+  <data name="wi.waferMapViewer" xml:space="preserve">
+    <value>WAFER MAP VIEWER</value>
+  </data>
+  <data name="wi.wfAlign" xml:space="preserve">
+    <value>WAFER ALIGN</value>
+  </data>
+  <data name="wi.wfBarcode" xml:space="preserve">
+    <value>WAFER BARCODE</value>
+  </data>
+  <data name="work.autoPosMode" xml:space="preserve">
+    <value>Auto Position Setup Mode</value>
+  </data>
+  <data name="work.colletCheckMode" xml:space="preserve">
+    <value>Collet Check Mode</value>
+  </data>
+  <data name="work.colletCleanMode" xml:space="preserve">
+    <value>Collet Cleaning Mode</value>
+  </data>
+  <data name="work.colletMode" xml:space="preserve">
+    <value>Collet Change Mode</value>
+  </data>
+  <data name="work.cycleRun" xml:space="preserve">
+    <value>CYCLE RUN</value>
+  </data>
+  <data name="work.cycleStop" xml:space="preserve">
+    <value>CYCLE STOP</value>
+  </data>
+  <data name="work.dieMap" xml:space="preserve">
+    <value>DIE MAP</value>
+  </data>
+  <data name="work.estop" xml:space="preserve">
+    <value>E-STOP</value>
+  </data>
+  <data name="work.init" xml:space="preserve">
+    <value>Init</value>
+  </data>
+  <data name="work.inputCst" xml:space="preserve">
+    <value>INPUT CST STATUS</value>
+  </data>
+  <data name="work.inputMapTransfer" xml:space="preserve">
+    <value>INPUT Die Map Switch</value>
+  </data>
+  <data name="work.needleMode" xml:space="preserve">
+    <value>Needle Unit Change Mode</value>
+  </data>
+  <data name="work.needlePosMode" xml:space="preserve">
+    <value>Needle Pos Check</value>
+  </data>
+  <data name="work.outputCst" xml:space="preserve">
+    <value>OUTPUT CST STATUS</value>
+  </data>
+  <data name="work.outputMapTransfer" xml:space="preserve">
+    <value>OUTPUT Die Map Switch</value>
+  </data>
+  <data name="work.page.inputMap" xml:space="preserve">
+    <value>INPUT STAGE DIE MAP</value>
+  </data>
+  <data name="work.page.main" xml:space="preserve">
+    <value>Main</value>
+  </data>
+  <data name="work.page.outputMap" xml:space="preserve">
+    <value>OUTPUT STAGE DIE MAP</value>
+  </data>
+  <data name="work.posCheck" xml:space="preserve">
+    <value>POSITION CHECK</value>
+  </data>
+  <data name="work.ready" xml:space="preserve">
+    <value>READY</value>
+  </data>
+  <data name="work.resetAlarm" xml:space="preserve">
+    <value>RESET ALARM</value>
+  </data>
+  <data name="work.sec.visionView" xml:space="preserve">
+    <value>Vision View</value>
+  </data>
+  <data name="work.sec.workInfo" xml:space="preserve">
+    <value>Work Info</value>
+  </data>
+  <data name="work.sec.workMap" xml:space="preserve">
+    <value>Work Map</value>
+  </data>
+  <data name="work.sec.workTime" xml:space="preserve">
+    <value>Work Time</value>
+  </data>
+  <data name="work.selfCheckMode" xml:space="preserve">
+    <value>Self-Check Mode</value>
+  </data>
+  <data name="work.shutdown" xml:space="preserve">
+    <value>SHUTDOWN</value>
+  </data>
+  <data name="work.start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="work.stop" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="work.visionAlign" xml:space="preserve">
+    <value>Vision Align</value>
+  </data>
+  <data name="work.waferMapOpen" xml:space="preserve">
+    <value>Wafer Map Open</value>
+  </data>
+  <data name="work.workInfo.binArrMon" xml:space="preserve">
+    <value>Bin Array Monitor</value>
+  </data>
+  <data name="work.workInfo.collet1Use" xml:space="preserve">
+    <value>#1 Collet Used</value>
+  </data>
+  <data name="work.workInfo.collet2Use" xml:space="preserve">
+    <value>#2 Collet Used</value>
+  </data>
+  <data name="work.workInfo.needleUse" xml:space="preserve">
+    <value>Needle Used</value>
+  </data>
+  <data name="work.workInfo.pickFail" xml:space="preserve">
+    <value>PICK Fail Qty</value>
+  </data>
+  <data name="work.workInfo.placeFail" xml:space="preserve">
+    <value>PLACE Fail Qty</value>
+  </data>
+  <data name="work.workInfo.project" xml:space="preserve">
+    <value>Project Name</value>
+  </data>
+  <data name="work.workInfo.rework" xml:space="preserve">
+    <value>DT Count</value>
+  </data>
+  <data name="work.workInfo.workBinQty" xml:space="preserve">
+    <value>Work BIN Qty</value>
+  </data>
+  <data name="work.workTime.alarm" xml:space="preserve">
+    <value>ALARM</value>
+  </data>
+  <data name="work.workTime.ccs" xml:space="preserve">
+    <value>CCS Check</value>
+  </data>
+  <data name="work.workTime.clear" xml:space="preserve">
+    <value>CLEAR</value>
+  </data>
+  <data name="work.workTime.contUp" xml:space="preserve">
+    <value>Cont Up Time</value>
+  </data>
+  <data name="work.workTime.cycle" xml:space="preserve">
+    <value>CYCLE TIME</value>
+  </data>
+  <data name="work.workTime.errCnt" xml:space="preserve">
+    <value>Err Down Count</value>
+  </data>
+  <data name="work.workTime.errDown" xml:space="preserve">
+    <value>Err Down Time</value>
+  </data>
+  <data name="work.workTime.load" xml:space="preserve">
+    <value>Load Time</value>
+  </data>
+  <data name="work.workTime.lotId" xml:space="preserve">
+    <value>Active LOT ID</value>
+  </data>
+  <data name="work.workTime.mtbf" xml:space="preserve">
+    <value>MTBF</value>
+  </data>
+  <data name="work.workTime.mttr" xml:space="preserve">
+    <value>MTTR</value>
+  </data>
+  <data name="work.workTime.normDown" xml:space="preserve">
+    <value>Norm Down Time</value>
+  </data>
+  <data name="work.workTime.rate" xml:space="preserve">
+    <value>Uptime %</value>
+  </data>
+  <data name="work.workTime.recovery" xml:space="preserve">
+    <value>Recovery Time</value>
+  </data>
+  <data name="work.workTime.up" xml:space="preserve">
+    <value>Up Time</value>
+  </data>
+  <data name="work.workTime.uph" xml:space="preserve">
+    <value>UPH</value>
+  </data>
+</root>

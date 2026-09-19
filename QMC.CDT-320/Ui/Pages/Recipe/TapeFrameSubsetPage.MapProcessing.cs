@@ -15,6 +15,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 if (_project == null) throw new InvalidOperationException("현재 레시피를 먼저 불러오세요.");
+                _project = RecipeStore.Load(_project.FileName) ?? throw new InvalidDataException("현재 레시피를 다시 읽지 못했습니다.");
                 using (var dialog = new WaferMapProcessSettingsDialog(_project, SaveAndApplyProcessMapSettings))
                     dialog.ShowDialog(this);
             }
@@ -35,10 +36,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (!host.TrySaveAndApplyWaferMapProcessing(_project, input, output, editor, out updated, out reason))
                 throw new InvalidOperationException(reason);
             _project = updated;
-            _lastWaferStatus = "[공정 맵 설정 저장 완료] 현재 레시피에 반영했습니다. 입력 사용 모드는 레시피에 저장되며, 원격 다운로드만 지정한 형식으로 검사합니다. 입력/출력 등록 맵은 구분자와 관계없이 사용합니다.";
+            _lastWaferStatus = "[공정 맵 설정 저장 완료] " + RecipeInputMapSource.DescribeMode(updated, AppSettingsStore.Current) +
+                (updated.NextInputUseRemoteWaferMap.HasValue ? " · 현재 웨이퍼는 유지하며 다음 웨이퍼 투입부터 적용합니다." : " · 현재 레시피에 반영했습니다.");
             UpdateMapSourceInfo();
             QMC.Common.Log.Write("Main", "SYSTEM", "RecipeMapProcessing",
-                "공정 맵 설정 저장 및 활성 적용 완료. recipe=" + updated.FileName +
+                "공정 맵 설정 저장 완료. recipe=" + updated.FileName + ", " + RecipeInputMapSource.DescribeMode(updated, AppSettingsStore.Current) +
                 ", input=" + WaferMapProcessService.GetSettingsKey(input) + ", output=" + WaferMapProcessService.GetSettingsKey(output));
         }
     }

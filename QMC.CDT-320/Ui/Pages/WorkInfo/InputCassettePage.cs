@@ -11,6 +11,7 @@ using QMC.CDT320;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Dialogs;
 using QMC.Common.Motion;
 
@@ -32,6 +33,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             try
             {
                 InitializeComponent();
+                BindLocalizedCaptions();
                 BindDesignerControls();
                 WireEvents();
 
@@ -54,6 +56,38 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
+        }
+
+        private void BindLocalizedCaptions()
+        {
+            Lang.Bind(lblHeader, "INPUT CASSETTE");
+            Lang.Bind(grpSlotState, "SLOT STATE");
+            Lang.Bind(lblSlotNoTitle, "Slot No");
+            Lang.Bind(btnPrev, "PREV");
+            Lang.Bind(btnNext, "NEXT");
+            Lang.Bind(lblLifterAxisTitle, "LIFTER AXIS Z");
+            Lang.Bind(lblSlotStateTitle, "State");
+            Lang.Bind(btnReady, "LIFTER READY");
+            Lang.Bind(grpLifter, "LIFTER");
+            Lang.Bind(lblLegendReadyText, "READY");
+            Lang.Bind(lblLegendEmptyText, "EMPTY");
+            Lang.Bind(lblLegendWorkingText, "WORKING");
+            Lang.Bind(lblLegendFinishText, "FINISH");
+            Lang.Bind(lblLegendWorkReadyText, "WORK READY");
+            Lang.Bind(grpAction, "ACTION");
+            Lang.Bind(btnMap, "LIFT WAFER MAPPING");
+            Lang.Bind(btnLoad, "LIFT WAFER LOADING");
+            Lang.Bind(btnUnload, "LIFT WAFER UNLOADING");
+            Lang.Bind(btnStop, "STOP");
+            Lang.Bind(btnCstExchange, "CST EXCHANGE");
+            Lang.Bind(btnCstClear, "CST CLEAR");
+            Lang.Bind(grpDataOnly, "MATERIAL DATA ONLY");
+            Lang.Bind(lblDataOnlyWarning, "DATA ONLY / NO MOTION — 실물 위치를 확인한 후 Material 데이터만 이동/삭제하십시오. 장비는 움직이지 않습니다.");
+            Lang.Bind(lblDataOnlySourceTitle, "SOURCE");
+            Lang.Bind(lblDataOnlyDestTitle, "DEST");
+            Lang.Bind(lblDataOnlyMaterialTitle, "MATERIAL");
+            Lang.Bind(btnDataOnlyMove, "MOVE DATA");
+            Lang.Bind(btnDataOnlyDelete, "DELETE DATA");
         }
 
         private void BindDesignerControls()
@@ -2547,7 +2581,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     bool known;
                     ResolveDisplayedSlotState(_selectedCassetteRole, curSlot, map, out waferId, out state, out hasWafer, out known);
                     Color stateColor = known ? GetStateColor(state) : Color.White;   // 미지정 상태 값은 흰색
-                    lblSlotStateValue.Text = known ? BuildStateText(state, waferId, false) : "-";
+                    lblSlotStateValue.Text = known ? Lang.Display(BuildStateText(state, waferId, false)) : "-";
                     lblSlotStateValue.BackColor = stateColor;
                     lblSlotStateValue.ForeColor = stateColor == Color.Navy ? Color.White : Color.Black;
                 }

@@ -1,614 +1,139 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Resources;
 using System.Windows.Forms;
+using QMC.Common.Localization;
 using QMC.CDT_320.Ui.Controls;
 
 namespace QMC.CDT_320.Ui.Localization
 {
+    /// <summary>기존 화면을 공통 표시 갱신 계약에 연결하는 호환 인터페이스입니다.</summary>
+    public interface ILocalizedView : QMC.Common.Localization.ILocalizedView
+    {
+    }
+
     /// <summary>
-    /// 간단한 in-memory 다국어 테이블.
-    /// Current 언어를 변경하면 LanguageChanged 이벤트가 발생하고,
-    /// 구독 중인 컨트롤은 <see cref="Apply"/> 을 호출해 Text 를 갱신한다.
-    /// <para>
-    /// 사용 예:
-    ///   Lang.T("tab.work")                → 현재 언어의 "작업" / "Work" / "工作"
-    ///   Lang.SetLanguage("en")            → 영어로 전환
-    ///   Lang.Apply(this)                  → 하위 컨트롤 Tag가 "i18n:key" 인 것의 Text 치환
-    /// </para>
+    /// CDT-320 화면의 언어 처리 진입점입니다. 번역 조회와 컨트롤 갱신은 QMC.Common에 위임하고,
+    /// 프로젝트 리소스 구성과 전용 컨트롤 처리만 이 클래스에 둡니다.
+    /// 문구는 Resources의 resx 파일에서 관리하며, 새 화면은 T 또는 BindKey로 고정 키를 사용합니다.
     /// </summary>
     public static class Lang
     {
         public const string Ko = "ko";
         public const string En = "en";
-        public const string Zh = "zh-CN";    // Stage 11 — 중국어 추가
-        public const string Ja = "ja";       // Stage 12 — 일본어 추가
+        public const string Zh = "zh-CN";
+        public const string Ja = "ja";
 
-        public static event Action LanguageChanged;
-
-        public static string Current { get; private set; } = Ko;
-
-        /// <summary>지원 언어 목록. Ui.Settings 화면에서 콤보박스로 노출.</summary>
+        /// <summary>기존 언어 선택 화면과의 호환을 위한 언어 목록입니다.</summary>
         public static readonly string[] Supported = new[] { Ko, En, Zh, Ja };
 
-        // key → { "ko": "...", "en": "...", "zh-CN": "...", "ja": "..." }
-        private static readonly Dictionary<string, Dictionary<string, string>> _map
-            = new Dictionary<string, Dictionary<string, string>>();
+        private static readonly LocalizationService _localization = CreateLocalization();
+        private static readonly WinFormsLocalizationBinder _bindings
+            = new WinFormsLocalizationBinder(_localization, SetDisplayText);
+        private static readonly Dictionary<string, string> _displayAliases = CreateDisplayAliases();
 
-        static Lang()
+        public static string Current => _localization.Current;
+
+        public static event Action LanguageChanged
         {
-            Register();
-            RegisterChinese();   // Stage 11
-            RegisterJapanese();  // Stage 12
+            add { _localization.LanguageChanged += value; }
+            remove { _localization.LanguageChanged -= value; }
         }
 
         public static void SetLanguage(string lang)
         {
-            if (string.IsNullOrEmpty(lang) || !HasLanguage(lang)) return;
-            if (Current == lang) return;
-            Current = lang;
-            LanguageChanged?.Invoke();
+            if (HasLanguage(lang)) _localization.SetLanguage(lang);
         }
 
         public static bool HasLanguage(string lang)
         {
-            foreach (var s in Supported) if (s == lang) return true;
+            // 기존 설정의 언어 코드 대소문자 판정도 그대로 유지합니다.
+            foreach (string supported in _localization.Supported)
+                if (string.Equals(supported, lang, StringComparison.Ordinal)) return true;
             return false;
         }
 
-        /// <summary>키에 해당하는 현재 언어 문자열. 없으면 영어→한국어 fallback, 그것도 없으면 키 자체 반환.</summary>
+        /// <summary>현재 언어, 영어, 한국어 순으로 조회하며 미등록 키는 그대로 반환합니다.</summary>
         public static string T(string key)
         {
-            if (string.IsNullOrEmpty(key)) return "";
-            if (_map.TryGetValue(key, out var d))
-            {
-                if (d.TryGetValue(Current, out var s)) return s;
-                // 중국어 미번역 → 영어 fallback
-                if (d.TryGetValue(En, out var efallback)) return efallback;
-                if (d.TryGetValue(Ko, out var kfallback)) return kfallback;
-            }
-            return key;
+            return _localization.GetString(key);
         }
 
-        /// <summary>키의 영어(en) 문자열. 메뉴 버튼 라벨 등 로케일과 무관하게 영어로 표시할 때 사용.</summary>
+        /// <summary>현재 언어와 무관하게 영어만 조회합니다. 미등록 키는 그대로 반환합니다.</summary>
         public static string TEn(string key)
         {
-            if (string.IsNullOrEmpty(key)) return "";
-            if (_map.TryGetValue(key, out var d) && d.TryGetValue(En, out var s)) return s;
-            return key;
+            if (string.IsNullOrEmpty(key)) return string.Empty;
+            return _localization.TryGetString(key, En, out var text) ? text : key;
         }
 
         /// <summary>
-        /// 컨트롤 트리를 순회하며 Tag 가 "i18n:KEY" 로 시작하면 해당 키의 번역문을 Text 에 반영.
-        /// BottomMenuButton 은 Label 프로퍼티를, Form/Label/Button/그 외는 Text 를 갱신.
+        /// 기존 표시 원문을 고정 리소스 키로 연결하는 호환 경로입니다.
+        /// 명령, 설정값, enum, 모델 키에는 적용하지 않습니다. 새 문구는 T의 키 기반 조회를 사용합니다.
         /// </summary>
+        public static string Display(string originalText)
+        {
+            if (string.IsNullOrEmpty(originalText)) return originalText ?? string.Empty;
+            return _displayAliases.TryGetValue(originalText, out var key)
+                ? _localization.GetString(key) : originalText;
+        }
+
+        /// <summary>기존 화면의 원문 바인딩을 유지합니다. 컨트롤 Tag와 내부 동작 값은 보존합니다.</summary>
+        public static void Bind(Control control, string originalText)
+        {
+            if (control == null || control.IsDisposed) return;
+            if (!string.IsNullOrEmpty(originalText) && _displayAliases.TryGetValue(originalText, out var key))
+                _bindings.Bind(control, key);
+            else _bindings.BindLiteral(control, originalText);
+        }
+
+        /// <summary>표시 컨트롤에 고정 번역 키를 연결합니다. 새 화면에서는 이 API를 사용합니다.</summary>
+        public static void BindKey(Control control, string key)
+        {
+            _bindings.Bind(control, key);
+        }
+
+        /// <summary>명시적인 표시 바인딩과 i18n 태그만 갱신하며 입력값과 선택값을 변경하지 않습니다.</summary>
         public static void Apply(Control root)
         {
-            if (root == null) return;
-            foreach (Control c in EnumerateAll(root))
+            _bindings.Apply(root);
+        }
+
+        private static LocalizationService CreateLocalization()
+        {
+            var sources = new ILocalizationSource[]
             {
-                if (c.Tag is string tag && tag.StartsWith("i18n:"))
-                {
-                    string key = tag.Substring(5);
-                    // 추가 메타 (예: "i18n:work.init;level:Operator") — 첫 ';' 까지만 키
-                    int sep = key.IndexOf(';');
-                    if (sep >= 0) key = key.Substring(0, sep);
-                    string val = T(key);
-                    if (c is BottomMenuButton bmb) bmb.Label = val;
-                    else c.Text = val;
-                    c.Invalidate();
-                }
-            }
-            // 폼 자체 캡션
-            if (root is Form f && f.Tag is string ft && ft.StartsWith("i18n:"))
-                f.Text = T(ft.Substring(5));
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.Strings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.DisplayStrings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.Common.Localization.Resources.CommonStrings", typeof(LocalizationService).Assembly), En)
+            };
+            return new LocalizationService(sources, Supported, Ko, new[] { En, Ko });
         }
 
-        private static IEnumerable<Control> EnumerateAll(Control root)
+        private static Dictionary<string, string> CreateDisplayAliases()
         {
-            yield return root;
-            foreach (Control c in root.Controls)
-                foreach (var child in EnumerateAll(c))
-                    yield return child;
-        }
-
-        // ───────────────────────────────────────
-        //  기본 번역 키 등록 (확장은 이 함수만 추가하면 됨)
-        // ───────────────────────────────────────
-        private static void Register()
-        {
-            A("app.title",            "CDT-320",          "CDT-320");
-
-            // 하단 탭
-            A("tab.work",             "작업",              "Work");
-            A("tab.workInfo",         "작업 정보",         "Work Info");
-            A("tab.history",          "이력",              "History");
-            A("tab.recipe",           "레시피",            "Recipe");
-            A("tab.settings",         "설정",              "Settings");
-            A("tab.user",             "사용자",            "User");
-            A("tab.exit",             "종료",              "Exit");
-            A("user.session",         "세션",              "Session");
-            A("user.accounts",        "계정 관리",          "Accounts");
-
-            // 상단 헤더/상태 바
-            A("header.user",          "사용자",            "User");
-            A("header.time",          "시간",              "Time");
-            A("header.state.none",    "NONE",             "NONE");
-            A("status.mapEmpty",      "빈 맵",             "Empty Map");
-            A("status.project",       "Project Name :",   "Project Name :");
-            A("status.barcode",       "Wafer ID :",       "Wafer ID :");
-            A("status.bin",           "Bin ID :",         "Bin ID :");
-            A("status.vision",        "VISION",           "VISION");
-            A("status.pick",          "PICK",             "PICK");
-            A("status.reference",     "REFERENCE",        "REFERENCE");
-
-            // 사이드바 (작업)
-            A("work.init",            "초기화",            "Init");
-            A("work.ready",           "READY",             "READY");
-            A("work.start",           "시작",              "Start");
-            A("work.stop",            "정지",              "Stop");
-            A("work.cycleRun",        "CYCLE RUN",        "CYCLE RUN");
-            A("work.cycleStop",       "CYCLE STOP",       "CYCLE STOP");
-            A("work.resetAlarm",      "RESET ALARM",      "RESET ALARM");
-            A("work.shutdown",        "설비 종료",         "SHUTDOWN");
-            A("work.estop",           "비상 정지",         "E-STOP");
-            A("work.inputCst",        "INPUT CST STATUS", "INPUT CST STATUS");
-            A("work.outputCst",       "OUTPUT CST STATUS","OUTPUT CST STATUS");
-            A("work.colletMode",      "콜렛 교체모드",      "Collet Change Mode");
-            A("work.needleMode",      "니들 유닛 교체모드", "Needle Unit Change Mode");
-            A("work.selfCheckMode",   "자주검사 모드",      "Self-Check Mode");
-            A("work.autoPosMode",     "자동위치 설정모드",  "Auto Position Setup Mode");
-            A("work.colletCleanMode", "콜렛 클리닝 모드",   "Collet Cleaning Mode");
-            A("work.posCheck",        "POSITION CHECK",   "POSITION CHECK");
-
-            // 사이드바 (레시피 - 320: FRONT/REAR Head)
-            A("recipe.section",       "레시피",            "Recipe");
-            A("recipe.project",       "프로젝트",           "Project");
-            A("recipe.inputCassette", "입력 카세트",   "INPUT CASSETTE");
-            A("recipe.inputFeeder",   "입력 이송부",     "INPUT FEEDER");
-            A("recipe.inputStage",    "입력 스테이지",      "INPUT STAGE");
-            A("recipe.frontHead",     "전면 헤드",       "FRONT HEAD");
-            A("recipe.visionStage",   "비전 스테이지",     "VISION STAGE");
-            A("recipe.rearHead",      "후면 헤드",        "REAR HEAD");
-            A("recipe.outputFeeder",  "출력 이송부",    "OUTPUT FEEDER");
-            A("recipe.outputCassette","출력 카세트",  "OUTPUT CASSETTE");
-            A("recipe.outputStage",   "출력 스테이지",     "OUTPUT STAGE");
-
-            A("recipe.inputCreate", "입력 맵 생성", "INPUT CREATE");
-            A("recipe.outputCreate", "출력 맵 생성", "OUTPUT CREATE");
-            A("recipe.calibration", "보정", "CALIBRATION");
-
-            A("recipe.forceControl", "가압 제어", "FORCE CONTROL");
-            A("recipe.inputVision",   "입력 비전",     "INPUT VISION");
-            A("recipe.bottomVision",  "하부 비전",    "BOTTOM VISION");
-            A("recipe.sideVision",    "측면 비전",      "SIDE VISION");
-            A("recipe.outputVision",  "출력 비전",    "OUTPUT VISION");
-            
-
-            // 설정 탭
-            A("set.section",          "설정",              "Settings");
-            A("set.language",         "언어",              "Language");
-            A("set.simulator",        "시뮬레이터 연결",     "Simulator Link");
-            A("set.teach",            "위치 티칭",          "Position Teach");
-            A("set.axisSetup",        "축 셋업",           "Axis Setup");
-            A("set.cameraSetup",      "카메라 셋업",        "Camera Setup");
-            A("set.lightSetup",       "조명 셋업",          "Light Setup");
-            A("set.connect",          "연결",              "Connect");
-            A("set.disconnect",       "해제",              "Disconnect");
-            A("set.host",             "호스트",            "Host");
-            A("set.port",             "포트",              "Port");
-            A("set.connStatus",       "상태",              "Status");
-            A("set.connected",        "연결됨",            "Connected");
-            A("set.disconnected",     "연결되지 않음",      "Disconnected");
-
-            // 공통
-            A("common.caption",       "캡션",              "Caption");
-            A("common.ok",            "확인",              "OK");
-            A("common.cancel",        "취소",              "Cancel");
-            A("common.apply",         "적용",              "Apply");
-            A("common.log",           "로그",              "Log");
-            A("common.clear",         "지우기",            "Clear");
-            A("common.info",          "정보",              "Info");
-            A("common.setting",       "설정",              "Setup");
-            A("common.save",          "저장",              "Save");
-            A("common.open",          "열기",              "Open");
-            A("common.delete",        "삭제",              "Delete");
-            A("common.prev",          "이전",              "Prev");
-            A("common.next",          "다음",              "Next");
-            A("common.add",           "추가",              "Add");
-            A("common.update",        "수정",              "Update");
-            A("common.enable",        "ENABLE",           "ENABLE");
-            A("common.disable",       "DISABLE",          "DISABLE");
-            A("common.incomplete",    "미완료",            "Incomplete");
-            A("common.complete",      "완료",              "Complete");
-            A("common.state",         "상태",              "State");
-            A("common.live",          "Live",             "Live");
-
-            // 작업 서브 페이지
-            A("work.page.main",       "메인 화면",          "Main");
-            A("work.page.inputMap",   "INPUT STAGE DIE MAP",  "INPUT STAGE DIE MAP");
-            A("work.page.outputMap",  "OUTPUT STAGE DIE MAP", "OUTPUT STAGE DIE MAP");
-            A("work.sec.visionView",  "비전 화면",          "Vision View");
-            A("work.sec.workMap",     "작업 맵",            "Work Map");
-            A("work.sec.workInfo",    "작업 정보",          "Work Info");
-            A("work.sec.workTime",    "작업 시간",          "Work Time");
-            A("work.workInfo.project","프로젝트 이름",      "Project Name");
-            A("work.workInfo.rework", "DT Count",           "DT Count");
-            A("work.workInfo.pickFail","PICK 실패 수량",     "PICK Fail Qty");
-            A("work.workInfo.placeFail","PLACE 실패 수량", "PLACE Fail Qty");
-            A("work.workInfo.workBinQty","작업 BIN 수량",  "Work BIN Qty");
-            A("work.workInfo.collet1Use","# 1 Collet 사용",  "#1 Collet Used");
-            A("work.workInfo.collet2Use","# 2 Collet 사용",  "#2 Collet Used");
-            A("work.workInfo.needleUse","NEEDLE 사용 횟수",  "Needle Used");
-            A("work.workInfo.binArrMon","빈 배열 모니터링",  "Bin Array Monitor");
-            A("work.workTime.load",   "부하 시간",          "Load Time");
-            A("work.workTime.up",     "가동 시간",          "Up Time");
-            A("work.workTime.contUp", "연속 가동 시간",     "Cont Up Time");
-            A("work.workTime.normDown","통상 정지 시간",    "Norm Down Time");
-            A("work.workTime.errDown","이상 정지 시간",     "Err Down Time");
-            A("work.workTime.errCnt", "이상 정지 횟수",     "Err Down Count");
-            A("work.workTime.recovery","이상 복귀 시간",    "Recovery Time");
-            A("work.workTime.uph",    "UPH",              "UPH");
-            A("work.workTime.mtbf",   "MTBF",             "MTBF");
-            A("work.workTime.mttr",   "MTTR",             "MTTR");
-            A("work.workTime.cycle",  "CYCLE TIME",       "CYCLE TIME");
-            A("work.workTime.rate",   "가동률",            "Uptime %");
-            A("work.workTime.lotId",  "작업중인 LOT ID",   "Active LOT ID");
-            A("work.workTime.ccs",    "CCS 검수 확인",      "CCS Check");
-            A("work.workTime.clear",  "CLEAR",            "CLEAR");
-            A("work.workTime.alarm",  "ALARM",            "ALARM");
-
-            A("work.inputMapTransfer","INPUT Die Map 전환",      "INPUT Die Map Switch");
-            A("work.outputMapTransfer","OUTPUT Die Map 전환",    "OUTPUT Die Map Switch");
-            A("work.visionAlign",     "비전 얼라인",         "Vision Align");
-            A("work.waferMapOpen",    "웨이퍼 맵 오픈",      "Wafer Map Open");
-            A("work.dieMap",          "DIE MAP",            "DIE MAP");
-            A("work.colletCheckMode", "콜렛 확인 모드",       "Collet Check Mode");
-            A("work.needlePosMode",   "니들 위치 확인모드",    "Needle Pos Check");
-
-            // 310 이식 — 머터리얼 / 레시피 Subset
-            A("recipe.binCode",       "빈 코드 맵",         "BIN CODE MAP");
-            A("recipe.dieSubset",     "다이 사양",           "Die Spec");
-            A("recipe.moduleSubset",  "모듈 옵션",           "Module Options");
-            A("recipe.outputSubset",  "출력 옵션",           "Output Options");
-            A("recipe.pickupSubset",  "픽업 순서",           "Pickup Sequence");
-            A("recipe.tapeFrameSubset","웨이퍼 사양",         "Wafer Spec");
-            A("recipe.loadFrame",     "로드 웨이퍼",          "Load Wafer");
-            A("recipe.unloadFrame",   "언로드 웨이퍼",         "Unload Wafer");
-            A("material.bin",         "BIN CODE MAP",         "BIN CODE MAP");
-            A("material.diemap",      "DIE MAP",             "DIE MAP");
-
-            // SelfTest 5 신규 (텍스트는 영문 통일 — Self-Test 행 그대로)
-            A("selftest.binCode",     "BinCodeMap",          "BinCodeMap");
-            A("selftest.dieMap",      "DieMap generator",    "DieMap generator");
-            A("selftest.jobQueue",    "JobQueue",            "JobQueue");
-            A("selftest.interlock",   "InterlockRegistry",   "InterlockRegistry");
-            A("selftest.alignment",   "AlignmentSolver",     "AlignmentSolver");
-
-            // Stage 4 — RemoteViewer + ActiveLot
-            A("settings.remoteViewer","원격 뷰어",           "Remote Viewer");
-            A("wi.state",             "STATE",              "STATE");
-            A("wi.visionTest",        "VISION TEST",        "VISION TEST");
-            // Stage 19 — Alarm Master
-            A("settings.alarmMaster", "알람 마스터",         "Alarm Master");
-
-            // 작업 정보 서브
-            A("wi.inputCassette",     "INPUT CASSETTE",   "INPUT CASSETTE");
-            A("wi.inputFeeder",       "INPUT FEEDER",     "INPUT FEEDER");
-            A("wi.inputStage",        "INPUT STAGE",      "INPUT STAGE");
-            A("wi.frontHead",         "FRONT HEAD",       "FRONT HEAD");
-            A("wi.rearHead",          "REAR HEAD",        "REAR HEAD");
-            A("wi.outputStage",       "OUTPUT STAGE",     "OUTPUT STAGE");
-            A("wi.outputFeeder",      "OUTPUT FEEDER",    "OUTPUT FEEDER");
-            A("wi.outputCassette",    "OUTPUT CASSETTE",  "OUTPUT CASSETTE");
-            A("wi.logic",             "LOGIC",            "LOGIC");
-            A("wi.waferMapViewer",    "웨이퍼맵 확인",    "WAFER MAP VIEWER");
-            A("wi.logicLogic",        "LOGIC",            "LOGIC");
-            A("wi.logicTimechart",    "TIMECHART",        "TIMECHART");
-            A("wi.slotState",         "슬롯 상태",          "Slot State");
-            A("wi.slotNo",            "슬롯 번호",          "Slot No.");
-            A("wi.lifter",            "LIFTER",           "LIFTER");
-            A("wi.lifterInit",        "LIFTER 초기화",      "LIFTER Init");
-            A("wi.lifterReady",       "LIFTER READY",     "LIFTER READY");
-            A("wi.liftWaferMapping",  "LIFT WAFER MAPPING","LIFT WAFER MAPPING");
-            A("wi.liftWaferLoading",  "LIFT WAFER LOADING","LIFT WAFER LOADING");
-            A("wi.liftWaferUnloading","LIFT WAFER UNLOADING","LIFT WAFER UNLOADING");
-            A("wi.legend.ready",      "READY",            "READY");
-            A("wi.legend.empty",      "EMPTY",            "EMPTY");
-            A("wi.legend.working",    "WORKING",          "WORKING");
-            A("wi.legend.finish",     "FINISH",           "FINISH");
-            A("wi.legend.workReady",  "WORK READY",       "WORK READY");
-            A("wi.head.initAll",      "전체 초기화",        "Init All");
-            A("wi.head.countClear",   "전체 COUNT CLEAR",  "Clear All Count");
-            A("wi.head.colletChange", "COLLET CHANGE",    "COLLET CHANGE");
-            A("wi.head.autoPos",      "AUTO POSITION",    "AUTO POSITION");
-            A("wi.head.colletCleaning","COLLET CLEANING", "COLLET CLEANING");
-            A("wi.head.colletCheck",  "COLLET CHECK",     "COLLET CHECK");
-            A("wi.exist",             "EXIST",            "EXIST");
-            A("wi.feederClamp",       "FEEDER CLAMP",     "FEEDER CLAMP");
-            A("wi.feederUpDown",      "FEEDER UP DOWN",   "FEEDER UP DOWN");
-            A("wi.stageExist",        "STAGE EXIST",      "STAGE EXIST");
-            A("wi.stageAlign",        "STAGE ALIGN",      "STAGE ALIGN");
-            A("wi.stageBarcode",      "STAGE BARCODE",    "STAGE BARCODE");
-            A("wi.stageChipAlign",    "STAGE CHIP ALIGN", "STAGE CHIP ALIGN");
-            A("wi.stageFinish",       "STAGE FINISH",     "STAGE FINISH");
-            A("wi.needleUsing",       "NEEDLE USING COUNT","NEEDLE USING COUNT");
-            A("wi.jellPadUsing",      "JELL PAD USING COUNT","JELL PAD USING COUNT");
-            A("wi.expending",         "EXPENDING",        "EXPENDING");
-            A("wi.needleUpDown",      "NEEDLE UP / DOWN", "NEEDLE UP / DOWN");
-            A("wi.wfAlign",           "WAFER ALIGN",      "WAFER ALIGN");
-            A("wi.wfBarcode",         "WAFER BARCODE",    "WAFER BARCODE");
-            A("wi.head1",             "HEAD #1",          "HEAD #1");
-            A("wi.head2",             "HEAD #2",          "HEAD #2");
-            A("wi.headAxisT",         "HEAD AXIS T",      "HEAD AXIS T");
-            A("wi.headVacuum",        "HEAD VACUUM",      "HEAD VACUUM");
-            A("wi.headBlow",          "HEAD BLOW",        "HEAD BLOW");
-            A("wi.pickFail",          "PICK 실패 수량",    "PICK Fail Qty");
-            A("wi.placeFail",         "PLACE 실패 수량",   "PLACE Fail Qty");
-            A("wi.collet1Use",        "# 1 Collet 사용",   "#1 Collet Used");
-            A("wi.collet2Use",        "#2 Collet 사용",    "#2 Collet Used");
-            A("wi.outStageZ",         "OUTPUT STAGE Z",   "OUTPUT STAGE Z");
-            A("wi.outGoodCount",      "GOOD 카운트",       "GOOD Count");
-            A("wi.outNgCount",        "NG 카운트",         "NG Count");
-            A("wi.stageInit",         "STAGE INIT",       "STAGE INIT");
-            A("wi.stageReady",        "STAGE READY",      "STAGE READY");
-            A("stage.needleCylInfo",  "STAGE & NEEDLE 실린더 정보", "STAGE & NEEDLE Cyl Info");
-
-            // 이력 — 사이드바/헤더 라벨은 모두 대문자 영문으로 통일
-            A("hist.alarm",           "ALARM",            "ALARM");
-            A("hist.warning",         "WARNING",          "WARNING");
-            A("hist.event",           "EVENT",            "EVENT");
-            A("hist.data",            "DATA",             "DATA");
-            A("hist.work",            "WORK",             "WORK");
-            A("hist.inputSeq",        "INPUT SEQ",        "INPUT SEQ");
-            A("hist.outputSeq",       "OUTPUT SEQ",       "OUTPUT SEQ");
-            A("hist.frontHeadSeq",    "FRONTHEAD SEQ",    "FRONTHEAD SEQ");
-            A("hist.rearHeadSeq",     "REARHEAD SEQ",     "REARHEAD SEQ");
-            A("hist.msgEdit",         "MESSAGE EDIT",     "MESSAGE EDIT");
-            A("hist.col.index",       "INDEX",            "INDEX");
-            A("hist.col.date",        "DATE",             "DATE");
-            A("hist.col.user",        "USER",             "USER");
-            A("hist.col.code",        "CODE",             "CODE");
-            A("hist.col.desc",        "DESCRIPTION",      "DESCRIPTION");
-
-            // 레시피 서브
-            A("recipe.lowerVision",   "하부 비전",     "LOWER VISION");
-            A("recipe.inputMapCreate","입력 다이 맵 생성", "INPUT DIE MAP CREATE");
-            A("recipe.outputMapCreate","출력 다이 맵 생성","OUTPUT DIE MAP CREATE");
-            A("recipe.binMapCreate",  "출력 다이 맵 생성",  "BIN DIE MAP CREATE");
-            // [명칭 정정 2026-08-17] 이 메뉴는 다이맵 편집기가 아니라 InputStage 비전 얼라인
-            //   티칭 포인트(StageY/VisionX/offset) 다이얼로그다. 이름 때문에 INPUT/BIN DIE MAP
-            //   CREATE와 같은 계열로 오인됐다. 키(recipe.dieMapSetup)는 유지하고 표기만 바꾼다.
-            A("recipe.dieMapSetup",   "입력 정렬 티칭", "INPUT ALIGN TEACH");
-
-            // 설정 서브
-            A("set.general",          "GENERAL",          "GENERAL");
-            A("set.log",              "LOG",              "LOG");
-            A("set.motion",           "MOTION",           "MOTION");
-            A("set.ioControl",        "DIGITAL LINK",     "DIGITAL LINK");
-            A("set.digital",          "DIGITAL",          "DIGITAL");
-            A("set.digitalLink",      "DIGITAL LINK",     "DIGITAL LINK");
-            A("set.cylinder",         "CYLINDER",         "CYLINDER");
-            A("set.lamp",             "LAMP",             "LAMP");
-            A("set.switch",           "SWITCH",           "SWITCH");
-            A("set.lightSource",      "LIGHT SOURCE",     "LIGHT SOURCE");
-            A("set.barcode",          "BARCODE",          "BARCODE");
-            A("set.zoomLens",         "ZOOM LENS",        "ZOOM LENS");
-            A("set.heightSensor",     "HEIGHT SENSOR",    "HEIGHT SENSOR");
-            A("set.visionLink",       "VISION 연결",       "Vision Link");
-            A("set.selfTest",         "자가 진단",         "Self-Test");
-            A("set.gen.language",     "언어 설정",         "Language");
-            A("set.gen.binArr",       "빈 배열파일",        "Bin Array File");
-            A("set.gen.visionMatchErr","비전 매칭 에러",    "Vision Match Error");
-
-            // 다이얼로그 제목
-            A("dlg.login",            "USER LOGIN",       "USER LOGIN");
-            A("dlg.colletChange",     "콜렛 교체중",        "COLLET CHANGING");
-            A("dlg.colletCleaning",   "콜렛 클리닝",         "COLLET CLEANING");
-            A("dlg.needleChange",     "니들 유닛 교체중",    "NEEDLE UNIT CHANGING");
-            A("dlg.pickFail",         "PICK 실패",         "PICK FAIL");
-            A("dlg.placeFail",        "PLACE 실패",        "PLACE FAIL");
-            A("dlg.visionAlignFail",  "VISION ALIGN FAIL","VISION ALIGN FAIL");
-            A("dlg.alignMatchFail",   "얼라인 매칭 실패",    "ALIGN MATCH FAIL");
-            A("dlg.alignConfirm",     "얼라인 확인 요청",    "ALIGN CONFIRM");
-            A("dlg.barcodeConfirm",   "바코드 확인 요청",    "BARCODE CONFIRM");
-            A("dlg.lotIdInput",       "LOT ID 입력",       "LOT ID INPUT");
-            A("dlg.selfInspection",   "자주 검사",          "SELF INSPECTION");
-            A("dlg.autoPos",          "자동셋팅 위치",      "AUTO POS SETUP");
-            A("dlg.posCheck",         "POSITION CHECK",   "POSITION CHECK");
-            A("dlg.ccsInspection",    "CCS INSPECTION",   "CCS INSPECTION");
-        }
-
-        private static void A(string key, string ko, string en)
-        {
-            _map[key] = new Dictionary<string, string> { { Ko, ko }, { En, en } };
-        }
-
-        /// <summary>중국어 번역 — 핵심 키만. 누락 키는 영어→한국어 fallback.</summary>
-        private static void RegisterChinese()
-        {
-            Z("app.title",           "CDT-320 设备");
-            Z("common.setting",      "设置");
-            Z("common.delete",       "删除");
-            Z("common.open",         "打开");
-            Z("common.save",         "保存");
-            Z("common.close",        "关闭");
-            Z("common.cancel",       "取消");
-            Z("common.ok",           "确认");
-
-            // 탭
-            Z("tab.work",            "工作");
-            Z("tab.workInfo",        "工作信息");
-            Z("tab.history",         "历史");
-            Z("tab.recipe",          "配方");
-            Z("tab.settings",        "设置");
-            Z("tab.user",            "用户");
-            Z("tab.exit",            "退出");
-
-            // 작업 탭 액션
-            Z("work.init",           "初始化");
-            Z("work.ready",          "READY");
-            Z("work.start",          "开始");
-            Z("work.stop",           "停止");
-            Z("work.cycleRun",       "循环运行");
-            Z("work.cycleStop",      "循环停止");
-            Z("work.inputCst",       "输入卡匣");
-            Z("work.outputCst",      "输出卡匣");
-            Z("work.dieMap",         "晶圆图");
-            Z("work.visionAlign",    "视觉对位");
-            Z("work.waferMapOpen",   "打开晶圆图");
-
-            // Recipe
-            Z("recipe.project",      "项目");
-            Z("recipe.binCode",      "Bin 码映射");
-            Z("recipe.dieSubset",    "Die 规格");
-            Z("recipe.tapeFrameSubset","晶圆规格");
-            Z("recipe.loadFrame",    "上料晶圆");
-            Z("recipe.unloadFrame",  "下料晶圆");
-
-            // Settings
-            Z("set.general",         "通用");
-            Z("set.motion",          "运动");
-            Z("set.digital",         "数字 I/O");
-            Z("set.lamp",            "信号灯");
-            Z("set.simulator",       "模拟器");
-            Z("set.visionLink",      "视觉连接");
-            Z("set.selfTest",        "自我诊断");
-            Z("settings.remoteViewer","远程查看器");
-
-            // 작업 정보
-            Z("wi.state",            "STATE");
-            Z("wi.visionTest",       "VISION TEST");
-            Z("recipe.moduleSubset", "模块选项");
-            Z("recipe.outputSubset", "输出选项");
-            Z("wi.inputCassette",    "输入卡匣");
-            Z("wi.outputCassette",   "输出卡匣");
-            Z("wi.frontHead",        "前端头");
-            Z("wi.rearHead",         "后端头");
-
-            // SelfTest
-            Z("selftest.binCode",    "Bin 码映射");
-            Z("selftest.dieMap",     "晶圆图生成器");
-            Z("selftest.jobQueue",   "作业队列");
-            Z("selftest.interlock",  "联锁注册");
-            Z("selftest.alignment",  "对位求解器");
-
-            // Material
-            Z("material.bin",        "Bin 码映射");
-            Z("material.diemap",     "晶圆图");
-
-            // 헤더
-            Z("header.user",         "用户");
-            Z("header.time",         "时间");
-
-            // 상태바
-            Z("status.mapEmpty",     "映射: 空");
-            Z("status.project",      "项目");
-            Z("status.barcode",      "Wafer ID");
-            Z("status.bin",          "Bin ID");
-            Z("status.vision",       "视觉");
-            Z("status.pick",         "拾取");
-            Z("status.reference",    "参考");
-        }
-
-        /// <summary>중국어 번역 추가. 한국어/영어는 RegisterByKey() 에서 이미 등록.</summary>
-        private static void Z(string key, string zh)
-        {
-            if (!_map.TryGetValue(key, out var d))
+            // resgen은 이름의 대소문자 차이를 중복으로 처리하므로 리소스에는 고정 키 → 원문으로 보관합니다.
+            // 여기서 원문 → 키로 뒤집어 기존 Display의 대소문자 및 공백 구분을 보존합니다.
+            var aliases = new Dictionary<string, string>(StringComparer.Ordinal);
+            var manager = new ResourceManager(
+                "QMC.CDT_320.Ui.Localization.Resources.DisplayAliases", typeof(Lang).Assembly);
+            using (ResourceSet resources = manager.GetResourceSet(CultureInfo.InvariantCulture, true, false))
             {
-                d = new Dictionary<string, string>();
-                _map[key] = d;
+                if (resources == null) throw new MissingManifestResourceException("표시 문구 호환 리소스가 없습니다.");
+                foreach (DictionaryEntry entry in resources)
+                    aliases.Add((string)entry.Value, (string)entry.Key);
             }
-            d[Zh] = zh;
+            return aliases;
         }
 
-        /// <summary>일본어 번역 — 반도체 산업 표준 (Stage 12).</summary>
-        private static void RegisterJapanese()
+        private static void SetDisplayText(Control control, string text)
         {
-            J("app.title",           "CDT-320 装置");
-            J("common.setting",      "設定");
-            J("common.delete",       "削除");
-            J("common.open",         "開く");
-            J("common.save",         "保存");
-            J("common.close",        "閉じる");
-            J("common.cancel",       "キャンセル");
-            J("common.ok",           "確認");
-
-            // 탭
-            J("tab.work",            "ワーク");
-            J("tab.workInfo",        "ワーク情報");
-            J("tab.history",         "履歴");
-            J("tab.recipe",          "レシピ");
-            J("tab.settings",        "設定");
-            J("tab.user",            "ユーザー");
-            J("tab.exit",            "終了");
-
-            // 작업 탭 액션
-            J("work.init",           "初期化");
-            J("work.ready",          "READY");
-            J("work.start",          "開始");
-            J("work.stop",           "停止");
-            J("work.cycleRun",       "サイクル実行");
-            J("work.cycleStop",      "サイクル停止");
-            J("work.dieMap",         "ダイマップ");
-            J("work.visionAlign",    "ビジョンアライン");
-            J("work.waferMapOpen",   "ウェハマップを開く");
-
-            // Recipe
-            J("recipe.project",      "プロジェクト");
-            J("recipe.binCode",      "Binコード");
-            J("recipe.dieSubset",    "ダイ仕様");
-            J("recipe.tapeFrameSubset","ウェハ仕様");
-            J("recipe.loadFrame",    "ロードウェハ");
-            J("recipe.unloadFrame",  "アンロードウェハ");
-
-            // Settings
-            J("set.general",         "一般");
-            J("set.motion",          "モーション");
-            J("set.simulator",       "シミュレータ");
-            J("set.visionLink",      "ビジョン接続");
-            J("set.selfTest",        "自己診断");
-            J("settings.remoteViewer","リモートビューア");
-
-            // 작업 정보
-            J("wi.state",            "STATE");
-            J("wi.visionTest",       "VISION TEST");
-            J("recipe.moduleSubset", "モジュールオプション");
-            J("recipe.outputSubset", "出力オプション");
-            J("wi.inputCassette",    "入力カセット");
-            J("wi.outputCassette",   "出力カセット");
-            J("wi.frontHead",        "フロントヘッド");
-            J("wi.rearHead",         "リアヘッド");
-
-            // SelfTest
-            J("selftest.binCode",    "Binコード");
-            J("selftest.dieMap",     "ダイマップ生成器");
-            J("selftest.jobQueue",   "ジョブキュー");
-            J("selftest.interlock",  "インターロック");
-            J("selftest.alignment",  "アライメントソルバ");
-
-            // Material
-            J("material.bin",        "Binコード");
-            J("material.diemap",     "ダイマップ");
-
-            // 헤더 / 상태바
-            J("header.user",         "ユーザー");
-            J("header.time",         "時刻");
-            J("status.project",      "プロジェクト");
-            J("status.barcode",      "Wafer ID");
-            J("status.bin",          "Bin ID");
-            J("status.vision",       "ビジョン");
-            J("status.pick",         "ピック");
-            J("status.reference",    "リファレンス");
-        }
-
-        private static void J(string key, string ja)
-        {
-            if (!_map.TryGetValue(key, out var d))
-            {
-                d = new Dictionary<string, string>();
-                _map[key] = d;
-            }
-            d[Ja] = ja;
+            if (control is BottomMenuButton button) button.Label = text;
+            else control.Text = text;
         }
     }
 }

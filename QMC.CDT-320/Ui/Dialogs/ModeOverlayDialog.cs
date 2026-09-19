@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -7,7 +7,7 @@ using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public partial class ModeOverlayDialog : Form
+    public partial class ModeOverlayDialog : Form, ILocalizedView
     {
         private const int CompactDialogWidth = 380;
         private const int CompactTitleHeight = 68;
@@ -16,6 +16,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _compactCommandLayout;
         private int _actionColumnCount = 3;
         private int _compactActionRowHeight = 52;
+        private string _titleI18n;
+        private string _titleText = string.Empty;
 
         public string SelectedAction { get; private set; }
 
@@ -52,6 +54,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Text = text,
                 Margin = new Padding(6)
             };
+            // 동작 분기용 SelectedAction은 원문을 유지하고 버튼 표시만 번역한다.
+            Lang.Bind(btn, text);
             if (_compactCommandLayout)
             {
                 StyleCompactActionButton(btn);
@@ -128,9 +132,10 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         protected void SetTitleText(string title)
         {
-            Text = title ?? string.Empty;
+            _titleI18n = null;
+            _titleText = title ?? string.Empty;
             _titleLabel.Tag = null;
-            _titleLabel.Text = Text;
+            ApplyLanguage();
         }
 
         private static void StyleCompactActionButton(ActionButton button)
@@ -166,8 +171,14 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         public void SetTitle(string titleI18n)
         {
-            Text = Lang.T(titleI18n);
+            _titleI18n = titleI18n;
             _titleLabel.Tag = "i18n:" + titleI18n;
+            ApplyLanguage();
+        }
+
+        public void ApplyLanguage()
+        {
+            Text = _titleI18n != null ? Lang.T(_titleI18n) : Lang.Display(_titleText);
             _titleLabel.Text = Text;
         }
     }

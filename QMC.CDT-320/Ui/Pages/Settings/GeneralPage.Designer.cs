@@ -460,6 +460,9 @@
             // 
             this._cbLang.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbLang.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbLang.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbLang.ItemHeight = 17;
+            this._cbLang.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbLang.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbLang.Location = new System.Drawing.Point(350, 2);
             this._cbLang.Margin = new System.Windows.Forms.Padding(2);
@@ -472,6 +475,9 @@
             // 
             this._cbBinArr.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbBinArr.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbBinArr.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbBinArr.ItemHeight = 17;
+            this._cbBinArr.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbBinArr.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbBinArr.Location = new System.Drawing.Point(350, 36);
             this._cbBinArr.Margin = new System.Windows.Forms.Padding(2);
@@ -484,6 +490,9 @@
             // 
             this._cbVisionMatch.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbVisionMatch.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbVisionMatch.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbVisionMatch.ItemHeight = 17;
+            this._cbVisionMatch.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbVisionMatch.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbVisionMatch.Location = new System.Drawing.Point(350, 70);
             this._cbVisionMatch.Margin = new System.Windows.Forms.Padding(2);
@@ -496,6 +505,9 @@
             // 
             this._cbSimulationMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbSimulationMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbSimulationMode.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbSimulationMode.ItemHeight = 17;
+            this._cbSimulationMode.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbSimulationMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbSimulationMode.Location = new System.Drawing.Point(350, 104);
             this._cbSimulationMode.Margin = new System.Windows.Forms.Padding(2);
@@ -508,6 +520,9 @@
             // 
             this._cbDryRunMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbDryRunMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbDryRunMode.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbDryRunMode.ItemHeight = 17;
+            this._cbDryRunMode.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbDryRunMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbDryRunMode.Location = new System.Drawing.Point(350, 138);
             this._cbDryRunMode.Margin = new System.Windows.Forms.Padding(2);
@@ -520,6 +535,9 @@
             // 
             this._cbDeveloperMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbDeveloperMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbDeveloperMode.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbDeveloperMode.ItemHeight = 17;
+            this._cbDeveloperMode.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbDeveloperMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbDeveloperMode.Location = new System.Drawing.Point(350, 172);
             this._cbDeveloperMode.Margin = new System.Windows.Forms.Padding(2);
@@ -532,6 +550,9 @@
             // 
             this._cbPickerMotionOnlyTestMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbPickerMotionOnlyTestMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbPickerMotionOnlyTestMode.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbPickerMotionOnlyTestMode.ItemHeight = 17;
+            this._cbPickerMotionOnlyTestMode.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbPickerMotionOnlyTestMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbPickerMotionOnlyTestMode.Location = new System.Drawing.Point(350, 206);
             this._cbPickerMotionOnlyTestMode.Margin = new System.Windows.Forms.Padding(2);
@@ -544,6 +565,9 @@
             // 
             this._cbUseVision.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbUseVision.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbUseVision.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbUseVision.ItemHeight = 17;
+            this._cbUseVision.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbUseVision.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbUseVision.Location = new System.Drawing.Point(350, 240);
             this._cbUseVision.Margin = new System.Windows.Forms.Padding(2);
@@ -556,6 +580,9 @@
             // 
             this._cbUseRealVisionInSimulation.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbUseRealVisionInSimulation.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbUseRealVisionInSimulation.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbUseRealVisionInSimulation.ItemHeight = 17;
+            this._cbUseRealVisionInSimulation.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbUseRealVisionInSimulation.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbUseRealVisionInSimulation.Location = new System.Drawing.Point(350, 274);
             this._cbUseRealVisionInSimulation.Margin = new System.Windows.Forms.Padding(2);
@@ -568,6 +595,9 @@
             // 
             this._cbSkipRunReviewInSimulation.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbSkipRunReviewInSimulation.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbSkipRunReviewInSimulation.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbSkipRunReviewInSimulation.ItemHeight = 17;
+            this._cbSkipRunReviewInSimulation.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbSkipRunReviewInSimulation.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbSkipRunReviewInSimulation.Location = new System.Drawing.Point(350, 308);
             this._cbSkipRunReviewInSimulation.Margin = new System.Windows.Forms.Padding(2);
@@ -580,6 +610,9 @@
             // 
             this._cbWaferCompleteRunMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbWaferCompleteRunMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbWaferCompleteRunMode.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbWaferCompleteRunMode.ItemHeight = 17;
+            this._cbWaferCompleteRunMode.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbWaferCompleteRunMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbWaferCompleteRunMode.Location = new System.Drawing.Point(350, 342);
             this._cbWaferCompleteRunMode.Margin = new System.Windows.Forms.Padding(2);
@@ -592,6 +625,9 @@
             // 
             this._cbUseOutputGoodPickupCap.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbUseOutputGoodPickupCap.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbUseOutputGoodPickupCap.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbUseOutputGoodPickupCap.ItemHeight = 17;
+            this._cbUseOutputGoodPickupCap.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbUseOutputGoodPickupCap.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbUseOutputGoodPickupCap.Location = new System.Drawing.Point(350, 376);
             this._cbUseOutputGoodPickupCap.Margin = new System.Windows.Forms.Padding(2);
@@ -636,6 +672,9 @@
             // 
             this._cbPickRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbPickRuntimeOffset.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbPickRuntimeOffset.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbPickRuntimeOffset.ItemHeight = 17;
+            this._cbPickRuntimeOffset.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbPickRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbPickRuntimeOffset.Location = new System.Drawing.Point(2, 2);
             this._cbPickRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
@@ -708,6 +747,9 @@
             // 
             this._cbPlaceRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbPlaceRuntimeOffset.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbPlaceRuntimeOffset.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbPlaceRuntimeOffset.ItemHeight = 17;
+            this._cbPlaceRuntimeOffset.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbPlaceRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbPlaceRuntimeOffset.Location = new System.Drawing.Point(2, 2);
             this._cbPlaceRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
@@ -778,6 +820,9 @@
             // 
             this._cbPickerZRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbPickerZRuntimeOffset.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbPickerZRuntimeOffset.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this._cbPickerZRuntimeOffset.ItemHeight = 17;
+            this._cbPickerZRuntimeOffset.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LocalizedCombo_DrawItem);
             this._cbPickerZRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbPickerZRuntimeOffset.Location = new System.Drawing.Point(2, 2);
             this._cbPickerZRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);

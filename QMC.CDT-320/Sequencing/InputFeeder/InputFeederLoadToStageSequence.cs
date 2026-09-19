@@ -172,6 +172,7 @@ namespace QMC.CDT320.Sequencing
             if (!IsInputStageEmpty(stage))
                 return Fail("IN-FEEDER-STAGE-OCCUPIED", stage.Name, "Input stage must be empty before feeder to stage load.");
 
+            RecipeInputMapSource.BeginWafer(wafer);
             CurrentStep = InputFeederLoadToStageStep.CheckStageLoadPosition;
             return 0;
         }
@@ -493,6 +494,7 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
+                RecipeInputMapSource.BeginWafer(MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage));
 
                 if (Options == null || !Options.UseBarcode)
                 {

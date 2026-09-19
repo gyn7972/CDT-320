@@ -1,0 +1,788 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="app.title" xml:space="preserve">
+    <value>CDT-320</value>
+  </data>
+  <data name="dlg.alignConfirm" xml:space="preserve">
+    <value>얼라인 확인 요청</value>
+  </data>
+  <data name="dlg.alignMatchFail" xml:space="preserve">
+    <value>얼라인 매칭 실패</value>
+  </data>
+  <data name="dlg.autoPos" xml:space="preserve">
+    <value>자동셋팅 위치</value>
+  </data>
+  <data name="dlg.barcodeConfirm" xml:space="preserve">
+    <value>바코드 확인 요청</value>
+  </data>
+  <data name="dlg.ccsInspection" xml:space="preserve">
+    <value>CCS 검사</value>
+  </data>
+  <data name="dlg.colletChange" xml:space="preserve">
+    <value>콜렛 교체중</value>
+  </data>
+  <data name="dlg.colletCleaning" xml:space="preserve">
+    <value>콜렛 클리닝</value>
+  </data>
+  <data name="dlg.login" xml:space="preserve">
+    <value>사용자 로그인</value>
+  </data>
+  <data name="dlg.lotIdInput" xml:space="preserve">
+    <value>LOT ID 입력</value>
+  </data>
+  <data name="dlg.needleChange" xml:space="preserve">
+    <value>니들 유닛 교체중</value>
+  </data>
+  <data name="dlg.pickFail" xml:space="preserve">
+    <value>픽업 실패</value>
+  </data>
+  <data name="dlg.placeFail" xml:space="preserve">
+    <value>안착 실패</value>
+  </data>
+  <data name="dlg.posCheck" xml:space="preserve">
+    <value>위치 확인</value>
+  </data>
+  <data name="dlg.selfInspection" xml:space="preserve">
+    <value>자주 검사</value>
+  </data>
+  <data name="dlg.visionAlignFail" xml:space="preserve">
+    <value>비전 정렬 실패</value>
+  </data>
+  <data name="header.state.none" xml:space="preserve">
+    <value>상태 없음</value>
+  </data>
+  <data name="header.time" xml:space="preserve">
+    <value>시간</value>
+  </data>
+  <data name="header.user" xml:space="preserve">
+    <value>사용자</value>
+  </data>
+  <data name="hist.alarm" xml:space="preserve">
+    <value>알람</value>
+  </data>
+  <data name="hist.col.code" xml:space="preserve">
+    <value>코드</value>
+  </data>
+  <data name="hist.col.date" xml:space="preserve">
+    <value>일시</value>
+  </data>
+  <data name="hist.col.desc" xml:space="preserve">
+    <value>내용</value>
+  </data>
+  <data name="hist.col.index" xml:space="preserve">
+    <value>번호</value>
+  </data>
+  <data name="hist.col.user" xml:space="preserve">
+    <value>사용자</value>
+  </data>
+  <data name="hist.data" xml:space="preserve">
+    <value>데이터</value>
+  </data>
+  <data name="hist.event" xml:space="preserve">
+    <value>이벤트</value>
+  </data>
+  <data name="hist.frontHeadSeq" xml:space="preserve">
+    <value>전면 피커 시퀀스</value>
+  </data>
+  <data name="hist.inputSeq" xml:space="preserve">
+    <value>입력 시퀀스</value>
+  </data>
+  <data name="hist.msgEdit" xml:space="preserve">
+    <value>메시지 편집</value>
+  </data>
+  <data name="hist.outputSeq" xml:space="preserve">
+    <value>출력 시퀀스</value>
+  </data>
+  <data name="hist.rearHeadSeq" xml:space="preserve">
+    <value>후면 피커 시퀀스</value>
+  </data>
+  <data name="hist.warning" xml:space="preserve">
+    <value>경고</value>
+  </data>
+  <data name="hist.work" xml:space="preserve">
+    <value>작업</value>
+  </data>
+  <data name="inspection.good" xml:space="preserve">
+    <value>양품</value>
+  </data>
+  <data name="material.bin" xml:space="preserve">
+    <value>빈 코드 맵</value>
+  </data>
+  <data name="material.diemap" xml:space="preserve">
+    <value>다이 맵</value>
+  </data>
+  <data name="recipe.binCode" xml:space="preserve">
+    <value>빈 코드 맵</value>
+  </data>
+  <data name="recipe.binMapCreate" xml:space="preserve">
+    <value>출력 다이 맵 생성</value>
+  </data>
+  <data name="recipe.bottomVision" xml:space="preserve">
+    <value>하부 비전</value>
+  </data>
+  <data name="recipe.calibration" xml:space="preserve">
+    <value>보정</value>
+  </data>
+  <data name="recipe.dieMapSetup" xml:space="preserve">
+    <value>입력 정렬 티칭</value>
+  </data>
+  <data name="recipe.dieSubset" xml:space="preserve">
+    <value>다이 사양</value>
+  </data>
+  <data name="recipe.forceControl" xml:space="preserve">
+    <value>가압 제어</value>
+  </data>
+  <data name="recipe.frontHead" xml:space="preserve">
+    <value>전면 피커</value>
+  </data>
+  <data name="recipe.inputCassette" xml:space="preserve">
+    <value>입력 카세트</value>
+  </data>
+  <data name="recipe.inputCreate" xml:space="preserve">
+    <value>입력 맵 생성</value>
+  </data>
+  <data name="recipe.inputFeeder" xml:space="preserve">
+    <value>입력 이송부</value>
+  </data>
+  <data name="recipe.inputMapCreate" xml:space="preserve">
+    <value>입력 다이 맵 생성</value>
+  </data>
+  <data name="recipe.inputStage" xml:space="preserve">
+    <value>입력 스테이지</value>
+  </data>
+  <data name="recipe.inputVision" xml:space="preserve">
+    <value>입력 비전</value>
+  </data>
+  <data name="recipe.loadFrame" xml:space="preserve">
+    <value>로드 웨이퍼</value>
+  </data>
+  <data name="recipe.lowerVision" xml:space="preserve">
+    <value>하부 비전</value>
+  </data>
+  <data name="recipe.moduleSubset" xml:space="preserve">
+    <value>모듈 옵션</value>
+  </data>
+  <data name="recipe.outputCassette" xml:space="preserve">
+    <value>출력 카세트</value>
+  </data>
+  <data name="recipe.outputCreate" xml:space="preserve">
+    <value>출력 맵 생성</value>
+  </data>
+  <data name="recipe.outputFeeder" xml:space="preserve">
+    <value>출력 이송부</value>
+  </data>
+  <data name="recipe.outputMapCreate" xml:space="preserve">
+    <value>출력 다이 맵 생성</value>
+  </data>
+  <data name="recipe.outputStage" xml:space="preserve">
+    <value>출력 스테이지</value>
+  </data>
+  <data name="recipe.outputSubset" xml:space="preserve">
+    <value>출력 옵션</value>
+  </data>
+  <data name="recipe.outputVision" xml:space="preserve">
+    <value>출력 비전</value>
+  </data>
+  <data name="recipe.pickupSubset" xml:space="preserve">
+    <value>픽업 순서</value>
+  </data>
+  <data name="recipe.project" xml:space="preserve">
+    <value>프로젝트</value>
+  </data>
+  <data name="recipe.rearHead" xml:space="preserve">
+    <value>후면 피커</value>
+  </data>
+  <data name="recipe.section" xml:space="preserve">
+    <value>레시피</value>
+  </data>
+  <data name="recipe.sideVision" xml:space="preserve">
+    <value>측면 비전</value>
+  </data>
+  <data name="recipe.tapeFrameSubset" xml:space="preserve">
+    <value>웨이퍼 사양</value>
+  </data>
+  <data name="recipe.unloadFrame" xml:space="preserve">
+    <value>언로드 웨이퍼</value>
+  </data>
+  <data name="recipe.visionStage" xml:space="preserve">
+    <value>비전 스테이지</value>
+  </data>
+  <data name="selftest.alignment" xml:space="preserve">
+    <value>정렬 계산</value>
+  </data>
+  <data name="selftest.binCode" xml:space="preserve">
+    <value>빈 코드 맵</value>
+  </data>
+  <data name="selftest.dieMap" xml:space="preserve">
+    <value>다이 맵 생성기</value>
+  </data>
+  <data name="selftest.interlock" xml:space="preserve">
+    <value>인터락 검사</value>
+  </data>
+  <data name="selftest.jobQueue" xml:space="preserve">
+    <value>작업 대기열</value>
+  </data>
+  <data name="set.axisSetup" xml:space="preserve">
+    <value>축 셋업</value>
+  </data>
+  <data name="set.barcode" xml:space="preserve">
+    <value>바코드</value>
+  </data>
+  <data name="set.cameraSetup" xml:space="preserve">
+    <value>카메라 셋업</value>
+  </data>
+  <data name="set.connStatus" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="set.connect" xml:space="preserve">
+    <value>연결</value>
+  </data>
+  <data name="set.connected" xml:space="preserve">
+    <value>연결됨</value>
+  </data>
+  <data name="set.cylinder" xml:space="preserve">
+    <value>실린더</value>
+  </data>
+  <data name="set.digital" xml:space="preserve">
+    <value>디지털 입출력</value>
+  </data>
+  <data name="set.digitalLink" xml:space="preserve">
+    <value>디지털 입출력</value>
+  </data>
+  <data name="set.disconnect" xml:space="preserve">
+    <value>해제</value>
+  </data>
+  <data name="set.disconnected" xml:space="preserve">
+    <value>연결되지 않음</value>
+  </data>
+  <data name="set.gen.binArr" xml:space="preserve">
+    <value>빈 배열파일</value>
+  </data>
+  <data name="set.gen.language" xml:space="preserve">
+    <value>언어 설정</value>
+  </data>
+  <data name="set.gen.visionMatchErr" xml:space="preserve">
+    <value>비전 매칭 에러</value>
+  </data>
+  <data name="set.general" xml:space="preserve">
+    <value>일반 설정</value>
+  </data>
+  <data name="set.heightSensor" xml:space="preserve">
+    <value>높이 센서</value>
+  </data>
+  <data name="set.host" xml:space="preserve">
+    <value>호스트</value>
+  </data>
+  <data name="set.ioControl" xml:space="preserve">
+    <value>디지털 입출력</value>
+  </data>
+  <data name="set.lamp" xml:space="preserve">
+    <value>표시등</value>
+  </data>
+  <data name="set.language" xml:space="preserve">
+    <value>언어</value>
+  </data>
+  <data name="set.lightSetup" xml:space="preserve">
+    <value>조명 셋업</value>
+  </data>
+  <data name="set.lightSource" xml:space="preserve">
+    <value>조명</value>
+  </data>
+  <data name="set.log" xml:space="preserve">
+    <value>로그</value>
+  </data>
+  <data name="set.motion" xml:space="preserve">
+    <value>모션</value>
+  </data>
+  <data name="set.port" xml:space="preserve">
+    <value>포트</value>
+  </data>
+  <data name="set.section" xml:space="preserve">
+    <value>설정</value>
+  </data>
+  <data name="set.selfTest" xml:space="preserve">
+    <value>자가 진단</value>
+  </data>
+  <data name="set.simulator" xml:space="preserve">
+    <value>시뮬레이터 연결</value>
+  </data>
+  <data name="set.switch" xml:space="preserve">
+    <value>스위치</value>
+  </data>
+  <data name="set.teach" xml:space="preserve">
+    <value>위치 티칭</value>
+  </data>
+  <data name="set.visionLink" xml:space="preserve">
+    <value>비전 연결</value>
+  </data>
+  <data name="set.zoomLens" xml:space="preserve">
+    <value>줌 렌즈</value>
+  </data>
+  <data name="settings.alarmMaster" xml:space="preserve">
+    <value>알람 마스터</value>
+  </data>
+  <data name="settings.remoteViewer" xml:space="preserve">
+    <value>원격 뷰어</value>
+  </data>
+  <data name="stage.needleCylInfo" xml:space="preserve">
+    <value>스테이지·니들 실린더 정보</value>
+  </data>
+  <data name="status.barcode" xml:space="preserve">
+    <value>웨이퍼 ID :</value>
+  </data>
+  <data name="status.bin" xml:space="preserve">
+    <value>빈 ID :</value>
+  </data>
+  <data name="status.mapEmpty" xml:space="preserve">
+    <value>빈 맵</value>
+  </data>
+  <data name="status.pick" xml:space="preserve">
+    <value>픽업</value>
+  </data>
+  <data name="status.project" xml:space="preserve">
+    <value>프로젝트 :</value>
+  </data>
+  <data name="status.reference" xml:space="preserve">
+    <value>기준</value>
+  </data>
+  <data name="status.vision" xml:space="preserve">
+    <value>비전</value>
+  </data>
+  <data name="tab.exit" xml:space="preserve">
+    <value>종료</value>
+  </data>
+  <data name="tab.history" xml:space="preserve">
+    <value>이력</value>
+  </data>
+  <data name="tab.recipe" xml:space="preserve">
+    <value>레시피</value>
+  </data>
+  <data name="tab.settings" xml:space="preserve">
+    <value>설정</value>
+  </data>
+  <data name="tab.user" xml:space="preserve">
+    <value>사용자</value>
+  </data>
+  <data name="tab.work" xml:space="preserve">
+    <value>작업</value>
+  </data>
+  <data name="tab.workInfo" xml:space="preserve">
+    <value>작업 정보</value>
+  </data>
+  <data name="user.accounts" xml:space="preserve">
+    <value>계정 관리</value>
+  </data>
+  <data name="user.session" xml:space="preserve">
+    <value>세션</value>
+  </data>
+  <data name="wi.collet1Use" xml:space="preserve">
+    <value>1번 콜렛 사용 횟수</value>
+  </data>
+  <data name="wi.collet2Use" xml:space="preserve">
+    <value>2번 콜렛 사용 횟수</value>
+  </data>
+  <data name="wi.exist" xml:space="preserve">
+    <value>자재 있음</value>
+  </data>
+  <data name="wi.expending" xml:space="preserve">
+    <value>확장</value>
+  </data>
+  <data name="wi.feederClamp" xml:space="preserve">
+    <value>이송부 클램프</value>
+  </data>
+  <data name="wi.feederUpDown" xml:space="preserve">
+    <value>이송부 상승 / 하강</value>
+  </data>
+  <data name="wi.frontHead" xml:space="preserve">
+    <value>전면 피커</value>
+  </data>
+  <data name="wi.head.autoPos" xml:space="preserve">
+    <value>자동 위치 설정</value>
+  </data>
+  <data name="wi.head.colletChange" xml:space="preserve">
+    <value>콜렛 교체</value>
+  </data>
+  <data name="wi.head.colletCheck" xml:space="preserve">
+    <value>콜렛 확인</value>
+  </data>
+  <data name="wi.head.colletCleaning" xml:space="preserve">
+    <value>콜렛 청소</value>
+  </data>
+  <data name="wi.head.countClear" xml:space="preserve">
+    <value>전체 사용 횟수 초기화</value>
+  </data>
+  <data name="wi.head.initAll" xml:space="preserve">
+    <value>전체 초기화</value>
+  </data>
+  <data name="wi.head1" xml:space="preserve">
+    <value>1번 피커</value>
+  </data>
+  <data name="wi.head2" xml:space="preserve">
+    <value>2번 피커</value>
+  </data>
+  <data name="wi.headAxisT" xml:space="preserve">
+    <value>피커 T축</value>
+  </data>
+  <data name="wi.headBlow" xml:space="preserve">
+    <value>피커 블로우</value>
+  </data>
+  <data name="wi.headVacuum" xml:space="preserve">
+    <value>피커 진공</value>
+  </data>
+  <data name="wi.inputCassette" xml:space="preserve">
+    <value>입력 카세트</value>
+  </data>
+  <data name="wi.inputFeeder" xml:space="preserve">
+    <value>입력 이송부</value>
+  </data>
+  <data name="wi.inputStage" xml:space="preserve">
+    <value>입력 스테이지</value>
+  </data>
+  <data name="wi.jellPadUsing" xml:space="preserve">
+    <value>젤 패드 사용 횟수</value>
+  </data>
+  <data name="wi.legend.empty" xml:space="preserve">
+    <value>비어 있음</value>
+  </data>
+  <data name="wi.legend.finish" xml:space="preserve">
+    <value>완료</value>
+  </data>
+  <data name="wi.legend.ready" xml:space="preserve">
+    <value>준비</value>
+  </data>
+  <data name="wi.legend.workReady" xml:space="preserve">
+    <value>작업 준비</value>
+  </data>
+  <data name="wi.legend.working" xml:space="preserve">
+    <value>작업 중</value>
+  </data>
+  <data name="wi.liftWaferLoading" xml:space="preserve">
+    <value>승강부 웨이퍼 투입</value>
+  </data>
+  <data name="wi.liftWaferMapping" xml:space="preserve">
+    <value>승강부 웨이퍼 매핑</value>
+  </data>
+  <data name="wi.liftWaferUnloading" xml:space="preserve">
+    <value>승강부 웨이퍼 배출</value>
+  </data>
+  <data name="wi.lifter" xml:space="preserve">
+    <value>승강부</value>
+  </data>
+  <data name="wi.lifterInit" xml:space="preserve">
+    <value>승강부 초기화</value>
+  </data>
+  <data name="wi.lifterReady" xml:space="preserve">
+    <value>승강부 준비</value>
+  </data>
+  <data name="wi.logic" xml:space="preserve">
+    <value>시퀀스 상태</value>
+  </data>
+  <data name="wi.logicLogic" xml:space="preserve">
+    <value>시퀀스 상태</value>
+  </data>
+  <data name="wi.logicTimechart" xml:space="preserve">
+    <value>시간 차트</value>
+  </data>
+  <data name="wi.needleUpDown" xml:space="preserve">
+    <value>니들 상승 / 하강</value>
+  </data>
+  <data name="wi.needleUsing" xml:space="preserve">
+    <value>니들 사용 횟수</value>
+  </data>
+  <data name="wi.outGoodCount" xml:space="preserve">
+    <value>양품 수량</value>
+  </data>
+  <data name="wi.outNgCount" xml:space="preserve">
+    <value>불량 수량</value>
+  </data>
+  <data name="wi.outStageZ" xml:space="preserve">
+    <value>출력 스테이지 Z축</value>
+  </data>
+  <data name="wi.outputCassette" xml:space="preserve">
+    <value>출력 카세트</value>
+  </data>
+  <data name="wi.outputFeeder" xml:space="preserve">
+    <value>출력 이송부</value>
+  </data>
+  <data name="wi.outputStage" xml:space="preserve">
+    <value>출력 스테이지</value>
+  </data>
+  <data name="wi.pickFail" xml:space="preserve">
+    <value>픽업 실패 수량</value>
+  </data>
+  <data name="wi.placeFail" xml:space="preserve">
+    <value>안착 실패 수량</value>
+  </data>
+  <data name="wi.rearHead" xml:space="preserve">
+    <value>후면 피커</value>
+  </data>
+  <data name="wi.slotNo" xml:space="preserve">
+    <value>슬롯 번호</value>
+  </data>
+  <data name="wi.slotState" xml:space="preserve">
+    <value>슬롯 상태</value>
+  </data>
+  <data name="wi.stageAlign" xml:space="preserve">
+    <value>스테이지 정렬</value>
+  </data>
+  <data name="wi.stageBarcode" xml:space="preserve">
+    <value>스테이지 바코드</value>
+  </data>
+  <data name="wi.stageChipAlign" xml:space="preserve">
+    <value>스테이지 칩 정렬</value>
+  </data>
+  <data name="wi.stageExist" xml:space="preserve">
+    <value>스테이지 자재 감지</value>
+  </data>
+  <data name="wi.stageFinish" xml:space="preserve">
+    <value>스테이지 작업 완료</value>
+  </data>
+  <data name="wi.stageInit" xml:space="preserve">
+    <value>스테이지 초기화</value>
+  </data>
+  <data name="wi.stageReady" xml:space="preserve">
+    <value>스테이지 준비</value>
+  </data>
+  <data name="wi.state" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="wi.visionTest" xml:space="preserve">
+    <value>비전 시험</value>
+  </data>
+  <data name="wi.waferMapViewer" xml:space="preserve">
+    <value>웨이퍼맵 확인</value>
+  </data>
+  <data name="wi.wfAlign" xml:space="preserve">
+    <value>웨이퍼 정렬</value>
+  </data>
+  <data name="wi.wfBarcode" xml:space="preserve">
+    <value>웨이퍼 바코드</value>
+  </data>
+  <data name="work.autoPosMode" xml:space="preserve">
+    <value>자동위치 설정모드</value>
+  </data>
+  <data name="work.colletCheckMode" xml:space="preserve">
+    <value>콜렛 확인 모드</value>
+  </data>
+  <data name="work.colletCleanMode" xml:space="preserve">
+    <value>콜렛 클리닝 모드</value>
+  </data>
+  <data name="work.colletMode" xml:space="preserve">
+    <value>콜렛 교체모드</value>
+  </data>
+  <data name="work.cycleRun" xml:space="preserve">
+    <value>사이클 운전</value>
+  </data>
+  <data name="work.cycleStop" xml:space="preserve">
+    <value>사이클 정지</value>
+  </data>
+  <data name="work.dieMap" xml:space="preserve">
+    <value>다이 맵</value>
+  </data>
+  <data name="work.estop" xml:space="preserve">
+    <value>비상 정지</value>
+  </data>
+  <data name="work.init" xml:space="preserve">
+    <value>초기화</value>
+  </data>
+  <data name="work.inputCst" xml:space="preserve">
+    <value>입력 카세트 상태</value>
+  </data>
+  <data name="work.inputMapTransfer" xml:space="preserve">
+    <value>입력 다이 맵 전환</value>
+  </data>
+  <data name="work.needleMode" xml:space="preserve">
+    <value>니들 유닛 교체모드</value>
+  </data>
+  <data name="work.needlePosMode" xml:space="preserve">
+    <value>니들 위치 확인모드</value>
+  </data>
+  <data name="work.outputCst" xml:space="preserve">
+    <value>출력 카세트 상태</value>
+  </data>
+  <data name="work.outputMapTransfer" xml:space="preserve">
+    <value>출력 다이 맵 전환</value>
+  </data>
+  <data name="work.page.inputMap" xml:space="preserve">
+    <value>입력 스테이지 다이 맵</value>
+  </data>
+  <data name="work.page.main" xml:space="preserve">
+    <value>메인 화면</value>
+  </data>
+  <data name="work.page.outputMap" xml:space="preserve">
+    <value>출력 스테이지 다이 맵</value>
+  </data>
+  <data name="work.posCheck" xml:space="preserve">
+    <value>위치 확인</value>
+  </data>
+  <data name="work.ready" xml:space="preserve">
+    <value>준비</value>
+  </data>
+  <data name="work.resetAlarm" xml:space="preserve">
+    <value>알람 해제</value>
+  </data>
+  <data name="work.sec.visionView" xml:space="preserve">
+    <value>비전 화면</value>
+  </data>
+  <data name="work.sec.workInfo" xml:space="preserve">
+    <value>작업 정보</value>
+  </data>
+  <data name="work.sec.workMap" xml:space="preserve">
+    <value>작업 맵</value>
+  </data>
+  <data name="work.sec.workTime" xml:space="preserve">
+    <value>작업 시간</value>
+  </data>
+  <data name="work.selfCheckMode" xml:space="preserve">
+    <value>자주검사 모드</value>
+  </data>
+  <data name="work.shutdown" xml:space="preserve">
+    <value>설비 종료</value>
+  </data>
+  <data name="work.start" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="work.stop" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="work.visionAlign" xml:space="preserve">
+    <value>비전 얼라인</value>
+  </data>
+  <data name="work.waferMapOpen" xml:space="preserve">
+    <value>웨이퍼 맵 오픈</value>
+  </data>
+  <data name="work.workInfo.binArrMon" xml:space="preserve">
+    <value>빈 배열 모니터링</value>
+  </data>
+  <data name="work.workInfo.collet1Use" xml:space="preserve">
+    <value>1번 콜렛 사용 횟수</value>
+  </data>
+  <data name="work.workInfo.collet2Use" xml:space="preserve">
+    <value>2번 콜렛 사용 횟수</value>
+  </data>
+  <data name="work.workInfo.needleUse" xml:space="preserve">
+    <value>니들 사용 횟수</value>
+  </data>
+  <data name="work.workInfo.pickFail" xml:space="preserve">
+    <value>픽업 실패 수량</value>
+  </data>
+  <data name="work.workInfo.placeFail" xml:space="preserve">
+    <value>안착 실패 수량</value>
+  </data>
+  <data name="work.workInfo.project" xml:space="preserve">
+    <value>프로젝트 이름</value>
+  </data>
+  <data name="work.workInfo.rework" xml:space="preserve">
+    <value>DT 횟수</value>
+  </data>
+  <data name="work.workInfo.workBinQty" xml:space="preserve">
+    <value>작업 빈 수량</value>
+  </data>
+  <data name="work.workTime.alarm" xml:space="preserve">
+    <value>알람</value>
+  </data>
+  <data name="work.workTime.ccs" xml:space="preserve">
+    <value>CCS 검수 확인</value>
+  </data>
+  <data name="work.workTime.clear" xml:space="preserve">
+    <value>초기화</value>
+  </data>
+  <data name="work.workTime.contUp" xml:space="preserve">
+    <value>연속 가동 시간</value>
+  </data>
+  <data name="work.workTime.cycle" xml:space="preserve">
+    <value>사이클 시간</value>
+  </data>
+  <data name="work.workTime.errCnt" xml:space="preserve">
+    <value>이상 정지 횟수</value>
+  </data>
+  <data name="work.workTime.errDown" xml:space="preserve">
+    <value>이상 정지 시간</value>
+  </data>
+  <data name="work.workTime.load" xml:space="preserve">
+    <value>부하 시간</value>
+  </data>
+  <data name="work.workTime.lotId" xml:space="preserve">
+    <value>작업중인 LOT ID</value>
+  </data>
+  <data name="work.workTime.mtbf" xml:space="preserve">
+    <value>MTBF</value>
+  </data>
+  <data name="work.workTime.mttr" xml:space="preserve">
+    <value>MTTR</value>
+  </data>
+  <data name="work.workTime.normDown" xml:space="preserve">
+    <value>통상 정지 시간</value>
+  </data>
+  <data name="work.workTime.rate" xml:space="preserve">
+    <value>가동률</value>
+  </data>
+  <data name="work.workTime.recovery" xml:space="preserve">
+    <value>이상 복귀 시간</value>
+  </data>
+  <data name="work.workTime.up" xml:space="preserve">
+    <value>가동 시간</value>
+  </data>
+  <data name="work.workTime.uph" xml:space="preserve">
+    <value>UPH</value>
+  </data>
+</root>

@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
+using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
@@ -24,6 +25,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                         typedExisting.Show(ResolveOwner(owner));
 
                     onActivate?.Invoke(typedExisting);
+                    Lang.Apply(typedExisting);
                     typedExisting.BringToFront();
                     typedExisting.Activate();
                     return typedExisting;
@@ -48,6 +50,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 dialog.Show();
 
             onActivate?.Invoke(dialog);
+            Lang.Apply(dialog);
             dialog.BringToFront();
             dialog.Activate();
             return dialog;

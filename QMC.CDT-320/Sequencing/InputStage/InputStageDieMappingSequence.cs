@@ -197,6 +197,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-DIEMAP-WAFER", "Material",
                         "InputStage wafer material is not available. CurrentWaferMaterial=null, MaterialLocation=InputStage empty.");
 
+                RecipeInputMapSource.BeginWafer(_wafer);
                 // 독립 Manual/Step Mapping도 자동 투입과 같은 LOT 접두부 검사를 통과해야 한다.
                 // 이 경계에서는 재입력이나 복구 모션을 수행하지 않고 잘못된 자재만 차단한다.
                 if (Stage.Config != null && Stage.Config.UseBarcodeLotPrefixCheck)
