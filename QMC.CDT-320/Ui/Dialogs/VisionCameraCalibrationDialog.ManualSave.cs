@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -118,14 +119,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                 DiscardManualDraft();
                 ClearReticleMeasuredInSession();
                 RefreshData();
-                lblStatus.Text = summary;
+                Lang.BindFormat(lblStatus, "visionUi.literal", (object)(summary));
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-SAVE-APPLY", summary);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "저장·적용 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "visionUi.visionCameraCalibrationDialog.ManualSave.lblStatus.text", (object)(ex.Message));
                 EventLogger.Write(EventKind.Alarm, "CAL", "VISION-CAMERA-CAL-SAVE-APPLY-FAIL", lblStatus.Text);
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION CAMERA CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionCameraCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

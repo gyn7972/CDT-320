@@ -821,6 +821,9 @@
     <Compile Include="Equipment\Vision\VisionTcpClient.cs" />
     <Compile Include="Equipment\Vision\VisionTcpClient.Correlated.cs" />
     <Compile Include="Ui\Common\WaferMaps\WaferMapDisplayStyle.cs" />
+    <Compile Include="Ui\Common\WaferMaps\WorkMapText.cs" />
+    <Compile Include="Ui\Common\WaferMaps\WorkMapMessageText.cs" />
+    <Compile Include="Ui\Pages\Settings\SettingsUiText.cs" />
     <Compile Include="Ui\Common\WaferMaps\PickupOrderDraft.cs" />
     <Compile Include="Ui\Controls\PickupRouteMapControl.cs">
       <SubType>Component</SubType>
@@ -990,6 +993,7 @@
     <Compile Include="Ui\Dialogs\BoardScanDialog.Designer.cs">
       <DependentUpon>BoardScanDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\AdditionalDialogText.cs" />
     <Compile Include="Ui\Dialogs\AxisJogPopup.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -1773,6 +1777,34 @@
     <EmbeddedResource Include="Ui\Localization\Resources\Strings.ko.resx" />
     <EmbeddedResource Include="Ui\Localization\Resources\Strings.resx" />
     <EmbeddedResource Include="Ui\Localization\Resources\Strings.zh-CN.resx" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Ui\Localization\Resources\DiagramStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\DiagramStrings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\DialogStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\DialogStrings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\MessageStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\MessageStrings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\ControlStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\WorkMapStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\WorkMapStrings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\WorkMessageStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\WorkMessageStrings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\WorkInfoStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\WorkInfoStrings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\SettingsStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\SettingsStrings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\HistoryStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\HistoryStrings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\RecipeStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\RecipeStrings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\ControlStrings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\CalibrationStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\CalibrationStrings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\VisionStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\VisionStrings.ko.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\AdditionalDialogStrings.resx" />
+    <EmbeddedResource Include="Ui\Localization\Resources\AdditionalDialogStrings.ko.resx" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -1,0 +1,548 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 다이어그램과 상태 표시 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="diagram.cycle.cycle" xml:space="preserve">
+    <value>사이클</value>
+  </data>
+  <data name="diagram.cycle.detail" xml:space="preserve">
+    <value>{0} · {1} · 다이 {2} · 피커 {3} · {4} · 합계 {5}ms</value>
+  </data>
+  <data name="diagram.cycle.die" xml:space="preserve">
+    <value>다이</value>
+  </data>
+  <data name="diagram.cycle.empty" xml:space="preserve">
+    <value>계측 데이터 없음 — 운전 시작 시 표시됩니다</value>
+  </data>
+  <data name="diagram.cycle.errorState" xml:space="preserve">
+    <value>상태: 오류</value>
+  </data>
+  <data name="diagram.cycle.failed" xml:space="preserve">
+    <value>오류</value>
+  </data>
+  <data name="diagram.cycle.measureEnd" xml:space="preserve">
+    <value>구간측정: 끝 지점 클릭...</value>
+  </data>
+  <data name="diagram.cycle.measureHelp" xml:space="preserve">
+    <value>구간측정: 차트 클릭→클릭 (우클릭 해제)</value>
+  </data>
+  <data name="diagram.cycle.measureResult" xml:space="preserve">
+    <value>구간: {0} ms</value>
+  </data>
+  <data name="diagram.cycle.minutes" xml:space="preserve">
+    <value>{0}분</value>
+  </data>
+  <data name="diagram.cycle.motion" xml:space="preserve">
+    <value>동작: {0}</value>
+  </data>
+  <data name="diagram.cycle.now" xml:space="preserve">
+    <value>지금</value>
+  </data>
+  <data name="diagram.cycle.ok" xml:space="preserve">
+    <value>정상</value>
+  </data>
+  <data name="diagram.cycle.pause" xml:space="preserve">
+    <value>일시정지</value>
+  </data>
+  <data name="diagram.cycle.picker" xml:space="preserve">
+    <value>피커</value>
+  </data>
+  <data name="diagram.cycle.request" xml:space="preserve">
+    <value>요청 ID: {0}</value>
+  </data>
+  <data name="diagram.cycle.resume" xml:space="preserve">
+    <value>재개</value>
+  </data>
+  <data name="diagram.cycle.running" xml:space="preserve">
+    <value>(진행중)</value>
+  </data>
+  <data name="diagram.cycle.seconds" xml:space="preserve">
+    <value>{0}초</value>
+  </data>
+  <data name="diagram.cycle.selectDetail" xml:space="preserve">
+    <value>왼쪽 목록에서 항목을 선택하면 모터별 상세가 표시됩니다</value>
+  </data>
+  <data name="diagram.cycle.state" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="diagram.cycle.statistics" xml:space="preserve">
+    <value>최근 {0}ms · 평균 {1}ms</value>
+  </data>
+  <data name="diagram.cycle.time" xml:space="preserve">
+    <value>시간</value>
+  </data>
+  <data name="diagram.cycle.title" xml:space="preserve">
+    <value>사이클 시간</value>
+  </data>
+  <data name="diagram.cycle.tooltipHeading" xml:space="preserve">
+    <value>{0} · 다이 {1} · 피커 {2}</value>
+  </data>
+  <data name="diagram.cycle.total" xml:space="preserve">
+    <value>합계 {0}</value>
+  </data>
+  <data name="diagram.cycle.totalColumn" xml:space="preserve">
+    <value>합계(ms)</value>
+  </data>
+  <data name="diagram.cycle.unfinished" xml:space="preserve">
+    <value>   [미종료]</value>
+  </data>
+  <data name="diagram.cycle.unit" xml:space="preserve">
+    <value>유닛</value>
+  </data>
+  <data name="diagram.cycle.unit.bottom" xml:space="preserve">
+    <value>하면 검사</value>
+  </data>
+  <data name="diagram.cycle.unit.inputvision" xml:space="preserve">
+    <value>투입 비전</value>
+  </data>
+  <data name="diagram.cycle.unit.pickup" xml:space="preserve">
+    <value>픽업</value>
+  </data>
+  <data name="diagram.cycle.unit.place" xml:space="preserve">
+    <value>배출</value>
+  </data>
+  <data name="diagram.cycle.unit.side" xml:space="preserve">
+    <value>측면 검사</value>
+  </data>
+  <data name="diagram.map.compactInfo" xml:space="preserve">
+    <value>{0}×{1} 표시={2}  원본={3}×{4}  피치=({5},{6})mm  {7}  {8}  확대={9}%</value>
+  </data>
+  <data name="diagram.map.dieSize" xml:space="preserve">
+    <value>다이=({0},{1})mm</value>
+  </data>
+  <data name="diagram.map.empty" xml:space="preserve">
+    <value>(맵 없음)</value>
+  </data>
+  <data name="diagram.map.hover" xml:space="preserve">
+    <value>  순서={0}  상태={1}  BIN={2}</value>
+  </data>
+  <data name="diagram.map.info" xml:space="preserve">
+    <value>{0}×{1}  피치=({2},{3})mm  {4}  {5}  전체={6}  확대={7}%</value>
+  </data>
+  <data name="diagram.map.legend.critical" xml:space="preserve">
+    <value>중대 불량</value>
+  </data>
+  <data name="diagram.map.legend.good" xml:space="preserve">
+    <value>양품</value>
+  </data>
+  <data name="diagram.map.legend.preng" xml:space="preserve">
+    <value>사전 불량</value>
+  </data>
+  <data name="diagram.map.legend.skip" xml:space="preserve">
+    <value>제외</value>
+  </data>
+  <data name="diagram.map.legend.unknown" xml:space="preserve">
+    <value>미확인</value>
+  </data>
+  <data name="diagram.map.noAppliedPosition" xml:space="preserve">
+    <value>  (적용 맵 좌표 없음)</value>
+  </data>
+  <data name="diagram.map.origin" xml:space="preserve">
+    <value>  맵 원점={0}</value>
+  </data>
+  <data name="diagram.map.origin.bottomleft" xml:space="preserve">
+    <value>좌측 하단</value>
+  </data>
+  <data name="diagram.map.origin.bottomright" xml:space="preserve">
+    <value>우측 하단</value>
+  </data>
+  <data name="diagram.map.origin.center" xml:space="preserve">
+    <value>중앙</value>
+  </data>
+  <data name="diagram.map.origin.topleft" xml:space="preserve">
+    <value>좌측 상단</value>
+  </data>
+  <data name="diagram.map.origin.topright" xml:space="preserve">
+    <value>우측 상단</value>
+  </data>
+  <data name="diagram.map.result.good" xml:space="preserve">
+    <value>양품</value>
+  </data>
+  <data name="diagram.map.result.ng" xml:space="preserve">
+    <value>불량</value>
+  </data>
+  <data name="diagram.map.result.unknown" xml:space="preserve">
+    <value>미확인</value>
+  </data>
+  <data name="diagram.map.rotation" xml:space="preserve">
+    <value>  회전={0}° 시계방향</value>
+  </data>
+  <data name="diagram.map.title" xml:space="preserve">
+    <value>다이맵</value>
+  </data>
+  <data name="diagram.map.wafer" xml:space="preserve">
+    <value>웨이퍼={0}mm</value>
+  </data>
+  <data name="diagram.map.waferUnset" xml:space="preserve">
+    <value>웨이퍼=(미설정)</value>
+  </data>
+  <data name="diagram.route.empty" xml:space="preserve">
+    <value>표시할 다이맵이 없습니다.</value>
+  </data>
+  <data name="diagram.route.overview" xml:space="preserve">
+    <value>전체 위치 · 클릭 이동</value>
+  </data>
+  <data name="diagram.state.activeLot" xml:space="preserve">
+    <value>진행 중인 LOT</value>
+  </data>
+  <data name="diagram.state.binDistribution" xml:space="preserve">
+    <value>BIN 분포</value>
+  </data>
+  <data name="diagram.state.buttons" xml:space="preserve">
+    <value>조작 버튼 (DI)</value>
+  </data>
+  <data name="diagram.state.buzzer" xml:space="preserve">
+    <value>부저</value>
+  </data>
+  <data name="diagram.state.cda1" xml:space="preserve">
+    <value>메인 CDA 1</value>
+  </data>
+  <data name="diagram.state.cda2" xml:space="preserve">
+    <value>메인 CDA 2</value>
+  </data>
+  <data name="diagram.state.emgFront" xml:space="preserve">
+    <value>전면 비상정지</value>
+  </data>
+  <data name="diagram.state.emgLeft" xml:space="preserve">
+    <value>좌측 비상정지</value>
+  </data>
+  <data name="diagram.state.emgRear" xml:space="preserve">
+    <value>후면 비상정지</value>
+  </data>
+  <data name="diagram.state.good" xml:space="preserve">
+    <value>양품</value>
+  </data>
+  <data name="diagram.state.goodPlate" xml:space="preserve">
+    <value>양품 플레이트</value>
+  </data>
+  <data name="diagram.state.green" xml:space="preserve">
+    <value>초록</value>
+  </data>
+  <data name="diagram.state.ionizer" xml:space="preserve">
+    <value>이오나이저</value>
+  </data>
+  <data name="diagram.state.ionizerOk" xml:space="preserve">
+    <value>이오나이저 정상</value>
+  </data>
+  <data name="diagram.state.lamps" xml:space="preserve">
+    <value>조작 램프 (DO)</value>
+  </data>
+  <data name="diagram.state.lot.aborted" xml:space="preserve">
+    <value>중단</value>
+  </data>
+  <data name="diagram.state.lot.completed" xml:space="preserve">
+    <value>완료</value>
+  </data>
+  <data name="diagram.state.lot.open" xml:space="preserve">
+    <value>열림</value>
+  </data>
+  <data name="diagram.state.lot.running" xml:space="preserve">
+    <value>진행 중</value>
+  </data>
+  <data name="diagram.state.lotId" xml:space="preserve">
+    <value>LOT ID</value>
+  </data>
+  <data name="diagram.state.ng" xml:space="preserve">
+    <value>불량</value>
+  </data>
+  <data name="diagram.state.ngPlate" xml:space="preserve">
+    <value>불량 플레이트</value>
+  </data>
+  <data name="diagram.state.noActiveLot" xml:space="preserve">
+    <value>(진행 중인 LOT 없음)</value>
+  </data>
+  <data name="diagram.state.noBinData" xml:space="preserve">
+    <value>(BIN 데이터 없음)</value>
+  </data>
+  <data name="diagram.state.noLot" xml:space="preserve">
+    <value>(LOT 없음)</value>
+  </data>
+  <data name="diagram.state.plateReset" xml:space="preserve">
+    <value>플레이트 초기화</value>
+  </data>
+  <data name="diagram.state.processed" xml:space="preserve">
+    <value>처리 / 전체</value>
+  </data>
+  <data name="diagram.state.recipe" xml:space="preserve">
+    <value>레시피</value>
+  </data>
+  <data name="diagram.state.red" xml:space="preserve">
+    <value>빨강</value>
+  </data>
+  <data name="diagram.state.reset" xml:space="preserve">
+    <value>초기화</value>
+  </data>
+  <data name="diagram.state.resetConfirm" xml:space="preserve">
+    <value>플레이트 적재 데이터를 초기화합니다. 계속하시겠습니까?</value>
+  </data>
+  <data name="diagram.state.resetLamp" xml:space="preserve">
+    <value>초기화 램프</value>
+  </data>
+  <data name="diagram.state.resetTitle" xml:space="preserve">
+    <value>플레이트 초기화</value>
+  </data>
+  <data name="diagram.state.resources" xml:space="preserve">
+    <value>공급 상태 센서</value>
+  </data>
+  <data name="diagram.state.start" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="diagram.state.startLamp" xml:space="preserve">
+    <value>시작 램프</value>
+  </data>
+  <data name="diagram.state.started" xml:space="preserve">
+    <value>시작 시각</value>
+  </data>
+  <data name="diagram.state.state" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="diagram.state.stop" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="diagram.state.stopLamp" xml:space="preserve">
+    <value>정지 램프</value>
+  </data>
+  <data name="diagram.state.tower" xml:space="preserve">
+    <value>타워 램프 + 부저</value>
+  </data>
+  <data name="diagram.state.vacuum1" xml:space="preserve">
+    <value>진공 1</value>
+  </data>
+  <data name="diagram.state.vacuum2" xml:space="preserve">
+    <value>진공 2</value>
+  </data>
+  <data name="diagram.state.vacuum3" xml:space="preserve">
+    <value>진공 3</value>
+  </data>
+  <data name="diagram.state.vacuum4" xml:space="preserve">
+    <value>진공 4</value>
+  </data>
+  <data name="diagram.state.yellow" xml:space="preserve">
+    <value>노랑</value>
+  </data>
+  <data name="diagram.state.yield" xml:space="preserve">
+    <value>수율 %</value>
+  </data>
+  <data name="diagram.tact.average" xml:space="preserve">
+    <value>평균{0} {1}</value>
+  </data>
+  <data name="diagram.tact.detail" xml:space="preserve">
+    <value>상세: {0}</value>
+  </data>
+  <data name="diagram.tact.empty" xml:space="preserve">
+    <value>표시할 택타임 기록이 없습니다.</value>
+  </data>
+  <data name="diagram.tact.emptyHistory" xml:space="preserve">
+    <value>선택한 과거 Run에 해당하는 택타임 기록이 없습니다.</value>
+  </data>
+  <data name="diagram.tact.emptyLive" xml:space="preserve">
+    <value>장비가 운전되면 실시간 택타임이 표시됩니다.</value>
+  </data>
+  <data name="diagram.tact.emptyRange" xml:space="preserve">
+    <value>선택한 시간 구간에 기록이 없습니다.</value>
+  </data>
+  <data name="diagram.tact.help" xml:space="preserve">
+    <value>휠: 확대/축소   드래그: 이동   막대/점: 상세 선택</value>
+  </data>
+  <data name="diagram.tact.legend.fail" xml:space="preserve">
+    <value>실패</value>
+  </data>
+  <data name="diagram.tact.legend.motion" xml:space="preserve">
+    <value>모션</value>
+  </data>
+  <data name="diagram.tact.legend.process" xml:space="preserve">
+    <value>공정</value>
+  </data>
+  <data name="diagram.tact.legend.unit" xml:space="preserve">
+    <value>유닛</value>
+  </data>
+  <data name="diagram.tact.legend.vision" xml:space="preserve">
+    <value>비전</value>
+  </data>
+  <data name="diagram.tact.legend.wait" xml:space="preserve">
+    <value>대기</value>
+  </data>
+  <data name="diagram.tact.mixed" xml:space="preserve">
+    <value> (혼합)</value>
+  </data>
+  <data name="diagram.tact.name.frontPicker" xml:space="preserve">
+    <value>전면 피커</value>
+  </data>
+  <data name="diagram.tact.name.input" xml:space="preserve">
+    <value>투입</value>
+  </data>
+  <data name="diagram.tact.name.io" xml:space="preserve">
+    <value>입출력</value>
+  </data>
+  <data name="diagram.tact.name.logic" xml:space="preserve">
+    <value>로직</value>
+  </data>
+  <data name="diagram.tact.name.machine" xml:space="preserve">
+    <value>장비 / 운전</value>
+  </data>
+  <data name="diagram.tact.name.motion" xml:space="preserve">
+    <value>모션</value>
+  </data>
+  <data name="diagram.tact.name.other" xml:space="preserve">
+    <value>기타</value>
+  </data>
+  <data name="diagram.tact.name.output" xml:space="preserve">
+    <value>배출</value>
+  </data>
+  <data name="diagram.tact.name.process" xml:space="preserve">
+    <value>공정</value>
+  </data>
+  <data name="diagram.tact.name.rearPicker" xml:space="preserve">
+    <value>후면 피커</value>
+  </data>
+  <data name="diagram.tact.name.resource" xml:space="preserve">
+    <value>자원</value>
+  </data>
+  <data name="diagram.tact.name.run" xml:space="preserve">
+    <value>운전</value>
+  </data>
+  <data name="diagram.tact.name.step" xml:space="preserve">
+    <value>단계</value>
+  </data>
+  <data name="diagram.tact.name.unit" xml:space="preserve">
+    <value>유닛</value>
+  </data>
+  <data name="diagram.tact.name.vision" xml:space="preserve">
+    <value>비전</value>
+  </data>
+  <data name="diagram.tact.name.wait" xml:space="preserve">
+    <value>대기</value>
+  </data>
+  <data name="diagram.tact.p95" xml:space="preserve">
+    <value>P95{0} {1}</value>
+  </data>
+  <data name="diagram.tact.result.canceled" xml:space="preserve">
+    <value>취소</value>
+  </data>
+  <data name="diagram.tact.result.failed" xml:space="preserve">
+    <value>실패</value>
+  </data>
+  <data name="diagram.tact.result.ok" xml:space="preserve">
+    <value>정상</value>
+  </data>
+  <data name="diagram.tact.result.skipped" xml:space="preserve">
+    <value>건너뜀</value>
+  </data>
+  <data name="diagram.tact.result.stopped" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="diagram.tact.simplified" xml:space="preserve">
+    <value>표시 최적화: {0} / {1}건</value>
+  </data>
+  <data name="diagram.tact.timeline" xml:space="preserve">
+    <value>장비 타임라인</value>
+  </data>
+  <data name="diagram.tact.tooltip" xml:space="preserve">
+    <value>시간: {0} ~ {1}&#13;&#10;소요: {2} ms ({3})&#13;&#10;경로: {4} / {5} / {6} / {7}&#13;&#10;결과: {8}</value>
+  </data>
+  <data name="diagram.tact.trend" xml:space="preserve">
+    <value>택타임 추이</value>
+  </data>
+  <data name="diagram.tact.trendExcluded" xml:space="preserve">
+    <value>택타임 추이 · 운전/유닛 중첩 제외</value>
+  </data>
+  <data name="diagram.liveMap.caption" xml:space="preserve">
+    <value>{0}   {1}</value>
+  </data>
+  <data name="diagram.liveMap.input" xml:space="preserve">
+    <value>입력 웨이퍼 맵</value>
+  </data>
+  <data name="diagram.liveMap.outputGood" xml:space="preserve">
+    <value>출력 양품 맵</value>
+  </data>
+  <data name="diagram.liveMap.outputNg" xml:space="preserve">
+    <value>출력 불량 맵</value>
+  </data>
+  <data name="diagram.liveMap.refreshFailed" xml:space="preserve">
+    <value>표시 갱신 실패</value>
+  </data>
+  <data name="diagram.liveMap.state.wait" xml:space="preserve">
+    <value>대기</value>
+  </data>
+  <data name="diagram.liveMap.state.visionDone" xml:space="preserve">
+    <value>검사 완료</value>
+  </data>
+  <data name="diagram.liveMap.state.pickerHeld" xml:space="preserve">
+    <value>피커 보유</value>
+  </data>
+  <data name="diagram.liveMap.state.placed" xml:space="preserve">
+    <value>안착 완료 / 검사 전</value>
+  </data>
+  <data name="diagram.liveMap.state.good" xml:space="preserve">
+    <value>양품</value>
+  </data>
+  <data name="diagram.liveMap.state.ng" xml:space="preserve">
+    <value>불량</value>
+  </data>
+  <data name="diagram.liveMap.state.skip" xml:space="preserve">
+    <value>제외</value>
+  </data>
+  <data name="diagram.liveMap.state.unknown" xml:space="preserve">
+    <value>상태 미확인</value>
+  </data>
+  <data name="diagram.action.badge" xml:space="preserve">
+    <value>동작</value>
+  </data>
+</root>

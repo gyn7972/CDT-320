@@ -7,14 +7,17 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using QMC.Common.Localization;
 
 namespace QMC.Common
 {
     /// <summary>
     /// 대화상자 (Ok)
     /// </summary>
-    public partial class MessageBoxOk : Form
+    public partial class MessageBoxOk : Form, ILocalizedView
     {
+        private string _originalTitle;
+
         public enum MessageStatus
         {
             error,
@@ -28,7 +31,7 @@ namespace QMC.Common
         public string Title
         {
             get { return this.lblTitle.Text; }
-            set { this.lblTitle.Text = value; }
+            set { _originalTitle = value; this.lblTitle.Text = MessageDialog.TitleCaption(value); }
         }
         /// <summary>
         /// 본문
@@ -67,7 +70,9 @@ namespace QMC.Common
         public MessageBoxOk()
         {
             InitializeComponent();
+            _originalTitle = this.lblTitle.Text;
 
+            ApplyLanguage();
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.None;
             //this.TopMost = true;
@@ -132,8 +137,8 @@ namespace QMC.Common
 
             if (this.closedSecs > 0)
             {
-                this.btnOk.Text = $"&Ok ({closedSecs})";
                 this.secs = 0;
+                UpdateOkCaption();
                 var timer = new Timer();
                 timer.Tick += Timer_Tick;
                 timer.Interval = 1000;
@@ -141,16 +146,30 @@ namespace QMC.Common
             }
             else
             {
-                this.btnOk.Text = $"&Ok";
+                UpdateOkCaption();
             }
 
             return this.ShowDialog();
         }
 
+        public void ApplyLanguage()
+        {
+            this.lblTitle.Text = MessageDialog.TitleCaption(_originalTitle);
+            UpdateOkCaption();
+        }
+
+        private void UpdateOkCaption()
+        {
+            string caption = MessageDialog.ButtonCaption("OK");
+            this.btnOk.Text = this.closedSecs > 0
+                ? MessageDialog.Localization.Format("common.message.countdown", caption, this.closedSecs - this.secs)
+                : caption;
+        }
+
         private void Timer_Tick(object sender, EventArgs e)
         {
             this.secs++;
-            this.btnOk.Text = $"&Ok ({this.closedSecs - this.secs})";
+            UpdateOkCaption();
             if (this.secs >= this.closedSecs)
             {
                 this.DialogResult = DialogResult.OK;

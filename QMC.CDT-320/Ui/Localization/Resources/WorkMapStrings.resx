@@ -1,0 +1,121 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="workMap.inputCreate" xml:space="preserve"><value>INPUT DIE MAP CREATE</value></data>
+  <data name="workMap.inputMap" xml:space="preserve"><value>Input Die Map</value></data>
+  <data name="workMap.inputInfo" xml:space="preserve"><value>DIE MAP INFO</value></data>
+  <data name="workMap.chipWidth" xml:space="preserve"><value>Chip Width</value></data>
+  <data name="workMap.chipHeight" xml:space="preserve"><value>Chip Height</value></data>
+  <data name="workMap.centerX" xml:space="preserve"><value>Center Step X</value></data>
+  <data name="workMap.centerY" xml:space="preserve"><value>Center Step Y</value></data>
+  <data name="workMap.diameter" xml:space="preserve"><value>Wafer Dia</value></data>
+  <data name="workMap.axisX" xml:space="preserve"><value>Axis X</value></data>
+  <data name="workMap.axisY" xml:space="preserve"><value>Axis Y</value></data>
+  <data name="workMap.binRank" xml:space="preserve"><value>BIN RANK</value></data>
+  <data name="workMap.dieNumber" xml:space="preserve"><value>Die Number</value></data>
+  <data name="workMap.dieState" xml:space="preserve"><value>DIE STATE EDIT</value></data>
+  <data name="workMap.waitInspect" xml:space="preserve"><value>WAIT / Awaiting inspection</value></data>
+  <data name="workMap.goodInspect" xml:space="preserve"><value>GOOD / Inspection complete</value></data>
+  <data name="workMap.ngInspect" xml:space="preserve"><value>NG / Inspection NG</value></data>
+  <data name="workMap.skip" xml:space="preserve"><value>SKIP / Excluded</value></data>
+  <data name="workMap.flying" xml:space="preserve"><value>FLYING DIE / Lost</value></data>
+  <data name="workMap.applyDie" xml:space="preserve"><value>APPLY SELECTED DIE</value></data>
+  <data name="workMap.applyState" xml:space="preserve"><value>APPLY SELECTED STATE</value></data>
+  <data name="workMap.review" xml:space="preserve"><value>WAFER ALIGN / DIE MAP REVIEW</value></data>
+  <data name="workMap.manualAlign" xml:space="preserve"><value>MANUAL ALIGN COMPLETE</value></data>
+  <data name="workMap.reloadInput" xml:space="preserve"><value>RELOAD ACTIVE MAP</value></data>
+  <data name="workMap.action" xml:space="preserve"><value>ACTION</value></data>
+  <data name="workMap.theta" xml:space="preserve"><value>T correction</value></data>
+  <data name="workMap.detect" xml:space="preserve"><value>Detect die</value></data>
+  <data name="workMap.offset" xml:space="preserve"><value>Apply offset</value></data>
+  <data name="workMap.standard" xml:space="preserve"><value>STANDARD</value></data>
+  <data name="workMap.startIndex" xml:space="preserve"><value>START INDEX</value></data>
+  <data name="workMap.selectStatus" xml:space="preserve"><value>SELECT PICK STATUS</value></data>
+  <data name="workMap.dragStatus" xml:space="preserve"><value>DRAG PICK STATUS</value></data>
+  <data name="workMap.saveStatus" xml:space="preserve"><value>SELECT PICK STATUS SAVE</value></data>
+  <data name="workMap.needleDown" xml:space="preserve"><value>NEEDLE BLOCK DOWN</value></data>
+  <data name="workMap.inputStageMap" xml:space="preserve"><value>INPUT STAGE DIE MAP</value></data>
+  <data name="workMap.projectColon" xml:space="preserve"><value>Project Name :</value></data>
+  <data name="workMap.barcode" xml:space="preserve"><value>Barcode Name :</value></data>
+  <data name="workMap.firstBin" xml:space="preserve"><value>1Bin :</value></data>
+  <data name="workMap.close" xml:space="preserve"><value>CLOSE</value></data>
+  <data name="workMap.index" xml:space="preserve"><value>Index</value></data>
+  <data name="workMap.mapX" xml:space="preserve"><value>Map X</value></data>
+  <data name="workMap.mapY" xml:space="preserve"><value>Map Y</value></data>
+  <data name="workMap.gridX" xml:space="preserve"><value>Grid X</value></data>
+  <data name="workMap.gridY" xml:space="preserve"><value>Grid Y</value></data>
+  <data name="workMap.state" xml:space="preserve"><value>State</value></data>
+  <data name="workMap.result" xml:space="preserve"><value>Result</value></data>
+  <data name="workMap.bin" xml:space="preserve"><value>Bin</value></data>
+  <data name="workMap.processX" xml:space="preserve"><value>Process X(mm)</value></data>
+  <data name="workMap.processY" xml:space="preserve"><value>Process Y(mm)</value></data>
+  <data name="workMap.dieUid" xml:space="preserve"><value>Die UID</value></data>
+  <data name="workMap.outputGood" xml:space="preserve"><value>OUTPUT GOOD RECEIVE MAP</value></data>
+  <data name="workMap.outputNg" xml:space="preserve"><value>OUTPUT NG RECEIVE MAP</value></data>
+  <data name="workMap.outputGrid" xml:space="preserve"><value>OUTPUT GOOD RECEIVE MAP DGV</value></data>
+  <data name="workMap.outputInfo" xml:space="preserve"><value>BIN / DIE INFO</value></data>
+  <data name="workMap.project" xml:space="preserve"><value>Project Name</value></data>
+  <data name="workMap.sourceWafer" xml:space="preserve"><value>Source Wafer :</value></data>
+  <data name="workMap.side" xml:space="preserve"><value>Side :</value></data>
+  <data name="workMap.progress" xml:space="preserve"><value>Progress</value></data>
+  <data name="workMap.binState" xml:space="preserve"><value>Bin / State</value></data>
+  <data name="workMap.nextTarget" xml:space="preserve"><value>Next Target</value></data>
+  <data name="workMap.outputStage" xml:space="preserve"><value>OUTPUT STAGE</value></data>
+  <data name="workMap.good" xml:space="preserve"><value>GOOD</value></data>
+  <data name="workMap.ng" xml:space="preserve"><value>NG</value></data>
+  <data name="workMap.wait" xml:space="preserve"><value>WAIT</value></data>
+  <data name="workMap.goodDone" xml:space="preserve"><value>GOOD / Complete</value></data>
+  <data name="workMap.ngDone" xml:space="preserve"><value>NG</value></data>
+  <data name="workMap.reloadOutput" xml:space="preserve"><value>RELOAD OUTPUT DIE MAP</value></data>
+  <data name="workMap.moveSlot" xml:space="preserve"><value>MOVE SELECTED SLOT</value></data>
+  <data name="workMap.goodPlan" xml:space="preserve"><value>GOOD PLAN INIT</value></data>
+  <data name="workMap.ngPlan" xml:space="preserve"><value>NG PLAN INIT</value></data>
+  <data name="workMap.saveMaterial" xml:space="preserve"><value>SAVE MATERIAL STATE</value></data>
+  <data name="workMap.refresh" xml:space="preserve"><value>REFRESH DISPLAY</value></data>
+  <data name="workMap.sizeX" xml:space="preserve"><value>Die Size X (mm)</value></data>
+  <data name="workMap.sizeY" xml:space="preserve"><value>Die Size Y (mm)</value></data>
+  <data name="workMap.gapX" xml:space="preserve"><value>Pitch Gap X (mm)</value></data>
+  <data name="workMap.gapY" xml:space="preserve"><value>Pitch Gap Y (mm)</value></data>
+  <data name="workMap.waferDiameter" xml:space="preserve"><value>Wafer Diameter (mm)</value></data>
+  <data name="workMap.processOrder" xml:space="preserve"><value>Process order</value></data>
+  <data name="workMap.noOutput" xml:space="preserve"><value>BIN / DIE INFO   NO MAP</value></data>
+  <data name="workMap.noInput" xml:space="preserve"><value>DIE MAP INFO   NO MAP</value></data>
+  <data name="workMap.noMap" xml:space="preserve"><value>NO MAP</value></data>
+  <data name="workMap.input" xml:space="preserve"><value>INPUT</value></data>
+  <data name="workMap.visionMove" xml:space="preserve"><value>MOVE VISION</value></data>
+  <data name="workMap.stageMove" xml:space="preserve"><value>MOVE VISION/STAGE</value></data>
+  <data name="workMap.frontMove" xml:space="preserve"><value>MOVE FRONT PICKER</value></data>
+  <data name="workMap.rearMove" xml:space="preserve"><value>MOVE REAR PICKER</value></data>
+  <data name="workMap.frontPlace" xml:space="preserve"><value>PLACE TEST FRONT PICKER</value></data>
+  <data name="workMap.rearPlace" xml:space="preserve"><value>PLACE TEST REAR PICKER</value></data>
+  <data name="workMap.frontPick" xml:space="preserve"><value>PICKUP TEST FRONT PICKER</value></data>
+  <data name="workMap.rearPick" xml:space="preserve"><value>PICKUP TEST REAR PICKER</value></data>
+  <data name="workMap.frontOffset" xml:space="preserve"><value>SET FRONT PICKER OFFSET</value></data>
+  <data name="workMap.rearOffset" xml:space="preserve"><value>SET REAR PICKER OFFSET</value></data>
+  <data name="workMap.dataMove" xml:space="preserve"><value>MOVE DIE DATA TO PICKER</value></data>
+  <data name="workMap.front" xml:space="preserve"><value>FRONT PICKER</value></data>
+  <data name="workMap.rear" xml:space="preserve"><value>REAR PICKER</value></data>
+  <data name="workMap.noRecipe" xml:space="preserve"><value>INPUT MAP - NO ACTIVE RECIPE</value></data>
+  <data name="workMap.noSpec" xml:space="preserve"><value>INPUT MAP - WAFER SPEC NOT CONFIGURED</value></data>
+  <data name="workMap.recipePreview" xml:space="preserve"><value>RECIPE INPUT DIE MAP (CENTER-RELATIVE PREVIEW)</value></data>
+  <data name="workMap.basePreview" xml:space="preserve"><value>BASE WAFER MAP PREVIEW (WAFER SPEC SAVE + FINAL APPLY REQUIRED)</value></data>
+  <data name="workMap.needApply" xml:space="preserve"><value>INPUT MAP FINAL APPLY REQUIRED</value></data>
+  <data name="workMap.circlePreview" xml:space="preserve"><value>RECIPE INPUT CIRCLE DIE MAP (CENTER-RELATIVE PREVIEW)</value></data>
+  <data name="workMap.loadFailed" xml:space="preserve"><value>INPUT MAP LOAD FAILED - SEE LOG</value></data>
+  <data name="workMap.activeMap" xml:space="preserve"><value>ACTIVE INPUT DIE MAP (MACHINE ABSOLUTE)</value></data>
+  <data name="workMap.needAlign" xml:space="preserve"><value>INPUT MAP ALIGN / MAPPING REQUIRED</value></data>
+  <data name="workMap.needRealign" xml:space="preserve"><value>INPUT MAP REALIGN / REMAP REQUIRED</value></data>
+  <data name="workMap.needRemap" xml:space="preserve"><value>INPUT MAP REMAP / FINAL APPLY REQUIRED</value></data>
+  <data name="workMap.waferMap" xml:space="preserve"><value>INPUT WAFER MAP</value></data>
+  <data name="workMap.noLot" xml:space="preserve"><value>(no lot)</value></data>
+  <data name="workMap.pickerNumber" xml:space="preserve"><value>PICKER #{0}</value></data>
+  <data name="workMap.pickerEmpty" xml:space="preserve"><value>PICKER #{0} (EMPTY)</value></data>
+  <data name="workMap.pickerOccupied" xml:space="preserve"><value>PICKER #{0} ({1})</value></data>
+  <data name="workMap.outputProgress" xml:space="preserve"><value>BIN / DIE INFO   Grid {0}x{1}   Progress {2}</value></data>
+  <data name="workMap.inputProgress" xml:space="preserve"><value>DIE MAP INFO   Grid {0}x{1}   Progress {2}</value></data>
+  <data name="workMap.inputLotEmpty" xml:space="preserve"><value>INPUT WAFER MAP   LOT {0}  (no input die map)</value></data>
+  <data name="workMap.inputLotCounts" xml:space="preserve"><value>INPUT WAFER MAP   LOT {0}  target={1}  wait={2}  vision={3}  pick={4}  good={5}  ng={6}  unknown={7}</value></data>
+</root>

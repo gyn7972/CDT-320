@@ -1,3 +1,4 @@
+﻿using QMC.CDT_320.Ui.Localization;
 using System;
 using System.Globalization;
 using System.Text;
@@ -17,11 +18,11 @@ namespace QMC.CDT_320.Ui.Dialogs
     public partial class RuntimeFilterSettingsDialog : Form
     {
         // 입력 배열 인덱스: 0=fc, 1=이상치 X/Y, 2=이상치 T, 3=클램프 X/Y, 4=클램프 T.
-        private static readonly string[] ItemNames =
-            { "컷오프 fc", "이상치 X/Y", "이상치 T", "클램프 X/Y", "클램프 T" };
+        private static readonly string[] ItemNameKeys =
+            { "dialog.filter.fc", "dialog.filter.outlierXy", "dialog.filter.outlierT", "dialog.filter.clampXy", "dialog.filter.clampT" };
 
         // PICKER Z 열 인덱스: 0=fc, 1=이상치 Z, 2=클램프 Z (단채널 — T 항목 없음).
-        private static readonly string[] ZItemNames = { "컷오프 fc", "이상치 Z", "클램프 Z" };
+        private static readonly string[] ZItemNameKeys = { "dialog.filter.fc", "dialog.filter.outlierZ", "dialog.filter.clampZ" };
 
         private bool _allowClose;
         private TextBox[] _pickInputs;
@@ -34,6 +35,21 @@ namespace QMC.CDT_320.Ui.Dialogs
         public RuntimeFilterSettingsDialog()
         {
             InitializeComponent();
+            Lang.BindKey(this, "dialog.filter.title");
+            Lang.BindKey(lblColItem, "dialog.filter.item");
+            Lang.BindKey(lblColPick, "dialog.filter.pick");
+            Lang.BindKey(lblColPlace, "dialog.filter.place");
+            Lang.BindKey(lblColZ, "dialog.filter.pickerZ");
+            Lang.BindKey(lblItemFc, "dialog.filter.fcCaption");
+            Lang.BindKey(lblItemAlpha, "dialog.filter.alpha");
+            Lang.BindKey(lblItemOutlierXy, "dialog.filter.outlierXyCaption");
+            Lang.BindKey(lblItemOutlierT, "dialog.filter.outlierTCaption");
+            Lang.BindKey(lblItemClampXy, "dialog.filter.clampXyCaption");
+            Lang.BindKey(lblItemClampT, "dialog.filter.clampTCaption");
+            Lang.BindKey(lblInfo, "dialog.filter.info");
+            Lang.BindKey(btnSave, "common.save");
+            Lang.BindKey(btnClose, "dialog.close");
+            Load += (sender, e) => Lang.Apply(this);
             _pickInputs = new[] { tbPickFc, tbPickOutlierXy, tbPickOutlierT, tbPickClampXy, tbPickClampT };
             _placeInputs = new[] { tbPlaceFc, tbPlaceOutlierXy, tbPlaceOutlierT, tbPlaceClampXy, tbPlaceClampT };
             _zInputs = new[] { tbZFc, tbZOutlier, tbZClamp };
@@ -45,12 +61,12 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void btnSave_Click(object sender, EventArgs e)
         {
             var errors = new StringBuilder();
-            double[] pick = ParseSide("PICK", _pickInputs, errors);
-            double[] place = ParseSide("PLACE", _placeInputs, errors);
+            double[] pick = ParseSide(Lang.T("dialog.filter.pick"), _pickInputs, errors);
+            double[] place = ParseSide(Lang.T("dialog.filter.place"), _placeInputs, errors);
             double[] z = ParseZ(errors);
             if (errors.Length > 0)
             {
-                QMC.Common.MessageDialog.Show("저장하지 않았습니다. 입력을 확인하십시오.\n\n" + errors);
+                QMC.Common.MessageDialog.Show(Lang.Format("dialog.filter.invalid", errors));
                 return;
             }
 
@@ -59,7 +75,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             bool zChanged = IsChanged(z, _loadedZ);
             if (!pickChanged && !placeChanged && !zChanged)
             {
-                QMC.Common.MessageDialog.Show("변경된 항목이 없습니다.");
+                QMC.Common.MessageDialog.Show(Lang.T("dialog.filter.unchanged"));
                 return;
             }
 
@@ -67,19 +83,19 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (pickChanged)
             {
                 bool ok = PickRuntimeOffsetService.SetFilterSettings(pick[0], pick[1], pick[2], pick[3], pick[4]);
-                result.AppendLine("PICK: " + (ok ? "저장 완료" : "저장 실패(로그 확인)"));
+                result.AppendLine(Lang.Format("dialog.filter.result", Lang.T("dialog.filter.pick"), Lang.T(ok ? "dialog.filter.saved" : "dialog.filter.failed")));
             }
 
             if (placeChanged)
             {
                 bool ok = PlaceRuntimeOffsetService.SetFilterSettings(place[0], place[1], place[2], place[3], place[4]);
-                result.AppendLine("PLACE: " + (ok ? "저장 완료" : "저장 실패(로그 확인)"));
+                result.AppendLine(Lang.Format("dialog.filter.result", Lang.T("dialog.filter.place"), Lang.T(ok ? "dialog.filter.saved" : "dialog.filter.failed")));
             }
 
             if (zChanged)
             {
                 bool ok = PickerZRuntimeOffsetService.SetFilterSettings(z[0], z[1], z[2]);
-                result.AppendLine("PICKER Z: " + (ok ? "저장 완료" : "저장 실패(로그 확인)"));
+                result.AppendLine(Lang.Format("dialog.filter.result", Lang.T("dialog.filter.pickerZ"), Lang.T(ok ? "dialog.filter.saved" : "dialog.filter.failed")));
             }
 
             LoadValues();
@@ -169,7 +185,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 double value;
                 if (!double.TryParse(inputs[i].Text, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
                 {
-                    errors.AppendLine(sideName + " " + ItemNames[i] + ": 숫자가 아닙니다. 입력=" + inputs[i].Text);
+                    errors.AppendLine(Lang.Format("dialog.filter.notNumber", sideName, Lang.T(ItemNameKeys[i]), inputs[i].Text));
                     valid = false;
                     continue;
                 }
@@ -177,7 +193,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (double.IsNaN(value) || double.IsInfinity(value) || value < min || value > max)
                 {
                     errors.AppendLine(
-                        sideName + " " + ItemNames[i] + ": 허용 범위(" + F(min) + "~" + F(max) + ")를 벗어났습니다. 입력=" + F(value));
+                        Lang.Format("dialog.filter.outOfRange", sideName, Lang.T(ItemNameKeys[i]), F(min), F(max), F(value)));
                     valid = false;
                     continue;
                 }
@@ -201,7 +217,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 double value;
                 if (!double.TryParse(_zInputs[i].Text, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
                 {
-                    errors.AppendLine("PICKER Z " + ZItemNames[i] + ": 숫자가 아닙니다. 입력=" + _zInputs[i].Text);
+                    errors.AppendLine(Lang.Format("dialog.filter.notNumber", Lang.T("dialog.filter.pickerZ"), Lang.T(ZItemNameKeys[i]), _zInputs[i].Text));
                     valid = false;
                     continue;
                 }
@@ -209,7 +225,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (double.IsNaN(value) || double.IsInfinity(value) || value < min || value > max)
                 {
                     errors.AppendLine(
-                        "PICKER Z " + ZItemNames[i] + ": 허용 범위(" + F(min) + "~" + F(max) + ")를 벗어났습니다. 입력=" + F(value));
+                        Lang.Format("dialog.filter.outOfRange", Lang.T("dialog.filter.pickerZ"), Lang.T(ZItemNameKeys[i]), F(min), F(max), F(value)));
                     valid = false;
                     continue;
                 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -107,7 +108,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Form1 host = GetHost();
                 if (host == null || host.Machine == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "장비 객체를 찾을 수 없어 ContiNode LineMap 검증을 실행할 수 없습니다.", "LINE MAP TEST",
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workInfoUi.picker.lineMapNoMachine"), Lang.T("workInfoUi.picker.lineMapTitle"),
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -116,7 +117,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!PickerContiLineTestRunner.EnsureAjinReady(out readyReason))
                 {
                     QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "UI", "AJIN-LINE-MAP-TEST", "FrontPickerPage", readyReason);
-                    QMC.Common.MessageDialog.Show(this, readyReason, "LINE MAP TEST", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, readyReason, Lang.T("workInfoUi.picker.lineMapTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -132,17 +133,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
 
                 string message = failCount == 0
-                    ? "GOOD StageY 기준 ContiNode LineMap 검증이 완료되었습니다. 전체 성공=" + results.Count + "건"
-                    : "GOOD StageY 기준 ContiNode LineMap 검증 중 실패가 있습니다. 실패=" + failCount + "건 / 전체=" + results.Count + "건";
+                    ? Lang.Format("workInfoUi.picker.lineMapSuccess", results.Count)
+                    : Lang.Format("workInfoUi.picker.lineMapFailed", failCount, results.Count);
 
-                QMC.Common.MessageDialog.Show(this, message + "\r\n상세 내용은 Alarm/Event Log를 확인하세요.", "LINE MAP TEST",
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workInfoUi.picker.lineMapDetail", message), Lang.T("workInfoUi.picker.lineMapTitle"),
                     MessageBoxButtons.OK, failCount == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
                 string message = "GOOD StageY 기준 ContiNode LineMap 검증 중 예외가 발생했습니다. error=" + ex.Message;
                 QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "UI", "AJIN-LINE-MAP-TEST", "FrontPickerPage", message);
-                QMC.Common.MessageDialog.Show(this, message, "LINE MAP TEST", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workInfoUi.picker.lineMapException", ex.Message), Lang.T("workInfoUi.picker.lineMapTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -336,15 +337,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             DialogResult confirm = QMC.Common.MessageDialog.Show(
                 this,
-                "FrontPicker Place teaching center ContiNode 이동 테스트를 실행할까요?\r\n" +
-                "순서: Picker #4 -> #3 -> #2 -> #1\r\n" +
-                "시작 전 #4 Place teaching 위치로 이동한 뒤, 각 세그먼트는 GOOD StageY + PickerX + 이전 PickerZ + 현재 PickerZ를 ContiNode로 구동합니다.\r\n" +
-                "Conti 파라미터: coord=" + placeConfig.ContiCoordinate +
-                ", maxVel=" + placeConfig.ContiMaxVelocity.ToString("F3") +
-                ", maxAcc=" + placeConfig.ContiMaxAcceleration.ToString("F3") +
-                ", maxDec=" + placeConfig.ContiMaxDeceleration.ToString("F3") + "\r\n" +
-                "축 주변 안전 상태와 제품 유무를 확인한 뒤 실행하세요.",
-                "LINE MOVE TEST",
+                Lang.Format("workInfoUi.picker.frontMoveConfirm", placeConfig.ContiCoordinate,
+                    placeConfig.ContiMaxVelocity.ToString("F3"), placeConfig.ContiMaxAcceleration.ToString("F3"),
+                    placeConfig.ContiMaxDeceleration.ToString("F3")),
+                Lang.T("workInfoUi.picker.lineMoveTitle"),
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
 
@@ -358,7 +354,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Form1 host = GetHost();
                 if (host == null || host.Machine == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "장비 객체를 찾을 수 없어 ContiNode 이동 테스트를 실행할 수 없습니다.", "LINE MOVE TEST",
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workInfoUi.picker.lineMoveNoMachine"), Lang.T("workInfoUi.picker.lineMoveTitle"),
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -367,7 +363,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!PickerContiLineTestRunner.EnsureAjinReady(out readyReason))
                 {
                     QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "UI", "AJIN-LINE-MOVE-TEST", "FrontPickerPage", readyReason);
-                    QMC.Common.MessageDialog.Show(this, readyReason, "LINE MOVE TEST", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, readyReason, Lang.T("workInfoUi.picker.lineMoveTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -380,18 +376,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!runResult.Success)
                 {
                     QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "UI", "AJIN-LINE-MOVE-TEST", "FrontPickerPage", runResult.Message);
-                    QMC.Common.MessageDialog.Show(this, runResult.Message, "LINE MOVE TEST", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, runResult.Message, Lang.T("workInfoUi.picker.lineMoveTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                QMC.Common.MessageDialog.Show(this, runResult.Message, "LINE MOVE TEST",
+                QMC.Common.MessageDialog.Show(this, runResult.Message, Lang.T("workInfoUi.picker.lineMoveTitle"),
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 string message = "GOOD StageY 기준 ContiNode 이동 테스트 중 예외가 발생했습니다. error=" + ex.Message;
                 QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "UI", "AJIN-LINE-MOVE-TEST", "FrontPickerPage", message);
-                QMC.Common.MessageDialog.Show(this, message, "LINE MOVE TEST", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workInfoUi.picker.lineMoveException", Lang.T("workInfoUi.picker.front"), ex.Message), Lang.T("workInfoUi.picker.lineMoveTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {

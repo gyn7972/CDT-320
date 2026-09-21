@@ -35,12 +35,31 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private static readonly string SavePath =
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "light_setup.json");
 
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(_lightGroup, "settingsUi.caption.lightController");
+            Lang.BindKey(_actionGroup, "settingsUi.caption.action");
+            Lang.BindKey(btnSave, "settingsUi.caption.save");
+            Lang.BindKey(btnReload, "settingsUi.caption.reload");
+            Lang.BindKey(btnAllOn, "settingsUi.caption.allOn");
+            Lang.BindKey(btnAllOff, "settingsUi.caption.allOff");
+            Lang.BindKey(_grid.Columns["CH"], "settingsUi.caption.ch");
+            Lang.BindKey(_grid.Columns["NAME"], "settingsUi.caption.name");
+            Lang.BindKey(_grid.Columns["COM"], "settingsUi.caption.comPort");
+            Lang.BindKey(_grid.Columns["LEVEL"], "settingsUi.caption.level0255");
+            Lang.BindKey(_grid.Columns["MODE"], "settingsUi.caption.mode");
+            Lang.BindKey(_grid.Columns["COLOR"], "settingsUi.caption.color");
+            Lang.BindKey(_grid.Columns["ACTIVE"], "settingsUi.caption.active");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
         public LightControllerPage()
         {
             InitializeComponent();
             ApplyRuntimeUi();
             SettingsPageLayoutStyler.Apply(this);
             ApplyCompactLayout();
+            InitializeLanguageBindings();
             _items = LoadOrSeed();
             FillGrid();
         }
@@ -107,9 +126,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     JsonPrettySerializer.WriteObject(fs, typeof(LightStore), new LightStore { Items = _items });
                 }
                 int sent = SendToControllers();
-                QMC.Common.MessageDialog.Show($"Save complete.\n{SavePath}\n\nLight command sent: {sent}/{_items.Count}");
+                QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.light.saved", SavePath, sent, _items.Count));
             }
-            catch (Exception ex) { QMC.Common.MessageDialog.Show("Save failed: " + ex.Message); }
+            catch (Exception ex) { QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.message.saveFailed", ex.Message)); }
         }
 
         private int SendToControllers()
@@ -225,4 +244,3 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
-

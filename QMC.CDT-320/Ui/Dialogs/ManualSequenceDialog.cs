@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -39,6 +40,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         public ManualSequenceDialog(MachineController controller)
         {
             InitializeComponent();
+            InitializeLanguageBindings();
             _controller = controller ?? throw new ArgumentNullException(nameof(controller));
             cmbPickerNo.SelectedIndex = 0;
             InitializeSpeedPercent();
@@ -58,7 +60,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             catch (Exception ex)
             {
                 if (showFailureStatus)
-                    statusLabel.Text = "로딩 대상 목록을 구성하지 못했습니다. " + ex.Message;
+                    Lang.BindFormat(statusLabel, "extraDialog.manualSequence.targetsFailed", ex.Message);
                 QMC.Common.Log.Write("Main", "SYSTEM", "ManualSequenceLoadTarget",
                     "로딩 대상 목록 구성 실패: " + ex.Message + " - Failed");
             }
@@ -230,7 +232,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void SequenceSpeedPercent_ValueChanged(object sender, EventArgs e)
         {
             btnSaveSpeedPercent.BackColor = System.Drawing.Color.FromArgb(224, 115, 0);
-            statusLabel.Text = "속도 값이 변경되었습니다. SAVE 버튼을 눌러 저장·적용하세요.";
+            Lang.BindKey(statusLabel, "extraDialog.manualSequence.speedChanged");
         }
 
         // SAVE 버튼을 눌렀을 때만 설정 파일에 저장한 뒤 Runtime 속도에 적용한다.
@@ -252,9 +254,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 QMC.Common.Motion.MotionSpeedScale.ManualSequencePercent = requestedManual;
                 QMC.Common.Motion.MotionSpeedScale.ReadySequencePercent = requestedReady;
                 btnSaveSpeedPercent.BackColor = System.Drawing.Color.FromArgb(0, 145, 80);
-                statusLabel.Text = "속도 설정을 저장하고 적용했습니다. Manual=" +
-                                   requestedManual.ToString("0.###") + "%, Ready=" +
-                                   requestedReady.ToString("0.###") + "%";
+                Lang.BindFormat(statusLabel, "extraDialog.manualSequence.speedSaved", requestedManual.ToString("0.###"), requestedReady.ToString("0.###"));
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "SequenceSpeedScale",
                     "Manual/Ready 시퀀스 속도 퍼센트를 SAVE 버튼으로 저장하고 적용했습니다. manual=" +
@@ -269,7 +269,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 QMC.Common.Log.Write("Main", "SYSTEM", "SequenceSpeedScale",
                     "Manual/Ready 시퀀스 속도 퍼센트 저장에 실패했습니다. error=" +
                     ex.Message + " - Failed");
-                statusLabel.Text = "속도 설정 저장에 실패했습니다. " + ex.Message;
+                Lang.BindFormat(statusLabel, "extraDialog.manualSequence.saveFailed", ex.Message);
             }
             finally
             {
@@ -405,14 +405,14 @@ namespace QMC.CDT_320.Ui.Dialogs
         // LOAD/UNLOAD는 실제 Auto 시퀀스와 동일한 모션·인터락을 사용하므로 실행 직전에 작업자 확인을 받는다.
         private bool ConfirmManualProcessStart(string processName, string detail)
         {
-            string message = processName + " 공정을 시작하시겠습니까?";
+            string message = Lang.Format("extraDialog.manualSequence.confirmStart", Lang.Display(processName));
             if (!string.IsNullOrWhiteSpace(detail))
                 message += Environment.NewLine + Environment.NewLine + detail;
 
             return QMC.Common.MessageDialog.Show(
                 this,
                 message,
-                "Manual Sequence 실행 확인",
+                Lang.T("extraDialog.manualSequence.confirmTitle"),
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question) == DialogResult.Yes;
         }
@@ -433,12 +433,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _busy = true;
                 SetButtonsEnabled(false);
-                statusLabel.Text = label + " 실행 중...";
+                Lang.BindFormat(statusLabel, "extraDialog.manualSequence.running", Lang.Display(label));
 
                 var progress = new Progress<string>(message =>
                 {
                     if (acceptProgress && _busy && runId == _manualRunId && !IsDisposed && !Disposing)
-                        statusLabel.Text = message;
+                        Lang.Bind(statusLabel, message);
                 });
                 int result = await action(progress).ConfigureAwait(true);
                 // Progress는 UI 큐에 게시되므로 최종 결과나 다음 실행의 상태를 덮어쓰지 못하게 막는다.
@@ -446,7 +446,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string batchMessage = isOutputBatch ? _controller.LastManualOutputBatchMessage : null;
                 if (result == 0)
                 {
-                    statusLabel.Text = string.IsNullOrWhiteSpace(batchMessage) ? label + " 완료." : batchMessage;
+                    Lang.Bind(statusLabel, string.IsNullOrWhiteSpace(batchMessage) ? label + " 완료." : batchMessage);
                     return;
                 }
 
@@ -481,7 +481,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _busy = true;
                 SetButtonsEnabled(false);
-                statusLabel.Text = label + " 실행 중...";
+                Lang.BindFormat(statusLabel, "extraDialog.manualSequence.running", Lang.Display(label));
 
                 int result = unit == SequenceUnitKind.All
                     ? await _controller.RunProcessSequenceStepAsync().ConfigureAwait(true)
@@ -489,7 +489,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 if (result == 0)
                 {
-                    statusLabel.Text = label + " 실행 요청 완료.";
+                    Lang.BindFormat(statusLabel, "extraDialog.manualSequence.requested", Lang.Display(label));
                     return;
                 }
 
@@ -518,12 +518,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _busy = true;
                 SetButtonsEnabled(false);
                 PickerSequenceSide side = rbRearPicker.Checked ? PickerSequenceSide.Rear : PickerSequenceSide.Front;
-                statusLabel.Text = side + " " + label + " 실행 중...";
+                Lang.BindFormat(statusLabel, "extraDialog.manualSequence.sideRunning", Lang.Display(side.ToString()), Lang.Display(label));
 
                 int result = await _controller.RunManualPickerProcessAsync(side, processName).ConfigureAwait(true);
                 if (result == 0)
                 {
-                    statusLabel.Text = side + " " + label + " 완료.";
+                    Lang.BindFormat(statusLabel, "extraDialog.manualSequence.sideComplete", Lang.Display(side.ToString()), Lang.Display(label));
                     return;
                 }
 
@@ -554,12 +554,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 PickerSequenceSide side = rbRearPicker.Checked ? PickerSequenceSide.Rear : PickerSequenceSide.Front;
                 int pickerNo = ResolveSelectedPickerNo();
                 string label = side + " PICK Z TEST #" + pickerNo;
-                statusLabel.Text = label + " 실행 중...";
+                Lang.BindFormat(statusLabel, "extraDialog.manualSequence.running", Lang.Display(label));
 
                 int result = await _controller.RunManualPickerPickUpZMotionTestAsync(side, pickerNo).ConfigureAwait(true);
                 if (result == 0)
                 {
-                    statusLabel.Text = label + " 완료.";
+                    Lang.BindFormat(statusLabel, "extraDialog.manualSequence.complete", Lang.Display(label));
                     return;
                 }
 
@@ -590,14 +590,14 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void ShowFailure(string message)
         {
-            statusLabel.Text = message;
-            QMC.Common.MessageDialog.Show(this, message, "Manual Sequence", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            Lang.Bind(statusLabel, message);
+            QMC.Common.MessageDialog.Show(this, message, Lang.T("extraDialog.manualSequenceDialog.titleLabel.caption"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         private void ShowError(string message)
         {
-            statusLabel.Text = message;
-            QMC.Common.MessageDialog.Show(this, message, "Manual Sequence", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Lang.Bind(statusLabel, message);
+            QMC.Common.MessageDialog.Show(this, message, Lang.T("extraDialog.manualSequenceDialog.titleLabel.caption"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void SetButtonsEnabled(bool enabled)
@@ -623,5 +623,35 @@ namespace QMC.CDT_320.Ui.Dialogs
             foreach (Control child in control.Controls)
                 SetButtonsEnabledRecursive(child, enabled);
         }
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(titleLabel, "extraDialog.manualSequenceDialog.titleLabel.caption");
+            Lang.BindKey(btnInputLoad, "extraDialog.manualSequenceDialog.btnInputLoad.caption");
+            Lang.BindKey(btnInputUnload, "extraDialog.manualSequenceDialog.btnInputUnload.caption");
+            Lang.BindKey(btnOutputLoad, "extraDialog.manualSequenceDialog.btnOutputLoad.caption");
+            Lang.BindKey(btnOutputUnload, "extraDialog.manualSequenceDialog.btnOutputUnload.caption");
+            Lang.BindKey(rdoOutputAll, "extraDialog.manualSequenceDialog.rdoOutputAll.caption");
+            Lang.BindKey(rbOutputNg, "extraDialog.manualSequenceDialog.rbOutputNg.caption");
+            Lang.BindKey(rbOutputGood, "extraDialog.manualSequenceDialog.rbOutputGood.caption");
+            Lang.BindKey(lblOutputSide, "extraDialog.manualSequenceDialog.lblOutputSide.caption");
+            Lang.BindKey(lblPickerNo, "extraDialog.manualSequenceDialog.lblPickerNo.caption");
+            Lang.BindKey(rbRearPicker, "extraDialog.manualSequenceDialog.rbRearPicker.caption");
+            Lang.BindKey(rbFrontPicker, "extraDialog.manualSequenceDialog.rbFrontPicker.caption");
+            Lang.BindKey(btnPickUp, "extraDialog.manualSequenceDialog.btnPickUp.caption");
+            Lang.BindKey(btnBottom, "extraDialog.manualSequenceDialog.btnBottom.caption");
+            Lang.BindKey(btnSide, "extraDialog.manualSequenceDialog.btnSide.caption");
+            Lang.BindKey(btnPlace, "extraDialog.manualSequenceDialog.btnPlace.caption");
+            Lang.BindKey(btnPickUpZTest, "extraDialog.manualSequenceDialog.btnPickUpZTest.caption");
+            Lang.BindKey(btnAllStep, "extraDialog.manualSequenceDialog.btnAllStep.caption");
+            Lang.BindKey(btnClose, "extraDialog.manualSequenceDialog.btnClose.caption");
+            Lang.BindKey(btnSaveSpeedPercent, "extraDialog.manualSequenceDialog.btnSaveSpeedPercent.caption");
+            Lang.BindKey(lblReadySpeedPercent, "extraDialog.manualSequenceDialog.lblReadySpeedPercent.caption");
+            Lang.BindKey(lblSpeedPercent, "extraDialog.manualSequenceDialog.lblSpeedPercent.caption");
+            Lang.BindKey(btnRefreshLoadTargets, "extraDialog.manualSequenceDialog.btnRefreshLoadTargets.caption");
+            Lang.BindKey(lblOutputLoadTarget, "extraDialog.manualSequenceDialog.lblOutputLoadTarget.caption");
+            Lang.BindKey(lblInputLoadTarget, "extraDialog.manualSequenceDialog.lblInputLoadTarget.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 }

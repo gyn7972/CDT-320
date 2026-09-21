@@ -1,0 +1,2706 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="visionUi.literal" xml:space="preserve">
+    <value>{0}</value>
+    <comment>Display an external value verbatim; never translate model identifiers or protocol payloads.</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.btnExpose.text" xml:space="preserve">
+    <value>BOTTOM EXPOSE</value>
+    <comment>Source: TpuVisionTestControl.cs:btnExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.btnExpose.state2" xml:space="preserve">
+    <value>SIDE EXPOSE</value>
+    <comment>Source: TpuVisionTestControl.cs:btnExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.btnResult.text" xml:space="preserve">
+    <value>BOTTOM RESULT</value>
+    <comment>Source: TpuVisionTestControl.cs:btnResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.btnResult.state2" xml:space="preserve">
+    <value>SIDE INSPECT</value>
+    <comment>Source: TpuVisionTestControl.cs:btnResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.text" xml:space="preserve">
+    <value>Picker {0}: waiting for exposure ACK</value>
+    <comment>Source: TpuVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.state2" xml:space="preserve">
+    <value>Side: waiting for exposure ACK</value>
+    <comment>Source: TpuVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.text" xml:space="preserve">
+    <value>Waiting for DieFinder offsets/OK from 4 pickers</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state2" xml:space="preserve">
+    <value>Waiting for {0} inspection results</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblHint.text" xml:space="preserve">
+    <value>Bottom inspection requests exposure on the TpuVisionAdapter Inspection channel. No motion is performed.</value>
+    <comment>Source: TpuVisionTestControl.cs:lblHint.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblHint.state2" xml:space="preserve">
+    <value>Side inspection requests EXPOSE/INSPECT from the selected Side Vision module. Use only when Vision is READY.</value>
+    <comment>Source: TpuVisionTestControl.cs:lblHint.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.target.text" xml:space="preserve">
+    <value>Vision module is unavailable.</value>
+    <comment>Source: TpuVisionTestControl.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.target.state2" xml:space="preserve">
+    <value>Vision is disconnected. port={0}</value>
+    <comment>Source: TpuVisionTestControl.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.state3" xml:space="preserve">
+    <value>EXPOSE in progress...</value>
+    <comment>Source: TpuVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.state4" xml:space="preserve">
+    <value>EXPOSE ACK received</value>
+    <comment>Source: TpuVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.state5" xml:space="preserve">
+    <value>EXPOSE failed. Check Vision READY and connection status.</value>
+    <comment>Source: TpuVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.state6" xml:space="preserve">
+    <value>EXPOSE failed: {0}</value>
+    <comment>Source: TpuVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state3" xml:space="preserve">
+    <value>Running {0}...</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state4" xml:space="preserve">
+    <value>{0} failed: {1}</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state5" xml:space="preserve">
+    <value>No results available.</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state6" xml:space="preserve">
+    <value>The Side Vision camera channel could not be identified.</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state7" xml:space="preserve">
+    <value>INSPECT failed: no response</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.btnExpose.state3" xml:space="preserve">
+    <value>EXPOSE</value>
+    <comment>Source: TpuVisionTestControl.Designer.cs:this.btnExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.btnResult.state3" xml:space="preserve">
+    <value>RESULT</value>
+    <comment>Source: TpuVisionTestControl.Designer.cs:this.btnResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.state7" xml:space="preserve">
+    <value>Waiting for EXPOSE ACK</value>
+    <comment>Source: TpuVisionTestControl.Designer.cs:this.lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state8" xml:space="preserve">
+    <value>Waiting for results</value>
+    <comment>Source: TpuVisionTestControl.Designer.cs:this.lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblHint.state3" xml:space="preserve">
+    <value>These buttons test Vision. No motion is performed.</value>
+    <comment>Source: TpuVisionTestControl.Designer.cs:this.lblHint.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.text" xml:space="preserve">
+    <value>Select a module.</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state2" xml:space="preserve">
+    <value>Connecting...</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state3" xml:space="preserve">
+    <value>The Vision command channel is disconnected.</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state4" xml:space="preserve">
+    <value>Requesting Vision Live start...</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state5" xml:space="preserve">
+    <value>Requesting Vision Live stop...</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state6" xml:space="preserve">
+    <value>Vision Live command rejected: {0}</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state7" xml:space="preserve">
+    <value>Vision Live ON</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state8" xml:space="preserve">
+    <value>Vision Live OFF</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state9" xml:space="preserve">
+    <value>Vision Live command failed: {0}</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.btnLive.text" xml:space="preserve">
+    <value>Live ON</value>
+    <comment>Source: VisionMonitorControl.cs:btnLive.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.btnLive.state2" xml:space="preserve">
+    <value>Live OFF</value>
+    <comment>Source: VisionMonitorControl.cs:btnLive.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblModule.text" xml:space="preserve">
+    <value>Module</value>
+    <comment>Source: VisionMonitorControl.Designer.cs:this.lblModule.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblHost.text" xml:space="preserve">
+    <value>Vision IP</value>
+    <comment>Source: VisionMonitorControl.Designer.cs:this.lblHost.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.btnConnect.text" xml:space="preserve">
+    <value>Connect</value>
+    <comment>Source: VisionMonitorControl.Designer.cs:this.btnConnect.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.btnDisconnect.text" xml:space="preserve">
+    <value>Disconnect</value>
+    <comment>Source: VisionMonitorControl.Designer.cs:this.btnDisconnect.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state10" xml:space="preserve">
+    <value>idle</value>
+    <comment>Source: VisionMonitorControl.Designer.cs:this.lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblStat.text" xml:space="preserve">
+    <value>Waiting - ready for Vision Live/Grab</value>
+    <comment>Source: VisionViewerPanel.cs:_lblStat.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblStat.state2" xml:space="preserve">
+    <value>Waiting - ready to receive a Grab image</value>
+    <comment>Source: VisionViewerPanel.cs:_lblStat.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblStat.state3" xml:space="preserve">
+    <value>No viewer port</value>
+    <comment>Source: VisionViewerPanel.cs:_lblStat.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblStat.state4" xml:space="preserve">
+    <value>Displaying a separately captured verification image - {0}x{1}</value>
+    <comment>Source: VisionViewerPanel.cs:_lblStat.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblStat.state5" xml:space="preserve">
+    <value>Receiving Grab image</value>
+    <comment>Source: VisionViewerPanel.cs:_lblStat.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblStat.state6" xml:space="preserve">
+    <value>Receiving Vision Live</value>
+    <comment>Source: VisionViewerPanel.cs:_lblStat.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._chkViewer.text" xml:space="preserve">
+    <value>{0} ON</value>
+    <comment>Source: VisionViewerPanel.cs:_chkViewer.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._chkViewer.state2" xml:space="preserve">
+    <value>{0} OFF</value>
+    <comment>Source: VisionViewerPanel.cs:_chkViewer.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel.message.text" xml:space="preserve">
+    <value>Failed to switch viewer.&#13;&#10;{0}</value>
+    <comment>Source: VisionViewerPanel.cs:message</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel.message.state2" xml:space="preserve">
+    <value>Viewer ON/OFF</value>
+    <comment>Source: VisionViewerPanel.cs:message</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._chkViewer.state3" xml:space="preserve">
+    <value>Viewer OFF</value>
+    <comment>Source: VisionViewerPanel.Designer.cs:this._chkViewer.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblTitle.text" xml:space="preserve">
+    <value>Image</value>
+    <comment>Source: VisionViewerPanel.Designer.cs:this._lblTitle.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.target.text" xml:space="preserve">
+    <value>Wafer Vision module is unavailable.</value>
+    <comment>Source: WaferVisionTestControl.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.target.state2" xml:space="preserve">
+    <value>Wafer Vision is disconnected. port={0}</value>
+    <comment>Source: WaferVisionTestControl.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblExpose.text" xml:space="preserve">
+    <value>GRAB in progress...</value>
+    <comment>Source: WaferVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblExpose.state2" xml:space="preserve">
+    <value>REQ→ACK {0} ms | {1}</value>
+    <comment>Source: WaferVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblExpose.state3" xml:space="preserve">
+    <value>REQ→ACK {0} ms | GRAB failed: {1}</value>
+    <comment>Source: WaferVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.text" xml:space="preserve">
+    <value>INSPECT_SYNC requested / waiting for EPD...</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state2" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}Failed or EPD timed out</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state3" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}EPD→RESULT {2} ms{3}Total {4} ms | {5}</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state4" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}INSPECT_SYNC failed: {2}</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state5" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}Total {2} ms{3}INSPECT_SYNC failed or EPD timed out</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state6" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}Waiting for final RESULT...</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state7" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}EPD→RESULT {2} ms{3}Total {4} ms | Result failed: {5}</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state8" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}EPD→RESULT {2} ms{3}Total {4} ms | Failed to convert completion data</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state9" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}EPD→RESULT {2} ms{3}Total {4} ms | DONE score={5}</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state10" xml:space="preserve">
+    <value>Total {0} ms{1}INSPECT_SYNC + RESULT failed: {2}</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state11" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}EPD→RESULT {2} ms{3}Total {4} ms | {5} score={6}</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state12" xml:space="preserve">
+    <value>The Vision request was canceled.</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblSummary.text" xml:space="preserve">
+    <value>No saved results</value>
+    <comment>Source: WaferVisionTestControl.cs:lblSummary.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblSummary.state2" xml:space="preserve">
+    <value>Saved: DieOffset X={0}  Y={1}  R={2}   |   DieCheck={3}</value>
+    <comment>Source: WaferVisionTestControl.cs:lblSummary.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblSummary.state3" xml:space="preserve">
+    <value>Failed to display summary: {0}</value>
+    <comment>Source: WaferVisionTestControl.cs:lblSummary.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnExpose.text" xml:space="preserve">
+    <value>GRAB</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnExpose.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnCenterMatchAsync.text" xml:space="preserve">
+    <value>ALIGN: verify Center INSPECT_SYNC</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnCenterMatchAsync.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnCenterMatchResult.text" xml:space="preserve">
+    <value>ALIGN: Center INSPECT_SYNC + Apply</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnCenterMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnRef1MatchAsync.text" xml:space="preserve">
+    <value>ALIGN: verify Ref1 INSPECT_SYNC</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnRef1MatchAsync.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnRef1MatchResult.text" xml:space="preserve">
+    <value>ALIGN: Ref1 INSPECT_SYNC + Apply</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnRef1MatchResult.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnRef2MatchAsync.text" xml:space="preserve">
+    <value>ALIGN: verify Ref2 INSPECT_SYNC</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnRef2MatchAsync.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnRef2MatchResult.text" xml:space="preserve">
+    <value>ALIGN: Ref2 INSPECT_SYNC + Apply</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnRef2MatchResult.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnDieCheckMatchAsync.text" xml:space="preserve">
+    <value>DIE CHECK: verify INSPECT_SYNC</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnDieCheckMatchAsync.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnDieCheckMatchResult.text" xml:space="preserve">
+    <value>DIE CHECK: INSPECT_SYNC + Evaluate</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnDieCheckMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblExpose.state4" xml:space="preserve">
+    <value>Waiting for exposure trigger ACK</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblCenterMatchAsync.text" xml:space="preserve">
+    <value>Waiting for INSPECT_SYNC</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.lblCenterMatchAsync.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblCenterMatchResult.text" xml:space="preserve">
+    <value>Waiting for INSPECT_SYNC + Apply</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.lblCenterMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblDieCheckMatchResult.text" xml:space="preserve">
+    <value>Waiting for INSPECT_SYNC + Evaluation</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.lblDieCheckMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblHint.text" xml:space="preserve">
+    <value>Every button waits for request_id EPD and RESULT after INSPECT_SYNC. Apply/Evaluate buttons also update the Handler state and display the total cycle time.</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.lblHint.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog.Text.text" xml:space="preserve">
+    <value>Remote Viewer</value>
+    <comment>Source: RemoteViewerDialog.cs:Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog.lblPort.text" xml:space="preserve">
+    <value>PORT</value>
+    <comment>Source: RemoteViewerDialog.cs:lblPort.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog._lblClients.text" xml:space="preserve">
+    <value>CONNECTED VIEWERS : 0</value>
+    <comment>Source: RemoteViewerDialog.cs:_lblClients.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog.message.text" xml:space="preserve">
+    <value>Start fail: {0}</value>
+    <comment>Source: RemoteViewerDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog.message.state2" xml:space="preserve">
+    <value>Remote Viewer</value>
+    <comment>Source: RemoteViewerDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog.lblTitle.text" xml:space="preserve">
+    <value>REMOTE VIEWER</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this.lblTitle.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog.lblPort.state2" xml:space="preserve">
+    <value>Port:</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this.lblPort.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog._btnStart.text" xml:space="preserve">
+    <value>Start</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this._btnStart.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog._btnStop.text" xml:space="preserve">
+    <value>Stop</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this._btnStop.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog._lblStatus.text" xml:space="preserve">
+    <value>stopped</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this._lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog._lblClients.state2" xml:space="preserve">
+    <value>Connected viewers: 0</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this._lblClients.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog._btnClose.text" xml:space="preserve">
+    <value>Close</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this._btnClose.Text</comment>
+  </data>
+  <data name="visionUi.sideVisionViewerDialog.Text.text" xml:space="preserve">
+    <value>Side Vision Viewer - Front / Rear</value>
+    <comment>Source: SideVisionViewerDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestDialog.Text.text" xml:space="preserve">
+    <value>Vision Test</value>
+    <comment>Source: TpuVisionTestDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.text" xml:space="preserve">
+    <value>Failed to check the initial state: {0}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblGuide.text" xml:space="preserve">
+    <value>Save the coordinates where Bottom/Input/Output cameras find the same reticle mark, together with current motor positions, in VisionUnit Config.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblGuide.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblValueTitle.text" xml:space="preserve">
+    <value>FIDUCIAL OFFSET</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblValueTitle.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnSaveReticleValues.text" xml:space="preserve">
+    <value>SAVE / APPLY</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:btnSaveReticleValues.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state2" xml:space="preserve">
+    <value>Ready.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state3" xml:space="preserve">
+    <value>Ready to run. Position each camera so the reticle mark is visible, then run Find.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state4" xml:space="preserve">
+    <value>Failed to check state: {0}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state5" xml:space="preserve">
+    <value>Failed to display the procedure: {0}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state6" xml:space="preserve">
+    <value>Discarded unsaved edits and loaded saved Settings and the current Recipe.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state7" xml:space="preserve">
+    <value>Failed to load values: {0}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state8" xml:space="preserve">
+    <value>Unsaved edits exist. Use SAVE / APPLY or LOAD before measuring.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state9" xml:space="preserve">
+    <value>Running {0}. Waiting for Vision response.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state10" xml:space="preserve">
+    <value>{0} completed. Measurements were applied to VisionUnit Config.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state11" xml:space="preserve">
+    <value>{0} failed. result={1}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state12" xml:space="preserve">
+    <value>{0} was canceled.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state13" xml:space="preserve">
+    <value>{0} exception: {1}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblOffsets.text" xml:space="preserve">
+    <value>Offset: no data</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblOffsets.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblOffsets.state2" xml:space="preserve">
+    <value>{0}Offset: Bottom-Input=({1}, {2}) mm / Bottom-Output=({3}, {4}) mm / valid={5}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblOffsets.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state14" xml:space="preserve">
+    <value>Failed to display measurements: {0}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state15" xml:space="preserve">
+    <value>Only Admin users may edit Vision Camera Calibration values.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state16" xml:space="preserve">
+    <value>{0} edits are not saved. Use SAVE / APPLY to save and apply. LOAD discards edits.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state17" xml:space="preserve">
+    <value>{0} keypad edit failed: {1}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.text" xml:space="preserve">
+    <value>Reload and display Machine Settings and the current Recipe values from their saved files.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state2" xml:space="preserve">
+    <value>Save the edits and apply them to picker correction.&#13;&#10;Only encoder positions measured or manually edited in this session are also saved to the current Recipe.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state3" xml:space="preserve">
+    <value>Double-click to edit with Admin permission. Operating values remain unchanged until SAVE / APPLY.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state4" xml:space="preserve">
+    <value>Check automatic operation, other manual operations and alarms.&#13;&#10;Verify that the equipment is safe before pressing a measurement button.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state5" xml:space="preserve">
+    <value>Prepare, then request ReticleFinder from Bottom Vision.&#13;&#10;Before moving pickers, retract the reticle in Rear Back -&gt; Lift Down order, then safely move Front/Rear pickers sequentially to Output-side Avoid. Check Front Slide against Rear Back.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state6" xml:space="preserve">
+    <value>Request ReticleFinder from Bottom Vision.&#13;&#10;On success, save X/Y/T/Score as Bottom measurements in VisionUnit Config.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state7" xml:space="preserve">
+    <value>Request ReticleFinder from Input Vision.&#13;&#10;Before moving pickers, retract the reticle to safety, safely move Front/Rear pickers sequentially to Output-side Avoid, then move InputVisionX to the reticle position.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state8" xml:space="preserve">
+    <value>Request ReticleFinder from Output Vision.&#13;&#10;Before moving pickers, retract the reticle to safety, safely move Front/Rear pickers sequentially to Input-side Avoid, then move OutputVisionX to the reticle position.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state9" xml:space="preserve">
+    <value>Retract the reticle from the imaging preparation position.&#13;&#10;Execute Rear Slide back, then Lift Down, and verify the final position. Check Front Slide against Rear Back.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state10" xml:space="preserve">
+    <value>Calculate offsets between cameras from Bottom/Input/Output measurements while retaining manual correction.&#13;&#10;Save and apply both files and picker correction, as with SAVE / APPLY.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state11" xml:space="preserve">
+    <value>Show the Vision Camera Calibration procedure.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state12" xml:space="preserve">
+    <value>Close Vision Camera Calibration.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.message.text" xml:space="preserve">
+    <value>Discard unsaved edits and close?</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.message.state2" xml:space="preserve">
+    <value>VISION CAMERA CAL</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colItem.text" xml:space="preserve">
+    <value>CAMERA</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colItem.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colPixelX.text" xml:space="preserve">
+    <value>PIXEL X</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colPixelX.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colPixelY.text" xml:space="preserve">
+    <value>PIXEL Y</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colPixelY.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colMmX.text" xml:space="preserve">
+    <value>MM X</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colMmX.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colMmY.text" xml:space="preserve">
+    <value>MM Y</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colMmY.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colAngle.text" xml:space="preserve">
+    <value>ANGLE T</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colAngle.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colAxis.text" xml:space="preserve">
+    <value>AXIS POSITION</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colAxis.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colScore.text" xml:space="preserve">
+    <value>SCORE</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colScore.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colValueName.text" xml:space="preserve">
+    <value>Item</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colValueName.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colSavedValue.text" xml:space="preserve">
+    <value>SAVED</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colSavedValue.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colCurrentValue.text" xml:space="preserve">
+    <value>CURRENT</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colCurrentValue.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colApplyValue.text" xml:space="preserve">
+    <value>Value</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colApplyValue.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnLoadValues.text" xml:space="preserve">
+    <value>LOAD</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnLoadValues.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnSaveReticleValues.state2" xml:space="preserve">
+    <value>SAVE POS</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnSaveReticleValues.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblOffsets.state3" xml:space="preserve">
+    <value>Offset: -</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.lblOffsets.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnCheck.text" xml:space="preserve">
+    <value>CHECK READY</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnCheck.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnRunAll.text" xml:space="preserve">
+    <value>PREPARE &amp;&amp; FIND BOTTOM</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnRunAll.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnFindBottom.text" xml:space="preserve">
+    <value>FIND BOTTOM</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnFindBottom.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnFindInput.text" xml:space="preserve">
+    <value>FIND INPUT</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnFindInput.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnFindOutput.text" xml:space="preserve">
+    <value>FIND OUTPUT</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnFindOutput.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnRetractReticle.text" xml:space="preserve">
+    <value>RETICLE BACK</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnRetractReticle.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnCalculateSave.text" xml:space="preserve">
+    <value>CALC / SAVE</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnCalculateSave.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnClose.text" xml:space="preserve">
+    <value>CLOSE</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnClose.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.Text.text" xml:space="preserve">
+    <value>Vision Camera Calibration</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.ManualSave.lblStatus.text" xml:space="preserve">
+    <value>Save/apply failed: {0}</value>
+    <comment>Source: VisionCameraCalibrationDialog.ManualSave.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.message.text" xml:space="preserve">
+    <value>Select a camera to request Camera Setting.</value>
+    <comment>Source: VisionCameraScaleDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.message.state2" xml:space="preserve">
+    <value>VISION</value>
+    <comment>Source: VisionCameraScaleDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.message.state3" xml:space="preserve">
+    <value>{0} VisionPC is disconnected. Connect before requesting again.</value>
+    <comment>Source: VisionCameraScaleDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.message.state4" xml:space="preserve">
+    <value>Camera Pixel Scale was saved.&#13;&#10;Center is calculated automatically as Width/2, Height/2.&#13;&#10;Run CALC/SAVE again to update Vision Camera Cal Offset.</value>
+    <comment>Source: VisionCameraScaleDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.lblHeader.text" xml:space="preserve">
+    <value>CAMERA PIXEL SCALE SETUP</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.lblDescription.text" xml:space="preserve">
+    <value>VisionPC sends pixel coordinates. Handler stores Width/Height and Scale(mm/px) per camera and calculates Center automatically as Width/2, Height/2.</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.lblDescription.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.colWidth.text" xml:space="preserve">
+    <value>WIDTH(px)</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.colWidth.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.colHeight.text" xml:space="preserve">
+    <value>HEIGHT(px)</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.colHeight.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.colScaleX.text" xml:space="preserve">
+    <value>SCALE X(mm/px)</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.colScaleX.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.colScaleY.text" xml:space="preserve">
+    <value>SCALE Y(mm/px)</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.colScaleY.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.colSource.text" xml:space="preserve">
+    <value>SOURCE</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.colSource.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.btnReload.text" xml:space="preserve">
+    <value>RELOAD</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.btnReload.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.btnCameraSettingReq.text" xml:space="preserve">
+    <value>CAMERA SETTING REQ</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.btnCameraSettingReq.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.btnSave.text" xml:space="preserve">
+    <value>SAVE</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.btnSave.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.Text.text" xml:space="preserve">
+    <value>Camera Pixel Scale Setup</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.text" xml:space="preserve">
+    <value>Ready. Check the Side Focus reference position, then run START SCAN.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state2" xml:space="preserve">
+    <value>Ready. Check the Focus reference position, then run START SCAN.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.Text.text" xml:space="preserve">
+    <value>Side Vision Focus Calibration</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblHeader.text" xml:space="preserve">
+    <value>SIDE VISION FOCUS CAL</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblHeader.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state3" xml:space="preserve">
+    <value>Failed to change Focus settings: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state4" xml:space="preserve">
+    <value>{0} cannot be edited with the numeric keypad.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state5" xml:space="preserve">
+    <value>Failed to process numeric input: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state6" xml:space="preserve">
+    <value>Only Admin users may manually edit the BEST position.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state7" xml:space="preserve">
+    <value>The BEST input is not a valid number. value={0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state8" xml:space="preserve">
+    <value>The BEST input exceeds {0} software limits. target={1}, min={2}, max={3}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state9" xml:space="preserve">
+    <value>Failed to save the manually entered BEST value. Check Machine settings save status.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state10" xml:space="preserve">
+    <value>{0} manual BEST input saved. old={1}, new={2}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state11" xml:space="preserve">
+    <value>Failed to process manual BEST input: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state12" xml:space="preserve">
+    <value>Ready to run. Default Pos uses only the saved Focus Cal registered value.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state13" xml:space="preserve">
+    <value>Failed to check execution conditions: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state14" xml:space="preserve">
+    <value>The current axis position was applied as Default Pos.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state15" xml:space="preserve">
+    <value>Failed to apply the current position: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state16" xml:space="preserve">
+    <value>Vision Focus Cal settings were reloaded.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state17" xml:space="preserve">
+    <value>Stopping. Close the window after it finishes.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state18" xml:space="preserve">
+    <value>There is no active Vision Focus Calibration operation to stop.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state19" xml:space="preserve">
+    <value>Vision Focus Calibration stop requested by {0}.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state20" xml:space="preserve">
+    <value>Failed to request Vision Focus Calibration stop: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state21" xml:space="preserve">
+    <value>Move to Default Pos completed.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state22" xml:space="preserve">
+    <value>Move to Default Pos failed. Check the Alarm/Event Log.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state23" xml:space="preserve">
+    <value>Move to Default Pos was interrupted by a stop request.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state24" xml:space="preserve">
+    <value>Move to Default Pos raised an exception: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state25" xml:space="preserve">
+    <value>Z AVOID is only available in Bottom Collet / Bottom Die mode.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state26" xml:space="preserve">
+    <value>Picker Z Avoid move completed. {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state27" xml:space="preserve">
+    <value>Picker Z Avoid move failed. Check the Alarm/Event Log.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state28" xml:space="preserve">
+    <value>Picker Z Avoid move was interrupted by a stop request.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state29" xml:space="preserve">
+    <value>Picker Z Avoid move raised an exception: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state30" xml:space="preserve">
+    <value>Picker Y Avoid is only available in Bottom mode.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state31" xml:space="preserve">
+    <value>Move the selected Picker Z to Avoid before moving Picker Y to Avoid.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state32" xml:space="preserve">
+    <value>Picker Y Avoid move completed. {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state33" xml:space="preserve">
+    <value>Picker Y Avoid move failed. Check the Alarm/Event Log.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state34" xml:space="preserve">
+    <value>Picker Y Avoid move was interrupted by a stop request.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state35" xml:space="preserve">
+    <value>Picker Y Avoid move raised an exception: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state36" xml:space="preserve">
+    <value>Select at least one batch measurement target.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state37" xml:space="preserve">
+    <value>Batch {0}/{1}: measuring {2} Focus.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state38" xml:space="preserve">
+    <value>Batch {0} Focus measurement failed: {1}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state39" xml:space="preserve">
+    <value>Batch {0} completed. Preparation for the next target will secure the safety conditions (duplicate Avoid return skipped).</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state40" xml:space="preserve">
+    <value>Batch {0} completed. Returning to final safe Avoid position.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state41" xml:space="preserve">
+    <value>Final safe Avoid return failed after Batch {0}. Check the final safe state. code={1}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state42" xml:space="preserve">
+    <value>All batch Focus measurements completed. Targets={0}. SAVE RESULT confirms and saves the last successful target.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state43" xml:space="preserve">
+    <value>Batch Focus measurement was interrupted by a stop request.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state44" xml:space="preserve">
+    <value>Batch Focus measurement raised an exception: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state45" xml:space="preserve">
+    <value>Focus Scan failed: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state46" xml:space="preserve">
+    <value>Focus Scan completed. Use SAVE RESULT to confirm and save the last successful measurement. Best={0}, Score={1}, Sample={2}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state47" xml:space="preserve">
+    <value>Focus Scan was interrupted by a stop request.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state48" xml:space="preserve">
+    <value>Focus Scan raised an exception: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state49" xml:space="preserve">
+    <value>No Focus measurement is available to save. Complete START SCAN or BATCH START successfully, then press SAVE RESULT.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state50" xml:space="preserve">
+    <value>SAVE RESULT was blocked because the Focus result changed after the last successful measurement. Measure again. target={0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state51" xml:space="preserve">
+    <value>Saved the last successful Focus result. target={0}, best={1}, score={2}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state52" xml:space="preserve">
+    <value>Failed to save Focus measurement results: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state53" xml:space="preserve">
+    <value>Failed to load Focus Cal settings: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state54" xml:space="preserve">
+    <value>AF Total Pick Interval must be at least 1 when using AutoFocus based on total pick count.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state55" xml:space="preserve">
+    <value>Failed to save Bottom Vision / AF To Bottom Delay to the Recipe. Check the active Recipe.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state56" xml:space="preserve">
+    <value>Failed to save Vision Focus Cal parameters, including T Teaching. Check save status before retrying.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state57" xml:space="preserve">
+    <value>Saved Vision Focus Cal settings and Bottom Vision / AF To Bottom Delay Recipe values. Teaching Z was not changed.{0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state58" xml:space="preserve">
+    <value>Failed to save Vision Focus Cal settings: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state59" xml:space="preserve">
+    <value>No Best Focus result is available to apply. Run START SCAN first.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state60" xml:space="preserve">
+    <value>Best Focus reference saved. Default={0}, Recipe/Teaching Z unchanged</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state61" xml:space="preserve">
+    <value>Failed to apply Best Focus: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state62" xml:space="preserve">
+    <value>Failed to apply Focus settings: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state63" xml:space="preserve">
+    <value>Enter a finite T Teaching number such as 0, 180 or -90. Input={0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state64" xml:space="preserve">
+    <value>AutoFocus Count Reset is only available in Bottom Die mode, the production Runtime Focus reference.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state65" xml:space="preserve">
+    <value>Reset the total production Bottom Die AutoFocus pick count and last-wafer reference.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state66" xml:space="preserve">
+    <value>AutoFocus Count Reset failed: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colAutoFocusCount.text" xml:space="preserve">
+    <value>TOTAL PICK</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:colAutoFocusCount.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colAutoFocusCount.state2" xml:space="preserve">
+    <value>AF CNT</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:colAutoFocusCount.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colAutoFocusWafer.text" xml:space="preserve">
+    <value>LAST AF WAFER</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:colAutoFocusWafer.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colAutoFocusWafer.state2" xml:space="preserve">
+    <value>AF WAFER</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:colAutoFocusWafer.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.message.text" xml:space="preserve">
+    <value>Manually overwrite the BEST position.&#13;&#10;This changes the calibration value without an actual measurement and saves it immediately.&#13;&#10;&#13;&#10;Proceed?</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.message.state2" xml:space="preserve">
+    <value>VISION FOCUS CAL</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.message.state3" xml:space="preserve">
+    <value>Vision Focus Calibration is running. Request a stop and close the window?</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.batchGroup.text" xml:space="preserve">
+    <value>BATCH (current mode fixed; sequential Focus measurement of selected pickers)</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.batchGroup.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchAll.text" xml:space="preserve">
+    <value>ALL</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchAll.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchFront4.text" xml:space="preserve">
+    <value>F P4</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchFront4.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchFront3.text" xml:space="preserve">
+    <value>F P3</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchFront3.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchFront2.text" xml:space="preserve">
+    <value>F P2</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchFront2.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchFront1.text" xml:space="preserve">
+    <value>F P1</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchFront1.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchRear4.text" xml:space="preserve">
+    <value>R P4</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchRear4.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchRear3.text" xml:space="preserve">
+    <value>R P3</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchRear3.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchRear2.text" xml:space="preserve">
+    <value>R P2</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchRear2.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchRear1.text" xml:space="preserve">
+    <value>R P1</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchRear1.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnBatchStart.text" xml:space="preserve">
+    <value>BATCH START</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnBatchStart.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.groupSetting.text" xml:space="preserve">
+    <value>SCAN SETTING</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.groupSetting.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colSettingName.text" xml:space="preserve">
+    <value>PARAMETER</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colSettingName.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colSettingValue.text" xml:space="preserve">
+    <value>VALUE</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colSettingValue.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colSettingUnit.text" xml:space="preserve">
+    <value>UNIT</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colSettingUnit.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnSaveParameters.text" xml:space="preserve">
+    <value>PARAMETER SAVE</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnSaveParameters.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.groupResult.text" xml:space="preserve">
+    <value>SCAN SAMPLE</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.groupResult.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colNo.text" xml:space="preserve">
+    <value>NO</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colNo.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colPosition.text" xml:space="preserve">
+    <value>POSITION</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colPosition.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colRaw.text" xml:space="preserve">
+    <value>RAW</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colRaw.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.groupSaved.text" xml:space="preserve">
+    <value>SAVED RESULT</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.groupSaved.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colItem.text" xml:space="preserve">
+    <value>ITEM</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colItem.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colDefaultPos.text" xml:space="preserve">
+    <value>DEFAULT</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colDefaultPos.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colBestPos.text" xml:space="preserve">
+    <value>BEST</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colBestPos.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colPickerZ.text" xml:space="preserve">
+    <value>PICKER Z</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colPickerZ.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colValid.text" xml:space="preserve">
+    <value>OK</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colValid.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnUseCurrent.text" xml:space="preserve">
+    <value>USE CURRENT</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnUseCurrent.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnMoveDefault.text" xml:space="preserve">
+    <value>MOVE</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnMoveDefault.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnMoveZAvoid.text" xml:space="preserve">
+    <value>Z AVOID</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnMoveZAvoid.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnMoveYAvoid.text" xml:space="preserve">
+    <value>P-Y AVOID</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnMoveYAvoid.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnStartScan.text" xml:space="preserve">
+    <value>START SCAN</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnStartScan.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnSeqStop.text" xml:space="preserve">
+    <value>SEQ STOP</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnSeqStop.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnApplyBest.text" xml:space="preserve">
+    <value>APPLY BEST</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnApplyBest.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnResetAutoFocus.text" xml:space="preserve">
+    <value>RESET AF</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnResetAutoFocus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnSave.text" xml:space="preserve">
+    <value>SAVE RESULT</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnSave.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.Text.state2" xml:space="preserve">
+    <value>Vision Focus Calibration</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog.Text.text" xml:space="preserve">
+    <value>VISION Operation Test - {0}{1}</value>
+    <comment>Source: VisionModuleTestDialog.cs:Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblGrab.text" xml:space="preserve">
+    <value>Initialization failed: {0}</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblGrab.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblGrab.state2" xml:space="preserve">
+    <value>GRAB in progress...</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblGrab.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblGrab.state3" xml:space="preserve">
+    <value>GRAB failed: {0}</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblGrab.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblMatch.text" xml:space="preserve">
+    <value>Enter a finder name.</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblMatch.state2" xml:space="preserve">
+    <value>MATCH({0}) in progress...</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblMatch.state3" xml:space="preserve">
+    <value>OK  x={0:F2}  y={1:F2}  t={2:F3}  score={3:F3}</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblMatch.state4" xml:space="preserve">
+    <value>MATCH failed: {0}</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblInsp.text" xml:space="preserve">
+    <value>Enter an inspector name.</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblInsp.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblInsp.state2" xml:space="preserve">
+    <value>INSPECT({0}) in progress...</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblInsp.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblInsp.state3" xml:space="preserve">
+    <value>INSPECT failed: {0}</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblInsp.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog.target.text" xml:space="preserve">
+    <value>This Vision camera channel does not support the new inspection protocol.</value>
+    <comment>Source: VisionModuleTestDialog.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog.target.state2" xml:space="preserve">
+    <value>No module</value>
+    <comment>Source: VisionModuleTestDialog.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog.target.state3" xml:space="preserve">
+    <value>Disconnected (port {0}) - connect first.</value>
+    <comment>Source: VisionModuleTestDialog.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblGrab.state4" xml:space="preserve">
+    <value>Wait</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this._lblGrab.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._btnMatch.text" xml:space="preserve">
+    <value>MATCH</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this._btnMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblMatch.state5" xml:space="preserve">
+    <value>Enter finder, then MATCH - x/y/t/score</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this._lblMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._btnInspect.text" xml:space="preserve">
+    <value>INSPECT</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this._btnInspect.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblInsp.state4" xml:space="preserve">
+    <value>Enter inspector, then INSPECT - PASS/FAIL</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this._lblInsp.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._hint.text" xml:space="preserve">
+    <value>Commands are accepted only in Vision RUN state. finder/inspector are tool names registered in the Recipe.</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this._hint.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog.Text.state2" xml:space="preserve">
+    <value>VISION Operation Test</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorDialog.Text.text" xml:space="preserve">
+    <value>Vision Camera Monitor</value>
+    <comment>Source: VisionMonitorDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionViewDialog._tabWafer.text" xml:space="preserve">
+    <value>Wafer Vision</value>
+    <comment>Source: VisionViewDialog.Designer.cs:this._tabWafer.Text</comment>
+  </data>
+  <data name="visionUi.visionViewDialog._tabBottom.text" xml:space="preserve">
+    <value>Bottom Insp</value>
+    <comment>Source: VisionViewDialog.Designer.cs:this._tabBottom.Text</comment>
+  </data>
+  <data name="visionUi.visionViewDialog._tabBin.text" xml:space="preserve">
+    <value>Bin Vision</value>
+    <comment>Source: VisionViewDialog.Designer.cs:this._tabBin.Text</comment>
+  </data>
+  <data name="visionUi.visionViewDialog._tabSide.text" xml:space="preserve">
+    <value>Side (Front+Rear)</value>
+    <comment>Source: VisionViewDialog.Designer.cs:this._tabSide.Text</comment>
+  </data>
+  <data name="visionUi.visionViewDialog.Text.text" xml:space="preserve">
+    <value>Vision View - Integrated Camera View</value>
+    <comment>Source: VisionViewDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestDialog.Text.text" xml:space="preserve">
+    <value>Wafer Vision Test</value>
+    <comment>Source: WaferVisionTestDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.tabBottom.text" xml:space="preserve">
+    <value>BOTTOM</value>
+    <comment>Source: VisionRecipePage.cs:tabBottom.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.tabSide.text" xml:space="preserve">
+    <value>SIDE</value>
+    <comment>Source: VisionRecipePage.cs:tabSide.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVisionInfo.text" xml:space="preserve">
+    <value>VISION{0}FRONT Y : {1}{2}REAR Y  : {3}{4}F-AVOID : {5}{6}R-AVOID : {7}{8}F-PROC  : {9}{10}R-PROC  : {11}</value>
+    <comment>Source: VisionRecipePage.cs:lblVisionInfo.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.text" xml:space="preserve">
+    <value>Vision</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state2" xml:space="preserve">
+    <value>Vision Load</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state3" xml:space="preserve">
+    <value>Vision Layout</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state4" xml:space="preserve">
+    <value>Vision Configure</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state5" xml:space="preserve">
+    <value>Vision Resolve</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state6" xml:space="preserve">
+    <value>Vision Parameters</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state7" xml:space="preserve">
+    <value>Vision Grid Menu</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state8" xml:space="preserve">
+    <value>Vision Move</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state9" xml:space="preserve">
+    <value>Vision Teach</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state10" xml:space="preserve">
+    <value>Vision I/O</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state11" xml:space="preserve">
+    <value>Vision Jog</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state12" xml:space="preserve">
+    <value>Proceed with {0}?</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state13" xml:space="preserve">
+    <value>{0} failed{1}</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state14" xml:space="preserve">
+    <value>Vision Save</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblHeader.text" xml:space="preserve">
+    <value>VISION STAGE</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVisionInfo.state2" xml:space="preserve">
+    <value>STAGE&#13;&#10;W : 640&#13;&#10;H : 480&#13;&#10;X : 0&#13;&#10;Y : 0&#13;&#10;T : 0</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblVisionInfo.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVisionInfo2.text" xml:space="preserve">
+    <value>SIDE VISION 1</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblVisionInfo2.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVisionInfo3.text" xml:space="preserve">
+    <value>SIDE VISION 2</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblVisionInfo3.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.grpManual.text" xml:space="preserve">
+    <value>MANUAL ACTION</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.grpManual.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.grpOptions.text" xml:space="preserve">
+    <value>OPTION</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.grpOptions.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.grpWait.text" xml:space="preserve">
+    <value>WAIT TIME</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.grpWait.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.grpIo.text" xml:space="preserve">
+    <value>CYLINDER &amp;&amp; I/O</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.grpIo.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.grpJog.text" xml:space="preserve">
+    <value>JOG OPERATION</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.grpJog.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.grpSpeed.text" xml:space="preserve">
+    <value>SPEED</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.grpSpeed.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblLoadingPositionKey.text" xml:space="preserve">
+    <value>LOADING POSITION</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblLoadingPositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblLoadingPositionValue.text" xml:space="preserve">
+    <value>SET</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblLoadingPositionValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblCenterPositionKey.text" xml:space="preserve">
+    <value>CENTER POSITION</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblCenterPositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedlePositionKey.text" xml:space="preserve">
+    <value>NEEDLE POSITION</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedlePositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblTestBedPositionKey.text" xml:space="preserve">
+    <value>TEST BED POSITION</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblTestBedPositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblBarcodePositionKey.text" xml:space="preserve">
+    <value>BARCODE POSITION</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblBarcodePositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVisionAlignKey.text" xml:space="preserve">
+    <value>VISION ALIGN</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblVisionAlignKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblWorkRadiusKey.text" xml:space="preserve">
+    <value>WORK RADIUS</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblWorkRadiusKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblFirstDiePositionKey.text" xml:space="preserve">
+    <value>FIRST DIE POSITION</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblFirstDiePositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleMeasurePositionKey.text" xml:space="preserve">
+    <value>NEEDLE MEASURE POSITION</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleMeasurePositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleUpWaitKey.text" xml:space="preserve">
+    <value>NEEDLE UP</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleUpWaitKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleUpWaitValue.text" xml:space="preserve">
+    <value>0 ms</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleUpWaitValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVacuumOnWaitKey.text" xml:space="preserve">
+    <value>VACUUM ON</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblVacuumOnWaitKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleDownWaitKey.text" xml:space="preserve">
+    <value>NEEDLE DOWN</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleDownWaitKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVacuumOffWaitKey.text" xml:space="preserve">
+    <value>VACUUM OFF</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblVacuumOffWaitKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblMovingWaitKey.text" xml:space="preserve">
+    <value>MOVING</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblMovingWaitKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleVacuumKey.text" xml:space="preserve">
+    <value>NEEDLE VACUUM</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleVacuumKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleVacuumValue.text" xml:space="preserve">
+    <value>VACUUM</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleVacuumValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblRingSensorKey.text" xml:space="preserve">
+    <value>RING SENSOR</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblRingSensorKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblRingSensorValue.text" xml:space="preserve">
+    <value>OFF</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblRingSensorValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblExpandCylinderKey.text" xml:space="preserve">
+    <value>EXPAND CYLINDER</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblExpandCylinderKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblExpandCylinderValue.text" xml:space="preserve">
+    <value>READY</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblExpandCylinderValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleBlockKey.text" xml:space="preserve">
+    <value>NEEDLE BLOCK</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleBlockKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblAxisXKey.text" xml:space="preserve">
+    <value>AXIS X</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblAxisXKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblAxisXValue.text" xml:space="preserve">
+    <value>0 um</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblAxisXValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblAxisYKey.text" xml:space="preserve">
+    <value>AXIS Y</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblAxisYKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblAxisTKey.text" xml:space="preserve">
+    <value>AXIS T</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblAxisTKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblAxisTValue.text" xml:space="preserve">
+    <value>0 deg</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblAxisTValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblExpandZKey.text" xml:space="preserve">
+    <value>EXPAND Z</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblExpandZKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleZKey.text" xml:space="preserve">
+    <value>NEEDLE Z</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleZKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleBlockZKey.text" xml:space="preserve">
+    <value>NEEDLE BLOCK Z</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleBlockZKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblExpandAxis.text" xml:space="preserve">
+    <value>EXPAND</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblExpandAxis.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleAxis.text" xml:space="preserve">
+    <value>NEEDLE</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleAxis.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblBlockAxis.text" xml:space="preserve">
+    <value>BLOCK</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblBlockAxis.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.grpLink.text" xml:space="preserve">
+    <value>TCP Ports / Status (Command=Handler ↔ Vision, Viewer=Image Stream)</value>
+    <comment>Source: VisionLinkPage.cs:grpLink.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.grpLog.text" xml:space="preserve">
+    <value>Communication Log (TX / RX / EPD / ARM)</value>
+    <comment>Source: VisionLinkPage.cs:grpLog.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColCmd.text" xml:space="preserve">
+    <value>Command Port</value>
+    <comment>Source: VisionLinkPage.cs:lblColCmd.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColViewer.text" xml:space="preserve">
+    <value>Viewer Port</value>
+    <comment>Source: VisionLinkPage.cs:lblColViewer.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColStatus.text" xml:space="preserve">
+    <value>Status</value>
+    <comment>Source: VisionLinkPage.cs:lblColStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColRx.text" xml:space="preserve">
+    <value>RX</value>
+    <comment>Source: VisionLinkPage.cs:lblColRx.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColViewerStatus.text" xml:space="preserve">
+    <value>Viewer Status</value>
+    <comment>Source: VisionLinkPage.cs:lblColViewerStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._btnClearLog.text" xml:space="preserve">
+    <value>CLEAR LOG</value>
+    <comment>Source: VisionLinkPage.cs:_btnClearLog.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._btnCameraScale.text" xml:space="preserve">
+    <value>CAMERA SCALE SETUP</value>
+    <comment>Source: VisionLinkPage.cs:_btnCameraScale.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.rx.text" xml:space="preserve">
+    <value>RX -</value>
+    <comment>Source: VisionLinkPage.cs:rx.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.rx.state2" xml:space="preserve">
+    <value>RX {0}</value>
+    <comment>Source: VisionLinkPage.cs:rx.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblHeader.text" xml:space="preserve">
+    <value>VISION LINK</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.grpLink.state2" xml:space="preserve">
+    <value>TCP Ports / Status (Command=Handler→Vision; Viewer=Image Stream)</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.grpLink.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblHost.text" xml:space="preserve">
+    <value>Vision PC IP</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblHost.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColModule.text" xml:space="preserve">
+    <value>Module</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblColModule.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColCmd.state2" xml:space="preserve">
+    <value>Command Port</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblColCmd.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColViewer.state2" xml:space="preserve">
+    <value>Viewer Port</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblColViewer.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColStatus.state2" xml:space="preserve">
+    <value>State</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblColStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColRx.state2" xml:space="preserve">
+    <value>RX (last received)</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblColRx.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColViewerStatus.state2" xml:space="preserve">
+    <value>Viewer Status</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblColViewerStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblWaferPort.text" xml:space="preserve">
+    <value>Wafer</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblWaferPort.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._lblWafer.text" xml:space="preserve">
+    <value>● Disconnected</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._lblWafer.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblInspectionPort.text" xml:space="preserve">
+    <value>Bottom Inspection</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblInspectionPort.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblBinPort.text" xml:space="preserve">
+    <value>Bin</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblBinPort.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblMainPort.text" xml:space="preserve">
+    <value>Main (Recipe)</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblMainPort.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblTopPort.text" xml:space="preserve">
+    <value>FrontSideVision</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblTopPort.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblBotPort.text" xml:space="preserve">
+    <value>RearSideVision</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblBotPort.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._cbAuto.text" xml:space="preserve">
+    <value>Auto connect on app start</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._cbAuto.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._actionGroup.text" xml:space="preserve">
+    <value>ACTION</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._actionGroup.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._btnConnect.text" xml:space="preserve">
+    <value>CONNECT</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._btnConnect.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._btnDisconnect.text" xml:space="preserve">
+    <value>DISCONNECT</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._btnDisconnect.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._btnPing.text" xml:space="preserve">
+    <value>PING ALL</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._btnPing.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._btnClearLog.state2" xml:space="preserve">
+    <value>Clear Log</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._btnClearLog.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblCameraInfo.text" xml:space="preserve">
+    <value>STAGE&#13;&#10;W : 640&#13;&#10;H : 480</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblCameraInfo.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblLive.text" xml:space="preserve">
+    <value>Live</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblLive.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.btnAutoAlign.text" xml:space="preserve">
+    <value>AUTO ALIGN</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.btnAutoAlign.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.btnManualAlign.text" xml:space="preserve">
+    <value>MANUAL ALIGN</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.btnManualAlign.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.btnFirstMark.text" xml:space="preserve">
+    <value>FIRST MARK</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.btnFirstMark.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.btnSecondMark.text" xml:space="preserve">
+    <value>SECOND MARK</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.btnSecondMark.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.btnThetaMatch.text" xml:space="preserve">
+    <value>THETA MATCH</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.btnThetaMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.btnXyMatch.text" xml:space="preserve">
+    <value>X_Y MATCH</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.btnXyMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblDeltaXCaption.text" xml:space="preserve">
+    <value>Delta X</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblDeltaXCaption.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblDeltaYCaption.text" xml:space="preserve">
+    <value>Delta Y</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblDeltaYCaption.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblDeltaThetaCaption.text" xml:space="preserve">
+    <value>Delta Theta</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblDeltaThetaCaption.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblDeltaThetaValue.text" xml:space="preserve">
+    <value>0.000 deg</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblDeltaThetaValue.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblScoreCaption.text" xml:space="preserve">
+    <value>Score</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblScoreCaption.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblHeader.text" xml:space="preserve">
+    <value>WAFER MAP OPEN</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.grpList.text" xml:space="preserve">
+    <value>MAP FILE LIST</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.grpList.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblGrabResult.text" xml:space="preserve">
+    <value>{0}: no module</value>
+    <comment>Source: VisionTestPage.cs:_lblGrabResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblGrabResult.state2" xml:space="preserve">
+    <value>{0} GRAB in progress...</value>
+    <comment>Source: VisionTestPage.cs:_lblGrabResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblGrabResult.state3" xml:space="preserve">
+    <value>{0} GRAB failed: {1}</value>
+    <comment>Source: VisionTestPage.cs:_lblGrabResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblMatchResult.text" xml:space="preserve">
+    <value>Enter a finder name</value>
+    <comment>Source: VisionTestPage.cs:_lblMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblMatchResult.state2" xml:space="preserve">
+    <value>{0} MATCH failed: {1}</value>
+    <comment>Source: VisionTestPage.cs:_lblMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblInspectResult.text" xml:space="preserve">
+    <value>Enter an inspector name</value>
+    <comment>Source: VisionTestPage.cs:_lblInspectResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblInspectResult.state2" xml:space="preserve">
+    <value>{0} INSPECT failed: {1}</value>
+    <comment>Source: VisionTestPage.cs:_lblInspectResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblCommResult.text" xml:space="preserve">
+    <value>Testing communication...</value>
+    <comment>Source: VisionTestPage.cs:_lblCommResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblCommResult.state2" xml:space="preserve">
+    <value>Communication test failed: {0}</value>
+    <comment>Source: VisionTestPage.cs:_lblCommResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage.message.text" xml:space="preserve">
+    <value>VISION Communication Test</value>
+    <comment>Source: VisionTestPage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionTestPage.lblHeader.text" xml:space="preserve">
+    <value>VISION TEST</value>
+    <comment>Source: VisionTestPage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage.grpComm.text" xml:space="preserve">
+    <value>VISION Communication / Operation Test</value>
+    <comment>Source: VisionTestPage.Designer.cs:this.grpComm.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._btnCommTest.text" xml:space="preserve">
+    <value>Communication Test (PING ALL)</value>
+    <comment>Source: VisionTestPage.Designer.cs:this._btnCommTest.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblCommResult.state3" xml:space="preserve">
+    <value>Waiting - press the button to PING all 6 channels</value>
+    <comment>Source: VisionTestPage.Designer.cs:this._lblCommResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblGrabResult.state4" xml:space="preserve">
+    <value>Waiting - select a module, then GRAB (request one image)</value>
+    <comment>Source: VisionTestPage.Designer.cs:this._lblGrabResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblMatchResult.state3" xml:space="preserve">
+    <value>Enter finder, then MATCH → x/y/θ/score</value>
+    <comment>Source: VisionTestPage.Designer.cs:this._lblMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblInspectResult.state3" xml:space="preserve">
+    <value>Enter inspector, then INSPECT → PASS/FAIL</value>
+    <comment>Source: VisionTestPage.Designer.cs:this._lblInspectResult.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.1" xml:space="preserve">
+    <value>Bottom</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.2" xml:space="preserve">
+    <value>Input</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.3" xml:space="preserve">
+    <value>Output</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.4" xml:space="preserve">
+    <value>Move Speed</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.5" xml:space="preserve">
+    <value>Move Acc</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.6" xml:space="preserve">
+    <value>Move Dec</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.7" xml:space="preserve">
+    <value>Move Timeout</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.8" xml:space="preserve">
+    <value>Bottom Pixel X</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.9" xml:space="preserve">
+    <value>Bottom Pixel Y</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.10" xml:space="preserve">
+    <value>Input Pixel X</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.11" xml:space="preserve">
+    <value>Input Pixel Y</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.12" xml:space="preserve">
+    <value>Output Pixel X</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.13" xml:space="preserve">
+    <value>Output Pixel Y</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.14" xml:space="preserve">
+    <value>Input VisionX Encoder</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.15" xml:space="preserve">
+    <value>Output VisionX Encoder</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.16" xml:space="preserve">
+    <value>Bottom-Input Offset X</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.17" xml:space="preserve">
+    <value>Bottom-Input Offset Y</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.18" xml:space="preserve">
+    <value>Bottom-Output Offset X</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.19" xml:space="preserve">
+    <value>Bottom-Output Offset Y</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.1" xml:space="preserve">
+    <value>Bottom Camera</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.2" xml:space="preserve">
+    <value>Input Camera</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.3" xml:space="preserve">
+    <value>Output Camera</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.4" xml:space="preserve">
+    <value>Front Side Camera</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.5" xml:space="preserve">
+    <value>Rear Side Camera</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.6" xml:space="preserve">
+    <value>Vision</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.7" xml:space="preserve">
+    <value>Manual</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.8" xml:space="preserve">
+    <value>No data</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.1" xml:space="preserve">
+    <value>Mode</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.2" xml:space="preserve">
+    <value>Picker Side</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.3" xml:space="preserve">
+    <value>Picker No</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.4" xml:space="preserve">
+    <value>Collet No</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.5" xml:space="preserve">
+    <value>Picker X Ref (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.6" xml:space="preserve">
+    <value>Picker Y Ref (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.7" xml:space="preserve">
+    <value>Picker Z Ref (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.8" xml:space="preserve">
+    <value>Picker T Ref (deg)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.9" xml:space="preserve">
+    <value>Side Camera Y Default</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.10" xml:space="preserve">
+    <value>Default Pos (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.11" xml:space="preserve">
+    <value>T Teaching (deg)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.12" xml:space="preserve">
+    <value>Rough - Range (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.13" xml:space="preserve">
+    <value>Rough + Range (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.14" xml:space="preserve">
+    <value>Rough Step (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.15" xml:space="preserve">
+    <value>Fine - Range (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.16" xml:space="preserve">
+    <value>Fine + Range (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.17" xml:space="preserve">
+    <value>Fine Step (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.18" xml:space="preserve">
+    <value>Repeat Count (ea)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.19" xml:space="preserve">
+    <value>Motor Speed (mm/s)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.20" xml:space="preserve">
+    <value>Acceleration (mm/s2)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.21" xml:space="preserve">
+    <value>Deceleration (mm/s2)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.22" xml:space="preserve">
+    <value>Settle Time (ms)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.23" xml:space="preserve">
+    <value>Motion Timeout (ms)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.24" xml:space="preserve">
+    <value>Vision Timeout (ms)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.25" xml:space="preserve">
+    <value>Best Timeout (ms)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.26" xml:space="preserve">
+    <value>Focus Val Mode</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.27" xml:space="preserve">
+    <value>Return Default</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.28" xml:space="preserve">
+    <value>AF On Start</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.29" xml:space="preserve">
+    <value>AF On Wafer Change</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.30" xml:space="preserve">
+    <value>AF By Total Pick Count</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.31" xml:space="preserve">
+    <value>AF Total Pick Interval (ea)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.32" xml:space="preserve">
+    <value>Bottom Vision Delay (ms)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.33" xml:space="preserve">
+    <value>AF To Bottom Delay (ms)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.34" xml:space="preserve">
+    <value>B-&gt;S Z Offset Use</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.35" xml:space="preserve">
+    <value>B-&gt;S Z Offset (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.36" xml:space="preserve">
+    <value>Sign Size90 Front</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.37" xml:space="preserve">
+    <value>Sign Size90 Rear</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.38" xml:space="preserve">
+    <value>Sign COC0 Front</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.39" xml:space="preserve">
+    <value>Sign COC0 Rear</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.40" xml:space="preserve">
+    <value>Sign COC90 Front</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.41" xml:space="preserve">
+    <value>Sign COC90 Rear</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.noViewer" xml:space="preserve">
+    <value>—</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.streaming" xml:space="preserve">
+    <value>● Streaming :{0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.waitingPort" xml:space="preserve">
+    <value>● Waiting :{0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.connected" xml:space="preserve">
+    <value>● Connected{0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.waiting" xml:space="preserve">
+    <value>● Waiting{0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.secondsAgo" xml:space="preserve">
+    <value>RX {0}s ago</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.minutesAgo" xml:space="preserve">
+    <value>RX {0}m ago</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.hoursAgo" xml:space="preserve">
+    <value>RX {0}h ago</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.viewer.defaultWithPort" xml:space="preserve">
+    <value>Image  (viewer {0})</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.viewer.defaultNoPort" xml:space="preserve">
+    <value>Image  (no viewer)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.viewer.titleWithPort" xml:space="preserve">
+    <value>{0}  (viewer {1})</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.viewer.titleNoPort" xml:space="preserve">
+    <value>{0}  (no viewer)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.remote.listening" xml:space="preserve">
+    <value>Listening on {0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.remote.stopped" xml:space="preserve">
+    <value>Stopped</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraScale.loaded" xml:space="preserve">
+    <value>Camera scale settings loaded.</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraScale.loadFailed" xml:space="preserve">
+    <value>Cannot display camera scale: {0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraScale.requesting" xml:space="preserve">
+    <value>Requesting {0} camera settings from VisionPC.</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraScale.received" xml:space="preserve">
+    <value>Saved {0} camera settings received from VisionPC. Center is calculated as Width/2, Height/2.</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraScale.requestFailed" xml:space="preserve">
+    <value>Camera setting request failed: {0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraScale.saveFailed" xml:space="preserve">
+    <value>Camera pixel scale save failed: {0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.notConnectedPort" xml:space="preserve">
+    <value>{0} ({1}): not connected — connect first</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.notConnected" xml:space="preserve">
+    <value>{0}: not connected — connect first</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.matching" xml:space="preserve">
+    <value>{0} MATCH({1}) in progress...</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.inspecting" xml:space="preserve">
+    <value>{0} INSPECT({1}) in progress...</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.matchOk" xml:space="preserve">
+    <value>{0} MATCH OK  x={1:F2}  y={2:F2}  θ={3:F3}  score={4:F3}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.inspectNoResponse" xml:space="preserve">
+    <value>{0} INSPECT failed: no response</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.commSummary" xml:space="preserve">
+    <value>Communication test complete — {0}/{1} OK</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.matchNoResponse" xml:space="preserve">
+    <value>{0} MATCH failed: no response</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.matchFailed" xml:space="preserve">
+    <value>{0} MATCH failed: {1}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.inspectPass" xml:space="preserve">
+    <value>{0} INSPECT: PASS   ({1})</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.inspectFail" xml:space="preserve">
+    <value>{0} INSPECT: FAIL   ({1})</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.grabNoResponse" xml:space="preserve">
+    <value>{0} GRAB: no response</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.grabResponse" xml:space="preserve">
+    <value>{0} GRAB: {1}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.launch.bottom" xml:space="preserve">
+    <value>VISION: BOTTOM INSP</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.launch.front" xml:space="preserve">
+    <value>VISION: FRONT SIDE</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.launch.rear" xml:space="preserve">
+    <value>VISION: REAR SIDE</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.tpuTitle.ports" xml:space="preserve">
+    <value>Vision Test - {0}  (Command {1} / Image {2})</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.tpuTitle.name" xml:space="preserve">
+    <value>Vision Test - {0}</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.11" xml:space="preserve">
+    <value>Maximum wait for movement to the reticle capture position. Double-click to edit with the keypad.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.10" xml:space="preserve">
+    <value>Dedicated camera calibration movement deceleration. Double-click to edit with the keypad.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.9" xml:space="preserve">
+    <value>Dedicated camera calibration movement acceleration. Double-click to edit with the keypad.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.8" xml:space="preserve">
+    <value>Dedicated speed used to move to reticle capture positions during camera calibration. Double-click to edit with the keypad.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.7" xml:space="preserve">
+    <value>Final output offset combining the calculated measurement and manual correction. SAVE / APPLY saves edits; CALC retains the manual correction.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.6" xml:space="preserve">
+    <value>Final input offset combining the calculated measurement and manual correction. SAVE / APPLY saves edits; CALC retains the manual correction.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.5" xml:space="preserve">
+    <value>Actual VisionX encoder position when the output camera captures the reticle. SAVE / APPLY saves values measured or manually edited in this session to the current recipe.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.4" xml:space="preserve">
+    <value>Actual VisionX encoder position when the input camera captures the reticle. SAVE / APPLY saves values measured or manually edited in this session to the current recipe.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.3" xml:space="preserve">
+    <value>Pixel coordinates measured by the output camera reticle finder. Used to calculate the output camera offset from the bottom camera.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.2" xml:space="preserve">
+    <value>Pixel coordinates measured by the input camera reticle finder. Used to calculate the input camera offset from the bottom camera.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.1" xml:space="preserve">
+    <value>Pixel coordinates measured by the bottom camera reticle finder. Used as the reference for camera offset calculation.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.moduleChoice.wafer" xml:space="preserve">
+    <value>Wafer</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.moduleChoice.inspection" xml:space="preserve">
+    <value>Inspection</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.moduleChoice.bin" xml:space="preserve">
+    <value>Bin</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.moduleChoice.front" xml:space="preserve">
+    <value>FrontSideVision</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.moduleChoice.rear" xml:space="preserve">
+    <value>RearSideVision</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.mode" xml:space="preserve">
+    <value>Target mode for the focus scan.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.pickerSide" xml:space="preserve">
+    <value>Select the front or rear picker holding the focus reference product.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.colletNo" xml:space="preserve">
+    <value>Select the picker number to use as the focus reference.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.pickerReferenceX" xml:space="preserve">
+    <value>Reference X from DieSidePosition for the same picker number used by the automatic combined side inspection. {0}</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.pickerReferenceY" xml:space="preserve">
+    <value>Reference Y from DieSidePosition for the same picker number used by the automatic combined side inspection. {0}</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.pickerReferenceZ" xml:space="preserve">
+    <value>Reference Z from the selected PickerZ SidePosition. Held fixed during the focus scan.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.pickerReferenceT" xml:space="preserve">
+    <value>Reference T from DieSidePosition, as used by production side inspection.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.pickerTTeaching" xml:space="preserve">
+    <value>Absolute picker T reference angle for standalone bottom focus MOVE DEFAULT/START/BATCH. Defaults to 0 degrees; set 180 degrees or another angle as needed. Stored separately for Bottom Collet and Bottom Die, independently of recipe T teaching. AF within collet calibration uses its T teaching; production runtime AF holds the current T.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.minusRange" xml:space="preserve">
+    <value>Rough scan distance in the negative direction from Default Pos.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.plusRange" xml:space="preserve">
+    <value>Rough scan distance in the positive direction from Default Pos.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.step" xml:space="preserve">
+    <value>Movement interval between rough focus measurement positions.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.fineMinusRange" xml:space="preserve">
+    <value>Fine rescan distance in the negative direction from the rough best-focus position.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.finePlusRange" xml:space="preserve">
+    <value>Fine rescan distance in the positive direction from the rough best-focus position.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.fineStep" xml:space="preserve">
+    <value>Movement interval between fine focus measurement positions.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.repeatCount" xml:space="preserve">
+    <value>Number of repeated measurements over the same scan range.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.moveVelocity" xml:space="preserve">
+    <value>Axis movement speed for the focus scan.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.moveAcceleration" xml:space="preserve">
+    <value>Axis movement acceleration for the focus scan.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.moveDeceleration" xml:space="preserve">
+    <value>Axis movement deceleration for the focus scan.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.settleDelay" xml:space="preserve">
+    <value>Wait after reaching each position before requesting the vision focus value.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.motionTimeout" xml:space="preserve">
+    <value>Maximum wait for axis movement to finish.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.visionTimeout" xml:space="preserve">
+    <value>Maximum wait for a VisionPC focus response.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.visionBestTimeout" xml:space="preserve">
+    <value>Maximum wait for a VisionPC FOCUS_BEST response, including background focus-score processing.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.focusValueMode" xml:space="preserve">
+    <value>Ack Only continues after the FOCUS_VAL grab ACK and receives the final score from FOCUS_BEST only. Wait Result is the previous waiting mode for testing.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.returnDefault" xml:space="preserve">
+    <value>Choose whether to return to Default Pos after the scan.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.autoFocusOnStart" xml:space="preserve">
+    <value>Display the autofocus selection window when restarting the stopped equipment with START. Can be combined with the other conditions.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.autoFocusOnWaferChange" xml:space="preserve">
+    <value>Run rough and fine autofocus when the first die from a new input wafer enters bottom imaging. Can be combined with the other conditions.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.autoFocusOnPickCount" xml:space="preserve">
+    <value>Run rough and fine autofocus when the cumulative total of dies picked by the front and rear pickers reaches the configured count. Can be combined with the other conditions.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.autoFocusPickInterval" xml:space="preserve">
+    <value>Autofocus interval based on the total number of dies picked across the front and rear pickers.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.bottomVisionDelay" xml:space="preserve">
+    <value>Wait before sending INSPECTASYNC/Grab for production bottom vision inspection. Recipe setting shared by front and rear.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.autoFocusToBottomInspectionDelay" xml:space="preserve">
+    <value>Wait after the bottom Grab ACK following runtime autofocus, before starting the next motion.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.useBottomToSideZOffset" xml:space="preserve">
+    <value>When enabled, calculate side imaging PickerZ as the collet bottom AF best Z plus the Z offset, instead of SidePosition teaching. Shared by front and rear.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.bottomToSideZOffset" xml:space="preserve">
+    <value>Mechanical Z offset between the bottom camera focus Z and the side camera optical axis. Shared by front and rear.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.sideFocusSize90SignFront" xml:space="preserve">
+    <value>Sign of the 90-degree die-size term ((width-height)/2), front. -1/0/+1; 0 disables the term. Confirm with equipment testing.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.sideFocusSize90SignRear" xml:space="preserve">
+    <value>Sign of the 90-degree die-size term ((width-height)/2), rear. -1/0/+1.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.sideFocusCoc0SignFront" xml:space="preserve">
+    <value>Sign of the 0-degree COC Y-component term, front. -1/0/+1.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.sideFocusCoc0SignRear" xml:space="preserve">
+    <value>Sign of the 0-degree COC Y-component term, rear. -1/0/+1.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.sideFocusCoc90SignFront" xml:space="preserve">
+    <value>Sign of the 90-degree COC X-component term after rotation, front. -1/0/+1.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.sideFocusCoc90SignRear" xml:space="preserve">
+    <value>Sign of the 90-degree COC X-component term after rotation, rear. -1/0/+1.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.defaultSide" xml:space="preserve">
+    <value>Reference side-camera Y focus position. If no value is saved, use Process0/90 teaching for the selected camera and angle. USE CURRENT applies the current camera Y.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.defaultBottom" xml:space="preserve">
+    <value>Reference focus position. Loads only saved Focus Cal values. USE CURRENT overwrites it with the current axis position.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.editBest" xml:space="preserve">
+    <value>Double-click to enter the BEST position manually.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.overrideTitle" xml:space="preserve">
+    <value>Override Calibration</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.softLimitMargin" xml:space="preserve">
+    <value>Insufficient soft-limit margin: target2={0}, limit-={1}&#13;&#10;Move the axis in the positive direction and try again.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.confirmOverride" xml:space="preserve">
+    <value>{0} override verification test&#13;&#10;start={1} → ① move to {2}&#13;&#10;② override to {3} during movement&#13;&#10;Continue?</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.overrideFailed" xml:space="preserve">
+    <value>Override command failed. ret={0}</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.verdict.start" xml:space="preserve">
+    <value>Reference=motion start (conversion correct)</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.verdict.current" xml:space="preserve">
+    <value>Reference=current position (conversion fault confirmed)</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.verdict.unknown" xml:space="preserve">
+    <value>Indeterminate (outside predictions)</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.overrideSummary" xml:space="preserve">
+    <value>start={0}, at override={1}, intent={2}, landing={3}, predicted (motion start)={4}, predicted (current)={5} =&gt; {6}</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.reason.axisMissing" xml:space="preserve">
+    <value>Axis is not selected.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.reason.profileInvalid" xml:space="preserve">
+    <value>Profile value is invalid.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.reason.profilePositive" xml:space="preserve">
+    <value>Velocity/Acceleration/Deceleration must be greater than zero.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.reason.softLimit" xml:space="preserve">
+    <value>Target is outside soft limit. {0}</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.reason.checkFailed" xml:space="preserve">
+    <value>Soft limit check failed: {0}</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.velocity" xml:space="preserve">
+    <value>Test move velocity used by this setup dialog.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.homeGap" xml:space="preserve">
+    <value>Distance between the two axes at home position before they approach each other.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.signA" xml:space="preserve">
+    <value>+1 means AxisA positive direction approaches AxisB, -1 means negative direction approaches.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.signB" xml:space="preserve">
+    <value>+1 means AxisB positive direction approaches AxisA, -1 means negative direction approaches.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.safety" xml:space="preserve">
+    <value>Pair-specific minimum clearance. Empty uses 10 mm.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.savedVelocity" xml:space="preserve">
+    <value>Velocity in mm/sec used for test moves in this window. Saving writes it to the file, and move execution uses this value.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.head" xml:space="preserve">
+    <value>Main axis. Always included when executing Move Head/Sub.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.sub" xml:space="preserve">
+    <value>Sub axis to move with the head axis. Availability depends on the selected head axis.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.help" xml:space="preserve">
+    <value>Show explanations of SharedRailX settings.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.helpBody" xml:space="preserve">
+    <value>SharedRailX settings&#13;&#10;&#13;&#10;Velocity&#13;&#10;- Test movement velocity for this window, in mm/sec.&#13;&#10;- Saving writes it to shared_rail_x.json. A move first saves the file, then uses this value.&#13;&#10;&#13;&#10;Pair Clearance Rule&#13;&#10;- Collision interlock criteria for this window.&#13;&#10;- Home Gap is the reference gap when both axes are at home.&#13;&#10;- A/B Sign is the encoder direction approaching the other axis: 1 for positive and -1 for negative.&#13;&#10;- Clearance = Home Gap - A Sign*A Pos - B Sign*B Pos. Movement is blocked when clearance is at or below Safety.&#13;&#10;&#13;&#10;FrontPickerX &lt;-&gt; RearPickerX is not configured here.&#13;&#10;- The two pickers face each other on parallel X axes, so the Home Gap/sign method does not apply.&#13;&#10;- Simultaneous forward movement in picker Y is prevented using X Clearance in PICKER ZONE.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.helpTitle" xml:space="preserve">
+    <value>SharedRailX Settings Help</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.axis" xml:space="preserve">
+    <value>Axis</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.unit" xml:space="preserve">
+    <value>Unit</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.current" xml:space="preserve">
+    <value>Current Pos</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.state" xml:space="preserve">
+    <value>Axis State</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.message" xml:space="preserve">
+    <value>Message</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.target" xml:space="preserve">
+    <value>Move Target</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.velocity" xml:space="preserve">
+    <value>Velocity</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.pair" xml:space="preserve">
+    <value>Pair</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.gap" xml:space="preserve">
+    <value>Home Gap</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.signA" xml:space="preserve">
+    <value>A Sign</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.signB" xml:space="preserve">
+    <value>B Sign</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.safety" xml:space="preserve">
+    <value>Safety</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.axisInput" xml:space="preserve">
+    <value>InputVisionX</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.axisOutput" xml:space="preserve">
+    <value>OutputVisionX</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.axisFront" xml:space="preserve">
+    <value>FrontPickerX</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.axisRear" xml:space="preserve">
+    <value>RearPickerX</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.ok" xml:space="preserve">
+    <value>OK</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.blocked" xml:space="preserve">
+    <value>BLOCK</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.done" xml:space="preserve">
+    <value>Done</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.failed" xml:space="preserve">
+    <value>Failed</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.moving" xml:space="preserve">
+    <value>Moving</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.homeDone" xml:space="preserve">
+    <value>Home Done</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.homeFailed" xml:space="preserve">
+    <value>Home Failed</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.homing" xml:space="preserve">
+    <value>Homing</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.controllerMissing" xml:space="preserve">
+    <value>Controller is not ready.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.axisMissing" xml:space="preserve">
+    <value>Axis is not mapped.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.profile.velocity" xml:space="preserve">
+    <value>Velocity</value>
+    <comment>Profile caption only; grid values and index-based editing stay unchanged.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.profile.acceleration" xml:space="preserve">
+    <value>Acceleration</value>
+    <comment>Profile caption only; grid values and index-based editing stay unchanged.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.profile.deceleration" xml:space="preserve">
+    <value>Deceleration</value>
+    <comment>Profile caption only; grid values and index-based editing stay unchanged.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.title" xml:space="preserve">
+    <value>SharedRailX</value>
+    <comment>Dialog display title only.</comment>
+  </data>
+</root>

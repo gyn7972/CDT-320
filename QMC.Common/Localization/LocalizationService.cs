@@ -94,6 +94,12 @@ namespace QMC.Common.Localization
             return TryGetString(key, _lookupCultures[_current], out value) ? value : key;
         }
 
+        /// <summary>언어 리소스의 문장에 값을 넣습니다. 기존 숫자 문화권과 전달받은 값은 유지합니다.</summary>
+        public string Format(string key, params object[] arguments)
+        {
+            return string.Format(CultureInfo.CurrentCulture, GetString(key), arguments ?? new object[0]);
+        }
+
         /// <summary>
         /// 지정한 언어, 부모 문화권, 중립 리소스만 조회합니다.
         /// 서비스의 대체 언어 목록은 사용하지 않으며 지원 목록 밖의 유효한 문화권도 조회할 수 있습니다.

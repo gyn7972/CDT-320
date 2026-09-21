@@ -633,7 +633,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "OPEN FILE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, ex.Message, Lang.T("historyUi.openFileTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 

@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.Common.Logging;
 
+using QMC.CDT_320.Ui.Localization;
+
 namespace QMC.CDT_320.Ui.Controls
 {
 
@@ -128,7 +130,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 string message = "Manual action set failed: " + Name + Environment.NewLine + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "MANUAL-ACT", message);
-                QMC.Common.MessageDialog.Show(this, message, "Manual Action", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("controls.manual.setFailed", Name, ex.Message), Lang.T("controls.manual.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -227,7 +229,7 @@ namespace QMC.CDT_320.Ui.Controls
         private ActionButton CreateButton(ManualActionItem item)
         {
             ActionButton button = new ActionButton();
-            button.Text = item.Text;
+            Lang.Bind(button, item.Text);
             button.Tag = item;
             button.Dock = DockStyle.Fill;
             button.Margin = new Padding(4);
@@ -327,7 +329,7 @@ namespace QMC.CDT_320.Ui.Controls
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "MANUAL-ACT", "Action click failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Manual Action", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("controls.manual.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

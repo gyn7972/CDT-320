@@ -1,0 +1,337 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="settingsUi.action.applyAxisSettings" xml:space="preserve"><value>축 설정 적용</value></data>
+  <data name="settingsUi.action.changeAllAxisSettings" xml:space="preserve"><value>축 일괄 설정 변경</value></data>
+  <data name="settingsUi.action.changeAxisSettings" xml:space="preserve"><value>축 설정 변경</value></data>
+  <data name="settingsUi.action.changeBarcodeConnection" xml:space="preserve"><value>바코드 연결 변경</value></data>
+  <data name="settingsUi.action.changeBarcodeSettings" xml:space="preserve"><value>바코드 설정 변경</value></data>
+  <data name="settingsUi.action.saveAxisSettings" xml:space="preserve"><value>축 설정 저장</value></data>
+  <data name="settingsUi.action.saveBarcodeSettings" xml:space="preserve"><value>바코드 설정 저장</value></data>
+  <data name="settingsUi.action.testBarcodeRead" xml:space="preserve"><value>바코드 읽기 테스트</value></data>
+  <data name="settingsUi.alarm.saved" xml:space="preserve"><value>저장 완료: {0}</value></data>
+  <data name="settingsUi.axis.appliedCount" xml:space="preserve"><value>축 설정 적용: {0}개 축</value></data>
+  <data name="settingsUi.axis.applyFailed" xml:space="preserve"><value>축 설정 적용 실패: {0}</value></data>
+  <data name="settingsUi.axis.confirmAllMode" xml:space="preserve"><value>전체 축을 {0} 모드로 변경할까요?</value></data>
+  <data name="settingsUi.axis.confirmMode" xml:space="preserve"><value>{0} 축을 {1} 모드로 변경할까요?</value></data>
+  <data name="settingsUi.axis.pickerZoneOpenFailed" xml:space="preserve"><value>피커 구역 설정창 열기 실패: {0}</value></data>
+  <data name="settingsUi.axis.savePartial" xml:space="preserve"><value>축 설정은 적용되었지만 일부 유닛 설정 저장에 실패했습니다.&#10;알람/이벤트 로그를 확인하세요.</value></data>
+  <data name="settingsUi.axis.saved" xml:space="preserve"><value>저장 완료.&#10;{0}&#10;적용 축: {1}</value></data>
+  <data name="settingsUi.axis.sharedRailOpenFailed" xml:space="preserve"><value>공유 레일 X 설정창 열기 실패: {0}</value></data>
+  <data name="settingsUi.barcode.connected" xml:space="preserve"><value>{0} 연결 완료.</value></data>
+  <data name="settingsUi.barcode.connectionFailed" xml:space="preserve"><value>{0} 연결 실패.</value></data>
+  <data name="settingsUi.barcode.disconnected" xml:space="preserve"><value>{0} 연결을 해제했습니다.</value></data>
+  <data name="settingsUi.barcode.inputTriggerError" xml:space="preserve"><value>입력 웨이퍼 트리거 설정 오류: {0}</value></data>
+  <data name="settingsUi.barcode.lastResult" xml:space="preserve"><value>최근 결과 : {0}</value></data>
+  <data name="settingsUi.barcode.outputTriggerError" xml:space="preserve"><value>출력 BIN 트리거 설정 오류: {0}</value></data>
+  <data name="settingsUi.barcode.readFailed" xml:space="preserve"><value>{0} 읽기 테스트 실패: {1}</value></data>
+  <data name="settingsUi.barcode.readResult" xml:space="preserve"><value>{0} 읽기 테스트: {1}</value></data>
+  <data name="settingsUi.barcode.readTimeout" xml:space="preserve"><value>{0} 읽기 테스트 실패/시간 초과.</value></data>
+  <data name="settingsUi.barcode.readerFailed" xml:space="preserve"><value>{0} 리더 연결에 실패했습니다.</value></data>
+  <data name="settingsUi.barcode.saved" xml:space="preserve"><value>바코드 설정을 저장하고 리더를 다시 불러왔습니다.</value></data>
+  <data name="settingsUi.barcode.trigger" xml:space="preserve"><value>NLV-5201 트리거 (공란=Z/Y)</value></data>
+  <data name="settingsUi.barcode.waiting" xml:space="preserve"><value>{0} 바코드 대기 중...</value></data>
+  <data name="settingsUi.camera.connectionTest" xml:space="preserve"><value>TCP 연결 테스트: {0}/{1}</value></data>
+  <data name="settingsUi.camera.settingsApplied" xml:space="preserve"><value>앱 설정을 적용했습니다. 다시 시작해야 할 수 있습니다.</value></data>
+  <data name="settingsUi.caption.accJerk" xml:space="preserve"><value>가속 저크 %</value></data>
+  <data name="settingsUi.caption.accel" xml:space="preserve"><value>가속도</value></data>
+  <data name="settingsUi.caption.action" xml:space="preserve"><value>동작</value></data>
+  <data name="settingsUi.caption.action2" xml:space="preserve"><value>조치</value></data>
+  <data name="settingsUi.caption.active" xml:space="preserve"><value>사용 여부</value></data>
+  <data name="settingsUi.caption.actual" xml:space="preserve"><value>실제값</value></data>
+  <data name="settingsUi.caption.actualPosition" xml:space="preserve"><value>실제 위치</value></data>
+  <data name="settingsUi.caption.addRow" xml:space="preserve"><value>행 추가</value></data>
+  <data name="settingsUi.caption.addr" xml:space="preserve"><value>주소</value></data>
+  <data name="settingsUi.caption.alarm" xml:space="preserve"><value>알람</value></data>
+  <data name="settingsUi.caption.alarmClear" xml:space="preserve"><value>알람 해제</value></data>
+  <data name="settingsUi.caption.alarmCode" xml:space="preserve"><value>알람 코드</value></data>
+  <data name="settingsUi.caption.alarmLevel" xml:space="preserve"><value>알람 레벨</value></data>
+  <data name="settingsUi.caption.alarmValue" xml:space="preserve"><value>알람 값</value></data>
+  <data name="settingsUi.caption.alarmmaster" xml:space="preserve"><value>알람 정의</value></data>
+  <data name="settingsUi.caption.allOff" xml:space="preserve"><value>전체 끄기</value></data>
+  <data name="settingsUi.caption.allOn" xml:space="preserve"><value>전체 켜기</value></data>
+  <data name="settingsUi.caption.allStop" xml:space="preserve"><value>전체 정지</value></data>
+  <data name="settingsUi.caption.ampFaultLevel" xml:space="preserve"><value>앰프 고장 레벨</value></data>
+  <data name="settingsUi.caption.ampFaultValue" xml:space="preserve"><value>앰프 고장 값</value></data>
+  <data name="settingsUi.caption.applied" xml:space="preserve"><value>적용 완료</value></data>
+  <data name="settingsUi.caption.apply" xml:space="preserve"><value>적용</value></data>
+  <data name="settingsUi.caption.apply2" xml:space="preserve"><value>적용</value></data>
+  <data name="settingsUi.caption.applyFail" xml:space="preserve"><value>적용 실패</value></data>
+  <data name="settingsUi.caption.applySoftLimit" xml:space="preserve"><value>적용 (소프트 리미트 반영)</value></data>
+  <data name="settingsUi.caption.autoConn" xml:space="preserve"><value>자동 연결</value></data>
+  <data name="settingsUi.caption.axis" xml:space="preserve"><value>축</value></data>
+  <data name="settingsUi.caption.axisJog" xml:space="preserve"><value>축 조그</value></data>
+  <data name="settingsUi.caption.axisName" xml:space="preserve"><value>축 이름</value></data>
+  <data name="settingsUi.caption.axisNo" xml:space="preserve"><value>축 (번호)</value></data>
+  <data name="settingsUi.caption.axisSetupList" xml:space="preserve"><value>축 설정 목록</value></data>
+  <data name="settingsUi.caption.baudRate" xml:space="preserve"><value>통신 속도</value></data>
+  <data name="settingsUi.caption.bit" xml:space="preserve"><value>비트</value></data>
+  <data name="settingsUi.caption.board" xml:space="preserve"><value>보드 번호</value></data>
+  <data name="settingsUi.caption.board2" xml:space="preserve"><value>보드</value></data>
+  <data name="settingsUi.caption.boardScan" xml:space="preserve"><value>보드 검색</value></data>
+  <data name="settingsUi.caption.bottomVision" xml:space="preserve"><value>하부 비전</value></data>
+  <data name="settingsUi.caption.brakeType" xml:space="preserve"><value>브레이크 유형</value></data>
+  <data name="settingsUi.caption.bwd" xml:space="preserve"><value>후진</value></data>
+  <data name="settingsUi.caption.bwdDi" xml:space="preserve"><value>후진 입력</value></data>
+  <data name="settingsUi.caption.bwdDo" xml:space="preserve"><value>후진 출력</value></data>
+  <data name="settingsUi.caption.bwdText" xml:space="preserve"><value>후진 표시명</value></data>
+  <data name="settingsUi.caption.bwdWaitMs" xml:space="preserve"><value>후진 대기(ms)</value></data>
+  <data name="settingsUi.caption.cameraSetup" xml:space="preserve"><value>카메라 설정</value></data>
+  <data name="settingsUi.caption.category" xml:space="preserve"><value>분류:</value></data>
+  <data name="settingsUi.caption.category2" xml:space="preserve"><value>분류</value></data>
+  <data name="settingsUi.caption.cause" xml:space="preserve"><value>원인</value></data>
+  <data name="settingsUi.caption.ch" xml:space="preserve"><value>채널</value></data>
+  <data name="settingsUi.caption.chSlot" xml:space="preserve"><value>채널 (슬롯)</value></data>
+  <data name="settingsUi.caption.channel" xml:space="preserve"><value>채널</value></data>
+  <data name="settingsUi.caption.code" xml:space="preserve"><value>코드</value></data>
+  <data name="settingsUi.caption.color" xml:space="preserve"><value>색상</value></data>
+  <data name="settingsUi.caption.comPort" xml:space="preserve"><value>COM 포트</value></data>
+  <data name="settingsUi.caption.command" xml:space="preserve"><value>명령값</value></data>
+  <data name="settingsUi.caption.commandPosition" xml:space="preserve"><value>명령 위치</value></data>
+  <data name="settingsUi.caption.config" xml:space="preserve"><value>설정</value></data>
+  <data name="settingsUi.caption.configuration" xml:space="preserve"><value>환경 설정</value></data>
+  <data name="settingsUi.caption.connect" xml:space="preserve"><value>연결</value></data>
+  <data name="settingsUi.caption.cylinder" xml:space="preserve"><value>실린더</value></data>
+  <data name="settingsUi.caption.cylinderList" xml:space="preserve"><value>실린더 목록</value></data>
+  <data name="settingsUi.caption.cylinderTest" xml:space="preserve"><value>실린더 테스트</value></data>
+  <data name="settingsUi.caption.dataBits" xml:space="preserve"><value>데이터 비트</value></data>
+  <data name="settingsUi.caption.decJerk" xml:space="preserve"><value>감속 저크 %</value></data>
+  <data name="settingsUi.caption.decel" xml:space="preserve"><value>감속도</value></data>
+  <data name="settingsUi.caption.defaultSpeedScale" xml:space="preserve"><value>기본 속도 비율 %</value></data>
+  <data name="settingsUi.caption.defaultVel" xml:space="preserve"><value>기본 속도</value></data>
+  <data name="settingsUi.caption.description" xml:space="preserve"><value>내용</value></data>
+  <data name="settingsUi.caption.di" xml:space="preserve"><value>디지털 입력</value></data>
+  <data name="settingsUi.caption.digitalIOList" xml:space="preserve"><value>디지털 입출력 목록</value></data>
+  <data name="settingsUi.caption.digitalInput" xml:space="preserve"><value>디지털 입력</value></data>
+  <data name="settingsUi.caption.digitalLink" xml:space="preserve"><value>디지털 연결</value></data>
+  <data name="settingsUi.caption.digitalOutput" xml:space="preserve"><value>디지털 출력</value></data>
+  <data name="settingsUi.caption.direction" xml:space="preserve"><value>방향</value></data>
+  <data name="settingsUi.caption.disconnect" xml:space="preserve"><value>연결 해제</value></data>
+  <data name="settingsUi.caption.do" xml:space="preserve"><value>디지털 출력</value></data>
+  <data name="settingsUi.caption.doOff" xml:space="preserve"><value>출력 끄기</value></data>
+  <data name="settingsUi.caption.doOn" xml:space="preserve"><value>출력 켜기</value></data>
+  <data name="settingsUi.caption.done" xml:space="preserve"><value>완료</value></data>
+  <data name="settingsUi.caption.emergency" xml:space="preserve"><value>비상</value></data>
+  <data name="settingsUi.caption.emergencySignal" xml:space="preserve"><value>비상 신호</value></data>
+  <data name="settingsUi.caption.emgLevel" xml:space="preserve"><value>비상 레벨</value></data>
+  <data name="settingsUi.caption.enable" xml:space="preserve"><value>사용</value></data>
+  <data name="settingsUi.caption.error" xml:space="preserve"><value>오류</value></data>
+  <data name="settingsUi.caption.exposureMs" xml:space="preserve"><value>노출 시간(ms)</value></data>
+  <data name="settingsUi.caption.fwd" xml:space="preserve"><value>전진</value></data>
+  <data name="settingsUi.caption.fwdDi" xml:space="preserve"><value>전진 입력</value></data>
+  <data name="settingsUi.caption.fwdDo" xml:space="preserve"><value>전진 출력</value></data>
+  <data name="settingsUi.caption.fwdText" xml:space="preserve"><value>전진 표시명</value></data>
+  <data name="settingsUi.caption.fwdWaitMs" xml:space="preserve"><value>전진 대기(ms)</value></data>
+  <data name="settingsUi.caption.headChar" xml:space="preserve"><value>시작 문자</value></data>
+  <data name="settingsUi.caption.height" xml:space="preserve"><value>높이</value></data>
+  <data name="settingsUi.caption.home" xml:space="preserve"><value>원점 복귀</value></data>
+  <data name="settingsUi.caption.homeAcc1" xml:space="preserve"><value>원점 가속도 1</value></data>
+  <data name="settingsUi.caption.homeAcc2" xml:space="preserve"><value>원점 가속도 2</value></data>
+  <data name="settingsUi.caption.homeDec1" xml:space="preserve"><value>원점 감속도 1</value></data>
+  <data name="settingsUi.caption.homeDec2" xml:space="preserve"><value>원점 감속도 2</value></data>
+  <data name="settingsUi.caption.homeEnd" xml:space="preserve"><value>원점 복귀 완료</value></data>
+  <data name="settingsUi.caption.homeVel1" xml:space="preserve"><value>원점 속도 1</value></data>
+  <data name="settingsUi.caption.homeVel2" xml:space="preserve"><value>원점 속도 2</value></data>
+  <data name="settingsUi.caption.homeVel3" xml:space="preserve"><value>원점 속도 3</value></data>
+  <data name="settingsUi.caption.homeVel4" xml:space="preserve"><value>원점 속도 4</value></data>
+  <data name="settingsUi.caption.host" xml:space="preserve"><value>호스트</value></data>
+  <data name="settingsUi.caption.iOControl" xml:space="preserve"><value>입출력 제어</value></data>
+  <data name="settingsUi.caption.iOSim" xml:space="preserve"><value>입출력 시뮬레이션</value></data>
+  <data name="settingsUi.caption.iOSimMode" xml:space="preserve"><value>입출력 시뮬레이션 모드</value></data>
+  <data name="settingsUi.caption.inPosTol" xml:space="preserve"><value>위치 도달 허용 오차</value></data>
+  <data name="settingsUi.caption.index" xml:space="preserve"><value>번호</value></data>
+  <data name="settingsUi.caption.initAxis" xml:space="preserve"><value>축 초기화</value></data>
+  <data name="settingsUi.caption.inpDone" xml:space="preserve"><value>위치 도달 완료</value></data>
+  <data name="settingsUi.caption.inposition" xml:space="preserve"><value>위치 도달</value></data>
+  <data name="settingsUi.caption.input" xml:space="preserve"><value>입력</value></data>
+  <data name="settingsUi.caption.inputMode" xml:space="preserve"><value>입력 모드</value></data>
+  <data name="settingsUi.caption.inputSource" xml:space="preserve"><value>입력 소스</value></data>
+  <data name="settingsUi.caption.inputVision" xml:space="preserve"><value>입력 비전</value></data>
+  <data name="settingsUi.caption.inputWaferBarcode" xml:space="preserve"><value>입력 웨이퍼 바코드</value></data>
+  <data name="settingsUi.caption.jog" xml:space="preserve"><value>조그</value></data>
+  <data name="settingsUi.caption.jogAcc" xml:space="preserve"><value>조그 가속도</value></data>
+  <data name="settingsUi.caption.jogCoarse" xml:space="preserve"><value>일반 조그</value></data>
+  <data name="settingsUi.caption.jogDec" xml:space="preserve"><value>조그 감속도</value></data>
+  <data name="settingsUi.caption.jogFine" xml:space="preserve"><value>미세 조그</value></data>
+  <data name="settingsUi.caption.jogStopDec" xml:space="preserve"><value>조그 정지 감속도</value></data>
+  <data name="settingsUi.caption.key" xml:space="preserve"><value>키</value></data>
+  <data name="settingsUi.caption.lampList" xml:space="preserve"><value>램프 목록</value></data>
+  <data name="settingsUi.caption.level" xml:space="preserve"><value>레벨</value></data>
+  <data name="settingsUi.caption.level0255" xml:space="preserve"><value>밝기 (0~255)</value></data>
+  <data name="settingsUi.caption.light" xml:space="preserve"><value>조명</value></data>
+  <data name="settingsUi.caption.lightController" xml:space="preserve"><value>조명 컨트롤러</value></data>
+  <data name="settingsUi.caption.lightSourceList" xml:space="preserve"><value>광원 목록</value></data>
+  <data name="settingsUi.caption.limit" xml:space="preserve"><value>리미트</value></data>
+  <data name="settingsUi.caption.limitMax" xml:space="preserve"><value>최대 한계</value></data>
+  <data name="settingsUi.caption.limitMin" xml:space="preserve"><value>최소 한계</value></data>
+  <data name="settingsUi.caption.lowerVision" xml:space="preserve"><value>하부 비전</value></data>
+  <data name="settingsUi.caption.maxVelocity" xml:space="preserve"><value>최대 속도</value></data>
+  <data name="settingsUi.caption.mel" xml:space="preserve"><value>음극 리미트</value></data>
+  <data name="settingsUi.caption.mode" xml:space="preserve"><value>모드</value></data>
+  <data name="settingsUi.caption.module" xml:space="preserve"><value>모듈</value></data>
+  <data name="settingsUi.caption.moduleList" xml:space="preserve"><value>모듈 목록</value></data>
+  <data name="settingsUi.caption.motion" xml:space="preserve"><value>모션</value></data>
+  <data name="settingsUi.caption.motion2" xml:space="preserve"><value>모션</value></data>
+  <data name="settingsUi.caption.motionTest" xml:space="preserve"><value>모션 테스트</value></data>
+  <data name="settingsUi.caption.moveTimeoutMs" xml:space="preserve"><value>이동 제한 시간(ms)</value></data>
+  <data name="settingsUi.caption.moveTo" xml:space="preserve"><value>위치 이동</value></data>
+  <data name="settingsUi.caption.name" xml:space="preserve"><value>이름</value></data>
+  <data name="settingsUi.caption.negAction" xml:space="preserve"><value>음극 동작</value></data>
+  <data name="settingsUi.caption.negLevel" xml:space="preserve"><value>음극 레벨</value></data>
+  <data name="settingsUi.caption.negValue" xml:space="preserve"><value>음극 값</value></data>
+  <data name="settingsUi.caption.no" xml:space="preserve"><value>번호</value></data>
+  <data name="settingsUi.caption.no2" xml:space="preserve"><value>번호</value></data>
+  <data name="settingsUi.caption.off" xml:space="preserve"><value>꺼짐</value></data>
+  <data name="settingsUi.caption.offset" xml:space="preserve"><value>오프셋</value></data>
+  <data name="settingsUi.caption.on" xml:space="preserve"><value>켜짐</value></data>
+  <data name="settingsUi.caption.org" xml:space="preserve"><value>원점 신호</value></data>
+  <data name="settingsUi.caption.output" xml:space="preserve"><value>출력</value></data>
+  <data name="settingsUi.caption.outputBinBarcode" xml:space="preserve"><value>출력 BIN 바코드</value></data>
+  <data name="settingsUi.caption.outputMode" xml:space="preserve"><value>출력 모드</value></data>
+  <data name="settingsUi.caption.outputVision" xml:space="preserve"><value>출력 비전</value></data>
+  <data name="settingsUi.caption.paraLoad" xml:space="preserve"><value>파라미터 불러오기</value></data>
+  <data name="settingsUi.caption.paraSave" xml:space="preserve"><value>파라미터 저장</value></data>
+  <data name="settingsUi.caption.parity" xml:space="preserve"><value>패리티</value></data>
+  <data name="settingsUi.caption.pel" xml:space="preserve"><value>양극 리미트</value></data>
+  <data name="settingsUi.caption.pickerZone" xml:space="preserve"><value>피커 구역</value></data>
+  <data name="settingsUi.caption.pickerZone2" xml:space="preserve"><value>피커 구역</value></data>
+  <data name="settingsUi.caption.port" xml:space="preserve"><value>포트</value></data>
+  <data name="settingsUi.caption.posAction" xml:space="preserve"><value>양극 동작</value></data>
+  <data name="settingsUi.caption.posLevel" xml:space="preserve"><value>양극 레벨</value></data>
+  <data name="settingsUi.caption.posValue" xml:space="preserve"><value>양극 값</value></data>
+  <data name="settingsUi.caption.position" xml:space="preserve"><value>위치</value></data>
+  <data name="settingsUi.caption.positionTeaching" xml:space="preserve"><value>위치 티칭</value></data>
+  <data name="settingsUi.caption.positionTeachingList" xml:space="preserve"><value>위치 티칭 목록</value></data>
+  <data name="settingsUi.caption.profile" xml:space="preserve"><value>프로파일</value></data>
+  <data name="settingsUi.caption.pulse200Ms" xml:space="preserve"><value>펄스 200ms</value></data>
+  <data name="settingsUi.caption.pulsesUnit" xml:space="preserve"><value>단위당 펄스</value></data>
+  <data name="settingsUi.caption.readTimeout" xml:space="preserve"><value>읽기 제한 시간</value></data>
+  <data name="settingsUi.caption.readTimeoutMs" xml:space="preserve"><value>읽기 제한 시간 (ms)</value></data>
+  <data name="settingsUi.caption.ready" xml:space="preserve"><value>준비</value></data>
+  <data name="settingsUi.caption.refresh" xml:space="preserve"><value>갱신</value></data>
+  <data name="settingsUi.caption.reload" xml:space="preserve"><value>다시 불러오기</value></data>
+  <data name="settingsUi.caption.reloadJson" xml:space="preserve"><value>JSON 다시 불러오기</value></data>
+  <data name="settingsUi.caption.reset" xml:space="preserve"><value>초기화</value></data>
+  <data name="settingsUi.caption.resetDefault" xml:space="preserve"><value>기본값 복원</value></data>
+  <data name="settingsUi.caption.resetLevel" xml:space="preserve"><value>리셋 레벨</value></data>
+  <data name="settingsUi.caption.retryCount" xml:space="preserve"><value>재시도 횟수</value></data>
+  <data name="settingsUi.caption.role" xml:space="preserve"><value>역할</value></data>
+  <data name="settingsUi.caption.save" xml:space="preserve"><value>저장</value></data>
+  <data name="settingsUi.caption.saveBarcodeSettings" xml:space="preserve"><value>바코드 설정 저장</value></data>
+  <data name="settingsUi.caption.search" xml:space="preserve"><value>검색:</value></data>
+  <data name="settingsUi.caption.selectAGridRowToSwitchAxisAutomatically" xml:space="preserve"><value>표에서 행을 선택하면 해당 축으로 자동 전환됩니다.</value></data>
+  <data name="settingsUi.caption.sensor1" xml:space="preserve"><value>센서 #1</value></data>
+  <data name="settingsUi.caption.sensor2" xml:space="preserve"><value>센서 #2</value></data>
+  <data name="settingsUi.caption.sensorLevel" xml:space="preserve"><value>센서 레벨</value></data>
+  <data name="settingsUi.caption.sensorValue" xml:space="preserve"><value>센서 값</value></data>
+  <data name="settingsUi.caption.serialPortCom" xml:space="preserve"><value>직렬 포트 (COM)</value></data>
+  <data name="settingsUi.caption.servo" xml:space="preserve"><value>서보</value></data>
+  <data name="settingsUi.caption.servoLevel" xml:space="preserve"><value>서보 레벨</value></data>
+  <data name="settingsUi.caption.servoOff" xml:space="preserve"><value>서보 끄기</value></data>
+  <data name="settingsUi.caption.servoOn" xml:space="preserve"><value>서보 켜기</value></data>
+  <data name="settingsUi.caption.severity" xml:space="preserve"><value>심각도</value></data>
+  <data name="settingsUi.caption.sharedRailX" xml:space="preserve"><value>공유 레일 X</value></data>
+  <data name="settingsUi.caption.sideVisionFront" xml:space="preserve"><value>측면 비전 (전면)</value></data>
+  <data name="settingsUi.caption.sideVisionRear" xml:space="preserve"><value>측면 비전 (후면)</value></data>
+  <data name="settingsUi.caption.signal" xml:space="preserve"><value>신호</value></data>
+  <data name="settingsUi.caption.sim" xml:space="preserve"><value>시뮬레이션</value></data>
+  <data name="settingsUi.caption.simMode" xml:space="preserve"><value>시뮬레이션 모드</value></data>
+  <data name="settingsUi.caption.single" xml:space="preserve"><value>단동</value></data>
+  <data name="settingsUi.caption.softLimitNegative" xml:space="preserve"><value>소프트 리미트(-)</value></data>
+  <data name="settingsUi.caption.softLimitPositive" xml:space="preserve"><value>소프트 리미트(+)</value></data>
+  <data name="settingsUi.caption.speed" xml:space="preserve"><value>속도</value></data>
+  <data name="settingsUi.caption.speed2" xml:space="preserve"><value>속도</value></data>
+  <data name="settingsUi.caption.state" xml:space="preserve"><value>상태</value></data>
+  <data name="settingsUi.caption.status" xml:space="preserve"><value>상태</value></data>
+  <data name="settingsUi.caption.stopBits" xml:space="preserve"><value>정지 비트</value></data>
+  <data name="settingsUi.caption.stopDec" xml:space="preserve"><value>정지 감속도</value></data>
+  <data name="settingsUi.caption.stopMode" xml:space="preserve"><value>정지 모드</value></data>
+  <data name="settingsUi.caption.stroke" xml:space="preserve"><value>스트로크</value></data>
+  <data name="settingsUi.caption.swEnabled" xml:space="preserve"><value>소프트 리미트 사용</value></data>
+  <data name="settingsUi.caption.swNegative" xml:space="preserve"><value>음극 소프트 리미트</value></data>
+  <data name="settingsUi.caption.swPositive" xml:space="preserve"><value>양극 소프트 리미트</value></data>
+  <data name="settingsUi.caption.switchList" xml:space="preserve"><value>스위치 목록</value></data>
+  <data name="settingsUi.caption.symbol" xml:space="preserve"><value>기호</value></data>
+  <data name="settingsUi.caption.tailChar" xml:space="preserve"><value>종료 문자</value></data>
+  <data name="settingsUi.caption.teach" xml:space="preserve"><value>티칭</value></data>
+  <data name="settingsUi.caption.testConn" xml:space="preserve"><value>연결 테스트</value></data>
+  <data name="settingsUi.caption.testConnection" xml:space="preserve"><value>연결 테스트</value></data>
+  <data name="settingsUi.caption.testRead" xml:space="preserve"><value>읽기 테스트</value></data>
+  <data name="settingsUi.caption.timeoutMs" xml:space="preserve"><value>제한 시간(ms)</value></data>
+  <data name="settingsUi.caption.title" xml:space="preserve"><value>제목</value></data>
+  <data name="settingsUi.caption.tolerance" xml:space="preserve"><value>허용 오차</value></data>
+  <data name="settingsUi.caption.trigger" xml:space="preserve"><value>트리거</value></data>
+  <data name="settingsUi.caption.unit" xml:space="preserve"><value>단위</value></data>
+  <data name="settingsUi.caption.unitPulse" xml:space="preserve"><value>펄스당 단위</value></data>
+  <data name="settingsUi.caption.useInputWaferBarcode" xml:space="preserve"><value>입력 웨이퍼 바코드 사용</value></data>
+  <data name="settingsUi.caption.useOutputBinBarcode" xml:space="preserve"><value>출력 BIN 바코드 사용</value></data>
+  <data name="settingsUi.caption.value" xml:space="preserve"><value>값</value></data>
+  <data name="settingsUi.caption.velocity" xml:space="preserve"><value>속도</value></data>
+  <data name="settingsUi.caption.width" xml:space="preserve"><value>너비</value></data>
+  <data name="settingsUi.caption.yRetryStepMm" xml:space="preserve"><value>Y 재시도 간격 (mm)</value></data>
+  <data name="settingsUi.caption.zPhaseLevel" xml:space="preserve"><value>Z상 레벨</value></data>
+  <data name="settingsUi.caption.zero" xml:space="preserve"><value>영점</value></data>
+  <data name="settingsUi.caption.zoom" xml:space="preserve"><value>배율</value></data>
+  <data name="settingsUi.io.confirmAllMode" xml:space="preserve"><value>전체 입출력을 {0} 모드로 변경할까요?</value></data>
+  <data name="settingsUi.io.confirmMode" xml:space="preserve"><value>{0} 입출력을 {1} 모드로 변경할까요?</value></data>
+  <data name="settingsUi.io.confirmOutput" xml:space="preserve"><value>{0} 출력을 {1}(으)로 설정하시겠습니까?</value></data>
+  <data name="settingsUi.io.confirmState" xml:space="preserve"><value>{0} {1} 상태를 {2}(으)로 변경할까요?</value></data>
+  <data name="settingsUi.io.error" xml:space="preserve"><value>{0} 오류</value></data>
+  <data name="settingsUi.io.failed" xml:space="preserve"><value>{0} 실패</value></data>
+  <data name="settingsUi.io.listTitle" xml:space="preserve"><value>{0} 목록</value></data>
+  <data name="settingsUi.io.live" xml:space="preserve"><value>실시간 하드웨어 입출력입니다. 출력 명령은 매핑된 아진 출력에 직접 기록됩니다.</value></data>
+  <data name="settingsUi.io.loaded" xml:space="preserve"><value>( 입력 {0} / 출력 {1} 불러옴 )</value></data>
+  <data name="settingsUi.io.loadedSim" xml:space="preserve"><value>( 입력 {0} / 출력 {1} 불러옴 · 시뮬레이션 )</value></data>
+  <data name="settingsUi.io.mappingSaved" xml:space="preserve"><value>실린더 입출력 매핑을 저장하고 적용했습니다.&#13;&#10;{0}</value></data>
+  <data name="settingsUi.io.notReady" xml:space="preserve"><value>장비가 준비되지 않았습니다.</value></data>
+  <data name="settingsUi.io.running" xml:space="preserve"><value>{0} 실행 중</value></data>
+  <data name="settingsUi.io.simRequired" xml:space="preserve"><value>시뮬레이션이 켜진 상태에서만 입출력 상태를 직접 변경할 수 있습니다.</value></data>
+  <data name="settingsUi.io.state" xml:space="preserve"><value>상태 : {0}</value></data>
+  <data name="settingsUi.io.success" xml:space="preserve"><value>{0} 성공</value></data>
+  <data name="settingsUi.light.saved" xml:space="preserve"><value>저장 완료.&#10;{0}&#10;&#10;조명 명령 전송: {1}/{2}</value></data>
+  <data name="settingsUi.message.applyFailed" xml:space="preserve"><value>적용 실패: {0}</value></data>
+  <data name="settingsUi.message.blockedWhileRunning" xml:space="preserve"><value>장비 동작 중에는 {0}을(를) 수행할 수 없습니다. 장비를 정지한 뒤 다시 시도하십시오.</value></data>
+  <data name="settingsUi.message.failed" xml:space="preserve"><value>실패: {0}</value></data>
+  <data name="settingsUi.message.machineNotInitialized" xml:space="preserve"><value>장비가 초기화되지 않았습니다.</value></data>
+  <data name="settingsUi.message.resetDefault" xml:space="preserve"><value>기본값으로 초기화하시겠습니까?</value></data>
+  <data name="settingsUi.message.saveFailed" xml:space="preserve"><value>저장 실패: {0}</value></data>
+  <data name="settingsUi.message.savedPath" xml:space="preserve"><value>저장 완료.&#10;{0}</value></data>
+  <data name="settingsUi.motion.actionFailed" xml:space="preserve"><value>모션 동작 실패. 결과={0}. 알람/이벤트 로그를 확인하세요.</value></data>
+  <data name="settingsUi.motion.allAxesTitle" xml:space="preserve"><value>전체 축 - {0}</value></data>
+  <data name="settingsUi.motion.axlDisabled" xml:space="preserve"><value>AXL 라이브러리가 열리지 않았습니다. 설정 &gt; 일반에서 UseAjin을 켠 후 다시 시작하세요.</value></data>
+  <data name="settingsUi.motion.axlNotOpen" xml:space="preserve"><value>AXL 라이브러리가 열리지 않았습니다.</value></data>
+  <data name="settingsUi.motion.configSaveFailed" xml:space="preserve"><value>모션 축 설정 저장에 실패했습니다.&#13;&#10;현재 적용값과 저장 파일의 값이 다를 수 있으며, 재시작하면 이전값으로 복원될 수 있습니다.&#13;&#10;알람/이벤트 로그를 확인하십시오.</value></data>
+  <data name="settingsUi.motion.configSaveFailedTitle" xml:space="preserve"><value>모션 설정 저장 실패</value></data>
+  <data name="settingsUi.motion.configuration" xml:space="preserve"><value>모션 설정</value></data>
+  <data name="settingsUi.motion.confirmInitialize" xml:space="preserve"><value>{0} 축 초기화를 진행하시겠습니까?</value></data>
+  <data name="settingsUi.motion.initializeFailed" xml:space="preserve"><value>축 초기화 실패:&#13;&#10;{0}</value></data>
+  <data name="settingsUi.motion.invalidSpeedScale" xml:space="preserve"><value>속도 비율이 올바르지 않습니다. {0} ~ {1} %를 입력하세요.</value></data>
+  <data name="settingsUi.motion.motSaveBlocked" xml:space="preserve"><value>장비 설정 중에는 mot 파일을 저장할 수 없습니다.</value></data>
+  <data name="settingsUi.motion.moveTimeoutInput" xml:space="preserve"><value>이동 제한 시간은 0 이상의 정수(ms)로 입력하십시오.</value></data>
+  <data name="settingsUi.motion.noAxis" xml:space="preserve"><value>선택된 축이 없습니다.</value></data>
+  <data name="settingsUi.motion.noController" xml:space="preserve"><value>장비 컨트롤러를 찾을 수 없습니다.</value></data>
+  <data name="settingsUi.motion.openFilter" xml:space="preserve"><value>모션 파라미터 (*.mot)|*.mot|모든 파일 (*.*)|*.*</value></data>
+  <data name="settingsUi.motion.openTestFailed" xml:space="preserve"><value>모션 테스트 창을 열 수 없습니다:&#13;&#10;{0}</value></data>
+  <data name="settingsUi.motion.parameterLoadFailed" xml:space="preserve"><value>파라미터 불러오기 실패. 0x{0}</value></data>
+  <data name="settingsUi.motion.parameterLoaded" xml:space="preserve"><value>파라미터를 불러왔습니다.</value></data>
+  <data name="settingsUi.motion.parameterSaveFailed" xml:space="preserve"><value>파라미터 저장 실패. 0x{0}</value></data>
+  <data name="settingsUi.motion.parameterSaved" xml:space="preserve"><value>파라미터를 저장했습니다.</value></data>
+  <data name="settingsUi.motion.saveFilter" xml:space="preserve"><value>모션 파라미터 (*.mot)|*.mot</value></data>
+  <data name="settingsUi.motion.speedSavePartial" xml:space="preserve"><value>속도 파라미터를 적용했지만 일부 설정을 저장하지 못했습니다. 알람/이벤트 로그를 확인하세요.</value></data>
+  <data name="settingsUi.motion.speedSaved" xml:space="preserve"><value>{0}개 축의 속도 파라미터를 저장했습니다.</value></data>
+  <data name="settingsUi.motion.speedScaleFailed" xml:space="preserve"><value>속도 비율 변경 실패: {0}</value></data>
+  <data name="settingsUi.teach.actual" xml:space="preserve"><value>실제 위치: {0}</value></data>
+  <data name="settingsUi.teach.applied" xml:space="preserve"><value>티칭 반영 완료: {0}개 항목&#10;&#10;피커 위치 티칭은 레시피에 저장됩니다.&#10;(미반영 항목은 JSON에만 저장됨 — 이벤트 로그 TEACH-NOAPPLY 참조)</value></data>
+  <data name="settingsUi.teach.axis" xml:space="preserve"><value>축: {0}</value></data>
+  <data name="settingsUi.teach.axisNone" xml:space="preserve"><value>축: (없음)</value></data>
+  <data name="settingsUi.teach.axisNotFound" xml:space="preserve"><value>축을 찾지 못했습니다: {0}</value></data>
+  <data name="settingsUi.teach.axisUnknown" xml:space="preserve"><value>축을 식별하지 못했습니다: {0}</value></data>
+  <data name="settingsUi.teach.jogFailed" xml:space="preserve"><value>조그 실패: {0}</value></data>
+  <data name="settingsUi.teach.moveFailed" xml:space="preserve"><value>이동 실패: {0}</value></data>
+  <data name="settingsUi.teach.numericOnly" xml:space="preserve"><value>숫자만 입력 가능합니다.</value></data>
+  <data name="settingsUi.teach.saved" xml:space="preserve"><value>티칭 데이터 저장 완료.&#10;{0}</value></data>
+  <data name="settingsUi.teach.step" xml:space="preserve"><value>이동 간격 ({0})</value></data>
+</root>

@@ -147,7 +147,7 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 if (Host == null || Host.Machine == null || Host.Machine.InputStageUnit == null)
                 {
-                    QMC.Common.MessageDialog.Show(FindForm(), "InputStage Unit을 찾을 수 없습니다.", "Die Map Setup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(FindForm(), Lang.T("message.recipe.inputStageMissing"), Lang.T("message.title.dieMapSetup"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -170,7 +170,7 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "OpenDieMapSetup",
                     "Open Die Map Setup failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(FindForm(), "Die Map Setup 열기 실패:\r\n" + ex.Message, "Die Map Setup", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(FindForm(), Lang.Format("message.recipe.dieMapOpenFailed", ex.Message), Lang.T("message.title.dieMapSetup"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

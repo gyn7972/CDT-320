@@ -41,6 +41,29 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private QMC.CDT_320.Ui.Dialogs.PickerZoneSetupDialog _pickerZoneDialog;
         private Form1 Host => FindForm() as Form1;
 
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(NO, "settingsUi.caption.no2");
+            Lang.BindKey(MODULE, "settingsUi.caption.module");
+            Lang.BindKey(NAME, "settingsUi.caption.axisName");
+            Lang.BindKey(BOARD, "settingsUi.caption.board");
+            Lang.BindKey(CH, "settingsUi.caption.chSlot");
+            Lang.BindKey(UNIT, "settingsUi.caption.unit");
+            Lang.BindKey(STROKE, "settingsUi.caption.stroke");
+            Lang.BindKey(SIM, "settingsUi.caption.sim");
+            Lang.BindKey(SLN, "settingsUi.caption.softLimitNegative");
+            Lang.BindKey(SLP, "settingsUi.caption.softLimitPositive");
+            Lang.BindKey(_gridGroup, "settingsUi.caption.axisSetupList");
+            Lang.BindKey(_actionGroup, "settingsUi.caption.action");
+            Lang.BindKey(btnSave, "settingsUi.caption.save");
+            Lang.BindKey(btnReload, "settingsUi.caption.reload");
+            Lang.BindKey(btnReset, "settingsUi.caption.resetDefault");
+            Lang.BindKey(btnApply, "settingsUi.caption.applySoftLimit");
+            Lang.BindKey(btnSharedRailX, "settingsUi.caption.sharedRailX");
+            Lang.BindKey(btnPickerZone, "settingsUi.caption.pickerZone");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
         public AxisSetupPage()
         {
             InitializeComponent();
@@ -49,6 +72,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 ApplyRuntimeUi();
                 SettingsPageLayoutStyler.Apply(this);
                 ApplyCompactLayout();
+                InitializeLanguageBindings();
                 _items = LoadOrSeed();
                 FillGrid();
             }
@@ -86,7 +110,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private void OnResetClick(object sender, EventArgs e)
         {
-            if (QMC.Common.MessageDialog.Show("기본값으로 초기화?", "Reset", MessageBoxButtons.OKCancel) != DialogResult.OK) return;
+            if (QMC.Common.MessageDialog.Show(Lang.T("settingsUi.message.resetDefault"), Lang.T("settingsUi.caption.reset"), MessageBoxButtons.OKCancel) != DialogResult.OK) return;
             ResetRowsToDefaults(_items);
             FillGrid();
         }
@@ -100,7 +124,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 Form1 host = FindForm() as Form1;
                 if (host == null || host.Controller == null)
                 {
-                    QMC.Common.MessageDialog.Show("MachineController 미초기화", "SharedRailX",
+                    QMC.Common.MessageDialog.Show(Lang.T("settingsUi.message.machineNotInitialized"), Lang.T("settingsUi.caption.sharedRailX"),
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -121,8 +145,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show("SharedRailX dialog open failed: " + ex.Message,
-                    "SharedRailX", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.axis.sharedRailOpenFailed", ex.Message),
+                    Lang.T("settingsUi.caption.sharedRailX"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -136,7 +160,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 Form1 host = FindForm() as Form1;
                 if (host == null || host.Controller == null)
                 {
-                    QMC.Common.MessageDialog.Show("MachineController 미초기화", "Picker Zone",
+                    QMC.Common.MessageDialog.Show(Lang.T("settingsUi.message.machineNotInitialized"), Lang.T("settingsUi.caption.pickerZone2"),
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -157,8 +181,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show("Picker Zone 설정창 열기 실패: " + ex.Message,
-                    "Picker Zone", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.axis.pickerZoneOpenFailed", ex.Message),
+                    Lang.T("settingsUi.caption.pickerZone2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -340,10 +364,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     unitSaved = Host.Machine.SaveSettings();
 
                 QMC.Common.MessageDialog.Show(unitSaved
-                    ? "저장 완료.\n" + MotionAxisStore.DefaultPath + "\n적용 축: " + applied
-                    : "축 설정은 적용되었지만 일부 Unit 설정 저장에 실패했습니다.\nAlarm/Event Log를 확인하세요.");
+                    ? Lang.Format("settingsUi.axis.saved", MotionAxisStore.DefaultPath, applied)
+                    : Lang.T("settingsUi.axis.savePartial"));
             }
-            catch (Exception ex) { QMC.Common.MessageDialog.Show("실패: " + ex.Message); }
+            catch (Exception ex) { QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.message.failed", ex.Message)); }
         }
 
         // ── Grid ─────────────────────────────────────────────────────
@@ -388,8 +412,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 return false;
 
             QMC.Common.MessageDialog.Show(
-                "장비 동작 중에는 " + (action ?? "축 설정 변경") +
-                "을 수행할 수 없습니다. 동작을 정지한 뒤 다시 시도하십시오.");
+                Lang.Format("settingsUi.message.blockedWhileRunning", SettingsUiText.Display(action ?? "축 설정 변경")));
             return true;
         }
 
@@ -529,8 +552,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 AxisRow row = _items[rowIndex];
                 bool next = !row.SimulationMode;
                 string axisName = AjinAxisDefaults.ToDisplayName(string.IsNullOrWhiteSpace(row.Name) ? row.ConfigKey : row.Name);
-                string message = axisName + " 축을 " + (next ? "SIM 모드로 변경할까요?" : "REAL 모드로 변경할까요?");
-                if (QMC.Common.MessageDialog.Show(message, "SIM MODE", MessageBoxButtons.OKCancel) != DialogResult.OK)
+                string message = Lang.Format("settingsUi.axis.confirmMode", axisName, next ? "SIM" : "REAL");
+                if (QMC.Common.MessageDialog.Show(message, Lang.T("settingsUi.caption.simMode"), MessageBoxButtons.OKCancel) != DialogResult.OK)
                     return;
 
                 ApplyCellValue(rowIndex, "SIM", next);
@@ -562,15 +585,15 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                 object nextValue;
                 object current = grid.Rows[0].Cells[e.ColumnIndex].Value;
-                string title = "ALL AXES - " + col.HeaderText;
+                string title = Lang.Format("settingsUi.motion.allAxesTitle", col.HeaderText);
 
                 if (IsToggleColumn(col.Name))
                 {
                     string picked = ShowEnumDialog(title, new[] { "ON", "OFF" }, ToBool(current) ? "ON" : "OFF");
                     if (picked == null) return;
                     nextValue = string.Equals(picked, "ON", StringComparison.OrdinalIgnoreCase);
-                    string message = "전체 축을 " + ((bool)nextValue ? "SIM 모드로 변경할까요?" : "REAL 모드로 변경할까요?");
-                    if (QMC.Common.MessageDialog.Show(message, "SIM MODE", MessageBoxButtons.OKCancel) != DialogResult.OK)
+                    string message = Lang.Format("settingsUi.axis.confirmAllMode", (bool)nextValue ? "SIM" : "REAL");
+                    if (QMC.Common.MessageDialog.Show(message, Lang.T("settingsUi.caption.simMode"), MessageBoxButtons.OKCancel) != DialogResult.OK)
                         return;
                 }
                 else if (IsEnumColumn(col.Name))
@@ -873,12 +896,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     return;
 
                 int axisApplied = ApplyRowsToAxes();
-                QMC.Common.MessageDialog.Show("Axis setup 적용 축: " + axisApplied);
+                QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.axis.appliedCount", axisApplied));
             }
             catch (Exception ex)
             {
                 QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-APPLY", "Axis setup apply failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show("Axis setup 적용 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.axis.applyFailed", ex.Message));
             }
             finally
             {
@@ -1011,4 +1034,3 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
-

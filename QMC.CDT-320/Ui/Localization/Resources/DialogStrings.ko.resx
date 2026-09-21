@@ -1,0 +1,428 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 대화상자 표시 전용 문구. 고정 키와 자리표시자 번호를 유지하고 값만 편집합니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="dialog.action.bad" xml:space="preserve">
+    <value>불량</value>
+  </data>
+  <data name="dialog.action.buzzerOff" xml:space="preserve">
+    <value>부저 끄기</value>
+  </data>
+  <data name="dialog.action.check" xml:space="preserve">
+    <value>확인</value>
+  </data>
+  <data name="dialog.action.complete" xml:space="preserve">
+    <value>완료</value>
+  </data>
+  <data name="dialog.action.continue" xml:space="preserve">
+    <value>계속</value>
+  </data>
+  <data name="dialog.action.retry" xml:space="preserve">
+    <value>재시도</value>
+  </data>
+  <data name="dialog.action.skip" xml:space="preserve">
+    <value>건너뛰기</value>
+  </data>
+  <data name="dialog.action.start" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="dialog.action.stop" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="dialog.bin.all" xml:space="preserve">
+    <value>전체 — 맵의 모든 다이 픽업 (기본)</value>
+  </data>
+  <data name="dialog.bin.chooseOne" xml:space="preserve">
+    <value>지정 BIN 모드에는 최소 1개의 BIN을 선택해야 합니다.&#10;(전부 픽업하려면 전체를 선택하세요.)</value>
+  </data>
+  <data name="dialog.bin.dieCount" xml:space="preserve">
+    <value>다이 수</value>
+  </data>
+  <data name="dialog.bin.empty" xml:space="preserve">
+    <value>수신된 웨이퍼맵이 없습니다. LOT 시작 (프리페치) 후 다시 여세요.</value>
+  </data>
+  <data name="dialog.bin.guide" xml:space="preserve">
+    <value>· 선택 변경은 다음 웨이퍼(맵 적용 시점)부터 반영됩니다.&#10;· LOT 완료/레시피 변경 시 자동으로 전체로 복귀합니다.&#10;· 색은 BIN 색상 사전(Config\bin_codes.json) 기준 표시입니다.</value>
+  </data>
+  <data name="dialog.bin.missing" xml:space="preserve">
+    <value>(기준 맵에 없음)</value>
+  </data>
+  <data name="dialog.bin.name" xml:space="preserve">
+    <value>이름</value>
+  </data>
+  <data name="dialog.bin.noLot" xml:space="preserve">
+    <value>(진행 중인 LOT 없음)</value>
+  </data>
+  <data name="dialog.bin.noReference" xml:space="preserve">
+    <value>LOT: {0}   /   수신된 웨이퍼맵 없음 (첫 웨이퍼 바코드 판독 후 표시)</value>
+  </data>
+  <data name="dialog.bin.reference" xml:space="preserve">
+    <value>LOT: {0}   /   기준 맵: {1} ({2}다이)</value>
+  </data>
+  <data name="dialog.bin.selected" xml:space="preserve">
+    <value>지정 BIN만 픽업 — 아래에서 선택</value>
+  </data>
+  <data name="dialog.bin.title" xml:space="preserve">
+    <value>픽업 BIN 선택</value>
+  </data>
+  <data name="dialog.close" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="dialog.filter.alpha" xml:space="preserve">
+    <value>alpha 환산 (읽기 전용)</value>
+  </data>
+  <data name="dialog.filter.clampT" xml:space="preserve">
+    <value>클램프 T</value>
+  </data>
+  <data name="dialog.filter.clampTCaption" xml:space="preserve">
+    <value>필터 상태 클램프 T (deg)</value>
+  </data>
+  <data name="dialog.filter.clampXy" xml:space="preserve">
+    <value>클램프 X/Y</value>
+  </data>
+  <data name="dialog.filter.clampXyCaption" xml:space="preserve">
+    <value>필터 상태 클램프 X/Y (mm)</value>
+  </data>
+  <data name="dialog.filter.clampZ" xml:space="preserve">
+    <value>클램프 Z</value>
+  </data>
+  <data name="dialog.filter.failed" xml:space="preserve">
+    <value>저장 실패 (로그 확인)</value>
+  </data>
+  <data name="dialog.filter.fc" xml:space="preserve">
+    <value>컷오프 fc</value>
+  </data>
+  <data name="dialog.filter.fcCaption" xml:space="preserve">
+    <value>컷오프 fc (cycles/sample)</value>
+  </data>
+  <data name="dialog.filter.info" xml:space="preserve">
+    <value>이상치 한계보다 큰 측정은 채널 샘플을 폐기합니다. 클램프는 누적 보정값의 절대 한계입니다. 피커 Z는 단채널이며 X/Y 행이 Z 한계이고 T 행은 없습니다.</value>
+  </data>
+  <data name="dialog.filter.invalid" xml:space="preserve">
+    <value>저장하지 않았습니다. 입력을 확인하십시오.&#10;&#10;{0}</value>
+  </data>
+  <data name="dialog.filter.item" xml:space="preserve">
+    <value>항목</value>
+  </data>
+  <data name="dialog.filter.notNumber" xml:space="preserve">
+    <value>{0} {1}: 숫자가 아닙니다. 입력={2}</value>
+  </data>
+  <data name="dialog.filter.outOfRange" xml:space="preserve">
+    <value>{0} {1}: 허용 범위 ({2}~{3})를 벗어났습니다. 입력={4}</value>
+  </data>
+  <data name="dialog.filter.outlierT" xml:space="preserve">
+    <value>이상치 T</value>
+  </data>
+  <data name="dialog.filter.outlierTCaption" xml:space="preserve">
+    <value>이상치 거부 한계 T (deg)</value>
+  </data>
+  <data name="dialog.filter.outlierXy" xml:space="preserve">
+    <value>이상치 X/Y</value>
+  </data>
+  <data name="dialog.filter.outlierXyCaption" xml:space="preserve">
+    <value>이상치 거부 한계 X/Y (mm)</value>
+  </data>
+  <data name="dialog.filter.outlierZ" xml:space="preserve">
+    <value>이상치 Z</value>
+  </data>
+  <data name="dialog.filter.pick" xml:space="preserve">
+    <value>픽업</value>
+  </data>
+  <data name="dialog.filter.pickerZ" xml:space="preserve">
+    <value>피커 Z</value>
+  </data>
+  <data name="dialog.filter.place" xml:space="preserve">
+    <value>안착</value>
+  </data>
+  <data name="dialog.filter.result" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="dialog.filter.saved" xml:space="preserve">
+    <value>저장 완료</value>
+  </data>
+  <data name="dialog.filter.title" xml:space="preserve">
+    <value>런타임 필터 설정</value>
+  </data>
+  <data name="dialog.filter.unchanged" xml:space="preserve">
+    <value>변경된 항목이 없습니다.</value>
+  </data>
+  <data name="dialog.log.saved" xml:space="preserve">
+    <value>저장되었습니다.</value>
+  </data>
+  <data name="dialog.log.title" xml:space="preserve">
+    <value>로그 설정</value>
+  </data>
+  <data name="dialog.login.addUpdate" xml:space="preserve">
+    <value>계정 추가 및 수정</value>
+  </data>
+  <data name="dialog.login.enter" xml:space="preserve">
+    <value>로그인</value>
+  </data>
+  <data name="dialog.login.failed" xml:space="preserve">
+    <value>로그인에 실패했습니다.</value>
+  </data>
+  <data name="dialog.login.logout" xml:space="preserve">
+    <value>로그아웃</value>
+  </data>
+  <data name="dialog.material.field" xml:space="preserve">
+    <value>항목</value>
+  </data>
+  <data name="dialog.material.material" xml:space="preserve">
+    <value>자재</value>
+  </data>
+  <data name="dialog.material.title" xml:space="preserve">
+    <value>자재 값 편집</value>
+  </data>
+  <data name="dialog.numeric.back" xml:space="preserve">
+    <value>한 칸 삭제</value>
+  </data>
+  <data name="dialog.numeric.clear" xml:space="preserve">
+    <value>전체 삭제</value>
+  </data>
+  <data name="dialog.numeric.invalidExpression" xml:space="preserve">
+    <value>계산식이 올바르지 않습니다.</value>
+  </data>
+  <data name="dialog.numeric.invalidNumber" xml:space="preserve">
+    <value>숫자 값이 올바르지 않습니다.</value>
+  </data>
+  <data name="dialog.numeric.parameter" xml:space="preserve">
+    <value>파라미터</value>
+  </data>
+  <data name="dialog.numeric.title" xml:space="preserve">
+    <value>숫자 입력</value>
+  </data>
+  <data name="dialog.pickup.all" xml:space="preserve">
+    <value>전체 경로</value>
+  </data>
+  <data name="dialog.pickup.apply" xml:space="preserve">
+    <value>이 순서로 적용</value>
+  </data>
+  <data name="dialog.pickup.bottomLeft" xml:space="preserve">
+    <value>좌측 하단</value>
+  </data>
+  <data name="dialog.pickup.bottomRight" xml:space="preserve">
+    <value>우측 하단</value>
+  </data>
+  <data name="dialog.pickup.corner" xml:space="preserve">
+    <value>시작 코너</value>
+  </data>
+  <data name="dialog.pickup.cornerStart" xml:space="preserve">
+    <value>코너 시작</value>
+  </data>
+  <data name="dialog.pickup.direction" xml:space="preserve">
+    <value>진행 방향</value>
+  </data>
+  <data name="dialog.pickup.empty" xml:space="preserve">
+    <value>픽업 대상 없음</value>
+  </data>
+  <data name="dialog.pickup.end" xml:space="preserve">
+    <value>끝</value>
+  </data>
+  <data name="dialog.pickup.first" xml:space="preserve">
+    <value>처음</value>
+  </data>
+  <data name="dialog.pickup.fit" xml:space="preserve">
+    <value>전체 맵</value>
+  </data>
+  <data name="dialog.pickup.focus" xml:space="preserve">
+    <value>선택 확대</value>
+  </data>
+  <data name="dialog.pickup.heading" xml:space="preserve">
+    <value>웨이퍼 정렬 / 다이 맵 검토 · 픽업 순서 보기</value>
+  </data>
+  <data name="dialog.pickup.horizontal" xml:space="preserve">
+    <value>가로</value>
+  </data>
+  <data name="dialog.pickup.jump" xml:space="preserve">
+    <value>보기</value>
+  </data>
+  <data name="dialog.pickup.last" xml:space="preserve">
+    <value>끝</value>
+  </data>
+  <data name="dialog.pickup.legend" xml:space="preserve">
+    <value>주황: 시작   파랑: 선택   → 진행 방향   |   휠 확대 · 드래그 이동</value>
+  </data>
+  <data name="dialog.pickup.list" xml:space="preserve">
+    <value>실행 순서</value>
+  </data>
+  <data name="dialog.pickup.mapX" xml:space="preserve">
+    <value>맵 X</value>
+  </data>
+  <data name="dialog.pickup.mapY" xml:space="preserve">
+    <value>맵 Y</value>
+  </data>
+  <data name="dialog.pickup.near20" xml:space="preserve">
+    <value>주변 20개</value>
+  </data>
+  <data name="dialog.pickup.near50" xml:space="preserve">
+    <value>주변 50개</value>
+  </data>
+  <data name="dialog.pickup.noStart" xml:space="preserve">
+    <value>시작 다이 없음</value>
+  </data>
+  <data name="dialog.pickup.notice" xml:space="preserve">
+    <value>화면 미리보기 · 장비 이동 없음</value>
+  </data>
+  <data name="dialog.pickup.pattern" xml:space="preserve">
+    <value>패턴</value>
+  </data>
+  <data name="dialog.pickup.pause" xml:space="preserve">
+    <value>Ⅱ 일시 정지</value>
+  </data>
+  <data name="dialog.pickup.play" xml:space="preserve">
+    <value>▶ 순서 재생</value>
+  </data>
+  <data name="dialog.pickup.range" xml:space="preserve">
+    <value>표시 {0}–{1} / {2}</value>
+  </data>
+  <data name="dialog.pickup.readOnly" xml:space="preserve">
+    <value>읽기 전용 순서 확인</value>
+  </data>
+  <data name="dialog.pickup.sequence" xml:space="preserve">
+    <value>순번</value>
+  </data>
+  <data name="dialog.pickup.setStart" xml:space="preserve">
+    <value>선택 다이를 1번으로 지정</value>
+  </data>
+  <data name="dialog.pickup.start" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="dialog.pickup.startAt" xml:space="preserve">
+    <value>시작 1번 · {0}</value>
+  </data>
+  <data name="dialog.pickup.state" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="dialog.pickup.straight" xml:space="preserve">
+    <value>직선</value>
+  </data>
+  <data name="dialog.pickup.summary" xml:space="preserve">
+    <value>전체 {0}개 · 적용 후 기존 검토 화면에서 확정</value>
+  </data>
+  <data name="dialog.pickup.title" xml:space="preserve">
+    <value>픽업 순서 보기</value>
+  </data>
+  <data name="dialog.pickup.topLeft" xml:space="preserve">
+    <value>좌측 상단</value>
+  </data>
+  <data name="dialog.pickup.topRight" xml:space="preserve">
+    <value>우측 상단</value>
+  </data>
+  <data name="dialog.pickup.vertical" xml:space="preserve">
+    <value>세로</value>
+  </data>
+  <data name="dialog.pickup.wafer" xml:space="preserve">
+    <value>웨이퍼 {0}</value>
+  </data>
+  <data name="dialog.pickup.wait" xml:space="preserve">
+    <value>대기</value>
+  </data>
+  <data name="dialog.pickup.wrap" xml:space="preserve">
+    <value>   ┄ 앞부분으로 연결</value>
+  </data>
+  <data name="dialog.pickup.zigzag" xml:space="preserve">
+    <value>지그재그</value>
+  </data>
+  <data name="dialog.select" xml:space="preserve">
+    <value>선택</value>
+  </data>
+  <data name="dialog.user.add" xml:space="preserve">
+    <value>사용자 추가</value>
+  </data>
+  <data name="dialog.user.admin" xml:space="preserve">
+    <value>관리자</value>
+  </data>
+  <data name="dialog.user.changePassword" xml:space="preserve">
+    <value>비밀번호 (변경 시)</value>
+  </data>
+  <data name="dialog.user.edit" xml:space="preserve">
+    <value>사용자 수정</value>
+  </data>
+  <data name="dialog.user.enabled" xml:space="preserve">
+    <value>사용 (활성)</value>
+  </data>
+  <data name="dialog.user.engineer" xml:space="preserve">
+    <value>엔지니어</value>
+  </data>
+  <data name="dialog.user.enterId" xml:space="preserve">
+    <value>아이디를 입력하세요.</value>
+  </data>
+  <data name="dialog.user.enterPassword" xml:space="preserve">
+    <value>비밀번호를 입력하세요.</value>
+  </data>
+  <data name="dialog.user.id" xml:space="preserve">
+    <value>아이디</value>
+  </data>
+  <data name="dialog.user.level" xml:space="preserve">
+    <value>등급</value>
+  </data>
+  <data name="dialog.user.maintenance" xml:space="preserve">
+    <value>유지보수</value>
+  </data>
+  <data name="dialog.user.operator" xml:space="preserve">
+    <value>운영자</value>
+  </data>
+  <data name="dialog.user.password" xml:space="preserve">
+    <value>비밀번호</value>
+  </data>
+  <data name="dialog.user.title" xml:space="preserve">
+    <value>사용자</value>
+  </data>
+</root>

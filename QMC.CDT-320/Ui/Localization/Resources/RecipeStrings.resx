@@ -1,0 +1,1682 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="recipeUi.literal" xml:space="preserve">
+    <value>{0}</value>
+    <comment>Display external text and values verbatim, without modifying their contents.</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.text" xml:space="preserve">
+    <value>Select a calibration item. Each function opens in a modeless window.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state2" xml:space="preserve">
+    <value>Cannot save the safe-move percentage because the equipment is not ready.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state3" xml:space="preserve">
+    <value>Saved safe-position (Avoid) movement speed as {0}%. (Each axis default × %) This does not affect measurement speed.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state4" xml:space="preserve">
+    <value>Failed to save safe-move percentage: {0}</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state5" xml:space="preserve">
+    <value>Opened the VISION CAMERA CAL settings window.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state6" xml:space="preserve">
+    <value>The VISION CAMERA CAL settings window is already open.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state7" xml:space="preserve">
+    <value>Opened the COLLET CAL settings window.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state8" xml:space="preserve">
+    <value>The COLLET CAL settings window is already open.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state9" xml:space="preserve">
+    <value>Opened the SIDE VISION FOCUS CAL settings window.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state10" xml:space="preserve">
+    <value>The SIDE VISION FOCUS CAL settings window is already open.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state11" xml:space="preserve">
+    <value>Opened the VISION FOCUS CAL settings window.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state12" xml:space="preserve">
+    <value>The VISION FOCUS CAL settings window is already open.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state13" xml:space="preserve">
+    <value>Run COC START in the COLLET CAL window.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state14" xml:space="preserve">
+    <value>Opened the PICKUP Z CAL settings window.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state15" xml:space="preserve">
+    <value>The PICKUP Z CAL settings window is already open.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state16" xml:space="preserve">
+    <value>Opened the PLACE Z CAL settings window.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state17" xml:space="preserve">
+    <value>The PLACE Z CAL settings window is already open.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state18" xml:space="preserve">
+    <value>Opened the NEEDLE Z CAL settings window.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state19" xml:space="preserve">
+    <value>The NEEDLE Z CAL settings window is already open.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state20" xml:space="preserve">
+    <value>Opened the AUTO CALIBRATION settings window.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state21" xml:space="preserve">
+    <value>The AUTO CALIBRATION settings window is already open.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state22" xml:space="preserve">
+    <value>Opened the COLLET CLEANING settings window.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state23" xml:space="preserve">
+    <value>The COLLET CLEANING settings window is already open.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state24" xml:space="preserve">
+    <value>Opened the NEEDLE PIN CAL settings window.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state25" xml:space="preserve">
+    <value>The NEEDLE PIN CAL settings window is already open.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state26" xml:space="preserve">
+    <value>Opened the {0} settings window.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state27" xml:space="preserve">
+    <value>The {0} settings window is already open.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblSafeMove.text" xml:space="preserve">
+    <value>Safe-position (Avoid) movement speed %</value>
+    <comment>CalibrationPage.Designer.cs:this.lblSafeMove.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblSafeMoveHint.text" xml:space="preserve">
+    <value>= each axis default speed, acceleration and deceleration × % (separate from measurement speed; not combined with global scaling). Shared by all calibrations.</value>
+    <comment>CalibrationPage.Designer.cs:this.lblSafeMoveHint.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblHeader.text" xml:space="preserve">
+    <value>CALIBRATION</value>
+    <comment>CalibrationPage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.grpCal.text" xml:space="preserve">
+    <value>CALIBRATION ITEMS</value>
+    <comment>CalibrationPage.Designer.cs:this.grpCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnVisionCameraCal.text" xml:space="preserve">
+    <value>VISION CAMERA CAL</value>
+    <comment>CalibrationPage.Designer.cs:this.btnVisionCameraCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnColletCal.text" xml:space="preserve">
+    <value>BOTTOM COLLET 1:1 CAL</value>
+    <comment>CalibrationPage.Designer.cs:this.btnColletCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnNeedleCal.text" xml:space="preserve">
+    <value>NEEDLE PIN CAL</value>
+    <comment>CalibrationPage.Designer.cs:this.btnNeedleCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnSideVisionFocusCal.text" xml:space="preserve">
+    <value>SIDE VISION FOCUS CAL</value>
+    <comment>CalibrationPage.Designer.cs:this.btnSideVisionFocusCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnVisionFocusCal.text" xml:space="preserve">
+    <value>VISION FOCUS CAL</value>
+    <comment>CalibrationPage.Designer.cs:this.btnVisionFocusCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnColletRotationCenterCal.text" xml:space="preserve">
+    <value>COLLET ROTATION CENTER CAL</value>
+    <comment>CalibrationPage.Designer.cs:this.btnColletRotationCenterCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnPickUpZCal.text" xml:space="preserve">
+    <value>PICKUP Z CAL</value>
+    <comment>CalibrationPage.Designer.cs:this.btnPickUpZCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnPlaceZCal.text" xml:space="preserve">
+    <value>PLACE Z CAL</value>
+    <comment>CalibrationPage.Designer.cs:this.btnPlaceZCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnNeedleZCal.text" xml:space="preserve">
+    <value>NEEDLE Z CAL</value>
+    <comment>CalibrationPage.Designer.cs:this.btnNeedleZCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnAutoCalibration.text" xml:space="preserve">
+    <value>AUTO CALIBRATION</value>
+    <comment>CalibrationPage.Designer.cs:this.btnAutoCalibration.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnColletCleaning.text" xml:space="preserve">
+    <value>COLLET CLEANING</value>
+    <comment>CalibrationPage.Designer.cs:this.btnColletCleaning.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblGuide.text" xml:space="preserve">
+    <value>Calibration hub.&#13;&#10;&#13;&#10;- Each button opens a separate modeless settings window.&#13;&#10;- BOTTOM COLLET 1:1 CAL corrects the T component to zero for collets 1–4 on the front/rear pickers using the bottom camera.&#13;&#10;- PICKUP Z CAL lowers PickerZ above the wafer film and saves the position where Vacuum/Flow activates as PickPosition.&#13;&#10;- PLACE Z CAL lowers PickerZ at the output placement position and saves the position where Vacuum/Flow activates as PlacePosition.&#13;&#10;- NEEDLE Z CAL calculates NeedleCap Touch, NeedlePin Flush and NeedlePin Ready positions using WaferStageTouchSensor.&#13;&#10;- VISION CAMERA CAL, VISION FOCUS CAL and SIDE VISION FOCUS CAL run in their dedicated settings windows.&#13;&#10;- Equipment safety interlocks, phase gates and resource gates are not bypassed.</value>
+    <comment>CalibrationPage.Designer.cs:this.lblGuide.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage._lblCurrentRecipeInfo.text" xml:space="preserve">
+    <value>Current recipe: {0}&#13;&#10;Base wafer map: Input={1} / Output={2}</value>
+    <comment>DieSubsetPage.cs:_lblCurrentRecipeInfo.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.grpDieSpec.text" xml:space="preserve">
+    <value>Die Spec</value>
+    <comment>DieSubsetPage.Designer.cs:this.grpDieSpec.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblSpecLibrary.text" xml:space="preserve">
+    <value>Saved specifications</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblSpecLibrary.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.btnLoadSpec.text" xml:space="preserve">
+    <value>Load specification</value>
+    <comment>DieSubsetPage.Designer.cs:this.btnLoadSpec.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.btnSaveSpec.text" xml:space="preserve">
+    <value>Save and apply specification</value>
+    <comment>DieSubsetPage.Designer.cs:this.btnSaveSpec.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblName.text" xml:space="preserve">
+    <value>Specification name</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblName.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblWidth.text" xml:space="preserve">
+    <value>Width (mm)</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblWidth.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblHeight.text" xml:space="preserve">
+    <value>Height (mm)</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblHeight.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblThickness.text" xml:space="preserve">
+    <value>Thickness (mm)</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblThickness.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.grpTolerance.text" xml:space="preserve">
+    <value>Tolerance (mm)</value>
+    <comment>DieSubsetPage.Designer.cs:this.grpTolerance.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblWidthLower.text" xml:space="preserve">
+    <value>Width lower limit</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblWidthLower.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblWidthUpper.text" xml:space="preserve">
+    <value>Width upper limit</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblWidthUpper.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblHeightLower.text" xml:space="preserve">
+    <value>Height lower limit</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblHeightLower.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblHeightUpper.text" xml:space="preserve">
+    <value>Height upper limit</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblHeightUpper.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.grpVision.text" xml:space="preserve">
+    <value>Vision inspection criteria (mm)</value>
+    <comment>DieSubsetPage.Designer.cs:this.grpVision.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblChippingDepth.text" xml:space="preserve">
+    <value>Maximum chipping depth</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblChippingDepth.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblChippingLength.text" xml:space="preserve">
+    <value>Maximum chipping length</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblChippingLength.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblForeignSize.text" xml:space="preserve">
+    <value>Maximum foreign-material size</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblForeignSize.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.grpSaveGuide.text" xml:space="preserve">
+    <value>Save / load sequence</value>
+    <comment>DieSubsetPage.Designer.cs:this.grpSaveGuide.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblButtonMeaning.text" xml:space="preserve">
+    <value>Button actions&#13;&#10;• Load specification: saved specification → screen (not yet applied)&#13;&#10;• Save at top: screen → current recipe + regenerate linked maps&#13;&#10;• Save and apply specification: save to library + apply to current recipe&#13;&#10;• Reload: discard unsaved changes and reload the recipe</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblButtonMeaning.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.grpOperationStatus.text" xml:space="preserve">
+    <value>Current state / save result</value>
+    <comment>DieSubsetPage.Designer.cs:this.grpOperationStatus.Text</comment>
+  </data>
+  <data name="recipeUi.forceControlPage.lblHeader.text" xml:space="preserve">
+    <value>FORCE CONTROL</value>
+    <comment>ForceControlPage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.forceControlPage.grpDo.text" xml:space="preserve">
+    <value>DO FORCE</value>
+    <comment>ForceControlPage.Designer.cs:this.grpDo.Text</comment>
+  </data>
+  <data name="recipeUi.forceControlPage.grpDi.text" xml:space="preserve">
+    <value>DI STATE</value>
+    <comment>ForceControlPage.Designer.cs:this.grpDi.Text</comment>
+  </data>
+  <data name="recipeUi.forceControlPage.grpActions.text" xml:space="preserve">
+    <value>MANUAL ACTION</value>
+    <comment>ForceControlPage.Designer.cs:this.grpActions.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.tabBottom.text" xml:space="preserve">
+    <value>BOTTOM</value>
+    <comment>FrontPickerRecipePage.cs:tabBottom.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.tabSide.text" xml:space="preserve">
+    <value>SIDE</value>
+    <comment>FrontPickerRecipePage.cs:tabSide.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblVisionInfo.text" xml:space="preserve">
+    <value>BOTTOM VISION{0}{1}</value>
+    <comment>FrontPickerRecipePage.cs:lblVisionInfo.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblVisionInfo2.text" xml:space="preserve">
+    <value>SIDE VISION 1{0}{1}</value>
+    <comment>FrontPickerRecipePage.cs:lblVisionInfo2.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblVisionInfo3.text" xml:space="preserve">
+    <value>SIDE VISION 2{0}{1}</value>
+    <comment>FrontPickerRecipePage.cs:lblVisionInfo3.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblHeader.text" xml:space="preserve">
+    <value>FRONT PICKER</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.grpVision.text" xml:space="preserve">
+    <value>VISION</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.grpVision.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblVisionInfo.state2" xml:space="preserve">
+    <value>VISION VIEW</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.lblVisionInfo.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblVisionInfo2.state2" xml:space="preserve">
+    <value>SIDE VISION 1</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.lblVisionInfo2.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblVisionInfo3.state2" xml:space="preserve">
+    <value>SIDE VISION 2</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.lblVisionInfo3.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.grpOptions.text" xml:space="preserve">
+    <value>OPTION</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.grpOptions.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.grpWait.text" xml:space="preserve">
+    <value>WAIT TIME</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.grpWait.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.grpIo.text" xml:space="preserve">
+    <value>CYLINDER &amp;&amp; I/O</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.grpIo.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.grpJog.text" xml:space="preserve">
+    <value>JOG OPERATION</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.grpJog.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.grpSpeed.text" xml:space="preserve">
+    <value>SPEED</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.grpSpeed.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblWaitScanSettleVal.text" xml:space="preserve">
+    <value>{0} ms</value>
+    <comment>InputCassetteRecipePage.cs:lblWaitScanSettleVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblHeader.text" xml:space="preserve">
+    <value>INPUT CASSETTE</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lbl8Inch.text" xml:space="preserve">
+    <value>8 INCH CASSETTE</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lbl8Inch.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lbl12Inch.text" xml:space="preserve">
+    <value>12 INCH CASSETTE</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lbl12Inch.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblProtrusion.text" xml:space="preserve">
+    <value>WAFER PROTRUSION</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblProtrusion.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblMapping.text" xml:space="preserve">
+    <value>WAFER MAPPING</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblMapping.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeLoadingKey.text" xml:space="preserve">
+    <value>LOADING Z</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeLoadingKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeLoadingVal.text" xml:space="preserve">
+    <value>150000 um</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeLoadingVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeUnloadingKey.text" xml:space="preserve">
+    <value>UNLOADING Z</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeUnloadingKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeAvoidKey.text" xml:space="preserve">
+    <value>READY POSITION</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeAvoidKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeAvoidVal.text" xml:space="preserve">
+    <value>0 um</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeAvoidVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeFirstSlotKey.text" xml:space="preserve">
+    <value>FIRST SLOT</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeFirstSlotKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeFirstSlotVal.text" xml:space="preserve">
+    <value>10000 um</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeFirstSlotVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeMappingStartKey.text" xml:space="preserve">
+    <value>MAPPING START Z</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeMappingStartKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeMappingStartVal.text" xml:space="preserve">
+    <value>5000 um</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeMappingStartVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeMappingEndKey.text" xml:space="preserve">
+    <value>MAPPING END Z</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeMappingEndKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeMappingEndVal.text" xml:space="preserve">
+    <value>130000 um</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeMappingEndVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigLoadingOffsetKey.text" xml:space="preserve">
+    <value>LOADING OFFSET</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigLoadingOffsetKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigUnloadingOffsetKey.text" xml:space="preserve">
+    <value>UNLOADING OFFSET</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigUnloadingOffsetKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigSlotPitchKey.text" xml:space="preserve">
+    <value>SLOT PITCH</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigSlotPitchKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigSlotCountKey.text" xml:space="preserve">
+    <value>SLOT COUNT</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigSlotCountKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigScanVelocityKey.text" xml:space="preserve">
+    <value>SCAN/JOG VELOCITY</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigScanVelocityKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigScanVelocityVal.text" xml:space="preserve">
+    <value>20 mm/s</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigScanVelocityVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblSetupToleranceKey.text" xml:space="preserve">
+    <value>IN POSITION TOL.</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblSetupToleranceKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblSetupToleranceVal.text" xml:space="preserve">
+    <value>50 um</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblSetupToleranceVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigInchKey.text" xml:space="preserve">
+    <value>INCH SELECT</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigInchKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigLevelKey.text" xml:space="preserve">
+    <value>CASSETTE LEVEL</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigLevelKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblSetupSimulationKey.text" xml:space="preserve">
+    <value>SIMULATION MODE</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblSetupSimulationKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblSetupSimulationVal.text" xml:space="preserve">
+    <value>True</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblSetupSimulationVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigDryRunKey.text" xml:space="preserve">
+    <value>DRY RUN</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigDryRunKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblWaitScanSettleKey.text" xml:space="preserve">
+    <value>SCAN SETTLE TIME</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblWaitScanSettleKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblWaitScanSettleVal.state2" xml:space="preserve">
+    <value>100 ms</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblWaitScanSettleVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblWaitMoveTimeoutKey.text" xml:space="preserve">
+    <value>MOVE TIMEOUT</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblWaitMoveTimeoutKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblWaitMoveTimeoutVal.text" xml:space="preserve">
+    <value>10000 ms</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblWaitMoveTimeoutVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputFeederRecipePage.lblHeader.text" xml:space="preserve">
+    <value>INPUT FEEDER</value>
+    <comment>InputFeederRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblVisionInfo.text" xml:space="preserve">
+    <value>VISION VIEW{0}Origin X : {1}{2}Origin Y : {3}{4}Pitch X  : {5}{6}Pitch Y  : {7}{8}Align X  : {9}{10}Align Y  : {11}{12}Needle Vacuum : {13}</value>
+    <comment>InputStageRecipePage.cs:lblVisionInfo.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblHeader.text" xml:space="preserve">
+    <value>INPUT STAGE</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblVisionInfo.state2" xml:space="preserve">
+    <value>STAGE&#13;&#10;W : 640&#13;&#10;H : 480&#13;&#10;X : 0&#13;&#10;Y : 0&#13;&#10;T : 0</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblVisionInfo.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblLoadingPositionKey.text" xml:space="preserve">
+    <value>LOADING POSITION</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblLoadingPositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblLoadingPositionValue.text" xml:space="preserve">
+    <value>SET</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblLoadingPositionValue.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblCenterPositionKey.text" xml:space="preserve">
+    <value>CENTER POSITION</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblCenterPositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedlePositionKey.text" xml:space="preserve">
+    <value>NEEDLE POSITION</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedlePositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblTestBedPositionKey.text" xml:space="preserve">
+    <value>TEST BED POSITION</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblTestBedPositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblBarcodePositionKey.text" xml:space="preserve">
+    <value>BARCODE POSITION</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblBarcodePositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblVisionAlignKey.text" xml:space="preserve">
+    <value>VISION ALIGN</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblVisionAlignKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblWorkRadiusKey.text" xml:space="preserve">
+    <value>WORK RADIUS</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblWorkRadiusKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblFirstDiePositionKey.text" xml:space="preserve">
+    <value>FIRST DIE POSITION</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblFirstDiePositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleMeasurePositionKey.text" xml:space="preserve">
+    <value>NEEDLE MEASURE POSITION</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleMeasurePositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleUpWaitKey.text" xml:space="preserve">
+    <value>NEEDLE UP</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleUpWaitKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleUpWaitValue.text" xml:space="preserve">
+    <value>0 ms</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleUpWaitValue.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblVacuumOnWaitKey.text" xml:space="preserve">
+    <value>VACUUM ON</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblVacuumOnWaitKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleDownWaitKey.text" xml:space="preserve">
+    <value>NEEDLE DOWN</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleDownWaitKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblVacuumOffWaitKey.text" xml:space="preserve">
+    <value>VACUUM OFF</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblVacuumOffWaitKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblMovingWaitKey.text" xml:space="preserve">
+    <value>MOVING</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblMovingWaitKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleVacuumKey.text" xml:space="preserve">
+    <value>NEEDLE VACUUM</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleVacuumKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleVacuumValue.text" xml:space="preserve">
+    <value>VACUUM</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleVacuumValue.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblRingSensorKey.text" xml:space="preserve">
+    <value>RING SENSOR</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblRingSensorKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblRingSensorValue.text" xml:space="preserve">
+    <value>OFF</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblRingSensorValue.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblExpandCylinderKey.text" xml:space="preserve">
+    <value>EXPAND CYLINDER</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblExpandCylinderKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblExpandCylinderValue.text" xml:space="preserve">
+    <value>READY</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblExpandCylinderValue.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleBlockKey.text" xml:space="preserve">
+    <value>NEEDLE BLOCK</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleBlockKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblAxisXKey.text" xml:space="preserve">
+    <value>AXIS X</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblAxisXKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblAxisYKey.text" xml:space="preserve">
+    <value>AXIS Y</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblAxisYKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblAxisTKey.text" xml:space="preserve">
+    <value>AXIS T</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblAxisTKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblAxisTValue.text" xml:space="preserve">
+    <value>0 deg</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblAxisTValue.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblExpandZKey.text" xml:space="preserve">
+    <value>EXPAND Z</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblExpandZKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleZKey.text" xml:space="preserve">
+    <value>NEEDLE Z</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleZKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleBlockZKey.text" xml:space="preserve">
+    <value>NEEDLE BLOCK Z</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleBlockZKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblExpandAxis.text" xml:space="preserve">
+    <value>EXPAND</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblExpandAxis.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleAxis.text" xml:space="preserve">
+    <value>NEEDLE</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleAxis.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblBlockAxis.text" xml:space="preserve">
+    <value>BLOCK</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblBlockAxis.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage.grpLoad.text" xml:space="preserve">
+    <value>Load tape frame options</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this.grpLoad.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage.lblRole.text" xml:space="preserve">
+    <value>Role</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this.lblRole.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage.lblAlignPts.text" xml:space="preserve">
+    <value>Alignment points</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this.lblAlignPts.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage.lblAutoBarcode.text" xml:space="preserve">
+    <value>Barcode</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this.lblAutoBarcode.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage._cbAutoBarcode.text" xml:space="preserve">
+    <value>Auto barcode read on load</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this._cbAutoBarcode.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage.lblAutoAlign.text" xml:space="preserve">
+    <value>Alignment</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this.lblAutoAlign.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage._cbAutoAlign.text" xml:space="preserve">
+    <value>Auto alignment on load</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this._cbAutoAlign.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblHeader.text" xml:space="preserve">
+    <value>OUTPUT DIE MAP CREATE</value>
+    <comment>MapCreatePage.cs:lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblHeader.state2" xml:space="preserve">
+    <value>INPUT DIE MAP CREATE</value>
+    <comment>MapCreatePage.cs:lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblSettingTitle.text" xml:space="preserve">
+    <value>Map specification · review</value>
+    <comment>MapCreatePage.cs:lblSettingTitle.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblActionTitle.text" xml:space="preserve">
+    <value>Review and apply</value>
+    <comment>MapCreatePage.cs:lblActionTitle.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnSave.text" xml:space="preserve">
+    <value>Review and apply map</value>
+    <comment>MapCreatePage.cs:btnSave.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbStandard.text" xml:space="preserve">
+    <value>CLICK TOGGLE</value>
+    <comment>MapCreatePage.cs:rbStandard.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbManualSelectPick.text" xml:space="preserve">
+    <value>CLICK TARGET</value>
+    <comment>MapCreatePage.cs:rbManualSelectPick.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbAlignCheckIndex.text" xml:space="preserve">
+    <value>CLICK SKIP</value>
+    <comment>MapCreatePage.cs:rbAlignCheckIndex.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbDragSelectPick.text" xml:space="preserve">
+    <value>RIGHT CLICK MENU</value>
+    <comment>MapCreatePage.cs:rbDragSelectPick.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.chkCircularMap.text" xml:space="preserve">
+    <value>BIN CIRCLE DIE MAP</value>
+    <comment>MapCreatePage.cs:chkCircularMap.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.chkCircularMap.state2" xml:space="preserve">
+    <value>INPUT CIRCLE DIE MAP</value>
+    <comment>MapCreatePage.cs:chkCircularMap.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._btnMapLoad.text" xml:space="preserve">
+    <value>Configure in wafer specification</value>
+    <comment>MapCreatePage.cs:_btnMapLoad.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblAxisYKey.text" xml:space="preserve">
+    <value>Edge exclusion (external map)</value>
+    <comment>MapCreatePage.cs:lblAxisYKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbBinGood.text" xml:space="preserve">
+    <value>Good map</value>
+    <comment>MapCreatePage.cs:rbBinGood.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbBinNg.text" xml:space="preserve">
+    <value>NG map</value>
+    <comment>MapCreatePage.cs:rbBinNg.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblMapTitle.text" xml:space="preserve">
+    <value>DIE MAP</value>
+    <comment>MapCreatePage.cs:lblMapTitle.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblMapTitle.state2" xml:space="preserve">
+    <value>Die map · targets {0} / {1}   X/Y: point at a cell   Number: process order   Click: target/exclude</value>
+    <comment>MapCreatePage.cs:lblMapTitle.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.ok.text" xml:space="preserve">
+    <value>OK</value>
+    <comment>MapCreatePage.cs:ok.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.cancel.text" xml:space="preserve">
+    <value>CANCEL</value>
+    <comment>MapCreatePage.cs:cancel.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblHeader.state3" xml:space="preserve">
+    <value>Die map generator</value>
+    <comment>MapCreatePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblChipCountXKey.text" xml:space="preserve">
+    <value>Wafer specification name</value>
+    <comment>MapCreatePage.Designer.cs:this.lblChipCountXKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblChipCountYKey.text" xml:space="preserve">
+    <value>Grid count X</value>
+    <comment>MapCreatePage.Designer.cs:this.lblChipCountYKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblChipPitchXKey.text" xml:space="preserve">
+    <value>Grid count Y</value>
+    <comment>MapCreatePage.Designer.cs:this.lblChipPitchXKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblChipPitchYKey.text" xml:space="preserve">
+    <value>Die gap X (mm)</value>
+    <comment>MapCreatePage.Designer.cs:this.lblChipPitchYKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblWaferDiameterKey.text" xml:space="preserve">
+    <value>Die gap Y (mm)</value>
+    <comment>MapCreatePage.Designer.cs:this.lblWaferDiameterKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._lblDieSizeXKey.text" xml:space="preserve">
+    <value>Die width (mm)</value>
+    <comment>MapCreatePage.Designer.cs:this._lblDieSizeXKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._lblDieSizeYKey.text" xml:space="preserve">
+    <value>Die height (mm)</value>
+    <comment>MapCreatePage.Designer.cs:this._lblDieSizeYKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblAxisXKey.text" xml:space="preserve">
+    <value>Wafer diameter (mm)</value>
+    <comment>MapCreatePage.Designer.cs:this.lblAxisXKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._lblEdgeSkipModeKey.text" xml:space="preserve">
+    <value>Edge exclusion mode</value>
+    <comment>MapCreatePage.Designer.cs:this._lblEdgeSkipModeKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblAxisYKey.state2" xml:space="preserve">
+    <value>Edge exclusion left/right / top/bottom</value>
+    <comment>MapCreatePage.Designer.cs:this.lblAxisYKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblModeTitle.text" xml:space="preserve">
+    <value>MODE</value>
+    <comment>MapCreatePage.Designer.cs:this.lblModeTitle.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.chkCircularMap.state3" xml:space="preserve">
+    <value>CIRCLE DIE MAP</value>
+    <comment>MapCreatePage.Designer.cs:this.chkCircularMap.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbStandard.state2" xml:space="preserve">
+    <value>STANDARD</value>
+    <comment>MapCreatePage.Designer.cs:this.rbStandard.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbStartIndex.text" xml:space="preserve">
+    <value>START INDEX</value>
+    <comment>MapCreatePage.Designer.cs:this.rbStartIndex.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbReference1.text" xml:space="preserve">
+    <value>1 REFERENCE INDEX</value>
+    <comment>MapCreatePage.Designer.cs:this.rbReference1.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbReference2.text" xml:space="preserve">
+    <value>2 REFERENCE INDEX</value>
+    <comment>MapCreatePage.Designer.cs:this.rbReference2.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbManualSelectPick.state2" xml:space="preserve">
+    <value>MANUAL SELECT PICK</value>
+    <comment>MapCreatePage.Designer.cs:this.rbManualSelectPick.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbAlignCheckIndex.state2" xml:space="preserve">
+    <value>ALIGN CHECK INDEX</value>
+    <comment>MapCreatePage.Designer.cs:this.rbAlignCheckIndex.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbDragSelectPick.state2" xml:space="preserve">
+    <value>DRAG SELECT PICK</value>
+    <comment>MapCreatePage.Designer.cs:this.rbDragSelectPick.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblActionTitle.state2" xml:space="preserve">
+    <value>Work</value>
+    <comment>MapCreatePage.Designer.cs:this.lblActionTitle.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnCreate.text" xml:space="preserve">
+    <value>CREATE</value>
+    <comment>MapCreatePage.Designer.cs:this.btnCreate.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnSave.state2" xml:space="preserve">
+    <value>SAVE</value>
+    <comment>MapCreatePage.Designer.cs:this.btnSave.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnFirstDieMoveComplete.text" xml:space="preserve">
+    <value>FIRST DIE MOVE COMPLETE</value>
+    <comment>MapCreatePage.Designer.cs:this.btnFirstDieMoveComplete.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnAutoMatch.text" xml:space="preserve">
+    <value>AUTO MATCH</value>
+    <comment>MapCreatePage.Designer.cs:this.btnAutoMatch.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnThetaMatchMove.text" xml:space="preserve">
+    <value>THETA MATCH MOVE</value>
+    <comment>MapCreatePage.Designer.cs:this.btnThetaMatchMove.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnXyMatchMove.text" xml:space="preserve">
+    <value>X/Y MATCH MOVE</value>
+    <comment>MapCreatePage.Designer.cs:this.btnXyMatchMove.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._btnMapNew.text" xml:space="preserve">
+    <value>SAVE AS</value>
+    <comment>MapCreatePage.Designer.cs:this._btnMapNew.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._btnMapRename.text" xml:space="preserve">
+    <value>RENAME</value>
+    <comment>MapCreatePage.Designer.cs:this._btnMapRename.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._btnMapDelete.text" xml:space="preserve">
+    <value>DELETE</value>
+    <comment>MapCreatePage.Designer.cs:this._btnMapDelete.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.grpPickPlace.text" xml:space="preserve">
+    <value>Pick / place parameters</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.grpPickPlace.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.lblPickRetry.text" xml:space="preserve">
+    <value>Pick retry count</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.lblPickRetry.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.lblPickDelay.text" xml:space="preserve">
+    <value>Pick delay (ms)</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.lblPickDelay.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.lblPlaceDelay.text" xml:space="preserve">
+    <value>Place delay (ms)</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.lblPlaceDelay.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.grpCollet.text" xml:space="preserve">
+    <value>Collet cleaning</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.grpCollet.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage._cbColletEnable.text" xml:space="preserve">
+    <value>Collet cleaning enable</value>
+    <comment>ModuleSubsetPage.Designer.cs:this._cbColletEnable.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.lblColletInterval.text" xml:space="preserve">
+    <value>Cleaning interval</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.lblColletInterval.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.grpInspection.text" xml:space="preserve">
+    <value>Inspection enable</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.grpInspection.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.lblBottomInspection.text" xml:space="preserve">
+    <value>Bottom inspection</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.lblBottomInspection.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage._cbBottomInspect.text" xml:space="preserve">
+    <value>Bottom vision inspection</value>
+    <comment>ModuleSubsetPage.Designer.cs:this._cbBottomInspect.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.lblPlacementInspection.text" xml:space="preserve">
+    <value>Placement inspection</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.lblPlacementInspection.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage._cbPlacementInspect.text" xml:space="preserve">
+    <value>Placement bin inspection</value>
+    <comment>ModuleSubsetPage.Designer.cs:this._cbPlacementInspect.Text</comment>
+  </data>
+  <data name="recipeUi.outputCassetteRecipePage.lblHeader.text" xml:space="preserve">
+    <value>OUTPUT CASSETTE</value>
+    <comment>OutputCassetteRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.outputFeederRecipePage.lblHeader.text" xml:space="preserve">
+    <value>OUTPUT FEEDER</value>
+    <comment>OutputFeederRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.outputStageRecipePage.lblVisionInfo.text" xml:space="preserve">
+    <value>OUTPUT STAGE{0}GOOD Y : {1}{2}GOOD Z : {3}{4}NG Y   : {5}{6}BIN X  : {7}{8}G-AVOID: {9}{10}N-AVOID: {11}</value>
+    <comment>OutputStageRecipePage.cs:lblVisionInfo.Text</comment>
+  </data>
+  <data name="recipeUi.outputStageRecipePage.lblHeader.text" xml:space="preserve">
+    <value>OUTPUT STAGE</value>
+    <comment>OutputStageRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.grpOutput.text" xml:space="preserve">
+    <value>Plate size and output parameters</value>
+    <comment>OutputSubsetPage.Designer.cs:this.grpOutput.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblGoodMax.text" xml:space="preserve">
+    <value>Good plate max slots</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblGoodMax.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblNgMax.text" xml:space="preserve">
+    <value>NG plate max slots</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblNgMax.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblDiesPerWafer.text" xml:space="preserve">
+    <value>Dies per wafer</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblDiesPerWafer.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblWafersPerBatch.text" xml:space="preserve">
+    <value>Wafers per output batch</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblWafersPerBatch.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblAutoBin.text" xml:space="preserve">
+    <value>Auto bin</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblAutoBin.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage._cbAutoBin.text" xml:space="preserve">
+    <value>Auto bin transition enable</value>
+    <comment>OutputSubsetPage.Designer.cs:this._cbAutoBin.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblAlarmFull.text" xml:space="preserve">
+    <value>Full alarm</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblAlarmFull.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage._cbAlarmFull.text" xml:space="preserve">
+    <value>Alarm and cycle stop when plate full</value>
+    <comment>OutputSubsetPage.Designer.cs:this._cbAlarmFull.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblDefaultGood.text" xml:space="preserve">
+    <value>Default good cassette</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblDefaultGood.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage.lblPreviewCaption.text" xml:space="preserve">
+    <value>Pickup path preview (S = start, E = end)   *7×7 sample diagram, not the actual wafer map</value>
+    <comment>PickupSubsetPage.Designer.cs:this.lblPreviewCaption.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage.lblTargetCaption.text" xml:space="preserve">
+    <value>Pickup target</value>
+    <comment>PickupSubsetPage.Designer.cs:this.lblTargetCaption.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage.lblCornerCaption.text" xml:space="preserve">
+    <value>Start corner</value>
+    <comment>PickupSubsetPage.Designer.cs:this.lblCornerCaption.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage.lblDirectionCaption.text" xml:space="preserve">
+    <value>Pickup direction</value>
+    <comment>PickupSubsetPage.Designer.cs:this.lblDirectionCaption.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage.lblPatternCaption.text" xml:space="preserve">
+    <value>Pickup pattern</value>
+    <comment>PickupSubsetPage.Designer.cs:this.lblPatternCaption.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbWafer.text" xml:space="preserve">
+    <value>WAFER INPUT</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbWafer.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbBin.text" xml:space="preserve">
+    <value>BIN OUTPUT</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbBin.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbTL.text" xml:space="preserve">
+    <value>↖  Top Left</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbTL.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbTR.text" xml:space="preserve">
+    <value>↗  Top Right</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbTR.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbBL.text" xml:space="preserve">
+    <value>↙  Bottom Left</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbBL.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbBR.text" xml:space="preserve">
+    <value>↘  Bottom Right</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbBR.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbHoriz.text" xml:space="preserve">
+    <value>→  Horizontal</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbHoriz.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbVert.text" xml:space="preserve">
+    <value>↓  Vertical</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbVert.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbStraight.text" xml:space="preserve">
+    <value>→  Straight</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbStraight.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbZigZag.text" xml:space="preserve">
+    <value>⇄  ZigZag</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbZigZag.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.lblCurrentProject.text" xml:space="preserve">
+    <value>Selected recipe: {0} | Settings check failed: {1}</value>
+    <comment>ProjectPage.cs:lblCurrentProject.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.lblCurrentProject.state2" xml:space="preserve">
+    <value>Selected: {0}   |   Applied to equipment: {1}&#13;&#10;{2}   ·   {3}</value>
+    <comment>ProjectPage.cs:lblCurrentProject.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.lblHeader.text" xml:space="preserve">
+    <value>Recipe · project</value>
+    <comment>ProjectPage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.tabBasic.text" xml:space="preserve">
+    <value>Basic review</value>
+    <comment>ProjectPage.Designer.cs:this.tabBasic.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.tabDetails.text" xml:space="preserve">
+    <value>File / state details</value>
+    <comment>ProjectPage.Designer.cs:this.tabDetails.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.tabAdvanced.text" xml:space="preserve">
+    <value>Advanced settings</value>
+    <comment>ProjectPage.Designer.cs:this.tabAdvanced.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpProjects.text" xml:space="preserve">
+    <value>Recipe list</value>
+    <comment>ProjectPage.Designer.cs:this.grpProjects.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpSummary.text" xml:space="preserve">
+    <value>Project information · editable</value>
+    <comment>ProjectPage.Designer.cs:this.grpSummary.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpProjectOption.text" xml:space="preserve">
+    <value>Die / wafer specifications · review</value>
+    <comment>ProjectPage.Designer.cs:this.grpProjectOption.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpInputMap.text" xml:space="preserve">
+    <value>Input map · recipe settings</value>
+    <comment>ProjectPage.Designer.cs:this.grpInputMap.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpOutputMap.text" xml:space="preserve">
+    <value>Output map · recipe settings</value>
+    <comment>ProjectPage.Designer.cs:this.grpOutputMap.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpMapApproval.text" xml:space="preserve">
+    <value>Registered map review · actual operating conditions are checked separately at start</value>
+    <comment>ProjectPage.Designer.cs:this.grpMapApproval.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpMap.text" xml:space="preserve">
+    <value>Base map / process map files</value>
+    <comment>ProjectPage.Designer.cs:this.grpMap.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpStatus.text" xml:space="preserve">
+    <value>Recipe file and specification checks</value>
+    <comment>ProjectPage.Designer.cs:this.grpStatus.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpGlobal.text" xml:space="preserve">
+    <value>Other / advanced settings</value>
+    <comment>ProjectPage.Designer.cs:this.grpGlobal.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpXml.text" xml:space="preserve">
+    <value>XML tracking information · advanced</value>
+    <comment>ProjectPage.Designer.cs:this.grpXml.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.lblFooterHint.text" xml:space="preserve">
+    <value>Saving a project and applying it to the equipment are separate actions.</value>
+    <comment>ProjectPage.Designer.cs:this.lblFooterHint.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.btnCopy.text" xml:space="preserve">
+    <value>Copy recipe</value>
+    <comment>ProjectPage.Designer.cs:this.btnCopy.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.btnManage.text" xml:space="preserve">
+    <value>Manage ▾</value>
+    <comment>ProjectPage.Designer.cs:this.btnManage.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.btnReload.text" xml:space="preserve">
+    <value>Refresh</value>
+    <comment>ProjectPage.Designer.cs:this.btnReload.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.btnSaveRecipe.text" xml:space="preserve">
+    <value>Save project information</value>
+    <comment>ProjectPage.Designer.cs:this.btnSaveRecipe.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.btnApplyCurrent.text" xml:space="preserve">
+    <value>Apply selected recipe to equipment</value>
+    <comment>ProjectPage.Designer.cs:this.btnApplyCurrent.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.btnBrowseMap.text" xml:space="preserve">
+    <value>Open wafer / map settings</value>
+    <comment>ProjectPage.Designer.cs:this.btnBrowseMap.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.menuNewRecipe.text" xml:space="preserve">
+    <value>Create a default recipe…</value>
+    <comment>ProjectPage.Designer.cs:this.menuNewRecipe.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.menuDeleteRecipe.text" xml:space="preserve">
+    <value>Delete selected recipe…</value>
+    <comment>ProjectPage.Designer.cs:this.menuDeleteRecipe.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.menuProjectFolder.text" xml:space="preserve">
+    <value>Open all recipes folder</value>
+    <comment>ProjectPage.Designer.cs:this.menuProjectFolder.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.menuRecipeFolder.text" xml:space="preserve">
+    <value>Open selected recipe folder</value>
+    <comment>ProjectPage.Designer.cs:this.menuRecipeFolder.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.menuMapFolder.text" xml:space="preserve">
+    <value>Open selected map folder</value>
+    <comment>ProjectPage.Designer.cs:this.menuMapFolder.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.menuXmlPath.text" xml:space="preserve">
+    <value>Advanced: select XML save location…</value>
+    <comment>ProjectPage.Designer.cs:this.menuXmlPath.Text</comment>
+  </data>
+  <data name="recipeUi.rearPickerRecipePage.lblHeader.text" xml:space="preserve">
+    <value>REAR PICKER</value>
+    <comment>RearPickerRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage._btnImportWaferMap.text" xml:space="preserve">
+    <value>Import wafer map</value>
+    <comment>TapeFrameSubsetPage.cs:_btnImportWaferMap.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage._lblMapFileValue.text" xml:space="preserve">
+    <value>OUTPUT BASE={0} / GOOD={1} / NG={2}</value>
+    <comment>TapeFrameSubsetPage.cs:_lblMapFileValue.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage._lblMapFileValue.state2" xml:space="preserve">
+    <value>INPUT BASE={0} / INPUT={1}</value>
+    <comment>TapeFrameSubsetPage.cs:_lblMapFileValue.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblGridCountResult.text" xml:space="preserve">
+    <value>Count: -</value>
+    <comment>TapeFrameSubsetPage.cs:lblGridCountResult.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblCenterPitchValue.text" xml:space="preserve">
+    <value>X {0} + {1} = {2}     |     Y {3} + {4} = {5}</value>
+    <comment>TapeFrameSubsetPage.cs:lblCenterPitchValue.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblCenterPitchValue.state2" xml:space="preserve">
+    <value>Calculation failed: {0}</value>
+    <comment>TapeFrameSubsetPage.cs:lblCenterPitchValue.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblBaseHint.text" xml:space="preserve">
+    <value>Review margins, rotation and counts in map preview, then select [Save map].</value>
+    <comment>TapeFrameSubsetPage.cs:lblBaseHint.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblDieHint.text" xml:space="preserve">
+    <value>To change the diameter or DIE GAP of a generated map, regenerate and save it in preview. To change GAP for an external map, use [Save] at the top.</value>
+    <comment>TapeFrameSubsetPage.cs:lblDieHint.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.badge.text" xml:space="preserve">
+    <value>{0} ✅ APPROVED</value>
+    <comment>TapeFrameSubsetPage.cs:badge.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.badge.state2" xml:space="preserve">
+    <value>{0} ⚠ PENDING</value>
+    <comment>TapeFrameSubsetPage.cs:badge.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblSavedMapSummary.text" xml:space="preserve">
+    <value>Could not verify coordinates in the applied map.</value>
+    <comment>TapeFrameSubsetPage.cs:lblSavedMapSummary.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblSavedMapSummary.state2" xml:space="preserve">
+    <value>Saved map: {0} dies  |  Rotation: {1}{2}</value>
+    <comment>TapeFrameSubsetPage.cs:lblSavedMapSummary.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblGridCountResult.state2" xml:space="preserve">
+    <value>Saved dies: {0} / grid {1} × {2}</value>
+    <comment>TapeFrameSubsetPage.cs:lblGridCountResult.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.grpBase.text" xml:space="preserve">
+    <value>① Wafer / map creation — Grid is the saved map grid</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.grpBase.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblWaferRole.text" xml:space="preserve">
+    <value>Wafer role</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblWaferRole.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.btnGridMapCreate.text" xml:space="preserve">
+    <value>GRID MAP CREATE</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.btnGridMapCreate.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblGridX.text" xml:space="preserve">
+    <value>Current map Grid X</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblGridX.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblGridY.text" xml:space="preserve">
+    <value>Current map Grid Y</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblGridY.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblEdgeMode.text" xml:space="preserve">
+    <value>Edge skip mode</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblEdgeMode.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblEdgeLR.text" xml:space="preserve">
+    <value>Edge exclusion left/right</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblEdgeLR.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblEdgeTB.text" xml:space="preserve">
+    <value>Edge exclusion top/bottom</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblEdgeTB.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblMapFile.text" xml:space="preserve">
+    <value>Registered map file</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblMapFile.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.btnPreviewWaferMap.text" xml:space="preserve">
+    <value>Map creation preview</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.btnPreviewWaferMap.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblBaseHint.state2" xml:space="preserve">
+    <value>Review margins, rotation and counts in map creation preview, then save.</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblBaseHint.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblSavedMapSummary.state3" xml:space="preserve">
+    <value>Saved map: — dies  |  Rotation: —</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblSavedMapSummary.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblRotate.text" xml:space="preserve">
+    <value>Rotate (reserved)</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblRotate.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.grpDie.text" xml:space="preserve">
+    <value>② Die arrangement (mm)</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.grpDie.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.btnEditDieSpec.text" xml:space="preserve">
+    <value>Edit die specification</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.btnEditDieSpec.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblCenterPitch.text" xml:space="preserve">
+    <value>Center-to-center distance (mm)</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblCenterPitch.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblDieHint.state2" xml:space="preserve">
+    <value>To change DIE GAP for a generated map, regenerate and save it in preview.</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblDieHint.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.grpResult.text" xml:space="preserve">
+    <value>③ Results / approval</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.grpResult.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.btnGridCountPreview.text" xml:space="preserve">
+    <value>Check saved map count</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.btnGridCountPreview.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblApprovalInput.text" xml:space="preserve">
+    <value>INPUT -</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblApprovalInput.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblApprovalGood.text" xml:space="preserve">
+    <value>GOOD -</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblApprovalGood.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblApprovalNg.text" xml:space="preserve">
+    <value>NG -</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblApprovalNg.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.btnProcessMapSettings.text" xml:space="preserve">
+    <value>Process map settings · mode / format / rotation / coordinate reference</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.btnProcessMapSettings.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.grpMapSource.text" xml:space="preserve">
+    <value>Loaded wafer map / apply flow</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.grpMapSource.Text</comment>
+  </data>
+  <data name="recipeUi.unloadTapeFrameSubsetPage.grpUnload.text" xml:space="preserve">
+    <value>Unload tape frame options</value>
+    <comment>UnloadTapeFrameSubsetPage.Designer.cs:this.grpUnload.Text</comment>
+  </data>
+  <data name="recipeUi.unloadTapeFrameSubsetPage.lblGapInspection.text" xml:space="preserve">
+    <value>Gap inspection</value>
+    <comment>UnloadTapeFrameSubsetPage.Designer.cs:this.lblGapInspection.Text</comment>
+  </data>
+  <data name="recipeUi.unloadTapeFrameSubsetPage._cbGapInsp.text" xml:space="preserve">
+    <value>Gap inspection enabled after place</value>
+    <comment>UnloadTapeFrameSubsetPage.Designer.cs:this._cbGapInsp.Text</comment>
+  </data>
+  <data name="recipeUi.unloadTapeFrameSubsetPage.lblGapUpper.text" xml:space="preserve">
+    <value>Gap upper limit (mm)</value>
+    <comment>UnloadTapeFrameSubsetPage.Designer.cs:this.lblGapUpper.Text</comment>
+  </data>
+  <data name="recipeUi.unloadTapeFrameSubsetPage.lblGapLower.text" xml:space="preserve">
+    <value>Gap lower limit (mm)</value>
+    <comment>UnloadTapeFrameSubsetPage.Designer.cs:this.lblGapLower.Text</comment>
+  </data>
+  <data name="recipeUi.tooltip.1" xml:space="preserve">
+    <value>Double-click to change the value using the current axis display unit.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.2" xml:space="preserve">
+    <value>Double-click to change the slot count and resize the SlotPosition buffer.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.3" xml:space="preserve">
+    <value>Set input feeder Y teaching positions.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.4" xml:space="preserve">
+    <value>Set input feeder Y movement wait times.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.5" xml:space="preserve">
+    <value>Double-click a name cell to teach the current position, or a value cell to edit directly.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.6" xml:space="preserve">
+    <value>Display input stage wait parameters.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.7" xml:space="preserve">
+    <value>Check and control input stage output states.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.8" xml:space="preserve">
+    <value>Move input stage axes through the unit jog path.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.9" xml:space="preserve">
+    <value>Configure in Recipe → Wafer specification → Import wafer map.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.10" xml:space="preserve">
+    <value>Change die values in Recipe → Die specification, and wafer/pitch values in Recipe → Wafer specification.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.11" xml:space="preserve">
+    <value>Configure in Recipe → Wafer specification → Spec name.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.12" xml:space="preserve">
+    <value>Determined by Recipe → Wafer specification → LOAD WAFER MAP.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.13" xml:space="preserve">
+    <value>Result of saving map preview or LOAD WAFER MAP in Recipe → Wafer specification.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.14" xml:space="preserve">
+    <value>Configure in Recipe → Wafer specification → Pitch X.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.15" xml:space="preserve">
+    <value>Configure in Recipe → Wafer specification → Pitch Y.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.16" xml:space="preserve">
+    <value>Configure in Recipe → Die specification → Width.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.17" xml:space="preserve">
+    <value>Configure in Recipe → Die specification → Height.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.18" xml:space="preserve">
+    <value>Configure in Recipe → Wafer specification → Outer diameter.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.19" xml:space="preserve">
+    <value>Configure in Recipe → Wafer specification → Edge skip mode.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.20" xml:space="preserve">
+    <value>Configure in Recipe → Wafer specification → Edge skip.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.21" xml:space="preserve">
+    <value>Copy the displayed project information and existing unit recipe/map files under a new name. Apply the copied recipe to the equipment separately.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.22" xml:space="preserve">
+    <value>Default creation, deletion, folder access and advanced XML path actions.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.23" xml:space="preserve">
+    <value>Open wafer specifications when the selected recipe matches the recipe applied to the equipment. This button does not automatically apply a recipe.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.24" xml:space="preserve">
+    <value>Map items show saved values from the selected recipe as read-only. Hover over an item or value for the location and method used to change it.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.25" xml:space="preserve">
+    <value>Distinguish the selected recipe from the recipe currently applied to the equipment. Selecting a list item does not change the equipment recipe.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.26" xml:space="preserve">
+    <value>Reload saved values for the selected recipe. Unsaved edits in this screen are discarded.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.27" xml:space="preserve">
+    <value>Save project information edited in this screen to a file. Use [Apply selected recipe to equipment] to apply it.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.28" xml:space="preserve">
+    <value>Validate, apply and save the selected recipe. Changing to another recipe follows material reset confirmation and interlocks.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.29" xml:space="preserve">
+    <value>Check support, specifications and approval of saved registered maps. Remote input maps are checked after receipt. This does not indicate material, interlock or operating readiness.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.30" xml:space="preserve">
+    <value>X gap between dies. Center distance = Recipe Die Width + DIE GAP X</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.31" xml:space="preserve">
+    <value>Y gap between dies. Center distance = Recipe Die Height + DIE GAP Y</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.32" xml:space="preserve">
+    <value>Link an external RAD TXT/CSV/JSON wafer map as the base map for the selected role.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.33" xml:space="preserve">
+    <value>Create a grid base map for the selected role using the current Grid X/Y, die size, pitch gap and wafer diameter.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.34" xml:space="preserve">
+    <value>Load the selected saved specification into screen values only. Press SAVE to apply it to the recipe.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.35" xml:space="preserve">
+    <value>Save the current role values to the specification library together with the recipe.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.36" xml:space="preserve">
+    <value>INPUT = Input Base/Die Map; OUTPUT = Output Base plus GOOD/NG Bin Maps.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.37" xml:space="preserve">
+    <value>Review and save circular map inner margins, rotation, top/bottom/left/right edge rows and total die count.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.38" xml:space="preserve">
+    <value>Recipe die specification values. Use [Edit die specification] to change them.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.39" xml:space="preserve">
+    <value>Die size cannot be edited here. Open Recipe &gt; Die specification.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.40" xml:space="preserve">
+    <value>Center distance = Die size + DIE GAP. Used to calculate actual map coordinates.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.41" xml:space="preserve">
+    <value>Calculate the possible die count from current Grid/DIE GAP/Die/Wafer Diameter. Files are not changed.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.inputCassette" xml:space="preserve">
+    <value>Refresh input cassette DI states.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.outputCassette" xml:space="preserve">
+    <value>Refresh output cassette DI states.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.inputFeeder" xml:space="preserve">
+    <value>Refresh input feeder DI states.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.outputFeeder" xml:space="preserve">
+    <value>Refresh output feeder DI states.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.inputStage" xml:space="preserve">
+    <value>Refresh input stage I/O states.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.targetAll" xml:space="preserve">
+    <value>TARGET ALL</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.skipAll" xml:space="preserve">
+    <value>SKIP ALL</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.invert" xml:space="preserve">
+    <value>INVERT TARGET</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.load" xml:space="preserve">
+    <value>Load</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.goodUnload" xml:space="preserve">
+    <value>Good unload</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.ngUnload" xml:space="preserve">
+    <value>NG unload</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.inputWafer" xml:space="preserve">
+    <value>INPUT WAFER</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.outputWafer" xml:space="preserve">
+    <value>OUTPUT WAFER</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.edgeGrid" xml:space="preserve">
+    <value>Grid count (GRID)</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.edgeMm" xml:space="preserve">
+    <value>Distance (MM)</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.edgeExternal" xml:space="preserve">
+    <value>External map (EXTERNAL MAP)</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.item" xml:space="preserve">
+    <value>Item</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.value" xml:space="preserve">
+    <value>Value</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.map" xml:space="preserve">
+    <value>Map role</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.configured" xml:space="preserve">
+    <value>Registered map file</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.resolved" xml:space="preserve">
+    <value>Resolved file path</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.status" xml:space="preserve">
+    <value>Status</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.check" xml:space="preserve">
+    <value>Check item</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.detail" xml:space="preserve">
+    <value>Details</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.subset.save" xml:space="preserve">
+    <value>Save</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.reload" xml:space="preserve">
+    <value>Reload</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.none" xml:space="preserve">
+    <value>(no project)</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.project" xml:space="preserve">
+    <value>Recipe: {0}</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.failed" xml:space="preserve">
+    <value>(load failed: {0})</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.noProject" xml:space="preserve">
+    <value>No project loaded.</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.saved" xml:space="preserve">
+    <value>Saved to {0}.Project</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.title" xml:space="preserve">
+    <value>Recipe</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.saveFailed" xml:space="preserve">
+    <value>Save failed: {0}</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.bottom" xml:space="preserve">
+    <value>BOTTOM VISION</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.frontSide" xml:space="preserve">
+    <value>FRONT SIDE VISION</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.rearSide" xml:space="preserve">
+    <value>REAR SIDE VISION</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.wafer" xml:space="preserve">
+    <value>WAFER VISION</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.bin" xml:space="preserve">
+    <value>BIN VISION</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.vision" xml:space="preserve">
+    <value>VISION</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.stage" xml:space="preserve">
+    <value>STAGE</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+</root>

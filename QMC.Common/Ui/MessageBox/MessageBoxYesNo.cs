@@ -7,14 +7,17 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using QMC.Common.Localization;
 
 namespace QMC.Common
 {
     /// <summary>
     /// 대화상자 (Yes/No)
     /// </summary>
-    public partial class MessageBoxYesNo : Form
+    public partial class MessageBoxYesNo : Form, ILocalizedView
     {
+        private string _originalTitle;
+
         private string[] m_ButtonText;
         private Label _buttonGroupLabel;
         private string _buttonGroupLabelText = string.Empty;
@@ -25,7 +28,7 @@ namespace QMC.Common
         public string Title
         {
             get { return this.lblTitle.Text; }
-            set { this.lblTitle.Text = value; }
+            set { _originalTitle = value; this.lblTitle.Text = MessageDialog.TitleCaption(value); }
         }
         /// <summary>
         /// 본문
@@ -55,6 +58,7 @@ namespace QMC.Common
         public MessageBoxYesNo()
         {
             InitializeComponent();
+            _originalTitle = this.lblTitle.Text;
 
             this.StartPosition = FormStartPosition.CenterScreen;
             //this.TopMost = true;
@@ -63,6 +67,7 @@ namespace QMC.Common
             //lblTitle.MouseDown += lblTitle_MouseMove;
 
             this.m_ButtonText = new string[] { "Yes", "No", };
+            ApplyLanguage();
             lblTitle.MouseDown += (o, e) => { if (e.Button == MouseButtons.Left) { isMouseDown = true; mouseDownLocation = e.Location; } };
             lblTitle.MouseMove += (o, e) => { if (isMouseDown) Location = new Point(Location.X + (e.X - mouseDownLocation.X), Location.Y + (e.Y - mouseDownLocation.Y)); };
             lblTitle.MouseUp += (o, e) => { if (e.Button == MouseButtons.Left) { isMouseDown = false; mouseDownLocation = e.Location; } };
@@ -99,17 +104,26 @@ namespace QMC.Common
             return base.ShowDialog(owner);
         }
 
+        public void ApplyLanguage()
+        {
+            this.lblTitle.Text = MessageDialog.TitleCaption(_originalTitle);
+            this.button1.Text = MessageDialog.ButtonCaption(m_ButtonText[0]);
+            this.button2.Text = MessageDialog.ButtonCaption(m_ButtonText[1]);
+            this.button3.Text = MessageDialog.ButtonCaption(m_ButtonText.Length > 2 ? m_ButtonText[2] : "Cancel");
+        }
+
         private void ConfigureButtons(string[] buttonText)
         {
-            this.button1.Text = buttonText[0];
-            this.button2.Text = buttonText[1];
+            m_ButtonText = (string[])buttonText.Clone();
+            this.button1.Text = MessageDialog.ButtonCaption(buttonText[0]);
+            this.button2.Text = MessageDialog.ButtonCaption(buttonText[1]);
 
             bool hasCancelButton = buttonText.Length > 2;
             this.button3.Visible = hasCancelButton;
 
             if (hasCancelButton)
             {
-                this.button3.Text = buttonText[2];
+                this.button3.Text = MessageDialog.ButtonCaption(buttonText[2]);
                 this.tableLayoutPanel3.SetColumn(this.button1, 2);
                 this.tableLayoutPanel3.SetColumn(this.button2, 3);
                 this.tableLayoutPanel3.SetColumn(this.button3, 4);

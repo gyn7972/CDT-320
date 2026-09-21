@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -41,6 +42,7 @@ namespace QMC.CDT_320.Ui.Pages.History
         public AlarmHistoryPage()
         {
             InitializeComponent();
+            Lang.BindKey(btnClear, "historyUi.clearActive");
             ApplyHistoryWhiteSurface();
             InitializeFilterControls();
             WireEvents();
@@ -470,7 +472,7 @@ namespace QMC.CDT_320.Ui.Pages.History
                     btnClear.ForeColor = Color.White;
                     btnClear.FlatAppearance.MouseOverBackColor = ClearActiveHover;
                     btnClear.FlatAppearance.MouseDownBackColor = ClearActiveDown;
-                    btnClear.Text = "Clear active alarms (" + active + ")";
+                    Lang.BindFormat(btnClear, "historyUi.clearActiveCount", active);
                 }
                 else
                 {
@@ -478,7 +480,7 @@ namespace QMC.CDT_320.Ui.Pages.History
                     btnClear.Enabled = false;
                     btnClear.BackColor = ClearIdleBack;
                     btnClear.ForeColor = Color.White;
-                    btnClear.Text = "Clear active alarms";
+                    Lang.BindKey(btnClear, "historyUi.clearActive");
                 }
             }
             catch

@@ -1,4 +1,5 @@
-﻿using QMC.CDT320;
+﻿using QMC.CDT_320.Ui.Localization;
+using QMC.CDT320;
 using QMC.CDT320.Initialization;
 using QMC.Common.Logging;
 using QMC.Common.Ui.Controls;
@@ -12,7 +13,7 @@ using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public partial class InitializationMonitorDialog : Form
+    public partial class InitializationMonitorDialog : Form, ILocalizedView
     {
         private const string StatusWaiting = "Waiting";
         private const string StatusDisabled = "Disabled";
@@ -24,11 +25,13 @@ namespace QMC.CDT_320.Ui.Dialogs
         private readonly MachineController _controller;
         private bool _running;
         private ProgressDialog _progressDialog;
+        private readonly Dictionary<DataGridViewCell, string> _routeTooltipText = new Dictionary<DataGridViewCell, string>();
 
         public InitializationMonitorDialog(MachineController controller)
         {
             _controller = controller;
             InitializeComponent();
+            InitializeLanguageBindings();
             if (_controller != null)
                 _controller.AxisInitializeStepProgressChanged += OnAxisInitializeStepProgressChanged;
         }
@@ -50,6 +53,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             try
             {
+                _routeTooltipText.Clear();
                 grid.Rows.Clear();
                 if (_controller == null)
                     return;
@@ -80,8 +84,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Initialize plan load failed:\n" + ex.Message,
-                    "Init Monitor", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("extraDialog.initialize.planFailed", ex.Message),
+                    Lang.T("extraDialog.initialize.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -159,6 +163,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             cell.ToolTipText = routeStep != null
                 ? routeStep.BuildDisplayText()
                 : "현재 상태를 확인하지 못했습니다.";
+            _routeTooltipText[cell] = cell.ToolTipText;
+            cell.ToolTipText = AdditionalDialogText.Display(cell.ToolTipText);
 
             if (routeStep == null)
             {
@@ -195,7 +201,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private async void btnRunAll_Click(object sender, EventArgs e)
         {
             DialogResult result = QMC.Common.MessageDialog.Show(
-                    "전체 초기화를 진행하시겠습니까?", "전체 초기화", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    Lang.T("extraDialog.initialize.confirmAll"), Lang.T("extraDialog.initialize.allTitle"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (result != DialogResult.Yes)
             {
                 EventLogger.Write(EventKind.Event, "UI", "전체 초기화", "btnRunAll_Click canceled.");
@@ -239,13 +245,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (result != 0)
                 {
                     warningMessage = string.IsNullOrEmpty(_controller.LastActionFailureMessage)
-                        ? "Initialize execution failed."
+                        ? Lang.T("extraDialog.initialize.runFailed")
                         : _controller.LastActionFailureMessage;
                 }
             }
             catch (Exception ex)
             {
-                errorMessage = "Initialize execution error:\n" + ex.Message;
+                errorMessage = Lang.Format("extraDialog.initialize.runError", ex.Message);
             }
             finally
             {
@@ -257,14 +263,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (!string.IsNullOrWhiteSpace(errorMessage))
             {
                 QMC.Common.MessageDialog.Show(this, errorMessage,
-                    "Init Monitor", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Lang.T("extraDialog.initialize.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
             if (!string.IsNullOrWhiteSpace(warningMessage))
             {
                 QMC.Common.MessageDialog.Show(this, warningMessage,
-                    "Init Monitor", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.T("extraDialog.initialize.title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -320,6 +326,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _progressDialog = new ProgressDialog
                 {
                     Text = contextTitle,
+                    TextFormatter = AdditionalDialogText.DisplayInitialization,
+                    CompletedStepsFormat = Lang.T("extraDialog.progress.completedSteps"),
                     RunningTitle = contextTitle + " 진행 중",
                     CompletedTitle = contextTitle + " 완료",
                     FailedTitle = contextTitle + " 실패",
@@ -328,6 +336,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     DefaultStepText = "초기화 시퀀스를 준비합니다.",
                     DefaultMessage = "초기화가 완료될 때까지 기다려 주세요."
                 };
+                AdditionalDialogText.Bind(_progressDialog, contextTitle);
                 _progressDialog.ApplyProgress(BuildInitProgressInfo(ProgressState.Running, "초기화 시퀀스를 시작합니다.", null));
                 _progressDialog.Show(this);
                 _progressDialog.BringToFront();
@@ -540,5 +549,37 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return StatusReinitializeRequired;
             return string.IsNullOrWhiteSpace(status) ? StatusWaiting : status;
         }
+        public void ApplyLanguage()
+        {
+            foreach (KeyValuePair<DataGridViewCell, string> item in _routeTooltipText)
+                item.Key.ToolTipText = AdditionalDialogText.Display(item.Value);
+            if (_progressDialog != null && !_progressDialog.IsDisposed)
+            {
+                _progressDialog.CompletedStepsFormat = Lang.T("extraDialog.progress.completedSteps");
+                _progressDialog.RefreshDisplay();
+            }
+        }
+
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindReadOnlyCells(grid, AdditionalDialogText.Display, cell => cell.ColumnIndex == colPhase.Index ||
+                cell.ColumnIndex == colTargetType.Index || cell.ColumnIndex == colStatus.Index || cell.ColumnIndex == colCurrentCheck.Index);
+            Lang.BindKey(lblTitle, "extraDialog.initializationMonitorDialog.lblTitle.caption");
+            Lang.BindKey(colStepNo, "extraDialog.initializationMonitorDialog.colStepNo.caption");
+            Lang.BindKey(colGroupName, "extraDialog.initializationMonitorDialog.colGroupName.caption");
+            Lang.BindKey(colPhase, "extraDialog.initializationMonitorDialog.colPhase.caption");
+            Lang.BindKey(colTargetType, "extraDialog.initializationMonitorDialog.colTargetType.caption");
+            Lang.BindKey(colTarget, "extraDialog.initializationMonitorDialog.colTarget.caption");
+            Lang.BindKey(colCommand, "extraDialog.initializationMonitorDialog.colCommand.caption");
+            Lang.BindKey(colCurrentCheck, "extraDialog.initializationMonitorDialog.colCurrentCheck.caption");
+            Lang.BindKey(colStatus, "extraDialog.initializationMonitorDialog.colStatus.caption");
+            Lang.BindKey(colDescription, "extraDialog.initializationMonitorDialog.colDescription.caption");
+            Lang.BindKey(btnRunSelected, "extraDialog.initializationMonitorDialog.btnRunSelected.caption");
+            Lang.BindKey(btnRunAll, "extraDialog.initializationMonitorDialog.btnRunAll.caption");
+            Lang.BindKey(btnRefresh, "extraDialog.initializationMonitorDialog.btnRefresh.caption");
+            Lang.BindKey(btnClose, "extraDialog.initializationMonitorDialog.btnClose.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 }

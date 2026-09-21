@@ -1,3 +1,4 @@
+﻿using QMC.CDT_320.Ui.Localization;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Controls;
@@ -14,7 +15,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         public LogSettingsDialog()
         {
-            Text = "LOG SETTINGS";
+            Lang.BindKey(this, "dialog.log.title");
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.Sizable;
             MinimizeBox = false;
@@ -69,12 +70,15 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnSave.Click += (s, e) =>
             {
                 _panel.Save();
-                MessageBox.Show(this, "저장되었습니다.", "LOG SETTINGS",
+                QMC.Common.MessageDialog.Show(this, Lang.T("dialog.log.saved"), Lang.T("dialog.log.title"),
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 _allowClose = true;
                 Close();
             };
 
+            Lang.BindKey(btnClose, "dialog.close");
+            Lang.BindKey(btnSave, "common.save");
+            Load += (sender, e) => Lang.Apply(this);
             bottomBar.Controls.Add(btnClose); // 우측 끝
             bottomBar.Controls.Add(btnSave);  // 그 왼쪽
 

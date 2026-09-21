@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Threading;
@@ -29,12 +30,22 @@ namespace QMC.CDT_320.Ui.Controls
         public TpuVisionTestControl()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
 
             btnExpose.Click += async (s, e) => await RunExposeAsync().ConfigureAwait(true);
             btnResult.Click += async (s, e) => await RunResultAsync().ConfigureAwait(true);
         }
 
         public string DialogTitle { get; private set; } = "Vision Test";
+        private string _displayTitle;
+        private int _displayCommandPort;
+        private int _displayViewerPort;
+
+        internal void BindDialogTitle(Control dialog)
+        {
+            Lang.BindFormat(dialog, _displayCommandPort > 0 ? "visionUi.tpuTitle.ports" : "visionUi.tpuTitle.name",
+                _displayTitle, _displayCommandPort, _displayViewerPort);
+        }
 
         public void Configure(
             string title,
@@ -58,16 +69,42 @@ namespace QMC.CDT_320.Ui.Controls
             int viewerPort = ResolveViewerPort();
             bool bottom = _mode == Mode.BottomInspection;
 
+            _displayTitle = title;
+            _displayCommandPort = commandPort;
+            _displayViewerPort = viewerPort;
             DialogTitle = "Vision Test - " + title +
                           (commandPort > 0 ? "  (Command " + commandPort + " / Image " + viewerPort + ")" : string.Empty);
 
-            btnExpose.Text = bottom ? "BOTTOM EXPOSE" : "SIDE EXPOSE";
-            btnResult.Text = bottom ? "BOTTOM RESULT" : "SIDE INSPECT";
-            lblExpose.Text = bottom ? "Picker " + _pickerNo + " 노출 ACK 대기" : "Side 노출 ACK 대기";
-            lblResult.Text = bottom ? "4 Picker DieFinder offset/OK 대기" : _sideInspectorId + " 검사 결과 대기";
-            lblHint.Text = bottom
-                ? "Bottom 검사는 TpuVisionAdapter의 Inspection 채널에 노출을 요청합니다. 모션 구동은 하지 않습니다."
-                : "Side 검사는 해당 Side Vision 모듈에 EXPOSE/INSPECT를 요청합니다. Vision READY 상태에서만 사용하세요.";
+            {
+                if (bottom)
+                    Lang.BindKey(btnExpose, "visionUi.tpuVisionTestControl.btnExpose.text");
+                else
+                    Lang.BindKey(btnExpose, "visionUi.tpuVisionTestControl.btnExpose.state2");
+            }
+            {
+                if (bottom)
+                    Lang.BindKey(btnResult, "visionUi.tpuVisionTestControl.btnResult.text");
+                else
+                    Lang.BindKey(btnResult, "visionUi.tpuVisionTestControl.btnResult.state2");
+            }
+            {
+                if (bottom)
+                    Lang.BindFormat(lblExpose, "visionUi.tpuVisionTestControl.lblExpose.text", (object)(_pickerNo));
+                else
+                    Lang.BindKey(lblExpose, "visionUi.tpuVisionTestControl.lblExpose.state2");
+            }
+            {
+                if (bottom)
+                    Lang.BindKey(lblResult, "visionUi.tpuVisionTestControl.lblResult.text");
+                else
+                    Lang.BindFormat(lblResult, "visionUi.tpuVisionTestControl.lblResult.state2", (object)(_sideInspectorId));
+            }
+            {
+                if (bottom)
+                    Lang.BindKey(lblHint, "visionUi.tpuVisionTestControl.lblHint.text");
+                else
+                    Lang.BindKey(lblHint, "visionUi.tpuVisionTestControl.lblHint.state2");
+            }
 
             viewer.Configure(VisionHub.Host, viewerPort, title + " Image", commandClient);
         }
@@ -95,14 +132,14 @@ namespace QMC.CDT_320.Ui.Controls
             if (client == null)
             {
                 target.ForeColor = Color.Firebrick;
-                target.Text = "Vision 모듈이 없습니다.";
+                Lang.BindKey(target, "visionUi.tpuVisionTestControl.target.text");
                 return false;
             }
 
             if (!client.IsConnected)
             {
                 target.ForeColor = Color.Firebrick;
-                target.Text = "Vision이 연결되지 않았습니다. port=" + client.Port;
+                Lang.BindFormat(target, "visionUi.tpuVisionTestControl.target.state2", (object)(client.Port));
                 return false;
             }
 
@@ -116,7 +153,7 @@ namespace QMC.CDT_320.Ui.Controls
 
             btnExpose.Enabled = false;
             lblExpose.ForeColor = Color.DimGray;
-            lblExpose.Text = "EXPOSE 실행 중...";
+            Lang.BindKey(lblExpose, "visionUi.tpuVisionTestControl.lblExpose.state3");
             try
             {
                 bool ok;
@@ -131,14 +168,19 @@ namespace QMC.CDT_320.Ui.Controls
                 }
 
                 lblExpose.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
-                lblExpose.Text = ok ? "EXPOSE ACK 완료" : "EXPOSE 실패. Vision READY/연결 상태를 확인하세요.";
+                {
+                    if (ok)
+                        Lang.BindKey(lblExpose, "visionUi.tpuVisionTestControl.lblExpose.state4");
+                    else
+                        Lang.BindKey(lblExpose, "visionUi.tpuVisionTestControl.lblExpose.state5");
+                }
                 if (ok)
                     LogLiveAutoStartBlocked("EXPOSE 완료 후 자동 Live 시작 차단");
             }
             catch (Exception ex)
             {
                 lblExpose.ForeColor = Color.Firebrick;
-                lblExpose.Text = "EXPOSE 실패: " + ex.Message;
+                Lang.BindFormat(lblExpose, "visionUi.tpuVisionTestControl.lblExpose.state6", (object)(ex.Message));
             }
             finally
             {
@@ -153,7 +195,7 @@ namespace QMC.CDT_320.Ui.Controls
 
             btnResult.Enabled = false;
             lblResult.ForeColor = Color.DimGray;
-            lblResult.Text = (_mode == Mode.BottomInspection ? "RESULT" : "INSPECT") + " 실행 중...";
+            Lang.BindFormat(lblResult, "visionUi.tpuVisionTestControl.lblResult.state3", (object)((_mode == Mode.BottomInspection ? "RESULT" : "INSPECT")));
             try
             {
                 if (_mode == Mode.BottomInspection)
@@ -164,7 +206,7 @@ namespace QMC.CDT_320.Ui.Controls
             catch (Exception ex)
             {
                 lblResult.ForeColor = Color.Firebrick;
-                lblResult.Text = (_mode == Mode.BottomInspection ? "RESULT" : "INSPECT") + " 실패: " + ex.Message;
+                Lang.BindFormat(lblResult, "visionUi.tpuVisionTestControl.lblResult.state4", (object)((_mode == Mode.BottomInspection ? "RESULT" : "INSPECT")), (object)(ex.Message));
             }
             finally
             {
@@ -178,7 +220,7 @@ namespace QMC.CDT_320.Ui.Controls
             if (results == null)
             {
                 lblResult.ForeColor = Color.Firebrick;
-                lblResult.Text = "결과가 없습니다.";
+                Lang.BindKey(lblResult, "visionUi.tpuVisionTestControl.lblResult.state5");
                 return;
             }
 
@@ -199,7 +241,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
 
             lblResult.ForeColor = allOk ? Color.SeaGreen : Color.Firebrick;
-            lblResult.Text = string.Join("\r\n", lines.ToArray());
+            Lang.BindFormat(lblResult, "visionUi.literal", (object)(string.Join("\r\n", lines.ToArray())));
             try
             {
                 viewer.SetVerdictText(allOk ? "OK" : "NG", allOk);
@@ -216,7 +258,7 @@ namespace QMC.CDT_320.Ui.Controls
             if (client == null)
             {
                 lblResult.ForeColor = Color.Firebrick;
-                lblResult.Text = "Vision 모듈이 없습니다.";
+                Lang.BindKey(lblResult, "visionUi.tpuVisionTestControl.target.text");
                 return;
             }
 
@@ -225,7 +267,7 @@ namespace QMC.CDT_320.Ui.Controls
                 (channel != AutoVisionChannel.FrontSide && channel != AutoVisionChannel.RearSide))
             {
                 lblResult.ForeColor = Color.Firebrick;
-                lblResult.Text = "Side Vision 카메라 채널을 확인할 수 없습니다.";
+                Lang.BindKey(lblResult, "visionUi.tpuVisionTestControl.lblResult.state6");
                 return;
             }
 
@@ -243,12 +285,12 @@ namespace QMC.CDT_320.Ui.Controls
             if (result == null)
             {
                 lblResult.ForeColor = Color.Firebrick;
-                lblResult.Text = "INSPECT 실패: no response";
+                Lang.BindKey(lblResult, "visionUi.tpuVisionTestControl.lblResult.state7");
                 return;
             }
 
             lblResult.ForeColor = result.IsPass ? Color.SeaGreen : Color.Firebrick;
-            lblResult.Text = (result.IsPass ? "PASS" : "FAIL") + "\r\n" + result.Raw;
+            Lang.BindFormat(lblResult, "visionUi.literal", (object)((result.IsPass ? "PASS" : "FAIL") + "\r\n" + result.Raw));
             try { viewer.SetVerdictText(result.IsPass ? "OK" : "NG", result.IsPass); } catch { }
         }
 
@@ -270,6 +312,15 @@ namespace QMC.CDT_320.Ui.Controls
                     ", reason=" + reason);
             }
             catch { }
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this.btnExpose, "visionUi.tpuVisionTestControl.btnExpose.state3");
+            Lang.BindKey(this.btnResult, "visionUi.tpuVisionTestControl.btnResult.state3");
+            Lang.BindKey(this.lblExpose, "visionUi.tpuVisionTestControl.lblExpose.state7");
+            Lang.BindKey(this.lblResult, "visionUi.tpuVisionTestControl.lblResult.state8");
+            Lang.BindKey(this.lblHint, "visionUi.tpuVisionTestControl.lblHint.state3");
         }
     }
 }

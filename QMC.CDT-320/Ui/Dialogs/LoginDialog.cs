@@ -4,7 +4,7 @@ using QMC.CDT_320.Ui.Security;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public partial class LoginDialog : Form
+    public partial class LoginDialog : Form, ILocalizedView
     {
         public LoginDialog()
         {
@@ -12,12 +12,36 @@ namespace QMC.CDT_320.Ui.Dialogs
             ApplyRuntimeUi();
             LoadAccounts();
             WireEvents();
+            ApplyLanguage();
         }
 
         private void ApplyRuntimeUi()
         {
-            Text = Lang.T("dlg.login");
-            lblTitle.Text = Text;
+            Lang.BindKey(this, "dlg.login");
+            Lang.BindKey(lblTitle, "dlg.login");
+            Lang.BindKey(lblId, "dialog.user.id");
+            Lang.BindKey(lblPassword, "dialog.user.password");
+            Lang.BindKey(lblAdminId, "dialog.user.id");
+            Lang.BindKey(lblAdminPassword, "dialog.user.password");
+            Lang.BindKey(btnLogout, "dialog.login.logout");
+            Lang.BindKey(btnEnter, "dialog.login.enter");
+            Lang.BindKey(grpAddUpdate, "dialog.login.addUpdate");
+            Lang.BindKey(btnMaintenance, "dialog.user.maintenance");
+            Lang.BindKey(btnOperator, "dialog.user.operator");
+            Lang.BindKey(btnAdd, "common.add");
+            Lang.BindKey(btnUpdate, "common.update");
+            Lang.BindKey(btnDelete, "common.delete");
+        }
+
+        public void ApplyLanguage()
+        {
+            colId.Text = Lang.T("dialog.user.id");
+            colGrade.Text = Lang.T("dialog.user.level");
+            colPassword.Text = Lang.T("dialog.user.password");
+            // 인증에서 읽는 아이디/비밀번호 열은 유지하고 등급 표시 열만 갱신한다.
+            string[] keys = { "dialog.user.operator", "dialog.user.engineer", "dialog.user.maintenance", "dialog.user.admin" };
+            for (int i = 0; i < lvAccounts.Items.Count && i < keys.Length; i++)
+                lvAccounts.Items[i].SubItems[1].Text = Lang.T(keys[i]);
         }
 
         private void LoadAccounts()
@@ -72,10 +96,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             }
 
-            QMC.Common.MessageDialog.Show(this, "Login failed.", Lang.T("dlg.login"));
+            QMC.Common.MessageDialog.Show(this, Lang.T("dialog.login.failed"), Lang.T("dlg.login"));
             tbPassword.Clear();
             tbPassword.Focus();
         }
     }
 }
-

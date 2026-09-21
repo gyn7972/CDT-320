@@ -36,6 +36,11 @@ namespace QMC.CDT_320.Ui.Localization
 
         public static string Current => _localization.Current;
 
+        static Lang()
+        {
+            QMC.Common.MessageDialog.Localization = _localization;
+        }
+
         public static event Action LanguageChanged
         {
             add { _localization.LanguageChanged += value; }
@@ -59,6 +64,12 @@ namespace QMC.CDT_320.Ui.Localization
         public static string T(string key)
         {
             return _localization.GetString(key);
+        }
+
+        /// <summary>문장 템플릿과 값(수량, 경로, 예외 내용 등)을 분리하여 표시합니다.</summary>
+        public static string Format(string key, params object[] arguments)
+        {
+            return _localization.Format(key, arguments);
         }
 
         /// <summary>현재 언어와 무관하게 영어만 조회합니다. 미등록 키는 그대로 반환합니다.</summary>
@@ -94,6 +105,53 @@ namespace QMC.CDT_320.Ui.Localization
             _bindings.Bind(control, key);
         }
 
+        public static void BindKey(DataGridViewColumn column, string key)
+        {
+            _bindings.Bind(column, key);
+        }
+
+        public static void BindKey(ColumnHeader column, string key)
+        {
+            _bindings.Bind(column, key);
+        }
+
+        public static void BindKey(ToolStripItem item, string key)
+        {
+            _bindings.Bind(item, key);
+        }
+
+        public static void BindKey(ToolTip toolTip, Control control, string key)
+        {
+            _bindings.Bind(toolTip, control, key);
+        }
+
+        /// <summary>표시 인수를 보관하고 언어 변경 시 문구만 갱신합니다.</summary>
+        public static void BindFormat(Control control, string key, params object[] arguments)
+        {
+            _bindings.BindFormat(control, key, arguments);
+        }
+
+        public static void BindFormat(ToolStripItem item, string key, params object[] arguments)
+        {
+            _bindings.BindFormat(item, key, arguments);
+        }
+
+        public static void BindChoices(ComboBox combo, Func<string, string> format)
+        {
+            _bindings.BindChoices(combo, format);
+        }
+
+        public static void BindDisplay(Control control, string originalText, Func<string, string> formatter)
+        {
+            _bindings.BindDisplay(control, originalText, formatter);
+        }
+
+        public static void BindReadOnlyCells(DataGridView grid, Func<string, string> format,
+            Func<DataGridViewCell, bool> canFormat = null)
+        {
+            _bindings.BindReadOnlyCells(grid, format, canFormat);
+        }
+
         /// <summary>명시적인 표시 바인딩과 i18n 태그만 갱신하며 입력값과 선택값을 변경하지 않습니다.</summary>
         public static void Apply(Control root)
         {
@@ -104,6 +162,32 @@ namespace QMC.CDT_320.Ui.Localization
         {
             var sources = new ILocalizationSource[]
             {
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.WorkMapStrings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.WorkMessageStrings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.WorkInfoStrings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.SettingsStrings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.HistoryStrings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.RecipeStrings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.ControlStrings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.CalibrationStrings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.VisionStrings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.AdditionalDialogStrings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.DiagramStrings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.DialogStrings", typeof(Lang).Assembly), En),
+                new ResourceLocalizationSource(new ResourceManager(
+                    "QMC.CDT_320.Ui.Localization.Resources.MessageStrings", typeof(Lang).Assembly), En),
                 new ResourceLocalizationSource(new ResourceManager(
                     "QMC.CDT_320.Ui.Localization.Resources.Strings", typeof(Lang).Assembly), En),
                 new ResourceLocalizationSource(new ResourceManager(
@@ -133,6 +217,7 @@ namespace QMC.CDT_320.Ui.Localization
         private static void SetDisplayText(Control control, string text)
         {
             if (control is BottomMenuButton button) button.Label = text;
+            else if (control is QMC.CDT320.Ui.Controls.DieMapView map) map.Caption = text;
             else control.Text = text;
         }
     }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
@@ -212,6 +213,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                     _selectedKind = VisionFocusScanKind.FrontSide0;
 
                 InitializeComponent();
+
+                InitializeLanguageBindings();
+                gridSaved.CellToolTipTextNeeded += (sender, e) =>
+                {
+                    if (e.RowIndex >= 0 && e.ColumnIndex == colBestPos.Index && IsSideOnlyProfile)
+                        e.ToolTipText = Lang.T("visionUi.focusTooltip.editBest");
+                };
+                Lang.BindReadOnlyCells(gridSettings, FormatLocalizedRow, cell => cell.ColumnIndex == colSettingName.Index);
                 ApplyDialogProfile();
                 CalibrationDialogGridBehavior.Apply(gridSettings, gridSamples, gridSaved);
                 ConfigureEditableSettingGrid();
@@ -239,9 +248,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 RefreshSavedGrid();
                 UpdateStopButtonEnabled();
                 UpdateResultSaveButtonEnabled();
-                lblStatus.Text = IsSideOnlyProfile
-                    ? "대기 중입니다. Side Focus 기준 위치를 확인한 뒤 START SCAN을 실행하세요."
-                    : "대기 중입니다. Focus 기준 위치를 확인한 뒤 START SCAN을 실행하세요.";
+                {
+                    if (IsSideOnlyProfile)
+                        Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.text");
+                    else
+                        Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state2");
+                }
             }
             finally
             {
@@ -265,8 +277,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (!IsSideOnlyProfile)
                 return;
 
-            Text = "Side Vision Focus Calibration";
-            lblHeader.Text = "SIDE VISION FOCUS CAL";
+            Lang.BindKey(this, "visionUi.visionFocusCalibrationDialog.Text.text");
+            Lang.BindKey(lblHeader, "visionUi.visionFocusCalibrationDialog.lblHeader.text");
 
             // Side 전용 창에서는 Bottom Picker 복귀/Runtime AF 전용 명령을 표시하지 않는다.
             btnMoveZAvoid.Visible = false;
@@ -375,7 +387,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Focus 설정 변경 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state3", (object)(ex.Message));
             }
             finally
             {
@@ -394,7 +406,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (!info.Numeric)
             {
-                lblStatus.Text = info.Name + " 항목은 숫자 키패드 수정 대상이 아닙니다.";
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state4", (object)(info.Name));
                 return;
             }
 
@@ -414,7 +426,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "숫자 입력 처리 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state5", (object)(ex.Message));
             }
             finally
             {
@@ -428,7 +440,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             SettingRowInfo info = gridSettings.Rows[e.RowIndex].Tag as SettingRowInfo;
             if (info != null)
-                e.ToolTipText = info.ToolTip;
+                e.ToolTipText = GetLocalizedSettingToolTip(info);
         }
 
         private void gridSaved_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
@@ -445,17 +457,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             // NeedlePinCalibrationDialog의 결과값 수동 수정과 동일하게 Admin 권한 + 명시적 확인을 요구한다.
             if (!UserSession.Has(UserLevel.Admin))
             {
-                lblStatus.Text = "Admin 권한에서만 BEST 위치를 수동 수정할 수 있습니다.";
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "SIDE VISION FOCUS CAL",
+                Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state6");
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionFocusCalibrationDialog.lblHeader.text"),
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             if (QMC.Common.MessageDialog.Show(
                     this,
-                    "BEST 위치를 수동으로 덮어씁니다.\r\n" +
-                    "실제 측정 없이 캘리브레이션 값을 바꾸는 조작이며 즉시 저장됩니다.\r\n\r\n진행할까요?",
-                    "SIDE VISION FOCUS CAL",
+                    Lang.T("visionUi.visionFocusCalibrationDialog.message.text"),
+                    Lang.T("visionUi.visionFocusCalibrationDialog.lblHeader.text"),
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning) != DialogResult.Yes)
                 return;
@@ -467,7 +478,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Form1 host = ResolveHost(out reason);
                 if (host == null || host.Machine == null || host.Machine.VisionUnit == null)
                 {
-                    lblStatus.Text = reason;
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
                     return;
                 }
 
@@ -482,8 +493,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     if (!double.TryParse(dialog.ValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out bestPosition) ||
                         double.IsNaN(bestPosition) || double.IsInfinity(bestPosition))
                     {
-                        lblStatus.Text = "BEST 입력값이 올바른 숫자가 아닙니다. value=" + dialog.ValueText;
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "SIDE VISION FOCUS CAL",
+                        Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state7", (object)(dialog.ValueText));
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionFocusCalibrationDialog.lblHeader.text"),
                             MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
@@ -496,11 +507,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     if (axis != null && axis.Setup != null && axis.Setup.SoftLimitEnabled &&
                         (bestPosition < axis.Setup.SoftLimitMinus || bestPosition > axis.Setup.SoftLimitPlus))
                     {
-                        lblStatus.Text = "BEST 입력값이 " + axis.Name + " 소프트리밋을 벗어났습니다. target=" +
-                                         bestPosition.ToString("F3") +
-                                         ", min=" + axis.Setup.SoftLimitMinus.ToString("F3") +
-                                         ", max=" + axis.Setup.SoftLimitPlus.ToString("F3");
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "SIDE VISION FOCUS CAL",
+                        Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state8", (object)(axis.Name), (object)(bestPosition.ToString("F3")), (object)(axis.Setup.SoftLimitMinus.ToString("F3")), (object)(axis.Setup.SoftLimitPlus.ToString("F3")));
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionFocusCalibrationDialog.lblHeader.text"),
                             MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
@@ -521,25 +529,27 @@ namespace QMC.CDT_320.Ui.Dialogs
                         record.UpdatedAt = oldUpdatedAt;
                         record.UpdatedBy = oldUpdatedBy;
                         RefreshSavedGrid();
-                        lblStatus.Text = "BEST 수동 입력값 저장에 실패했습니다. Machine 설정 저장 상태를 확인하세요.";
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "SIDE VISION FOCUS CAL",
+                        Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state9");
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionFocusCalibrationDialog.lblHeader.text"),
                             MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
                     }
 
                     RefreshSavedGrid();
-                    lblStatus.Text = itemName + " BEST 수동 입력 저장 완료. old=" +
+                    Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state10", (object)(itemName), (object)(oldBestPosition.ToString("F3")), (object)(bestPosition.ToString("F3")));
+                    string statusLogText1 = itemName + " BEST 수동 입력 저장 완료. old=" +
                                      oldBestPosition.ToString("F3") + ", new=" + bestPosition.ToString("F3");
                     EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-BEST-MANUAL",
-                        lblStatus.Text + ", kind=" + _selectedKind +
+                        statusLogText1 + ", kind=" + _selectedKind +
                         ", pickerSide=" + _selectedPickerSide +
                         ", valid=True");
                 }
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "BEST 수동 입력 처리 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-BEST-MANUAL-EX", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state11", (object)(ex.Message));
+                string statusLogText2 = "BEST 수동 입력 처리 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-BEST-MANUAL-EX", statusLogText2);
             }
             finally
             {
@@ -554,17 +564,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                lblStatus.Text = "실행 가능한 상태입니다. Default Pos는 저장된 Focus Cal 등록값만 사용합니다.";
+                Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state12");
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "실행 조건 확인 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-CHECK", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state13", (object)(ex.Message));
+                string statusLogText3 = "실행 조건 확인 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-CHECK", statusLogText3);
             }
             finally
             {
@@ -579,18 +590,19 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Form1 host = ResolveHost(out reason);
                 if (host == null)
                 {
-                    lblStatus.Text = reason;
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
                     return;
                 }
 
                 _defaultPosition = ResolveCurrentAxisPosition(host.Machine);
                 RefreshSettingGrid();
-                lblStatus.Text = "현재 축 위치를 Default Pos로 적용했습니다.";
+                Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state14");
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "현재 위치 적용 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-USE-CURRENT", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state15", (object)(ex.Message));
+                string statusLogText4 = "현재 위치 적용 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-USE-CURRENT", statusLogText4);
             }
             finally
             {
@@ -636,7 +648,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             LoadSettingsToUi();
             RefreshSavedGrid();
-            lblStatus.Text = "Vision Focus Cal 설정값을 다시 불러왔습니다.";
+            Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state16");
         }
 
         private void btnSaveParameters_Click(object sender, EventArgs e)
@@ -684,14 +696,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                     }
 
                     DialogResult result = QMC.Common.MessageDialog.Show(this,
-                        "Vision Focus Calibration이 실행 중입니다. 정지 요청 후 창을 닫을까요?",
-                        "VISION FOCUS CAL",
+                        Lang.T("visionUi.visionFocusCalibrationDialog.message.state3"),
+                        Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"),
                         MessageBoxButtons.YesNo,
                         MessageBoxIcon.Warning);
                     if (result == DialogResult.Yes)
                     {
                         RequestRunCancelForClose("Vision Focus Calibration 창 닫기");
-                        lblStatus.Text = "정지 처리 중입니다. 완료 후 창을 닫으세요.";
+                        Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state17");
                     }
 
                     e.Cancel = true;
@@ -816,17 +828,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Action request = _activeStopRequest;
                 if (request == null)
                 {
-                    lblStatus.Text = "현재 정지 요청할 Vision Focus Calibration 동작이 없습니다.";
+                    Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state18");
                     return;
                 }
 
                 request();
-                lblStatus.Text = source + "으로 Vision Focus Calibration 정지를 요청했습니다.";
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state19", (object)(source));
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Vision Focus Calibration 정지 요청 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-STOP-REQUEST", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state20", (object)(ex.Message));
+                string statusLogText5 = "Vision Focus Calibration 정지 요청 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-STOP-REQUEST", statusLogText5);
             }
             finally
             {
@@ -852,15 +865,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 host = ResolveHost(out reason);
                 if (host == null)
                 {
-                    lblStatus.Text = reason;
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
                     return;
                 }
 
@@ -871,19 +884,24 @@ namespace QMC.CDT_320.Ui.Dialogs
                 VisionFocusScanRequest request = BuildRequest(false);
                 var sequence = new VisionFocusScanSequence(host.Machine, request);
                 int result = await sequence.MoveDefaultOnlyAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
-                lblStatus.Text = result == 0
-                    ? "Default Pos 이동 완료."
-                    : "Default Pos 이동 실패. Alarm/Event Log를 확인하세요.";
+                {
+                    if (result == 0)
+                        Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state21");
+                    else
+                        Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state22");
+                }
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "Default Pos 이동이 정지 요청으로 중단되었습니다.";
-                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-STOP", lblStatus.Text);
+                Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state23");
+                string statusLogText6 = "Default Pos 이동이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-STOP", statusLogText6);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Default Pos 이동 예외 발생: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-MOVE-DEFAULT", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state24", (object)(ex.Message));
+                string statusLogText7 = "Default Pos 이동 예외 발생: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-MOVE-DEFAULT", statusLogText7);
             }
             finally
             {
@@ -913,22 +931,22 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 if (!IsBottomFocusKind(_selectedKind))
                 {
-                    lblStatus.Text = "Z AVOID는 Bottom Collet/Bottom Die 모드에서만 사용할 수 있습니다.";
+                    Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state25");
                     return;
                 }
 
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 host = ResolveHost(out reason);
                 if (host == null)
                 {
-                    lblStatus.Text = reason;
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
                     return;
                 }
 
@@ -940,21 +958,29 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
                 runCts.Token.ThrowIfCancellationRequested();
 
-                lblStatus.Text = result == 0
+                {
+                    if (result == 0)
+                        Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state26", (object)(BuildSelectedPickerAxisLabel(ResolveSelectedPickerZAxis())));
+                    else
+                        Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state27");
+                }
+                string statusLogText8 = result == 0
                     ? "Picker Z Avoid 이동 완료. " + BuildSelectedPickerAxisLabel(ResolveSelectedPickerZAxis())
                     : "Picker Z Avoid 이동 실패. Alarm/Event Log를 확인하세요.";
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-Z-AVOID",
-                    lblStatus.Text + ", result=" + result);
+                    statusLogText8 + ", result=" + result);
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "Picker Z Avoid 이동이 정지 요청으로 중단되었습니다.";
-                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-STOP", lblStatus.Text);
+                Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state28");
+                string statusLogText9 = "Picker Z Avoid 이동이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-STOP", statusLogText9);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Picker Z Avoid 이동 예외 발생: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-Z-AVOID-EX", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state29", (object)(ex.Message));
+                string statusLogText10 = "Picker Z Avoid 이동 예외 발생: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-Z-AVOID-EX", statusLogText10);
             }
             finally
             {
@@ -984,23 +1010,23 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 if (!IsBottomFocusKind(_selectedKind))
                 {
-                    lblStatus.Text = "Picker Y Avoid는 Bottom 모드에서만 사용할 수 있습니다.";
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state30");
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 host = ResolveHost(out reason);
                 if (host == null)
                 {
-                    lblStatus.Text = reason;
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
                     return;
                 }
 
@@ -1011,8 +1037,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 {
                     if (!IsSelectedPickerZInAvoidPosition(host.Machine))
                     {
-                        lblStatus.Text = "Picker Y Avoid 이동 전 선택 Picker Z를 먼저 Avoid 위치로 이동하세요.";
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state31");
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
@@ -1021,21 +1047,29 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
                 runCts.Token.ThrowIfCancellationRequested();
 
-                lblStatus.Text = result == 0
+                {
+                    if (result == 0)
+                        Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state32", (object)(label));
+                    else
+                        Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state33");
+                }
+                string statusLogText11 = result == 0
                     ? "Picker Y Avoid 이동 완료. " + label
                     : "Picker Y Avoid 이동 실패. Alarm/Event Log를 확인하세요.";
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-PICKER-Y-AVOID",
-                    lblStatus.Text + ", result=" + result);
+                    statusLogText11 + ", result=" + result);
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "Picker Y Avoid 이동이 정지 요청으로 중단되었습니다.";
-                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-STOP", lblStatus.Text);
+                Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state34");
+                string statusLogText12 = "Picker Y Avoid 이동이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-STOP", statusLogText12);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Picker Y Avoid 이동 예외 발생: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-PICKER-Y-AVOID-EX", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state35", (object)(ex.Message));
+                string statusLogText13 = "Picker Y Avoid 이동 예외 발생: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-PICKER-Y-AVOID-EX", statusLogText13);
             }
             finally
             {
@@ -1104,11 +1138,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             List<BatchFocusTarget> targets = BuildBatchTargets();
             if (targets.Count == 0)
             {
-                lblStatus.Text = "Batch 측정 대상을 하나 이상 선택하세요.";
+                Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state36");
                 QMC.Common.MessageDialog.Show(
                     this,
                     lblStatus.Text,
-                    "VISION FOCUS CAL",
+                    Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 return;
@@ -1132,15 +1166,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 host = ResolveHost(out reason);
                 if (host == null)
                 {
-                    lblStatus.Text = reason;
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
                     return;
                 }
 
@@ -1167,8 +1201,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     RefreshSettingGrid();
                     RefreshSavedGrid();
 
-                    lblStatus.Text = "Batch " + (index + 1) + "/" + targets.Count +
-                                     " " + target.Label + " Focus 측정 중입니다.";
+                    Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state37", (object)((index + 1)), (object)(targets.Count), (object)(target.Label));
                     VisionFocusScanRequest request = BuildRequest(true);
                     if (IsBottomFocusKind(originalKind))
                         request.BottomPickerTargetTDeg = batchPickerTTeachingDeg;
@@ -1179,12 +1212,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                     if (result != 0 || sequence.Result == null || !sequence.Result.Success)
                     {
-                        lblStatus.Text = "Batch " + target.Label + " Focus 측정 실패: " +
-                                         (sequence.Result != null ? sequence.Result.Message : "결과 없음");
+                        Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state38", (object)(target.Label), (object)((sequence.Result != null ? sequence.Result.Message : "결과 없음")));
                         QMC.Common.MessageDialog.Show(
                             this,
                             lblStatus.Text,
-                            "VISION FOCUS CAL",
+                            Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"),
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Error);
                         return;
@@ -1219,8 +1251,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     bool hasNextTarget = index < targets.Count - 1;
                     if (hasNextTarget)
                     {
-                        lblStatus.Text = "Batch " + target.Label +
-                                         " 완료. 다음 대상 준비 단계가 안전 조건을 확보합니다(중복 Avoid 복귀 생략).";
+                        Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state39", (object)(target.Label));
                         EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-BATCH-SAFE-SKIP",
                             "Batch 대상 사이 안전 Avoid 복귀를 생략합니다(다음 대상 준비 단계가 확보). " +
                             "completed=" + target.Label +
@@ -1228,7 +1259,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                         continue;
                     }
 
-                    lblStatus.Text = "Batch " + target.Label + " 완료. 최종 안전 Avoid 복귀 중입니다.";
+                    Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state40", (object)(target.Label));
                     var safe = new AutoCalibrationSafePositionSequence(context, target.Side);
                     PickerSequenceOptions options = PickerSequenceOptions.Default();
                     options.RunMode = SequenceRunMode.Manual;
@@ -1238,35 +1269,34 @@ namespace QMC.CDT_320.Ui.Dialogs
                     int safeResult = await safe.RunAsync(runCts.Token, options).ConfigureAwait(true);
                     if (safeResult != 0)
                     {
-                        lblStatus.Text = "Batch " + target.Label +
-                                         " 완료 후 최종 안전 Avoid 복귀에 실패했습니다. 최종 안전 상태를 확인하세요." +
-                                         " code=" + safeResult;
+                        Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state41", (object)(target.Label), (object)(safeResult));
                         QMC.Common.MessageDialog.Show(
                             this,
                             lblStatus.Text,
-                            "VISION FOCUS CAL",
+                            Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"),
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Error);
                         return;
                     }
                 }
 
-                lblStatus.Text = "Batch Focus 측정을 모두 완료했습니다. 대상=" + targets.Count +
-                                 ". SAVE RESULT는 마지막 정상 측정 대상을 확인 저장합니다.";
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state42", (object)(targets.Count));
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "Batch Focus 측정이 정지 요청으로 중단되었습니다.";
-                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-BATCH-STOP", lblStatus.Text);
+                Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state43");
+                string statusLogText14 = "Batch Focus 측정이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-BATCH-STOP", statusLogText14);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Batch Focus 측정 예외 발생: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-BATCH", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state44", (object)(ex.Message));
+                string statusLogText15 = "Batch Focus 측정 예외 발생: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-BATCH", statusLogText15);
                 QMC.Common.MessageDialog.Show(
                     this,
                     lblStatus.Text,
-                    "VISION FOCUS CAL",
+                    Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -1304,15 +1334,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 host = ResolveHost(out reason);
                 if (host == null)
                 {
-                    lblStatus.Text = reason;
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
                     return;
                 }
 
@@ -1330,28 +1360,27 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 if (result != 0)
                 {
-                    lblStatus.Text = "Focus Scan 실패: " + sequence.Result.Message;
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state45", (object)(sequence.Result.Message));
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
                 CaptureLastSuccessfulResult(host.Machine, sequence.Result);
                 host.SaveMachineSettings();
-                lblStatus.Text = "Focus Scan 완료. SAVE RESULT로 마지막 정상 측정값을 확인 저장하세요. Best=" +
-                                 sequence.Result.BestPosition.ToString("F3") +
-                                 ", Score=" + sequence.Result.BestScore.ToString("F4") +
-                                 ", Sample=" + sequence.Result.SampleCount;
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state46", (object)(sequence.Result.BestPosition.ToString("F3")), (object)(sequence.Result.BestScore.ToString("F4")), (object)(sequence.Result.SampleCount));
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "Focus Scan이 정지 요청으로 중단되었습니다.";
-                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-STOP", lblStatus.Text);
+                Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state47");
+                string statusLogText16 = "Focus Scan이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-STOP", statusLogText16);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Focus Scan 예외 발생: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-SCAN", lblStatus.Text);
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state48", (object)(ex.Message));
+                string statusLogText17 = "Focus Scan 예외 발생: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-SCAN", statusLogText17);
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1425,14 +1454,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             FocusResultSnapshot snapshot = _lastSuccessfulResult;
             if (snapshot == null)
             {
-                lblStatus.Text = "저장할 Focus 측정 결과가 없습니다. START SCAN 또는 BATCH START를 정상 완료한 뒤 SAVE RESULT를 누르세요.";
+                Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state49");
                 // [로그 보강 2026-07-27] 차단 사실을 이력에 남긴다(Collet BlockResultSave와 동일 기준).
-                QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalSaveResultBlocked", lblStatus.Text + " - Check");
-                EventLogger.Write(EventKind.Warning, "CAL", "VISION-FOCUS-CAL-SAVE-RESULT-BLOCKED", lblStatus.Text);
+                string statusLogText18 = "저장할 Focus 측정 결과가 없습니다. START SCAN 또는 BATCH START를 정상 완료한 뒤 SAVE RESULT를 누르세요.";
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalSaveResultBlocked", statusLogText18 + " - Check");
+                string statusLogText19 = "저장할 Focus 측정 결과가 없습니다. START SCAN 또는 BATCH START를 정상 완료한 뒤 SAVE RESULT를 누르세요.";
+                EventLogger.Write(EventKind.Warning, "CAL", "VISION-FOCUS-CAL-SAVE-RESULT-BLOCKED", statusLogText19);
                 QMC.Common.MessageDialog.Show(
                     this,
                     lblStatus.Text,
-                    "VISION FOCUS CAL",
+                    Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 return;
@@ -1456,13 +1487,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!DoesRecordMatchSnapshot(record, snapshot))
                 {
                     _lastSuccessfulResult = null;
-                    lblStatus.Text = "마지막 정상 측정 이후 해당 Focus 결과가 변경되어 SAVE RESULT를 차단했습니다. 다시 측정하세요. target=" +
+                    Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state50", (object)(BuildTargetLabel(snapshot.Kind, snapshot.Side, snapshot.PickerNo)));
+                    string statusLogText20 = "마지막 정상 측정 이후 해당 Focus 결과가 변경되어 SAVE RESULT를 차단했습니다. 다시 측정하세요. target=" +
                                      BuildTargetLabel(snapshot.Kind, snapshot.Side, snapshot.PickerNo);
-                    EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-SAVE-RESULT-STALE", lblStatus.Text);
+                    EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-SAVE-RESULT-STALE", statusLogText20);
                     QMC.Common.MessageDialog.Show(
                         this,
                         lblStatus.Text,
-                        "VISION FOCUS CAL",
+                        Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"),
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
                     return;
@@ -1470,21 +1502,23 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 host.SaveMachineSettings();
                 RefreshSavedGrid();
-                lblStatus.Text = "마지막 정상 Focus 결과를 저장했습니다. target=" +
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state51", (object)(BuildTargetLabel(snapshot.Kind, snapshot.Side, snapshot.PickerNo)), (object)(snapshot.BestPosition.ToString("F6")), (object)(snapshot.BestScore.ToString("F6")));
+                string statusLogText21 = "마지막 정상 Focus 결과를 저장했습니다. target=" +
                                  BuildTargetLabel(snapshot.Kind, snapshot.Side, snapshot.PickerNo) +
                                  ", best=" + snapshot.BestPosition.ToString("F6") +
                                  ", score=" + snapshot.BestScore.ToString("F6");
-                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-SAVE-RESULT", lblStatus.Text);
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-SAVE-RESULT", statusLogText21);
                 _lastSuccessfulResult = null;
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Focus 측정 결과 저장 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-SAVE-RESULT", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state52", (object)(ex.Message));
+                string statusLogText22 = "Focus 측정 결과 저장 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-SAVE-RESULT", statusLogText22);
                 QMC.Common.MessageDialog.Show(
                     this,
                     lblStatus.Text,
-                    "VISION FOCUS CAL",
+                    Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -1526,7 +1560,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Form1 host = ResolveHost(out reason);
                 if (host == null || host.Machine == null || host.Machine.VisionUnit == null)
                 {
-                    lblStatus.Text = reason;
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
                     return;
                 }
 
@@ -1578,7 +1612,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Focus Cal 설정 로드 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state53", (object)(ex.Message));
             }
             finally
             {
@@ -1598,7 +1632,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     _autoFocusOnPickCountEnabled &&
                     _autoFocusPickInterval <= 0)
                 {
-                    lblStatus.Text = "총 Pick 횟수 AutoFocus를 사용할 때 AF Total Pick Interval은 1 이상이어야 합니다.";
+                    Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state54");
                     return false;
                 }
 
@@ -1606,7 +1640,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Form1 host = ResolveHost(out reason);
                 if (host == null || host.Machine == null || host.Machine.VisionUnit == null)
                 {
-                    lblStatus.Text = reason;
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
                     return false;
                 }
 
@@ -1666,13 +1700,13 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 if (string.IsNullOrWhiteSpace(host.ActiveRecipeName) || !host.SaveMachineRecipe(host.ActiveRecipeName))
                 {
-                    lblStatus.Text = "Bottom Vision/AF To Bottom Delay Recipe 저장에 실패했습니다. 활성 Recipe를 확인하세요.";
+                    Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state55");
                     return false;
                 }
                 if (!host.SaveMachineSettings())
                 {
-                    lblStatus.Text = "T Teaching을 포함한 Vision Focus Cal 파라미터를 저장하지 못했습니다. 저장 상태를 확인한 후 다시 시도하세요.";
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state56");
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
                 if (IsBottomFocusKind(_selectedKind))
@@ -1685,14 +1719,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
                 RefreshSavedGrid();
                 if (showMessage)
-                    lblStatus.Text = "Vision Focus Cal 설정값과 Bottom Vision/AF To Bottom Delay Recipe 값을 저장했습니다. Teaching Z는 변경하지 않았습니다." +
-                                     (IsBottomFocusKind(_selectedKind) ? " T Teaching=" + _pickerTTeachingDeg.ToString("R", CultureInfo.InvariantCulture) + " deg." : string.Empty);
+                    Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state57", (object)((IsBottomFocusKind(_selectedKind) ? " T Teaching=" + _pickerTTeachingDeg.ToString("R", CultureInfo.InvariantCulture) + " deg." : string.Empty)));
                 return true;
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Vision Focus Cal 설정 저장 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-SAVE", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state58", (object)(ex.Message));
+                string statusLogText23 = "Vision Focus Cal 설정 저장 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-SAVE", statusLogText23);
                 return false;
             }
             finally
@@ -1714,15 +1748,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Form1 host = ResolveHost(out reason);
                 if (host == null || host.Machine == null || host.Machine.VisionUnit == null)
                 {
-                    lblStatus.Text = reason;
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
                     return;
                 }
 
                 VisionFocusPositionRecord record = ResolveSelectedRecord(host.Machine);
                 if (record == null || !record.Valid)
                 {
-                    lblStatus.Text = "적용할 Best Focus 결과가 없습니다. 먼저 START SCAN을 실행하세요.";
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state59");
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -1736,7 +1770,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 DialogResult answer = QMC.Common.MessageDialog.Show(
                     this,
                     message,
-                    "VISION FOCUS CAL",
+                    Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"),
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
                 if (answer != DialogResult.Yes)
@@ -1750,18 +1784,20 @@ namespace QMC.CDT_320.Ui.Dialogs
                 RefreshSettingGrid();
                 RefreshSavedGrid();
 
-                lblStatus.Text = "Best Focus 기준값 저장 완료. Default=" + bestPosition.ToString("F3") +
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state60", (object)(bestPosition.ToString("F3")));
+                string statusLogText24 = "Best Focus 기준값 저장 완료. Default=" + bestPosition.ToString("F3") +
                                  ", Recipe/Teaching Z 변경 없음";
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-APPLY-BEST",
-                    lblStatus.Text + ", oldDefault=" + oldDefaultPosition.ToString("F3") +
+                    statusLogText24 + ", oldDefault=" + oldDefaultPosition.ToString("F3") +
                     ", score=" + record.BestScore.ToString("F4") +
                     ", recipeTeachingZChanged=False");
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Best Focus 적용 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-APPLY-BEST-EX", lblStatus.Text);
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state61", (object)(ex.Message));
+                string statusLogText25 = "Best Focus 적용 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-APPLY-BEST-EX", statusLogText25);
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1800,8 +1836,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Focus 설정값 적용 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-APPLY-UI", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state62", (object)(ex.Message));
+                string statusLogText26 = "Focus 설정값 적용 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-APPLY-UI", statusLogText26);
                 return false;
             }
             finally
@@ -1915,9 +1952,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             row.ReadOnly = !enabled;
             row.Cells[colSettingValue.Index].ReadOnly = !enabled || info.Numeric;
             row.DefaultCellStyle.ForeColor = enabled ? System.Drawing.Color.Black : System.Drawing.Color.Gray;
-            row.Cells[colSettingName.Index].ToolTipText = info.ToolTip;
-            row.Cells[colSettingValue.Index].ToolTipText = info.ToolTip;
-            row.Cells[colSettingUnit.Index].ToolTipText = info.ToolTip;
+            row.Cells[colSettingName.Index].ToolTipText = GetLocalizedSettingToolTip(info);
+            row.Cells[colSettingValue.Index].ToolTipText = GetLocalizedSettingToolTip(info);
+            row.Cells[colSettingUnit.Index].ToolTipText = GetLocalizedSettingToolTip(info);
         }
 
         private SettingRowInfo CreateNumberInfo(FocusSettingKey key, string name, string unit, string toolTip, bool integer)
@@ -1989,10 +2026,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out pickerTTeachingDeg) ||
                     double.IsNaN(pickerTTeachingDeg) || double.IsInfinity(pickerTTeachingDeg))
                 {
-                    lblStatus.Text = "T Teaching은 0, 180, -90과 같은 유한한 숫자로 입력하세요. 입력값=" + text;
+                    Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state63", (object)(text));
                     QMC.Common.Log.Write("Calibration", UserSession.Name, "VisionFocusCalTTeachingInput",
                         "T Teaching 입력을 거부했습니다. kind=" + _selectedKind + ", value=" + text);
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionFocusCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -2055,7 +2092,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 if (_selectedKind != VisionFocusScanKind.BottomDie)
                 {
-                    lblStatus.Text = "AutoFocus Count Reset은 생산 Runtime Focus 기준인 Bottom Die 모드에서만 사용할 수 있습니다.";
+                    Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state64");
                     return;
                 }
 
@@ -2063,7 +2100,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Form1 host = ResolveHost(out reason);
                 if (host == null || host.Machine == null || host.Machine.VisionUnit == null)
                 {
-                    lblStatus.Text = reason;
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
                     return;
                 }
 
@@ -2073,14 +2110,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 host.SaveMachineSettings();
                 RefreshSavedGrid();
 
-                lblStatus.Text = "생산 Bottom Die AutoFocus 전체 Pick 누적 수와 마지막 Wafer 기준을 초기화했습니다.";
+                Lang.BindKey(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state65");
+                string statusLogText27 = "생산 Bottom Die AutoFocus 전체 Pick 누적 수와 마지막 Wafer 기준을 초기화했습니다.";
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-AUTO-RESET",
-                    lblStatus.Text);
+                    statusLogText27);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "AutoFocus Count Reset 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-AUTO-RESET-EX", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionFocusCalibrationDialog.lblStatus.state66", (object)(ex.Message));
+                string statusLogText28 = "AutoFocus Count Reset 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-AUTO-RESET-EX", statusLogText28);
             }
             finally
             {
@@ -2163,8 +2202,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (IsBottomFocusKind(_selectedKind))
                 {
                     bool runtimeBottomDie = _selectedKind == VisionFocusScanKind.BottomDie;
-                    colAutoFocusCount.HeaderText = runtimeBottomDie ? "TOTAL PICK" : "AF CNT";
-                    colAutoFocusWafer.HeaderText = runtimeBottomDie ? "LAST AF WAFER" : "AF WAFER";
+                    Lang.BindKey(colAutoFocusCount, runtimeBottomDie ? "visionUi.visionFocusCalibrationDialog.colAutoFocusCount.text" : "visionUi.visionFocusCalibrationDialog.colAutoFocusCount.state2");
+                    Lang.BindKey(colAutoFocusWafer, runtimeBottomDie ? "visionUi.visionFocusCalibrationDialog.colAutoFocusWafer.text" : "visionUi.visionFocusCalibrationDialog.colAutoFocusWafer.state2");
                     for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
                         AddSavedRow(
                             SideToText(_selectedPickerSide) + " " + ResolveBottomTargetText(_selectedKind) + " #" + pickerNo,
@@ -2174,8 +2213,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                colAutoFocusCount.HeaderText = "AF CNT";
-                colAutoFocusWafer.HeaderText = "AF WAFER";
+                Lang.BindKey(colAutoFocusCount, "visionUi.visionFocusCalibrationDialog.colAutoFocusCount.state2");
+                Lang.BindKey(colAutoFocusWafer, "visionUi.visionFocusCalibrationDialog.colAutoFocusWafer.state2");
                 for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
                     AddSavedRow(KindToText(_selectedKind) + " C" + pickerNo,
                         data.GetSideRecord(_selectedKind, pickerNo));
@@ -2209,7 +2248,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             DataGridViewRow row = gridSaved.Rows[rowIndex];
             row.Tag = record;
             if (IsSideOnlyProfile)
-                row.Cells[colBestPos.Index].ToolTipText = "더블클릭하여 BEST 위치를 수동 입력합니다.";
+                row.Cells[colBestPos.Index].ToolTipText = Lang.T("visionUi.focusTooltip.editBest");
         }
 
         private void PopulateSamples(VisionFocusScanResult result)
@@ -2316,7 +2355,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             Form1 host = ResolveHost(out reason);
             if (host == null || host.Machine == null)
             {
-                lblStatus.Text = reason;
+                Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
                 return;
             }
 
@@ -2688,6 +2727,154 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (value < min) return min;
             if (value > max) return max;
             return value;
+        }
+        // Translate only the rendered caption; raw row values remain available to editing and save logic.
+        private static string FormatLocalizedRow(string value)
+        {
+            switch (value)
+            {
+                case "Mode": return Lang.T("visionUi.visionFocusCalibrationDialog.row.1");
+                case "Picker Side": return Lang.T("visionUi.visionFocusCalibrationDialog.row.2");
+                case "Picker No": return Lang.T("visionUi.visionFocusCalibrationDialog.row.3");
+                case "Collet No": return Lang.T("visionUi.visionFocusCalibrationDialog.row.4");
+                case "Picker X Ref (mm)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.5");
+                case "Picker Y Ref (mm)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.6");
+                case "Picker Z Ref (mm)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.7");
+                case "Picker T Ref (deg)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.8");
+                case "Side Camera Y Default": return Lang.T("visionUi.visionFocusCalibrationDialog.row.9");
+                case "Default Pos (mm)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.10");
+                case "T Teaching (deg)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.11");
+                case "Rough - Range (mm)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.12");
+                case "Rough + Range (mm)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.13");
+                case "Rough Step (mm)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.14");
+                case "Fine - Range (mm)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.15");
+                case "Fine + Range (mm)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.16");
+                case "Fine Step (mm)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.17");
+                case "Repeat Count (ea)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.18");
+                case "Motor Speed (mm/s)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.19");
+                case "Acceleration (mm/s2)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.20");
+                case "Deceleration (mm/s2)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.21");
+                case "Settle Time (ms)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.22");
+                case "Motion Timeout (ms)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.23");
+                case "Vision Timeout (ms)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.24");
+                case "Best Timeout (ms)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.25");
+                case "Focus Val Mode": return Lang.T("visionUi.visionFocusCalibrationDialog.row.26");
+                case "Return Default": return Lang.T("visionUi.visionFocusCalibrationDialog.row.27");
+                case "AF On Start": return Lang.T("visionUi.visionFocusCalibrationDialog.row.28");
+                case "AF On Wafer Change": return Lang.T("visionUi.visionFocusCalibrationDialog.row.29");
+                case "AF By Total Pick Count": return Lang.T("visionUi.visionFocusCalibrationDialog.row.30");
+                case "AF Total Pick Interval (ea)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.31");
+                case "Bottom Vision Delay (ms)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.32");
+                case "AF To Bottom Delay (ms)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.33");
+                case "B->S Z Offset Use": return Lang.T("visionUi.visionFocusCalibrationDialog.row.34");
+                case "B->S Z Offset (mm)": return Lang.T("visionUi.visionFocusCalibrationDialog.row.35");
+                case "Sign Size90 Front": return Lang.T("visionUi.visionFocusCalibrationDialog.row.36");
+                case "Sign Size90 Rear": return Lang.T("visionUi.visionFocusCalibrationDialog.row.37");
+                case "Sign COC0 Front": return Lang.T("visionUi.visionFocusCalibrationDialog.row.38");
+                case "Sign COC0 Rear": return Lang.T("visionUi.visionFocusCalibrationDialog.row.39");
+                case "Sign COC90 Front": return Lang.T("visionUi.visionFocusCalibrationDialog.row.40");
+                case "Sign COC90 Rear": return Lang.T("visionUi.visionFocusCalibrationDialog.row.41");
+                default: return value;
+            }
+        }
+
+        private string GetLocalizedSettingToolTip(SettingRowInfo info)
+        {
+            if (info == null) return string.Empty;
+            switch (info.Key)
+            {
+                case FocusSettingKey.Mode: return Lang.T("visionUi.focusTooltip.mode");
+                case FocusSettingKey.PickerSide: return Lang.T("visionUi.focusTooltip.pickerSide");
+                case FocusSettingKey.ColletNo: return Lang.T("visionUi.focusTooltip.colletNo");
+                case FocusSettingKey.PickerReferenceX: return Lang.Format("visionUi.focusTooltip.pickerReferenceX", _pickerReferenceFormula);
+                case FocusSettingKey.PickerReferenceY: return Lang.Format("visionUi.focusTooltip.pickerReferenceY", _pickerReferenceFormula);
+                case FocusSettingKey.PickerReferenceZ: return Lang.T("visionUi.focusTooltip.pickerReferenceZ");
+                case FocusSettingKey.PickerReferenceT: return Lang.T("visionUi.focusTooltip.pickerReferenceT");
+                case FocusSettingKey.PickerTTeaching: return Lang.T("visionUi.focusTooltip.pickerTTeaching");
+                case FocusSettingKey.MinusRange: return Lang.T("visionUi.focusTooltip.minusRange");
+                case FocusSettingKey.PlusRange: return Lang.T("visionUi.focusTooltip.plusRange");
+                case FocusSettingKey.Step: return Lang.T("visionUi.focusTooltip.step");
+                case FocusSettingKey.FineMinusRange: return Lang.T("visionUi.focusTooltip.fineMinusRange");
+                case FocusSettingKey.FinePlusRange: return Lang.T("visionUi.focusTooltip.finePlusRange");
+                case FocusSettingKey.FineStep: return Lang.T("visionUi.focusTooltip.fineStep");
+                case FocusSettingKey.RepeatCount: return Lang.T("visionUi.focusTooltip.repeatCount");
+                case FocusSettingKey.MoveVelocity: return Lang.T("visionUi.focusTooltip.moveVelocity");
+                case FocusSettingKey.MoveAcceleration: return Lang.T("visionUi.focusTooltip.moveAcceleration");
+                case FocusSettingKey.MoveDeceleration: return Lang.T("visionUi.focusTooltip.moveDeceleration");
+                case FocusSettingKey.SettleDelay: return Lang.T("visionUi.focusTooltip.settleDelay");
+                case FocusSettingKey.MotionTimeout: return Lang.T("visionUi.focusTooltip.motionTimeout");
+                case FocusSettingKey.VisionTimeout: return Lang.T("visionUi.focusTooltip.visionTimeout");
+                case FocusSettingKey.VisionBestTimeout: return Lang.T("visionUi.focusTooltip.visionBestTimeout");
+                case FocusSettingKey.FocusValueMode: return Lang.T("visionUi.focusTooltip.focusValueMode");
+                case FocusSettingKey.ReturnDefault: return Lang.T("visionUi.focusTooltip.returnDefault");
+                case FocusSettingKey.AutoFocusOnStart: return Lang.T("visionUi.focusTooltip.autoFocusOnStart");
+                case FocusSettingKey.AutoFocusOnWaferChange: return Lang.T("visionUi.focusTooltip.autoFocusOnWaferChange");
+                case FocusSettingKey.AutoFocusOnPickCount: return Lang.T("visionUi.focusTooltip.autoFocusOnPickCount");
+                case FocusSettingKey.AutoFocusPickInterval: return Lang.T("visionUi.focusTooltip.autoFocusPickInterval");
+                case FocusSettingKey.BottomVisionDelay: return Lang.T("visionUi.focusTooltip.bottomVisionDelay");
+                case FocusSettingKey.AutoFocusToBottomInspectionDelay: return Lang.T("visionUi.focusTooltip.autoFocusToBottomInspectionDelay");
+                case FocusSettingKey.UseBottomToSideZOffset: return Lang.T("visionUi.focusTooltip.useBottomToSideZOffset");
+                case FocusSettingKey.BottomToSideZOffset: return Lang.T("visionUi.focusTooltip.bottomToSideZOffset");
+                case FocusSettingKey.SideFocusSize90SignFront: return Lang.T("visionUi.focusTooltip.sideFocusSize90SignFront");
+                case FocusSettingKey.SideFocusSize90SignRear: return Lang.T("visionUi.focusTooltip.sideFocusSize90SignRear");
+                case FocusSettingKey.SideFocusCoc0SignFront: return Lang.T("visionUi.focusTooltip.sideFocusCoc0SignFront");
+                case FocusSettingKey.SideFocusCoc0SignRear: return Lang.T("visionUi.focusTooltip.sideFocusCoc0SignRear");
+                case FocusSettingKey.SideFocusCoc90SignFront: return Lang.T("visionUi.focusTooltip.sideFocusCoc90SignFront");
+                case FocusSettingKey.SideFocusCoc90SignRear: return Lang.T("visionUi.focusTooltip.sideFocusCoc90SignRear");
+                case FocusSettingKey.DefaultPosition:
+                    return Lang.T(IsSideOnlyProfile ? "visionUi.focusTooltip.defaultSide" : "visionUi.focusTooltip.defaultBottom");
+                default: return info.ToolTip;
+            }
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this.lblHeader, "visionUi.visionFocusCalibrationDialog.message.state2");
+            Lang.BindKey(this.batchGroup, "visionUi.visionFocusCalibrationDialog.batchGroup.text");
+            Lang.BindKey(this.chkBatchAll, "visionUi.visionFocusCalibrationDialog.chkBatchAll.text");
+            Lang.BindKey(this.chkBatchFront4, "visionUi.visionFocusCalibrationDialog.chkBatchFront4.text");
+            Lang.BindKey(this.chkBatchFront3, "visionUi.visionFocusCalibrationDialog.chkBatchFront3.text");
+            Lang.BindKey(this.chkBatchFront2, "visionUi.visionFocusCalibrationDialog.chkBatchFront2.text");
+            Lang.BindKey(this.chkBatchFront1, "visionUi.visionFocusCalibrationDialog.chkBatchFront1.text");
+            Lang.BindKey(this.chkBatchRear4, "visionUi.visionFocusCalibrationDialog.chkBatchRear4.text");
+            Lang.BindKey(this.chkBatchRear3, "visionUi.visionFocusCalibrationDialog.chkBatchRear3.text");
+            Lang.BindKey(this.chkBatchRear2, "visionUi.visionFocusCalibrationDialog.chkBatchRear2.text");
+            Lang.BindKey(this.chkBatchRear1, "visionUi.visionFocusCalibrationDialog.chkBatchRear1.text");
+            Lang.BindKey(this.btnBatchStart, "visionUi.visionFocusCalibrationDialog.btnBatchStart.text");
+            Lang.BindKey(this.groupSetting, "visionUi.visionFocusCalibrationDialog.groupSetting.text");
+            Lang.BindKey(this.colSettingName, "visionUi.visionFocusCalibrationDialog.colSettingName.text");
+            Lang.BindKey(this.colSettingValue, "visionUi.visionFocusCalibrationDialog.colSettingValue.text");
+            Lang.BindKey(this.colSettingUnit, "visionUi.visionFocusCalibrationDialog.colSettingUnit.text");
+            Lang.BindKey(this.btnSaveParameters, "visionUi.visionFocusCalibrationDialog.btnSaveParameters.text");
+            Lang.BindKey(this.groupResult, "visionUi.visionFocusCalibrationDialog.groupResult.text");
+            Lang.BindKey(this.colNo, "visionUi.visionFocusCalibrationDialog.colNo.text");
+            Lang.BindKey(this.colPosition, "visionUi.visionFocusCalibrationDialog.colPosition.text");
+            Lang.BindKey(this.colScore, "visionUi.visionCameraCalibrationDialog.colScore.text");
+            Lang.BindKey(this.colResult, "visionUi.tpuVisionTestControl.btnResult.state3");
+            Lang.BindKey(this.colRaw, "visionUi.visionFocusCalibrationDialog.colRaw.text");
+            Lang.BindKey(this.groupSaved, "visionUi.visionFocusCalibrationDialog.groupSaved.text");
+            Lang.BindKey(this.colItem, "visionUi.visionFocusCalibrationDialog.colItem.text");
+            Lang.BindKey(this.colDefaultPos, "visionUi.visionFocusCalibrationDialog.colDefaultPos.text");
+            Lang.BindKey(this.colBestPos, "visionUi.visionFocusCalibrationDialog.colBestPos.text");
+            Lang.BindKey(this.colBestScore, "visionUi.visionCameraCalibrationDialog.colScore.text");
+            Lang.BindKey(this.colPickerZ, "visionUi.visionFocusCalibrationDialog.colPickerZ.text");
+            Lang.BindKey(this.colAutoFocusCount, "visionUi.visionFocusCalibrationDialog.colAutoFocusCount.state2");
+            Lang.BindKey(this.colAutoFocusWafer, "visionUi.visionFocusCalibrationDialog.colAutoFocusWafer.state2");
+            Lang.BindKey(this.colValid, "visionUi.visionFocusCalibrationDialog.colValid.text");
+            Lang.BindKey(this.lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state2");
+            Lang.BindKey(this.btnCheck, "visionUi.visionCameraCalibrationDialog.btnCheck.text");
+            Lang.BindKey(this.btnUseCurrent, "visionUi.visionFocusCalibrationDialog.btnUseCurrent.text");
+            Lang.BindKey(this.btnMoveDefault, "visionUi.visionFocusCalibrationDialog.btnMoveDefault.text");
+            Lang.BindKey(this.btnMoveZAvoid, "visionUi.visionFocusCalibrationDialog.btnMoveZAvoid.text");
+            Lang.BindKey(this.btnMoveYAvoid, "visionUi.visionFocusCalibrationDialog.btnMoveYAvoid.text");
+            Lang.BindKey(this.btnStartScan, "visionUi.visionFocusCalibrationDialog.btnStartScan.text");
+            Lang.BindKey(this.btnSeqStop, "visionUi.visionFocusCalibrationDialog.btnSeqStop.text");
+            Lang.BindKey(this.btnApplyBest, "visionUi.visionFocusCalibrationDialog.btnApplyBest.text");
+            Lang.BindKey(this.btnResetAutoFocus, "visionUi.visionFocusCalibrationDialog.btnResetAutoFocus.text");
+            Lang.BindKey(this.btnReload, "visionUi.visionCameraScaleDialog.btnReload.text");
+            Lang.BindKey(this.btnSave, "visionUi.visionFocusCalibrationDialog.btnSave.text");
+            Lang.BindKey(this.btnClose, "visionUi.visionCameraCalibrationDialog.btnClose.text");
+            Lang.BindKey(this, "visionUi.visionFocusCalibrationDialog.Text.state2");
         }
     }
 }

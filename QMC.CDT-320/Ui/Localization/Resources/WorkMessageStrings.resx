@@ -1,0 +1,618 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="workMessage.text.1" xml:space="preserve">
+    <value>Input stage equipment information was not found.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.2" xml:space="preserve">
+    <value>Wafer alignment / Die map review</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.3" xml:space="preserve">
+    <value>There is no wafer material data placed on the input stage.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.4" xml:space="preserve">
+    <value>Could not open the wafer alignment / die map review screen.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.5" xml:space="preserve">
+    <value>Double-click MOVE VISION failed.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.6" xml:space="preserve">
+    <value>Input die map</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.7" xml:space="preserve">
+    <value>Select the input die to move to a picker first.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.8" xml:space="preserve">
+    <value>Material data for the selected die was not found.&#13;&#10;Die={0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.9" xml:space="preserve">
+    <value>The selected picker already holds a die.&#13;&#10;Picker={0} #{1}&#13;&#10;Die={2}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.10" xml:space="preserve">
+    <value>Move the selected input die data to the picker?&#13;&#10;Only material data is moved; no physical motion takes place.&#13;&#10;&#13;&#10;Die={0}&#13;&#10;Map={1}&#13;&#10;Target={2} Picker #{3}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.11" xml:space="preserve">
+    <value>Die data was moved to {0} Picker #{1}.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.12" xml:space="preserve">
+    <value>Failed to move input die data to the picker:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.13" xml:space="preserve">
+    <value>No die is selected for offset setup.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.14" xml:space="preserve">
+    <value>Equipment information was not found.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.15" xml:space="preserve">
+    <value>{0} input vision to picker offset saved.&#13;&#10;InputVisionToPicker X={1} mm, Y={2} mm{3}{4}&#13;&#10;Automatic pickup and manual right-click movement use the same setup values.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.16" xml:space="preserve">
+    <value>Input picker offset setup failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.17" xml:space="preserve">
+    <value>This screen previews coordinates relative to the recipe center (0,0).&#13;&#10;Absolute input camera X / input stage Y coordinates are created after wafer alignment and die mapping.&#13;&#10;{0} was blocked.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.18" xml:space="preserve">
+    <value>The current input stage alignment/die mapping result cannot be used in this operating mode.&#13;&#10;{0}&#13;&#10;Complete alignment and die mapping again.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.19" xml:space="preserve">
+    <value>The current mapping result does not match the active recipe's FINAL APPLY map.&#13;&#10;Run Map Create FINAL APPLY and complete new wafer mapping.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.20" xml:space="preserve">
+    <value>There are unsaved pick status changes.&#13;&#10;Reload anyway?</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.21" xml:space="preserve">
+    <value>Input die map reload failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.22" xml:space="preserve">
+    <value>There is no input die map data to save.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.23" xml:space="preserve">
+    <value>Save the current pick status and update the pickup sequence?</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.24" xml:space="preserve">
+    <value>Pick status was applied to material data and a save was requested.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.25" xml:space="preserve">
+    <value>Failed to apply pick status or request a save.&#13;&#10;{0}&#13;&#10;&#13;&#10;Some changes may have been applied to the screen or memory, and completion of saving was not confirmed. Check the current material state and error log before saving again.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.26" xml:space="preserve">
+    <value>Proceed with {0}?</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.27" xml:space="preserve">
+    <value>{0} completed.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.28" xml:space="preserve">
+    <value>{0} failed.&#13;&#10;Result={1}&#13;&#10;Check the alarm/event log.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.29" xml:space="preserve">
+    <value>{0} failed:&#13;&#10;{1}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.30" xml:space="preserve">
+    <value>There is no active input die map data for manual die detection.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.31" xml:space="preserve">
+    <value>Select the reference die for manual die detection first.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.32" xml:space="preserve">
+    <value>Input stage vision information was not found.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.33" xml:space="preserve">
+    <value>Input stage vision X or stage Y axis information was not found.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.34" xml:space="preserve">
+    <value>Die detection cannot proceed because theta correction is not complete.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.35" xml:space="preserve">
+    <value>Detect the selected die center in the current vision view?&#13;&#10;Die={0}&#13;&#10;Sent die position ({1}) X={2} mm, Y={3} mm&#13;&#10;Current vision position X={4} mm, StageY={5} mm</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.36" xml:space="preserve">
+    <value>The saved input stage alignment/die mapping result cannot be restored in the current operating mode.&#13;&#10;Complete alignment and die mapping again.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.37" xml:space="preserve">
+    <value>Picker avoidance preparation before die detection failed.&#13;&#10;Result={0}&#13;&#10;Check the alarm/event log.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.38" xml:space="preserve">
+    <value>EjectPinZ avoidance preparation before die detection failed.&#13;&#10;Result={0}&#13;&#10;Check the alarm/event log.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.39" xml:space="preserve">
+    <value>Checking/moving to the corrected StageT position before die detection failed.&#13;&#10;Result={0}&#13;&#10;Check the alarm/event log.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.40" xml:space="preserve">
+    <value>The InputPickDie vision detection result is invalid.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.41" xml:space="preserve">
+    <value>The die detection offset exceeded the allowed limit.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.42" xml:space="preserve">
+    <value>Moving to the detected die center failed.&#13;&#10;Result={0}&#13;&#10;Check the alarm/event log.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.43" xml:space="preserve">
+    <value>Die detection completed.&#13;&#10;Sent die position X={0} mm, Y={1} mm&#13;&#10;Current jog position X={2} mm, Y={3} mm&#13;&#10;Jog travel X={4} mm, Y={5} mm&#13;&#10;Vision delta X (raw camera value)={6} mm, Y (raw camera value)={7} mm&#13;&#10;Camera offset X={8} mm (reference only, excluded from movement formula), Y={9} mm (reference only, excluded from movement formula)&#13;&#10;Center move delta X={10} mm, Y={11} mm&#13;&#10;Vision delta T={12} deg (theta correction not applied)&#13;&#10;Detected center X={13} mm, Y={14} mm&#13;&#10;Map offset X={15} mm, Y={16} mm&#13;&#10;(Map offset = Jog travel + Center move delta)&#13;&#10;&#13;&#10;Press [Apply offset] to apply it to the entire die map.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.44" xml:space="preserve">
+    <value>Die detection failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.45" xml:space="preserve">
+    <value>There is no detected die offset to apply.&#13;&#10;Run [Detect die] first.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.46" xml:space="preserve">
+    <value>There is no active input die map data to apply the offset to.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.47" xml:space="preserve">
+    <value>The die map changed after die detection, so the offset cannot be applied.&#13;&#10;Run [Detect die] again.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.48" xml:space="preserve">
+    <value>The detection reference die was not found in the current map.&#13;&#10;Run [Detect die] again.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.49" xml:space="preserve">
+    <value>The offset cannot be applied while the equipment is operating.&#13;&#10;Stop automatic/manual operation and try again.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.50" xml:space="preserve">
+    <value>Apply the detected offset to the entire input die map?&#13;&#10;Die={0}&#13;&#10;Sent die position X={1} mm, Y={2} mm&#13;&#10;Current jog position X={3} mm, Y={4} mm&#13;&#10;Jog travel X={5} mm, Y={6} mm&#13;&#10;Vision delta X (raw camera value)={7} mm, Y (raw camera value)={8} mm&#13;&#10;Camera offset X={9} mm (reference only, excluded from movement formula), Y={10} mm (reference only, excluded from movement formula)&#13;&#10;Center move delta X={11} mm, Y={12} mm&#13;&#10;Vision delta T={13} deg (theta correction not applied)&#13;&#10;Detected center X={14} mm, Y={15} mm&#13;&#10;Map offset X={16} mm, Y={17} mm&#13;&#10;(Map offset = Jog travel + Center move delta)</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.51" xml:space="preserve">
+    <value>The current input stage die mapping result cannot be updated in this operating mode.&#13;&#10;{0}&#13;&#10;Complete alignment and die mapping again.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.52" xml:space="preserve">
+    <value>Could not convert the recipe preview to a die map in absolute machine coordinates.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.53" xml:space="preserve">
+    <value>Failed to apply the offset:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.54" xml:space="preserve">
+    <value>Offset applied.&#13;&#10;Offset X={0} mm, Y={1} mm&#13;&#10;{2}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.55" xml:space="preserve">
+    <value>Input stage StageT axis information was not found.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.56" xml:space="preserve">
+    <value>Theta correction cannot be saved while the StageT axis has an alarm.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.57" xml:space="preserve">
+    <value>There is no wafer data on the input stage.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.58" xml:space="preserve">
+    <value>The theta correction offset is zero.&#13;&#10;The current StageT position equals the taught reference T and cannot be saved as a completed correction.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.59" xml:space="preserve">
+    <value>The theta correction offset exceeded the allowed limit.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.60" xml:space="preserve">
+    <value>Theta correction saved.&#13;&#10;Offset T = {0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.61" xml:space="preserve">
+    <value>Saving theta correction failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.62" xml:space="preserve">
+    <value>Save the current input stage wafer as Manual Align Complete?</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.63" xml:space="preserve">
+    <value>Manual alignment completion saved.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.64" xml:space="preserve">
+    <value>Manual alignment completion failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.65" xml:space="preserve">
+    <value>Could not calculate the MOVE VISION target coordinates.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.66" xml:space="preserve">
+    <value>Picker avoidance preparation before vision movement failed.&#13;&#10;Result={0}&#13;&#10;Check the alarm/event log.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.67" xml:space="preserve">
+    <value>Moving to the selected die coordinates failed.&#13;&#10;Result={0}&#13;&#10;Check the alarm/event log.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.68" xml:space="preserve">
+    <value>Movement to {0} completed.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.69" xml:space="preserve">
+    <value>Moving to the selected die coordinates failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.70" xml:space="preserve">
+    <value>No die is selected for movement.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.71" xml:space="preserve">
+    <value>The input vision reference offset for {0} was not found.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.72" xml:space="preserve">
+    <value>Moving to {0} coordinates failed.&#13;&#10;Result={1}&#13;&#10;Check the alarm/event log.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.73" xml:space="preserve">
+    <value>Movement to {0} coordinates completed.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.74" xml:space="preserve">
+    <value>Moving to picker coordinates failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.75" xml:space="preserve">
+    <value>No target die is selected for the pickup test.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.76" xml:space="preserve">
+    <value>Controller information for the pickup test was not found.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.77" xml:space="preserve">
+    <value>The target die UID for the pickup test was not found.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.78" xml:space="preserve">
+    <value>Opening the pickup test dialog failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.79" xml:space="preserve">
+    <value>There is no active input die map data to change state.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.80" xml:space="preserve">
+    <value>Select the die whose state you want to change first.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.81" xml:space="preserve">
+    <value>State changes are blocked for a selected die.&#13;&#10;Die={0}&#13;&#10;{1}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.82" xml:space="preserve">
+    <value>Change the state of {0} selected dies to [{1}]?&#13;&#10;First die={2}&#13;&#10;UID={3}{4}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.83" xml:space="preserve">
+    <value>Could not restore the selected dies to the repick waiting state.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.84" xml:space="preserve">
+    <value>Changing or saving the input die state failed.&#13;&#10;{0}&#13;&#10;&#13;&#10;Some changes may have been applied to the screen or memory. {1} Check the current material state and error log before applying again.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.85" xml:space="preserve">
+    <value>Double-click MOVE SELECTED SLOT failed.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.86" xml:space="preserve">
+    <value>Output stage map</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.87" xml:space="preserve">
+    <value>There is no output die map data to change state.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.88" xml:space="preserve">
+    <value>Change the state of {0} selected output dies to [{1}]?&#13;&#10;First die={2}&#13;&#10;UID={3}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.89" xml:space="preserve">
+    <value>State changes for {0} selected output dies completed.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.90" xml:space="preserve">
+    <value>Changing the output die state failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.91" xml:space="preserve">
+    <value>No target output slot is selected for the place test.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.92" xml:space="preserve">
+    <value>Controller information for the place test was not found.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.93" xml:space="preserve">
+    <value>Opening the place test dialog failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.94" xml:space="preserve">
+    <value>No empty slot is selected for movement.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.95" xml:space="preserve">
+    <value>Output stage equipment information was not found.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.96" xml:space="preserve">
+    <value>Output stage recipe information was not found.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.97" xml:space="preserve">
+    <value>Picker avoidance preparation before output movement failed.&#13;&#10;Result={0}&#13;&#10;Check the alarm/event log.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.98" xml:space="preserve">
+    <value>Moving to the empty slot row (Y) failed.&#13;&#10;Result={0}&#13;&#10;Check the alarm/event log.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.99" xml:space="preserve">
+    <value>Moving to the empty slot column (VisionX) failed.&#13;&#10;Result={0}&#13;&#10;Check the alarm/event log.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.100" xml:space="preserve">
+    <value>Movement to the selected empty slot coordinates completed.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.101" xml:space="preserve">
+    <value>Moving to the selected empty slot coordinates failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.102" xml:space="preserve">
+    <value>Could not calculate picker place coordinates.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.103" xml:space="preserve">
+    <value>Moving {0} to the place viewing position failed.&#13;&#10;Result={1}&#13;&#10;Check the alarm/event log.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.104" xml:space="preserve">
+    <value>Movement of {0} to the place viewing position completed.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.105" xml:space="preserve">
+    <value>Moving to the picker place viewing position failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.106" xml:space="preserve">
+    <value>Initialize the output {0} stage receive plan from the input stage die map?</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.107" xml:space="preserve">
+    <value>Receive plan initialization failed.&#13;&#10;Check the output stage bin data and input stage die map.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.108" xml:space="preserve">
+    <value>Receive plan initialization completed.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.109" xml:space="preserve">
+    <value>Receive plan initialization failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.110" xml:space="preserve">
+    <value>Save the current material state?&#13;&#10;Recorded inspection and traceability information will be saved without recreating slots from the screen map.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.111" xml:space="preserve">
+    <value>Material state saved.&#13;&#10;Inspection and traceability information was preserved.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.112" xml:space="preserve">
+    <value>Saving the material state failed:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.113" xml:space="preserve">
+    <value>Move to {0}?&#13;&#10;Coordinate reference={1}&#13;&#10;Final movement position X={2} mm, Y={3} mm</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.114" xml:space="preserve">
+    <value>Move {0} to the selected die position?&#13;&#10;Die={1}&#13;&#10;{2}&#13;&#10;PickerX={3} mm&#13;&#10;PickerY={4} mm&#13;&#10;NeedleX={5} mm&#13;&#10;StageY={6} mm&#13;&#10;(Input vision offset X={7} mm, Y={8} mm&#13;&#10; Camera bottom-input offset X={9} mm, Y={10} mm (applied once to InputVisionToPicker X/Y, not reapplied in the movement formula)&#13;&#10; Based on the automatic formula, runtime AlignOffset X/Y=0 (already applied to die map coordinates)&#13;&#10; {11})</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.115" xml:space="preserve">
+    <value>Move to empty slot {0}?&#13;&#10;X (VisionX)={1} mm, Y (StageY)={2} mm</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.116" xml:space="preserve">
+    <value>Move {0} to the selected empty slot place position?&#13;&#10;Slot={1}&#13;&#10;StageY={2} mm&#13;&#10;PickerX={3} mm&#13;&#10;PickerY={4} mm&#13;&#10;PickerY Forward={5} mm&#13;&#10;PickerT={6} deg&#13;&#10;Formula={7}&#13;&#10;PickerZ will not move.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.motion" xml:space="preserve">
+    <value>Motion</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.needleUnavailable" xml:space="preserve">
+    <value>The needle block down unit action has not been connected yet.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.absoluteSource" xml:space="preserve">
+    <value>Current selected die absolute coordinates</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.estimatedSource" xml:space="preserve">
+    <value>Estimated die coordinates relative to the process center</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.lastVisionSource" xml:space="preserve">
+    <value>Last transmitted MOVE VISION position</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.processCenter" xml:space="preserve">
+    <value>Input PROCESS CENTER</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.applyMissing" xml:space="preserve">
+    <value>No die map application result is available.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.mappingSaved" xml:space="preserve">
+    <value>The absolute-coordinate die map and mapping completion state were saved.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.historyRetained" xml:space="preserve">
+    <value>Existing die states and inspection history were preserved.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.savePartial" xml:space="preserve">
+    <value>The current material data was saved, but not all requested operations completed.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.saveUnconfirmed" xml:space="preserve">
+    <value>Completion of saving was not confirmed.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.repickWarning" xml:space="preserve">
+    <value>&#13;&#10;&#13;&#10;[Repick recovery]&#13;&#10;Proceed only after visually confirming that the selected dies are physically on the input stage.&#13;&#10;Previous pick/inspection/output receipt states will be reset to make repicking possible.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.front" xml:space="preserve">
+    <value>Front</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.rear" xml:space="preserve">
+    <value>Rear</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.frontPicker" xml:space="preserve">
+    <value>FRONT PICKER #{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.rearPicker" xml:space="preserve">
+    <value>REAR PICKER #{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.die" xml:space="preserve">
+    <value>Die {0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.thetaConfirm" xml:space="preserve">
+    <value>Save the current StageT position as the input stage wafer theta correction?&#13;&#10;&#13;&#10;Reference T : {0}&#13;&#10;Current T   : {1}&#13;&#10;Offset T    : {2}&#13;&#10;Limit T     : {3}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.repickComplete" xml:space="preserve">
+    <value>Restored {0} selected dies to the repick waiting state.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.stateComplete" xml:space="preserve">
+    <value>State changes for {0} selected dies completed.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.effectiveOffset" xml:space="preserve">
+    <value>&#13;&#10;Effective offset X={0} mm, Y={1} mm</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.needleTargets" xml:space="preserve">
+    <value>&#13;&#10;NeedleX target X={0} mm (Die VisionX={1} - NeedleXToVisionXOffset={2})&#13;&#10;Picker target X={3} mm, Y={4} mm, StageY={5} mm (CameraOffset X={6}, Y={7} is applied once inside InputVisionToPicker)</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.diePosition" xml:space="preserve">
+    <value>Die position (before offset) X={0} mm, Y={1} mm&#13;&#10;Applied offset X={2} mm, Y={3} mm&#13;&#10;Final die position X={4} mm, Y={5} mm</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+</root>

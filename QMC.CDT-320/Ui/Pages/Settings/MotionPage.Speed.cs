@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Globalization;
 using System.Windows.Forms;
 using QMC.CDT320.Ajin;
@@ -155,7 +156,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 double current = MotionSpeedScale.ScalePercent;
                 string currentText = current.ToString("0.###", CultureInfo.InvariantCulture);
 
-                using (var dlg = new NumericKeypadDialog("DEFAULT SPEED SCALE %", currentText, "%"))
+                using (var dlg = new NumericKeypadDialog(Lang.T("settingsUi.caption.defaultSpeedScale"), currentText, "%"))
                 {
                     if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
 
@@ -163,8 +164,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     if (!double.TryParse(dlg.ValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out value) &&
                         !double.TryParse(dlg.ValueText, NumberStyles.Float, CultureInfo.CurrentCulture, out value))
                     {
-                        QMC.Common.MessageDialog.Show("Invalid speed scale value. Enter " +
-                            MotionSpeedScale.MinPercent + " ~ " + MotionSpeedScale.MaxPercent + " %.");
+                        QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.motion.invalidSpeedScale", MotionSpeedScale.MinPercent, MotionSpeedScale.MaxPercent));
                         return;
                     }
 
@@ -178,7 +178,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "OnSpeedScaleClick failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show("Speed scale change failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.motion.speedScaleFailed", ex.Message));
             }
             finally
             {
@@ -305,7 +305,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 if (speedGrid.Rows.Count == 0) return;
 
                 string columnHeader = speedGrid.Columns[e.ColumnIndex].HeaderText ?? string.Empty;
-                string title = "ALL AXES - " + columnHeader;
+                string title = Lang.Format("settingsUi.motion.allAxesTitle", columnHeader);
                 string current = speedGrid.Rows[0].Cells[e.ColumnIndex].Value?.ToString() ?? string.Empty;
 
                 using (var dlg = new NumericKeypadDialog(title, current, string.Empty))
@@ -382,8 +382,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     "axes=" + applied + ", saved=" + saved);
 
                 QMC.Common.MessageDialog.Show(saved
-                    ? "Saved speed parameters for " + applied + " axes."
-                    : "Speed parameters were applied, but some settings failed to save. Check Alarm/Event Log.");
+                    ? Lang.Format("settingsUi.motion.speedSaved", applied)
+                    : Lang.T("settingsUi.motion.speedSavePartial"));
             }
             catch (Exception ex)
             {
@@ -392,7 +392,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "SaveSpeedRows failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show("Save failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.message.saveFailed", ex.Message));
             }
             finally
             {
@@ -498,5 +498,3 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
     }
 }
-
-

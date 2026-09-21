@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -28,7 +29,9 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _host = host;
             InitializeComponent();
+            InitializeLanguageBindings();
             ApplyDialogStyle();
+            Lang.BindReadOnlyCells(_grid, TranslateTestDisplay);
             WireEvents();
             RegisterTests();
             Seed();
@@ -191,7 +194,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void ApplyDialogStyle()
         {
-            Text = "자가진단";
+            Lang.BindKey(this, "extraDialog.selfTest.title");
             ClientSize = new Size(560, 500);
             BackColor = Color.White;
 
@@ -208,7 +211,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 rootLayout.RowStyles[3].Height = 52F;
             }
 
-            lblTitle.Text = "자가진단";
+            Lang.BindKey(lblTitle, "extraDialog.selfTest.title");
             lblTitle.Margin = Padding.Empty;
             lblTitle.Padding = new Padding(18, 0, 18, 0);
             lblTitle.BackColor = Color.FromArgb(38, 50, 66);
@@ -300,6 +303,50 @@ namespace QMC.CDT_320.Ui.Dialogs
             EventLogger.Write(EventKind.Event, "SYS", "SELFTEST", $"done ok={okCount}/{_tests.Count}");
             _btnRun.Enabled = true;
         }
+        private static string TranslateTestDisplay(string value)
+        {
+            string key;
+            switch (value)
+            {
+                case "AppSettings": key = "extraDialog.selfTest.appSettings"; break;
+                case "AjinConfig": key = "extraDialog.selfTest.ajinConfig"; break;
+                case "AXL library": key = "extraDialog.selfTest.axl"; break;
+                case "Machine tree": key = "extraDialog.selfTest.machine"; break;
+                case "Simulator TCP": key = "extraDialog.selfTest.simulator"; break;
+                case "Vision/Wafer": key = "extraDialog.selfTest.waferVision"; break;
+                case "Vision/Inspection": key = "extraDialog.selfTest.inspectionVision"; break;
+                case "Vision/Bin": key = "extraDialog.selfTest.binVision"; break;
+                case "Event log writable": key = "extraDialog.selfTest.eventLog"; break;
+                case "Recipe dir writable": key = "extraDialog.selfTest.recipeDir"; break;
+                case "BinCodeMap": key = "extraDialog.selfTest.binMap"; break;
+                case "DieMap generator": key = "extraDialog.selfTest.dieMap"; break;
+                case "JobQueue": key = "extraDialog.selfTest.jobQueue"; break;
+                case "InterlockRegistry": key = "extraDialog.selfTest.interlock"; break;
+                case "AlignmentSolver (3pt)": key = "extraDialog.selfTest.alignment"; break;
+                case "pending": key = "extraDialog.selfTest.pending"; break;
+                case "running": key = "extraDialog.selfTest.running"; break;
+                case "OK": key = "extraDialog.selfTest.passed"; break;
+                case "FAIL": key = "extraDialog.selfTest.failed"; break;
+                case "disabled": key = "extraDialog.selfTest.disabled"; break;
+                case "no bridge": key = "extraDialog.selfTest.noBridge"; break;
+                case "connect failed": key = "extraDialog.selfTest.connectFailed"; break;
+                case "not connected": key = "extraDialog.selfTest.notConnected"; break;
+                case "ping fail": key = "extraDialog.selfTest.pingFailed"; break;
+                default: return value;
+            }
+            return Lang.T(key);
+        }
+
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(colName, "extraDialog.systemSelfTestDialog.colName.caption");
+            Lang.BindKey(colState, "extraDialog.systemSelfTestDialog.colState.caption");
+            Lang.BindKey(colDetail, "extraDialog.systemSelfTestDialog.colDetail.caption");
+            Lang.BindKey(_btnRun, "extraDialog.systemSelfTestDialog._btnRun.caption");
+            Lang.BindKey(_btnClose, "extraDialog.systemSelfTestDialog._btnClose.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 }
 

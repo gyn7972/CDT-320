@@ -175,8 +175,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 EventLogger.Write(EventKind.Warning, "UI", "OUTPUT-CST-ACTION-BLOCKED", actionName + " blocked: " + ex.Message);
                 QMC.Common.MessageDialog.Show(
                     this,
-                    "지금은 수동 동작을 시작할 수 없습니다.\r\n\r\n" + ex.Message,
-                    "Output Cassette",
+                    Lang.Format("message.manual.blocked", ex.Message),
+                    Lang.T("message.title.outputCassette"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
@@ -207,14 +207,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 QMC.Common.MessageDialog.Show(
                     this,
-                    SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " 실패\r\nAlarm/Event Log를 확인하세요."),
-                    "Output Cassette",
+                    SequenceFailureStore.BuildManualFailureMessage(actionName, Lang.Format("message.manual.failed", Lang.Display(actionName))),
+                    Lang.T("message.title.outputCassette"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
             }
 
             if (!string.IsNullOrWhiteSpace(exceptionMessage))
-                QMC.Common.MessageDialog.Show(this, "Output Cassette error:\r\n" + exceptionMessage, "Output Cassette", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("message.outputCassette.error", exceptionMessage), Lang.T("message.title.outputCassette"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         // confirm=false: 더블클릭 슬롯 이동처럼 전용 확인창을 이미 거친 경우 공통 확인창을 중복 표시하지 않는다.
@@ -247,7 +247,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     RaiseWarning("OUTPUT-CST-MOTION-FAIL", actionName + " result=" + result);
                     failureMessage = SequenceFailureStore.BuildManualFailureMessage(
                         actionName,
-                        actionName + " failed. result=" + result + "\r\nAlarm/Event Log를 확인하세요.");
+                        Lang.Format("message.manual.failedResult", Lang.Display(actionName), result));
                     showFailure = true;
                 }
             }
@@ -260,8 +260,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 EventLogger.Write(EventKind.Warning, "UI", "OUTPUT-CST-MOTION-BLOCKED", actionName + " blocked: " + ex.Message);
                 QMC.Common.MessageDialog.Show(
                     this,
-                    "지금은 수동 동작을 시작할 수 없습니다.\r\n\r\n" + ex.Message,
-                    "Output Cassette",
+                    Lang.Format("message.manual.blocked", ex.Message),
+                    Lang.T("message.title.outputCassette"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
@@ -289,15 +289,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
 
             if (showFailure)
-                QMC.Common.MessageDialog.Show(this, failureMessage, "Output Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, failureMessage, Lang.T("message.title.outputCassette"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
             if (!string.IsNullOrWhiteSpace(exceptionMessage))
-                QMC.Common.MessageDialog.Show(this, exceptionMessage, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, exceptionMessage, Lang.Display(actionName), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private bool ConfirmAction(string actionName)
         {
-            return QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Output Cassette", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+            return QMC.Common.MessageDialog.Show(this, Lang.Format("message.manual.confirm", Lang.Display(actionName)), Lang.T("message.title.outputCassette"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
         }
 
         private void SetActionButtonsEnabled(bool enabled)
@@ -323,8 +323,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (host == null || host.Controller == null)
             {
                 QMC.Common.MessageDialog.Show(this,
-                    "장비 제어기를 확인할 수 없어 Output Cassette 데이터를 변경할 수 없습니다.",
-                    "Cassette Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.T("message.outputCassette.dataControllerMissing"),
+                    Lang.T("message.title.cassetteData"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
 
@@ -341,13 +341,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 return true;
 
             QMC.Common.MessageDialog.Show(this,
-                actionName + " 작업을 수행할 수 없습니다.\r\n" +
-                "Auto/Manual/초기화/Ready 시퀀스가 완전히 정지된 뒤 다시 시도하세요.\r\n" +
-                "status=" + status +
-                ", sequenceRunning=" + controller.IsSequenceRunning +
-                ", manualBusy=" + controller.IsManualBusy +
-                ", readyRunning=" + controller.IsReadySequenceRunning,
-                "Cassette Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Lang.Format("message.cassette.dataBusy", Lang.Display(actionName), status, controller.IsSequenceRunning, controller.IsManualBusy, controller.IsReadySequenceRunning),
+                Lang.T("message.title.cassetteData"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return false;
         }
 
@@ -362,10 +357,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             string sideName = side == BinSide.Ng ? "NG" : "GOOD";
             QMC.Common.MessageDialog.Show(this,
-                sideName + " OutputStage에 진행 중인 Bin이 있어 카세트 교체를 준비할 수 없습니다.\r\n" +
-                "해당 Bin을 기존 카세트로 먼저 Unload한 뒤 다시 시도하세요.\r\n" +
-                "wafer=" + stageWafer.WaferId,
-                "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Lang.Format("message.outputCassette.stageOccupied", Lang.Display(sideName), stageWafer.WaferId),
+                Lang.T("message.title.cassetteExchange"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             // 사유를 이미 안내했으므로 공통 실패 팝업은 생략한다.
             SuppressSequenceFailurePopup();
             return false;
@@ -381,10 +374,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 return true;
 
             QMC.Common.MessageDialog.Show(this,
-                "OutputFeeder에 진행 중인 Bin이 있어 카세트 데이터를 초기화할 수 없습니다.\r\n" +
-                "Bin을 원래 카세트로 반납하고 Feeder를 안전 복귀한 뒤 다시 시도하세요.\r\n" +
-                "wafer=" + feederWafer.WaferId,
-                "Cassette Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Lang.Format("message.outputCassette.feederOccupied", feederWafer.WaferId),
+                Lang.T("message.title.cassetteData"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return false;
         }
 
@@ -395,9 +386,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 host.Controller.Status == EquipmentStatus.CycleStopped)
             {
                 QMC.Common.MessageDialog.Show(this,
-                    "Cycle Stop 재개 정보가 남아 있어 Slot/Data All Clear를 수행할 수 없습니다.\r\n" +
-                    "일반 STOP으로 전환한 뒤 다시 시도하세요.",
-                    "Cassette Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.T("message.outputCassette.cycleStopClearBlocked"),
+                    Lang.T("message.title.cassetteData"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
 
@@ -595,8 +585,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (host.Controller.Status == EquipmentStatus.AutoRunning)
             {
                 QMC.Common.MessageDialog.Show(this,
-                    "자동 운전 중에는 카세트를 교체할 수 없습니다.\r\n정지 후 다시 시도하세요.",
-                    "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.T("message.cassette.autoExchangeBlocked"),
+                    Lang.T("message.title.cassetteExchange"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 // 사유를 이미 안내했으므로 공통 실패 팝업은 생략한다.
                 SuppressSequenceFailurePopup();
                 return false;
@@ -657,11 +647,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 sideLabel + " 카세트 교체 준비를 완료했습니다. - Ok");
 
             QMC.Common.MessageDialog.Show(this,
-                sideLabel + " 카세트가 교체 위치(로딩 포지션)로 이동했습니다.\r\n\r\n" +
-                "① 카세트를 교체하세요.\r\n" +
-                "② 교체 후 [" + sideLabel + " CST CLEAR]로 데이터를 초기화하세요.\r\n" +
-                "③ 문을 닫고 START를 누르면 매핑부터 다시 진행됩니다.",
-                "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Lang.Format("message.outputCassette.exchangeReady", Lang.Display(sideLabel), Lang.Display(sideLabel)),
+                Lang.T("message.title.cassetteExchange"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return true;
         }
 
@@ -686,9 +673,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (waferSide != side)
             {
                 QMC.Common.MessageDialog.Show(this,
-                    "피더가 " + (waferSide == BinSide.Ng ? "NG" : "GOOD") + " Bin을 물고 있습니다.\r\n" +
-                    "해당 Bin을 먼저 반납한 뒤 " + (side == BinSide.Ng ? "NG" : "GOOD") + " 카세트를 교체하세요.",
-                    "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.Format("message.outputCassette.returnBinFirst", (waferSide == BinSide.Ng ? "NG" : "GOOD"), (side == BinSide.Ng ? "NG" : "GOOD")),
+                    Lang.T("message.title.cassetteExchange"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
 
@@ -759,8 +745,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 string sideName = side == BinSide.Ng ? "NG" : "GOOD";
                 string keepName = side == BinSide.Ng ? "GOOD" : "NG";
                 if (!ConfirmMaterialDataAction(
-                    sideName + " 카세트의 Material Data만 초기화합니다.\r\n" +
-                    "(" + keepName + " 카세트 데이터는 유지됩니다)\r\n\r\n진행할까요?"))
+                    Lang.Format("message.outputCassette.clearOneSideConfirm", Lang.Display(sideName), Lang.Display(keepName))))
                     return;
                 if (!CanChangeOutputCassetteData(host, "Output Cassette " + sideName + " CLEAR"))
                     return;
@@ -770,16 +755,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!MaterialStateService.ClearOutputCassetteSideData(side))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        sideName + " 카세트 Material Data 초기화에 실패했습니다.",
-                        "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        Lang.Format("message.outputCassette.clearSideFailed", Lang.Display(sideName)),
+                        Lang.T("message.title.cassetteExchange"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
                 if (!MaterialStateService.TryFlushPendingSave("OutputCassetteSideDataClear:" + side))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        sideName + " 카세트 Material Data는 메모리에서 초기화했지만 저장 파일 갱신에 실패했습니다.\r\n" +
-                        "프로그램을 재시작하지 말고 로그를 확인하십시오.",
-                        "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        Lang.Format("message.outputCassette.clearSideSaveFailed", Lang.Display(sideName)),
+                        Lang.T("message.title.cassetteExchange"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
@@ -795,15 +779,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 RefreshData();
                 QMC.Common.MessageDialog.Show(this,
-                    sideName + " 카세트 Material Data를 초기화했습니다.\r\n\r\n" +
-                    "문을 닫고 START를 누르면 매핑부터 다시 진행됩니다.",
-                    "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    Lang.Format("message.outputCassette.clearSideComplete", Lang.Display(sideName)),
+                    Lang.T("message.title.cassetteExchange"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.MessageDialog.Show(this,
-                    "카세트 교체 완료 처리 실패:\r\n" + ex.Message,
-                    "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Lang.Format("message.cassette.exchangeFailed", ex.Message),
+                    Lang.T("message.title.cassetteExchange"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -959,9 +942,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         ", slot=" + (requestSlotIndex + 1).ToString("00") + ". " + blockReason);
                     QMC.Common.MessageDialog.Show(
                         this,
-                        "선택한 Cassette Slot에 실제 위치가 일치하는 Material 데이터가 없습니다.\r\n" +
-                        "표시된 Material이 Feeder/Stage로 이동했는지 확인하십시오.\r\n\r\n사유: " + blockReason,
-                        "Output Cassette",
+                        Lang.Format("message.cassette.slotLocationMismatch", blockReason),
+                        Lang.T("message.title.outputCassette"),
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
                     return;
@@ -975,18 +957,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!resolve.IsValid)
                 {
                     RaiseWarning("OUTPUT-CST-DBLCLK-TARGET", "Slot double-click target resolve failed. " + resolve.FailureReason);
-                    QMC.Common.MessageDialog.Show(this, resolve.FailureReason, "Output Cassette",
+                    QMC.Common.MessageDialog.Show(this, resolve.FailureReason, Lang.T("message.title.outputCassette"),
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 // 더블클릭 전용 확인창(정확히 1회). 아래 RunMotionAction은 confirm=false로 호출해 중복 확인창을 막는다.
                 string message =
-                    "[" + resolve.RoleName + " / SLOT " + resolve.SlotNumber.ToString("00") + "]\r\n" +
-                    "Bin: " + waferId + "\r\n" +
-                    "목표: " + resolve.TargetPosition.ToString("0.###") + " mm (" + resolve.TargetSourceText + ")\r\n\r\n" +
-                    "Cassette Z축이 실제로 이동합니다.\r\n해당 위치로 이동하시겠습니까?";
-                DialogResult answer = QMC.Common.MessageDialog.Show(this, message, "Output Cassette",
+                    Lang.Format("message.cassette.moveBinConfirm", resolve.RoleName, resolve.SlotNumber.ToString("00"), waferId, resolve.TargetPosition.ToString("0.###"), resolve.TargetSourceText);
+                DialogResult answer = QMC.Common.MessageDialog.Show(this, message, Lang.T("message.title.outputCassette"),
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (answer != DialogResult.Yes)
                 {
@@ -1330,7 +1309,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (cassette == null || !cassette.IsMapped)
                 {
                     RaiseWarning("OUTPUT-CST-MATERIAL-EDIT", "Material edit requested before mapping.");
-                    QMC.Common.MessageDialog.Show(this, "Mapping 완료된 Cassette Slot에서만 Material을 수정할 수 있습니다.", "Material", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("message.material.mappedSlotRequired"), Lang.T("message.title.material"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -1368,8 +1347,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                             "Bin 상태 변경 대상 Material이 없습니다. role=" + _selectedCassetteRole +
                             ", slot=" + (_selectedMaterialSlot + 1));
                         QMC.Common.MessageDialog.Show(this,
-                            "이 Slot에는 Material 데이터가 없습니다.\r\nDATA CREATE로 먼저 생성한 뒤 상태를 변경하십시오.",
-                            "Material", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            Lang.T("message.material.slotEmptyForState"),
+                            Lang.T("message.title.material"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
@@ -1409,9 +1388,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                             ", projectionSynchronized=" + projectionSynchronized +
                             ", persisted=" + persisted);
                         QMC.Common.MessageDialog.Show(this,
-                            "Bin 상태는 메모리에 반영됐지만 장비 상태 동기화 또는 파일 저장에 실패했습니다.\r\n" +
-                            "Auto를 시작하지 말고 Alarm/Event Log와 저장 경로를 확인하십시오.",
-                            "Bin 상태 저장 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            Lang.T("message.material.binStateSaveFailed"),
+                            Lang.T("message.title.binStateSaveFailed"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                         RefreshSelectedMaterialDetail();
                         RefreshData();
                         return;
@@ -1423,8 +1401,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     if (!int.TryParse(newValue, out targetCount) || targetCount < 0)
                     {
                         QMC.Common.MessageDialog.Show(this,
-                            "수납 목표 수량은 0 이상의 정수여야 합니다. (0 = 맵 전량)",
-                            "Material", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            Lang.T("message.material.invalidTargetCount"),
+                            Lang.T("message.title.material"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
@@ -1437,8 +1415,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     if (targetWafer == null)
                     {
                         QMC.Common.MessageDialog.Show(this,
-                            "이 Slot에는 Material 데이터가 없습니다.\r\nDATA CREATE로 먼저 생성한 뒤 수량을 입력하십시오.",
-                            "Material", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            Lang.T("message.material.slotEmptyForCount"),
+                            Lang.T("message.title.material"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
@@ -1459,8 +1437,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         (ok ? "" : ", reason=" + reason));
                     if (!ok)
                     {
-                        QMC.Common.MessageDialog.Show(this, "수납 목표 수량을 변경하지 못했습니다.\r\n" + reason,
-                            "Material", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, Lang.Format("message.material.targetCountChangeFailed", reason),
+                            Lang.T("message.title.material"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
                 }
@@ -1477,7 +1455,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!ok)
                 {
                     RaiseWarning("OUTPUT-CST-MATERIAL-FAIL", e.Row.Key + " update failed.");
-                    QMC.Common.MessageDialog.Show(this, "Material 값을 변경하지 못했습니다.", "Material", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("message.material.valueChangeFailed"), Lang.T("message.title.material"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -1487,7 +1465,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             catch (Exception ex)
             {
                 WriteAlarm("OUTPUT-CST-MATERIAL-EX", "Material edit failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Material", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("message.title.material"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1554,7 +1532,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 if (_selectedMaterialSlot < 0)
                     return;
-                if (!ConfirmMaterialDataAction("선택한 Output Cassette Slot에 Material Data를 생성하시겠습니까?"))
+                if (!ConfirmMaterialDataAction(Lang.T("message.outputCassette.slotCreateConfirm")))
                     return;
 
                 string waferId = BuildGeneratedOutputWaferId(_selectedCassetteRole, _selectedMaterialSlot);
@@ -1563,7 +1541,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Material Data 생성 실패:\r\n" + ex.Message, "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("message.material.createFailed", ex.Message), Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1583,7 +1561,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     : BinSide.Good;
                 if (!CanClearOutputCassetteDetailData(selectedSide))
                     return;
-                if (!ConfirmMaterialDataAction("선택한 Output Cassette Slot의 Material Data를 초기화하시겠습니까?"))
+                if (!ConfirmMaterialDataAction(Lang.T("message.outputCassette.slotClearConfirm")))
                     return;
                 if (!CanChangeOutputCassetteData(GetHost(), "Output Cassette Slot CLEAR"))
                     return;
@@ -1593,23 +1571,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!MaterialStateService.ClearOutputCassetteSlotData(_selectedCassetteRole, _selectedMaterialSlot))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "선택한 Output Cassette Slot의 Material Data 초기화에 실패했습니다.",
-                        "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        Lang.T("message.outputCassette.slotClearFailed"),
+                        Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
                 if (!MaterialStateService.TryFlushPendingSave("OutputCassetteSlotDataClear"))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "선택한 Output Cassette Slot Data는 메모리에서 초기화했지만 저장 파일 갱신에 실패했습니다.\r\n" +
-                        "프로그램을 재시작하지 말고 로그를 확인하십시오.",
-                        "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        Lang.T("message.outputCassette.slotClearSaveFailed"),
+                        Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
                 RefreshData();
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Material Data 초기화 실패:\r\n" + ex.Message, "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("message.material.clearFailed", ex.Message), Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1624,7 +1601,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return;
                 if (!CanClearOutputCassetteDetailData(BinSide.Good, BinSide.Ng))
                     return;
-                if (!ConfirmMaterialDataAction("Output Cassette의 모든 Material Data를 초기화하시겠습니까?"))
+                if (!ConfirmMaterialDataAction(Lang.T("message.outputCassette.allClearConfirm")))
                     return;
                 if (!CanChangeOutputCassetteData(GetHost(), "Output Cassette DATA ALL CLEAR"))
                     return;
@@ -1634,23 +1611,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!MaterialStateService.ClearOutputCassetteAllSlotData())
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "Output Cassette의 모든 Material Data 초기화에 실패했습니다.",
-                        "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        Lang.T("message.outputCassette.allClearFailed"),
+                        Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
                 if (!MaterialStateService.TryFlushPendingSave("OutputCassetteAllDataClear"))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "Output Cassette 전체 Data는 메모리에서 초기화했지만 저장 파일 갱신에 실패했습니다.\r\n" +
-                        "프로그램을 재시작하지 말고 로그를 확인하십시오.",
-                        "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        Lang.T("message.outputCassette.allClearSaveFailed"),
+                        Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
                 RefreshData();
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Material Data 전체 초기화 실패:\r\n" + ex.Message, "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("message.material.clearAllFailed", ex.Message), Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1659,7 +1635,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private bool ConfirmMaterialDataAction(string message)
         {
-            return QMC.Common.MessageDialog.Show(this, message, "Material Data", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+            return QMC.Common.MessageDialog.Show(this, message, Lang.T("message.title.materialData"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
         }
 
         private static IReadOnlyList<bool> ResolveSlots(OutputCassetteUnit unit, TargetCassette cassette, bool[] fallback)
@@ -2320,8 +2296,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 var destItem = cmbDataOnlyDest.SelectedItem as DataOnlyLocationItem;
                 if (sourceItem == null || destItem == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "Source와 Destination을 먼저 선택하십시오.",
-                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("message.dataOnly.selectEndpoints"),
+                        Lang.T("message.title.dataOnly"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2333,8 +2309,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         "DATA ONLY move 차단. destination=" + destItem.Location.DisplayText +
                         ", reason=" + destinationReason);
                     QMC.Common.MessageDialog.Show(this,
-                        "선택한 Destination으로는 이동할 수 없습니다.\r\n" + destinationReason,
-                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("message.dataOnly.invalidDestination", destinationReason),
+                        Lang.T("message.title.dataOnly"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2343,18 +2319,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 // 현재 기준: Destination이 점유된 경우 그 자재가 Source 위치로 교환되므로 확인창에 명시한다.
                 string destOccupantId = ResolveDataOnlyMaterialId(destItem.Location);
                 string swapNotice = destOccupantId != "-" && !string.Equals(destOccupantId, expectedId, StringComparison.OrdinalIgnoreCase)
-                    ? "Destination에 있는 [" + destOccupantId + "]는 " + sourceItem.Location.DisplayText + "로 교환됩니다.\r\n"
+                    ? Lang.Format("message.dataOnly.swapNotice", destOccupantId, sourceItem.Location.DisplayText)
                     : "";
 
                 string message =
-                    "[DATA ONLY 이동]\r\n" +
-                    "Source: " + sourceItem.Location.DisplayText + "\r\n" +
-                    "Destination: " + destItem.Location.DisplayText + "\r\n" +
-                    "Material ID: " + expectedId + "\r\n" +
-                    swapNotice + "\r\n" +
-                    "실물 장비는 움직이지 않습니다 (NO MOTION).\r\n" +
-                    "Material 데이터만 이동하시겠습니까?";
-                if (QMC.Common.MessageDialog.Show(this, message, "DATA ONLY",
+                    Lang.Format("message.dataOnly.moveConfirm", sourceItem.Location.DisplayText, destItem.Location.DisplayText, expectedId, swapNotice);
+                if (QMC.Common.MessageDialog.Show(this, message, Lang.T("message.title.dataOnly"),
                         MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                 {
                     WriteEvent("OUTPUT-CST-DATAONLY-CANCEL", "DATA ONLY move canceled by user. source=" +
@@ -2389,36 +2359,30 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                             "프로그램을 재시작하거나 Auto를 시작하지 말고 저장 경로를 확인하십시오. material=" +
                             result.MaterialId);
                         QMC.Common.MessageDialog.Show(this,
-                            "Material 위치는 변경됐지만 저장에 실패했습니다.\r\n" +
-                            "프로그램을 재시작하거나 Auto를 시작하지 말고 로그와 저장 경로를 확인하십시오.",
-                            "DATA ONLY 저장 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            Lang.T("message.dataOnly.saveFailed"),
+                            Lang.T("message.title.dataOnlySaveFailed"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
                     }
 
                     QMC.Common.MessageDialog.Show(this,
-                        "Material 데이터 이동이 완료되었습니다 (NO MOTION).\r\n" +
-                        "Material ID: " + result.MaterialId + "\r\n" +
-                        "State: " + ResolveDataOnlyMaterialStateText(result.MaterialId) + "\r\n" +
-                        result.SourceText + " → " + result.DestinationText +
-                        (string.IsNullOrWhiteSpace(result.SwappedMaterialId)
+                        Lang.Format("message.dataOnly.moveComplete", result.MaterialId, ResolveDataOnlyMaterialStateText(result.MaterialId), result.SourceText, result.DestinationText, (string.IsNullOrWhiteSpace(result.SwappedMaterialId)
                             ? ""
-                            : "\r\n교환: " + result.SwappedMaterialId + " → " + result.SwappedToText +
-                              " / State: " + ResolveDataOnlyMaterialStateText(result.SwappedMaterialId)),
-                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            : Lang.Format("message.dataOnly.swapComplete", result.SwappedMaterialId, result.SwappedToText, ResolveDataOnlyMaterialStateText(result.SwappedMaterialId)))),
+                        Lang.T("message.title.dataOnly"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
                 {
                     RaiseWarning("OUTPUT-CST-DATAONLY-MOVE-FAIL", "DATA ONLY move failed. code=" + result.FailureCode +
                         ", reason=" + result.FailureMessage);
                     QMC.Common.MessageDialog.Show(this,
-                        "Material 데이터 이동에 실패했습니다.\r\n" + result.FailureMessage,
-                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("message.dataOnly.moveFailed", result.FailureMessage),
+                        Lang.T("message.title.dataOnly"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             catch (Exception ex)
             {
                 WriteAlarm("OUTPUT-CST-DATAONLY-MOVE-EX", "DATA ONLY move failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("message.title.dataOnly"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -2438,8 +2402,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 var sourceItem = cmbDataOnlySource.SelectedItem as DataOnlyLocationItem;
                 if (sourceItem == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "삭제할 위치를 Source에서 먼저 선택하십시오.",
-                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("message.dataOnly.selectDeleteSource"),
+                        Lang.T("message.title.dataOnly"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2456,10 +2420,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     ", useNgCassette=" + (deleteConfig != null && deleteConfig.UseNgCassette));
 
                 string message =
-                    "[DATA ONLY 삭제]\r\n" +
-                    sourceItem.Location.DisplayText + "의 Material [" + expectedId + "] 데이터를 삭제하시겠습니까?\r\n\r\n" +
-                    "실물 장비는 움직이지 않으며, 실물이 제거되는 것도 아닙니다.";
-                if (QMC.Common.MessageDialog.Show(this, message, "DATA ONLY",
+                    Lang.Format("message.dataOnly.deleteConfirm", sourceItem.Location.DisplayText, expectedId);
+                if (QMC.Common.MessageDialog.Show(this, message, Lang.T("message.title.dataOnly"),
                         MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                 {
                     WriteEvent("OUTPUT-CST-DATAONLY-CANCEL", "DATA ONLY delete canceled by user. location=" +
@@ -2479,22 +2441,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         ", location=" + result.SourceText + ", persisted=" + result.PersistenceSucceeded);
                     RefreshDataOnlyAfterChange();
                     QMC.Common.MessageDialog.Show(this,
-                        "Material 데이터 삭제가 완료되었습니다 (NO MOTION).\r\nMaterial ID: " + result.MaterialId,
-                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        Lang.Format("message.dataOnly.deleteComplete", result.MaterialId),
+                        Lang.T("message.title.dataOnly"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
                 {
                     RaiseWarning("OUTPUT-CST-DATAONLY-DELETE-FAIL", "DATA ONLY delete failed. code=" + result.FailureCode +
                         ", reason=" + result.FailureMessage);
                     QMC.Common.MessageDialog.Show(this,
-                        "Material 데이터 삭제에 실패했습니다.\r\n" + result.FailureMessage,
-                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("message.dataOnly.deleteFailed", result.FailureMessage),
+                        Lang.T("message.title.dataOnly"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             catch (Exception ex)
             {
                 WriteAlarm("OUTPUT-CST-DATAONLY-DELETE-EX", "DATA ONLY delete failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("message.title.dataOnly"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

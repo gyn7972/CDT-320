@@ -44,11 +44,40 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private static readonly string SavePath =
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "teach_positions.json");
 
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(lblHeader, "settingsUi.caption.positionTeaching");
+            Lang.BindFormat(_jogAxisLabel, "settingsUi.teach.axisNone");
+            Lang.BindFormat(_jogPosLabel, "settingsUi.teach.actual", "-");
+            Lang.BindFormat(lblStep, "settingsUi.teach.step", "mm");
+            Lang.BindKey(_positionListGroup, "settingsUi.caption.positionTeachingList");
+            Lang.BindKey(dataGridViewTextBoxColumn1, "settingsUi.caption.module");
+            Lang.BindKey(dataGridViewTextBoxColumn2, "settingsUi.caption.key");
+            Lang.BindKey(dataGridViewTextBoxColumn3, "settingsUi.caption.name");
+            Lang.BindKey(dataGridViewTextBoxColumn4, "settingsUi.caption.axisNo");
+            Lang.BindKey(dataGridViewTextBoxColumn5, "settingsUi.caption.value");
+            Lang.BindKey(dataGridViewTextBoxColumn6, "settingsUi.caption.unit");
+            Lang.BindKey(dataGridViewTextBoxColumn7, "settingsUi.caption.description");
+            Lang.BindKey(_axisJogGroup, "settingsUi.caption.axisJog");
+            Lang.BindKey(lblJogHeader, "settingsUi.caption.axisJog");
+            Lang.BindKey(lblSpeed, "settingsUi.caption.speed2");
+            Lang.BindKey(lblJogHint, "settingsUi.caption.selectAGridRowToSwitchAxisAutomatically");
+            Lang.BindKey(_actionGroup, "settingsUi.caption.action");
+            Lang.BindKey(btnTeach, "settingsUi.caption.teach");
+            Lang.BindKey(btnGoto, "settingsUi.caption.moveTo");
+            Lang.BindKey(btnApply, "settingsUi.caption.apply");
+            Lang.BindKey(btnSave, "settingsUi.caption.save");
+            Lang.BindKey(btnReload, "settingsUi.caption.reload");
+            Lang.BindKey(btnReset, "settingsUi.caption.resetDefault");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
         public PositionTeachingPage()
         {
             InitializeComponent();
             SettingsPageLayoutStyler.Apply(this);
             ApplyCompactLayout();
+            InitializeLanguageBindings();
             WireRuntimeEvents();
 
             _items = LoadOrSeed();
@@ -150,7 +179,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private void btnReset_Click(object sender, EventArgs e)
         {
-            if (QMC.Common.MessageDialog.Show("기본값으로 초기화하시겠습니까?", "Reset",
+            if (QMC.Common.MessageDialog.Show(Lang.T("settingsUi.message.resetDefault"), Lang.T("settingsUi.caption.reset"),
                                  MessageBoxButtons.OKCancel) != DialogResult.OK) return;
             _items = SeedDefault();
             FillGrid();
@@ -183,11 +212,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void OnGridSelectionChanged()
         {
             var it = CurrentItem();
-            if (it == null) { _jogCurrentAxis = null; _jogAxisLabel.Text = "Axis: (없음)"; ClearJogButtons(); UpdateJogUnitUi(); return; }
+            if (it == null) { _jogCurrentAxis = null; Lang.BindFormat(_jogAxisLabel, "settingsUi.teach.axisNone"); ClearJogButtons(); UpdateJogUnitUi(); return; }
             var host = FindForm() as Form1;
             if (host?.Machine == null) return;
             _jogCurrentAxis = ResolveAxis(host.Machine, it.Axis);
-            _jogAxisLabel.Text = "Axis: " + QMC.CDT320.Ajin.AjinAxisDefaults.ToDisplayName(it.Axis);
+            Lang.BindFormat(_jogAxisLabel, "settingsUi.teach.axis", QMC.CDT320.Ajin.AjinAxisDefaults.ToDisplayName(it.Axis));
             UpdateJogUnitUi();
             RebuildJogButtons(DetectAxisDir(it.Axis));
         }
@@ -198,7 +227,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 string unit = _jogCurrentAxis == null ? AxisUnitConverter.Millimeter : AxisUnitConverter.DisplayUnitFor(_jogCurrentAxis);
                 lblSpeedUnit.Text = unit + "/s";
-                lblStep.Text = "Step (" + unit + ")";
+                Lang.BindFormat(lblStep, "settingsUi.teach.step", unit);
                 btnStep5.Text = GetJogStepPreset(0);
                 btnStep1.Text = GetJogStepPreset(1);
                 btnStep01.Text = GetJogStepPreset(2);
@@ -349,7 +378,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         _jogCurrentAxis);
                     try { _jogCurrentAxis.EStop(); } catch { }
                 }
-                QMC.Common.MessageDialog.Show("Jog 실패: " + ex.Message, "Jog",
+                QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.teach.jogFailed", ex.Message), Lang.T("settingsUi.caption.jog"),
                                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
@@ -363,9 +392,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             if (_jogPosLabel == null) return;
             UpdateJogUnitUi();
-            _jogPosLabel.Text = _jogCurrentAxis == null
-                ? "Actual Pos: -"
-                : "Actual Pos: " + AxisUnitConverter.FormatDisplay(_jogCurrentAxis.ActualPosition, _jogCurrentAxis, "0.###", true);
+            Lang.BindFormat(_jogPosLabel, "settingsUi.teach.actual", _jogCurrentAxis == null ? "-" : AxisUnitConverter.FormatDisplay(_jogCurrentAxis.ActualPosition, _jogCurrentAxis, "0.###", true));
         }
 
         // ──────────────────────────────────────
@@ -503,12 +530,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 {
                     JsonPrettySerializer.WriteObject(fs, typeof(TeachStore), new TeachStore { Items = _items });
                 }
-                QMC.Common.MessageDialog.Show("티칭 데이터 저장 완료.\n" + SavePath, "Position Teaching",
+                QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.teach.saved", SavePath), Lang.T("settingsUi.caption.positionTeaching"),
                                  MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show("저장 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.message.saveFailed", ex.Message));
             }
         }
 
@@ -551,7 +578,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             else
             {
-                QMC.Common.MessageDialog.Show("숫자만 입력 가능합니다.");
+                QMC.Common.MessageDialog.Show(Lang.T("settingsUi.teach.numericOnly"));
                 _grid.Rows[e.RowIndex].Cells["VALUE"].Value = FormatTeachValue(_items[e.RowIndex]);
             }
         }
@@ -652,9 +679,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var it = CurrentItem();
             if (it == null) return;
             var host = FindForm() as Form1;
-            if (host?.Machine == null) { QMC.Common.MessageDialog.Show("Machine 미초기화"); return; }
+            if (host?.Machine == null) { QMC.Common.MessageDialog.Show(Lang.T("settingsUi.message.machineNotInitialized")); return; }
             double pos = ResolveAxisActualPos(host.Machine, it.Axis);
-            if (double.IsNaN(pos)) { QMC.Common.MessageDialog.Show("축을 식별하지 못했습니다: " + QMC.CDT320.Ajin.AjinAxisDefaults.ToDisplayName(it.Axis)); return; }
+            if (double.IsNaN(pos)) { QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.teach.axisUnknown", QMC.CDT320.Ajin.AjinAxisDefaults.ToDisplayName(it.Axis))); return; }
             it.Value = pos;
             _grid.Rows[_grid.CurrentRow.Index].Cells["VALUE"].Value = FormatTeachValue(it);
             _grid.Rows[_grid.CurrentRow.Index].Cells["UNIT"].Value = GetTeachDisplayUnit(it);
@@ -666,23 +693,23 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var it = CurrentItem();
             if (it == null) return;
             var host = FindForm() as Form1;
-            if (host?.Machine == null) { QMC.Common.MessageDialog.Show("Machine 미초기화"); return; }
+            if (host?.Machine == null) { QMC.Common.MessageDialog.Show(Lang.T("settingsUi.message.machineNotInitialized")); return; }
             var ax = ResolveAxis(host.Machine, it.Axis);
-            if (ax == null) { QMC.Common.MessageDialog.Show("축을 찾지 못했습니다: " + QMC.CDT320.Ajin.AjinAxisDefaults.ToDisplayName(it.Axis)); return; }
+            if (ax == null) { QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.teach.axisNotFound", QMC.CDT320.Ajin.AjinAxisDefaults.ToDisplayName(it.Axis))); return; }
             try
             {
                 if (!ax.IsServoOn) ax.ServoOn();
                 using (MotionGuardRuntime.BeginManualSequenceProcessMove("PositionTeachingPage.MoveToTaught:" + it.Group + "." + it.Key))
                     await ax.MoveAbsoluteAsync(it.Value, 50.0);
             }
-            catch (Exception ex) { QMC.Common.MessageDialog.Show("이동 실패: " + ex.Message); }
+            catch (Exception ex) { QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.teach.moveFailed", ex.Message)); }
         }
 
         /// <summary>티칭 데이터를 각 Unit 의 Recipe/Config/Setup 객체에 반영하고 저장한다.</summary>
         private void ApplyToSetup()
         {
             var host = FindForm() as Form1;
-            if (host?.Machine == null) { QMC.Common.MessageDialog.Show("Machine 미초기화"); return; }
+            if (host?.Machine == null) { QMC.Common.MessageDialog.Show(Lang.T("settingsUi.message.machineNotInitialized")); return; }
             var m = host.Machine;
             int applied = 0;
 
@@ -883,10 +910,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
             }
 
-            QMC.Common.MessageDialog.Show($"티칭 반영 완료: {applied} 항목\n\n" +
-                            "Picker 위치 티칭은 Recipe에 저장됩니다.\n" +
-                            "(미반영 항목은 JSON 에만 저장됨 — EventLog TEACH-NOAPPLY 참조)",
-                            "Apply", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.teach.applied", applied),
+                            Lang.T("settingsUi.caption.apply2"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         /// <summary>
@@ -987,5 +1012,3 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
-
-

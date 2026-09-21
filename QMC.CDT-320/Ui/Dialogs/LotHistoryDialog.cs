@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -19,6 +20,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         public LotHistoryDialog()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
+            Lang.BindReadOnlyCells(gridLots, TranslateLotState, cell => cell.ColumnIndex == colLotState.Index);
             RefreshHistory();
         }
 
@@ -32,8 +35,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "LOT 이력을 다시 읽지 못했습니다: " + ex.Message,
-                    "LOT 진행 이력", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("extraDialog.lotHistory.readFailed", ex.Message),
+                    Lang.T("extraDialog.lotHistoryDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -45,9 +48,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             try
             {
                 string activeLotId = LotSessionService.ActiveLotId;
-                lblActiveLot.Text = string.IsNullOrEmpty(activeLotId)
-                    ? "진행 중인 LOT: 없음"
-                    : "진행 중인 LOT: " + activeLotId;
+                if (string.IsNullOrEmpty(activeLotId))
+                    Lang.BindKey(lblActiveLot, "extraDialog.lotHistory.none");
+                else Lang.BindFormat(lblActiveLot, "extraDialog.lotHistory.active", activeLotId);
                 lblActiveLot.ForeColor = string.IsNullOrEmpty(activeLotId)
                     ? Color.FromArgb(110, 110, 110)
                     : Color.FromArgb(21, 128, 61);
@@ -104,5 +107,30 @@ namespace QMC.CDT_320.Ui.Dialogs
                 default: return "대기";
             }
         }
+        private static string TranslateLotState(string value)
+        {
+            string key = value == "진행중" ? "running" : value == "완료" ? "complete" :
+                value == "중단" ? "aborted" : value == "대기" ? "waiting" : null;
+            return key == null ? value : Lang.T("extraDialog.lotHistory." + key);
+        }
+
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(colLotId, "extraDialog.lotHistoryDialog.colLotId.caption");
+            Lang.BindKey(colLotState, "extraDialog.lotHistoryDialog.colLotState.caption");
+            Lang.BindKey(colLotRecipe, "extraDialog.lotHistoryDialog.colLotRecipe.caption");
+            Lang.BindKey(colLotStarted, "extraDialog.lotHistoryDialog.colLotStarted.caption");
+            Lang.BindKey(colLotFinished, "extraDialog.lotHistoryDialog.colLotFinished.caption");
+            Lang.BindKey(colLotProcessed, "extraDialog.lotHistoryDialog.colLotProcessed.caption");
+            Lang.BindKey(colLotGood, "extraDialog.lotHistoryDialog.colLotGood.caption");
+            Lang.BindKey(colLotNg, "extraDialog.lotHistoryDialog.colLotNg.caption");
+            Lang.BindKey(colLotYield, "extraDialog.lotHistoryDialog.colLotYield.caption");
+            Lang.BindKey(lblHint, "extraDialog.lotHistoryDialog.lblHint.caption");
+            Lang.BindKey(btnRefresh, "extraDialog.lotHistoryDialog.btnRefresh.caption");
+            Lang.BindKey(btnClose, "extraDialog.lotHistoryDialog.btnClose.caption");
+            Lang.BindKey(this, "extraDialog.lotHistoryDialog.this.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 }

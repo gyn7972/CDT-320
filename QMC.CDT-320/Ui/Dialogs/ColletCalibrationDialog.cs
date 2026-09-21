@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,7 +19,7 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public partial class ColletCalibrationDialog : Form
+    public partial class ColletCalibrationDialog : Form, ILocalizedView
     {
         private enum SettingKey
         {
@@ -117,11 +118,70 @@ namespace QMC.CDT_320.Ui.Dialogs
                 () => new ColletCalibrationDialog());
         }
 
+        private void InitializeLocalization()
+        {
+            Lang.BindKey(lblHeader, "calibration.collet.lblHeader");
+            Lang.BindKey(batchGroup, "calibration.collet.batchGroup");
+            Lang.BindKey(chkBatchAll, "calibration.collet.chkBatchAll");
+            Lang.BindKey(btnBatchStart, "calibration.collet.btnBatchStart");
+            Lang.BindKey(groupSettings, "calibration.collet.groupSettings");
+            Lang.BindKey(colSettingName, "calibration.collet.colSettingName");
+            Lang.BindKey(colSettingValue, "calibration.collet.colSettingValue");
+            Lang.BindKey(colSettingUnit, "calibration.collet.colSettingUnit");
+            Lang.BindKey(groupResults, "calibration.collet.groupResults");
+            Lang.BindKey(colItem, "calibration.collet.colItem");
+            Lang.BindKey(colSide, "calibration.collet.colSide");
+            Lang.BindKey(colCollet, "calibration.collet.colCollet");
+            Lang.BindKey(colOffsetX, "calibration.collet.colOffsetX");
+            Lang.BindKey(colOffsetY, "calibration.collet.colOffsetY");
+            Lang.BindKey(colTheta, "calibration.collet.colTheta");
+            Lang.BindKey(colTZero, "calibration.collet.colTZero");
+            Lang.BindKey(colFinalX, "calibration.collet.colFinalX");
+            Lang.BindKey(colFinalY, "calibration.collet.colFinalY");
+            Lang.BindKey(colFinalZ, "calibration.collet.colFinalZ");
+            Lang.BindKey(colValid, "calibration.collet.colValid");
+            Lang.BindKey(colCocValid, "calibration.collet.colCocValid");
+            Lang.BindKey(colCocPixelX, "calibration.collet.colCocPixelX");
+            Lang.BindKey(colCocPixelY, "calibration.collet.colCocPixelY");
+            Lang.BindKey(colCocMachineX, "calibration.collet.colCocMachineX");
+            Lang.BindKey(colCocMachineY, "calibration.collet.colCocMachineY");
+            Lang.BindKey(colPickZ, "calibration.collet.colPickZ");
+            Lang.BindKey(colPlaceZ, "calibration.collet.colPlaceZ");
+            Lang.BindKey(lblSaveHistory, "calibration.collet.lblSaveHistory");
+            Lang.BindKey(lblStatus, "calibration.collet.lblStatus");
+            Lang.BindKey(btnCheck, "calibration.collet.btnCheck");
+            Lang.BindKey(btnStart, "calibration.collet.btnStart");
+            Lang.BindKey(btnCoc, "calibration.collet.btnCoc");
+            Lang.BindKey(btnCocCenter, "calibration.collet.btnCocCenter");
+            Lang.BindKey(btnSaveBottomTeaching, "calibration.collet.btnSaveBottomTeaching");
+            Lang.BindKey(btnApplyHomeOffset, "calibration.collet.btnApplyHomeOffset");
+            Lang.BindKey(btnMoveZForward, "calibration.collet.btnMoveZForward");
+            Lang.BindKey(btnMoveYAvoid, "calibration.collet.btnMoveYAvoid");
+            Lang.BindKey(btnSeqStop, "calibration.collet.btnSeqStop");
+            Lang.BindKey(btnReload, "calibration.collet.btnReload");
+            Lang.BindKey(btnParameterSave, "calibration.collet.btnParameterSave");
+            Lang.BindKey(btnSave, "calibration.collet.btnSave");
+            Lang.BindKey(btnClose, "calibration.collet.btnClose");
+            Lang.BindKey(this, "calibration.collet.this");
+            CalibrationDialogText.BindGrid(gridSettings);
+            CalibrationDialogText.BindGrid(gridResults);
+        }
+
+        public void ApplyLanguage()
+        {
+            // 언어 변경은 표시만 무효화하며 선택/입력/설정값을 다시 불러오지 않습니다.
+            foreach (DataGridViewRow row in gridSettings.Rows)
+                if (row.Tag is SettingInfo info)
+                    foreach (DataGridViewCell cell in row.Cells) cell.ToolTipText = Lang.T(info.ToolTip);
+            Invalidate(true);
+        }
+
         public ColletCalibrationDialog()
         {
             try
             {
                 InitializeComponent();
+                InitializeLocalization();
                 ApplyButtonStyle();
                 CalibrationDialogGridBehavior.Apply(gridSettings, gridResults);
                 ConfigureEditableSettingGrid();
@@ -129,7 +189,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 LoadSettingsToUi();
                 RefreshResultGrid();
                 UpdateStopButtonEnabled();
-                lblStatus.Text = "대기 중입니다. Collet과 보정 조건을 확인한 뒤 START를 실행하세요.";
+                Lang.BindFormat(lblStatus, "calibration.status.s000");
             }
             catch (Exception ex)
             {
@@ -220,7 +280,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "설정 변경 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s001", ex.Message);
             }
             finally
             {
@@ -242,7 +302,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (!info.Numeric)
             {
-                lblStatus.Text = info.Name + " 항목은 숫자 키패드 수정 대상이 아닙니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s002", info.Name);
                 return;
             }
 
@@ -258,15 +318,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                     double numericValue;
                     if (!TryParseSettingNumber(dialog.ValueText, out numericValue))
                     {
-                        lblStatus.Text = info.Name + " 설정값이 숫자가 아닙니다. value=" + dialog.ValueText;
+                        Lang.BindFormat(lblStatus, "calibration.status.s003", info.Name, dialog.ValueText);
                         return;
                     }
 
                     if (info.Key == SettingKey.CalibrationStartAngle &&
                         (double.IsNaN(numericValue) || double.IsInfinity(numericValue)))
                     {
-                        lblStatus.Text = "T Teaching에는 유한한 각도를 입력하세요. value=" + dialog.ValueText;
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.BindFormat(lblStatus, "calibration.status.s004", dialog.ValueText);
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
@@ -276,7 +336,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "숫자 입력 처리 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s005", ex.Message);
             }
             finally
             {
@@ -291,7 +351,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             DataGridViewRow row = gridSettings.Rows[e.RowIndex];
             SettingInfo info = row != null ? row.Tag as SettingInfo : null;
             if (info != null)
-                e.ToolTipText = info.ToolTip;
+                e.ToolTipText = Lang.T(info.ToolTip);
         }
 
         private void btnCheck_Click(object sender, EventArgs e)
@@ -299,12 +359,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             string reason;
             if (!CanRunManualCalibration(out reason))
             {
-                lblStatus.Text = reason;
-                QMC.Common.MessageDialog.Show(this, reason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                CalibrationDialogText.BindStatus(lblStatus, reason);
+                QMC.Common.MessageDialog.Show(this, reason, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            lblStatus.Text = "실행 가능한 상태입니다.";
+            Lang.BindFormat(lblStatus, "calibration.status.s006");
         }
 
         private async void btnStart_Click(object sender, EventArgs e)
@@ -347,7 +407,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             ClearLastSuccessfulResult();
             LoadSettingsToUi();
             RefreshResultGrid();
-            lblStatus.Text = "Collet Calibration 설정과 저장값을 다시 불러왔습니다.";
+            Lang.BindFormat(lblStatus, "calibration.status.s007");
         }
 
         private void btnParameterSave_Click(object sender, EventArgs e)
@@ -387,14 +447,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                     }
 
                     DialogResult result = QMC.Common.MessageDialog.Show(this,
-                        "Collet Calibration이 실행 중입니다. 정지 요청 후 창을 닫을까요?",
-                        "COLLET CAL",
+                        Lang.T("calibration.message.m001"),
+                        Lang.T("calibration.message.m000"),
                         MessageBoxButtons.YesNo,
                         MessageBoxIcon.Warning);
                     if (result == DialogResult.Yes)
                     {
                         RequestRunCancelForClose("Collet Calibration 창 닫기");
-                        lblStatus.Text = "정지 처리 중입니다. 완료 후 창을 닫으세요.";
+                        Lang.BindFormat(lblStatus, "calibration.status.s008");
                     }
 
                     e.Cancel = true;
@@ -448,15 +508,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 host = ResolveHost(out reason);
                 if (host == null)
                 {
-                    lblStatus.Text = reason;
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
                     return;
                 }
 
@@ -485,40 +545,37 @@ namespace QMC.CDT_320.Ui.Dialogs
                 options.PickerNo = _colletNo;
                 options.RestrictToPickerNo = _colletNo;
 
-                lblStatus.Text = "Collet Calibration 실행 중입니다. Side=" + _side + ", Collet=" + _colletNo;
+                Lang.BindFormat(lblStatus, "calibration.status.s009", _side, _colletNo);
                 int result = await sequence.RunAsync(runCts.Token, options).ConfigureAwait(true);
                 RefreshResultGrid();
 
                 if (result != 0)
                 {
-                    lblStatus.Text = "Collet Calibration 실패. Alarm/Event Log를 확인하세요.";
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Lang.BindFormat(lblStatus, "calibration.status.s010");
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
                 host.SaveMachineSettings();
                 ColletCalibrationRecord record = sequence.ResultRecord;
                 RememberSuccessfulResult(_side, _colletNo, record);
-                lblStatus.Text = "Collet Calibration 완료. OffsetX=" +
-                                 (record != null ? record.OffsetX.ToString("F6") : "-") +
-                                 ", OffsetY=" + (record != null ? record.OffsetY.ToString("F6") : "-") +
-                                 ", TZero=" + (record != null ? record.TZeroHomeOffset.ToString("F6") : "-");
+                Lang.BindFormat(lblStatus, "calibration.status.s011", (record != null ? record.OffsetX.ToString("F6") : "-"), (record != null ? record.OffsetY.ToString("F6") : "-"), (record != null ? record.TZeroHomeOffset.ToString("F6") : "-"));
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "Collet Calibration 정지 요청으로 중단되었습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s012");
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-STOP", lblStatus.Text);
             }
             catch (SequenceStopException ex)
             {
-                lblStatus.Text = "Collet Calibration 정지: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s013", ex.Message);
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-STOP", lblStatus.Text);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Collet Calibration 예외 발생: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s014", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-RUN", lblStatus.Text);
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -560,15 +617,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("calibration.message.m002"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 host = ResolveHost(out reason);
                 if (host == null)
                 {
-                    lblStatus.Text = reason;
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
                     return;
                 }
 
@@ -580,15 +637,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ColletCalibrationRecord record = ResolveData(host.Machine).GetRecord(_side, _colletNo);
                     if (record == null || !record.RotationCenterValid)
                     {
-                        lblStatus.Text = "COC START로 선택 Collet의 1차 회전 중심을 먼저 검출하세요.";
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.BindFormat(lblStatus, "calibration.status.s015");
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m002"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
                     if (string.IsNullOrWhiteSpace(host.ActiveRecipeName))
                     {
-                        lblStatus.Text = "현재 활성 Recipe가 없어 회전 중심 기계 좌표를 저장할 수 없습니다.";
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.BindFormat(lblStatus, "calibration.status.s016");
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m002"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
                 }
@@ -602,16 +659,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 options.PickerNo = _colletNo;
                 options.RestrictToPickerNo = _colletNo;
 
-                lblStatus.Text = moveToStoredCenter
-                    ? "저장된 회전 중심으로 X/Y 이동 후 COC를 다시 실행하고 있습니다."
-                    : "COC 실행 중입니다. 기존 Collet Calibration 위치에서 T축을 " +
-                      _cocRotationVelocityDegPerSec.ToString("F3") + " deg/s로 360도 회전합니다.";
+                { if (moveToStoredCenter) Lang.BindFormat(lblStatus, "calibration.status.s017"); else Lang.BindFormat(lblStatus, "calibration.status.s018", _cocRotationVelocityDegPerSec.ToString("F3")); }
                 int result = await sequence.RunAsync(runCts.Token, options).ConfigureAwait(true);
                 RefreshResultGrid();
                 if (result != 0)
                 {
-                    lblStatus.Text = "COC 실패. Alarm/Event Log를 확인하세요.";
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Lang.BindFormat(lblStatus, "calibration.status.s019");
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m002"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
@@ -620,8 +674,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 {
                     if (!SaveRotationCenterToRecipe(host, sequence.RotationCenterMachineX, sequence.RotationCenterMachineY, out recipeSummary))
                     {
-                        lblStatus.Text = recipeSummary;
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        CalibrationDialogText.BindStatus(lblStatus, recipeSummary);
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m002"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
                     }
                 }
@@ -636,7 +690,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                                       ? ", MachineCenter=(" + sequence.RotationCenterMachineX.ToString("F6") +
                                         ", " + sequence.RotationCenterMachineY.ToString("F6") + ")"
                                       : string.Empty);
-                lblStatus.Text = summary;
+                CalibrationDialogText.BindStatus(lblStatus, summary);
                 string[] history = string.IsNullOrWhiteSpace(recipeSummary)
                     ? new[] { summary }
                     : new[] { summary, recipeSummary };
@@ -645,19 +699,19 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "COC가 정지 요청으로 중단되었습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s020");
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-COC-STOP", lblStatus.Text);
             }
             catch (SequenceStopException ex)
             {
-                lblStatus.Text = "COC 정지: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s021", ex.Message);
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-COC-STOP", lblStatus.Text);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "COC 실행 중 예외가 발생했습니다: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s022", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-COC-RUN", lblStatus.Text);
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m002"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -777,8 +831,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             var targets = BuildBatchTargets();
             if (targets.Count == 0)
             {
-                lblStatus.Text = "BATCH 실행할 콜렛이 선택되지 않았습니다. F/R C1~C4 체크박스를 선택하세요.";
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET BATCH", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Lang.BindFormat(lblStatus, "calibration.status.s023");
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m003"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -797,23 +851,23 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "COLLET BATCH", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("calibration.message.m003"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 host = ResolveHost(out reason);
                 if (host == null)
                 {
-                    lblStatus.Text = reason;
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
                     return;
                 }
 
                 if (!ValidateBatchReferenceRecords(host, targets, out reason))
                 {
-                    lblStatus.Text = reason;
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
                     EventLogger.Write(EventKind.Warning, "CAL", "COLLET-BATCH-REFERENCE-BLOCK", reason);
-                    QMC.Common.MessageDialog.Show(this, reason, "COLLET BATCH", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("calibration.message.m003"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -849,7 +903,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                                           "다음 동작을 시작하지 않고 BATCH를 중단합니다.";
                             AppendSaveHistory(new[] { "[BATCH] " + fail });
                             EventLogger.Write(EventKind.Warning, "CAL", "COLLET-BATCH-REFERENCE-LOST", fail);
-                            lblStatus.Text = fail;
+                            CalibrationDialogText.BindStatus(lblStatus, fail);
                             aborted = true;
                             break;
                         }
@@ -859,7 +913,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     {
                         ct.ThrowIfCancellationRequested();
                         SetTargetCollet(target.Side, target.ColletNo);
-                        lblStatus.Text = "[BATCH] " + target.Label + " Collet Calibration 실행 중...";
+                        Lang.BindFormat(lblStatus, "calibration.status.s024", target.Label);
 
                         int calResult = await RunSingleColletSequenceAsync(host, ct).ConfigureAwait(true);
                         if (calResult != 0)
@@ -867,7 +921,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                             string fail = target.Label + " Collet Calibration 실패(result=" + calResult + "). BATCH를 중단합니다.";
                             AppendSaveHistory(new[] { "[BATCH] " + fail });
                             EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-BATCH-CAL-FAIL", fail);
-                            lblStatus.Text = fail;
+                            CalibrationDialogText.BindStatus(lblStatus, fail);
                             aborted = true;
                             break;
                         }
@@ -882,7 +936,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                                 string fail = target.Label + " Save Bottom 실패: " + sbMsg + ". BATCH를 중단합니다.";
                                 AppendSaveHistory(new[] { "[BATCH] " + fail });
                                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-BATCH-SAVEBOTTOM-FAIL", fail);
-                                lblStatus.Text = fail;
+                                CalibrationDialogText.BindStatus(lblStatus, fail);
                                 aborted = true;
                                 break;
                             }
@@ -897,7 +951,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                             string fail = target.Label + " Apply T 실패: " + atMsg + ". BATCH를 중단합니다.";
                             AppendSaveHistory(new[] { "[BATCH] " + fail });
                             EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-BATCH-APPLYT-FAIL", fail);
-                            lblStatus.Text = fail;
+                            CalibrationDialogText.BindStatus(lblStatus, fail);
                             aborted = true;
                             break;
                         }
@@ -918,26 +972,24 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 await Task.Run(() => host.SaveMachineSettings()).ConfigureAwait(true);
                 RefreshResultGrid();
-                lblStatus.Text = aborted
-                    ? "BATCH 중단됨. 성공 " + okCount + "/" + targets.Count + " 콜렛. Alarm/Event Log를 확인하세요."
-                    : "BATCH 완료. 성공 " + okCount + "/" + targets.Count + " 콜렛.";
+                { if (aborted) Lang.BindFormat(lblStatus, "calibration.status.s025", okCount, targets.Count); else Lang.BindFormat(lblStatus, "calibration.status.s026", okCount, targets.Count); }
                 EventLogger.Write(aborted ? EventKind.Warning : EventKind.Event, "CAL", "COLLET-BATCH-END", lblStatus.Text);
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "BATCH가 정지 요청으로 중단되었습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s027");
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-BATCH-STOP", lblStatus.Text);
             }
             catch (SequenceStopException ex)
             {
-                lblStatus.Text = "BATCH 정지: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s028", ex.Message);
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-BATCH-STOP", lblStatus.Text);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "BATCH 실행 중 예외가 발생했습니다: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s029", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-BATCH-RUN", lblStatus.Text);
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET BATCH", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m003"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1029,23 +1081,23 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string editReason;
                 if (!CommitSettingGridEdits(out editReason))
                 {
-                    lblStatus.Text = editReason;
-                    QMC.Common.MessageDialog.Show(this, editReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    CalibrationDialogText.BindStatus(lblStatus, editReason);
+                    QMC.Common.MessageDialog.Show(this, editReason, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 host = ResolveHost(out reason);
                 if (host == null)
                 {
-                    lblStatus.Text = reason;
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
                     return;
                 }
 
@@ -1057,20 +1109,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
                 runCts.Token.ThrowIfCancellationRequested();
 
-                lblStatus.Text = result == 0
-                    ? "Front/Rear 픽커 Z 전체 Avoid 이동 완료."
-                    : "픽커 Z Avoid 이동 실패. Alarm/Event Log를 확인하세요.";
+                { if (result == 0) Lang.BindFormat(lblStatus, "calibration.status.s030"); else Lang.BindFormat(lblStatus, "calibration.status.s031"); }
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-Z-AVOID",
                     lblStatus.Text + ", result=" + result);
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "픽커 Z Avoid 이동이 정지 요청으로 중단되었습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s032");
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-STOP", lblStatus.Text);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "픽커 Z Avoid 이동 예외 발생: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s033", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-Z-AVOID-EX", lblStatus.Text);
             }
             finally
@@ -1099,23 +1149,23 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string editReason;
                 if (!CommitSettingGridEdits(out editReason))
                 {
-                    lblStatus.Text = editReason;
-                    QMC.Common.MessageDialog.Show(this, editReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    CalibrationDialogText.BindStatus(lblStatus, editReason);
+                    QMC.Common.MessageDialog.Show(this, editReason, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 host = ResolveHost(out reason);
                 if (host == null)
                 {
-                    lblStatus.Text = reason;
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
                     return;
                 }
 
@@ -1125,8 +1175,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 {
                     if (!AreBothPickersZInAvoidPosition(host.Machine))
                     {
-                        lblStatus.Text = "Picker Y Avoid 이동 전 Front/Rear 픽커 Z 전체를 먼저 Avoid 위치로 이동하세요. (Z-AVOID 버튼)";
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.BindFormat(lblStatus, "calibration.status.s034");
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
@@ -1134,20 +1184,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
                 runCts.Token.ThrowIfCancellationRequested();
 
-                lblStatus.Text = result == 0
-                    ? "Front/Rear Picker Y Avoid 이동 완료."
-                    : "Picker Y Avoid 이동 실패. Alarm/Event Log를 확인하세요.";
+                { if (result == 0) Lang.BindFormat(lblStatus, "calibration.status.s035"); else Lang.BindFormat(lblStatus, "calibration.status.s036"); }
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-PICKER-Y-AVOID",
                     lblStatus.Text + ", result=" + result);
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "Picker Y Avoid 이동이 정지 요청으로 중단되었습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s037");
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-STOP", lblStatus.Text);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Picker Y Avoid 이동 예외 발생: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s038", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-PICKER-Y-AVOID-EX", lblStatus.Text);
             }
             finally
@@ -1167,7 +1215,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Form1 host = ResolveHost(out reason);
                 if (host == null || host.Machine == null || host.Machine.VisionUnit == null)
                 {
-                    lblStatus.Text = reason;
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
                     return;
                 }
 
@@ -1210,7 +1258,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Collet Calibration 설정 로드 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s039", ex.Message);
             }
             finally
             {
@@ -1226,9 +1274,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string editReason;
                 if (!CommitSettingGridEdits(out editReason))
                 {
-                    lblStatus.Text = editReason;
+                    CalibrationDialogText.BindStatus(lblStatus, editReason);
                     if (showMessage)
-                        QMC.Common.MessageDialog.Show(this, editReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, editReason, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -1236,7 +1284,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Form1 host = ResolveHost(out reason);
                 if (host == null || host.Machine == null || host.Machine.VisionUnit == null)
                 {
-                    lblStatus.Text = reason;
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
                     return false;
                 }
 
@@ -1274,16 +1322,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string projectSaveMessage;
                 if (!SaveActiveProjectColletZ(host, false, out projectSaveMessage))
                 {
-                    lblStatus.Text = projectSaveMessage;
+                    CalibrationDialogText.BindStatus(lblStatus, projectSaveMessage);
                     if (showMessage)
-                        QMC.Common.MessageDialog.Show(this, projectSaveMessage, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, projectSaveMessage, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
                 if (!host.SaveMachineSettings())
                 {
-                    lblStatus.Text = "T Teaching을 포함한 Collet Calibration 파라미터를 저장하지 못했습니다. 저장 상태를 확인한 후 다시 시도하세요.";
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.BindFormat(lblStatus, "calibration.status.s040");
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSaveSettings",
@@ -1319,13 +1367,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 RefreshResultGrid();
 
                 if (showMessage)
-                    lblStatus.Text = "Collet Calibration 파라미터를 저장했습니다. 측정 결과와 Picker 티칭값은 변경하지 않았습니다.";
+                    Lang.BindFormat(lblStatus, "calibration.status.s041");
 
                 return true;
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Collet Calibration 설정 저장 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s042", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-SAVE", lblStatus.Text);
                 return false;
             }
@@ -1367,10 +1415,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 // Sequence가 만든 정확한 target record를 다시 영속화한다.
                 // 현재 축 ActualPosition은 읽지 않으며 티칭 위치를 재계산하지 않는다.
                 host.SaveMachineSettings();
-                lblStatus.Text = "마지막 Collet Calibration 결과를 저장했습니다. target=" +
-                                 _lastSuccessfulResultSide + " C" + _lastSuccessfulResultColletNo +
-                                 ", currentSelector=" + _side + " C" + _colletNo +
-                                 ", updatedAt=" + _lastSuccessfulResultUpdatedAt.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                Lang.BindFormat(lblStatus, "calibration.status.s043", _lastSuccessfulResultSide, _lastSuccessfulResultColletNo, _side, _colletNo, _lastSuccessfulResultUpdatedAt.ToString("yyyy-MM-dd HH:mm:ss.fff"));
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSaveResult", lblStatus.Text);
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-SAVE-RESULT", lblStatus.Text);
                 RefreshResultGrid();
@@ -1384,10 +1429,10 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private bool BlockResultSave(string message, bool showMessage)
         {
-            lblStatus.Text = message;
+            CalibrationDialogText.BindStatus(lblStatus, message);
             EventLogger.Write(EventKind.Warning, "CAL", "COLLET-CAL-SAVE-RESULT-BLOCK", message);
             if (showMessage)
-                QMC.Common.MessageDialog.Show(this, message, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, message, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return false;
         }
 
@@ -1494,32 +1539,32 @@ namespace QMC.CDT_320.Ui.Dialogs
                 bool oldLoading = _loading;
                 _loading = true;
                 gridSettings.Rows.Clear();
-                AddSettingRow(CreateOption(SettingKey.Side, "Side", "캘리브레이션할 Picker Side입니다. Front와 Rear는 각각 별도 #4 기준과 Collet Offset을 저장합니다.", SideOptions), _side == VisionFocusPickerSide.Rear ? "Rear" : "Front");
-                AddSettingRow(CreateOption(SettingKey.ColletNo, "Collet No", "캘리브레이션할 Collet 번호입니다. #4가 Bottom Camera 기준 티칭 위치이며, #3/#2/#1은 #4 기준 피치 위치에서 Offset을 저장합니다.", ColletOptions), _colletNo.ToString(CultureInfo.InvariantCulture));
-                AddSettingRow(CreateText(SettingKey.Finder, "Finder", "Vision PC BottomInspection 채널에 요청할 Finder 이름입니다. Vision PC에 등록된 Collet 검출 이름과 같아야 합니다."), _finder);
-                AddSettingRow(CreateNumber(SettingKey.CalibrationStartAngle, "T Teaching", "deg", "콜렛 캘리브레이션 시작과 Bottom AutoFocus 준비에 사용할 T축 각도입니다. 기본값은 0도이며 확인 시 180도 등으로 지정할 수 있습니다. Front/Rear 전체 콜렛에 공통 적용됩니다. 레시피 T 티칭 및 캘리브레이션 후 T HOME 원점 적용과 별도인 설정입니다.", false), _calibrationStartAngleDeg.ToString("R", CultureInfo.InvariantCulture));
-                AddSettingRow(CreateNumber(SettingKey.ThetaTolerance, "Theta Tol", "deg", "T축 보정 완료 판정 각도입니다. Vision에서 받은 절대 Theta 값이 이 값 이하이면 T 보정 OK로 봅니다.", false), _thetaToleranceDeg.ToString("F6"));
-                AddSettingRow(CreateNumber(SettingKey.MaxThetaIteration, "Theta Retry", "ea", "T축 보정을 반복할 최대 횟수입니다. 이 횟수 안에 Theta Tol 안으로 들어오지 않으면 NG 처리합니다.", true), _maxThetaIterations.ToString(CultureInfo.InvariantCulture));
-                AddSettingRow(CreateNumber(SettingKey.ThetaGain, "Theta Gain", "x", "Vision에서 측정한 Theta를 0으로 만들기 위해 반대 방향으로 곱하는 이동 비율입니다. 1.0은 측정값만큼 보정합니다.", false), _thetaGain.ToString("F3"));
-                AddSettingRow(CreateNumber(SettingKey.XyTolerance, "XY Tol", "mm", "XY 중심 보정 완료 판정 거리입니다. XY Tol Mode가 Diagonal이면 대각 거리, Axis면 X/Y 각각의 절대값으로 판정합니다.", false), _xyToleranceMm.ToString("F6"));
-                AddSettingRow(CreateNumber(SettingKey.MaxXyIteration, "XY Retry", "ea", "XY 중심 보정을 반복할 최대 횟수입니다. 이 횟수 안에 XY Tol 안으로 들어오지 않으면 NG 처리합니다.", true), _maxXyIterations.ToString(CultureInfo.InvariantCulture));
-                AddSettingRow(CreateNumber(SettingKey.XyGainX, "XY Gain X", "x", "Vision에서 측정한 X 방향 보정량에 곱하는 이동 비율입니다. 1.0은 측정값만큼 그대로 보정합니다.", false), _xyGainX.ToString("F3"));
-                AddSettingRow(CreateNumber(SettingKey.XyGainY, "XY Gain Y", "x", "Vision에서 측정한 Y 방향 보정량에 곱하는 이동 비율입니다. 1.0은 측정값만큼 그대로 보정합니다.", false), _xyGainY.ToString("F3"));
-                AddSettingRow(CreateNumber(SettingKey.XyFineMax, "XY Fine Max", "mm", "Z가 검사 위치에 내려온 상태에서 그대로 XY 미세 보정을 허용할 최대 이동량입니다. X/Y 이동량이 이 값 이하이면 FineAlign으로 움직이고, 초과하면 Z/Y Avoid 후 큰 이동으로 처리합니다.", false), _xyFineMaxMm.ToString("F6"));
-                AddSettingRow(CreateOption(SettingKey.XyToleranceMode, "XY Tol Mode", "XY Tol 판정 방식입니다. Diagonal은 sqrt(X^2+Y^2) 거리로 보고, Axis는 |X|와 |Y|가 각각 Tol 이하인지 봅니다.", XyToleranceModeOptions), _useDiagonalXyTolerance ? "Diagonal" : "Axis");
-                AddSettingRow(CreateNumber(SettingKey.ScoreThreshold, "Score Min", "score", "Vision 검출 Score 최소값입니다. 0이면 Score 기준을 사용하지 않고, 0보다 크면 Score가 이 값보다 낮을 때 NG 처리합니다.", false), _scoreThreshold.ToString("F3"));
-                AddSettingRow(CreateNumber(SettingKey.VisionTimeout, "Vision Timeout", "ms", "Vision PC Collet Finder 응답을 기다리는 시간입니다. 이 시간 안에 응답이 없으면 Timeout NG 처리합니다.", true), _visionTimeoutMs.ToString(CultureInfo.InvariantCulture));
-                AddSettingRow(CreateNumber(SettingKey.MoveVelocity, "Move Speed", "mm/s", "Collet Calibration에서 XY/T/Z 및 시작 안전 위치 이동에 사용할 전용 속도입니다. AutoFocus 스캔 속도는 Vision Focus Cal 설정을 따로 사용합니다.", false), _moveVelocity.ToString("F6"));
-                AddSettingRow(CreateNumber(SettingKey.MoveAcceleration, "Move Acc", "mm/s2", "Collet Calibration 전용 이동 가속도입니다. 축 인터락은 기존 규칙을 그대로 탑니다.", false), _moveAcceleration.ToString("F6"));
-                AddSettingRow(CreateNumber(SettingKey.MoveDeceleration, "Move Dec", "mm/s2", "Collet Calibration 전용 이동 감속도입니다. 축 인터락은 기존 규칙을 그대로 탑니다.", false), _moveDeceleration.ToString("F6"));
-                AddSettingRow(CreateNumber(SettingKey.MoveTimeout, "Move Timeout", "ms", "Collet Calibration 전용 이동 완료/인포지션 대기 시간입니다.", true), _moveTimeoutMs.ToString(CultureInfo.InvariantCulture));
-                AddSettingRow(CreateNumber(SettingKey.CocRotationVelocity, "COC T Speed", "deg/s", "COC START 실행 시 선택 콜렛 T축을 360도 회전할 속도입니다. 전체 콜렛에 공통 적용하며 기본값은 30 deg/s입니다.", false), _cocRotationVelocityDegPerSec.ToString("F6"));
-                AddSettingRow(CreateOption(SettingKey.AutoFocus, "AutoFocus", "True이면 Bottom AutoFocus와 Collet 보정 후 COC 회전 중심을 검출/적용하고, 해당 콜렛의 Side 0도와 90도 AutoFocus까지 순서대로 실행합니다. Side Focus에는 현재 Picker의 Bottom Die 검사 결과가 필요합니다.", BoolOptions), _autoFocus ? "True" : "False");
-                AddSettingRow(CreateOption(SettingKey.SideAutoFocus, "Side AutoFocus", "True이면 COC 회전 중심 검출 후 Side 0도/90도 AutoFocus를 수행합니다. False이면 COC(회전 중심)까지만 수행하고 Side AutoFocus는 건너뜁니다. (AutoFocus가 True일 때만 의미가 있습니다.)", BoolOptions), _sideAutoFocus ? "True" : "False");
-                AddSettingRow(CreateNumber(SettingKey.ColletDieCalThickness, "Die Thickness", "mm", "Collet Cal에서 AutoFocus 후 측정한 Best Z에 더할 다이 두께입니다. 저장 검사 Z = 측정 Z + Die Thickness + Film Thickness + 현재 Collet Type Offset입니다.", false), _colletDieCalThicknessMm.ToString("F6"));
-                AddSettingRow(CreateNumber(SettingKey.ColletRimOffsetFromFlat, "Rim Collet Offset", "mm", "Recipe Collet Type이 Rim일 때 측정 Z에 더할 콜렛 Offset입니다. 아래 방향은 -이고 위 방향은 +이므로 위로 올릴 값은 +로 입력합니다.", false), _colletRimOffsetFromFlatMm.ToString("F6"));
-                AddSettingRow(CreateNumber(SettingKey.ColletFlatZOffset, "Flat Collet Offset", "mm", "Recipe Collet Type이 Flat일 때 측정 Z에 더할 콜렛 Offset입니다. 아래 방향은 -이고 위 방향은 +이므로 위로 올릴 값은 +로 입력합니다.", false), _colletFlatZOffsetMm.ToString("F6"));
-                AddSettingRow(CreateNumber(SettingKey.ColletFilmThickness, "Film Thickness", "mm", "Collet Cal에서 AutoFocus 후 측정한 Best Z에 더할 필름 두께입니다. 저장 검사 Z = 측정 Z + Die Thickness + Film Thickness + 현재 Collet Type Offset입니다.", false), _colletFilmThicknessMm.ToString("F6"));
+                AddSettingRow(CreateOption(SettingKey.Side, "Side", "calibration.tip.t000", SideOptions), _side == VisionFocusPickerSide.Rear ? "Rear" : "Front");
+                AddSettingRow(CreateOption(SettingKey.ColletNo, "Collet No", "calibration.tip.t001", ColletOptions), _colletNo.ToString(CultureInfo.InvariantCulture));
+                AddSettingRow(CreateText(SettingKey.Finder, "Finder", "calibration.tip.t002"), _finder);
+                AddSettingRow(CreateNumber(SettingKey.CalibrationStartAngle, "T Teaching", "deg", "calibration.tip.t003", false), _calibrationStartAngleDeg.ToString("R", CultureInfo.InvariantCulture));
+                AddSettingRow(CreateNumber(SettingKey.ThetaTolerance, "Theta Tol", "deg", "calibration.tip.t004", false), _thetaToleranceDeg.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.MaxThetaIteration, "Theta Retry", "ea", "calibration.tip.t005", true), _maxThetaIterations.ToString(CultureInfo.InvariantCulture));
+                AddSettingRow(CreateNumber(SettingKey.ThetaGain, "Theta Gain", "x", "calibration.tip.t006", false), _thetaGain.ToString("F3"));
+                AddSettingRow(CreateNumber(SettingKey.XyTolerance, "XY Tol", "mm", "calibration.tip.t007", false), _xyToleranceMm.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.MaxXyIteration, "XY Retry", "ea", "calibration.tip.t008", true), _maxXyIterations.ToString(CultureInfo.InvariantCulture));
+                AddSettingRow(CreateNumber(SettingKey.XyGainX, "XY Gain X", "x", "calibration.tip.t009", false), _xyGainX.ToString("F3"));
+                AddSettingRow(CreateNumber(SettingKey.XyGainY, "XY Gain Y", "x", "calibration.tip.t010", false), _xyGainY.ToString("F3"));
+                AddSettingRow(CreateNumber(SettingKey.XyFineMax, "XY Fine Max", "mm", "calibration.tip.t011", false), _xyFineMaxMm.ToString("F6"));
+                AddSettingRow(CreateOption(SettingKey.XyToleranceMode, "XY Tol Mode", "calibration.tip.t012", XyToleranceModeOptions), _useDiagonalXyTolerance ? "Diagonal" : "Axis");
+                AddSettingRow(CreateNumber(SettingKey.ScoreThreshold, "Score Min", "score", "calibration.tip.t013", false), _scoreThreshold.ToString("F3"));
+                AddSettingRow(CreateNumber(SettingKey.VisionTimeout, "Vision Timeout", "ms", "calibration.tip.t014", true), _visionTimeoutMs.ToString(CultureInfo.InvariantCulture));
+                AddSettingRow(CreateNumber(SettingKey.MoveVelocity, "Move Speed", "mm/s", "calibration.tip.t015", false), _moveVelocity.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.MoveAcceleration, "Move Acc", "mm/s2", "calibration.tip.t016", false), _moveAcceleration.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.MoveDeceleration, "Move Dec", "mm/s2", "calibration.tip.t017", false), _moveDeceleration.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.MoveTimeout, "Move Timeout", "ms", "calibration.tip.t018", true), _moveTimeoutMs.ToString(CultureInfo.InvariantCulture));
+                AddSettingRow(CreateNumber(SettingKey.CocRotationVelocity, "COC T Speed", "deg/s", "calibration.tip.t019", false), _cocRotationVelocityDegPerSec.ToString("F6"));
+                AddSettingRow(CreateOption(SettingKey.AutoFocus, "AutoFocus", "calibration.tip.t020", BoolOptions), _autoFocus ? "True" : "False");
+                AddSettingRow(CreateOption(SettingKey.SideAutoFocus, "Side AutoFocus", "calibration.tip.t021", BoolOptions), _sideAutoFocus ? "True" : "False");
+                AddSettingRow(CreateNumber(SettingKey.ColletDieCalThickness, "Die Thickness", "mm", "calibration.tip.t022", false), _colletDieCalThicknessMm.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.ColletRimOffsetFromFlat, "Rim Collet Offset", "mm", "calibration.tip.t023", false), _colletRimOffsetFromFlatMm.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.ColletFlatZOffset, "Flat Collet Offset", "mm", "calibration.tip.t024", false), _colletFlatZOffsetMm.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.ColletFilmThickness, "Film Thickness", "mm", "calibration.tip.t025", false), _colletFilmThicknessMm.ToString("F6"));
                 _loading = oldLoading;
             }
             catch
@@ -1538,9 +1583,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             row.Tag = info;
             row.Cells[colSettingName.Index].Value = info.Name;
             row.Cells[colSettingUnit.Index].Value = info.Unit;
-            row.Cells[colSettingName.Index].ToolTipText = info.ToolTip;
-            row.Cells[colSettingValue.Index].ToolTipText = info.ToolTip;
-            row.Cells[colSettingUnit.Index].ToolTipText = info.ToolTip;
+            row.Cells[colSettingName.Index].ToolTipText = Lang.T(info.ToolTip);
+            row.Cells[colSettingValue.Index].ToolTipText = Lang.T(info.ToolTip);
+            row.Cells[colSettingUnit.Index].ToolTipText = Lang.T(info.ToolTip);
 
             if (info.Options != null)
             {
@@ -2030,8 +2075,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             string gateReason;
             if (!CanRunManualCalibration(out gateReason))
             {
-                lblStatus.Text = gateReason;
-                QMC.Common.MessageDialog.Show(this, gateReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                CalibrationDialogText.BindStatus(lblStatus, gateReason);
+                QMC.Common.MessageDialog.Show(this, gateReason, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -2060,9 +2105,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!CommitSettingGridEdits(out editReason))
                 {
                     message = editReason;
-                    lblStatus.Text = editReason;
+                    CalibrationDialogText.BindStatus(lblStatus, editReason);
                     if (interactive)
-                        QMC.Common.MessageDialog.Show(this, editReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, editReason, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -2071,16 +2116,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (host == null)
                 {
                     message = reason;
-                    lblStatus.Text = reason;
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
                     return false;
                 }
 
                 if (string.IsNullOrWhiteSpace(host.ActiveRecipeName))
                 {
                     message = "현재 활성 Recipe가 없어 Bottom 검사 티칭 위치를 저장할 수 없습니다.";
-                    lblStatus.Text = message;
+                    CalibrationDialogText.BindStatus(lblStatus, message);
                     if (interactive)
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -2089,9 +2134,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (colletIndex != 3)
                 {
                     message = "SAVE BOTTOM POS는 기준 Collet 4번에서만 사용할 수 있습니다. side=" + _side + ", colletNo=" + _colletNo;
-                    lblStatus.Text = message;
+                    CalibrationDialogText.BindStatus(lblStatus, message);
                     if (interactive)
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -2104,9 +2149,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (xAxis == null || yAxis == null || zAxis == null || tAxis == null)
                 {
                     message = "선택 Picker 축을 찾을 수 없습니다. side=" + _side + ", colletNo=" + _colletNo;
-                    lblStatus.Text = message;
+                    CalibrationDialogText.BindStatus(lblStatus, message);
                     if (interactive)
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -2131,9 +2176,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (record == null)
                 {
                     message = "선택한 Collet Calibration 저장 Record를 찾을 수 없습니다. side=" + _side + ", colletNo=" + _colletNo;
-                    lblStatus.Text = message;
+                    CalibrationDialogText.BindStatus(lblStatus, message);
                     if (interactive)
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -2150,9 +2195,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (IsSuspiciousBottomTeachingPosition(record, actualX, actualY, actualZ, out suspiciousReason))
                 {
                     message = suspiciousReason;
-                    lblStatus.Text = suspiciousReason;
+                    CalibrationDialogText.BindStatus(lblStatus, suspiciousReason);
                     if (interactive)
-                        QMC.Common.MessageDialog.Show(this, suspiciousReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, suspiciousReason, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -2173,10 +2218,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                     "  Active PC Offset=" + activeTPcHomeOffset.ToString("F6") +
                     ", Residual=" + tZeroResidual.ToString("F6");
                 if (interactive &&
-                    QMC.Common.MessageDialog.Show(this, confirmMessage, "COLLET CAL", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    QMC.Common.MessageDialog.Show(this, confirmMessage, Lang.T("calibration.message.m000"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                 {
                     message = "사용자가 Bottom 검사 티칭 저장을 취소했습니다.";
-                    lblStatus.Text = message;
+                    CalibrationDialogText.BindStatus(lblStatus, message);
                     return false;
                 }
 
@@ -2207,9 +2252,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!SaveActiveProjectColletZ(host, true, out colletZMessage))
                 {
                     message = colletZMessage;
-                    lblStatus.Text = colletZMessage;
+                    CalibrationDialogText.BindStatus(lblStatus, colletZMessage);
                     if (interactive)
-                        QMC.Common.MessageDialog.Show(this, colletZMessage, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, colletZMessage, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -2255,16 +2300,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 message = recipeSaved
                     ? "Bottom 검사 티칭 위치를 저장했습니다. TZero=" + tZeroHomeOffset.ToString("F6") + " (Active=" + activeTPcHomeOffset.ToString("F6") + ", Residual=" + tZeroResidual.ToString("F6") + "), " + colletZMessage
                     : "Bottom 검사 티칭 값은 메모리에 반영됐지만 Recipe 저장에 실패했습니다. Alarm/Event Log를 확인하세요.";
-                lblStatus.Text = message;
+                CalibrationDialogText.BindStatus(lblStatus, message);
                 return recipeSaved;
             }
             catch (Exception ex)
             {
                 message = "Bottom 검사 티칭 위치 저장 실패: " + ex.Message;
-                lblStatus.Text = message;
+                CalibrationDialogText.BindStatus(lblStatus, message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-BOTTOM-TEACH", lblStatus.Text);
                 if (interactive)
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
             finally
@@ -2309,8 +2354,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             string gateReason;
             if (!CanRunManualCalibration(out gateReason))
             {
-                lblStatus.Text = gateReason;
-                QMC.Common.MessageDialog.Show(this, gateReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                CalibrationDialogText.BindStatus(lblStatus, gateReason);
+                QMC.Common.MessageDialog.Show(this, gateReason, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -2339,9 +2384,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!CommitSettingGridEdits(out editReason))
                 {
                     message = editReason;
-                    lblStatus.Text = editReason;
+                    CalibrationDialogText.BindStatus(lblStatus, editReason);
                     if (interactive)
-                        QMC.Common.MessageDialog.Show(this, editReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, editReason, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -2350,7 +2395,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (host == null)
                 {
                     message = reason;
-                    lblStatus.Text = reason;
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
                     return false;
                 }
 
@@ -2360,9 +2405,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (record == null || (!interactive && !record.Valid))
                 {
                     message = "Apply T HOME 대상 Collet 레코드가 없거나 유효하지 않습니다. side=" + _side + ", colletNo=" + _colletNo;
-                    lblStatus.Text = message;
+                    CalibrationDialogText.BindStatus(lblStatus, message);
                     if (interactive)
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -2371,9 +2416,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (tAxis == null || tAxis.Setup == null)
                 {
                     message = "선택 T축 설정을 찾을 수 없습니다. side=" + _side + ", colletNo=" + _colletNo;
-                    lblStatus.Text = message;
+                    CalibrationDialogText.BindStatus(lblStatus, message);
                     if (interactive)
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -2381,20 +2426,20 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (tAxis.IsAlarm)
                 {
                     message = "T축 알람 상태에서는 T HOME 적용 및 엔코더 0점 설정을 할 수 없습니다. axis=" + tAxis.Name + ", alarmCode=" + tAxis.AlarmCode;
-                    lblStatus.Text = message;
+                    CalibrationDialogText.BindStatus(lblStatus, message);
                     EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-APPLY-T-HOME-AXIS-ALARM", lblStatus.Text);
                     if (interactive)
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
                 if (tAxis.IsMoving)
                 {
                     message = "T축 이동 중에는 T HOME 적용 및 엔코더 0점 설정을 할 수 없습니다. axis=" + tAxis.Name;
-                    lblStatus.Text = message;
+                    CalibrationDialogText.BindStatus(lblStatus, message);
                     EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-APPLY-T-HOME-MOVING", lblStatus.Text);
                     if (interactive)
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -2413,10 +2458,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                     "축 이동 없이 현재 보드 Command/Actual 좌표를 0으로 프리셋합니다.\r\n" +
                     "다음 T Home 후에도 Offset 이동 및 0점 설정 기능은 유지됩니다.";
                 if (interactive &&
-                    QMC.Common.MessageDialog.Show(this, confirmMessage, "COLLET CAL", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    QMC.Common.MessageDialog.Show(this, confirmMessage, Lang.T("calibration.message.m000"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                 {
                     message = "사용자가 Apply T HOME을 취소했습니다.";
-                    lblStatus.Text = message;
+                    CalibrationDialogText.BindStatus(lblStatus, message);
                     return false;
                 }
 
@@ -2433,10 +2478,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                                      ", actual=" + tAxis.ActualPosition.ToString("F6") +
                                      ", command=" + tAxis.CommandPosition.ToString("F6") +
                                      ", tolerance=" + zeroTolerance.ToString("F6");
-                    lblStatus.Text = message;
+                    CalibrationDialogText.BindStatus(lblStatus, message);
                     EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-APPLY-T-HOME-ZERO-VERIFY", lblStatus.Text);
                     if (interactive)
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return false;
                 }
                 await Task.Run(() =>
@@ -2464,16 +2509,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                                  ", Offset=" + newHomeOffset.ToString("F6") +
                                  ", Actual=" + tAxis.ActualPosition.ToString("F6") +
                                  ", Command=" + tAxis.CommandPosition.ToString("F6");
-                lblStatus.Text = message;
+                CalibrationDialogText.BindStatus(lblStatus, message);
                 return true;
             }
             catch (Exception ex)
             {
                 message = "T PC Zero 보정값 적용 또는 엔코더 0점 설정 실패: " + ex.Message;
-                lblStatus.Text = message;
+                CalibrationDialogText.BindStatus(lblStatus, message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-APPLY-T-HOME", lblStatus.Text);
                 if (interactive)
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m000"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
             finally
@@ -2733,16 +2778,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Action request = _activeStopRequest;
                 if (request == null)
                 {
-                    lblStatus.Text = "현재 정지 요청할 Collet Calibration 동작이 없습니다.";
+                    Lang.BindFormat(lblStatus, "calibration.status.s044");
                     return;
                 }
 
                 request();
-                lblStatus.Text = source + "으로 Collet Calibration 정지를 요청했습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s045", source);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Collet Calibration 정지 요청 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s046", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-STOP-REQUEST", lblStatus.Text);
             }
             finally

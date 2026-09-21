@@ -26,6 +26,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 InitializeComponent();
+                InitializeRecipeLanguageBindings();
                 if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                     return;
 
@@ -103,11 +104,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 BindParameterGridMenus();
 
                 grpIo.ContextMenuStrip = new ContextMenuStrip();
-                grpIo.ContextMenuStrip.Items.Add("Input cassette DI 상태를 다시 읽습니다.", null, IoRefresh_Click);
+                Lang.BindKey(grpIo.ContextMenuStrip.Items.Add("Input cassette DI 상태를 다시 읽습니다.", null, IoRefresh_Click), "recipeUi.menu.inputCassette");
 
-                _toolTip.SetToolTip(lblRecipeLoadingVal, "더블 클릭하면 현재 축 표시 단위로 값을 변경합니다.");
-                _toolTip.SetToolTip(lblRecipeUnloadingVal, "더블 클릭하면 현재 축 표시 단위로 값을 변경합니다.");
-                _toolTip.SetToolTip(lblConfigSlotCountVal, "더블 클릭하면 슬롯 개수를 변경하고 SlotPosition 버퍼를 다시 맞춥니다.");
+                Lang.BindKey(_toolTip, lblRecipeLoadingVal, "recipeUi.tooltip.1");
+                Lang.BindKey(_toolTip, lblRecipeUnloadingVal, "recipeUi.tooltip.1");
+                Lang.BindKey(_toolTip, lblConfigSlotCountVal, "recipeUi.tooltip.2");
             }
             catch (Exception ex)
             {
@@ -916,24 +917,24 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputCassetteUnit == null)
                     return;
 
-                lblRecipeLoadingVal.Text = FormatAxis(_InputCassetteUnit.Recipe.LoaingPosition);
-                lblRecipeUnloadingVal.Text = FormatAxis(_InputCassetteUnit.Recipe.UnloadingPosition);
-                lblRecipeAvoidVal.Text = FormatAxis(_InputCassetteUnit.Recipe.AvoidPosition);
-                lblRecipeFirstSlotVal.Text = FormatAxis(_InputCassetteUnit.Recipe.Level2FirstSlotPosition);
-                lblRecipeMappingStartVal.Text = FormatAxis(_InputCassetteUnit.Recipe.MappingStartPosition);
-                lblRecipeMappingEndVal.Text = FormatAxis(_InputCassetteUnit.Recipe.MappingEndPosition);
-                lblConfigLoadingOffsetVal.Text = FormatAxis(_InputCassetteUnit.Config.LoadingPositionOffset);
-                lblConfigUnloadingOffsetVal.Text = FormatAxis(_InputCassetteUnit.Config.UnloadingPositionOffset);
-                lblConfigSlotPitchVal.Text = FormatAxis(_InputCassetteUnit.Config.SlotPitch);
-                lblConfigSlotCountVal.Text = _InputCassetteUnit.Config.SlotCount.ToString(CultureInfo.InvariantCulture);
-                lblConfigScanVelocityVal.Text = FormatAxis(_InputCassetteUnit.Config.ScanVelocity, "/s");
-                lblSetupToleranceVal.Text = FormatAxis(_InputCassetteUnit.ResolveWaferLifterZInPositionTolerance());
-                lblConfigInchVal.Text = _InputCassetteUnit.Config.InchSelect.ToString(CultureInfo.InvariantCulture);
-                lblConfigLevelVal.Text = _InputCassetteUnit.Config.SelectedCassetteLevel.ToString(CultureInfo.InvariantCulture);
-                lblSetupSimulationVal.Text = _InputCassetteUnit.Setup.IsSimulationMode.ToString();
-                lblConfigDryRunVal.Text = _InputCassetteUnit.Config.bDryRun.ToString();
-                lblWaitScanSettleVal.Text = _InputCassetteUnit.Config.ScanSettleTimeMs.ToString(CultureInfo.InvariantCulture) + " ms";
-                lblWaitMoveTimeoutVal.Text = _InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs().ToString(CultureInfo.InvariantCulture) + " ms";
+                Lang.BindFormat(lblRecipeLoadingVal, "recipeUi.literal", (object)(FormatAxis(_InputCassetteUnit.Recipe.LoaingPosition)));
+                Lang.BindFormat(lblRecipeUnloadingVal, "recipeUi.literal", (object)(FormatAxis(_InputCassetteUnit.Recipe.UnloadingPosition)));
+                Lang.BindFormat(lblRecipeAvoidVal, "recipeUi.literal", (object)(FormatAxis(_InputCassetteUnit.Recipe.AvoidPosition)));
+                Lang.BindFormat(lblRecipeFirstSlotVal, "recipeUi.literal", (object)(FormatAxis(_InputCassetteUnit.Recipe.Level2FirstSlotPosition)));
+                Lang.BindFormat(lblRecipeMappingStartVal, "recipeUi.literal", (object)(FormatAxis(_InputCassetteUnit.Recipe.MappingStartPosition)));
+                Lang.BindFormat(lblRecipeMappingEndVal, "recipeUi.literal", (object)(FormatAxis(_InputCassetteUnit.Recipe.MappingEndPosition)));
+                Lang.BindFormat(lblConfigLoadingOffsetVal, "recipeUi.literal", (object)(FormatAxis(_InputCassetteUnit.Config.LoadingPositionOffset)));
+                Lang.BindFormat(lblConfigUnloadingOffsetVal, "recipeUi.literal", (object)(FormatAxis(_InputCassetteUnit.Config.UnloadingPositionOffset)));
+                Lang.BindFormat(lblConfigSlotPitchVal, "recipeUi.literal", (object)(FormatAxis(_InputCassetteUnit.Config.SlotPitch)));
+                Lang.BindFormat(lblConfigSlotCountVal, "recipeUi.literal", (object)(_InputCassetteUnit.Config.SlotCount.ToString(CultureInfo.InvariantCulture)));
+                Lang.BindFormat(lblConfigScanVelocityVal, "recipeUi.literal", (object)(FormatAxis(_InputCassetteUnit.Config.ScanVelocity, "/s")));
+                Lang.BindFormat(lblSetupToleranceVal, "recipeUi.literal", (object)(FormatAxis(_InputCassetteUnit.ResolveWaferLifterZInPositionTolerance())));
+                Lang.BindFormat(lblConfigInchVal, "recipeUi.literal", (object)(_InputCassetteUnit.Config.InchSelect.ToString(CultureInfo.InvariantCulture)));
+                Lang.BindFormat(lblConfigLevelVal, "recipeUi.literal", (object)(_InputCassetteUnit.Config.SelectedCassetteLevel.ToString(CultureInfo.InvariantCulture)));
+                Lang.BindFormat(lblSetupSimulationVal, "recipeUi.literal", (object)(_InputCassetteUnit.Setup.IsSimulationMode.ToString()));
+                Lang.BindFormat(lblConfigDryRunVal, "recipeUi.literal", (object)(_InputCassetteUnit.Config.bDryRun.ToString()));
+                Lang.BindFormat(lblWaitScanSettleVal, "recipeUi.inputCassetteRecipePage.lblWaitScanSettleVal.text", (object)(_InputCassetteUnit.Config.ScanSettleTimeMs.ToString(CultureInfo.InvariantCulture)));
+                Lang.BindFormat(lblWaitMoveTimeoutVal, "recipeUi.inputCassetteRecipePage.lblWaitScanSettleVal.text", (object)(_InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs().ToString(CultureInfo.InvariantCulture)));
                 optionParameterGrid.RefreshValues();
                 waitParameterGrid.RefreshValues();
                 ioCylinderPanel.RefreshStates();
@@ -1060,6 +1061,54 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+        // Keep Designer declarations intact; language bindings only affect displayed captions.
+        private void InitializeRecipeLanguageBindings()
+        {
+            Lang.BindKey(this.lblHeader, "recipeUi.inputCassetteRecipePage.lblHeader.text");
+            Lang.BindKey(this.grpActions, "recipeUi.forceControlPage.grpActions.text");
+            Lang.BindKey(this.grpIo, "recipeUi.frontPickerRecipePage.grpIo.text");
+            Lang.BindKey(this.grpWait, "recipeUi.frontPickerRecipePage.grpWait.text");
+            Lang.BindKey(this.grpOptions, "recipeUi.frontPickerRecipePage.grpOptions.text");
+            Lang.BindKey(this.grpJog, "recipeUi.frontPickerRecipePage.grpJog.text");
+            Lang.BindKey(this.grpSpeed, "recipeUi.frontPickerRecipePage.grpSpeed.text");
+            Lang.BindKey(this.lbl8Inch, "recipeUi.inputCassetteRecipePage.lbl8Inch.text");
+            Lang.BindKey(this.lbl12Inch, "recipeUi.inputCassetteRecipePage.lbl12Inch.text");
+            Lang.BindKey(this.lblProtrusion, "recipeUi.inputCassetteRecipePage.lblProtrusion.text");
+            Lang.BindKey(this.lblMapping, "recipeUi.inputCassetteRecipePage.lblMapping.text");
+            Lang.BindKey(this.lblRecipeLoadingKey, "recipeUi.inputCassetteRecipePage.lblRecipeLoadingKey.text");
+            Lang.BindKey(this.lblRecipeLoadingVal, "recipeUi.inputCassetteRecipePage.lblRecipeLoadingVal.text");
+            Lang.BindKey(this.lblRecipeUnloadingKey, "recipeUi.inputCassetteRecipePage.lblRecipeUnloadingKey.text");
+            Lang.BindKey(this.lblRecipeUnloadingVal, "recipeUi.inputCassetteRecipePage.lblRecipeLoadingVal.text");
+            Lang.BindKey(this.lblRecipeAvoidKey, "recipeUi.inputCassetteRecipePage.lblRecipeAvoidKey.text");
+            Lang.BindKey(this.lblRecipeAvoidVal, "recipeUi.inputCassetteRecipePage.lblRecipeAvoidVal.text");
+            Lang.BindKey(this.lblRecipeFirstSlotKey, "recipeUi.inputCassetteRecipePage.lblRecipeFirstSlotKey.text");
+            Lang.BindKey(this.lblRecipeFirstSlotVal, "recipeUi.inputCassetteRecipePage.lblRecipeFirstSlotVal.text");
+            Lang.BindKey(this.lblRecipeMappingStartKey, "recipeUi.inputCassetteRecipePage.lblRecipeMappingStartKey.text");
+            Lang.BindKey(this.lblRecipeMappingStartVal, "recipeUi.inputCassetteRecipePage.lblRecipeMappingStartVal.text");
+            Lang.BindKey(this.lblRecipeMappingEndKey, "recipeUi.inputCassetteRecipePage.lblRecipeMappingEndKey.text");
+            Lang.BindKey(this.lblRecipeMappingEndVal, "recipeUi.inputCassetteRecipePage.lblRecipeMappingEndVal.text");
+            Lang.BindKey(this.lblConfigLoadingOffsetKey, "recipeUi.inputCassetteRecipePage.lblConfigLoadingOffsetKey.text");
+            Lang.BindKey(this.lblConfigLoadingOffsetVal, "recipeUi.inputCassetteRecipePage.lblRecipeAvoidVal.text");
+            Lang.BindKey(this.lblConfigUnloadingOffsetKey, "recipeUi.inputCassetteRecipePage.lblConfigUnloadingOffsetKey.text");
+            Lang.BindKey(this.lblConfigUnloadingOffsetVal, "recipeUi.inputCassetteRecipePage.lblRecipeAvoidVal.text");
+            Lang.BindKey(this.lblConfigSlotPitchKey, "recipeUi.inputCassetteRecipePage.lblConfigSlotPitchKey.text");
+            Lang.BindKey(this.lblConfigSlotPitchVal, "recipeUi.inputCassetteRecipePage.lblRecipeMappingStartVal.text");
+            Lang.BindKey(this.lblConfigSlotCountKey, "recipeUi.inputCassetteRecipePage.lblConfigSlotCountKey.text");
+            Lang.BindKey(this.lblConfigScanVelocityKey, "recipeUi.inputCassetteRecipePage.lblConfigScanVelocityKey.text");
+            Lang.BindKey(this.lblConfigScanVelocityVal, "recipeUi.inputCassetteRecipePage.lblConfigScanVelocityVal.text");
+            Lang.BindKey(this.lblSetupToleranceKey, "recipeUi.inputCassetteRecipePage.lblSetupToleranceKey.text");
+            Lang.BindKey(this.lblSetupToleranceVal, "recipeUi.inputCassetteRecipePage.lblSetupToleranceVal.text");
+            Lang.BindKey(this.lblConfigInchKey, "recipeUi.inputCassetteRecipePage.lblConfigInchKey.text");
+            Lang.BindKey(this.lblConfigLevelKey, "recipeUi.inputCassetteRecipePage.lblConfigLevelKey.text");
+            Lang.BindKey(this.lblSetupSimulationKey, "recipeUi.inputCassetteRecipePage.lblSetupSimulationKey.text");
+            Lang.BindKey(this.lblSetupSimulationVal, "recipeUi.inputCassetteRecipePage.lblSetupSimulationVal.text");
+            Lang.BindKey(this.lblConfigDryRunKey, "recipeUi.inputCassetteRecipePage.lblConfigDryRunKey.text");
+            Lang.BindKey(this.lblConfigDryRunVal, "recipeUi.inputCassetteRecipePage.lblSetupSimulationVal.text");
+            Lang.BindKey(this.lblWaitScanSettleKey, "recipeUi.inputCassetteRecipePage.lblWaitScanSettleKey.text");
+            Lang.BindKey(this.lblWaitScanSettleVal, "recipeUi.inputCassetteRecipePage.lblWaitScanSettleVal.state2");
+            Lang.BindKey(this.lblWaitMoveTimeoutKey, "recipeUi.inputCassetteRecipePage.lblWaitMoveTimeoutKey.text");
+            Lang.BindKey(this.lblWaitMoveTimeoutVal, "recipeUi.inputCassetteRecipePage.lblWaitMoveTimeoutVal.text");
         }
     }
 }

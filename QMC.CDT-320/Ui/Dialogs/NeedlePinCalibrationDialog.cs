@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Drawing;
 using System.Globalization;
 using System.Threading;
@@ -14,7 +15,7 @@ using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public sealed partial class NeedlePinCalibrationDialog : Form
+    public sealed partial class NeedlePinCalibrationDialog : Form, ILocalizedView
     {
         private const string ResultVisionOffsetX = "Vision Pixel Offset X";
         private const string ResultVisionOffsetY = "Vision Pixel Offset Y";
@@ -36,9 +37,53 @@ namespace QMC.CDT_320.Ui.Dialogs
                 () => new NeedlePinCalibrationDialog());
         }
 
+        private void InitializeLocalization()
+        {
+            Lang.BindKey(lblHeader, "calibration.needlepin.lblHeader");
+            Lang.BindKey(groupSetting, "calibration.needlepin.groupSetting");
+            Lang.BindKey(colSettingItem, "calibration.needlepin.colSettingItem");
+            Lang.BindKey(colSettingValue, "calibration.needlepin.colSettingValue");
+            Lang.BindKey(colSettingUnit, "calibration.needlepin.colSettingUnit");
+            Lang.BindKey(groupSaved, "calibration.needlepin.groupSaved");
+            Lang.BindKey(colResultItem, "calibration.needlepin.colResultItem");
+            Lang.BindKey(colResultValue, "calibration.needlepin.colResultValue");
+            Lang.BindKey(colResultUnit, "calibration.needlepin.colResultUnit");
+            Lang.BindKey(groupTeaching, "calibration.needlepin.groupTeaching");
+            Lang.BindKey(colTeachingItem, "calibration.needlepin.colTeachingItem");
+            Lang.BindKey(colTeachingTarget, "calibration.needlepin.colTeachingTarget");
+            Lang.BindKey(colTeachingActual, "calibration.needlepin.colTeachingActual");
+            Lang.BindKey(colTeachingUnit, "calibration.needlepin.colTeachingUnit");
+            Lang.BindKey(_status, "calibration.needlepin.status");
+            Lang.BindKey(_btnCheck, "calibration.needlepin.btnCheck");
+            Lang.BindKey(_btnMoveReady, "calibration.needlepin.btnMoveReady");
+            Lang.BindKey(_btnTeach, "calibration.needlepin.btnTeach");
+            Lang.BindKey(_btnMoveTeach, "calibration.needlepin.btnMoveTeach");
+            Lang.BindKey(_btnStart, "calibration.needlepin.btnStart");
+            Lang.BindKey(_btnReload, "calibration.needlepin.btnReload");
+            Lang.BindKey(_btnParameterSave, "calibration.needlepin.btnParameterSave");
+            Lang.BindKey(_btnSave, "calibration.needlepin.btnSave");
+            Lang.BindKey(_btnClose, "calibration.needlepin.btnClose");
+            Lang.BindKey(this, "calibration.needlepin.this");
+            CalibrationDialogText.BindGrid(_settingsGrid);
+            CalibrationDialogText.BindGrid(_resultGrid);
+            CalibrationDialogText.BindGrid(_teachingGrid);
+        }
+
+        public void ApplyLanguage()
+        {
+            // 언어 변경은 표시만 무효화하며 선택/입력/설정값을 다시 불러오지 않습니다.
+            foreach (DataGridViewRow row in _settingsGrid.Rows)
+                ApplySettingToolTip(row, GetSettingToolTip(Convert.ToString(row.Tag, CultureInfo.InvariantCulture)));
+            foreach (DataGridViewRow row in _resultGrid.Rows)
+                if (IsEditableResultOffset(Convert.ToString(row.Tag, CultureInfo.InvariantCulture)))
+                    row.Cells[1].ToolTipText = Lang.T("calibration.tip.manualOffset");
+            Invalidate(true);
+        }
+
         public NeedlePinCalibrationDialog()
         {
             InitializeComponent();
+            InitializeLocalization();
             ApplyButtonStyle();
             CalibrationDialogGridBehavior.Apply(_settingsGrid, _resultGrid, _teachingGrid);
             _settingsGrid.CellToolTipTextNeeded += SettingsGrid_CellToolTipTextNeeded;
@@ -234,8 +279,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     }
 
                     DialogResult result = QMC.Common.MessageDialog.Show(this,
-                        "Needle Pin Calibration이 실행 중입니다. 정지 요청 후 창을 닫을까요?",
-                        "NEEDLE PIN CAL",
+                        Lang.T("calibration.message.m016"),
+                        Lang.T("calibration.message.m017"),
                         MessageBoxButtons.YesNo,
                         MessageBoxIcon.Warning);
                     if (result == DialogResult.Yes)
@@ -369,7 +414,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 InputStageUnit stage = ResolveStage();
                 if (stage == null)
                 {
-                    _status.Text = "InputStageUnit을 찾을 수 없습니다. CalibrationPage에서 다시 열어 주세요.";
+                    Lang.BindFormat(_status, "calibration.status.s168");
                     return;
                 }
 
@@ -392,11 +437,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 RefreshResultGrid(stage);
                 RefreshTeachingGrid(stage);
-                _status.Text = "설정을 불러왔습니다. 1) MOVE READY  2) USE CURRENT  3) MOVE TEACH  4) START CAL 순서로 진행하세요.";
+                Lang.BindFormat(_status, "calibration.status.s169");
             }
             catch (Exception ex)
             {
-                _status.Text = "설정 로드 실패: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s049", ex.Message);
             }
         }
 
@@ -504,7 +549,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             bool editable = IsEditableResultOffset(name);
             if (editable)
             {
-                row.Cells[1].ToolTipText = "더블클릭하면 키패드로 수동 Offset 값을 입력합니다.";
+                row.Cells[1].ToolTipText = Lang.T("calibration.tip.manualOffset");
                 row.Cells[1].Style.BackColor = Color.FromArgb(255, 255, 230);
             }
         }
@@ -532,27 +577,27 @@ namespace QMC.CDT_320.Ui.Dialogs
             switch (name)
             {
                 case "Vision Target":
-                    return "Vision PC에 요청할 Needle Pin Calibration Finder 이름입니다. Vision PC에 등록된 Target 이름과 일치해야 합니다.";
+                    return Lang.T("calibration.tip.t091");
                 case "Vision Timeout":
-                    return "Vision PC Needle Pin Calibration 응답을 기다리는 시간입니다. 초과하면 시퀀스를 실패 처리합니다.";
+                    return Lang.T("calibration.tip.t092");
                 case "Move Speed":
-                    return "Needle Pin Calibration에서 StageY, VisionX, NeedleX/Z, EjectPinZ 이동에 사용할 전용 속도입니다.";
+                    return Lang.T("calibration.tip.t093");
                 case "Move Acc":
-                    return "Needle Pin Calibration 전용 이동 가속도입니다.";
+                    return Lang.T("calibration.tip.t094");
                 case "Move Dec":
-                    return "Needle Pin Calibration 전용 이동 감속도입니다.";
+                    return Lang.T("calibration.tip.t095");
                 case "Move Timeout":
-                    return "각 축 이동 명령 후 인포지션 완료를 기다리는 최대 시간입니다.";
+                    return Lang.T("calibration.tip.t096");
                 case "VisionX Cal Position":
-                    return "Needle Pin 검출 시 카메라 X축을 이동할 캘리브레이션 촬영 위치입니다.";
+                    return Lang.T("calibration.tip.t097");
                 case "StageY Process Position":
-                    return "Needle Pin Calibration 중 StageY를 공정/촬영 기준으로 맞출 위치입니다.";
+                    return Lang.T("calibration.tip.t098");
                 case "NeedleX Cal Position":
-                    return "Needle Pin Calibration 중 NeedleX를 Vision 시야에 맞출 기준 위치입니다.";
+                    return Lang.T("calibration.tip.t099");
                 case "NeedleZ Cal Position":
-                    return "Needle Pin Calibration 중 NeedleZ를 촬영/검출 높이로 맞출 기준 위치입니다.";
+                    return Lang.T("calibration.tip.t100");
                 case "EjectPinZ Cal Position":
-                    return "Needle Pin Calibration 중 EjectPinZ를 촬영/검출 높이로 맞출 기준 위치입니다.";
+                    return Lang.T("calibration.tip.t101");
                 default:
                     return string.Empty;
             }
@@ -566,7 +611,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             string name = Convert.ToString(_settingsGrid.Rows[e.RowIndex].Tag, CultureInfo.InvariantCulture);
             if (name == "Vision Target")
             {
-                _status.Text = "Vision Target은 문자열 항목이라 키패드 수정 대상이 아닙니다.";
+                Lang.BindFormat(_status, "calibration.status.s170");
                 return;
             }
 
@@ -593,17 +638,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 결과값 수정은 되돌릴 수 없는 조작이므로 Admin 권한 + 명시적 확인을 요구한다.
             if (!UserSession.Has(UserLevel.Admin))
             {
-                _status.Text = "Admin 권한에서만 Needle Pin Calibration 결과값을 수동 수정할 수 있습니다.";
-                QMC.Common.MessageDialog.Show(this, _status.Text, "NEEDLE PIN CAL",
+                Lang.BindFormat(_status, "calibration.status.s171");
+                QMC.Common.MessageDialog.Show(this, _status.Text, Lang.T("calibration.message.m017"),
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             if (QMC.Common.MessageDialog.Show(
                     this,
-                    name + " 측정 결과를 수동으로 덮어씁니다.\r\n" +
-                    "실제 측정 없이 캘리브레이션 값을 바꾸는 조작이며 즉시 저장됩니다.\r\n\r\n진행할까요?",
-                    "NEEDLE PIN CAL",
+                    Lang.Format("calibration.message.m018", name),
+                    Lang.T("calibration.message.m017"),
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning) != DialogResult.Yes)
                 return;
@@ -618,7 +662,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 double value;
                 if (!TryParseDouble(keypad.ValueText, out value))
                 {
-                    QMC.Common.MessageDialog.Show(this, name + " 값이 숫자가 아닙니다.", "NEEDLE PIN CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.Format("calibration.message.m019", name), Lang.T("calibration.message.m017"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -626,7 +670,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
 
                 _resultGrid.Rows[e.RowIndex].Cells[1].Value = value.ToString("0.######", CultureInfo.InvariantCulture);
-                _status.Text = name + " 수동 수정값을 저장했습니다. value=" + value.ToString("0.######", CultureInfo.InvariantCulture) + " " + unit;
+                Lang.BindFormat(_status, "calibration.status.s172", name, value.ToString("0.######", CultureInfo.InvariantCulture), unit);
             }
         }
 
@@ -637,7 +681,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Form1 host = ResolveHost();
                 if (host == null || host.Machine == null || host.Machine.VisionUnit == null || host.Machine.VisionUnit.Config == null)
                 {
-                    _status.Text = "VisionUnit CalibrationData를 찾을 수 없습니다.";
+                    Lang.BindFormat(_status, "calibration.status.s173");
                     return false;
                 }
 
@@ -646,7 +690,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 NeedleCalibrationData needle = host.Machine.VisionUnit.Config.CalibrationData.Needle;
                 if (needle == null)
                 {
-                    _status.Text = "Needle CalibrationData를 찾을 수 없습니다.";
+                    Lang.BindFormat(_status, "calibration.status.s152");
                     return false;
                 }
 
@@ -680,7 +724,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                _status.Text = "결과 Offset 수동 저장 실패: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s174", ex.Message);
                 return false;
             }
         }
@@ -704,24 +748,24 @@ namespace QMC.CDT_320.Ui.Dialogs
             InputStageUnit stage = ResolveStage();
             if (stage == null)
             {
-                _status.Text = "InputStageUnit을 찾을 수 없습니다.";
+                Lang.BindFormat(_status, "calibration.status.s158");
                 return false;
             }
 
             if (stage.Recipe == null || stage.Setup == null)
             {
-                _status.Text = "InputStage Recipe/Setup이 없습니다.";
+                Lang.BindFormat(_status, "calibration.status.s175");
                 return false;
             }
 
             if (ResolveHost() == null)
             {
-                _status.Text = "Form1/Controller를 찾을 수 없습니다.";
+                Lang.BindFormat(_status, "calibration.status.s176");
                 return false;
             }
 
             if (showOk)
-                _status.Text = "실행 가능한 상태입니다.";
+                Lang.BindFormat(_status, "calibration.status.s006");
             return true;
         }
 
@@ -751,7 +795,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Form1 teachHost = ResolveHost();
                 if (teachHost == null)
                 {
-                    _status.Text = "티칭 값을 화면에 반영했으나 저장하지 못했습니다: Form1 호스트를 찾을 수 없습니다.";
+                    Lang.BindFormat(_status, "calibration.status.s177");
                     return;
                 }
 
@@ -759,19 +803,17 @@ namespace QMC.CDT_320.Ui.Dialogs
                 teachHost.SaveMachineSettings();
                 if (!recipeSaved)
                 {
-                    _status.Text = "티칭 값 Recipe 저장에 실패했습니다. recipe=" + teachHost.ActiveRecipeName +
-                                   " — 값이 재기동 시 사라질 수 있습니다.";
+                    Lang.BindFormat(_status, "calibration.status.s178", teachHost.ActiveRecipeName);
                     QMC.Common.Log.Write("Calibration", "SYSTEM", "NeedlePinCalTeach", _status.Text + " - Failed");
                     return;
                 }
 
-                _status.Text = "현재 축 위치를 Needle Pin Cal Position으로 티칭하고 저장했습니다. recipe=" +
-                               teachHost.ActiveRecipeName + " — 다음은 MOVE TEACH로 티칭 위치 이동을 확인하세요.";
+                Lang.BindFormat(_status, "calibration.status.s179", teachHost.ActiveRecipeName);
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "NeedlePinCalTeach", _status.Text + " - Ok");
             }
             catch (Exception ex)
             {
-                _status.Text = "티칭 실패: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s180", ex.Message);
             }
         }
 
@@ -809,12 +851,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 RefreshResultGrid(stage);
                 RefreshTeachingGrid(stage);
                 if (showMessage)
-                    _status.Text = "설정을 저장했습니다. 티칭 위치(Cal Position)와 측정 결과는 변경하지 않았습니다.";
+                    Lang.BindFormat(_status, "calibration.status.s181");
                 return true;
             }
             catch (Exception ex)
             {
-                _status.Text = "저장 실패: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s182", ex.Message);
                 return false;
             }
         }
@@ -846,8 +888,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 // Sequence가 만든 정확한 Needle Pin 결과 record를 다시 영속화한다.
                 // 현재 축 ActualPosition은 읽지 않으며 측정값을 다시 계산하지 않는다.
                 host.SaveMachineSettings();
-                _status.Text = "마지막 Needle Pin Calibration 결과를 저장했습니다. updatedAt=" +
-                               _lastSuccessfulResultUpdatedAt.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                Lang.BindFormat(_status, "calibration.status.s183", _lastSuccessfulResultUpdatedAt.ToString("yyyy-MM-dd HH:mm:ss.fff"));
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "NeedlePinCalSaveResult", _status.Text);
                 EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-SAVE-RESULT", _status.Text);
                 InputStageUnit stage = ResolveStage();
@@ -863,10 +904,10 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private bool BlockResultSave(string message, bool showMessage)
         {
-            _status.Text = message;
+            CalibrationDialogText.BindStatus(_status, message);
             EventLogger.Write(EventKind.Warning, "CAL", "NEEDLE-PIN-CAL-SAVE-RESULT-BLOCK", message);
             if (showMessage)
-                QMC.Common.MessageDialog.Show(this, message, "NEEDLE PIN CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, message, Lang.T("calibration.message.m017"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return false;
         }
 
@@ -993,21 +1034,19 @@ namespace QMC.CDT_320.Ui.Dialogs
                 host = ResolveHost();
                 runCts = BeginManualCalibrationRun(host, "MoveReady", out actionScope, out stopHandler);
                 var sequence = new NeedlePinCalibrationSequence(new MachineSequenceContext(host.Controller, new SequenceSignalBus()));
-                _status.Text = "Ready 위치로 이동 중입니다. OutputCamera/Picker는 Avoid, InputStage는 Process로 이동합니다.";
+                Lang.BindFormat(_status, "calibration.status.s184");
                 int result = await sequence.MoveReadyPositionOnlyAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
                 LoadFromMachine();
-                _status.Text = result == 0
-                    ? "Ready 위치 이동 완료. Needle/Camera를 조그로 맞춘 뒤 USE CURRENT로 티칭하세요."
-                    : "Ready 위치 이동 실패: " + sequence.Result.Message;
+                { if (result == 0) Lang.BindFormat(_status, "calibration.status.s185"); else Lang.BindFormat(_status, "calibration.status.s186", sequence.Result.Message); }
             }
             catch (OperationCanceledException)
             {
-                _status.Text = "Ready 위치 이동이 정지 요청으로 중단되었습니다.";
+                Lang.BindFormat(_status, "calibration.status.s187");
                 EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-STOP", _status.Text);
             }
             catch (Exception ex)
             {
-                _status.Text = "Ready 위치 이동 예외: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s188", ex.Message);
             }
             finally
             {
@@ -1037,21 +1076,19 @@ namespace QMC.CDT_320.Ui.Dialogs
                 host = ResolveHost();
                 runCts = BeginManualCalibrationRun(host, "MoveTeach", out actionScope, out stopHandler);
                 var sequence = new NeedlePinCalibrationSequence(new MachineSequenceContext(host.Controller, new SequenceSignalBus()));
-                _status.Text = "티칭 위치로 이동 중입니다.";
+                Lang.BindFormat(_status, "calibration.status.s189");
                 int result = await sequence.MoveTeachingPositionOnlyAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
                 LoadFromMachine();
-                _status.Text = result == 0
-                    ? "티칭 위치 이동 완료. 위치가 맞으면 START CAL을 실행하세요."
-                    : "티칭 위치 이동 실패: " + sequence.Result.Message;
+                { if (result == 0) Lang.BindFormat(_status, "calibration.status.s190"); else Lang.BindFormat(_status, "calibration.status.s191", sequence.Result.Message); }
             }
             catch (OperationCanceledException)
             {
-                _status.Text = "티칭 위치 이동이 정지 요청으로 중단되었습니다.";
+                Lang.BindFormat(_status, "calibration.status.s192");
                 EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-STOP", _status.Text);
             }
             catch (Exception ex)
             {
-                _status.Text = "티칭 위치 이동 예외: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s193", ex.Message);
             }
             finally
             {
@@ -1083,33 +1120,31 @@ namespace QMC.CDT_320.Ui.Dialogs
                 runCts = BeginManualCalibrationRun(host, "StartCal", out actionScope, out stopHandler);
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
                 var sequence = new NeedlePinCalibrationSequence(context);
-                _status.Text = "Needle Pin Calibration 실행 중입니다.";
+                Lang.BindFormat(_status, "calibration.status.s194");
                 int result = await sequence.RunAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
                 LoadFromMachine();
 
                 if (result != 0)
                 {
-                    _status.Text = "Needle Pin Calibration 실패: " + sequence.Result.Message;
-                    QMC.Common.MessageDialog.Show(this, _status.Text, "NEEDLE PIN CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Lang.BindFormat(_status, "calibration.status.s195", sequence.Result.Message);
+                    QMC.Common.MessageDialog.Show(this, _status.Text, Lang.T("calibration.message.m017"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
                 host.SaveMachineSettings();
                 RememberSuccessfulResult(sequence.Result);
-                _status.Text = "완료. Pixel X=" + sequence.Result.VisionOffsetX.ToString("F6") +
-                               ", Pixel Y=" + sequence.Result.VisionOffsetY.ToString("F6") +
-                               ", NeedleX-To-VisionX=" + sequence.Result.NeedleXToVisionXOffset.ToString("F6");
+                Lang.BindFormat(_status, "calibration.status.s196", sequence.Result.VisionOffsetX.ToString("F6"), sequence.Result.VisionOffsetY.ToString("F6"), sequence.Result.NeedleXToVisionXOffset.ToString("F6"));
             }
             catch (OperationCanceledException)
             {
-                _status.Text = "Needle Pin Calibration이 정지 요청으로 중단되었습니다.";
+                Lang.BindFormat(_status, "calibration.status.s197");
                 EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-STOP", _status.Text);
             }
             catch (Exception ex)
             {
-                _status.Text = "Needle Pin Calibration 예외: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s198", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "NEEDLE-PIN-CAL-DIALOG", _status.Text);
-                QMC.Common.MessageDialog.Show(this, _status.Text, "NEEDLE PIN CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, _status.Text, Lang.T("calibration.message.m017"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

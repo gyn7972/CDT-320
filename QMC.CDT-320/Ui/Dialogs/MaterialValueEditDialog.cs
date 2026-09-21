@@ -1,4 +1,5 @@
-﻿using System.Windows.Forms;
+﻿using QMC.CDT_320.Ui.Localization;
+using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
@@ -7,9 +8,16 @@ namespace QMC.CDT_320.Ui.Dialogs
         public MaterialValueEditDialog(string fieldName, string value)
         {
             InitializeComponent();
-            lblFieldValue.Text = string.IsNullOrEmpty(fieldName) ? "Material" : fieldName;
+            Lang.BindKey(this, "dialog.material.title");
+            Lang.BindKey(lblTitle, "dialog.material.title");
+            Lang.BindKey(lblFieldTitle, "dialog.material.field");
+            Lang.BindKey(btnOk, "common.ok");
+            Lang.BindKey(btnCancel, "common.cancel");
+            if (string.IsNullOrEmpty(fieldName)) Lang.BindKey(lblFieldValue, "dialog.material.material");
+            else Lang.Bind(lblFieldValue, fieldName);
             txtValue.Text = value ?? "";
             txtValue.SelectAll();
+            Load += (sender, e) => Lang.Apply(this);
         }
 
         public string ValueText

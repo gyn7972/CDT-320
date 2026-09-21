@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
@@ -43,7 +44,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 LogReviewBlocked("PICKUP-VIEWER", "픽업 순서 확인/적용 실패: " + ex);
                 SetStatus("픽업 순서 확인/적용 실패: " + ex.Message);
                 if (!IsDisposed && !_sequenceCloseRequested)
-                    QMC.Common.MessageDialog.Show(this, ex.Message, "픽업 순서 확인",
+                    QMC.Common.MessageDialog.Show(this, ex.Message, AdditionalDialogText.Display("픽업 순서 확인"),
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally

@@ -154,6 +154,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             _i18nTitle = titleI18n;
             InitializeComponent();
+            InitializeLanguageBindings();
             BuildTwoByTwoLayout();
             ApplyTitle();
             InitializeMapDisplayStyle();
@@ -276,39 +277,39 @@ namespace QMC.CDT_320.Ui.Pages.Work
             ConfigureInputMapCoordinatePresentation();
 
             if (rdoDieStateWait != null)
-                rdoDieStateWait.Text = "WAIT / 검사 대기";
+                WorkMapText.Bind(rdoDieStateWait, "WAIT / 검사 대기");
             if (rdoDieStateGood != null)
-                rdoDieStateGood.Text = "GOOD / 검사 완료";
+                WorkMapText.Bind(rdoDieStateGood, "GOOD / 검사 완료");
             if (rdoDieStateNg != null)
-                rdoDieStateNg.Text = "NG / 검사 불량";
+                WorkMapText.Bind(rdoDieStateNg, "NG / 검사 불량");
             if (rdoDieStateSkip != null)
-                rdoDieStateSkip.Text = "SKIP / 제외";
+                WorkMapText.Bind(rdoDieStateSkip, "SKIP / 제외");
             if (rdoDieStateFlying != null)
-                rdoDieStateFlying.Text = "FLYING DIE / 유실";
+                WorkMapText.Bind(rdoDieStateFlying, "FLYING DIE / 유실");
             if (btnApplyDieState != null)
-                btnApplyDieState.Text = "APPLY SELECTED STATE";
+                WorkMapText.Bind(btnApplyDieState, "APPLY SELECTED STATE");
         }
 
         private void ConfigureInputMapCoordinatePresentation()
         {
             if (lblChipWCaption != null)
-                lblChipWCaption.Text = "Die Size X (mm)";
+                WorkMapText.Bind(lblChipWCaption, "Die Size X (mm)");
             if (lblChipHCaption != null)
-                lblChipHCaption.Text = "Die Size Y (mm)";
+                WorkMapText.Bind(lblChipHCaption, "Die Size Y (mm)");
             if (lblPitchXCaption != null)
-                lblPitchXCaption.Text = "Pitch Gap X (mm)";
+                WorkMapText.Bind(lblPitchXCaption, "Pitch Gap X (mm)");
             if (lblPitchYCaption != null)
-                lblPitchYCaption.Text = "Pitch Gap Y (mm)";
+                WorkMapText.Bind(lblPitchYCaption, "Pitch Gap Y (mm)");
             if (lblWaferDiaCaption != null)
-                lblWaferDiaCaption.Text = "Wafer Diameter (mm)";
+                WorkMapText.Bind(lblWaferDiaCaption, "Wafer Diameter (mm)");
             if (lblAxisXCaption != null)
-                lblAxisXCaption.Text = "맵 X";
+                WorkMapText.Bind(lblAxisXCaption, "맵 X");
             if (lblAxisYCaption != null)
-                lblAxisYCaption.Text = "맵 Y";
+                WorkMapText.Bind(lblAxisYCaption, "맵 Y");
             if (lblBinRankCaption != null)
-                lblBinRankCaption.Text = "BIN";
+                WorkMapText.Bind(lblBinRankCaption, "BIN");
             if (lblDieNumCaption != null)
-                lblDieNumCaption.Text = "공정 순서";
+                WorkMapText.Bind(lblDieNumCaption, "공정 순서");
 
         }
 
@@ -346,8 +347,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (host == null || stage == null)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "InputStage 장비 정보를 찾을 수 없습니다.",
-                        "Wafer Align / Die Map Review",
+                        Lang.T("workMessage.text.1"),
+                        Lang.T("workMessage.text.2"),
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
                     return;
@@ -357,8 +358,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (wafer == null)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "InputStage에 배치된 Wafer Material 데이터가 없습니다.",
-                        "Wafer Align / Die Map Review",
+                        Lang.T("workMessage.text.3"),
+                        Lang.T("workMessage.text.2"),
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
                     return;
@@ -417,8 +418,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Input stage run review open failed: " + ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(this,
-                    "Wafer Align / Die Map Review 화면을 열지 못했습니다.\r\n" + ex.Message,
-                    "Wafer Align / Die Map Review",
+                    Lang.Format("workMessage.text.4", (object)(ex.Message)),
+                    Lang.T("workMessage.text.2"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -503,6 +504,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             try
             {
                 _gridMoveMenuItem = new ToolStripMenuItem("MOVE VISION");
+                WorkMapText.Bind(_gridMoveMenuItem, "MOVE VISION");
                 _gridMoveMenuItem.Click += async (s, e) => await MoveSelectedDieAsync().ConfigureAwait(true);
 
                 _gridMenu = new ContextMenuStrip();
@@ -518,6 +520,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _gridMenu.Items.Add(BuildPickerOffsetMenu("SET REAR PICKER OFFSET", PickerSequenceSide.Rear, out _gridOffsetRearPickerMenuItems));
                 _gridMenu.Items.Add(new ToolStripSeparator());
                 ToolStripMenuItem dataMoveRoot = new ToolStripMenuItem("MOVE DIE DATA TO PICKER");
+                WorkMapText.Bind(dataMoveRoot, "MOVE DIE DATA TO PICKER");
                 dataMoveRoot.DropDownItems.Add(BuildPickerDataMoveMenu("FRONT PICKER", PickerSequenceSide.Front, out _gridDataMoveFrontPickerMenuItems));
                 dataMoveRoot.DropDownItems.Add(BuildPickerDataMoveMenu("REAR PICKER", PickerSequenceSide.Rear, out _gridDataMoveRearPickerMenuItems));
                 _gridMenu.Items.Add(dataMoveRoot);
@@ -558,12 +561,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ToolStripMenuItem BuildPickerMoveMenu(string title, PickerSequenceSide side, out ToolStripMenuItem[] items)
         {
             ToolStripMenuItem root = new ToolStripMenuItem(title);
+            WorkMapText.Bind(root, title);
             items = new ToolStripMenuItem[4];
 
             for (int i = 0; i < items.Length; i++)
             {
                 int pickerNo = i + 1;
                 ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
+                Lang.BindFormat(item, "workMap.pickerNumber", pickerNo);
                 item.Click += async (s, e) => await MoveSelectedDieByPickerAsync(side, pickerNo).ConfigureAwait(true);
                 items[i] = item;
                 root.DropDownItems.Add(item);
@@ -591,8 +596,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "Input Die Map 더블클릭 MOVE VISION 처리 중 예외가 발생했습니다. error=" +
                     ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(this,
-                    "더블클릭 MOVE VISION 처리에 실패했습니다.\r\n" + ex.Message,
-                    "Input Die Map",
+                    Lang.Format("workMessage.text.5", (object)(ex.Message)),
+                    Lang.T("workMessage.text.6"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -604,12 +609,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
             out ToolStripMenuItem[] items)
         {
             ToolStripMenuItem root = new ToolStripMenuItem(title);
+            WorkMapText.Bind(root, title);
             items = new ToolStripMenuItem[4];
 
             for (int i = 0; i < items.Length; i++)
             {
                 int pickerNo = i + 1;
                 ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
+                Lang.BindFormat(item, "workMap.pickerNumber", pickerNo);
                 item.Click += (s, e) => MoveSelectedDieDataToPicker(side, pickerNo);
                 items[i] = item;
                 root.DropDownItems.Add(item);
@@ -621,12 +628,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ToolStripMenuItem BuildPickerPickUpTestMenu(string title, PickerSequenceSide side, out ToolStripMenuItem[] items)
         {
             ToolStripMenuItem root = new ToolStripMenuItem(title);
+            WorkMapText.Bind(root, title);
             items = new ToolStripMenuItem[4];
 
             for (int i = 0; i < items.Length; i++)
             {
                 int pickerNo = i + 1;
                 ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
+                Lang.BindFormat(item, "workMap.pickerNumber", pickerNo);
                 item.Click += (s, e) => ShowPickUpTestDialogForSelectedInputDie(side, pickerNo);
                 items[i] = item;
                 root.DropDownItems.Add(item);
@@ -638,12 +647,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ToolStripMenuItem BuildPickerOffsetMenu(string title, PickerSequenceSide side, out ToolStripMenuItem[] items)
         {
             ToolStripMenuItem root = new ToolStripMenuItem(title);
+            WorkMapText.Bind(root, title);
             items = new ToolStripMenuItem[4];
 
             for (int i = 0; i < items.Length; i++)
             {
                 int pickerNo = i + 1;
                 ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
+                Lang.BindFormat(item, "workMap.pickerNumber", pickerNo);
                 item.Click += (s, e) => ShowInputPickerOffsetSetupDialog(side, pickerNo);
                 items[i] = item;
                 root.DropDownItems.Add(item);
@@ -684,9 +695,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 int pickerNo = i + 1;
                 DieMaterial occupiedDie = MaterialStateService.GetDieAtPicker(location, pickerNo);
-                item.Text = occupiedDie == null
-                    ? "PICKER #" + pickerNo + " (EMPTY)"
-                    : "PICKER #" + pickerNo + " (" + (occupiedDie.DieId ?? "DIE") + ")";
+                Lang.BindFormat(item, occupiedDie == null ? "workMap.pickerEmpty" : "workMap.pickerOccupied",
+                    pickerNo, occupiedDie != null ? (occupiedDie.DieId ?? "DIE") : string.Empty);
                 item.Enabled = enabled && occupiedDie == null;
             }
         }
@@ -703,8 +713,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "Picker로 이동할 Input Die를 먼저 선택하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("workMessage.text.7"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -712,7 +722,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!CanEditSelectedDieState(entry, out editReason))
                 {
                     QMC.Common.MessageDialog.Show(this, editReason,
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -720,8 +730,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (die == null)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "선택한 Die의 Material 데이터를 찾을 수 없습니다.\r\nDie=" + entry.DieUid,
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.8", (object)(entry.DieUid)),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -732,20 +742,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (occupiedDie != null)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "선택한 Picker가 이미 Die를 가지고 있습니다.\r\n" +
-                        "Picker=" + side + " #" + pickerNo + "\r\n" +
-                        "Die=" + occupiedDie.DieId,
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.9", (object)(WorkMapMessageText.DisplayKnown(side.ToString())), (object)(pickerNo), (object)(occupiedDie.DieId)),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    "선택한 Input Die 데이터를 Picker로 이동하시겠습니까?\r\n" +
-                    "실제 모션은 동작하지 않고 Material 데이터만 이동합니다.\r\n\r\n" +
-                    "Die=" + entry.DieUid + "\r\n" +
-                    "Map=" + BuildEntryMapText(entry) + "\r\n" +
-                    "Target=" + side + " Picker #" + pickerNo,
-                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    Lang.Format("workMessage.text.10", (object)(entry.DieUid), (object)(BuildEntryMapText(entry)), (object)(WorkMapMessageText.DisplayKnown(side.ToString())), (object)(pickerNo)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
@@ -759,7 +763,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!moved)
                 {
                     QMC.Common.MessageDialog.Show(this, message,
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -776,16 +780,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ", pickerNo=" + pickerNo +
                     ", mapAbsolute=" + _mapPositionsAreMachineAbsolute + " - Ok");
                 QMC.Common.MessageDialog.Show(this,
-                    "Die 데이터를 " + side + " Picker #" + pickerNo + "로 이동했습니다.",
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    Lang.Format("workMessage.text.11", (object)(WorkMapMessageText.DisplayKnown(side.ToString())), (object)(pickerNo)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Input Die 데이터 Picker 수동 이동 실패: " + ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(this,
-                    "Input Die 데이터 Picker 이동 실패:\r\n" + ex.Message,
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Lang.Format("workMessage.text.12", (object)(ex.Message)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -825,16 +829,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMapEntry entry = _selectedEntry;
                 if (entry == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "Offset을 설정할 다이가 선택되지 않았습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.13"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 Form1 host = FindForm() as Form1;
                 if (host == null || host.Machine == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "장비 정보를 찾을 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.14"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -887,13 +891,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     }
 
                     QMC.Common.MessageDialog.Show(this,
-                        ResolvePickerMoveTitle(side, pickerNo) + " InputVision -> Picker Offset 저장 완료\r\n" +
-                        "InputVisionToPicker X=" + dialog.SavedOffsetX.ToString("F3") +
-                        " mm, Y=" + dialog.SavedOffsetY.ToString("F3") + " mm" +
-                        effectiveText +
-                        needleTargetText +
-                        "\r\n자동 PickUp과 수동 우클릭 이동은 같은 Setup 값을 사용합니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        Lang.Format("workMessage.text.15", (object)(WorkMapMessageText.DisplayKnown(ResolvePickerMoveTitle(side, pickerNo))), (object)(dialog.SavedOffsetX.ToString("F3")), (object)(dialog.SavedOffsetY.ToString("F3")), (object)(WorkMapMessageText.DisplayOwnedMessage(effectiveText)), (object)(WorkMapMessageText.DisplayOwnedMessage(needleTargetText))),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             catch (Exception ex)
@@ -902,8 +901,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "Input picker offset setup failed. side=" + side +
                     ", pickerNo=" + pickerNo +
                     ", error=" + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "Input Picker Offset 설정 실패:\r\n" + ex.Message,
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.16", (object)(ex.Message)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1101,10 +1100,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!_mapPositionsAreMachineAbsolute || wafer == null || !wafer.HasInputStageDieMappingResult)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "현재 화면은 Recipe 중심 (0,0) 상대좌표 Preview입니다.\r\n" +
-                        "실제 Input Camera X / Input Stage Y 절대좌표는 Wafer Align + Die Mapping 완료 후 생성됩니다.\r\n" +
-                        (actionName ?? "모션") + "을 차단했습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.17", (object)(WorkMapMessageText.DisplayKnown((actionName ?? "모션")))),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -1115,9 +1112,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         out resultModeReason))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "현재 InputStage Align/Die Mapping 결과를 이 운전 모드에서 사용할 수 없습니다.\r\n" +
-                        resultModeReason + "\r\nAlign과 Die Mapping을 다시 완료하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.18", (object)(resultModeReason)),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
@@ -1137,9 +1133,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         !IsMappedMapCompatibleWithApprovedRecipeMap(current, approved, project.InputMapProcessing))
                     {
                         QMC.Common.MessageDialog.Show(this,
-                            "현재 Mapping 결과가 활성 Recipe의 FINAL APPLY 맵과 일치하지 않습니다.\r\n" +
-                            "Map Create FINAL APPLY 후 새 Wafer Mapping을 완료하세요.\r\n" + (reason ?? ""),
-                            "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            Lang.Format("workMessage.text.19", (object)((reason ?? ""))),
+                            Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return false;
                     }
                 }
@@ -1551,7 +1546,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMapEntry previousSelection = _selectedEntry;
                 string signature = BuildMapSignature(map);
 
-                mapView.Caption = title;
+                WorkMapText.Bind(mapView, title);
                 mapView.Map = map;
                 _lastMapFrameObjId = map != null ? map.FrameObjId ?? "" : "";
                 _lastMapSignature = signature;
@@ -1560,7 +1555,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _selectedEntry = FindEquivalentEntry(map, previousSelection);
                 ClearPendingManualInputDieDetectOffset();
 
-                lblMapTitle.Text = title;
+                WorkMapText.Bind(lblMapTitle, title);
                 ApplyInputInfoValues(map);
                 RefreshDieGrid();
                 if (_selectedEntry != null)
@@ -1692,11 +1687,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 lblProjectValue.Text = GetCurrentProjectName();
                 lblBarcodeValue.Text = ResolveActiveWaferId();
-                lblBinValue.Text = "INPUT";
-                grpMapInfo.Text = map != null
-                    ? "DIE MAP INFO   Grid " + map.DieMapX + "x" + map.DieMapY +
-                      "   Progress " + BuildInputProgressText(map)
-                    : "DIE MAP INFO   NO MAP";
+                WorkMapText.Bind(lblBinValue, "INPUT");
+                if (map != null)
+                    Lang.BindFormat(grpMapInfo, "workMap.inputProgress", map.DieMapX, map.DieMapY, BuildInputProgressText(map));
+                else WorkMapText.Bind(grpMapInfo, "DIE MAP INFO   NO MAP");
                 lblChipW.Text = map != null ? map.DieSizeX.ToString("F4") : "0";
                 lblChipH.Text = map != null ? map.DieSizeY.ToString("F4") : "0";
                 lblPitchX.Text = map != null
@@ -1715,7 +1709,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     lblAxisX.Text = "-";
                     lblAxisY.Text = "-";
                     lblBinRank.Text = "-";
-                    lblDieNum.Text = "-";
+                    WorkMapText.Bind(lblDieNum, "-");
                 }
                 else
                 {
@@ -1738,7 +1732,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             lblAxisX.Text = WaferMapProcessService.FormatMapCoordinate(entry.LogicalGridX);
             lblAxisY.Text = WaferMapProcessService.FormatMapCoordinate(entry.LogicalGridY);
             lblBinRank.Text = ResolveInputDisplayBin(entry).ToString();
-            lblDieNum.Text = entry.SequenceNo > 0 ? entry.SequenceNo.ToString() : "-";
+            WorkMapText.Bind(lblDieNum, entry.SequenceNo > 0 ? entry.SequenceNo.ToString() : "-");
         }
 
         private double ResolveInputDisplayProcessX(DieMap map, DieMapEntry entry)
@@ -2099,8 +2093,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (_pickStatusDirty)
                 {
                     DialogResult result = QMC.Common.MessageDialog.Show(this,
-                        "저장하지 않은 Pick Status 변경이 있습니다.\r\n다시 불러오시겠습니까?",
-                        "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        Lang.T("workMessage.text.20"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                     if (result != DialogResult.Yes)
                         return;
                 }
@@ -2111,8 +2105,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Input Die Map reload failed:\r\n" + ex.Message,
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.21", (object)(ex.Message)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -2126,8 +2120,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMap map = mapView != null ? mapView.Map : null;
                 if (map == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "저장할 Input Die Map 데이터가 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.22"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2135,8 +2129,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
 
                 DialogResult result = QMC.Common.MessageDialog.Show(this,
-                    "현재 Pick Status를 저장하고 Pickup Sequence를 갱신하시겠습니까?",
-                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    Lang.T("workMessage.text.23"),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (result != DialogResult.Yes)
                     return;
 
@@ -2153,8 +2147,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!saveRequested)
                     throw new InvalidOperationException(saveReason);
 
-                QMC.Common.MessageDialog.Show(this, "Pick Status를 Material에 반영하고 저장을 요청했습니다.",
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.24"),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -2163,10 +2157,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     QMC.Common.Logging.EventKind.Warning, "UI", "IN-MAP-PICK-STATUS-FAILED",
                     "InputStageMapTransferPage", "Pick Status 반영 또는 저장 요청 실패: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this,
-                    "Pick Status 반영 또는 저장 요청에 실패했습니다.\r\n" + ex.Message +
-                    "\r\n\r\n화면이나 메모리에 일부 변경이 반영되었을 수 있으며 저장 완료는 확인되지 않았습니다. " +
-                    "현재 Material 상태와 오류 로그를 확인한 뒤 다시 저장하십시오.",
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Lang.Format("workMessage.text.25", (object)(ex.Message)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -2386,14 +2378,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 var host = FindForm() as Form1;
                 if (host == null || host.Controller == null || host.Machine == null || host.Machine.InputStageUnit == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "InputStage 장비 정보를 찾을 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.1"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    actionName + " 동작을 진행하시겠습니까?",
-                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    Lang.Format("workMessage.text.26", (object)(WorkMapMessageText.DisplayKnown(actionName))),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
@@ -2406,21 +2398,21 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 if (result == 0)
                 {
-                    QMC.Common.MessageDialog.Show(this, actionName + " 완료.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.27", (object)(WorkMapMessageText.DisplayKnown(actionName))),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
                 QMC.Common.MessageDialog.Show(this,
-                    actionName + " 실패\r\nresult=" + result + "\r\nAlarm/Event Log를 확인하세요.",
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.Format("workMessage.text.28", (object)(WorkMapMessageText.DisplayKnown(actionName)), (object)(result)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     actionName + " failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, actionName + " 실패:\r\n" + ex.Message,
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.29", (object)(WorkMapMessageText.DisplayKnown(actionName)), (object)(ex.Message)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -2438,39 +2430,39 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMap map = mapView != null ? mapView.Map : null;
                 if (map == null || map.Entries == null || map.Entries.Count == 0)
                 {
-                    QMC.Common.MessageDialog.Show(this, "수동 다이 검출을 적용할 Active Input Die Map 데이터가 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.30"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 DieMapEntry entry = FindEquivalentEntry(map, _selectedEntry);
                 if (entry == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "수동 다이 검출 기준 Die를 먼저 선택하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.31"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 Form1 host = FindForm() as Form1;
                 if (host == null || host.Controller == null || host.Machine == null || host.Machine.InputStageUnit == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "InputStage 장비 정보를 찾을 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.1"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 InputStageUnit stage = host.Machine.InputStageUnit;
                 if (stage.Vision == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "InputStage Vision 정보를 찾을 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.32"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 if (stage.CameraX == null || stage.StageY == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "InputStage Vision X 또는 Stage Y 축 정보를 찾을 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.33"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2484,28 +2476,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!MaterialStateService.IsInputStageThetaAlignComplete(wafer, out materialReason))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "T 보정 완료 상태가 아니라 다이 검출을 진행할 수 없습니다.\r\n" + materialReason,
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.34", (object)(materialReason)),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    "현재 Vision 화면에서 선택 Die 중심을 검출하시겠습니까?\r\n" +
-                    "Die=" + BuildSelectedDieText(entry) + "\r\n" +
-                    "보낸 Die 위치(" + sentPositionSource + ") X=" + sentDieX.ToString("F3") +
-                    " mm, Y=" + sentDieY.ToString("F3") + " mm\r\n" +
-                    "현재 Vision 위치 X=" + stage.CameraX.ActualPosition.ToString("F3") +
-                    " mm, StageY=" + stage.StageY.ActualPosition.ToString("F3") + " mm",
-                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    Lang.Format("workMessage.text.35", (object)(BuildSelectedDieText(entry)), (object)(WorkMapMessageText.DisplayKnown(sentPositionSource)), (object)(sentDieX.ToString("F3")), (object)(sentDieY.ToString("F3")), (object)(stage.CameraX.ActualPosition.ToString("F3")), (object)(stage.StageY.ActualPosition.ToString("F3"))),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
                 if (!RestoreInputStageRuntimeFromSavedMaterial())
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "저장된 InputStage Align/Die Mapping 결과를 현재 운전 모드에서 복원할 수 없습니다.\r\n" +
-                        "Align과 Die Mapping을 다시 완료하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("workMessage.text.36"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2523,9 +2509,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (prepareResult != 0)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "다이 검출 전 Picker Avoid 준비 실패\r\nresult=" + prepareResult +
-                        "\r\nAlarm/Event Log를 확인하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.37", (object)(prepareResult)),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2533,9 +2518,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (thetaPrepareResult != 0)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "다이 검출 전 EjectPinZ Avoid 준비 실패\r\nresult=" + thetaPrepareResult +
-                        "\r\nAlarm/Event Log를 확인하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.38", (object)(thetaPrepareResult)),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2543,9 +2527,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (thetaResult != 0)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "다이 검출 전 StageT 보정 위치 확인/이동 실패\r\nresult=" + thetaResult +
-                        "\r\nAlarm/Event Log를 확인하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.39", (object)(thetaResult)),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2564,8 +2547,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!IsValidVisionAlignResult(vision))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "InputPickDie 비전 검출 결과가 유효하지 않습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("workMessage.text.40"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2602,8 +2585,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!stage.IsManualDieDetectOffsetWithinLimit(offsetX, offsetY, out limitReason))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "다이 검출 Offset이 허용 Limit을 초과했습니다.\r\n" + limitReason,
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.41", (object)(limitReason)),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2620,9 +2603,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (centerMoveResult != 0)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "검출 다이 중심 좌표 이동 실패\r\nresult=" + centerMoveResult +
-                        "\r\nAlarm/Event Log를 확인하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.42", (object)(centerMoveResult)),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2670,27 +2652,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ", offsetY=" + offsetY.ToString("F6") + " - Ok");
 
                 QMC.Common.MessageDialog.Show(this,
-                    "다이 검출 완료.\r\n" +
-                    "보낸 Die 위치 X=" + sentDieX.ToString("F3") + " mm, Y=" + sentDieY.ToString("F3") + " mm\r\n" +
-                    "현재 Jog 위치 X=" + currentVisionX.ToString("F3") + " mm, Y=" + currentStageY.ToString("F3") + " mm\r\n" +
-                    "Jog 이동량 X=" + jogDeltaX.ToString("F6") + " mm, Y=" + jogDeltaY.ToString("F6") + " mm\r\n" +
-                    "Vision Delta X(카메라 순수값)=" + bottomRefVisionDeltaX.ToString("F6") + " mm, Y(카메라 순수값)=" + bottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
-                    "Camera Offset X=" + cameraOffsetX.ToString("F6") + " mm (참고값, 이동식 미적용), " +
-                    "Y=" + cameraOffsetY.ToString("F6") + " mm (참고값, 이동식 미적용)\r\n" +
-                    "Center Move Delta X=" + centerMoveDeltaX.ToString("F6") + " mm, Y=" + centerMoveDeltaY.ToString("F6") + " mm\r\n" +
-                    "Vision Delta T=" + vision.DeltaTheta.ToString("F6") + " deg (T 보정 미적용)\r\n" +
-                    "Detected Center X=" + detectedCenterX.ToString("F3") + " mm, Y=" + detectedCenterY.ToString("F3") + " mm\r\n" +
-                    "Map Offset X=" + offsetX.ToString("F6") + " mm, Y=" + offsetY.ToString("F6") + " mm\r\n" +
-                    "(Map Offset = Jog 이동량 + Center Move Delta)\r\n\r\n" +
-                    "[Offset 적용] 버튼을 누르면 전체 Die Map에 적용됩니다.",
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    Lang.Format("workMessage.text.43", (object)(sentDieX.ToString("F3")), (object)(sentDieY.ToString("F3")), (object)(currentVisionX.ToString("F3")), (object)(currentStageY.ToString("F3")), (object)(jogDeltaX.ToString("F6")), (object)(jogDeltaY.ToString("F6")), (object)(bottomRefVisionDeltaX.ToString("F6")), (object)(bottomRefVisionDeltaY.ToString("F6")), (object)(cameraOffsetX.ToString("F6")), (object)(cameraOffsetY.ToString("F6")), (object)(centerMoveDeltaX.ToString("F6")), (object)(centerMoveDeltaY.ToString("F6")), (object)(vision.DeltaTheta.ToString("F6")), (object)(detectedCenterX.ToString("F3")), (object)(detectedCenterY.ToString("F3")), (object)(offsetX.ToString("F6")), (object)(offsetY.ToString("F6"))),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual input die detect failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "다이 검출 실패:\r\n" + ex.Message,
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.44", (object)(ex.Message)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -2972,16 +2942,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!_manualDieDetectOffsetPending)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "적용할 다이 검출 Offset이 없습니다.\r\n먼저 [다이 검출]을 진행하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("workMessage.text.45"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 map = mapView != null ? mapView.Map : null;
                 if (map == null || map.Entries == null || map.Entries.Count == 0)
                 {
-                    QMC.Common.MessageDialog.Show(this, "Offset을 적용할 Active Input Die Map 데이터가 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.46"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2989,8 +2959,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!string.Equals(currentSignature, _manualDieDetectMapSignature, StringComparison.Ordinal))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "다이 검출 이후 Die Map이 변경되어 Offset을 적용할 수 없습니다.\r\n다시 [다이 검출]을 진행하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("workMessage.text.47"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     ClearPendingManualInputDieDetectOffset();
                     return;
                 }
@@ -2999,8 +2969,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (entry == null)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "검출 기준 Die를 현재 Map에서 찾을 수 없습니다.\r\n다시 [다이 검출]을 진행하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("workMessage.text.48"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     ClearPendingManualInputDieDetectOffset();
                     return;
                 }
@@ -3009,8 +2979,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 InputStageUnit stage = host != null && host.Machine != null ? host.Machine.InputStageUnit : null;
                 if (host == null || host.Controller == null || stage == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "InputStage 장비 정보를 찾을 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.1"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -3020,25 +2990,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     host.Controller.IsManualBusy)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "장비 동작 중에는 Offset을 적용할 수 없습니다.\r\nAuto/Manual 동작을 정지한 뒤 다시 시도하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("workMessage.text.49"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    "검출된 Offset을 전체 Input Die Map에 적용하시겠습니까?\r\n" +
-                    "Die=" + BuildSelectedDieText(entry) + "\r\n" +
-                    "보낸 Die 위치 X=" + _manualDieDetectReferenceX.ToString("F3") + " mm, Y=" + _manualDieDetectReferenceY.ToString("F3") + " mm\r\n" +
-                    "현재 Jog 위치 X=" + _manualDieDetectCurrentX.ToString("F3") + " mm, Y=" + _manualDieDetectCurrentY.ToString("F3") + " mm\r\n" +
-                    "Jog 이동량 X=" + _manualDieDetectJogDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectJogDeltaY.ToString("F6") + " mm\r\n" +
-                    "Vision Delta X(카메라 순수값)=" + _manualDieDetectBottomRefVisionDeltaX.ToString("F6") + " mm, Y(카메라 순수값)=" + _manualDieDetectBottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
-                    "Camera Offset X=" + _manualDieDetectCameraOffsetX.ToString("F6") + " mm (참고값, 이동식 미적용), Y=" + _manualDieDetectCameraOffsetY.ToString("F6") + " mm (참고값, 이동식 미적용)\r\n" +
-                    "Center Move Delta X=" + _manualDieDetectVisionDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectVisionDeltaY.ToString("F6") + " mm\r\n" +
-                    "Vision Delta T=" + _manualDieDetectVisionDeltaT.ToString("F6") + " deg (T 보정 미적용)\r\n" +
-                    "Detected Center X=" + _manualDieDetectDetectedCenterX.ToString("F3") + " mm, Y=" + _manualDieDetectDetectedCenterY.ToString("F3") + " mm\r\n" +
-                    "Map Offset X=" + _manualDieDetectOffsetX.ToString("F6") + " mm, Y=" + _manualDieDetectOffsetY.ToString("F6") + " mm\r\n" +
-                    "(Map Offset = Jog 이동량 + Center Move Delta)",
-                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    Lang.Format("workMessage.text.50", (object)(BuildSelectedDieText(entry)), (object)(_manualDieDetectReferenceX.ToString("F3")), (object)(_manualDieDetectReferenceY.ToString("F3")), (object)(_manualDieDetectCurrentX.ToString("F3")), (object)(_manualDieDetectCurrentY.ToString("F3")), (object)(_manualDieDetectJogDeltaX.ToString("F6")), (object)(_manualDieDetectJogDeltaY.ToString("F6")), (object)(_manualDieDetectBottomRefVisionDeltaX.ToString("F6")), (object)(_manualDieDetectBottomRefVisionDeltaY.ToString("F6")), (object)(_manualDieDetectCameraOffsetX.ToString("F6")), (object)(_manualDieDetectCameraOffsetY.ToString("F6")), (object)(_manualDieDetectVisionDeltaX.ToString("F6")), (object)(_manualDieDetectVisionDeltaY.ToString("F6")), (object)(_manualDieDetectVisionDeltaT.ToString("F6")), (object)(_manualDieDetectDetectedCenterX.ToString("F3")), (object)(_manualDieDetectDetectedCenterY.ToString("F3")), (object)(_manualDieDetectOffsetX.ToString("F6")), (object)(_manualDieDetectOffsetY.ToString("F6"))),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
@@ -3057,9 +3016,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             out resultModeReason))
                     {
                         QMC.Common.MessageDialog.Show(this,
-                            "현재 InputStage Die Mapping 결과를 이 운전 모드에서 갱신할 수 없습니다.\r\n" +
-                            resultModeReason + "\r\nAlign과 Die Mapping을 다시 완료하세요.",
-                            "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            Lang.Format("workMessage.text.51", (object)(resultModeReason)),
+                            Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
                 }
@@ -3078,8 +3036,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     if (absoluteMap == null || absoluteMap.Entries == null || absoluteMap.Entries.Count == 0)
                     {
                         QMC.Common.MessageDialog.Show(this,
-                            "Recipe Preview를 장비 절대좌표 Die Map으로 변환하지 못했습니다.",
-                            "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            Lang.T("workMessage.text.52"),
+                            Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
                     }
 
@@ -3107,8 +3065,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     if (applyResult == null || !applyResult.Success)
                     {
                         QMC.Common.MessageDialog.Show(this,
-                            "Offset 적용 실패:\r\n" + (applyResult != null ? applyResult.ErrorMessage : "Die Map 적용 결과가 없습니다."),
-                            "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            Lang.Format("workMessage.text.53", (object)((applyResult != null ? applyResult.ErrorMessage : Lang.T("workMessage.fragment.applyMissing")))),
+                            Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
                     }
 
@@ -3130,8 +3088,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         out coordinateUpdateDetail))
                     {
                         QMC.Common.MessageDialog.Show(this,
-                            "Offset 적용 실패:\r\n" + coordinateUpdateDetail,
-                            "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            Lang.Format("workMessage.text.53", (object)(coordinateUpdateDetail)),
+                            Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
                     }
 
@@ -3184,19 +3142,17 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 ClearPendingManualInputDieDetectOffset();
 
                 QMC.Common.MessageDialog.Show(this,
-                    "Offset 적용 완료.\r\n" +
-                    "Offset X=" + mappingOffsetX.ToString("F6") + " mm, Y=" + mappingOffsetY.ToString("F6") + " mm\r\n" +
-                    (finalizeMapping
+                    Lang.Format("workMessage.text.54", (object)(mappingOffsetX.ToString("F6")), (object)(mappingOffsetY.ToString("F6")), (object)(WorkMapMessageText.DisplayKnown((finalizeMapping
                         ? "절대좌표 Die Map과 Mapping 완료 상태를 저장했습니다."
-                        : "기존 Die 상태와 검사 이력은 유지했습니다."),
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        : "기존 Die 상태와 검사 이력은 유지했습니다.")))),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual input die map offset apply failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "Offset 적용 실패:\r\n" + ex.Message,
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.53", (object)(ex.Message)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -3424,31 +3380,31 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 var host = FindForm() as Form1;
                 if (host == null || host.Controller == null || host.Machine == null || host.Machine.InputStageUnit == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "InputStage 장비 정보를 찾을 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.1"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 var stage = host.Machine.InputStageUnit;
                 if (stage.StageT == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "InputStage StageT 축 정보를 찾을 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.55"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 if (stage.StageT.IsAlarm)
                 {
-                    QMC.Common.MessageDialog.Show(this, "StageT Alarm 상태에서는 T 보정을 저장할 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.56"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 if (wafer == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "InputStage 위에 wafer Data가 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.57"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -3459,8 +3415,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (Math.Abs(offsetT) <= 0.000001)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "T 보정 Offset이 0입니다.\r\n현재 StageT 위치가 티칭 기준 T와 같아 보정 완료값으로 저장할 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("workMessage.text.58"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -3468,8 +3424,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!stage.IsWaferAlignThetaOffsetWithinLimit(offsetT, out limitReason))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "T 보정 Offset이 허용 Limit을 초과했습니다.\r\n" + limitReason,
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.59", (object)(limitReason)),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -3480,8 +3436,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "Offset T    : " + offsetT.ToString("F6") + "\r\n" +
                     "Limit T     : " + thetaLimit.ToString("F6");
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    message,
-                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    WorkMapMessageText.DisplayOwnedMessage(message),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
@@ -3504,15 +3460,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ", correctedT=" + correctedT.ToString("F6") +
                     ", offsetT=" + offsetT.ToString("F6") + " - Ok");
                 QMC.Common.MessageDialog.Show(this,
-                    "T 보정 저장 완료.\r\nOffset T = " + offsetT.ToString("F6"),
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    Lang.Format("workMessage.text.60", (object)(offsetT.ToString("F6"))),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual input stage theta correction failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "T 보정 저장 실패:\r\n" + ex.Message,
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.61", (object)(ex.Message)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -3527,16 +3483,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
             try
             {
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    "현재 InputStage wafer를 Manual Align Complete 상태로 저장하시겠습니까?",
-                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    Lang.T("workMessage.text.62"),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
                 WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 if (wafer == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "InputStage 위에 wafer Data가 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.57"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -3547,15 +3503,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 lblBarcodeValue.Text = wafer.WaferId;
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual align complete saved. wafer=" + wafer.WaferId + " - Ok");
-                QMC.Common.MessageDialog.Show(this, "Manual Align Complete 저장 완료.",
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.63"),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual align complete failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "Manual Align Complete 실패:\r\n" + ex.Message,
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.64", (object)(ex.Message)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -3568,8 +3524,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     actionName + " blocked: " + message + " - Check");
-                QMC.Common.MessageDialog.Show(this, message,
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                QMC.Common.MessageDialog.Show(this, WorkMapMessageText.DisplayOwnedMessage(message),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch
             {
@@ -3588,8 +3544,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 Form1 host = FindForm() as Form1;
                 if (host == null || host.Controller == null || host.Machine == null || host.Machine.InputStageUnit == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "InputStage 장비 정보를 찾을 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.1"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -3625,19 +3581,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!IsFinite(targetX) || !IsFinite(targetY))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "MOVE VISION 목표 좌표를 계산할 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("workMessage.text.65"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 JogSpeedType speedType;
                 if (!ConfirmManualMapMoveSpeed(
                     this,
-                    "Input Die Map",
-                    targetDescription + " 위치로 이동하시겠습니까?\r\n" +
-                    "좌표 기준=" + targetSource + "\r\n" +
-                    "최종 이동 위치 X=" + targetX.ToString("F3") +
-                    " mm, Y=" + targetY.ToString("F3") + " mm",
+                    Lang.T("workMessage.text.6"),
+                    Lang.Format("workMessage.text.113", (object)(WorkMapMessageText.DisplayKnown(targetDescription)), (object)(targetSource), (object)(targetX.ToString("F3")), (object)(targetY.ToString("F3"))),
                     out speedType))
                 {
                     return;
@@ -3672,9 +3625,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (prepareResult != 0)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "Vision 이동 전 Picker Avoid 준비 실패\r\nresult=" + prepareResult +
-                        "\r\nAlarm/Event Log를 확인하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.66", (object)(prepareResult)),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -3691,9 +3643,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (result != 0)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "선택 다이 좌표 이동 실패\r\nresult=" + result +
-                        "\r\nAlarm/Event Log를 확인하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.67", (object)(result)),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -3701,13 +3652,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     StoreManualInputDieDetectSentPosition(map, entry, targetX, targetY);
                 lblAxisX.Text = WaferMapProcessService.FormatMapCoordinate(entry != null ? entry.LogicalGridX : null);
                 lblAxisY.Text = WaferMapProcessService.FormatMapCoordinate(entry != null ? entry.LogicalGridY : null);
-                QMC.Common.MessageDialog.Show(this, targetDescription + " 이동 완료.",
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.68", (object)(WorkMapMessageText.DisplayKnown(targetDescription))),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "선택 다이 좌표 이동 실패:\r\n" + ex.Message,
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.69", (object)(ex.Message)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -3740,16 +3691,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMapEntry entry = _selectedEntry;
                 if (entry == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "이동할 다이가 선택되지 않았습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.70"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 Form1 host = FindForm() as Form1;
                 if (host == null || host.Machine == null || host.Machine.InputStageUnit == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "InputStage 장비 정보를 찾을 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.1"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -3758,8 +3709,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!TryResolvePickerInputOffsets(host, side, pickerNo, out offsetX, out offsetY))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        ResolvePickerMoveTitle(side, pickerNo) + "의 InputVision 기준 Offset을 찾을 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.71", (object)(WorkMapMessageText.DisplayKnown(ResolvePickerMoveTitle(side, pickerNo)))),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -3784,20 +3735,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 JogSpeedType speedType;
                 if (!ConfirmManualMapMoveSpeed(
                     this,
-                    "Input Die Map",
-                    ResolvePickerMoveTitle(side, pickerNo) + "를 선택 다이 위치로 이동하시겠습니까?\r\n" +
-                    "Die=" + BuildSelectedDieText(entry) + "\r\n" +
-                    BuildDiePositionMoveText(diePosition, "최종 Die 위치") + "\r\n" +
-                    "PickerX=" + targetPickerX.ToString("F3") + " mm\r\n" +
-                    "PickerY=" + targetPickerY.ToString("F3") + " mm\r\n" +
-                    "NeedleX=" + targetNeedleX.ToString("F3") + " mm\r\n" +
-                    "StageY=" + targetStageY.ToString("F3") + " mm\r\n" +
-                    "(InputVision Offset X=" + offsetX.ToString("F3") + " mm, Y=" + offsetY.ToString("F3") + " mm\r\n" +
-                    " Camera Bottom-Input Offset X=" + cameraOffsetX.ToString("F3") +
-                    " mm, Y=" + cameraOffsetY.ToString("F3") +
-                    " mm (InputVisionToPicker X/Y에 1회 반영됨, 이동 공식에서 재적용 안 함)\r\n" +
-                    " Auto formula 기준, Runtime AlignOffset X/Y=0 (DieMap 좌표에 이미 적용됨)\r\n" +
-                    " " + target.Formula + ")",
+                    Lang.T("workMessage.text.6"),
+                    Lang.Format("workMessage.text.114", (object)(WorkMapMessageText.DisplayKnown(ResolvePickerMoveTitle(side, pickerNo))), (object)(BuildSelectedDieText(entry)), (object)(WorkMapMessageText.DisplayOwnedMessage(BuildDiePositionMoveText(diePosition, "최종 Die 위치"))), (object)(targetPickerX.ToString("F3")), (object)(targetPickerY.ToString("F3")), (object)(targetNeedleX.ToString("F3")), (object)(targetStageY.ToString("F3")), (object)(offsetX.ToString("F3")), (object)(offsetY.ToString("F3")), (object)(cameraOffsetX.ToString("F3")), (object)(cameraOffsetY.ToString("F3")), (object)(target.Formula)),
                     out speedType))
                 {
                     return;
@@ -3817,23 +3756,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (result != 0)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        ResolvePickerMoveTitle(side, pickerNo) + " 좌표 이동 실패\r\nresult=" + result +
-                        "\r\nAlarm/Event Log를 확인하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.72", (object)(WorkMapMessageText.DisplayKnown(ResolvePickerMoveTitle(side, pickerNo))), (object)(result)),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 ApplySelectedInputCoordinateInfo(mapView.Map, entry);
                 QMC.Common.MessageDialog.Show(this,
-                    ResolvePickerMoveTitle(side, pickerNo) + " 좌표 이동 완료.",
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    Lang.Format("workMessage.text.73", (object)(WorkMapMessageText.DisplayKnown(ResolvePickerMoveTitle(side, pickerNo)))),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Picker die move failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "Picker 좌표 이동 실패:\r\n" + ex.Message,
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.74", (object)(ex.Message)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -3865,23 +3803,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMapEntry entry = _selectedEntry;
                 if (entry == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "PickUp Test 대상 Die가 선택되지 않았습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.75"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 Form1 host = FindForm() as Form1;
                 if (host == null || host.Controller == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "PickUp Test를 실행할 Controller 정보를 찾을 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.76"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
                 {
-                    QMC.Common.MessageDialog.Show(this, "PickUp Test 대상 Die UID를 찾을 수 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.77"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -3912,8 +3850,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "PickUp Test dialog open failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "PickUp Test 다이얼로그 실행 실패:\r\n" + ex.Message,
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.78", (object)(ex.Message)),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -5837,16 +5775,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMap map = mapView != null ? mapView.Map : null;
                 if (map == null || map.Entries == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "상태를 변경할 Active Input Die Map 데이터가 없습니다.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.79"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 List<DieMapEntry> entries = ResolveSelectedInputDieEntries(map);
                 if (entries.Count <= 0)
                 {
-                    QMC.Common.MessageDialog.Show(this, "상태를 변경할 Die를 먼저 선택하세요.",
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.80"),
+                        Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -5856,10 +5794,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     if (!CanEditSelectedDieState(entries[i], out reason))
                     {
                         QMC.Common.MessageDialog.Show(this,
-                            "선택 Die 중 상태 변경이 차단된 항목이 있습니다.\r\n" +
-                            "Die=" + BuildSelectedDieText(entries[i]) + "\r\n" +
-                            reason,
-                            "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            Lang.Format("workMessage.text.81", (object)(BuildSelectedDieText(entries[i])), (object)(reason)),
+                            Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
                 }
@@ -5872,11 +5808,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                       "이전 Pick/검사/Output 수신 상태를 초기화하여 다시 픽업 가능하게 만듭니다."
                     : "";
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    "선택 Die " + entries.Count + "개 상태를 [" + stateText + "]로 변경하시겠습니까?\r\n" +
-                    "첫 Die=" + BuildSelectedDieText(entries[0]) + "\r\n" +
-                    "UID=" + (entries[0].DieUid ?? "") +
-                    repickWarning,
-                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    Lang.Format("workMessage.text.82", (object)(entries.Count), (object)(WorkMapMessageText.DisplayKnown(stateText)), (object)(BuildSelectedDieText(entries[0])), (object)((entries[0].DieUid ?? "")), (object)(WorkMapMessageText.DisplayKnown(repickWarning))),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
@@ -5890,8 +5823,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     if (!repickPrepared)
                     {
                         QMC.Common.MessageDialog.Show(this,
-                            "선택 Die를 재픽업 대기로 복구하지 못했습니다.\r\n" + repickMessage,
-                            "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            Lang.Format("workMessage.text.83", (object)(repickMessage)),
+                            Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
                 }
@@ -5951,8 +5884,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 string completedMessage = state == InputDieManualState.InspectionWait
                     ? "선택 Die " + entries.Count + "개를 재픽업 대기로 복구했습니다."
                     : "선택 Die " + entries.Count + "개 상태 변경 완료.";
-                QMC.Common.MessageDialog.Show(this, completedMessage,
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                QMC.Common.MessageDialog.Show(this, WorkMapMessageText.DisplayOwnedMessage(completedMessage),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -5966,10 +5899,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     QMC.Common.Logging.EventKind.Warning, "UI", "IN-MAP-MANUAL-STATE-FAILED",
                     "InputStageMapTransferPage", "Input Die 상태 변경 실패: " + ex.Message + " " + saveStatus);
                 QMC.Common.MessageDialog.Show(this,
-                    "Input Die 상태 변경 또는 저장에 실패했습니다.\r\n" + ex.Message +
-                    "\r\n\r\n화면이나 메모리에 일부 변경이 반영되었을 수 있습니다. " + saveStatus + " " +
-                    "현재 Material 상태와 오류 로그를 확인한 뒤 다시 적용하십시오.",
-                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Lang.Format("workMessage.text.84", (object)(ex.Message), (object)(WorkMapMessageText.DisplayKnown(saveStatus))),
+                    Lang.T("workMessage.text.6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -6242,7 +6173,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             string text = WaferMapDisplayStyle.GetText(ResolveInputDisplayState(entry));
             InputDieDisplaySnapshot die = GetInputDisplaySnapshot(entry);
             return die != null && !string.IsNullOrEmpty(die.TrackingText)
-                ? text + " / " + die.TrackingText : text;
+                ? text + " / " + WaferMapDisplayStyle.DisplayTrackingText(die.TrackingText) : text;
         }
 
         private WaferMapCellState ResolveInputDisplayState(DieMapEntry entry)
@@ -6314,7 +6245,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     !_inputDieDisplaySnapshots.ContainsKey(pair.Key) ||
                     !HaveSameInputDisplayValues(_inputDieDisplaySnapshots[pair.Key], pair.Value));
                 _inputDieDisplaySnapshots = snapshots;
-                mapView.Caption = BuildInputDieMapCaption(map, _inputDieMapStats);
+                UpdateInputDieMapCaption(map, _inputDieMapStats);
                 return changed;
             }
             catch (Exception ex)
@@ -6544,29 +6475,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
             return ResolveInputDieMapCellStatusText(entry);
         }
 
-        private string BuildInputDieMapCaption(DieMap map, InputDieMapStats stats)
+        private void UpdateInputDieMapCaption(DieMap map, InputDieMapStats stats)
         {
             try
             {
                 string productionLotId = MaterialStateService.GetProductionLotId();
-                string lotText = string.IsNullOrWhiteSpace(productionLotId) ? "(no lot)" : productionLotId;
-                if (map == null)
-                    return "INPUT WAFER MAP   LOT " + lotText + "  (no input die map)";
-
-                return string.Format(
-                    "INPUT WAFER MAP   LOT {0}  target={1}  wait={2}  vision={3}  pick={4}  good={5}  ng={6}  unknown={7}",
-                    lotText,
-                    stats.Target,
-                    stats.InspectionWait,
-                    stats.InspectionDone,
-                    stats.PickComplete,
-                    stats.Good,
-                    stats.Ng,
-                    stats.Unknown);
+                bool hasMap = map != null;
+                // Capture display values only. Language changes must not read Material or rebuild the map.
+                Lang.BindDisplay(mapView, productionLotId, lot => Lang.Format(
+                    hasMap ? "workMap.inputLotCounts" : "workMap.inputLotEmpty",
+                    string.IsNullOrWhiteSpace(lot) ? Lang.T("workMap.noLot") : lot,
+                    stats.Target, stats.InspectionWait, stats.InspectionDone,
+                    stats.PickComplete, stats.Good, stats.Ng, stats.Unknown));
             }
             catch
             {
-                return "INPUT WAFER MAP";
+                Lang.BindKey(mapView, "workMap.waferMap");
             }
             finally
             {
@@ -6755,5 +6679,59 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             base.OnHandleDestroyed(e);
         }
+        private void InitializeLanguageBindings()
+        {
+            WorkMapText.Bind(grpCreate, "INPUT DIE MAP CREATE");
+            WorkMapText.Bind(mapView, "Input Die Map");
+            WorkMapText.Bind(grpMapInfo, "DIE MAP INFO");
+            WorkMapText.Bind(lblChipWCaption, "Chip Width");
+            WorkMapText.Bind(lblChipHCaption, "Chip Height");
+            WorkMapText.Bind(lblPitchXCaption, "Center Step X");
+            WorkMapText.Bind(lblPitchYCaption, "Center Step Y");
+            WorkMapText.Bind(lblWaferDiaCaption, "Wafer Dia");
+            WorkMapText.Bind(lblAxisXCaption, "Axis X");
+            WorkMapText.Bind(lblAxisYCaption, "Axis Y");
+            WorkMapText.Bind(lblBinRankCaption, "BIN RANK");
+            WorkMapText.Bind(lblDieNumCaption, "Die Number");
+            WorkMapText.Bind(grpDieState, "DIE STATE EDIT");
+            WorkMapText.Bind(rdoDieStateWait, "WAIT / 검사 대기");
+            WorkMapText.Bind(rdoDieStateGood, "GOOD / 검사 완료");
+            WorkMapText.Bind(rdoDieStateNg, "NG / 검사 불량");
+            WorkMapText.Bind(rdoDieStateSkip, "SKIP / 제외");
+            WorkMapText.Bind(rdoDieStateFlying, "FLYING DIE / 유실");
+            WorkMapText.Bind(btnApplyDieState, "APPLY SELECTED DIE");
+            WorkMapText.Bind(btnInputStageRunReview, "WAFER ALIGN / DIE MAP REVIEW");
+            WorkMapText.Bind(btnManualAlignComplete, "MANUAL ALIGN COMPLETE");
+            WorkMapText.Bind(btnReloadActiveMap, "RELOAD ACTIVE MAP");
+            WorkMapText.Bind(grpAction, "ACTION");
+            WorkMapText.Bind(btnThetaMatchMove, "T 보정");
+            WorkMapText.Bind(btnXyMatchMove, "다이 검출");
+            WorkMapText.Bind(btnManualDieMapOffsetApply, "Offset 적용");
+            WorkMapText.Bind(rbStandard, "STANDARD");
+            WorkMapText.Bind(rbStartIndex, "START INDEX");
+            WorkMapText.Bind(rbSelectPickStatus, "SELECT PICK STATUS");
+            WorkMapText.Bind(rbDragPickStatus, "DRAG PICK STATUS");
+            WorkMapText.Bind(btnPickStatusSave, "SELECT PICK STATUS SAVE");
+            WorkMapText.Bind(btnNeedleBlockDown, "NEEDLE BLOCK DOWN");
+            WorkMapText.Bind(lblHeader, "INPUT STAGE DIE MAP");
+            WorkMapText.Bind(lblMapTitle, "INPUT DIE MAP CREATE");
+            WorkMapText.Bind(lblProjectCaption, "Project Name :");
+            WorkMapText.Bind(lblBarcodeCaption, "Barcode Name :");
+            WorkMapText.Bind(lblBinCaption, "1Bin :");
+            WorkMapText.Bind(btnClose, "CLOSE");
+            WorkMapText.Bind(colIndex, "Index");
+            WorkMapText.Bind(colGridX, "맵 X");
+            WorkMapText.Bind(colGridY, "맵 Y");
+            WorkMapText.Bind(colEquipmentGridX, "Grid X");
+            WorkMapText.Bind(colEquipmentGridY, "Grid Y");
+            WorkMapText.Bind(colTarget, "State");
+            WorkMapText.Bind(colResult, "Result");
+            WorkMapText.Bind(colBin, "Bin");
+            WorkMapText.Bind(colAxisX, "Process X(mm)");
+            WorkMapText.Bind(colAxisY, "Process Y(mm)");
+            WorkMapText.Bind(colDieUid, "Die UID");
+            Lang.BindReadOnlyCells(gridDieList, WorkMapText.DisplayCellState, cell => cell.ColumnIndex == colTarget.Index || cell.ColumnIndex == colResult.Index);
+        }
+
     }
 }

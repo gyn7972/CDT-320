@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Globalization;
 using System.Text;
 using System.Windows.Forms;
@@ -47,6 +48,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         public RuntimeOffsetMonitorDialog()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
+            Lang.BindKey(lblStatus, "extraDialog.runtimeOffset.formula");
             InitializeGridColumns(gridPlace);
             InitializeGridColumns(gridPick);
             InitializePickerZGridColumns(gridPickerZ);
@@ -60,14 +63,20 @@ namespace QMC.CDT_320.Ui.Dialogs
             grid.ColumnHeadersDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(224, 224, 224);
 
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colSide", HeaderText = "SIDE", FillWeight = 70 });
+            Lang.BindKey(grid.Columns["colSide"], "extraDialog.runtimeOffset.colSide");
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colPicker", HeaderText = "PICKER", FillWeight = 60 });
+            Lang.BindKey(grid.Columns["colPicker"], "extraDialog.runtimeOffset.colPicker");
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colX", HeaderText = "X (mm)", FillWeight = 90 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colY", HeaderText = "Y (mm)", FillWeight = 90 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colT", HeaderText = "T (deg)", FillWeight = 90 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colMechX", HeaderText = "기구 X (mm)", FillWeight = 95 });
+            Lang.BindKey(grid.Columns["colMechX"], "extraDialog.runtimeOffset.colMechX");
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colMechY", HeaderText = "기구 Y (mm)", FillWeight = 95 });
+            Lang.BindKey(grid.Columns["colMechY"], "extraDialog.runtimeOffset.colMechY");
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colMechT", HeaderText = "기구 T (deg)", FillWeight = 95 });
+            Lang.BindKey(grid.Columns["colMechT"], "extraDialog.runtimeOffset.colMechT");
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colUpdated", HeaderText = "최종 갱신", FillWeight = 150 });
+            Lang.BindKey(grid.Columns["colUpdated"], "extraDialog.runtimeOffset.colUpdated");
 
             for (int i = 2; i <= 7; i++)
                 grid.Columns[i].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
@@ -80,9 +89,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             grid.ColumnHeadersDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(224, 224, 224);
 
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colSide", HeaderText = "SIDE", FillWeight = 70 });
+            Lang.BindKey(grid.Columns["colSide"], "extraDialog.runtimeOffset.colSide");
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colPicker", HeaderText = "PICKER", FillWeight = 60 });
+            Lang.BindKey(grid.Columns["colPicker"], "extraDialog.runtimeOffset.colPicker");
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colZ", HeaderText = "Z (mm)", FillWeight = 90 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "colUpdated", HeaderText = "최종 갱신", FillWeight = 150 });
+            Lang.BindKey(grid.Columns["colUpdated"], "extraDialog.runtimeOffset.colUpdated");
 
             grid.Columns[2].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
         }
@@ -120,7 +132,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show("Pick 런타임 보정 이관 중 오류가 발생했습니다.\n" + ex.Message);
+                QMC.Common.MessageDialog.Show(Lang.Format("extraDialog.runtimeOffset.pickTransferError", ex.Message));
                 EventLogger.Write(EventKind.Alarm, "UI", "RUNTIME-OFFSET-APPLY",
                     "Pick 런타임 보정 기구 오프셋 이관 실패. error=" + ex.Message);
             }
@@ -143,7 +155,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show("Pick 런타임 보정 리셋 중 오류가 발생했습니다.\n" + ex.Message);
+                QMC.Common.MessageDialog.Show(Lang.Format("extraDialog.runtimeOffset.pickResetError", ex.Message));
                 EventLogger.Write(EventKind.Alarm, "UI", "RUNTIME-OFFSET-RESET",
                     "Pick 런타임 보정 리셋 실패. error=" + ex.Message);
             }
@@ -166,7 +178,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show("Place 런타임 보정 리셋 중 오류가 발생했습니다.\n" + ex.Message);
+                QMC.Common.MessageDialog.Show(Lang.Format("extraDialog.runtimeOffset.placeResetError", ex.Message));
                 EventLogger.Write(EventKind.Alarm, "UI", "RUNTIME-OFFSET-RESET",
                     "Place 런타임 보정 리셋 실패. error=" + ex.Message);
             }
@@ -187,8 +199,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _busy = true;
 
                 DialogResult answer = QMC.Common.MessageDialog.Show(
-                    "웨이퍼 옵셋(2번) 현재값을 저장 옵셋(1번)에 덮어써 저장합니다.\n계속하시겠습니까?",
-                    "PLACE 옵셋 2→1 복사",
+                    Lang.T("extraDialog.runtimeOffset.confirmCopy"),
+                    Lang.T("extraDialog.runtimeOffset.copyTitle"),
                     MessageBoxButtons.YesNo);
                 if (answer != DialogResult.Yes)
                     return;
@@ -198,16 +210,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 {
                     EventLogger.Write(EventKind.Event, "COORD", "PLACE-RUNTIME-OFFSET-COPY",
                         "웨이퍼 옵셋(2번)을 저장 옵셋(1번)으로 수동 복사. user=" + UserSession.Name);
-                    QMC.Common.MessageDialog.Show("복사했습니다.");
+                    QMC.Common.MessageDialog.Show(Lang.T("extraDialog.runtimeOffset.copied"));
                 }
                 else
                 {
-                    QMC.Common.MessageDialog.Show("복사하지 못했습니다.\n" + failReason);
+                    QMC.Common.MessageDialog.Show(Lang.Format("extraDialog.runtimeOffset.copyFailed", failReason));
                 }
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show("PLACE 옵셋 2→1 복사 중 오류가 발생했습니다.\n" + ex.Message);
+                QMC.Common.MessageDialog.Show(Lang.Format("extraDialog.runtimeOffset.copyError", ex.Message));
                 EventLogger.Write(EventKind.Alarm, "UI", "PLACE-RUNTIME-OFFSET-COPY",
                     "PLACE 옵셋 2→1 복사 실패. error=" + ex.Message);
             }
@@ -230,7 +242,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show("Place 런타임 보정 이관 중 오류가 발생했습니다.\n" + ex.Message);
+                QMC.Common.MessageDialog.Show(Lang.Format("extraDialog.runtimeOffset.placeTransferError", ex.Message));
                 EventLogger.Write(EventKind.Alarm, "UI", "RUNTIME-OFFSET-APPLY",
                     "Place 런타임 보정 기구 오프셋 이관 실패. error=" + ex.Message);
             }
@@ -266,7 +278,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "런타임 보정 값 조회 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "extraDialog.runtimeOffset.readFailed", ex.Message);
             }
             finally
             {
@@ -280,7 +292,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             Form1 host = FindHostForm();
             if (host == null || host.Machine == null)
             {
-                QMC.Common.MessageDialog.Show("장비 객체를 찾을 수 없어 적용할 수 없습니다.");
+                QMC.Common.MessageDialog.Show(Lang.T("extraDialog.runtimeOffset.noMachine"));
                 return;
             }
 
@@ -295,16 +307,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             string preview = BuildPlacePreview(host.Machine, rows);
             if (preview == null)
             {
-                QMC.Common.MessageDialog.Show("이관할 Place 런타임 보정값이 없습니다(전 채널 0).");
+                QMC.Common.MessageDialog.Show(Lang.T("extraDialog.runtimeOffset.noPlaceOffset"));
                 return;
             }
 
             DialogResult answer = QMC.Common.MessageDialog.Show(
-                "Place 런타임 보정값을 Place 기구 오프셋으로 이관합니다.\n" +
-                "적용식: 기구값 = 기구값 − 필터값 (X/Y/T).\n" +
-                "이관한 채널의 필터는 0으로 초기화됩니다.\n\n" +
-                preview + "\n계속하시겠습니까?",
-                "PLACE RUNTIME OFFSET",
+                Lang.Format("extraDialog.runtimeOffset.confirmPlace", preview),
+                Lang.T("extraDialog.runtimeOffset.placeTitle"),
                 MessageBoxButtons.YesNo);
             if (answer != DialogResult.Yes)
                 return;
@@ -393,7 +402,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (appliedCount == 0)
             {
-                QMC.Common.MessageDialog.Show("이관 대상이 없습니다.");
+                QMC.Common.MessageDialog.Show(Lang.T("extraDialog.runtimeOffset.noTarget"));
                 return;
             }
 
@@ -402,10 +411,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 "Place 런타임 보정을 기구 오프셋으로 이관하고 설정을 저장했습니다. appliedRows=" +
                 appliedCount + " - Ok");
 
-            string message = "Place 런타임 보정을 기구 오프셋으로 이관했습니다. (" + appliedCount + "개 픽커)";
+            string message = Lang.Format("extraDialog.runtimeOffset.placeTransferred", appliedCount);
             if (clamped.Length > 0)
             {
-                message += "\n\n다음 항목은 설정 한계로 클램프되었습니다:\n" + clamped;
+                message += Lang.Format("extraDialog.runtimeOffset.clamped", clamped);
                 EventLogger.Write(EventKind.Warning, "COORD", "PLACE-RUNTIME-OFFSET-APPLY-CLAMP",
                     "Place 런타임 보정 이관 중 기구 오프셋 한계 클램프가 발생했습니다. detail=" +
                     clamped.ToString().Replace(Environment.NewLine, " / "));
@@ -454,7 +463,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             Form1 host = FindHostForm();
             if (host == null || host.Machine == null)
             {
-                QMC.Common.MessageDialog.Show("장비 객체를 찾을 수 없어 적용할 수 없습니다.");
+                QMC.Common.MessageDialog.Show(Lang.T("extraDialog.runtimeOffset.noMachine"));
                 return;
             }
 
@@ -469,17 +478,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             string preview = BuildPickPreview(host.Machine, rows);
             if (preview == null)
             {
-                QMC.Common.MessageDialog.Show("이관할 Pick 런타임 보정값이 없습니다(전 채널 0).");
+                QMC.Common.MessageDialog.Show(Lang.T("extraDialog.runtimeOffset.noPickOffset"));
                 return;
             }
 
             DialogResult answer = QMC.Common.MessageDialog.Show(
-                "Pick 런타임 보정값을 Pick 기구 오프셋으로 이관합니다.\n" +
-                "적용식: 기구X = 기구X + 필터X, 기구Y = 기구Y " + (PickApplyYSign >= 0.0 ? "+" : "−") +
-                " 필터Y, 기구T = 기구T + 필터T.\n" +
-                "이관한 채널의 필터는 0으로 초기화됩니다.\n\n" +
-                preview + "\n계속하시겠습니까?",
-                "PICK RUNTIME OFFSET",
+                Lang.Format("extraDialog.runtimeOffset.confirmPick", PickApplyYSign >= 0.0 ? "+" : "−", preview),
+                Lang.T("extraDialog.runtimeOffset.pickTitle"),
                 MessageBoxButtons.YesNo);
             if (answer != DialogResult.Yes)
                 return;
@@ -569,7 +574,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (appliedCount == 0)
             {
-                QMC.Common.MessageDialog.Show("이관 대상이 없습니다.");
+                QMC.Common.MessageDialog.Show(Lang.T("extraDialog.runtimeOffset.noTarget"));
                 return;
             }
 
@@ -578,10 +583,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 "Pick 런타임 보정을 기구 오프셋으로 이관하고 설정을 저장했습니다. appliedRows=" +
                 appliedCount + " - Ok");
 
-            string message = "Pick 런타임 보정을 기구 오프셋으로 이관했습니다. (" + appliedCount + "개 픽커)";
+            string message = Lang.Format("extraDialog.runtimeOffset.pickTransferred", appliedCount);
             if (clamped.Length > 0)
             {
-                message += "\n\n다음 항목은 설정 한계로 클램프되었습니다:\n" + clamped;
+                message += Lang.Format("extraDialog.runtimeOffset.clamped", clamped);
                 EventLogger.Write(EventKind.Warning, "COORD", "PICK-RUNTIME-OFFSET-APPLY-CLAMP",
                     "Pick 런타임 보정 이관 중 기구 오프셋 한계 클램프가 발생했습니다. detail=" +
                     clamped.ToString().Replace(Environment.NewLine, " / "));
@@ -647,9 +652,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             string summary = BuildSnapshotSummary(rows);
 
             DialogResult answer = QMC.Common.MessageDialog.Show(
-                label + " 런타임 보정 필터(8세트 X/Y/T)를 모두 0으로 초기화합니다.\n\n" +
-                "현재 학습값:\n" + summary + "\n계속하시겠습니까?",
-                label + " RUNTIME OFFSET RESET",
+                Lang.Format("extraDialog.runtimeOffset.confirmReset", Lang.Display(label), summary),
+                Lang.Format("extraDialog.runtimeOffset.resetTitle", Lang.Display(label)),
                 MessageBoxButtons.YesNo);
             if (answer != DialogResult.Yes)
                 return;
@@ -668,7 +672,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             QMC.Common.Log.Write("Main", UserSession.Name, "RuntimeOffsetReset",
                 label + " 런타임 보정 필터 전체를 리셋했습니다. - Ok");
-            QMC.Common.MessageDialog.Show(label + " 런타임 보정 필터를 초기화했습니다.");
+            QMC.Common.MessageDialog.Show(Lang.Format("extraDialog.runtimeOffset.resetDone", Lang.Display(label)));
         }
 
         /// <summary>
@@ -697,9 +701,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             string summary = builder.Length > 0 ? builder.ToString() : "(값 없음)";
 
             DialogResult answer = QMC.Common.MessageDialog.Show(
-                "PICKER Z 런타임 보정 필터(8세트 Z)를 모두 0으로 초기화합니다.\n\n" +
-                "현재 학습값:\n" + summary + "\n계속하시겠습니까?",
-                "PICKER Z RUNTIME OFFSET RESET",
+                Lang.Format("extraDialog.runtimeOffset.confirmZReset", summary),
+                Lang.T("extraDialog.runtimeOffset.zResetTitle"),
                 MessageBoxButtons.YesNo);
             if (answer != DialogResult.Yes)
                 return;
@@ -715,7 +718,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             QMC.Common.Log.Write("Main", UserSession.Name, "RuntimeOffsetReset",
                 "PICKER Z 런타임 보정 필터 전체를 리셋했습니다. - Ok");
-            QMC.Common.MessageDialog.Show("PICKER Z 런타임 보정 필터를 초기화했습니다.");
+            QMC.Common.MessageDialog.Show(Lang.T("extraDialog.runtimeOffset.zReset"));
         }
 
         private static string BuildSnapshotSummary(RuntimeOffsetSnapshot[] rows)
@@ -925,5 +928,21 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             return value.ToString("F4", CultureInfo.InvariantCulture);
         }
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(grpPlace, "extraDialog.runtimeOffsetMonitorDialog.grpPlace.caption");
+            Lang.BindKey(grpPick, "extraDialog.runtimeOffsetMonitorDialog.grpPick.caption");
+            Lang.BindKey(grpPickerZ, "extraDialog.runtimeOffsetMonitorDialog.grpPickerZ.caption");
+            Lang.BindKey(btnClose, "extraDialog.runtimeOffsetMonitorDialog.btnClose.caption");
+            Lang.BindKey(btnRefresh, "extraDialog.runtimeOffsetMonitorDialog.btnRefresh.caption");
+            Lang.BindKey(btnApplyPick, "extraDialog.runtimeOffsetMonitorDialog.btnApplyPick.caption");
+            Lang.BindKey(btnApplyPlace, "extraDialog.runtimeOffsetMonitorDialog.btnApplyPlace.caption");
+            Lang.BindKey(btnResetPick, "extraDialog.runtimeOffsetMonitorDialog.btnResetPick.caption");
+            Lang.BindKey(btnResetPlace, "extraDialog.runtimeOffsetMonitorDialog.btnResetPlace.caption");
+            Lang.BindKey(btnCopyWaferPlace, "extraDialog.runtimeOffsetMonitorDialog.btnCopyWaferPlace.caption");
+            Lang.BindKey(this, "extraDialog.runtimeOffsetMonitorDialog.this.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 }

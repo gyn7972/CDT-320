@@ -4,16 +4,26 @@ using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320.Materials;
 using QMC.CDT_320.Ui;
+using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Controls
 {
-    public sealed partial class CassetteSlotView : UserControl
+    public sealed partial class CassetteSlotView : UserControl, ILocalizedView
     {
         private Label[] _slotStateLabels = new Label[0];
         private int _slotCount;
         private readonly ContextMenuStrip _slotContextMenu;
         private readonly ToolStripMenuItem _moveSlotMenuItem;
         private int _contextSlotIndex = -1;
+        private SlotText[] _displaySlots = new SlotText[0];
+
+        private sealed class SlotText
+        {
+            public string Key;
+            public WaferMaterialState State;
+            public string WaferId;
+            public int? DieCount;
+        }
 
         public static readonly Color ReadyStateColor = Color.Cyan;
         public static readonly Color EmptyStateColor = Color.Gainsboro;
@@ -29,6 +39,9 @@ namespace QMC.CDT_320.Ui.Controls
             _moveSlotMenuItem.Click += MoveSlotMenuItem_Click;
             _slotContextMenu.Items.Add(_moveSlotMenuItem);
             ConfigureDesignSurface();
+            Title = titleLabel.Text;
+            Lang.BindFormat(summaryLabel, "controls.cassette.summary", 0, 0);
+            ApplyLanguage();
             SetSlotCount(0);
         }
 
@@ -44,7 +57,32 @@ namespace QMC.CDT_320.Ui.Controls
         public string Title
         {
             get { return titleLabel.Text; }
-            set { titleLabel.Text = string.IsNullOrWhiteSpace(value) ? "CASSETTE" : value; }
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value) || value == "CASSETTE")
+                    Lang.BindKey(titleLabel, "controls.cassette.title");
+                else
+                    Lang.Bind(titleLabel, value);
+            }
+        }
+
+        public void ApplyLanguage()
+        {
+            for (int index = 0; index < _displaySlots.Length; index++)
+                RefreshSlotText(index);
+            _moveSlotMenuItem.Text = _contextSlotIndex < 0
+                ? Lang.T("controls.cassette.move")
+                : Lang.Format("controls.cassette.moveSlot", (_contextSlotIndex + 1).ToString("00"));
+        }
+
+        private void RefreshSlotText(int index)
+        {
+            SlotText item = _displaySlots[index];
+            if (item == null) return;
+            string text = item.Key == null
+                ? BuildSlotText(item.State, item.WaferId, item.DieCount)
+                : item.Key == "-" ? "-" : Lang.T(item.Key);
+            if (_slotStateLabels[index].Text != text) _slotStateLabels[index].Text = text;
         }
 
         private void ConfigureDesignSurface()
@@ -116,6 +154,7 @@ namespace QMC.CDT_320.Ui.Controls
 
             _slotCount = slotCount;
             _slotStateLabels = new Label[slotCount];
+            _displaySlots = new SlotText[slotCount];
 
             slotLayout.SuspendLayout();
             slotLayout.Controls.Clear();
@@ -149,7 +188,7 @@ namespace QMC.CDT_320.Ui.Controls
                     Font = UiTheme.ValueFont,
                     Padding = new Padding(8, 0, 0, 0),
                     Tag = i,
-                    Text = "EMPTY",
+                    Text = Lang.T("controls.cassette.empty"),
                     TextAlign = ContentAlignment.MiddleLeft
                 };
 
@@ -187,18 +226,20 @@ namespace QMC.CDT_320.Ui.Controls
 
                 bool current = i == currentSlot;
                 Color backColor = current ? currentColor : (hasWafer ? filledColor : EmptyColor);
-                string text = current ? (hasWafer ? "CURRENT / READY" : "CURRENT / EMPTY") : (hasWafer ? "READY" : "EMPTY");
+                _displaySlots[i] = new SlotText
+                {
+                    Key = current
+                        ? (hasWafer ? "controls.cassette.currentReady" : "controls.cassette.currentEmpty")
+                        : (hasWafer ? "controls.cassette.ready" : "controls.cassette.empty")
+                };
 
                 var label = _slotStateLabels[i];
                 if (label.BackColor != backColor)
                     label.BackColor = backColor;
-                if (label.Text != text)
-                    label.Text = text;
+                RefreshSlotText(i);
             }
 
-            string summary = "SLOTS " + count + " / WAFER " + filled;
-            if (summaryLabel.Text != summary)
-                summaryLabel.Text = summary;
+            Lang.BindFormat(summaryLabel, "controls.cassette.summary", count, filled);
         }
 
         public void UpdateMaterialSlots(IReadOnlyList<CassetteSlotDisplayItem> slots)
@@ -225,20 +266,23 @@ namespace QMC.CDT_320.Ui.Controls
 
                 Color backColor = known ? ResolveStateColor(state) : Color.White;
                 Color foreColor = ResolveStateForeColor(state);
-                string text = known ? BuildSlotText(state, item.WaferId, item.DieCount) : "-";
+                _displaySlots[i] = new SlotText
+                {
+                    Key = known ? null : "-",
+                    State = state,
+                    WaferId = known ? item.WaferId : null,
+                    DieCount = known ? item.DieCount : null
+                };
 
                 var label = _slotStateLabels[i];
                 if (label.BackColor != backColor)
                     label.BackColor = backColor;
                 if (label.ForeColor != foreColor)
                     label.ForeColor = foreColor;
-                if (label.Text != text)
-                    label.Text = text;
+                RefreshSlotText(i);
             }
 
-            string summary = "SLOTS " + count + " / WAFER " + filled;
-            if (summaryLabel.Text != summary)
-                summaryLabel.Text = summary;
+            Lang.BindFormat(summaryLabel, "controls.cassette.summary", count, filled);
         }
 
         private void SlotLabel_Click(object sender, EventArgs e)
@@ -280,7 +324,7 @@ namespace QMC.CDT_320.Ui.Controls
             if (SlotMoveRequested == null)
                 return;
 
-            _moveSlotMenuItem.Text = "MOVE SLOT " + (_contextSlotIndex + 1).ToString("00");
+            _moveSlotMenuItem.Text = Lang.Format("controls.cassette.moveSlot", (_contextSlotIndex + 1).ToString("00"));
             _slotContextMenu.Show(control, e.Location);
         }
 
@@ -327,7 +371,16 @@ namespace QMC.CDT_320.Ui.Controls
         private static string BuildSlotText(WaferMaterialState state, string waferId, int? dieCount)
         {
             var normalized = WaferMaterialStateText.Normalize(state);
-            string stateText = WaferMaterialStateText.ToDisplayName(normalized);
+            string stateText;
+            switch (normalized)
+            {
+                case WaferMaterialState.Empty: stateText = Lang.T("controls.cassette.empty"); break;
+                case WaferMaterialState.Ready: stateText = Lang.T("controls.cassette.ready"); break;
+                case WaferMaterialState.Working: stateText = Lang.T("controls.cassette.working"); break;
+                case WaferMaterialState.Finish: stateText = Lang.T("controls.cassette.finish"); break;
+                case WaferMaterialState.WorkReady: stateText = Lang.T("controls.cassette.workReady"); break;
+                default: stateText = WaferMaterialStateText.ToDisplayName(normalized); break;
+            }
             if (normalized == WaferMaterialState.Empty || string.IsNullOrWhiteSpace(waferId))
                 return stateText;
 

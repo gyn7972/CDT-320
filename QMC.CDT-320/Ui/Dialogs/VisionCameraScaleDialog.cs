@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -32,6 +33,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             try
             {
                 InitializeComponent();
+                InitializeLanguageBindings();
+                Lang.BindReadOnlyCells(gridCameraScale, FormatLocalizedRow, cell => cell.ColumnIndex == colCamera.Index || cell.ColumnIndex == colSource.Index);
                 BuildCameraRows();
                 LoadCameraScaleSettings();
             }
@@ -124,11 +127,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                     AddCameraScaleRow(info, camera);
                 }
 
-                SetStatus("Camera Scale 설정을 불러왔습니다.", false);
+                SetStatus("visionUi.cameraScale.loaded", false);
             }
             catch (Exception ex)
             {
-                SetStatus("Camera Scale 표시 실패: " + ex.Message, true);
+                SetStatus("visionUi.cameraScale.loadFailed", true ,ex.Message);
                 EventLogger.Write(EventKind.Warning, "VISION", "VISION-CAMERA-SCALE-LOAD", "Camera Scale 표시 실패: " + ex.Message);
             }
             finally
@@ -167,18 +170,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                 CameraScaleRowInfo info = row != null ? row.Tag as CameraScaleRowInfo : null;
                 if (info == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "Camera Setting을 요청할 카메라를 선택하세요.", "VISION", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("visionUi.visionCameraScaleDialog.message.text"), Lang.T("visionUi.visionCameraScaleDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 if (!VisionCommandService.IsConnected(info.Channel))
                 {
-                    QMC.Common.MessageDialog.Show(this, info.DisplayName + " VisionPC가 연결되지 않았습니다. 연결 후 다시 요청하세요.", "VISION", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.Format("visionUi.visionCameraScaleDialog.message.state3", (object)(info.DisplayName)), Lang.T("visionUi.visionCameraScaleDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 SetBusy(true);
-                SetStatus(info.DisplayName + " Camera Setting을 VisionPC에 요청 중입니다.", false);
+                SetStatus("visionUi.cameraScale.requesting", false ,info.DisplayName);
 
                 VisionCameraSettingResult result = await VisionCommandService.CameraSettingAsync(info.Channel, 5000, CancellationToken.None).ConfigureAwait(true);
                 if (result == null || !result.Success)
@@ -196,7 +199,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!SaveCameraScaleSettings(false))
                     return;
 
-                SetStatus(info.DisplayName + " Camera Setting을 VisionPC에서 받아 저장했습니다. Center는 Width/2, Height/2로 자동 계산됩니다.", false);
+                SetStatus("visionUi.cameraScale.received", false ,info.DisplayName);
                 EventLogger.Write(EventKind.Event, "VISION", "VISION-CAMERA-SETTING-REQ",
                     info.DisplayName + " Camera Setting을 VisionPC에서 받아 저장했습니다. width=" +
                     result.WidthPixel.ToString("F0", CultureInfo.InvariantCulture) +
@@ -207,9 +210,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             catch (Exception ex)
             {
                 string message = "Camera Setting 요청 실패: " + ex.Message;
-                SetStatus(message, true);
+                SetStatus("visionUi.cameraScale.requestFailed", true, ex.Message);
                 EventLogger.Write(EventKind.Alarm, "VISION", "VISION-CAMERA-SETTING-REQ-FAIL", message);
-                QMC.Common.MessageDialog.Show(this, message, "VISION", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("visionUi.cameraScale.requestFailed", ex.Message), Lang.T("visionUi.visionCameraScaleDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -289,16 +292,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 EventLogger.Write(EventKind.Event, "VISION", "VISION-CAMERA-SCALE-SAVE",
                     "카메라 Pixel Scale을 CalibrationData에 저장했습니다. path=" + CalibrationDataStore.FilePath);
                 if (showMessage)
-                    QMC.Common.MessageDialog.Show(this, "카메라 Pixel Scale을 저장했습니다.\r\nCenter는 Width/2, Height/2로 자동 계산됩니다.\r\nVision Camera Cal Offset은 CALC/SAVE를 다시 실행해 갱신하세요.", "VISION", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("visionUi.visionCameraScaleDialog.message.state4"), Lang.T("visionUi.visionCameraScaleDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return true;
             }
             catch (Exception ex)
             {
                 string message = "카메라 Pixel Scale 저장 실패: " + ex.Message;
-                SetStatus(message, true);
+                SetStatus("visionUi.cameraScale.saveFailed", true, ex.Message);
                 EventLogger.Write(EventKind.Alarm, "VISION", "VISION-CAMERA-SCALE-SAVE-FAIL", message);
                 if (showMessage)
-                    QMC.Common.MessageDialog.Show(this, message, "VISION", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    QMC.Common.MessageDialog.Show(this, Lang.Format("visionUi.cameraScale.saveFailed", ex.Message), Lang.T("visionUi.visionCameraScaleDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
             finally
@@ -428,9 +431,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             gridCameraScale.Enabled = !busy;
         }
 
-        private void SetStatus(string text, bool alarm)
+        private void SetStatus(string key, bool alarm, params object[] values)
         {
-            lblStatus.Text = text ?? string.Empty;
+            Lang.BindFormat(lblStatus, key, values);
             lblStatus.ForeColor = alarm ? Color.Firebrick : Color.Black;
         }
 
@@ -446,6 +449,40 @@ namespace QMC.CDT_320.Ui.Dialogs
             public string DisplayName { get; private set; }
             public string Key { get; private set; }
             public AutoVisionChannel Channel { get; private set; }
+        }
+        // Translate only the rendered caption; raw row values remain available to editing and save logic.
+        private static string FormatLocalizedRow(string value)
+        {
+            switch (value)
+            {
+                case "Bottom Camera": return Lang.T("visionUi.visionCameraScaleDialog.row.1");
+                case "Input Camera": return Lang.T("visionUi.visionCameraScaleDialog.row.2");
+                case "Output Camera": return Lang.T("visionUi.visionCameraScaleDialog.row.3");
+                case "Front Side Camera": return Lang.T("visionUi.visionCameraScaleDialog.row.4");
+                case "Rear Side Camera": return Lang.T("visionUi.visionCameraScaleDialog.row.5");
+                case "Vision": return Lang.T("visionUi.visionCameraScaleDialog.row.6");
+                case "Manual": return Lang.T("visionUi.visionCameraScaleDialog.row.7");
+                case "데이터 없음": return Lang.T("visionUi.visionCameraScaleDialog.row.8");
+                default: return value;
+            }
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this.lblHeader, "visionUi.visionCameraScaleDialog.lblHeader.text");
+            Lang.BindKey(this.lblDescription, "visionUi.visionCameraScaleDialog.lblDescription.text");
+            Lang.BindKey(this.colCamera, "visionUi.visionCameraCalibrationDialog.colItem.text");
+            Lang.BindKey(this.colWidth, "visionUi.visionCameraScaleDialog.colWidth.text");
+            Lang.BindKey(this.colHeight, "visionUi.visionCameraScaleDialog.colHeight.text");
+            Lang.BindKey(this.colScaleX, "visionUi.visionCameraScaleDialog.colScaleX.text");
+            Lang.BindKey(this.colScaleY, "visionUi.visionCameraScaleDialog.colScaleY.text");
+            Lang.BindKey(this.colSource, "visionUi.visionCameraScaleDialog.colSource.text");
+            Lang.BindKey(this.lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state2");
+            Lang.BindKey(this.btnReload, "visionUi.visionCameraScaleDialog.btnReload.text");
+            Lang.BindKey(this.btnCameraSettingReq, "visionUi.visionCameraScaleDialog.btnCameraSettingReq.text");
+            Lang.BindKey(this.btnSave, "visionUi.visionCameraScaleDialog.btnSave.text");
+            Lang.BindKey(this.btnClose, "visionUi.visionCameraCalibrationDialog.btnClose.text");
+            Lang.BindKey(this, "visionUi.visionCameraScaleDialog.Text.text");
         }
     }
 }

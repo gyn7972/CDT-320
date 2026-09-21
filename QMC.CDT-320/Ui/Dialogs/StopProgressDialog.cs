@@ -1,3 +1,4 @@
+﻿using QMC.CDT_320.Ui.Localization;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -15,7 +16,7 @@ namespace QMC.CDT_320.Ui.Dialogs
     /// <summary>
     /// 일반 정지 요청 후 현재 동작이 안전 경계에서 끝날 때까지 표시하는 진행 팝업입니다.
     /// </summary>
-    public sealed class StopProgressDialog : ProgressDialog
+    public sealed class StopProgressDialog : ProgressDialog, ILocalizedView
     {
         private readonly MachineController _controller;
         private readonly Timer _refreshTimer;
@@ -27,14 +28,9 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _controller = controller;
 
-            Text = "Stop";
-            RunningTitle = "정지 처리 중";
-            CompletedTitle = "정지 완료";
-            FailedTitle = "알람 발생";
-            CanceledTitle = "정지 처리";
-            IdleTitle = "정지 요청";
-            DefaultStepText = "현재 동작 완료 대기";
-            DefaultMessage = "정지 요청이 접수되었습니다. 현재 이동/작업 완료 후 안전 경계에서 정지합니다.";
+            TextFormatter = TranslateProgressText;
+            ApplyLanguage();
+            Load += (sender, args) => Lang.Apply(this);
             RunningColor = System.Drawing.Color.FromArgb(0xE8, 0x5D, 0x1A);
 
             _refreshTimer = new Timer { Interval = 200 };
@@ -310,5 +306,24 @@ namespace QMC.CDT_320.Ui.Dialogs
                 default: return "대기";
             }
         }
+        public void ApplyLanguage()
+        {
+            Text = Lang.T("extraDialog.progress.stopTitle");
+            RunningTitle = Lang.T("extraDialog.progress.stopRunning");
+            CompletedTitle = Lang.T("extraDialog.progress.stopComplete");
+            FailedTitle = Lang.T("extraDialog.progress.stopFailed");
+            CanceledTitle = Lang.T("extraDialog.progress.stopCanceled");
+            IdleTitle = Lang.T("extraDialog.progress.stopIdle");
+            DefaultStepText = Lang.T("extraDialog.progress.stopStep");
+            DefaultMessage = Lang.T("extraDialog.progress.stopMessage");
+            CompletedStepsFormat = Lang.T("extraDialog.progress.completedSteps");
+            RefreshDisplay();
+        }
+
+        private static string TranslateProgressText(string text)
+        {
+            return ProgressDialogText.Translate(text);
+        }
+
     }
 }

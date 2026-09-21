@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -13,7 +14,7 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public partial class SharedRailXSetupDialog : Form
+    public partial class SharedRailXSetupDialog : Form, ILocalizedView
     {
         private readonly MachineController _controller;
         private readonly ToolTip _toolTip;
@@ -31,6 +32,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _controller = controller;
             InitializeComponent();
+            InitializeLanguageBindings();
             _toolTip = new ToolTip();
             _statusTimer = new System.Windows.Forms.Timer();
             _statusTimer.Interval = 200;
@@ -94,7 +96,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _pairRuleLabel.Location = new Point(0, 0);
             _pairRuleLabel.Name = "lblPairRule";
             _pairRuleLabel.Padding = new Padding(6, 0, 0, 0);
-            _pairRuleLabel.Text = "PAIR CLEARANCE RULE";
+            Lang.BindKey(_pairRuleLabel, "extraDialog.sharedRail.pairRule");
             _pairRuleLabel.TextAlign = ContentAlignment.MiddleLeft;
 
             _pairGrid = new DataGridView();
@@ -119,6 +121,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             chkSameVelocity.Location = new Point(0, chkSameVelocity.Location.Y);
             BuildRetreatSettingsPanel();
 
+            Lang.BindReadOnlyCells(grid, DisplaySharedRailValue, cell => cell.OwningColumn.Name == "colAxis" || cell.OwningColumn.Name == "colStatus" || cell.OwningColumn.Name == "colMessage");
+            Lang.BindReadOnlyCells(_testGrid, DisplaySharedRailValue, cell => cell.OwningColumn.Name == "colAxis");
+            Lang.BindChoices(cboHeadAxis, DisplaySharedRailValue);
             _activeGrid = grid;
         }
 
@@ -148,7 +153,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             DataGridViewTextBoxColumn column = new DataGridViewTextBoxColumn();
             column.Name = name;
-            column.HeaderText = headerText;
+            BindColumnCaption(column, headerText);
             column.FillWeight = fillWeight;
             column.ReadOnly = readOnly;
             column.SortMode = DataGridViewColumnSortMode.NotSortable;
@@ -211,8 +216,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Numeric input failed:\n" + ex.Message,
-                    "SharedRailX", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("extraDialog.sharedRail.numericFailed", ex.Message),
+                    Lang.T("sharedDialog.sharedRail.title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -256,8 +261,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Pair rule input failed:\n" + ex.Message,
-                    "SharedRailX", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("extraDialog.sharedRail.pairFailed", ex.Message),
+                    Lang.T("sharedDialog.sharedRail.title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -325,7 +330,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_running) return;
             if (!ReadGridToDocument()) return;
             SharedRailXConfigStore.SaveDocument(_document);
-            lblStatus.Text = "Saved: " + SharedRailXConfigStore.Path_;
+            Lang.BindFormat(lblStatus, "extraDialog.sharedRail.saved", SharedRailXConfigStore.Path_);
         }
 
         private void btnApply_Click(object sender, EventArgs e)
@@ -335,7 +340,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             SharedRailXConfigStore.SaveDocument(_document);
             if (_controller != null)
                 _controller.ReloadSharedRailXConfig();
-            lblStatus.Text = "Applied to runtime.";
+            Lang.BindKey(lblStatus, "extraDialog.sharedRail.applied");
             RefreshStatus();
         }
 
@@ -361,7 +366,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 checkedCount++;
             }
 
-            lblStatus.Text = "Validated " + checkedCount + " axis targets.";
+            Lang.BindFormat(lblStatus, "extraDialog.sharedRail.validated", checkedCount);
         }
 
         private void btnHelp_Click(object sender, EventArgs e)
@@ -403,19 +408,19 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _stopping = true;
                 btnStop.Enabled = false;
-                lblStatus.Text = "STOP requested...";
+                Lang.BindKey(lblStatus, "extraDialog.sharedRail.stopRequested");
                 CancellationTokenSource cts = _runCts;
                 if (cts != null)
                     cts.Cancel();
                 int result = await _controller.StopAllAxesAsync(false).ConfigureAwait(true);
                 RefreshStatus();
-                lblStatus.Text = result == 0 ? "STOP complete." : "STOP failed. result=" + result;
+                Lang.BindFormat(lblStatus, result == 0 ? "extraDialog.sharedRail.stopComplete" : "extraDialog.sharedRail.stopFailed", result);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "STOP error.";
-                QMC.Common.MessageDialog.Show(this, "STOP failed:\n" + ex.Message,
-                    "SharedRailX", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Lang.BindKey(lblStatus, "extraDialog.sharedRail.stopError");
+                QMC.Common.MessageDialog.Show(this, Lang.Format("extraDialog.sharedRail.stopException", ex.Message),
+                    Lang.T("sharedDialog.sharedRail.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -442,20 +447,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_pairGrid != null)
                 _pairGrid.ShowCellToolTips = true;
 
-            GetColumn(_testGrid, "colVelocity").ToolTipText = "Test move velocity used by this setup dialog.";
-            GetColumn(_pairGrid, "colHomeClearance").ToolTipText = "Distance between the two axes at home position before they approach each other.";
-            GetColumn(_pairGrid, "colAxisASign").ToolTipText = "+1 means AxisA positive direction approaches AxisB, -1 means negative direction approaches.";
-            GetColumn(_pairGrid, "colAxisBSign").ToolTipText = "+1 means AxisB positive direction approaches AxisA, -1 means negative direction approaches.";
-            GetColumn(_pairGrid, "colPairSafety").ToolTipText = "Pair-specific minimum clearance. Empty uses 10 mm.";
-
-            colVelocity.ToolTipText = "이 창에서 테스트 이동할 때 사용할 속도(mm/sec)입니다. 저장하면 파일에 기록되고 이동 실행 시 이 값을 사용합니다.";
-
-            _toolTip.SetToolTip(cboHeadAxis, "주 축입니다. Move Head/Sub 실행 시 항상 이동 대상에 포함됩니다.");
-            _toolTip.SetToolTip(chkSubInputVision, "Head 축과 같이 이동할 Sub 축입니다. Head 선택에 따라 선택 가능 여부가 달라집니다.");
-            _toolTip.SetToolTip(chkSubOutputVision, "Head 축과 같이 이동할 Sub 축입니다. Head 선택에 따라 선택 가능 여부가 달라집니다.");
-            _toolTip.SetToolTip(chkSubFrontPicker, "Head 축과 같이 이동할 Sub 축입니다. Head 선택에 따라 선택 가능 여부가 달라집니다.");
-            _toolTip.SetToolTip(chkSubRearPicker, "Head 축과 같이 이동할 Sub 축입니다. Head 선택에 따라 선택 가능 여부가 달라집니다.");
-            _toolTip.SetToolTip(btnHelp, "SharedRailX 설정값 설명을 표시합니다.");
+            ApplyLocalizedColumnToolTips();
+            Lang.BindKey(_toolTip, cboHeadAxis, "sharedDialog.sharedRail.tip.head");
+            Lang.BindKey(_toolTip, chkSubInputVision, "sharedDialog.sharedRail.tip.sub");
+            Lang.BindKey(_toolTip, chkSubOutputVision, "sharedDialog.sharedRail.tip.sub");
+            Lang.BindKey(_toolTip, chkSubFrontPicker, "sharedDialog.sharedRail.tip.sub");
+            Lang.BindKey(_toolTip, chkSubRearPicker, "sharedDialog.sharedRail.tip.sub");
+            Lang.BindKey(_toolTip, btnHelp, "sharedDialog.sharedRail.tip.help");
         }
 
         private void ConfigureGridColumnGroups()
@@ -490,7 +488,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (column == null)
                 return;
 
-            column.HeaderText = headerText;
+            BindColumnCaption(column, headerText);
             column.ReadOnly = readOnly;
             column.DefaultCellStyle.BackColor = backColor;
             column.DefaultCellStyle.SelectionBackColor = Color.FromArgb(0, 120, 215);
@@ -506,37 +504,25 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void ConfigureActionButtons()
         {
-            btnReload.Text = "Reload File";
-            btnSave.Text = "Save File";
-            btnApply.Text = "Save + Apply";
-            btnValidate.Text = "Validate";
-            btnHelp.Text = "Help";
-            btnMoveSelected.Text = "Move Selected";
-            btnMoveHeadSub.Text = "Move Head/Sub";
-            btnHomeSelected.Text = "Home Selected";
-            btnHomeAll.Text = "Home All";
-            btnRefresh.Text = "Refresh Now";
-            btnStop.Text = "STOP";
-            btnClose.Text = "Close";
+            Lang.BindKey(btnReload, "extraDialog.sharedRail.reloadFile");
+            Lang.BindKey(btnSave, "extraDialog.sharedRail.saveFile");
+            Lang.BindKey(btnApply, "extraDialog.sharedRail.saveApply");
+            Lang.BindKey(btnValidate, "extraDialog.sharedRail.validate");
+            Lang.BindKey(btnHelp, "extraDialog.sharedRail.help");
+            Lang.BindKey(btnMoveSelected, "extraDialog.sharedRail.moveSelected");
+            Lang.BindKey(btnMoveHeadSub, "extraDialog.sharedRail.moveHeadSub");
+            Lang.BindKey(btnHomeSelected, "extraDialog.sharedRail.homeSelected");
+            Lang.BindKey(btnHomeAll, "extraDialog.sharedRail.homeAll");
+            Lang.BindKey(btnRefresh, "extraDialog.sharedRail.refreshNow");
+            Lang.BindKey(btnStop, "extraDialog.sharedRail.stop");
+            Lang.BindKey(btnClose, "extraDialog.sharedRail.close");
         }
 
         private void ShowSharedRailXHelp()
         {
-            string message =
-                "SharedRailX 설정값 설명\r\n\r\n" +
-                "Velocity\r\n" +
-                "- 이 창에서 테스트 이동할 때 사용할 속도입니다. 단위는 mm/sec입니다.\r\n" +
-                "- 저장하면 shared_rail_x.json 파일에 남고, 이동 버튼을 누를 때도 먼저 파일에 저장한 뒤 이 값을 사용합니다.\r\n\r\n" +
-                "Pair Clearance Rule\r\n" +
-                "- 이 화면의 충돌 인터락 기준입니다.\r\n" +
-                "- Home Gap은 두 축이 홈 위치일 때 기준 간격입니다.\r\n" +
-                "- A/B Sign은 각 축이 상대 축 쪽으로 가까워지는 엔코더 방향입니다. +방향 접근은 1, -방향 접근은 -1입니다.\r\n" +
-                "- Clearance = Home Gap - A Sign*A Pos - B Sign*B Pos 로 계산하며 Safety 이하이면 이동을 막습니다.\r\n\r\n" +
-                "FrontPickerX <-> RearPickerX는 이 화면에서 설정하지 않습니다.\r\n" +
-                "- 두 Picker는 병렬 X축에서 서로 마주보는 구조라 Home Gap/sign 방식이 아닙니다.\r\n" +
-                "- Picker Y 동시 전진 방지는 PICKER ZONE의 X Clearance 값으로 판단합니다.";
+            string message = Lang.T("sharedDialog.sharedRail.helpBody");
 
-            QMC.Common.MessageDialog.Show(this, message, "SharedRailX 설정값 설명",
+            QMC.Common.MessageDialog.Show(this, message, Lang.T("sharedDialog.sharedRail.helpTitle"),
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
@@ -547,7 +533,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             LoadRetreatSettingsFromDocument();
             LoadGrid();
             lblPath.Text = SharedRailXConfigStore.Path_;
-            lblStatus.Text = "Loaded.";
+            Lang.BindKey(lblStatus, "extraDialog.sharedRail.loaded");
         }
 
         private void LoadGrid()
@@ -738,8 +724,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "SharedRailX setting read failed:\n" + ex.Message,
-                    "SharedRailX", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("extraDialog.sharedRail.loadFailed", ex.Message),
+                    Lang.T("sharedDialog.sharedRail.title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
             finally
@@ -816,7 +802,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 List<DataGridViewRow> rows = GetHeadSubRows();
                 if (rows.Count == 0)
                 {
-                    QMC.Common.MessageDialog.Show(this, "Head/Sub 선택된 축이 없습니다.", "SharedRailX",
+                    QMC.Common.MessageDialog.Show(this, Lang.T("extraDialog.sharedRail.noAxes"), Lang.T("sharedDialog.sharedRail.title"),
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return 0;
                 }
@@ -905,7 +891,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _runCts = cts;
                 _running = true;
                 SetButtonsEnabled(false);
-                lblStatus.Text = actionName + " running...";
+                Lang.BindFormat(lblStatus, "extraDialog.sharedRail.running", Lang.Display(actionName));
                 Task<int> actionTask = action(cts.Token);
                 Task cancelTask = WaitForCancellationAsync(cts.Token);
                 Task completed = await Task.WhenAny(actionTask, cancelTask).ConfigureAwait(true);
@@ -913,24 +899,24 @@ namespace QMC.CDT_320.Ui.Dialogs
                 {
                     ObserveRunTask(actionTask);
                     RefreshStatus();
-                    lblStatus.Text = actionName + " stopped.";
+                    Lang.BindFormat(lblStatus, "extraDialog.sharedRail.stopped", Lang.Display(actionName));
                     return;
                 }
 
                 int result = await actionTask.ConfigureAwait(true);
                 RefreshStatus();
-                lblStatus.Text = actionName + (result == 0 ? " complete." : " failed. result=" + result);
+                Lang.BindFormat(lblStatus, result == 0 ? "extraDialog.sharedRail.actionComplete" : "extraDialog.sharedRail.actionFailed", Lang.Display(actionName), result);
             }
             catch (OperationCanceledException)
             {
                 RefreshStatus();
-                lblStatus.Text = actionName + " stopped.";
+                Lang.BindFormat(lblStatus, "extraDialog.sharedRail.stopped", Lang.Display(actionName));
             }
             catch (Exception ex)
             {
-                lblStatus.Text = actionName + " error.";
-                QMC.Common.MessageDialog.Show(this, actionName + " failed:\n" + ex.Message,
-                    "SharedRailX", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Lang.BindFormat(lblStatus, "extraDialog.sharedRail.error", Lang.Display(actionName));
+                QMC.Common.MessageDialog.Show(this, Lang.Format("extraDialog.sharedRail.actionException", Lang.Display(actionName), ex.Message),
+                    Lang.T("sharedDialog.sharedRail.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1000,7 +986,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             SharedRailXConfigStore.SaveDocument(_document);
             if (_controller != null)
                 _controller.ReloadSharedRailXConfig();
-            lblStatus.Text = "Saved: " + SharedRailXConfigStore.Path_;
+            Lang.BindFormat(lblStatus, "extraDialog.sharedRail.saved", SharedRailXConfigStore.Path_);
         }
 
         private double ReadVelocity(DataGridViewRow row, SharedRailXAxis axis)
@@ -1311,5 +1297,89 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnStop.Enabled = true;
             btnClose.Enabled = enabled;
         }
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(lblTitle, "extraDialog.sharedRailXSetupDialog.lblTitle.caption");
+            Lang.BindKey(chkSameVelocity, "extraDialog.sharedRailXSetupDialog.chkSameVelocity.caption");
+            Lang.BindKey(lblHeadAxis, "extraDialog.sharedRailXSetupDialog.lblHeadAxis.caption");
+            Lang.BindKey(lblSubAxes, "extraDialog.sharedRailXSetupDialog.lblSubAxes.caption");
+            Lang.BindKey(chkSubInputVision, "extraDialog.sharedRailXSetupDialog.chkSubInputVision.caption");
+            Lang.BindKey(chkSubOutputVision, "extraDialog.sharedRailXSetupDialog.chkSubOutputVision.caption");
+            Lang.BindKey(chkSubFrontPicker, "extraDialog.sharedRailXSetupDialog.chkSubFrontPicker.caption");
+            Lang.BindKey(chkSubRearPicker, "extraDialog.sharedRailXSetupDialog.chkSubRearPicker.caption");
+            Lang.BindKey(lblStatusParameter, "extraDialog.sharedRailXSetupDialog.lblStatusParameter.caption");
+            Lang.BindKey(lblTestParameter, "extraDialog.sharedRailXSetupDialog.lblTestParameter.caption");
+            Lang.BindKey(colAxis, "extraDialog.sharedRailXSetupDialog.colAxis.caption");
+            Lang.BindKey(colCurrent, "extraDialog.sharedRailXSetupDialog.colCurrent.caption");
+            Lang.BindKey(colTarget, "extraDialog.sharedRailXSetupDialog.colTarget.caption");
+            Lang.BindKey(colVelocity, "extraDialog.sharedRailXSetupDialog.colVelocity.caption");
+            Lang.BindKey(colStatus, "extraDialog.sharedRailXSetupDialog.colStatus.caption");
+            Lang.BindKey(colMessage, "extraDialog.sharedRailXSetupDialog.colMessage.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
+        public void ApplyLanguage()
+        {
+            ApplyLocalizedColumnToolTips();
+        }
+
+        private static void ApplyColumnToolTip(DataGridView view, string columnName, string key)
+        {
+            DataGridViewColumn column = GetColumn(view, columnName);
+            if (column != null) column.ToolTipText = Lang.T(key);
+        }
+
+        private void ApplyLocalizedColumnToolTips()
+        {
+            ApplyColumnToolTip(_testGrid, "colVelocity", "sharedDialog.sharedRail.tip.velocity");
+            ApplyColumnToolTip(_pairGrid, "colHomeClearance", "sharedDialog.sharedRail.tip.homeGap");
+            ApplyColumnToolTip(_pairGrid, "colAxisASign", "sharedDialog.sharedRail.tip.signA");
+            ApplyColumnToolTip(_pairGrid, "colAxisBSign", "sharedDialog.sharedRail.tip.signB");
+            ApplyColumnToolTip(_pairGrid, "colPairSafety", "sharedDialog.sharedRail.tip.safety");
+            if (colVelocity != null) colVelocity.ToolTipText = Lang.T("sharedDialog.sharedRail.tip.savedVelocity");
+        }
+
+        private static void BindColumnCaption(DataGridViewColumn column, string caption)
+        {
+            switch (caption)
+            {
+                case "Axis": Lang.BindKey(column, "sharedDialog.sharedRail.column.axis"); break;
+                case "Unit": Lang.BindKey(column, "sharedDialog.sharedRail.column.unit"); break;
+                case "Current Pos": Lang.BindKey(column, "sharedDialog.sharedRail.column.current"); break;
+                case "Axis State": Lang.BindKey(column, "sharedDialog.sharedRail.column.state"); break;
+                case "Message": Lang.BindKey(column, "sharedDialog.sharedRail.column.message"); break;
+                case "Move Target": Lang.BindKey(column, "sharedDialog.sharedRail.column.target"); break;
+                case "Velocity": Lang.BindKey(column, "sharedDialog.sharedRail.column.velocity"); break;
+                case "Pair": Lang.BindKey(column, "sharedDialog.sharedRail.column.pair"); break;
+                case "Home Gap": Lang.BindKey(column, "sharedDialog.sharedRail.column.gap"); break;
+                case "A Sign": Lang.BindKey(column, "sharedDialog.sharedRail.column.signA"); break;
+                case "B Sign": Lang.BindKey(column, "sharedDialog.sharedRail.column.signB"); break;
+                case "Safety": Lang.BindKey(column, "sharedDialog.sharedRail.column.safety"); break;
+                default: column.HeaderText = caption; break;
+            }
+        }
+
+        private static string DisplaySharedRailValue(string value)
+        {
+            switch (value)
+            {
+                case "InputVisionX": return Lang.T("sharedDialog.sharedRail.value.axisInput");
+                case "OutputVisionX": return Lang.T("sharedDialog.sharedRail.value.axisOutput");
+                case "FrontPickerX": return Lang.T("sharedDialog.sharedRail.value.axisFront");
+                case "RearPickerX": return Lang.T("sharedDialog.sharedRail.value.axisRear");
+                case "OK": return Lang.T("sharedDialog.sharedRail.value.ok");
+                case "BLOCK": return Lang.T("sharedDialog.sharedRail.value.blocked");
+                case "Done": return Lang.T("sharedDialog.sharedRail.value.done");
+                case "Failed": return Lang.T("sharedDialog.sharedRail.value.failed");
+                case "Moving": return Lang.T("sharedDialog.sharedRail.value.moving");
+                case "Home Done": return Lang.T("sharedDialog.sharedRail.value.homeDone");
+                case "Home Failed": return Lang.T("sharedDialog.sharedRail.value.homeFailed");
+                case "Homing": return Lang.T("sharedDialog.sharedRail.value.homing");
+                case "Controller is not ready.": return Lang.T("sharedDialog.sharedRail.value.controllerMissing");
+                case "Axis is not mapped.": return Lang.T("sharedDialog.sharedRail.value.axisMissing");
+                default: return value;
+            }
+        }
+
     }
 }

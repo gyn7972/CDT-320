@@ -4,6 +4,7 @@ using System.IO;
 using System.Windows.Forms;
 using QMC.Common.Logging;
 using QMC.CDT320;
+using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Controls
 {
@@ -13,7 +14,7 @@ namespace QMC.CDT_320.Ui.Controls
     /// - 로그 종류별 파일 경로 그리드 / Vision OK·NG 이미지 경로 그리드(모두 "..."로 폴더 선택).
     /// - 이미지 파일 형식(JPG/BMP) 콤보.
     /// 값은 <see cref="Save"/> 호출(다이얼로그 SAVE) 시 AppSettings 에 반영된다.</summary>
-    public partial class LogSettingsPanelControl : UserControl
+    public partial class LogSettingsPanelControl : UserControl, ILocalizedView
     {
         private static readonly string[] LogTypes =
         {
@@ -36,12 +37,72 @@ namespace QMC.CDT_320.Ui.Controls
         public LogSettingsPanelControl()
         {
             InitializeComponent();
+            InitializeLocalization();
             BuildDiagnosticVerboseUi();
             ConfigureGrids();
             BuildLogPathRows();
             BuildVisionRows();
             WireEvents();
             LoadSettings();
+        }
+
+        private void InitializeLocalization()
+        {
+            Lang.BindKey(grpSnapshot, "controls.log.snapshot");
+            Lang.BindKey(lblSnapshotHint, "controls.log.snapshotHint");
+            Lang.BindKey(grpMaint, "controls.log.maintenance");
+            Lang.BindKey(lblLogHistory, "controls.log.history");
+            Lang.BindKey(lblLogCompress, "controls.log.compress");
+            Lang.BindKey(lblCompressDays, "controls.log.compressDays");
+            Lang.BindKey(lblLogDelete, "controls.log.delete");
+            Lang.BindKey(lblDeleteDays, "controls.log.deleteDays");
+            Lang.BindKey(grpPaths, "controls.log.paths");
+            Lang.BindKey(lblPathMode, "controls.log.pathMode");
+            Lang.BindKey(grpVision, "controls.log.visionImages");
+            Lang.BindKey(lblImageFormat, "controls.log.imageFormat");
+            Lang.BindKey(colLogType, "controls.log.type");
+            Lang.BindKey(colLogPath, "controls.log.filePath");
+            Lang.BindKey(colVisType, "controls.log.image");
+            Lang.BindKey(colVisPath, "controls.log.imagePath");
+            Lang.BindReadOnlyCells(gridLogPaths, DisplayChoice, cell => cell.ColumnIndex == 0);
+            Lang.BindReadOnlyCells(gridVisionImages, DisplayChoice, cell => cell.ColumnIndex == 0);
+            foreach (ComboBox combo in new[] { _cbLogHistory, _cbLogCompress, _cbLogDelete, _cbPathMode })
+            {
+                Lang.BindChoices(combo, DisplayChoice);
+            }
+        }
+
+        public void ApplyLanguage()
+        {
+            // 표시만 다시 그립니다. 저장 모드, 원본 행과 선택값을 다시 설정하지 않습니다.
+            gridLogPaths.Invalidate();
+            gridVisionImages.Invalidate();
+            foreach (ComboBox combo in new[] { _cbLogHistory, _cbLogCompress, _cbLogDelete, _cbPathMode })
+                combo.Invalidate();
+        }
+
+        private static string DisplayChoice(string value)
+        {
+            switch (value)
+            {
+                case "ENABLE": return Lang.T("controls.log.enable");
+                case "DISABLE": return Lang.T("controls.log.disable");
+                case "ALL (single folder)": return Lang.T("controls.log.modeAll");
+                case "KIND (per type)": return Lang.T("controls.log.modeKind");
+                case "ALL LOG": return Lang.T("controls.log.all");
+                case "EVENT": return Lang.T("controls.log.event");
+                case "WARNING": return Lang.T("controls.log.warning");
+                case "ALARM": return Lang.T("controls.log.alarm");
+                case "DATA": return Lang.T("controls.log.data");
+                case "WORK": return Lang.T("controls.log.work");
+                case "INPUT SEQ": return Lang.T("controls.log.inputSequence");
+                case "FRONTHEAD SEQ": return Lang.T("controls.log.frontSequence");
+                case "REARHEAD SEQ": return Lang.T("controls.log.rearSequence");
+                case "OUTPUT SEQ": return Lang.T("controls.log.outputSequence");
+                case "OK IMAGE": return Lang.T("controls.log.goodImage");
+                case "NG IMAGE": return Lang.T("controls.log.ngImage");
+                default: return value;
+            }
         }
 
         /// <summary>
@@ -62,6 +123,8 @@ namespace QMC.CDT_320.Ui.Controls
                 Height = 86,
                 Padding = new Padding(8, 4, 8, 4)
             };
+
+            Lang.BindKey(grpDiag, "controls.log.diagnostic");
 
             var layout = new TableLayoutPanel
             {
@@ -93,6 +156,7 @@ namespace QMC.CDT_320.Ui.Controls
                 TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
                 AutoSize = true
             };
+            Lang.BindKey(lblMinutes, "controls.log.minutes");
             layout.Controls.Add(lblMinutes, 0, 1);
 
             _nDiagMinutes = new NumericUpDown
@@ -114,6 +178,7 @@ namespace QMC.CDT_320.Ui.Controls
                 UseVisualStyleBackColor = true,
                 Cursor = Cursors.Hand
             };
+            Lang.BindKey(_btnDiagEnable, "controls.log.enable");
             _btnDiagEnable.Click += (s, e) =>
             {
                 LogPolicy.EnableDiagnosticVerbose(
@@ -132,6 +197,7 @@ namespace QMC.CDT_320.Ui.Controls
                 UseVisualStyleBackColor = true,
                 Cursor = Cursors.Hand
             };
+            Lang.BindKey(_btnDiagDisable, "controls.log.disable");
             _btnDiagDisable.Click += (s, e) =>
             {
                 LogPolicy.DisableDiagnosticVerbose(QMC.CDT_320.Ui.Security.UserSession.Name);
@@ -162,7 +228,7 @@ namespace QMC.CDT_320.Ui.Controls
             // 시작 자동 활성은 만료가 없으므로 남은 시간 대신 무기한으로 표시한다. DISABLE로 해제할 수 있다.
             if (LogPolicy.IsDiagnosticVerboseUnlimited)
             {
-                _lblDiagStatus.Text = "현재: 상세 저장 중 (DiagnosticVerbose) — 시작과 동시에 자동 활성(만료 없음). DISABLE로 해제할 수 있습니다";
+                Lang.BindKey(_lblDiagStatus, "controls.log.diagnosticUnlimited");
                 _lblDiagStatus.ForeColor = System.Drawing.Color.FromArgb(230, 88, 31);
                 _btnDiagEnable.Enabled = false;
                 _btnDiagDisable.Enabled = true;
@@ -174,13 +240,12 @@ namespace QMC.CDT_320.Ui.Controls
             if (on)
             {
                 TimeSpan remain = LogPolicy.DiagnosticVerboseRemaining;
-                _lblDiagStatus.Text = "현재: 상세 저장 중 (DiagnosticVerbose) — 남은 시간 " +
-                    ((int)remain.TotalMinutes) + "분 " + remain.Seconds + "초 후 자동 해제";
+                Lang.BindFormat(_lblDiagStatus, "controls.log.diagnosticRemaining", (int)remain.TotalMinutes, remain.Seconds);
                 _lblDiagStatus.ForeColor = System.Drawing.Color.FromArgb(230, 88, 31);
             }
             else
             {
-                _lblDiagStatus.Text = "현재: 최소 저장 (ProductionMinimal) — Motion/Main 등 상세 로그는 디스크에 저장되지 않습니다";
+                Lang.BindKey(_lblDiagStatus, "controls.log.diagnosticMinimal");
                 _lblDiagStatus.ForeColor = System.Drawing.Color.FromArgb(35, 45, 57);
             }
 
@@ -281,7 +346,7 @@ namespace QMC.CDT_320.Ui.Controls
         private void ApplyInspectionDetailUi()
         {
             bool on = _chkInspectionDetail.Checked;
-            _chkInspectionDetail.Text = on ? "측정값 상세 저장  [ON]" : "측정값 상세 저장  [OFF]";
+            Lang.BindKey(_chkInspectionDetail, on ? "controls.log.detailOn" : "controls.log.detailOff");
             _chkInspectionDetail.BackColor = on
                 ? System.Drawing.Color.FromArgb(230, 88, 31)
                 : System.Drawing.Color.FromArgb(238, 238, 238);
@@ -469,7 +534,7 @@ namespace QMC.CDT_320.Ui.Controls
         {
             using (var dlg = new FolderBrowserDialog())
             {
-                dlg.Description = "경로 선택";
+                dlg.Description = Lang.T("controls.log.selectPath");
                 if (!string.IsNullOrWhiteSpace(current) && Directory.Exists(current))
                     dlg.SelectedPath = current;
                 return dlg.ShowDialog(this) == DialogResult.OK ? dlg.SelectedPath : null;

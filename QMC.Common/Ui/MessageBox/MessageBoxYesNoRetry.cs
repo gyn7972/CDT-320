@@ -1,13 +1,16 @@
 ﻿using System.Drawing;
 using System.Windows.Forms;
+using QMC.Common.Localization;
 
 namespace QMC.Common
 {
     /// <summary>
     /// 대화상자 (Yse/No)
     /// </summary>
-    public partial class MessageBoxYesNoRetry : Form
+    public partial class MessageBoxYesNoRetry : Form, ILocalizedView
     {
+        private string _originalTitle;
+
         private string[] m_ButtonText;
 
         /// <summary>
@@ -16,7 +19,7 @@ namespace QMC.Common
         public string Title
         {
             get { return this.lblTitle.Text; }
-            set { this.lblTitle.Text = value; }
+            set { _originalTitle = value; this.lblTitle.Text = MessageDialog.TitleCaption(value); }
         }
         /// <summary>
         /// 본문
@@ -36,10 +39,12 @@ namespace QMC.Common
         public MessageBoxYesNoRetry()
         {
             InitializeComponent();
+            _originalTitle = this.lblTitle.Text;
             //lblTitle.MouseMove += lblTitle_MouseDown;
             //lblTitle.MouseDown += lblTitle_MouseMove;
 
             this.m_ButtonText = new string[] { "Yes", "No", "Retry" };
+            ApplyLanguage();
             lblTitle.MouseDown += (o, e) => { if (e.Button == MouseButtons.Left) { isMouseDown = true; mouseDownLocation = e.Location; } };
             lblTitle.MouseMove += (o, e) => { if (isMouseDown) Location = new Point(Location.X + (e.X - mouseDownLocation.X), Location.Y + (e.Y - mouseDownLocation.Y)); };
             lblTitle.MouseUp += (o, e) => { if (e.Button == MouseButtons.Left) { isMouseDown = false; mouseDownLocation = e.Location; } };
@@ -64,13 +69,20 @@ namespace QMC.Common
         /// 대화상자 출력 (Modal)
         /// </summary>
         /// <returns></returns>
+        public void ApplyLanguage()
+        {
+            this.lblTitle.Text = MessageDialog.TitleCaption(_originalTitle);
+            this.buttonYes.Text = MessageDialog.ButtonCaption(m_ButtonText[0]);
+            this.buttonNo.Text = MessageDialog.ButtonCaption(m_ButtonText[1]);
+            this.buttonRetry.Text = MessageDialog.ButtonCaption(m_ButtonText[2]);
+        }
+
         public DialogResult ShowDialog(IWin32Window owner = null, string[] buttonText = null)
         {
             if (buttonText != null && 2 < buttonText.Length)
             {
-                this.buttonYes.Text = buttonText[0];
-                this.buttonNo.Text = buttonText[1];
-                this.buttonRetry.Text = buttonText[2];
+                this.m_ButtonText = (string[])buttonText.Clone();
+                ApplyLanguage();
             }
 
             return base.ShowDialog(owner);

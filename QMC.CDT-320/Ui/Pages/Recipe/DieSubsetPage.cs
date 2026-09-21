@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
@@ -18,6 +19,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         public DieSubsetPage() : base("recipe.dieSubset")
         {
             InitializeComponent();
+            InitializeRecipeLanguageBindings();
         }
 
         protected override void BuildEditor(Panel c)
@@ -419,8 +421,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ? "연결 안 됨"
                 : (File.Exists(outputBaseMap) ? Path.GetFileName(outputBaseMap) : "파일 없음: " + outputBaseMap);
 
-            _lblCurrentRecipeInfo.Text = "현재 레시피: " + recipeName +
-                "\r\nBase WaferMap : Input=" + inputMapState + " / Output=" + outputMapState;
+            Lang.BindFormat(_lblCurrentRecipeInfo, "recipeUi.dieSubsetPage._lblCurrentRecipeInfo.text", (object)(recipeName), (object)(inputMapState), (object)(outputMapState));
         }
 
         private void SetOperationStatus(string operation, string detail, bool isError)
@@ -444,6 +445,30 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (value < min) return min;
             if (value > max) return max;
             return value;
+        }
+        // Keep Designer declarations intact; language bindings only affect displayed captions.
+        private void InitializeRecipeLanguageBindings()
+        {
+            Lang.BindKey(this.grpDieSpec, "recipeUi.dieSubsetPage.grpDieSpec.text");
+            Lang.BindKey(this.lblSpecLibrary, "recipeUi.dieSubsetPage.lblSpecLibrary.text");
+            Lang.BindKey(this.btnLoadSpec, "recipeUi.dieSubsetPage.btnLoadSpec.text");
+            Lang.BindKey(this.btnSaveSpec, "recipeUi.dieSubsetPage.btnSaveSpec.text");
+            Lang.BindKey(this.lblName, "recipeUi.dieSubsetPage.lblName.text");
+            Lang.BindKey(this.lblWidth, "recipeUi.dieSubsetPage.lblWidth.text");
+            Lang.BindKey(this.lblHeight, "recipeUi.dieSubsetPage.lblHeight.text");
+            Lang.BindKey(this.lblThickness, "recipeUi.dieSubsetPage.lblThickness.text");
+            Lang.BindKey(this.grpTolerance, "recipeUi.dieSubsetPage.grpTolerance.text");
+            Lang.BindKey(this.lblWidthLower, "recipeUi.dieSubsetPage.lblWidthLower.text");
+            Lang.BindKey(this.lblWidthUpper, "recipeUi.dieSubsetPage.lblWidthUpper.text");
+            Lang.BindKey(this.lblHeightLower, "recipeUi.dieSubsetPage.lblHeightLower.text");
+            Lang.BindKey(this.lblHeightUpper, "recipeUi.dieSubsetPage.lblHeightUpper.text");
+            Lang.BindKey(this.grpVision, "recipeUi.dieSubsetPage.grpVision.text");
+            Lang.BindKey(this.lblChippingDepth, "recipeUi.dieSubsetPage.lblChippingDepth.text");
+            Lang.BindKey(this.lblChippingLength, "recipeUi.dieSubsetPage.lblChippingLength.text");
+            Lang.BindKey(this.lblForeignSize, "recipeUi.dieSubsetPage.lblForeignSize.text");
+            Lang.BindKey(this.grpSaveGuide, "recipeUi.dieSubsetPage.grpSaveGuide.text");
+            Lang.BindKey(this.lblButtonMeaning, "recipeUi.dieSubsetPage.lblButtonMeaning.text");
+            Lang.BindKey(this.grpOperationStatus, "recipeUi.dieSubsetPage.grpOperationStatus.text");
         }
     }
 }

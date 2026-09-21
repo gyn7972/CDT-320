@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Globalization;
 using System.Windows.Forms;
 using QMC.Common.Logging;
@@ -41,10 +42,18 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 InitializeComponent();
                 _freeTextMode = freeTextMode;
-                lblTitle.Text = string.IsNullOrWhiteSpace(title) ? "Parameter" : title;
+                Lang.BindKey(this, "dialog.numeric.title");
+                Lang.BindKey(btnOk, "common.ok");
+                Lang.BindKey(btnCancel, "common.cancel");
+                Lang.BindKey(btnBack, "dialog.numeric.back");
+                Lang.BindKey(btnClear, "dialog.numeric.clear");
+
+                if (string.IsNullOrWhiteSpace(title)) Lang.BindKey(lblTitle, "dialog.numeric.parameter");
+                else Lang.Bind(lblTitle, title);
                 txtValue.Text = valueText ?? string.Empty;
-                lblUnit.Text = unit ?? string.Empty;
+                Lang.Bind(lblUnit, unit ?? string.Empty);
                 txtValue.SelectAll();
+                Load += (sender, e) => Lang.Apply(this);
             }
             catch
             {
@@ -210,7 +219,7 @@ namespace QMC.CDT_320.Ui.Controls
                 double result;
                 if (!TryEvaluateExpression(txtValue.Text, out result))
                 {
-                    QMC.Common.MessageDialog.Show(this, "Calculation expression is invalid.", "Numeric Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("dialog.numeric.invalidExpression"), Lang.T("dialog.numeric.title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     txtValue.Focus();
                     txtValue.SelectAll();
                     return;
@@ -243,7 +252,7 @@ namespace QMC.CDT_320.Ui.Controls
                 double value;
                 if (!TryEvaluateExpression(txtValue.Text, out value))
                 {
-                    QMC.Common.MessageDialog.Show(this, "Number value is invalid.", "Numeric Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("dialog.numeric.invalidNumber"), Lang.T("dialog.numeric.title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     txtValue.Focus();
                     txtValue.SelectAll();
                     return;
@@ -518,5 +527,3 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
-
-

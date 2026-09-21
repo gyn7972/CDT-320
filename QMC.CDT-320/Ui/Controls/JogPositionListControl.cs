@@ -7,6 +7,8 @@ using System.Drawing;
 using System.Globalization;
 using System.Windows.Forms;
 
+using QMC.CDT_320.Ui.Localization;
+
 namespace QMC.CDT_320.Ui.Controls
 {
     public partial class JogPositionListControl : UserControl
@@ -82,7 +84,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 string message = "Jog position bind failed: " + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "JOG-POS", message);
-                QMC.Common.MessageDialog.Show(this, message, "Jog Position", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("controls.jog.positionBindFailed", ex.Message), Lang.T("controls.jog.positionTitle"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

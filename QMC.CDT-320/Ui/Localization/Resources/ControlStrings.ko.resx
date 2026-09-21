@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="controls.log.snapshot" xml:space="preserve"><value>자재 상태 스냅샷 (material_state.json)</value></data>
+  <data name="controls.log.snapshotHint" xml:space="preserve"><value>미사용 권장: 검사 측정값 상세(Measurements/Alignments)를 스냅샷에서 제외합니다.&#13;&#10;사용하면 파일이 웨이퍼 1장당 약 5배로 커지고 저장 부하가 늘어납니다. 상세는 CSV에 별도 기록됩니다.</value></data>
+  <data name="controls.log.maintenance" xml:space="preserve"><value>로그 관리</value></data>
+  <data name="controls.log.history" xml:space="preserve"><value>로그 이력 표시 (테스트)</value></data>
+  <data name="controls.log.compress" xml:space="preserve"><value>로그 압축</value></data>
+  <data name="controls.log.compressDays" xml:space="preserve"><value>압축 대기 기간 (일)</value></data>
+  <data name="controls.log.delete" xml:space="preserve"><value>압축된 로그 삭제</value></data>
+  <data name="controls.log.deleteDays" xml:space="preserve"><value>삭제 대기 기간 (일)</value></data>
+  <data name="controls.log.paths" xml:space="preserve"><value>로그 파일 경로</value></data>
+  <data name="controls.log.pathMode" xml:space="preserve"><value>로그 저장 방식</value></data>
+  <data name="controls.log.visionImages" xml:space="preserve"><value>비전 이미지 (양품 / 불량)</value></data>
+  <data name="controls.log.imageFormat" xml:space="preserve"><value>이미지 형식</value></data>
+  <data name="controls.log.type" xml:space="preserve"><value>로그 종류</value></data>
+  <data name="controls.log.filePath" xml:space="preserve"><value>파일 경로</value></data>
+  <data name="controls.log.image" xml:space="preserve"><value>이미지</value></data>
+  <data name="controls.log.imagePath" xml:space="preserve"><value>이미지 경로</value></data>
+  <data name="controls.log.enable" xml:space="preserve"><value>사용</value></data>
+  <data name="controls.log.disable" xml:space="preserve"><value>미사용</value></data>
+  <data name="controls.log.modeAll" xml:space="preserve"><value>전체 (단일 폴더)</value></data>
+  <data name="controls.log.modeKind" xml:space="preserve"><value>종류별 (개별 폴더)</value></data>
+  <data name="controls.log.all" xml:space="preserve"><value>전체 로그</value></data>
+  <data name="controls.log.event" xml:space="preserve"><value>이벤트</value></data>
+  <data name="controls.log.warning" xml:space="preserve"><value>경고</value></data>
+  <data name="controls.log.alarm" xml:space="preserve"><value>알람</value></data>
+  <data name="controls.log.data" xml:space="preserve"><value>데이터</value></data>
+  <data name="controls.log.work" xml:space="preserve"><value>작업</value></data>
+  <data name="controls.log.inputSequence" xml:space="preserve"><value>투입 시퀀스</value></data>
+  <data name="controls.log.frontSequence" xml:space="preserve"><value>전방 헤드 시퀀스</value></data>
+  <data name="controls.log.rearSequence" xml:space="preserve"><value>후방 헤드 시퀀스</value></data>
+  <data name="controls.log.outputSequence" xml:space="preserve"><value>배출 시퀀스</value></data>
+  <data name="controls.log.goodImage" xml:space="preserve"><value>양품 이미지</value></data>
+  <data name="controls.log.ngImage" xml:space="preserve"><value>불량 이미지</value></data>
+  <data name="controls.log.diagnostic" xml:space="preserve"><value>진단 상세 로그 (즉시 적용)</value></data>
+  <data name="controls.log.minutes" xml:space="preserve"><value>지속 시간 (분)</value></data>
+  <data name="controls.log.diagnosticUnlimited" xml:space="preserve"><value>상세 저장 중 (DiagnosticVerbose): 시작 시 자동 활성화되며 만료되지 않습니다. 미사용을 누르면 해제됩니다.</value></data>
+  <data name="controls.log.diagnosticRemaining" xml:space="preserve"><value>상세 저장 중 (DiagnosticVerbose): {0}분 {1}초 후 자동 해제됩니다.</value></data>
+  <data name="controls.log.diagnosticMinimal" xml:space="preserve"><value>최소 저장 중 (ProductionMinimal): Motion/Main 등 상세 로그는 디스크에 저장되지 않습니다.</value></data>
+  <data name="controls.log.detailOn" xml:space="preserve"><value>측정값 상세 저장 [사용]</value></data>
+  <data name="controls.log.detailOff" xml:space="preserve"><value>측정값 상세 저장 [미사용]</value></data>
+  <data name="controls.log.selectPath" xml:space="preserve"><value>경로 선택</value></data>
+  <data name="controls.map.goodStage" xml:space="preserve"><value>양품 스테이지</value></data>
+  <data name="controls.map.ngStage" xml:space="preserve"><value>불량 스테이지</value></data>
+  <data name="controls.map.outputFeeder" xml:space="preserve"><value>배출 피더</value></data>
+  <data name="controls.map.finish" xml:space="preserve"><value>완료</value></data>
+  <data name="controls.map.heldFront" xml:space="preserve"><value>전방 피커 {0} 보유</value></data>
+  <data name="controls.map.heldRear" xml:space="preserve"><value>후방 피커 {0} 보유</value></data>
+  <data name="controls.map.reservedFront" xml:space="preserve"><value>전방 피커 {0} 예약</value></data>
+  <data name="controls.map.reservedRear" xml:space="preserve"><value>후방 피커 {0} 예약</value></data>
+  <data name="controls.cassette.title" xml:space="preserve"><value>카세트</value></data>
+  <data name="controls.cassette.summary" xml:space="preserve"><value>슬롯 {0} / 웨이퍼 {1}</value></data>
+  <data name="controls.cassette.move" xml:space="preserve"><value>이동</value></data>
+  <data name="controls.cassette.moveSlot" xml:space="preserve"><value>슬롯 {0} 이동</value></data>
+  <data name="controls.cassette.empty" xml:space="preserve"><value>비어 있음</value></data>
+  <data name="controls.cassette.ready" xml:space="preserve"><value>준비</value></data>
+  <data name="controls.cassette.working" xml:space="preserve"><value>작업 중</value></data>
+  <data name="controls.cassette.finish" xml:space="preserve"><value>완료</value></data>
+  <data name="controls.cassette.workReady" xml:space="preserve"><value>작업 준비</value></data>
+  <data name="controls.cassette.currentReady" xml:space="preserve"><value>현재 / 준비</value></data>
+  <data name="controls.cassette.currentEmpty" xml:space="preserve"><value>현재 / 비어 있음</value></data>
+  <data name="controls.action.select" xml:space="preserve"><value>선택</value></data>
+  <data name="controls.action.selected" xml:space="preserve"><value>선택됨</value></data>
+  <data name="controls.jog.move" xml:space="preserve"><value>이동</value></data>
+  <data name="controls.jog.fine" xml:space="preserve"><value>저속</value></data>
+  <data name="controls.jog.coarse" xml:space="preserve"><value>고속</value></data>
+  <data name="controls.jog.moveMode" xml:space="preserve"><value>이동 방식</value></data>
+  <data name="controls.jog.continuous" xml:space="preserve"><value>연속</value></data>
+  <data name="controls.jog.step" xml:space="preserve"><value>지정 거리</value></data>
+  <data name="controls.jog.stop" xml:space="preserve"><value>정지</value></data>
+  <data name="controls.jog.speedMode" xml:space="preserve"><value>속도 방식</value></data>
+  <data name="controls.jog.current" xml:space="preserve"><value>현재 속도</value></data>
+  <data name="controls.jog.title" xml:space="preserve"><value>조그</value></data>
+  <data name="controls.jog.axisTitle" xml:space="preserve"><value>축 조그</value></data>
+  <data name="controls.jog.positionTitle" xml:space="preserve"><value>조그 위치</value></data>
+  <data name="controls.jog.homeRequired" xml:space="preserve"><value>{0} 조그 불가: HOME END가 완료되지 않았습니다. 원점복귀가 필요합니다.</value></data>
+  <data name="controls.jog.positionBindFailed" xml:space="preserve"><value>조그 위치 연결 실패: {0}</value></data>
+  <data name="controls.config.title" xml:space="preserve"><value>유닛 설정</value></data>
+  <data name="controls.config.property" xml:space="preserve"><value>항목</value></data>
+  <data name="controls.config.value" xml:space="preserve"><value>값</value></data>
+  <data name="controls.config.applySave" xml:space="preserve"><value>적용 및 저장</value></data>
+  <data name="controls.config.reload" xml:space="preserve"><value>다시 불러오기</value></data>
+  <data name="controls.config.saved" xml:space="preserve"><value>설정을 저장했습니다.</value></data>
+  <data name="controls.config.saveFailed" xml:space="preserve"><value>저장 실패: {0}</value></data>
+  <data name="controls.config.loadFailed" xml:space="preserve"><value>불러오기 실패: {0}</value></data>
+  <data name="controls.manual.title" xml:space="preserve"><value>수동 동작</value></data>
+  <data name="controls.command.title" xml:space="preserve"><value>동작 명령</value></data>
+  <data name="controls.io.title" xml:space="preserve"><value>입출력 패널</value></data>
+  <data name="controls.io.setFailed" xml:space="preserve"><value>입출력 패널 구성 실패: {0}&#13;&#10;{1}</value></data>
+  <data name="controls.io.refreshFailed" xml:space="preserve"><value>입출력 패널 갱신 실패: {0}&#13;&#10;{1}</value></data>
+  <data name="controls.io.rowAddFailed" xml:space="preserve"><value>입출력 행 추가 실패: {0}&#13;&#10;{1}</value></data>
+  <data name="controls.io.rowRefreshFailed" xml:space="preserve"><value>입출력 행 갱신 실패: {0}&#13;&#10;{1}</value></data>
+  <data name="controls.io.outputFailed" xml:space="preserve"><value>{0} 출력에 실패했습니다.</value></data>
+  <data name="controls.io.commandFailed" xml:space="preserve"><value>{0}의 {1} 명령에 실패했습니다.</value></data>
+  <data name="controls.io.forceFlow" xml:space="preserve"><value>FLOW 강제 켜짐</value></data>
+  <data name="controls.manual.setFailed" xml:space="preserve"><value>수동 동작 구성 실패: {0}&#13;&#10;{1}</value></data>
+  <data name="controls.command.bindFailed" xml:space="preserve"><value>동작 명령 연결 실패: {0}</value></data>
+  <data name="controls.command.failed" xml:space="preserve"><value>{0} 동작 실패. 결과={1}</value></data>
+</root>

@@ -76,6 +76,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             _i18nTitle = titleI18n;
             InitializeComponent();
+            InitializeLanguageBindings();
             AssignStableControlNames();
             ConfigureOutputDesignerText();
             ApplyTitle();
@@ -111,59 +112,59 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             lblHeader.Tag = "i18n:" + _i18nTitle;
             lblHeader.Text = Lang.T(_i18nTitle);
-            lblMapTitle.Text = "OUTPUT GOOD RECEIVE MAP";
-            grpReceiveMap.Text = "OUTPUT GOOD RECEIVE MAP";
-            grpDieGrid.Text = "OUTPUT GOOD RECEIVE MAP DGV";
-            grpAction.Text = "ACTION";
-            mapView.Caption = "OUTPUT GOOD RECEIVE MAP";
+            WorkMapText.Bind(lblMapTitle, "OUTPUT GOOD RECEIVE MAP");
+            WorkMapText.Bind(grpReceiveMap, "OUTPUT GOOD RECEIVE MAP");
+            WorkMapText.Bind(grpDieGrid, "OUTPUT GOOD RECEIVE MAP DGV");
+            WorkMapText.Bind(grpAction, "ACTION");
+            WorkMapText.Bind(mapView, "OUTPUT GOOD RECEIVE MAP");
             // 현재 기준: 출력 전환 화면도 공통 DieMapView 표시 옵션으로 맞춘다.
             mapView.EntryVisibilityPredicate = IsVisibleOutputMapEntry;
             mapView.CellColorResolver = entry => WaferMapDisplayStyle.GetColor(ResolveOutputDisplayState(entry));
             mapView.CellStatusResolver = ResolveOutputDieGridStateText;
             mapView.LegendItemsResolver = WaferMapDisplayStyle.BuildLegend;
 
-            rbStandard.Text = "GOOD";
-            rbStartIndex.Text = "NG";
-            rbSelectPickStatus.Text = "WAIT / 대기";
-            rbDragPickStatus.Text = "SKIP / 제외";
+            WorkMapText.Bind(rbStandard, "GOOD");
+            WorkMapText.Bind(rbStartIndex, "NG");
+            WorkMapText.Bind(rbSelectPickStatus, "WAIT / 대기");
+            WorkMapText.Bind(rbDragPickStatus, "SKIP / 제외");
             if (rdoOutputStateGood != null)
-                rdoOutputStateGood.Text = "GOOD / 완료";
+                WorkMapText.Bind(rdoOutputStateGood, "GOOD / 완료");
             if (rdoOutputStateNg != null)
-                rdoOutputStateNg.Text = "NG / 불량";
+                WorkMapText.Bind(rdoOutputStateNg, "NG / 불량");
             if (btnApplyOutputDieState != null)
-                btnApplyOutputDieState.Text = "APPLY SELECTED STATE";
+                WorkMapText.Bind(btnApplyOutputDieState, "APPLY SELECTED STATE");
             rbStandard.Checked = true;
             rbSelectPickStatus.Checked = true;
             rbSelectPickStatus.Enabled = true;
             rbDragPickStatus.Enabled = true;
 
-            grpMapInfo.Text = "BIN / DIE INFO";
-            grpMode.Text = "OUTPUT STAGE";
-            lblBarcodeCaption.Text = "Source Wafer :";
-            lblBinCaption.Text = "Side :";
-            lblChipWCaption.Text = "Die Size X (mm)";
-            lblChipHCaption.Text = "Die Size Y (mm)";
-            lblPitchXCaption.Text = "Pitch Gap X (mm)";
-            lblPitchYCaption.Text = "Pitch Gap Y (mm)";
-            lblWaferDiaCaption.Text = "Wafer Diameter (mm)";
-            lblAxisXCaption.Text = "맵 X";
-            lblAxisYCaption.Text = "맵 Y";
-            lblBinRankCaption.Text = "BIN";
-            lblDieNumCaption.Text = "공정 순서";
+            WorkMapText.Bind(grpMapInfo, "BIN / DIE INFO");
+            WorkMapText.Bind(grpMode, "OUTPUT STAGE");
+            WorkMapText.Bind(lblBarcodeCaption, "Source Wafer :");
+            WorkMapText.Bind(lblBinCaption, "Side :");
+            WorkMapText.Bind(lblChipWCaption, "Die Size X (mm)");
+            WorkMapText.Bind(lblChipHCaption, "Die Size Y (mm)");
+            WorkMapText.Bind(lblPitchXCaption, "Pitch Gap X (mm)");
+            WorkMapText.Bind(lblPitchYCaption, "Pitch Gap Y (mm)");
+            WorkMapText.Bind(lblWaferDiaCaption, "Wafer Diameter (mm)");
+            WorkMapText.Bind(lblAxisXCaption, "맵 X");
+            WorkMapText.Bind(lblAxisYCaption, "맵 Y");
+            WorkMapText.Bind(lblBinRankCaption, "BIN");
+            WorkMapText.Bind(lblDieNumCaption, "공정 순서");
 
-            btnReloadActiveMap.Text = "RELOAD OUTPUT DIE MAP";
-            btnPickStatusSave.Text = "MOVE SELECTED SLOT";
-            btnManualAlignComplete.Text = "GOOD PLAN INIT";
-            btnNeedleBlockDown.Text = "NG PLAN INIT";
-            btnThetaMatchMove.Text = "SAVE MATERIAL STATE";
-            btnXyMatchMove.Text = "REFRESH DISPLAY";
+            WorkMapText.Bind(btnReloadActiveMap, "RELOAD OUTPUT DIE MAP");
+            WorkMapText.Bind(btnPickStatusSave, "MOVE SELECTED SLOT");
+            WorkMapText.Bind(btnManualAlignComplete, "GOOD PLAN INIT");
+            WorkMapText.Bind(btnNeedleBlockDown, "NG PLAN INIT");
+            WorkMapText.Bind(btnThetaMatchMove, "SAVE MATERIAL STATE");
+            WorkMapText.Bind(btnXyMatchMove, "REFRESH DISPLAY");
 
             if (gridDieList != null)
                 gridDieList.ColumnHeadersHeight = Math.Max(gridDieList.ColumnHeadersHeight, 32);
             if (colIndex != null)
-                colIndex.HeaderText = "Index";
+                WorkMapText.Bind(colIndex, "Index");
             if (colTarget != null)
-                colTarget.HeaderText = "State";
+                WorkMapText.Bind(colTarget, "State");
         }
 
 
@@ -271,8 +272,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "Output Die Map 더블클릭 MOVE SELECTED SLOT 처리 중 예외가 발생했습니다. error=" +
                     ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(this,
-                    "더블클릭 MOVE SELECTED SLOT 처리에 실패했습니다.\r\n" + ex.Message,
-                    "Output Stage Map",
+                    Lang.Format("workMessage.text.85", (object)(ex.Message)),
+                    Lang.T("workMessage.text.86"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -1082,17 +1083,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 string sideText = _selectedSide == BinSide.Ng ? "NG" : "GOOD";
                 DieMapGenerator.Normalize(map);
-                lblAxisYCaption.Text = "맵 Y";
-                mapView.Caption = "OUTPUT " + sideText + " RECEIVE MAP";
+                WorkMapText.Bind(lblAxisYCaption, "맵 Y");
+                WorkMapText.Bind(mapView, "OUTPUT " + sideText + " RECEIVE MAP");
                 mapView.Map = map;
                 _selectedEntry = null;
 
-                lblMapTitle.Text = "OUTPUT " + sideText + " RECEIVE MAP";
+                WorkMapText.Bind(lblMapTitle, "OUTPUT " + sideText + " RECEIVE MAP");
                 lblProjectValue.Text = GetCurrentProjectName();
                 lblBarcodeValue.Text = sourceWafer != null ? sourceWafer.WaferId : "-";
-                lblBinValue.Text = sideText;
-                grpMapInfo.Text = "BIN / DIE INFO   Grid " + map.DieMapX + "x" + map.DieMapY +
-                    "   Progress " + BuildProgressText(outputWafer, map);
+                WorkMapText.Bind(lblBinValue, sideText);
+                Lang.BindFormat(grpMapInfo, "workMap.outputProgress", map.DieMapX, map.DieMapY, BuildProgressText(outputWafer, map));
                 lblChipW.Text = map != null ? map.DieSizeX.ToString("F4") : "0";
                 lblChipH.Text = map != null ? map.DieSizeY.ToString("F4") : "0";
                 lblPitchX.Text = map != null
@@ -1105,7 +1105,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 lblAxisX.Text = "-";
                 lblAxisY.Text = "-";
                 lblBinRank.Text = "-";
-                lblDieNum.Text = "-";
+                WorkMapText.Bind(lblDieNum, "-");
 
                 RefreshDieGrid();
                 SelectNextReceiveRow(outputWafer);
@@ -1166,10 +1166,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return false;
 
                 string sideText = _selectedSide == BinSide.Ng ? "NG" : "GOOD";
-                grpMapInfo.Text = "BIN / DIE INFO   Grid " + currentMap.DieMapX + "x" + currentMap.DieMapY +
-                    "   Progress " + BuildProgressText(outputWafer, currentMap);
+                Lang.BindFormat(grpMapInfo, "workMap.outputProgress", currentMap.DieMapX, currentMap.DieMapY, BuildProgressText(outputWafer, currentMap));
                 lblBarcodeValue.Text = sourceWafer != null ? sourceWafer.WaferId : "-";
-                lblBinValue.Text = sideText;
+                WorkMapText.Bind(lblBinValue, sideText);
 
                 if (_selectedEntry != null)
                     SetOutputStateRadioFromEntry(_selectedEntry);
@@ -1254,13 +1253,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             _outputDisplayResults.Clear();
             _selectedEntry = null;
             mapView.Map = null;
-            mapView.Caption = "OUTPUT " + sideText + " RECEIVE MAP";
-            lblAxisYCaption.Text = "맵 Y";
-            lblMapTitle.Text = "OUTPUT " + sideText + " RECEIVE MAP";
+            WorkMapText.Bind(mapView, "OUTPUT " + sideText + " RECEIVE MAP");
+            WorkMapText.Bind(lblAxisYCaption, "맵 Y");
+            WorkMapText.Bind(lblMapTitle, "OUTPUT " + sideText + " RECEIVE MAP");
             lblProjectValue.Text = GetCurrentProjectName();
             lblBarcodeValue.Text = sourceWafer != null ? sourceWafer.WaferId : "-";
-            lblBinValue.Text = _selectedSide == BinSide.Ng ? "NG" : "GOOD";
-            grpMapInfo.Text = "BIN / DIE INFO   NO MAP";
+            WorkMapText.Bind(lblBinValue, _selectedSide == BinSide.Ng ? "NG" : "GOOD");
+            WorkMapText.Bind(grpMapInfo, "BIN / DIE INFO   NO MAP");
             lblChipW.Text = "0";
             lblChipH.Text = "0";
             lblPitchX.Text = "0";
@@ -1269,7 +1268,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             lblAxisX.Text = "-";
             lblAxisY.Text = "-";
             lblBinRank.Text = "-";
-            lblDieNum.Text = "NO MAP";
+            WorkMapText.Bind(lblDieNum, "NO MAP");
             RefreshDieGrid();
         }
 
@@ -1400,7 +1399,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             lblAxisX.Text = WaferMapProcessService.FormatMapCoordinate(entry.LogicalGridX);
             lblAxisY.Text = WaferMapProcessService.FormatMapCoordinate(entry.LogicalGridY);
             lblBinRank.Text = entry.BinCode.ToString();
-            lblDieNum.Text = entry.SequenceNo > 0 ? entry.SequenceNo.ToString() : "-";
+            WorkMapText.Bind(lblDieNum, entry.SequenceNo > 0 ? entry.SequenceNo.ToString() : "-");
         }
 
         private static string FormatEquipmentGrid(double value)
@@ -1508,8 +1507,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMap map = mapView != null ? mapView.Map : null;
                 if (map == null || map.Entries == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "상태를 변경할 Output Die Map 데이터가 없습니다.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.87"),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -1517,25 +1516,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!CanEditOutputDieState(out reason))
                 {
                     QMC.Common.MessageDialog.Show(this, reason,
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 List<DieMapEntry> entries = ResolveSelectedOutputDieEntries(map);
                 if (entries.Count <= 0)
                 {
-                    QMC.Common.MessageDialog.Show(this, "상태를 변경할 Die를 먼저 선택하세요.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.80"),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 OutputDieManualState state = ResolveSelectedOutputDieManualState();
                 string stateText = ResolveOutputManualStateDisplayName(state);
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    "선택 Output Die " + entries.Count + "개 상태를 [" + stateText + "]로 변경하시겠습니까?\r\n" +
-                    "첫 Die=" + BuildEntryMapText(entries[0]) + "\r\n" +
-                    "UID=" + (entries[0].DieUid ?? ""),
-                    "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    Lang.Format("workMessage.text.88", (object)(entries.Count), (object)(WorkMapMessageText.DisplayKnown(stateText)), (object)(BuildEntryMapText(entries[0])), (object)((entries[0].DieUid ?? ""))),
+                    Lang.T("workMessage.text.86"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
@@ -1557,15 +1554,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 _lastMapSignature = null;
                 ReloadOutputMap();
-                QMC.Common.MessageDialog.Show(this, "선택 Output Die " + entries.Count + "개 상태 변경 완료.",
-                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.89", (object)(entries.Count)),
+                    Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
                     "Output Die 상태 변경 실패: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "Output Die 상태 변경 실패:\r\n" + ex.Message,
-                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.90", (object)(ex.Message)),
+                    Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -2003,6 +2000,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             try
             {
                 _gridMoveMenuItem = new ToolStripMenuItem("MOVE VISION/STAGE");
+                WorkMapText.Bind(_gridMoveMenuItem, "MOVE VISION/STAGE");
                 _gridMoveMenuItem.Click += async (s, e) => await MoveSelectedBinSlotAsync().ConfigureAwait(true);
 
                 _gridMenu = new ContextMenuStrip();
@@ -2038,12 +2036,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ToolStripMenuItem BuildPickerMoveMenu(string title, PickerSequenceSide side, out ToolStripMenuItem[] items)
         {
             ToolStripMenuItem root = new ToolStripMenuItem(title);
+            WorkMapText.Bind(root, title);
             items = new ToolStripMenuItem[4];
 
             for (int i = 0; i < items.Length; i++)
             {
                 int pickerNo = i + 1;
                 ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
+                Lang.BindFormat(item, "workMap.pickerNumber", pickerNo);
                 item.Click += async (s, e) => await MoveSelectedSlotByPickerAsync(side, pickerNo).ConfigureAwait(true);
                 items[i] = item;
                 root.DropDownItems.Add(item);
@@ -2055,12 +2055,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ToolStripMenuItem BuildPickerPlaceTestMenu(string title, PickerSequenceSide side, out ToolStripMenuItem[] items)
         {
             ToolStripMenuItem root = new ToolStripMenuItem(title);
+            WorkMapText.Bind(root, title);
             items = new ToolStripMenuItem[4];
 
             for (int i = 0; i < items.Length; i++)
             {
                 int pickerNo = i + 1;
                 ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
+                Lang.BindFormat(item, "workMap.pickerNumber", pickerNo);
                 item.Click += (s, e) => ShowPlaceTestDialogForSelectedOutputSlot(side, pickerNo);
                 items[i] = item;
                 root.DropDownItems.Add(item);
@@ -2111,16 +2113,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMapEntry entry = _selectedEntry;
                 if (entry == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "Place Test 대상 Output Slot이 선택되지 않았습니다.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.91"),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 Form1 host = FindForm() as Form1;
                 if (host == null || host.Controller == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "Place Test를 실행할 Controller 정보를 찾을 수 없습니다.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.92"),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2150,8 +2152,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
                     "Place Test dialog open failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "Place Test 다이얼로그 실행 실패:\r\n" + ex.Message,
-                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.93", (object)(ex.Message)),
+                    Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -2222,23 +2224,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMapEntry entry = _selectedEntry;
                 if (entry == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "이동할 빈 슬롯이 선택되지 않았습니다.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.94"),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 if (host == null || host.Machine == null || host.Machine.OutputStageUnit == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "OutputStage 장비 정보를 찾을 수 없습니다.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.95"),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 OutputStageUnit unit = host.Machine.OutputStageUnit;
                 if (unit.Recipe == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "OutputStage 레시피 정보를 찾을 수 없습니다.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.96"),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
                 unit.Recipe.EnsurePositionObjects();
@@ -2249,9 +2251,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 JogSpeedType speedType;
                 if (!ConfirmManualMapMoveSpeed(
                     this,
-                    "Output Stage Map",
-                    "빈 슬롯 " + BuildEntryMapText(entry) + "의 좌표로 이동하시겠습니까?\r\n" +
-                    "X(VisionX)=" + absX.ToString("F3") + " mm, Y(StageY)=" + absY.ToString("F3") + " mm",
+                    Lang.T("workMessage.text.86"),
+                    Lang.Format("workMessage.text.115", (object)(BuildEntryMapText(entry)), (object)(absX.ToString("F3")), (object)(absY.ToString("F3"))),
                     out speedType))
                 {
                     return;
@@ -2273,9 +2274,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (prepareResult != 0)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "출력 이동 전 Picker Avoid 준비 실패\r\nresult=" + prepareResult +
-                        "\r\nAlarm/Event Log를 확인하세요.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.97", (object)(prepareResult)),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2289,8 +2289,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (rowResult != 0)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "빈 슬롯 행(Y) 이동 실패\r\nresult=" + rowResult + "\r\nAlarm/Event Log를 확인하세요.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.98", (object)(rowResult)),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2303,21 +2303,21 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (colResult != 0)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "빈 슬롯 열(VisionX) 이동 실패\r\nresult=" + colResult + "\r\nAlarm/Event Log를 확인하세요.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.99", (object)(colResult)),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 ApplySelectedOutputCoordinateInfo(entry);
-                QMC.Common.MessageDialog.Show(this, "선택 빈 슬롯 좌표 이동 완료.",
-                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.100"),
+                    Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
                     "Output bin slot move failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "선택 빈 슬롯 좌표 이동 실패:\r\n" + ex.Message,
-                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.101", (object)(ex.Message)),
+                    Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -2348,15 +2348,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMapEntry entry = _selectedEntry;
                 if (entry == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "이동할 빈 슬롯이 선택되지 않았습니다.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.94"),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 if (host == null || host.Machine == null || host.Machine.OutputStageUnit == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "OutputStage 장비 정보를 찾을 수 없습니다.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.95"),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -2364,24 +2364,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 string reason;
                 if (!TryResolveOutputPlaceManualTargets(host, _selectedSide, side, pickerNo, entry, out targets, out reason))
                 {
-                    QMC.Common.MessageDialog.Show(this, "Picker Place 좌표를 계산할 수 없습니다.\r\n" + reason,
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.102", (object)(reason)),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 JogSpeedType speedType;
                 if (!ConfirmManualMapMoveSpeed(
                     this,
-                    "Output Stage Map",
-                    ResolvePickerMoveTitle(side, pickerNo) + "를 선택 빈 슬롯 Place 위치로 이동하시겠습니까?\r\n" +
-                    "Slot=" + BuildEntryMapText(entry) + "\r\n" +
-                    "StageY=" + targets.OutputStageY.ToString("F3") + " mm\r\n" +
-                    "PickerX=" + targets.PickerX.ToString("F3") + " mm\r\n" +
-                    "PickerY=" + targets.PickerY.ToString("F3") + " mm\r\n" +
-                    "PickerY Forward=" + targets.PickerYForward.ToString("F3") + " mm\r\n" +
-                    "PickerT=" + targets.PickerT.ToString("F3") + " deg\r\n" +
-                    "Formula=" + (targets.Formula ?? string.Empty) + "\r\n" +
-                    "PickerZ는 이동하지 않습니다.",
+                    Lang.T("workMessage.text.86"),
+                    Lang.Format("workMessage.text.116", (object)(WorkMapMessageText.DisplayKnown(ResolvePickerMoveTitle(side, pickerNo))), (object)(BuildEntryMapText(entry)), (object)(targets.OutputStageY.ToString("F3")), (object)(targets.PickerX.ToString("F3")), (object)(targets.PickerY.ToString("F3")), (object)(targets.PickerYForward.ToString("F3")), (object)(targets.PickerT.ToString("F3")), (object)((targets.Formula ?? string.Empty))),
                     out speedType))
                 {
                     return;
@@ -2402,23 +2394,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (result != 0)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        ResolvePickerMoveTitle(side, pickerNo) + " Place 보기 위치 이동 실패\r\nresult=" + result +
-                        "\r\nAlarm/Event Log를 확인하세요.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("workMessage.text.103", (object)(WorkMapMessageText.DisplayKnown(ResolvePickerMoveTitle(side, pickerNo))), (object)(result)),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 ApplySelectedOutputCoordinateInfo(entry);
                 QMC.Common.MessageDialog.Show(this,
-                    ResolvePickerMoveTitle(side, pickerNo) + " Place 보기 위치 이동 완료.",
-                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    Lang.Format("workMessage.text.104", (object)(WorkMapMessageText.DisplayKnown(ResolvePickerMoveTitle(side, pickerNo)))),
+                    Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
                     "Output picker place view move failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "Picker Place 보기 위치 이동 실패:\r\n" + ex.Message,
-                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.105", (object)(ex.Message)),
+                    Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -3285,8 +3276,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 string sideText = side == BinSide.Ng ? "NG" : "GOOD";
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    "Output " + sideText + " Stage receive plan을 InputStage Die Map 기준으로 초기화하시겠습니까?",
-                    "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    Lang.Format("workMessage.text.106", (object)(WorkMapMessageText.DisplayKnown(sideText))),
+                    Lang.T("workMessage.text.86"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
@@ -3295,20 +3286,20 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!ok)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "Receive plan 초기화 실패.\r\nOutputStage Bin Data와 InputStage Die Map을 확인하세요.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("workMessage.text.107"),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                QMC.Common.MessageDialog.Show(this, "Receive plan 초기화 완료.",
-                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.108"),
+                    Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
                     "Output receive plan initialize failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "Receive plan 초기화 실패:\r\n" + ex.Message,
-                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.109", (object)(ex.Message)),
+                    Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -3323,9 +3314,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             try
             {
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    "현재 Material 상태를 저장하시겠습니까?\r\n" +
-                    "화면 맵으로 슬롯을 다시 만들지 않고, 기록된 검사·추적 정보를 저장합니다.",
-                    "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    Lang.T("workMessage.text.110"),
+                    Lang.T("workMessage.text.86"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
@@ -3347,16 +3337,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (IsDisposed || Disposing || !IsHandleCreated)
                     return;
 
-                QMC.Common.MessageDialog.Show(this, "Material 상태 저장 완료.\r\n검사·추적 정보를 그대로 저장했습니다.",
-                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                QMC.Common.MessageDialog.Show(this, Lang.T("workMessage.text.111"),
+                    Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
                     "Output Material 상태 저장 실패: " + ex.Message + " - Failed");
                 if (!IsDisposed && !Disposing && IsHandleCreated)
-                    QMC.Common.MessageDialog.Show(this, "Material 상태 저장 실패:\r\n" + ex.Message,
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    QMC.Common.MessageDialog.Show(this, Lang.Format("workMessage.text.112", (object)(ex.Message)),
+                        Lang.T("workMessage.text.86"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -3603,5 +3593,53 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             base.OnHandleDestroyed(e);
         }
+        private void InitializeLanguageBindings()
+        {
+            WorkMapText.Bind(grpReceiveMap, "OUTPUT GOOD RECEIVE MAP");
+            WorkMapText.Bind(mapView, "OUTPUT GOOD RECEIVE MAP");
+            WorkMapText.Bind(grpMapInfo, "BIN / DIE INFO");
+            WorkMapText.Bind(lblProjectCaption, "Project Name");
+            WorkMapText.Bind(lblBarcodeCaption, "Source Wafer :");
+            WorkMapText.Bind(lblBinCaption, "Side :");
+            WorkMapText.Bind(lblChipWCaption, "Grid X");
+            WorkMapText.Bind(lblChipHCaption, "Grid Y");
+            WorkMapText.Bind(lblPitchXCaption, "Center Step X");
+            WorkMapText.Bind(lblPitchYCaption, "Center Step Y");
+            WorkMapText.Bind(lblWaferDiaCaption, "Progress");
+            WorkMapText.Bind(lblBinRankCaption, "Bin / State");
+            WorkMapText.Bind(lblDieNumCaption, "Next Target");
+            WorkMapText.Bind(grpMode, "OUTPUT STAGE");
+            WorkMapText.Bind(rbStandard, "GOOD");
+            WorkMapText.Bind(rbStartIndex, "NG");
+            WorkMapText.Bind(rbSelectPickStatus, "WAIT / 대기");
+            WorkMapText.Bind(rbDragPickStatus, "SKIP / 제외");
+            WorkMapText.Bind(rdoOutputStateGood, "GOOD / 완료");
+            WorkMapText.Bind(rdoOutputStateNg, "NG / 불량");
+            WorkMapText.Bind(grpOutputDieState, "DIE STATE EDIT");
+            WorkMapText.Bind(btnReloadActiveMap, "RELOAD OUTPUT DIE MAP");
+            WorkMapText.Bind(btnPickStatusSave, "MOVE SELECTED SLOT");
+            WorkMapText.Bind(btnApplyOutputDieState, "APPLY SELECTED STATE");
+            WorkMapText.Bind(grpAction, "ACTION");
+            WorkMapText.Bind(btnManualAlignComplete, "GOOD PLAN INIT");
+            WorkMapText.Bind(btnNeedleBlockDown, "NG PLAN INIT");
+            WorkMapText.Bind(btnThetaMatchMove, "SAVE MATERIAL STATE");
+            WorkMapText.Bind(btnXyMatchMove, "REFRESH DISPLAY");
+            WorkMapText.Bind(lblHeader, "OUTPUT GOOD RECEIVE MAP");
+            WorkMapText.Bind(lblMapTitle, "OUTPUT GOOD RECEIVE MAP");
+            WorkMapText.Bind(btnClose, "CLOSE");
+            WorkMapText.Bind(colIndex, "Index");
+            WorkMapText.Bind(colGridX, "맵 X");
+            WorkMapText.Bind(colGridY, "맵 Y");
+            WorkMapText.Bind(colEquipmentGridX, "Grid X");
+            WorkMapText.Bind(colEquipmentGridY, "Grid Y");
+            WorkMapText.Bind(colTarget, "State");
+            WorkMapText.Bind(colResult, "Result");
+            WorkMapText.Bind(colBin, "Bin");
+            WorkMapText.Bind(colAxisX, "Process X(mm)");
+            WorkMapText.Bind(colAxisY, "Process Y(mm)");
+            WorkMapText.Bind(colDieUid, "Die UID");
+            Lang.BindReadOnlyCells(gridDieList, WorkMapText.DisplayCellState, cell => cell.ColumnIndex == colTarget.Index || cell.ColumnIndex == colResult.Index);
+        }
+
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Windows.Forms;
+﻿using QMC.CDT_320.Ui.Localization;
+using System.Windows.Forms;
 using QMC.CDT320.Recipes;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
@@ -8,6 +9,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         public UnloadTapeFrameSubsetPage() : base("recipe.unloadFrame")
         {
             InitializeComponent();
+            InitializeRecipeLanguageBindings();
         }
 
         protected override void BuildEditor(Panel c)
@@ -32,5 +34,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             u.GapUpperLimit = (double)_nUpper.Value;
             u.GapLowerLimit = (double)_nLower.Value;
         }
+        // Keep Designer declarations intact; language bindings only affect displayed captions.
+        private void InitializeRecipeLanguageBindings()
+        {
+            Lang.BindChoices(_cbRole, FormatRecipeChoice);
+            Lang.BindKey(this.grpUnload, "recipeUi.unloadTapeFrameSubsetPage.grpUnload.text");
+            Lang.BindKey(this.lblRole, "recipeUi.loadTapeFrameSubsetPage.lblRole.text");
+            Lang.BindKey(this.lblGapInspection, "recipeUi.unloadTapeFrameSubsetPage.lblGapInspection.text");
+            Lang.BindKey(this._cbGapInsp, "recipeUi.unloadTapeFrameSubsetPage._cbGapInsp.text");
+            Lang.BindKey(this.lblGapUpper, "recipeUi.unloadTapeFrameSubsetPage.lblGapUpper.text");
+            Lang.BindKey(this.lblGapLower, "recipeUi.unloadTapeFrameSubsetPage.lblGapLower.text");
+        }
+        private static string FormatRecipeChoice(string value)
+        {
+            switch (value)
+            {
+                case "Load": return Lang.T("recipeUi.choice.load");
+                case "GoodUnload": return Lang.T("recipeUi.choice.goodUnload");
+                case "NgUnload": return Lang.T("recipeUi.choice.ngUnload");
+                default: return value;
+            }
+        }
+
     }
 }

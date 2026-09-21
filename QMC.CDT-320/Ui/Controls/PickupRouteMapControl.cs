@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -11,7 +12,7 @@ using QMC.CDT_320.Ui.Common.WaferMaps;
 namespace QMC.CDT_320.Ui.Controls
 {
     /// <summary>순서 표시 전용 맵. 클릭/재생/더블클릭에서 장비 동작을 요청하지 않는다.</summary>
-    public sealed partial class PickupRouteMapControl : Control
+    public sealed partial class PickupRouteMapControl : Control, ILocalizedView
     {
         private readonly Dictionary<string, int> _ranks = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private PickupOrderDraft _draft;
@@ -43,6 +44,11 @@ namespace QMC.CDT_320.Ui.Controls
             InitializeComponent();
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
                 ControlStyles.ResizeRedraw | ControlStyles.UserPaint | ControlStyles.Selectable, true);
+        }
+
+        public void ApplyLanguage()
+        {
+            Invalidate();
         }
 
         public void SetDraft(PickupOrderDraft draft)
@@ -98,7 +104,7 @@ namespace QMC.CDT_320.Ui.Controls
             g.Clear(BackColor);
             if (_draft == null || _draft.Map.Entries.Count == 0)
             {
-                TextRenderer.DrawText(g, "표시할 Die Map이 없습니다.", Font, ClientRectangle, Color.DimGray,
+                TextRenderer.DrawText(g, Lang.T("diagram.route.empty"), Font, ClientRectangle, Color.DimGray,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                 return;
             }
@@ -183,7 +189,7 @@ namespace QMC.CDT_320.Ui.Controls
             _overviewRect = new RectangleF(right ? Width - size - 10 : 10, Height - size - 30, size, size + 20);
             using (var brush = new SolidBrush(Color.White)) g.FillRectangle(brush, _overviewRect);
             using (var pen = new Pen(Color.FromArgb(170, 187, 204))) g.DrawRectangle(pen, _overviewRect.X, _overviewRect.Y, _overviewRect.Width, _overviewRect.Height);
-            g.DrawString("전체 위치 · 클릭 이동", Font, Brushes.DimGray, _overviewRect.X + 4, _overviewRect.Y + 2);
+            g.DrawString(Lang.T("diagram.route.overview"), Font, Brushes.DimGray, _overviewRect.X + 4, _overviewRect.Y + 2);
             RectangleF inner = new RectangleF(_overviewRect.X + 4, _overviewRect.Y + 22, size - 8, size - 8);
             float miniScale = Math.Min(inner.Width / GetSpanX(), inner.Height / GetSpanY());
             PointF center = new PointF(inner.Left + inner.Width / 2, inner.Top + inner.Height / 2);

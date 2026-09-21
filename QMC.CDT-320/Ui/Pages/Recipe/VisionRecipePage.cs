@@ -34,6 +34,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 _titleI18n = titleI18n;
                 InitializeComponent();
+                InitializeLanguageBindings();
                 if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                     return;
 
@@ -45,7 +46,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(ex.Message, "Vision", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(ex.Message, Lang.T("visionUi.visionRecipePage.message.text"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -69,7 +70,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Load", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("visionUi.visionRecipePage.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -102,8 +103,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void InstallVisionPreview()
         {
-            tabBottom.Text = "BOTTOM";
-            tabSide.Text = "SIDE";
+            Lang.BindKey(tabBottom, "visionUi.visionRecipePage.tabBottom.text");
+            Lang.BindKey(tabSide, "visionUi.visionRecipePage.tabSide.text");
             bottomVisionPreview = RecipeVisionPreview.ShowSingle(tabBottom, "BOTTOM VISION", VisionViewerPorts.BottomInspection);
             sideVisionPreview = RecipeVisionPreview.ShowVertical(
                 tabSide,
@@ -147,7 +148,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Layout", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("visionUi.visionRecipePage.message.state3"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -177,7 +178,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Configure", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("visionUi.visionRecipePage.message.state4"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -217,7 +218,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Resolve", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("visionUi.visionRecipePage.message.state5"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -320,7 +321,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "VISION", "BindParameterGrids failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Parameters", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("visionUi.visionRecipePage.message.state6"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -470,7 +471,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 string message = actionName + " 이동 불가: " + reason;
                 QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error, "VS-RETICLE-PICKER-Z", "UI", message);
-                QMC.Common.MessageDialog.Show(this, message, "Vision", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, message, Lang.T("visionUi.visionRecipePage.message.text"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -575,7 +576,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "VISION", "BindParameterGridMenus failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("visionUi.visionRecipePage.message.state7"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -607,7 +608,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "VISION", "Move button failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("visionUi.visionRecipePage.message.state8"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -636,7 +637,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "VISION", "Teach button failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("visionUi.visionRecipePage.message.state9"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -733,7 +734,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "VISION", "BindIoPanel failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision I/O", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("visionUi.visionRecipePage.message.state10"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -839,7 +840,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "VISION", "BindJogPanel failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("visionUi.visionRecipePage.message.state11"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -868,7 +869,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 {
                     string homeMsg = actionName + " 불가: " + ax.Name + " 축 HOME END(원점복귀)가 완료되지 않았습니다.";
                     QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Warning, "VISION", "UI", homeMsg);
-                    QMC.Common.MessageDialog.Show(this, homeMsg, "Vision", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, homeMsg, Lang.T("visionUi.visionRecipePage.message.text"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
             }
@@ -909,7 +910,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 }
                 else
                 {
-                    DialogResult confirm = QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Vision", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    DialogResult confirm = QMC.Common.MessageDialog.Show(this, Lang.Format("visionUi.visionRecipePage.message.state12", (object)(actionName)), Lang.T("visionUi.visionRecipePage.message.text"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                     if (confirm != DialogResult.Yes)
                         return;
                 }
@@ -925,7 +926,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 {
                     string msg = _visionUnit != null ? _visionUnit.LastVisionMoveFailureMessage : null;
                     string detail = string.IsNullOrEmpty(msg) ? "" : Environment.NewLine + "사유 : " + msg;
-                    QMC.Common.MessageDialog.Show(this, actionName + " 실패" + detail, "Vision", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.Format("visionUi.visionRecipePage.message.state13", (object)(actionName), (object)(detail)), Lang.T("visionUi.visionRecipePage.message.text"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             catch (Exception ex)
@@ -952,7 +953,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("visionUi.visionRecipePage.message.state14"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -988,14 +989,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ioCylinderPanel.RefreshStates();
                 jogPositionListControl.RefreshState();
 
-                lblVisionInfo.Text =
-                    "VISION" + Environment.NewLine +
-                    "FRONT Y : " + FormatAxis(unit.FrontSideVisionY.ActualPosition, unit.FrontSideVisionY) + Environment.NewLine +
-                    "REAR Y  : " + FormatAxis(unit.RearSideVisionY.ActualPosition, unit.RearSideVisionY) + Environment.NewLine +
-                    "F-AVOID : " + OnOff(unit.IsFrontSideVisionYInAvoidPosition()) + Environment.NewLine +
-                    "R-AVOID : " + OnOff(unit.IsRearSideVisionYInAvoidPosition()) + Environment.NewLine +
-                    "F-PROC  : " + OnOff(unit.IsFrontSideVisionYInProcessPosition()) + Environment.NewLine +
-                    "R-PROC  : " + OnOff(unit.IsRearSideVisionYInProcessPosition());
+                Lang.BindFormat(lblVisionInfo, "visionUi.visionRecipePage.lblVisionInfo.text", (object)(Environment.NewLine), (object)(FormatAxis(unit.FrontSideVisionY.ActualPosition, unit.FrontSideVisionY)), (object)(Environment.NewLine), (object)(FormatAxis(unit.RearSideVisionY.ActualPosition, unit.RearSideVisionY)), (object)(Environment.NewLine), (object)(OnOff(unit.IsFrontSideVisionYInAvoidPosition())), (object)(Environment.NewLine), (object)(OnOff(unit.IsRearSideVisionYInAvoidPosition())), (object)(Environment.NewLine), (object)(OnOff(unit.IsFrontSideVisionYInProcessPosition())), (object)(Environment.NewLine), (object)(OnOff(unit.IsRearSideVisionYInProcessPosition())));
             }
             catch
             {
@@ -1045,6 +1039,75 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this.lblHeader, "visionUi.visionRecipePage.lblHeader.text");
+            Lang.BindKey(this.grpVision, "visionUi.visionCameraScaleDialog.message.state2");
+            Lang.BindKey(this.tabBottom, "visionUi.visionRecipePage.tabBottom.text");
+            Lang.BindKey(this.lblVisionInfo, "visionUi.visionRecipePage.lblVisionInfo.state2");
+            Lang.BindKey(this.tabSide, "visionUi.visionRecipePage.tabSide.text");
+            Lang.BindKey(this.lblVisionInfo2, "visionUi.visionRecipePage.lblVisionInfo2.text");
+            Lang.BindKey(this.lblVisionInfo3, "visionUi.visionRecipePage.lblVisionInfo3.text");
+            Lang.BindKey(this.grpManual, "visionUi.visionRecipePage.grpManual.text");
+            Lang.BindKey(this.grpOptions, "visionUi.visionRecipePage.grpOptions.text");
+            Lang.BindKey(this.grpWait, "visionUi.visionRecipePage.grpWait.text");
+            Lang.BindKey(this.grpIo, "visionUi.visionRecipePage.grpIo.text");
+            Lang.BindKey(this.grpJog, "visionUi.visionRecipePage.grpJog.text");
+            Lang.BindKey(this.grpSpeed, "visionUi.visionRecipePage.grpSpeed.text");
+            Lang.BindKey(this.lblLoadingPositionKey, "visionUi.visionRecipePage.lblLoadingPositionKey.text");
+            Lang.BindKey(this.lblLoadingPositionValue, "visionUi.visionRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblCenterPositionKey, "visionUi.visionRecipePage.lblCenterPositionKey.text");
+            Lang.BindKey(this.lblCenterPositionValue, "visionUi.visionRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblNeedlePositionKey, "visionUi.visionRecipePage.lblNeedlePositionKey.text");
+            Lang.BindKey(this.lblNeedlePositionValue, "visionUi.visionRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblTestBedPositionKey, "visionUi.visionRecipePage.lblTestBedPositionKey.text");
+            Lang.BindKey(this.lblTestBedPositionValue, "visionUi.visionRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblBarcodePositionKey, "visionUi.visionRecipePage.lblBarcodePositionKey.text");
+            Lang.BindKey(this.lblBarcodePositionValue, "visionUi.visionRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblVisionAlignKey, "visionUi.visionRecipePage.lblVisionAlignKey.text");
+            Lang.BindKey(this.lblVisionAlignValue, "visionUi.visionRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblWorkRadiusKey, "visionUi.visionRecipePage.lblWorkRadiusKey.text");
+            Lang.BindKey(this.lblWorkRadiusValue, "visionUi.visionRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblFirstDiePositionKey, "visionUi.visionRecipePage.lblFirstDiePositionKey.text");
+            Lang.BindKey(this.lblFirstDiePositionValue, "visionUi.visionRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblNeedleMeasurePositionKey, "visionUi.visionRecipePage.lblNeedleMeasurePositionKey.text");
+            Lang.BindKey(this.lblNeedleMeasurePositionValue, "visionUi.visionRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblNeedleUpWaitKey, "visionUi.visionRecipePage.lblNeedleUpWaitKey.text");
+            Lang.BindKey(this.lblNeedleUpWaitValue, "visionUi.visionRecipePage.lblNeedleUpWaitValue.text");
+            Lang.BindKey(this.lblVacuumOnWaitKey, "visionUi.visionRecipePage.lblVacuumOnWaitKey.text");
+            Lang.BindKey(this.lblVacuumOnWaitValue, "visionUi.visionRecipePage.lblNeedleUpWaitValue.text");
+            Lang.BindKey(this.lblNeedleDownWaitKey, "visionUi.visionRecipePage.lblNeedleDownWaitKey.text");
+            Lang.BindKey(this.lblNeedleDownWaitValue, "visionUi.visionRecipePage.lblNeedleUpWaitValue.text");
+            Lang.BindKey(this.lblVacuumOffWaitKey, "visionUi.visionRecipePage.lblVacuumOffWaitKey.text");
+            Lang.BindKey(this.lblVacuumOffWaitValue, "visionUi.visionRecipePage.lblNeedleUpWaitValue.text");
+            Lang.BindKey(this.lblMovingWaitKey, "visionUi.visionRecipePage.lblMovingWaitKey.text");
+            Lang.BindKey(this.lblMovingWaitValue, "visionUi.visionRecipePage.lblNeedleUpWaitValue.text");
+            Lang.BindKey(this.lblNeedleVacuumKey, "visionUi.visionRecipePage.lblNeedleVacuumKey.text");
+            Lang.BindKey(this.lblNeedleVacuumValue, "visionUi.visionRecipePage.lblNeedleVacuumValue.text");
+            Lang.BindKey(this.lblRingSensorKey, "visionUi.visionRecipePage.lblRingSensorKey.text");
+            Lang.BindKey(this.lblRingSensorValue, "visionUi.visionRecipePage.lblRingSensorValue.text");
+            Lang.BindKey(this.lblExpandCylinderKey, "visionUi.visionRecipePage.lblExpandCylinderKey.text");
+            Lang.BindKey(this.lblExpandCylinderValue, "visionUi.visionRecipePage.lblExpandCylinderValue.text");
+            Lang.BindKey(this.lblNeedleBlockKey, "visionUi.visionRecipePage.lblNeedleBlockKey.text");
+            Lang.BindKey(this.lblNeedleBlockValue, "visionUi.visionRecipePage.lblExpandCylinderValue.text");
+            Lang.BindKey(this.lblAxisXKey, "visionUi.visionRecipePage.lblAxisXKey.text");
+            Lang.BindKey(this.lblAxisXValue, "visionUi.visionRecipePage.lblAxisXValue.text");
+            Lang.BindKey(this.lblAxisYKey, "visionUi.visionRecipePage.lblAxisYKey.text");
+            Lang.BindKey(this.lblAxisYValue, "visionUi.visionRecipePage.lblAxisXValue.text");
+            Lang.BindKey(this.lblAxisTKey, "visionUi.visionRecipePage.lblAxisTKey.text");
+            Lang.BindKey(this.lblAxisTValue, "visionUi.visionRecipePage.lblAxisTValue.text");
+            Lang.BindKey(this.lblExpandZKey, "visionUi.visionRecipePage.lblExpandZKey.text");
+            Lang.BindKey(this.lblExpandZValue, "visionUi.visionRecipePage.lblAxisXValue.text");
+            Lang.BindKey(this.lblNeedleZKey, "visionUi.visionRecipePage.lblNeedleZKey.text");
+            Lang.BindKey(this.lblNeedleZValue, "visionUi.visionRecipePage.lblAxisXValue.text");
+            Lang.BindKey(this.lblNeedleBlockZKey, "visionUi.visionRecipePage.lblNeedleBlockZKey.text");
+            Lang.BindKey(this.lblNeedleBlockZValue, "visionUi.visionRecipePage.lblAxisXValue.text");
+            Lang.BindKey(this.lblExpandAxis, "visionUi.visionRecipePage.lblExpandAxis.text");
+            Lang.BindKey(this.lblNeedleAxis, "visionUi.visionRecipePage.lblNeedleAxis.text");
+            Lang.BindKey(this.lblBlockAxis, "visionUi.visionRecipePage.lblBlockAxis.text");
+            Lang.BindFormat(this.lblSpeedValue, "visionUi.literal", (object)("50%"));
         }
     }
 }

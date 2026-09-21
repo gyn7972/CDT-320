@@ -34,7 +34,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             Load += (s, e) => Lang.Apply(this);
         }
 
-        public ActionButton AddAction(string text, Action onClick = null, int width = 140)
+        public ActionButton AddAction(string text, Action onClick = null, int width = 140, string displayKey = null)
         {
             int index = _actionButtons.Count;
             int columnCount = Math.Max(1, _actionColumnCount);
@@ -55,7 +55,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Margin = new Padding(6)
             };
             // 동작 분기용 SelectedAction은 원문을 유지하고 버튼 표시만 번역한다.
-            Lang.Bind(btn, text);
+            if (string.IsNullOrEmpty(displayKey)) Lang.Bind(btn, text);
+            else Lang.BindKey(btn, displayKey);
             if (_compactCommandLayout)
             {
                 StyleCompactActionButton(btn);

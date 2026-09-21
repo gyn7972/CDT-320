@@ -972,7 +972,7 @@ namespace QMC.CDT_320.Ui.Controls
                 // 자유 텍스트 모드: 수식 평가 없이 입력 그대로 커밋, 유효성은 항목 setter가 정규화).
                 bool freeText = item.ValueType == ParameterGridValueType.Text;
                 string currentText = FormatValue(item);
-                using (var dialog = new NumericKeypadDialog(Lang.Display(item.DisplayName), currentText, Lang.Display(item.GetUnit()), freeText))
+                using (var dialog = new NumericKeypadDialog(item.DisplayName, currentText, item.GetUnit(), freeText))
                 {
                     if (dialog.ShowDialog(this) != DialogResult.OK)
                         return;
@@ -1274,5 +1274,3 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
-
-

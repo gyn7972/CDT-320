@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
@@ -9,7 +10,7 @@ using QMC.CDT320.Recipes;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public partial class WaferMapProcessSettingsDialog : Form
+    public partial class WaferMapProcessSettingsDialog : Form, ILocalizedView
     {
         private readonly RecipeProject _project;
         private readonly Action<WaferMapProcessSettings, WaferMapProcessSettings, WaferMapProcessSettingsDialog> _saveAndApply;
@@ -19,6 +20,11 @@ namespace QMC.CDT_320.Ui.Dialogs
         private WaferMapProcessSettings _output;
         private bool _loading = true;
         private int _role;
+        private bool _previewCaptionVisible;
+        private int _previewTargetCount;
+        private int _previewRotationDegrees;
+        private string _previewOriginText;
+        private bool _previewHasBinFilter;
         private static readonly WaferMapSourceFormat[] Formats =
         {
             WaferMapSourceFormat.Legacy, WaferMapSourceFormat.Samsung,
@@ -29,24 +35,25 @@ namespace QMC.CDT_320.Ui.Dialogs
             Action<WaferMapProcessSettings, WaferMapProcessSettings, WaferMapProcessSettingsDialog> saveAndApply)
         {
             InitializeComponent();
+            InitializeLanguageBindings();
             _project = project ?? throw new ArgumentNullException(nameof(project));
             _saveAndApply = saveAndApply ?? throw new ArgumentNullException(nameof(saveAndApply));
             _input = WaferMapProcessService.CloneSettings(project.InputMapProcessing);
             _output = WaferMapProcessService.CloneSettings(project.OutputMapProcessing);
             cmbInputSource.SelectedIndex = RecipeInputMapSource.RequestedUsesRemote(project, QMC.CDT320.AppSettingsStore.Current) ? 0 : 1;
-            lblSourceHint.Text = RecipeInputMapSource.DescribeMode(project, QMC.CDT320.AppSettingsStore.Current) +
-                "\r\n시작 전: 바로 적용 · 투입 시작 후: 다음 웨이퍼 적용";
-            btnSave.Text = "설정 저장 및 적용";
-            lblRecipe.Text = "레시피: " + project.FileName + "   ·   입력 / 출력 설정";
+            Lang.BindFormat(lblSourceHint, "extraDialog.mapProcess.sourceHint",
+                RecipeInputMapSource.DescribeMode(project, QMC.CDT320.AppSettingsStore.Current));
+            Lang.BindKey(btnSave, "extraDialog.mapProcess.saveApply");
+            Lang.BindFormat(lblRecipe, "extraDialog.mapProcess.recipe", project.FileName);
             mapView.CellTextResolver = entry => entry.LogicalGridX == 0 && entry.LogicalGridY == 0
                 ? "1,1" : entry.SequenceNo > 0 ? entry.SequenceNo.ToString(CultureInfo.InvariantCulture) : "";
             mapView.CellColorResolver = entry => entry.LogicalGridX == 0 && entry.LogicalGridY == 0
                 ? Color.FromArgb(252, 183, 63) : entry.IsTarget ? Color.FromArgb(133, 189, 221) : Color.FromArgb(222, 226, 232);
             mapView.LegendItemsResolver = () => new[]
             {
-                Tuple.Create("대상", Color.FromArgb(133, 189, 221)),
-                Tuple.Create("제외", Color.FromArgb(222, 226, 232)),
-                Tuple.Create("기준 1,1", Color.FromArgb(252, 183, 63))
+                Tuple.Create(Lang.T("extraDialog.mapProcess.target"), Color.FromArgb(133, 189, 221)),
+                Tuple.Create(Lang.T("extraDialog.mapProcess.excluded"), Color.FromArgb(222, 226, 232)),
+                Tuple.Create(Lang.T("extraDialog.mapProcess.originLegend"), Color.FromArgb(252, 183, 63))
             };
             mapView.CellClicked += ShowCell;
             cmbRole.SelectedIndex = 0;
@@ -78,7 +85,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 cmbFormat.SelectedIndex = 0;
             }
             cmbFormat.Enabled = _role == 0 && InputUsesRemote;
-            lblFormat.Text = _role == 0 ? "원격 맵 구분자" : "등록 맵 사용";
+            Lang.BindKey(lblFormat, _role == 0 ? "extraDialog.mapProcess.remoteFormat" : "extraDialog.mapProcess.registeredFormat");
             cmbRotation.SelectedIndex = settings.RotationDegrees == 180 ? 1 : settings.RotationDegrees == 0 ? 0 : -1;
             cmbOrigin.SelectedIndex = (int)settings.GridOrigin;
             _loading = false;
@@ -135,37 +142,42 @@ namespace QMC.CDT_320.Ui.Dialogs
                 mapView.SetMap(map, true);
                 var ordered = map.Entries.Where(entry => entry.IsTarget && entry.SequenceNo > 0).OrderBy(entry => entry.SequenceNo).ToList();
                 lblStatus.ForeColor = Color.FromArgb(35, 60, 80);
-                lblStatus.Text = "등록 맵 미리보기 · 대상 " + ordered.Count + "개 · 회전 " + (settings == null ? 0 : settings.RotationDegrees) +
-                    "° · 1,1 기준 " + cmbOrigin.Text + "\r\n" +
-                    "회전·원점과 작업 대상/제외" + (_role == 0 ? "·레시피 BIN 필터" : "") +
-                    "를 반영한 공정 순서입니다. 주황색 셀은 1,1입니다.";
-                lblSelected.Text = ordered.Count == 0 ? "현재 설정으로 공정 대상이 없습니다." : "";
+                _previewCaptionVisible = true;
+                _previewTargetCount = ordered.Count;
+                _previewRotationDegrees = settings == null ? 0 : settings.RotationDegrees;
+                _previewOriginText = cmbOrigin.Text;
+                _previewHasBinFilter = _role == 0;
+                RefreshPreviewCaption();
+                if (ordered.Count == 0)
+                    Lang.BindKey(lblSelected, "extraDialog.mapProcess.noTargets");
+                else
+                    Lang.Bind(lblSelected, "");
                 if (ordered.Count > 0) ShowCell(ordered[0]);
             }
             catch (Exception ex)
             {
                 mapView.SetMap(null, true);
                 lblStatus.ForeColor = Color.Firebrick;
-                lblStatus.Text = "미리보기 확인: " + ex.Message;
-                lblSelected.Text = "";
+                _previewCaptionVisible = false;
+                Lang.BindFormat(lblStatus, "extraDialog.mapProcess.previewError", ex.Message);
+                Lang.Bind(lblSelected, "");
             }
         }
 
         private void ShowMapPreparationRequired(string detail)
         {
             mapView.SetMap(null, true);
-            lblSelected.Text = "";
+            Lang.Bind(lblSelected, "");
             lblStatus.ForeColor = Color.FromArgb(145, 88, 20);
-            lblStatus.Text = "맵 준비 필요 · 구분자/회전/원점 설정은 먼저 저장할 수 있습니다.\r\n" + detail +
-                "\r\n등록 모드는 웨이퍼 맵 불러오기 또는 맵 생성을 진행하세요. 구분자는 원격 입력 다운로드에만 적용됩니다.";
+            _previewCaptionVisible = false;
+            Lang.BindFormat(lblStatus, "extraDialog.mapProcess.preparationRequired", detail);
         }
 
         private void ShowCell(DieMapEntry entry)
         {
             if (entry == null) return;
-            lblSelected.Text = string.Format(CultureInfo.InvariantCulture,
-                "{0}  |  공정 #{1}  |  BIN {2}",
-                WaferMapProcessService.FormatMapPosition(entry), entry.SequenceNo, entry.BinCode);
+            Lang.BindFormat(lblSelected, "extraDialog.mapProcess.selectedCell",
+                WaferMapProcessService.FormatMapPosition(entry), entry.SequenceNo.ToString(CultureInfo.InvariantCulture), entry.BinCode);
         }
 
         private void btnSave_Click(object sender, EventArgs e)
@@ -180,9 +192,68 @@ namespace QMC.CDT_320.Ui.Dialogs
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "WaferMapProcessSettings", "공정 맵 설정 저장/적용 실패: " + ex.Message);
-                QMC.Common.MessageDialog.Show("공정 맵 설정을 적용하지 못했습니다.\r\n" + ex.Message,
-                    "레시피 맵 설정", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(Lang.Format("extraDialog.mapProcess.applyError", ex.Message),
+                    Lang.T("extraDialog.mapProcess.messageTitle"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+        private static string TranslateChoice(string text)
+        {
+            switch (text)
+            {
+                case "원격 맵 다운로드": return Lang.T("extraDialog.mapProcess.choice.remoteDownload");
+                case "등록 맵 사용 (원격 미사용)": return Lang.T("extraDialog.mapProcess.choice.registeredNoRemote");
+                case "입력": return Lang.T("extraDialog.mapProcess.choice.input");
+                case "출력 · 양품 미리보기": return Lang.T("extraDialog.mapProcess.choice.goodOutput");
+                case "출력 · 불량 미리보기": return Lang.T("extraDialog.mapProcess.choice.ngOutput");
+                case "기존 설정 사용": return Lang.T("extraDialog.mapProcess.choice.legacy");
+                case "삼성 (RAD)": return Lang.T("extraDialog.mapProcess.choice.samsung");
+                case "CAMTEK": return Lang.T("extraDialog.mapProcess.choice.camtek");
+                case "서클": return Lang.T("extraDialog.mapProcess.choice.circle");
+                case "서클 (등록 생성 맵)": return Lang.T("extraDialog.mapProcess.choice.circleGenerated");
+                case "타업체 (미지원 형식)": return Lang.T("extraDialog.mapProcess.choice.other");
+                case "등록 맵 사용 · 구분자 미적용": return Lang.T("extraDialog.mapProcess.choice.registeredNoFormat");
+                case "0° · 등록 맵 방향 유지": return Lang.T("extraDialog.mapProcess.choice.zeroRotation");
+                case "180° 회전": return Lang.T("extraDialog.mapProcess.choice.rotate180");
+                case "좌상단 (X→ Y↓)": return Lang.T("extraDialog.mapProcess.choice.topLeft");
+                case "좌하단 (X→ Y↑)": return Lang.T("extraDialog.mapProcess.choice.bottomLeft");
+                case "우상단 (X← Y↓)": return Lang.T("extraDialog.mapProcess.choice.topRight");
+                case "우하단 (X← Y↑)": return Lang.T("extraDialog.mapProcess.choice.bottomRight");
+                case "센터 (X→ Y↑)": return Lang.T("extraDialog.mapProcess.choice.center");
+                default: return text;
+            }
+        }
+
+        private void RefreshPreviewCaption()
+        {
+            if (!_previewCaptionVisible) return;
+            Lang.BindFormat(lblStatus, _previewHasBinFilter
+                ? "extraDialog.mapProcess.inputPreview"
+                : "extraDialog.mapProcess.outputPreview",
+                _previewTargetCount, _previewRotationDegrees, TranslateChoice(_previewOriginText));
+        }
+
+        public void ApplyLanguage()
+        {
+            RefreshPreviewCaption();
+            mapView.Invalidate();
+        }
+
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindChoices(cmbInputSource, TranslateChoice);
+            Lang.BindChoices(cmbRole, TranslateChoice);
+            Lang.BindChoices(cmbFormat, TranslateChoice);
+            Lang.BindChoices(cmbRotation, TranslateChoice);
+            Lang.BindChoices(cmbOrigin, TranslateChoice);
+            Lang.BindKey(lblInputSource, "extraDialog.waferMapProcessSettingsDialog.lblInputSource.caption");
+            Lang.BindKey(lblRole, "extraDialog.waferMapProcessSettingsDialog.lblRole.caption");
+            Lang.BindKey(lblRotation, "extraDialog.waferMapProcessSettingsDialog.lblRotation.caption");
+            Lang.BindKey(lblOrigin, "extraDialog.waferMapProcessSettingsDialog.lblOrigin.caption");
+            Lang.BindKey(lblNote, "extraDialog.waferMapProcessSettingsDialog.lblNote.caption");
+            Lang.BindKey(btnCancel, "extraDialog.waferMapProcessSettingsDialog.btnCancel.caption");
+            Lang.BindKey(this, "extraDialog.waferMapProcessSettingsDialog.this.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 }

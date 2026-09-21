@@ -2,10 +2,11 @@
 using System.Drawing.Drawing2D;
 using System;
 using System.Windows.Forms;
+using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Controls
 {
-    public class ActionButton : Control
+    public class ActionButton : Control, ILocalizedView
     {
         private bool _hover;
         private bool _down;
@@ -31,6 +32,22 @@ namespace QMC.CDT_320.Ui.Controls
         {
             get { return _badgeText; }
             set { _badgeText = value ?? string.Empty; Invalidate(); }
+        }
+
+        public void ApplyLanguage()
+        {
+            Invalidate();
+        }
+
+        private string DisplayBadgeText()
+        {
+            switch (_badgeText.ToUpperInvariant())
+            {
+                case "ACTION": return Lang.T("diagram.action.badge");
+                case "SELECT": return Lang.T("controls.action.select");
+                case "SELECTED": return Lang.T("controls.action.selected");
+                default: return _badgeText;
+            }
         }
 
         public Color BadgeColor
@@ -92,7 +109,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 using (Font actFont = new Font("Malgun Gothic", 7.5F, FontStyle.Bold))
                 using (SolidBrush actBrush = new SolidBrush(_badgeColor))
-                    g.DrawString(_badgeText, actFont, actBrush, 6, 4);
+                    g.DrawString(DisplayBadgeText(), actFont, actBrush, 6, 4);
             }
 
             using (SolidBrush fg = new SolidBrush(Enabled ? ForeColor : Color.FromArgb(0x90, 0x90, 0x90)))

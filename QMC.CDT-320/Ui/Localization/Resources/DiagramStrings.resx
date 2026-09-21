@@ -1,0 +1,548 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 다이어그램과 상태 표시 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="diagram.cycle.cycle" xml:space="preserve">
+    <value>Cycle</value>
+  </data>
+  <data name="diagram.cycle.detail" xml:space="preserve">
+    <value>{0} · {1} · Die {2} · Picker {3} · {4} · Total {5}ms</value>
+  </data>
+  <data name="diagram.cycle.die" xml:space="preserve">
+    <value>Die</value>
+  </data>
+  <data name="diagram.cycle.empty" xml:space="preserve">
+    <value>No measurements — displayed when operation starts</value>
+  </data>
+  <data name="diagram.cycle.errorState" xml:space="preserve">
+    <value>State: ERR</value>
+  </data>
+  <data name="diagram.cycle.failed" xml:space="preserve">
+    <value>ERR</value>
+  </data>
+  <data name="diagram.cycle.measureEnd" xml:space="preserve">
+    <value>Measure: click the end point...</value>
+  </data>
+  <data name="diagram.cycle.measureHelp" xml:space="preserve">
+    <value>Measure: click twice (right-click to clear)</value>
+  </data>
+  <data name="diagram.cycle.measureResult" xml:space="preserve">
+    <value>Interval: {0} ms</value>
+  </data>
+  <data name="diagram.cycle.minutes" xml:space="preserve">
+    <value>{0} min</value>
+  </data>
+  <data name="diagram.cycle.motion" xml:space="preserve">
+    <value>Motion: {0}</value>
+  </data>
+  <data name="diagram.cycle.now" xml:space="preserve">
+    <value>Now</value>
+  </data>
+  <data name="diagram.cycle.ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="diagram.cycle.pause" xml:space="preserve">
+    <value>Pause</value>
+  </data>
+  <data name="diagram.cycle.picker" xml:space="preserve">
+    <value>Picker</value>
+  </data>
+  <data name="diagram.cycle.request" xml:space="preserve">
+    <value>Request ID: {0}</value>
+  </data>
+  <data name="diagram.cycle.resume" xml:space="preserve">
+    <value>Resume</value>
+  </data>
+  <data name="diagram.cycle.running" xml:space="preserve">
+    <value>(in progress)</value>
+  </data>
+  <data name="diagram.cycle.seconds" xml:space="preserve">
+    <value>{0} s</value>
+  </data>
+  <data name="diagram.cycle.selectDetail" xml:space="preserve">
+    <value>Select an item on the left to view axis details</value>
+  </data>
+  <data name="diagram.cycle.state" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="diagram.cycle.statistics" xml:space="preserve">
+    <value>last {0}ms · avg {1}ms</value>
+  </data>
+  <data name="diagram.cycle.time" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="diagram.cycle.title" xml:space="preserve">
+    <value>CYCLE TIME</value>
+  </data>
+  <data name="diagram.cycle.tooltipHeading" xml:space="preserve">
+    <value>{0} · Die {1} · Picker {2}</value>
+  </data>
+  <data name="diagram.cycle.total" xml:space="preserve">
+    <value>Total {0}</value>
+  </data>
+  <data name="diagram.cycle.totalColumn" xml:space="preserve">
+    <value>Total(ms)</value>
+  </data>
+  <data name="diagram.cycle.unfinished" xml:space="preserve">
+    <value>   [unfinished]</value>
+  </data>
+  <data name="diagram.cycle.unit" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="diagram.cycle.unit.bottom" xml:space="preserve">
+    <value>Bottom</value>
+  </data>
+  <data name="diagram.cycle.unit.inputvision" xml:space="preserve">
+    <value>Input vision</value>
+  </data>
+  <data name="diagram.cycle.unit.pickup" xml:space="preserve">
+    <value>Pickup</value>
+  </data>
+  <data name="diagram.cycle.unit.place" xml:space="preserve">
+    <value>Place</value>
+  </data>
+  <data name="diagram.cycle.unit.side" xml:space="preserve">
+    <value>Side</value>
+  </data>
+  <data name="diagram.map.compactInfo" xml:space="preserve">
+    <value>{0}×{1} display={2}  source={3}×{4}  step=({5},{6})mm  {7}  {8}  zoom={9}%</value>
+  </data>
+  <data name="diagram.map.dieSize" xml:space="preserve">
+    <value>die=({0},{1})mm</value>
+  </data>
+  <data name="diagram.map.empty" xml:space="preserve">
+    <value>(no map)</value>
+  </data>
+  <data name="diagram.map.hover" xml:space="preserve">
+    <value>  order={0}  state={1}  BIN={2}</value>
+  </data>
+  <data name="diagram.map.info" xml:space="preserve">
+    <value>{0}×{1}  step=({2},{3})mm  {4}  {5}  total={6}  zoom={7}%</value>
+  </data>
+  <data name="diagram.map.legend.critical" xml:space="preserve">
+    <value>Critical</value>
+  </data>
+  <data name="diagram.map.legend.good" xml:space="preserve">
+    <value>Good</value>
+  </data>
+  <data name="diagram.map.legend.preng" xml:space="preserve">
+    <value>Pre-NG</value>
+  </data>
+  <data name="diagram.map.legend.skip" xml:space="preserve">
+    <value>Skip</value>
+  </data>
+  <data name="diagram.map.legend.unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="diagram.map.noAppliedPosition" xml:space="preserve">
+    <value>  (no applied map coordinates)</value>
+  </data>
+  <data name="diagram.map.origin" xml:space="preserve">
+    <value>  map origin={0}</value>
+  </data>
+  <data name="diagram.map.origin.bottomleft" xml:space="preserve">
+    <value>BottomLeft</value>
+  </data>
+  <data name="diagram.map.origin.bottomright" xml:space="preserve">
+    <value>BottomRight</value>
+  </data>
+  <data name="diagram.map.origin.center" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="diagram.map.origin.topleft" xml:space="preserve">
+    <value>TopLeft</value>
+  </data>
+  <data name="diagram.map.origin.topright" xml:space="preserve">
+    <value>TopRight</value>
+  </data>
+  <data name="diagram.map.result.good" xml:space="preserve">
+    <value>Good</value>
+  </data>
+  <data name="diagram.map.result.ng" xml:space="preserve">
+    <value>NG</value>
+  </data>
+  <data name="diagram.map.result.unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="diagram.map.rotation" xml:space="preserve">
+    <value>  rotation={0}° CW</value>
+  </data>
+  <data name="diagram.map.title" xml:space="preserve">
+    <value>Die Map</value>
+  </data>
+  <data name="diagram.map.wafer" xml:space="preserve">
+    <value>wafer={0}mm</value>
+  </data>
+  <data name="diagram.map.waferUnset" xml:space="preserve">
+    <value>wafer=(not set)</value>
+  </data>
+  <data name="diagram.route.empty" xml:space="preserve">
+    <value>No die map to display.</value>
+  </data>
+  <data name="diagram.route.overview" xml:space="preserve">
+    <value>Overview · click to navigate</value>
+  </data>
+  <data name="diagram.state.activeLot" xml:space="preserve">
+    <value>ACTIVE LOT</value>
+  </data>
+  <data name="diagram.state.binDistribution" xml:space="preserve">
+    <value>BIN DISTRIBUTION</value>
+  </data>
+  <data name="diagram.state.buttons" xml:space="preserve">
+    <value>OPERATION BUTTONS (DI)</value>
+  </data>
+  <data name="diagram.state.buzzer" xml:space="preserve">
+    <value>BUZZER</value>
+  </data>
+  <data name="diagram.state.cda1" xml:space="preserve">
+    <value>MAIN CDA 1</value>
+  </data>
+  <data name="diagram.state.cda2" xml:space="preserve">
+    <value>MAIN CDA 2</value>
+  </data>
+  <data name="diagram.state.emgFront" xml:space="preserve">
+    <value>EMG Front</value>
+  </data>
+  <data name="diagram.state.emgLeft" xml:space="preserve">
+    <value>EMG Left</value>
+  </data>
+  <data name="diagram.state.emgRear" xml:space="preserve">
+    <value>EMG Rear</value>
+  </data>
+  <data name="diagram.state.good" xml:space="preserve">
+    <value>Good</value>
+  </data>
+  <data name="diagram.state.goodPlate" xml:space="preserve">
+    <value>GOOD PLATE</value>
+  </data>
+  <data name="diagram.state.green" xml:space="preserve">
+    <value>GREEN</value>
+  </data>
+  <data name="diagram.state.ionizer" xml:space="preserve">
+    <value>IONIZER</value>
+  </data>
+  <data name="diagram.state.ionizerOk" xml:space="preserve">
+    <value>IONIZER OK</value>
+  </data>
+  <data name="diagram.state.lamps" xml:space="preserve">
+    <value>OPERATION LAMPS (DO)</value>
+  </data>
+  <data name="diagram.state.lot.aborted" xml:space="preserve">
+    <value>Aborted</value>
+  </data>
+  <data name="diagram.state.lot.completed" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="diagram.state.lot.open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="diagram.state.lot.running" xml:space="preserve">
+    <value>Running</value>
+  </data>
+  <data name="diagram.state.lotId" xml:space="preserve">
+    <value>Lot ID</value>
+  </data>
+  <data name="diagram.state.ng" xml:space="preserve">
+    <value>NG</value>
+  </data>
+  <data name="diagram.state.ngPlate" xml:space="preserve">
+    <value>NG PLATE</value>
+  </data>
+  <data name="diagram.state.noActiveLot" xml:space="preserve">
+    <value>(no active lot)</value>
+  </data>
+  <data name="diagram.state.noBinData" xml:space="preserve">
+    <value>(no bin data)</value>
+  </data>
+  <data name="diagram.state.noLot" xml:space="preserve">
+    <value>(no lot)</value>
+  </data>
+  <data name="diagram.state.plateReset" xml:space="preserve">
+    <value>PLATE RESET</value>
+  </data>
+  <data name="diagram.state.processed" xml:space="preserve">
+    <value>Processed / Total</value>
+  </data>
+  <data name="diagram.state.recipe" xml:space="preserve">
+    <value>Recipe</value>
+  </data>
+  <data name="diagram.state.red" xml:space="preserve">
+    <value>RED</value>
+  </data>
+  <data name="diagram.state.reset" xml:space="preserve">
+    <value>RESET</value>
+  </data>
+  <data name="diagram.state.resetConfirm" xml:space="preserve">
+    <value>Plate loaded data will be reset. Continue?</value>
+  </data>
+  <data name="diagram.state.resetLamp" xml:space="preserve">
+    <value>RESET LAMP</value>
+  </data>
+  <data name="diagram.state.resetTitle" xml:space="preserve">
+    <value>Plate Reset</value>
+  </data>
+  <data name="diagram.state.resources" xml:space="preserve">
+    <value>RESOURCE SENSORS</value>
+  </data>
+  <data name="diagram.state.start" xml:space="preserve">
+    <value>START</value>
+  </data>
+  <data name="diagram.state.startLamp" xml:space="preserve">
+    <value>START LAMP</value>
+  </data>
+  <data name="diagram.state.started" xml:space="preserve">
+    <value>Started</value>
+  </data>
+  <data name="diagram.state.state" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="diagram.state.stop" xml:space="preserve">
+    <value>STOP</value>
+  </data>
+  <data name="diagram.state.stopLamp" xml:space="preserve">
+    <value>STOP LAMP</value>
+  </data>
+  <data name="diagram.state.tower" xml:space="preserve">
+    <value>TOWER LAMP + BUZZER</value>
+  </data>
+  <data name="diagram.state.vacuum1" xml:space="preserve">
+    <value>VACUUM 1</value>
+  </data>
+  <data name="diagram.state.vacuum2" xml:space="preserve">
+    <value>VACUUM 2</value>
+  </data>
+  <data name="diagram.state.vacuum3" xml:space="preserve">
+    <value>VACUUM 3</value>
+  </data>
+  <data name="diagram.state.vacuum4" xml:space="preserve">
+    <value>VACUUM 4</value>
+  </data>
+  <data name="diagram.state.yellow" xml:space="preserve">
+    <value>YELLOW</value>
+  </data>
+  <data name="diagram.state.yield" xml:space="preserve">
+    <value>Yield %</value>
+  </data>
+  <data name="diagram.tact.average" xml:space="preserve">
+    <value>AVG{0} {1}</value>
+  </data>
+  <data name="diagram.tact.detail" xml:space="preserve">
+    <value>Details: {0}</value>
+  </data>
+  <data name="diagram.tact.empty" xml:space="preserve">
+    <value>No tact time records to display.</value>
+  </data>
+  <data name="diagram.tact.emptyHistory" xml:space="preserve">
+    <value>No tact time records for the selected past run.</value>
+  </data>
+  <data name="diagram.tact.emptyLive" xml:space="preserve">
+    <value>Live tact time will appear when the equipment runs.</value>
+  </data>
+  <data name="diagram.tact.emptyRange" xml:space="preserve">
+    <value>No records in the selected time range.</value>
+  </data>
+  <data name="diagram.tact.help" xml:space="preserve">
+    <value>Wheel: zoom   Drag: pan   Bar/point: select details</value>
+  </data>
+  <data name="diagram.tact.legend.fail" xml:space="preserve">
+    <value>Fail</value>
+  </data>
+  <data name="diagram.tact.legend.motion" xml:space="preserve">
+    <value>Motion</value>
+  </data>
+  <data name="diagram.tact.legend.process" xml:space="preserve">
+    <value>Process</value>
+  </data>
+  <data name="diagram.tact.legend.unit" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="diagram.tact.legend.vision" xml:space="preserve">
+    <value>Vision</value>
+  </data>
+  <data name="diagram.tact.legend.wait" xml:space="preserve">
+    <value>Wait</value>
+  </data>
+  <data name="diagram.tact.mixed" xml:space="preserve">
+    <value> (mixed)</value>
+  </data>
+  <data name="diagram.tact.name.frontPicker" xml:space="preserve">
+    <value>FrontPicker</value>
+  </data>
+  <data name="diagram.tact.name.input" xml:space="preserve">
+    <value>Input</value>
+  </data>
+  <data name="diagram.tact.name.io" xml:space="preserve">
+    <value>IO</value>
+  </data>
+  <data name="diagram.tact.name.logic" xml:space="preserve">
+    <value>Logic</value>
+  </data>
+  <data name="diagram.tact.name.machine" xml:space="preserve">
+    <value>Machine / Run</value>
+  </data>
+  <data name="diagram.tact.name.motion" xml:space="preserve">
+    <value>Motion</value>
+  </data>
+  <data name="diagram.tact.name.other" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="diagram.tact.name.output" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="diagram.tact.name.process" xml:space="preserve">
+    <value>Process</value>
+  </data>
+  <data name="diagram.tact.name.rearPicker" xml:space="preserve">
+    <value>RearPicker</value>
+  </data>
+  <data name="diagram.tact.name.resource" xml:space="preserve">
+    <value>Resource</value>
+  </data>
+  <data name="diagram.tact.name.run" xml:space="preserve">
+    <value>Run</value>
+  </data>
+  <data name="diagram.tact.name.step" xml:space="preserve">
+    <value>Step</value>
+  </data>
+  <data name="diagram.tact.name.unit" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="diagram.tact.name.vision" xml:space="preserve">
+    <value>Vision</value>
+  </data>
+  <data name="diagram.tact.name.wait" xml:space="preserve">
+    <value>Wait</value>
+  </data>
+  <data name="diagram.tact.p95" xml:space="preserve">
+    <value>P95{0} {1}</value>
+  </data>
+  <data name="diagram.tact.result.canceled" xml:space="preserve">
+    <value>Canceled</value>
+  </data>
+  <data name="diagram.tact.result.failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="diagram.tact.result.ok" xml:space="preserve">
+    <value>Ok</value>
+  </data>
+  <data name="diagram.tact.result.skipped" xml:space="preserve">
+    <value>Skipped</value>
+  </data>
+  <data name="diagram.tact.result.stopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="diagram.tact.simplified" xml:space="preserve">
+    <value>Display optimized: {0} / {1} records</value>
+  </data>
+  <data name="diagram.tact.timeline" xml:space="preserve">
+    <value>Equipment timeline</value>
+  </data>
+  <data name="diagram.tact.tooltip" xml:space="preserve">
+    <value>Time: {0} ~ {1}&#13;&#10;Duration: {2} ms ({3})&#13;&#10;Path: {4} / {5} / {6} / {7}&#13;&#10;Result: {8}</value>
+  </data>
+  <data name="diagram.tact.trend" xml:space="preserve">
+    <value>Tact time trend</value>
+  </data>
+  <data name="diagram.tact.trendExcluded" xml:space="preserve">
+    <value>Tact time trend · Run/Unit overlap excluded</value>
+  </data>
+  <data name="diagram.liveMap.caption" xml:space="preserve">
+    <value>{0}   {1}</value>
+  </data>
+  <data name="diagram.liveMap.input" xml:space="preserve">
+    <value>INPUT WAFER MAP</value>
+  </data>
+  <data name="diagram.liveMap.outputGood" xml:space="preserve">
+    <value>OUTPUT GOOD MAP</value>
+  </data>
+  <data name="diagram.liveMap.outputNg" xml:space="preserve">
+    <value>OUTPUT NG MAP</value>
+  </data>
+  <data name="diagram.liveMap.refreshFailed" xml:space="preserve">
+    <value>Display refresh failed</value>
+  </data>
+  <data name="diagram.liveMap.state.wait" xml:space="preserve">
+    <value>Waiting</value>
+  </data>
+  <data name="diagram.liveMap.state.visionDone" xml:space="preserve">
+    <value>Inspection complete</value>
+  </data>
+  <data name="diagram.liveMap.state.pickerHeld" xml:space="preserve">
+    <value>Held by picker</value>
+  </data>
+  <data name="diagram.liveMap.state.placed" xml:space="preserve">
+    <value>Placed / awaiting inspection</value>
+  </data>
+  <data name="diagram.liveMap.state.good" xml:space="preserve">
+    <value>GOOD</value>
+  </data>
+  <data name="diagram.liveMap.state.ng" xml:space="preserve">
+    <value>NG</value>
+  </data>
+  <data name="diagram.liveMap.state.skip" xml:space="preserve">
+    <value>SKIP</value>
+  </data>
+  <data name="diagram.liveMap.state.unknown" xml:space="preserve">
+    <value>Unknown state</value>
+  </data>
+  <data name="diagram.action.badge" xml:space="preserve">
+    <value>ACTION</value>
+  </data>
+</root>

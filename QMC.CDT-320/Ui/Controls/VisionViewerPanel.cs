@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Threading;
@@ -65,6 +66,7 @@ namespace QMC.CDT_320.Ui.Controls
         public VisionViewerPanel()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
         }
 
         /// <summary>편의 생성자 — UI 는 Designer(InitializeComponent)가 만들고, 런타임 인자는 즉시 Configure 한다. (기존 호출부 호환)</summary>
@@ -79,8 +81,10 @@ namespace QMC.CDT_320.Ui.Controls
             string h = string.IsNullOrWhiteSpace(host) ? "127.0.0.1" : host.Trim();
             _port = viewerPort;
             _cmd = commandClient;
-            _lblTitle.Text = (string.IsNullOrWhiteSpace(title) ? "이미지" : title) +
-                             (viewerPort > 0 ? "  (뷰어 " + viewerPort + ")" : "  (뷰어 없음)");
+            if (string.IsNullOrWhiteSpace(title))
+                Lang.BindFormat(_lblTitle, viewerPort > 0 ? "visionUi.viewer.defaultWithPort" : "visionUi.viewer.defaultNoPort", viewerPort);
+            else
+                Lang.BindFormat(_lblTitle, viewerPort > 0 ? "visionUi.viewer.titleWithPort" : "visionUi.viewer.titleNoPort", title, viewerPort);
 
             StopLive();
             WaitForCameraOperationsAsync().GetAwaiter().GetResult();
@@ -96,7 +100,12 @@ namespace QMC.CDT_320.Ui.Controls
                 _source.Status += OnStatus;
                 _cam.AttachSource(_source);   // 툴바 Grab/Live/Stop이 이 소스를 제어(접속·촬상은 누를 때).
                 _cam.ShowLiveLabel = false;
-                _lblStat.Text = AllowLive ? "대기 — Vision Live/Grab 준비" : "대기 — Grab 이미지 수신 준비";
+                {
+                    if (AllowLive)
+                        Lang.BindKey(_lblStat, "visionUi.visionViewerPanel._lblStat.text");
+                    else
+                        Lang.BindKey(_lblStat, "visionUi.visionViewerPanel._lblStat.state2");
+                }
                 RefreshSavedPixelScale();
                 SetViewerToggle(false);       // 재구성 시 토글은 OFF(라이브 미시작)로 초기화
                 _chkViewer.Enabled = _cameraCommandsEnabled;
@@ -106,7 +115,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
             else
             {
-                _lblStat.Text = "뷰어 포트 없음";
+                Lang.BindKey(_lblStat, "visionUi.visionViewerPanel._lblStat.state3");
                 SetViewerToggle(false);
                 _chkViewer.Enabled = false;
             }
@@ -196,7 +205,7 @@ namespace QMC.CDT_320.Ui.Controls
                 _cam.SetResultLines(new string[0]);
                 _cam.SetOverlay(RectangleF.Empty, null);
                 _cam.SetVerdict(string.Empty, false);
-                _lblStat.Text = "검증점 별도 촬상 영상 표시 — " + frame.Width + "x" + frame.Height;
+                Lang.BindFormat(_lblStat, "visionUi.visionViewerPanel._lblStat.state4", (object)(frame.Width), (object)(frame.Height));
                 _cam.Refresh();
                 return receipt;
             }
@@ -220,7 +229,7 @@ namespace QMC.CDT_320.Ui.Controls
 
                 _source.StartGrabImageStream(OnGrabImageFrame);
                 SetViewerToggle(true);
-                _lblStat.Text = "Grab 이미지 수신 중";
+                Lang.BindKey(_lblStat, "visionUi.visionViewerPanel._lblStat.state5");
             }
             catch (Exception ex)
             {
@@ -241,7 +250,7 @@ namespace QMC.CDT_320.Ui.Controls
 
                 _source.StartLive(OnGrabImageFrame);
                 SetViewerToggle(true);
-                _lblStat.Text = "Vision Live 수신 중";
+                Lang.BindKey(_lblStat, "visionUi.visionViewerPanel._lblStat.state6");
             }
             catch (Exception ex)
             {
@@ -308,7 +317,7 @@ namespace QMC.CDT_320.Ui.Controls
                     SetViewerToggle(false);
                     return;
                 }
-                if (_port <= 0) { _chkViewer.Text = "뷰어 OFF"; return; }
+                if (_port <= 0) { Lang.BindKey(_chkViewer, "visionUi.visionViewerPanel._chkViewer.state3"); return; }
 
                 if (_chkViewer.Checked)
                 {
@@ -324,8 +333,8 @@ namespace QMC.CDT_320.Ui.Controls
                 QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "VISION",
                     "ViewerToggle", "뷰어 토글 처리 실패: " + ex.Message);
                 QMC.Common.MessageDialog.Show(
-                    "뷰어 전환에 실패했습니다.\r\n" + ex.Message,
-                    "뷰어 ON/OFF",
+                    Lang.Format("visionUi.visionViewerPanel.message.text", (object)(ex.Message)),
+                    Lang.T("visionUi.visionViewerPanel.message.state2"),
                     System.Windows.Forms.MessageBoxButtons.OK,
                     System.Windows.Forms.MessageBoxIcon.Warning);
             }
@@ -340,7 +349,12 @@ namespace QMC.CDT_320.Ui.Controls
                 _chkViewer.CheckedChanged -= chkViewer_CheckedChanged;
                 _chkViewer.Checked = on;
                 string mode = AllowLive ? "LIVE VIEW" : "GRAB VIEW";
-                _chkViewer.Text = on ? mode + " ON" : mode + " OFF";
+                {
+                    if (on)
+                        Lang.BindFormat(_chkViewer, "visionUi.visionViewerPanel._chkViewer.text", (object)(mode));
+                    else
+                        Lang.BindFormat(_chkViewer, "visionUi.visionViewerPanel._chkViewer.state2", (object)(mode));
+                }
             }
             finally
             {
@@ -410,7 +424,7 @@ namespace QMC.CDT_320.Ui.Controls
         private void OnStatus(string s)
         {
             if (IsDisposed || !IsHandleCreated || string.IsNullOrEmpty(s)) return;
-            try { BeginInvoke(new Action(() => { _lblStat.Text = s; })); } catch { }
+            try { BeginInvoke(new Action(() => { Lang.BindFormat(_lblStat, "visionUi.literal", (object)(s)); })); } catch { }
         }
 
         // 백그라운드 스레드(메타) → UI 마샬링하여 오버레이 반영
@@ -543,6 +557,13 @@ namespace QMC.CDT_320.Ui.Controls
             try { StopLive(); } catch { }
             try { if (_source != null) { _source.FrameMeta -= OnMeta; _source.Status -= OnStatus; _source.Dispose(); _source = null; } } catch { }
             base.OnHandleDestroyed(e);
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this._chkViewer, "visionUi.visionViewerPanel._chkViewer.state3");
+            Lang.BindKey(this._lblTitle, "visionUi.visionViewerPanel._lblTitle.text");
+            Lang.BindKey(this._lblStat, "visionUi.visionMonitorControl.lblStatus.state10");
         }
     }
 }

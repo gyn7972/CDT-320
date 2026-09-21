@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320.Ajin;
@@ -141,6 +142,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             grp.Controls.Add(pg);
             border.Controls.Add(grp);
             layout.Controls.Add(border, col, row);
+            Lang.BindDisplay(grp, title, SettingsUiText.Display);
+            pg.BindNameDisplay(SettingsUiText.Display);
             pg.DefineItems(names);
             return pg;
         }
@@ -253,4 +256,3 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
-

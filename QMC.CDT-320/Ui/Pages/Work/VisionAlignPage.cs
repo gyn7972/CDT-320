@@ -9,6 +9,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         public VisionAlignPage()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
             BuildLayout();
             ApplyRuntimeUi();
         }
@@ -69,6 +70,31 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 v.TextAlign = ContentAlignment.MiddleRight;
             }
         }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this.lblHeader, "visionUi.visionRecipePage.lblVisionAlignKey.text");
+            Lang.BindKey(this.lblCameraInfo, "visionUi.visionAlignPage.lblCameraInfo.text");
+            Lang.BindKey(this.lblLive, "visionUi.visionAlignPage.lblLive.text");
+            Lang.BindKey(this.grpAction, "visionUi.visionLinkPage._actionGroup.text");
+            Lang.BindKey(this.grpResult, "visionUi.tpuVisionTestControl.btnResult.state3");
+            Lang.BindKey(this.btnAutoAlign, "visionUi.visionAlignPage.btnAutoAlign.text");
+            Lang.BindKey(this.btnManualAlign, "visionUi.visionAlignPage.btnManualAlign.text");
+            Lang.BindKey(this.btnFirstMark, "visionUi.visionAlignPage.btnFirstMark.text");
+            Lang.BindKey(this.btnSecondMark, "visionUi.visionAlignPage.btnSecondMark.text");
+            Lang.BindKey(this.btnThetaMatch, "visionUi.visionAlignPage.btnThetaMatch.text");
+            Lang.BindKey(this.btnXyMatch, "visionUi.visionAlignPage.btnXyMatch.text");
+            Lang.BindKey(this.btnSave, "visionUi.visionCameraScaleDialog.btnSave.text");
+            Lang.BindKey(this.btnClose, "visionUi.visionCameraCalibrationDialog.btnClose.text");
+            Lang.BindKey(this.lblDeltaXCaption, "visionUi.visionAlignPage.lblDeltaXCaption.text");
+            Lang.BindFormat(this.lblDeltaXValue, "visionUi.literal", (object)("0.000"));
+            Lang.BindKey(this.lblDeltaYCaption, "visionUi.visionAlignPage.lblDeltaYCaption.text");
+            Lang.BindFormat(this.lblDeltaYValue, "visionUi.literal", (object)("0.000"));
+            Lang.BindKey(this.lblDeltaThetaCaption, "visionUi.visionAlignPage.lblDeltaThetaCaption.text");
+            Lang.BindKey(this.lblDeltaThetaValue, "visionUi.visionAlignPage.lblDeltaThetaValue.text");
+            Lang.BindKey(this.lblScoreCaption, "visionUi.visionAlignPage.lblScoreCaption.text");
+            Lang.BindFormat(this.lblScoreValue, "visionUi.literal", (object)("0.0"));
+        }
     }
 
     public partial class WaferMapOpenPage : PageBase
@@ -76,6 +102,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         public WaferMapOpenPage()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
             ApplyRuntimeUi();
             LoadSampleMapList();
         }
@@ -92,6 +119,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
             lbMapFiles.Items.Add("Y482CB1_2026-04-24.map");
             lbMapFiles.Items.Add("Y482CB0_2026-04-23.map");
             lbMapFiles.Items.Add("SAMPLE.map");
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this.lblHeader, "visionUi.visionAlignPage.lblHeader.text");
+            Lang.BindKey(this.grpList, "visionUi.visionAlignPage.grpList.text");
         }
     }
 }

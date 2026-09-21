@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Globalization;
 using System.Linq;
 using System.Windows.Forms;
@@ -9,8 +10,9 @@ using QMC.CDT_320.Ui.Common.WaferMaps;
 namespace QMC.CDT_320.Ui.Dialogs
 {
     /// <summary>Review 화면에서 여는 순서 설정 창. Apply는 사본을 반환하며 CONFIRM/모션/저장을 실행하지 않는다.</summary>
-    public sealed partial class InputPickupOrderDialog : Form
+    public sealed partial class InputPickupOrderDialog : Form, ILocalizedView
     {
+        private string _waferId;
         private PickupOrderDraft _draft;
         private bool _synchronizing;
         private int _selectedIndex;
@@ -21,12 +23,42 @@ namespace QMC.CDT_320.Ui.Dialogs
         public InputPickupOrderDialog()
         {
             InitializeComponent();
+            Lang.BindKey(this, "dialog.pickup.title");
+            Lang.BindKey(lblTitle, "dialog.pickup.heading");
+            Lang.BindKey(lblCornerCaption, "dialog.pickup.corner");
+            Lang.BindKey(lblDirectionCaption, "dialog.pickup.direction");
+            Lang.BindKey(lblPatternCaption, "dialog.pickup.pattern");
+            Lang.BindKey(btnCornerStart, "dialog.pickup.cornerStart");
+            Lang.BindKey(btnFit, "dialog.pickup.fit");
+            Lang.BindKey(btnFocus, "dialog.pickup.focus");
+            Lang.BindKey(lblListTitle, "dialog.pickup.list");
+            Lang.BindKey(btnSetStart, "dialog.pickup.setStart");
+            Lang.BindKey(btnFirst, "dialog.pickup.first");
+            Lang.BindKey(btnLast, "dialog.pickup.last");
+            Lang.BindKey(lblSequenceCaption, "dialog.pickup.sequence");
+            Lang.BindKey(btnJump, "dialog.pickup.jump");
+            Lang.BindKey(lblPlaybackNotice, "dialog.pickup.notice");
+            Lang.BindKey(btnApply, "dialog.pickup.apply");
+            Lang.BindKey(btnClose, "dialog.close");
+            Lang.BindKey(btnPrevious, "common.prev");
+            Lang.BindKey(btnNext, "common.next");
+            Lang.BindKey(btnPagePrevious, "common.prev");
+            Lang.BindKey(btnPageNext, "common.next");
+            foreach (ComboBox combo in new[] { cmbCorner, cmbDirection, cmbPattern, cmbVisibleCount })
+            {
+                combo.DrawMode = DrawMode.OwnerDrawFixed;
+                combo.DrawItem += cmbDisplay_DrawItem;
+            }
+            gridOrder.CellFormatting += gridOrder_CellFormatting;
+            ApplyLanguage();
+            Load += (sender, e) => Lang.Apply(this);
         }
 
         public InputPickupOrderDialog(PickupOrderDraft draft, string waferId, string selectedDieUid) : this()
         {
             _draft = draft ?? throw new ArgumentNullException("draft");
-            lblWafer.Text = "WAFER " + (string.IsNullOrWhiteSpace(waferId) ? "-" : waferId);
+            _waferId = waferId;
+            lblWafer.Text = Lang.Format("dialog.pickup.wafer", string.IsNullOrWhiteSpace(_waferId) ? "-" : _waferId);
             _synchronizing = true;
             PickupSubset options = draft.Options;
             cmbCorner.SelectedIndex = options.StartCorner == PickupStartCorner.TopRight ? 0 :
@@ -105,7 +137,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (timerPlayback.Enabled) { StopPlayback(); return; }
             if (Count == 0) return;
             if (_selectedIndex == Count - 1) SelectSequence(0, true);
-            timerPlayback.Start(); btnPlay.Text = "Ⅱ 일시 정지";
+            timerPlayback.Start(); btnPlay.Text = Lang.T("dialog.pickup.pause");
         }
         private void timerPlayback_Tick(object sender, EventArgs e)
         {
@@ -135,7 +167,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void InputPickupOrderDialog_FormClosed(object sender, FormClosedEventArgs e) { StopPlayback(); }
 
         private int Count { get { return _draft == null ? 0 : _draft.Order.Count; } }
-        private void StopPlayback() { timerPlayback.Stop(); btnPlay.Text = "▶ 순서 재생"; }
+        private void StopPlayback() { timerPlayback.Stop(); btnPlay.Text = Lang.T("dialog.pickup.play"); }
 
         private void ResetRouteView()
         {
@@ -187,27 +219,71 @@ namespace QMC.CDT_320.Ui.Dialogs
                 btnPageNext.Enabled = page + 10 < Count;
                 btnSetStart.Enabled = _draft != null && !_draft.IsReadOnly && Count > 0 && _selectedIndex != 0;
                 btnCornerStart.Enabled = _draft != null && !_draft.IsReadOnly && !string.IsNullOrWhiteSpace(_draft.StartDieUid);
-                DieMapEntry selected = Count > 0 ? _draft.Order[_selectedIndex] : null;
-                DieMapEntry start = Count > 0 ? _draft.Order[0] : null;
-                lblSequence.Text = selected == null ? "-" : (_selectedIndex + 1).ToString("D3");
-                lblSelectedMap.Text = selected == null ? "픽업 대상 없음" : WaferMapProcessService.FormatMapPosition(selected);
-                lblPosition.Text = selected == null ? "X - / Y -" : "X " + selected.PosX.ToString("F3", CultureInfo.InvariantCulture) + "    Y " + selected.PosY.ToString("F3", CultureInfo.InvariantCulture) + " mm";
-                lblStart.Text = start == null ? "시작 다이 없음" : "시작 1번  ·  " + WaferMapProcessService.FormatMapPosition(start);
-                lblPage.Text = Count == 0 ? "0 / 0" : (page + 1) + "–" + Math.Min(Count, page + 10) + " / " + Count.ToString("N0");
-                lblTotal.Text = "/ " + Count.ToString("N0");
-                lblStatus.Text = _draft != null && _draft.IsReadOnly ? "읽기 전용 순서 확인" :
-                    "전체 " + Count.ToString("N0") + "개  ·  적용 후 기존 Review 화면에서 CONFIRM";
-                lblLegend.Text = "주황: 시작   파랑: 선택   → 진행 방향   |   휠 확대 · 드래그 이동" +
-                    (_draft != null && _draft.WrapAfterIndex >= 0 ? "   ┄ 앞부분으로 연결" : "");
-                RefreshMapCaption();
+                RefreshSelectionCaptions(page);
             }
             finally { _synchronizing = false; }
+        }
+
+        public void ApplyLanguage()
+        {
+            lblWafer.Text = Lang.Format("dialog.pickup.wafer", string.IsNullOrWhiteSpace(_waferId) ? "-" : _waferId);
+            btnPlay.Text = Lang.T(timerPlayback.Enabled ? "dialog.pickup.pause" : "dialog.pickup.play");
+            colSequence.HeaderText = Lang.T("dialog.pickup.sequence");
+            colMapX.HeaderText = Lang.T("dialog.pickup.mapX");
+            colMapY.HeaderText = Lang.T("dialog.pickup.mapY");
+            colState.HeaderText = Lang.T("dialog.pickup.state");
+            foreach (ComboBox combo in new[] { cmbCorner, cmbDirection, cmbPattern, cmbVisibleCount })
+                combo.Invalidate();
+            gridOrder.Invalidate();
+            RefreshSelectionCaptions(_selectedIndex / 10 * 10);
+        }
+
+        private void cmbDisplay_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            var combo = sender as ComboBox;
+            if (combo == null || e.Index < 0 || e.Index >= combo.Items.Count) return;
+            string[] keys = combo == cmbCorner ? new[] { "topRight", "topLeft", "bottomRight", "bottomLeft" } :
+                combo == cmbDirection ? new[] { "vertical", "horizontal" } :
+                combo == cmbPattern ? new[] { "zigzag", "straight" } : new[] { "near20", "near50", "all" };
+            string text = e.Index < keys.Length ? Lang.T("dialog.pickup." + keys[e.Index]) : combo.Items[e.Index].ToString();
+            e.DrawBackground();
+            TextRenderer.DrawText(e.Graphics, text, e.Font, e.Bounds, e.ForeColor,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            e.DrawFocusRectangle();
+        }
+
+        private void gridOrder_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (e.ColumnIndex != colState.Index || !(e.Value is string)) return;
+            string state = (string)e.Value;
+            string key = state == "START" ? "dialog.pickup.start" : state == "END" ? "dialog.pickup.end" :
+                state == "WAIT" ? "dialog.pickup.wait" : null;
+            if (key == null) return;
+            e.Value = Lang.T(key);
+            e.FormattingApplied = true;
+        }
+
+        private void RefreshSelectionCaptions(int page)
+        {
+            DieMapEntry selected = Count > 0 ? _draft.Order[_selectedIndex] : null;
+            DieMapEntry start = Count > 0 ? _draft.Order[0] : null;
+            lblSequence.Text = selected == null ? "-" : (_selectedIndex + 1).ToString("D3");
+            lblSelectedMap.Text = selected == null ? Lang.T("dialog.pickup.empty") : WaferMapProcessService.FormatMapPosition(selected);
+            lblPosition.Text = selected == null ? "X - / Y -" : "X " + selected.PosX.ToString("F3", CultureInfo.InvariantCulture) + "    Y " + selected.PosY.ToString("F3", CultureInfo.InvariantCulture) + " mm";
+            lblStart.Text = start == null ? Lang.T("dialog.pickup.noStart") : Lang.Format("dialog.pickup.startAt", WaferMapProcessService.FormatMapPosition(start));
+            lblPage.Text = Count == 0 ? "0 / 0" : (page + 1) + "–" + Math.Min(Count, page + 10) + " / " + Count.ToString("N0");
+            lblTotal.Text = "/ " + Count.ToString("N0");
+            lblStatus.Text = _draft != null && _draft.IsReadOnly ? Lang.T("dialog.pickup.readOnly") :
+                Lang.Format("dialog.pickup.summary", Count.ToString("N0"));
+            lblLegend.Text = Lang.T("dialog.pickup.legend") +
+                (_draft != null && _draft.WrapAfterIndex >= 0 ? Lang.T("dialog.pickup.wrap") : "");
+            RefreshMapCaption();
         }
 
         private void RefreshMapCaption()
         {
             int first, end; mapRoute.GetVisibleRange(out first, out end);
-            lblMapRange.Text = "표시 " + (end == 0 ? 0 : first + 1) + "–" + end + " / " + Count.ToString("N0");
+            lblMapRange.Text = Lang.Format("dialog.pickup.range", end == 0 ? 0 : first + 1, end, Count.ToString("N0"));
             lblZoom.Text = Math.Round(mapRoute.Zoom * 100) + "%";
         }
 
@@ -218,7 +294,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 StopPlayback();
                 QMC.Common.Log.Write("Main", "UI", "InputPickupOrderDialog", "픽업 순서 설정 실패: " + ex + " - Failed");
-                QMC.Common.MessageDialog.Show(this, ex.Message, "픽업 순서 설정", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("dialog.pickup.title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
     }

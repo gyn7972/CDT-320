@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320.VisionComm;
@@ -26,6 +27,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         public VisionViewDialog(InitialTab initialTab)
         {
             InitializeComponent();
+            InitializeLanguageBindings();
 
             if (System.ComponentModel.LicenseManager.UsageMode == System.ComponentModel.LicenseUsageMode.Designtime)
                 return;
@@ -103,6 +105,15 @@ namespace QMC.CDT_320.Ui.Dialogs
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this._tabWafer, "visionUi.visionViewDialog._tabWafer.text");
+            Lang.BindKey(this._tabBottom, "visionUi.visionViewDialog._tabBottom.text");
+            Lang.BindKey(this._tabBin, "visionUi.visionViewDialog._tabBin.text");
+            Lang.BindKey(this._tabSide, "visionUi.visionViewDialog._tabSide.text");
+            Lang.BindKey(this, "visionUi.visionViewDialog.Text.text");
         }
     }
 }

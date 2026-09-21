@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
@@ -27,6 +28,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _saveAction = saveAction;
             _stage.Recipe.EnsurePositionObjects();
             InitializeComponent();
+            InitializeLanguageBindings();
             LoadFromRecipe();
         }
 
@@ -44,11 +46,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (_grid.Rows.Count > 0)
                     _grid.Rows[0].Selected = true;
                 _view.Invalidate();
-                SetStatus("Loaded. Use InputStage view/jog, then TEACH current position.");
+                SetStatusKey("extraDialog.dieMapSetup.loaded");
             }
             catch (Exception ex)
             {
-                SetStatus("Load failed: " + ex.Message);
+                SetStatusFormat("extraDialog.dieMapSetup.loadFailed", ex.Message);
             }
             finally
             {
@@ -82,7 +84,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                SetStatus("Edit failed: " + ex.Message);
+                SetStatusFormat("extraDialog.dieMapSetup.editFailed", ex.Message);
             }
             finally
             {
@@ -111,7 +113,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                SetStatus("TEACH failed: " + ex.Message);
+                SetStatusFormat("extraDialog.dieMapSetup.teachFailed", ex.Message);
             }
             finally
             {
@@ -126,7 +128,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                SetStatus("VISION TEST failed: " + ex.Message);
+                SetStatusFormat("extraDialog.dieMapSetup.visionFailed", ex.Message);
             }
             finally
             {
@@ -142,21 +144,21 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
 
                 string pointName = Convert.ToString(row.Cells["Name"].Value);
-                if (!ConfirmAction(pointName + " 위치로 이동하시겠습니까?"))
+                if (!ConfirmAction(Lang.Format("extraDialog.dieMapSetup.confirmMove", pointName)))
                     return;
 
                 SetButtonsEnabled(false);
                 Cursor = Cursors.WaitCursor;
                 int result = await MoveSelectedPointAsync(row);
                 if (result == 0)
-                    SetStatus(pointName + " move complete.");
+                    SetStatusFormat("extraDialog.dieMapSetup.moveComplete", pointName);
                 else
-                    QMC.Common.MessageDialog.Show(this, pointName + " 이동 실패. result=" + result, "Die Map Setup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.Format("extraDialog.dieMapSetup.moveResult", pointName, result), Lang.T("extraDialog.dieMapSetup.messageTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
-                SetStatus("MOVE failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Die Map Setup Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                SetStatusFormat("extraDialog.dieMapSetup.moveFailed", ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("extraDialog.dieMapSetup.moveTitle"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -169,17 +171,17 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             try
             {
-                if (!ConfirmAction("Die Map Setup 정보를 저장하시겠습니까?"))
+                if (!ConfirmAction(Lang.T("extraDialog.dieMapSetup.confirmSave")))
                     return;
 
                 SaveGridToRecipe();
                 if (_saveAction != null)
                     _saveAction();
-                SetStatus("Saved.");
+                SetStatusKey("extraDialog.dieMapSetup.saved");
             }
             catch (Exception ex)
             {
-                SetStatus("Save failed: " + ex.Message);
+                SetStatusFormat("extraDialog.dieMapSetup.saveFailed", ex.Message);
             }
             finally
             {
@@ -201,7 +203,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             row.Cells["VisionX"].Value = Format(_stage.CameraX != null ? _stage.CameraX.ActualPosition : 0.0);
             SaveGridToRecipe();
             _view.Invalidate();
-            SetStatus(Convert.ToString(row.Cells["Name"].Value) + " taught from current StageY / VisionX.");
+            SetStatusFormat("extraDialog.dieMapSetup.taught", Convert.ToString(row.Cells["Name"].Value));
         }
 
         private void VisionTest()
@@ -215,7 +217,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             row.Cells["OffsetY"].Value = "0.000";
             SaveGridToRecipe();
             _view.Invalidate();
-            SetStatus("Vision PC interface placeholder. Offset=(0, 0).");
+            SetStatusKey("extraDialog.dieMapSetup.visionPlaceholder");
         }
 
         private async Task<int> MoveSelectedPointAsync(DataGridViewRow row)
@@ -235,7 +237,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!_stage.IsInputStageWorkPointInArea(visionX, stageY, out areaReason))
                     return Fail("IN-STAGE-DIEMAP-MOVE-AREA", pointName + " target is outside input stage work area. " + areaReason);
 
-                SetStatus(pointName + " move command...");
+                SetStatusFormat("extraDialog.dieMapSetup.moveCommand", pointName);
                 Task<int> moveY = _stage.MoveInputStageAxis(WaferStageAxis.WaferY, stageY, JogSpeedType.Fine, 0.0);
                 Task<int> moveX = _stage.MoveInputStageAxis(WaferStageAxis.VisionX, visionX, JogSpeedType.Fine, 0.0);
                 int[] moveResults = await Task.WhenAll(moveY, moveX);
@@ -244,7 +246,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (moveResults[1] != 0)
                     return Fail("IN-STAGE-DIEMAP-MOVE-X", pointName + " VisionX move command failed. target=" + visionX + ", result=" + moveResults[1]);
 
-                SetStatus(pointName + " wait in-position...");
+                SetStatusFormat("extraDialog.dieMapSetup.waitInPosition", pointName);
                 int timeoutMs = ResolveMoveTimeout();
                 Task<int> waitY = _stage.WaitInputStageAxisInPosition(WaferStageAxis.WaferY, stageY, timeoutMs);
                 Task<int> waitX = _stage.WaitInputStageAxisInPosition(WaferStageAxis.VisionX, visionX, timeoutMs);
@@ -357,7 +359,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             try
             {
-                DialogResult result = QMC.Common.MessageDialog.Show(this, message, "Die Map Setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                DialogResult result = QMC.Common.MessageDialog.Show(this, message, Lang.T("extraDialog.dieMapSetup.messageTitle"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 return result == DialogResult.Yes;
             }
             catch
@@ -476,9 +478,19 @@ namespace QMC.CDT_320.Ui.Dialogs
             return _grid.SelectedRows.Count > 0 ? _grid.SelectedRows[0] : (_grid.Rows.Count > 0 ? _grid.Rows[0] : null);
         }
 
+        private void SetStatusKey(string key)
+        {
+            Lang.BindKey(_status, key);
+        }
+
+        private void SetStatusFormat(string key, params object[] args)
+        {
+            Lang.BindFormat(_status, key, args);
+        }
+
         private void SetStatus(string text)
         {
-            _status.Text = text ?? "";
+            Lang.Bind(_status, text ?? "");
         }
 
         private static string Format(double value)
@@ -491,5 +503,24 @@ namespace QMC.CDT_320.Ui.Dialogs
             double result;
             return double.TryParse(Convert.ToString(value), NumberStyles.Float, CultureInfo.InvariantCulture, out result) ? result : 0.0;
         }
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(lblVisionTarget, "extraDialog.inputStageDieMapSetupDialog.lblVisionTarget.caption");
+            Lang.BindKey(lblRetry, "extraDialog.inputStageDieMapSetupDialog.lblRetry.caption");
+            Lang.BindKey(colEnabled, "extraDialog.inputStageDieMapSetupDialog.colEnabled.caption");
+            Lang.BindKey(colName, "extraDialog.inputStageDieMapSetupDialog.colName.caption");
+            Lang.BindKey(colStageY, "extraDialog.inputStageDieMapSetupDialog.colStageY.caption");
+            Lang.BindKey(colVisionX, "extraDialog.inputStageDieMapSetupDialog.colVisionX.caption");
+            Lang.BindKey(colOffsetX, "extraDialog.inputStageDieMapSetupDialog.colOffsetX.caption");
+            Lang.BindKey(colOffsetY, "extraDialog.inputStageDieMapSetupDialog.colOffsetY.caption");
+            Lang.BindKey(btnTeach, "extraDialog.inputStageDieMapSetupDialog.btnTeach.caption");
+            Lang.BindKey(btnMove, "extraDialog.inputStageDieMapSetupDialog.btnMove.caption");
+            Lang.BindKey(btnVisionTest, "extraDialog.inputStageDieMapSetupDialog.btnVisionTest.caption");
+            Lang.BindKey(btnSave, "extraDialog.inputStageDieMapSetupDialog.btnSave.caption");
+            Lang.BindKey(btnClose, "extraDialog.inputStageDieMapSetupDialog.btnClose.caption");
+            Lang.BindKey(this, "extraDialog.inputStageDieMapSetupDialog.this.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 }

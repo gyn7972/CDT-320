@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -16,8 +17,12 @@ namespace QMC.CDT_320.Ui.Dialogs
     /// - bin 색은 기존 BinCodeMap(구간 사전)으로 표시만 한다(편집은 범위 밖).
     /// [검토수정 2026-08-22] AGENTS.md §8에 맞춰 Designer 구조(partial + InitializeComponent)로 재작성.
     /// </summary>
-    internal sealed partial class BinSelectDialog : Form
+    internal sealed partial class BinSelectDialog : Form, ILocalizedView
     {
+        private readonly string _lotId;
+        private readonly LotWaferMapSlotInfo _reference;
+        private readonly Dictionary<ListViewItem, string> _itemCaptionKeys = new Dictionary<ListViewItem, string>();
+
         public string SelectedMode { get; private set; } = "All";
         public List<int> SelectedBins { get; private set; } = new List<int>();
 
@@ -25,14 +30,14 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             InitializeComponent();
 
-            // [P5 2026-08-24] 기준 맵 표기: 파일명=바코드(1:1)라 슬롯 번호 대신 바코드를 표시한다.
-            lblHeader.Text = "LOT: " + (string.IsNullOrWhiteSpace(lotId) ? "(진행 중인 LOT 없음)" : lotId) +
-                             (reference != null
-                                 ? "   /   기준 맵: " +
-                                   (string.IsNullOrWhiteSpace(reference.Barcode) ? "-" : reference.Barcode) +
-                                   " (" + reference.DieCount + "다이)"
-                                 : "   /   기준 맵: 수신된 웨이퍼맵 없음(첫 웨이퍼 바코드 판독 후 표시)");
-
+            _lotId = lotId;
+            _reference = reference;
+            Lang.BindKey(this, "dialog.bin.title");
+            Lang.BindKey(rdoAll, "dialog.bin.all");
+            Lang.BindKey(rdoSelected, "dialog.bin.selected");
+            Lang.BindKey(lblGuide, "dialog.bin.guide");
+            Lang.BindKey(btnOk, "common.ok");
+            Lang.BindKey(btnCancel, "common.cancel");
             PopulateBins(reference, currentBins);
 
             bool selectedMode = string.Equals(currentMode, "Selected", StringComparison.OrdinalIgnoreCase) &&
@@ -40,6 +45,20 @@ namespace QMC.CDT_320.Ui.Dialogs
             rdoAll.Checked = !selectedMode;
             rdoSelected.Checked = selectedMode;
             lsvBins.Enabled = selectedMode;
+            ApplyLanguage();
+            Load += (sender, e) => Lang.Apply(this);
+        }
+
+        public void ApplyLanguage()
+        {
+            string lot = string.IsNullOrWhiteSpace(_lotId) ? Lang.T("dialog.bin.noLot") : _lotId;
+            lblHeader.Text = _reference == null ? Lang.Format("dialog.bin.noReference", lot) :
+                Lang.Format("dialog.bin.reference", lot,
+                    string.IsNullOrWhiteSpace(_reference.Barcode) ? "-" : _reference.Barcode, _reference.DieCount);
+            colDieCount.Text = Lang.T("dialog.bin.dieCount");
+            colName.Text = Lang.T("dialog.bin.name");
+            foreach (var entry in _itemCaptionKeys)
+                entry.Key.SubItems[2].Text = Lang.T(entry.Value);
         }
 
         private void rdoMode_CheckedChanged(object sender, EventArgs e)
@@ -50,6 +69,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void PopulateBins(LotWaferMapSlotInfo reference, List<int> currentBins)
         {
             lsvBins.Items.Clear();
+            _itemCaptionKeys.Clear();
 
             if (reference != null && reference.BinDieCounts != null)
             {
@@ -82,7 +102,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                     var item = new ListViewItem(bin.ToString("000"));
                     item.SubItems.Add("-");
-                    item.SubItems.Add("(기준 맵에 없음)");
+                    item.SubItems.Add(Lang.T("dialog.bin.missing"));
+                    _itemCaptionKeys.Add(item, "dialog.bin.missing");
                     item.Tag = bin;
                     item.ForeColor = ResolveBinDisplayColor(bin);
                     item.Checked = true;
@@ -94,7 +115,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 var empty = new ListViewItem("-");
                 empty.SubItems.Add("-");
-                empty.SubItems.Add("수신된 웨이퍼맵이 없습니다. LOT 시작(프리페치) 후 다시 여세요.");
+                empty.SubItems.Add(Lang.T("dialog.bin.empty"));
+                _itemCaptionKeys.Add(empty, "dialog.bin.empty");
                 empty.Tag = null;
                 lsvBins.Items.Add(empty);
             }
@@ -138,9 +160,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (bins.Count == 0)
             {
                 QMC.Common.MessageDialog.Show(this,
-                    "지정 BIN 모드에는 최소 1개의 BIN을 선택해야 합니다.\r\n" +
-                    "(전부 픽업하려면 ALL을 선택하세요)",
-                    "픽업 BIN 선택", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.T("dialog.bin.chooseOne"),
+                    Lang.T("dialog.bin.title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 

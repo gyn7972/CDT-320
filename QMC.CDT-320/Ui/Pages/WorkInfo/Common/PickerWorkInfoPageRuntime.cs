@@ -297,8 +297,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                      controller.IsManualBusy))
                 {
                     QMC.Common.MessageDialog.Show(_owner,
-                        "장비 동작 중에는 검사 데이터를 삭제할 수 없습니다.\r\nAuto/Manual 동작을 정지한 뒤 다시 시도하세요.",
-                        SideName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("message.picker.inspectionClearBusy"),
+                        Lang.Display(SideName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -315,22 +315,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         continue;
 
                     targetCount++;
-                    targetLines.AppendLine("HEAD #" + pickerNo + " : " + die.DieId + " (Result=" + die.Result + ")");
+                    targetLines.AppendLine(Lang.Format("message.picker.inspectionHead", pickerNo, die.DieId, die.Result));
                 }
 
                 if (targetCount == 0)
                 {
                     QMC.Common.MessageDialog.Show(_owner,
-                        "픽커에 물려 있는 Die가 없습니다.",
-                        SideName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("message.picker.noHeldDie"),
+                        Lang.Display(SideName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(_owner,
-                    SideName + " 헤드 Die " + targetCount + "개의 BOTTOM/SIDE 검사 데이터를 삭제하시겠습니까?\r\n" +
-                    "삭제 후 BOTTOM/SIDE 버튼으로 재검사할 수 있으며, 재검사 완료 전에는 PLACE가 차단됩니다.\r\n\r\n" +
-                    targetLines,
-                    SideName + " 검사 데이터 삭제", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    Lang.Format("message.picker.inspectionClearConfirm", Lang.Display(SideName), targetCount, targetLines),
+                    Lang.Format("message.picker.inspectionClearTitle", Lang.Display(SideName)), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
@@ -346,8 +344,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 RefreshHeadDieDetail();
 
                 QMC.Common.MessageDialog.Show(_owner,
-                    message + (cleared ? "\r\nBOTTOM → SIDE 버튼으로 재검사를 진행하세요." : string.Empty),
-                    SideName + " 검사 데이터 삭제", MessageBoxButtons.OK,
+                    message + (cleared ? Lang.T("message.picker.inspectAgain") : string.Empty),
+                    Lang.Format("message.picker.inspectionClearTitle", Lang.Display(SideName)), MessageBoxButtons.OK,
                     cleared ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
             }
             catch (Exception ex)
@@ -355,8 +353,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 QMC.Common.Log.Write("Main", "SYSTEM", LogCode,
                     "헤드 Die 검사 데이터 삭제 실패: " + ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(_owner,
-                    "검사 데이터 삭제 실패:\r\n" + ex.Message,
-                    SideName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Lang.Format("message.picker.inspectionClearFailed", ex.Message),
+                    Lang.Display(SideName), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -466,21 +464,21 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             for (int i = 0; i < _headValueLabels.Length; i++)
             {
                 if (_headValueLabels[i] != null)
-                    _headValueLabels[i].Text = "-";
+                    Lang.BindDisplay(_headValueLabels[i], "-", Lang.Display);
             }
-            _lblColletChangeValue.Text = "-";
-            _lblAutoPosValue.Text = "-";
-            _lblColletCleaningValue.Text = "-";
-            _lblColletCheckValue.Text = "-";
-            _lblPickFailValue.Text = "0 ea";
-            _lblPlaceFailValue.Text = "0 ea";
+            Lang.BindDisplay(_lblColletChangeValue, "-", Lang.Display);
+            Lang.BindDisplay(_lblAutoPosValue, "-", Lang.Display);
+            Lang.BindDisplay(_lblColletCleaningValue, "-", Lang.Display);
+            Lang.BindDisplay(_lblColletCheckValue, "-", Lang.Display);
+            Lang.BindFormat(_lblPickFailValue, "workInfoUi.picker.count", 0);
+            Lang.BindFormat(_lblPlaceFailValue, "workInfoUi.picker.count", 0);
             SetHeadZone("-");
             SetProcessDetail("-");
             for (int i = 0; i < _colletUseTitleLabels.Length; i++)
             {
                 if (_colletUseTitleLabels[i] != null)
                 {
-                    _colletUseTitleLabels[i].Text = "#" + (i + 1) + " " + Lang.Display("COLLET USE");
+                    Lang.BindFormat(_colletUseTitleLabels[i], "workInfoUi.picker.colletUsed", i + 1);
                     _colletUseTitleLabels[i].BackColor = Color.FromArgb(0xC8, 0xC8, 0xC8);
                     _colletUseTitleLabels[i].ForeColor = Color.Black;
                 }
@@ -488,7 +486,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             for (int i = 0; i < _colletUseValueLabels.Length; i++)
             {
                 if (_colletUseValueLabels[i] != null)
-                    _colletUseValueLabels[i].Text = "0 ea";
+                    Lang.BindFormat(_colletUseValueLabels[i], "workInfoUi.picker.count", 0);
             }
             for (int i = 0; i < _vacuumDots.Length; i++)
                 SetDot(_vacuumDots[i], false);
@@ -515,30 +513,28 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (index < _headValueLabels.Length && _headValueLabels[index] != null)
                 {
                     string headState = ResolveHeadState(machine, pickerNo, flow, pickedDie);
-                    _headValueLabels[index].Text = headState.StartsWith("PICK / ", StringComparison.Ordinal)
-                        ? Lang.Display("PICK") + headState.Substring(4)
-                        : Lang.Display(headState);
+                    Lang.BindDisplay(_headValueLabels[index], headState, WorkInfoText.DisplayHeadState);
                     _headValueLabels[index].ForeColor = IsPickedHeadState(headState) ? Color.Lime : Color.Black;
                 }
 
                 bool usePicker = UsePicker(machine, pickerNo);
                 if (index < _colletUseTitleLabels.Length && _colletUseTitleLabels[index] != null)
                 {
-                    _colletUseTitleLabels[index].Text = "#" + pickerNo + " " + Lang.Display(usePicker ? "COLLET USE" : "COLLET UNUSED");
+                    Lang.BindFormat(_colletUseTitleLabels[index], usePicker ? "workInfoUi.picker.colletUsed" : "workInfoUi.picker.colletUnused", pickerNo);
                     _colletUseTitleLabels[index].BackColor = usePicker ? Color.FromArgb(0x00, 0xB0, 0x50) : Color.FromArgb(0x96, 0x96, 0x96);
                     _colletUseTitleLabels[index].ForeColor = usePicker ? Color.White : Color.Gainsboro;
                 }
                 if (index < _colletUseValueLabels.Length && _colletUseValueLabels[index] != null)
                 {
-                    _colletUseValueLabels[index].Text = GetColletUseCount(machine, pickerNo) + " ea";
+                    Lang.BindFormat(_colletUseValueLabels[index], "workInfoUi.picker.count", GetColletUseCount(machine, pickerNo));
                     _colletUseValueLabels[index].BackColor = Color.White;
                     _colletUseValueLabels[index].ForeColor = Color.Black;
                 }
 
                 if (index < _vacuumLabels.Length && _vacuumLabels[index] != null)
-                    _vacuumLabels[index].Text = Lang.Display("VACUUM") + " #" + pickerNo + "\r\n: " + Lang.Display(vacuumDisplay ? "ON" : "OFF");
+                    WorkInfoText.BindFormat(_vacuumLabels[index], "workInfoUi.picker.vacuumState", new object[] { pickerNo, vacuumDisplay ? "ON" : "OFF" }, 1);
                 if (index < _blowLabels.Length && _blowLabels[index] != null)
-                    _blowLabels[index].Text = Lang.Display("BLOW") + " #" + pickerNo + "\r\n: " + Lang.Display(blow ? "ON" : "OFF");
+                    WorkInfoText.BindFormat(_blowLabels[index], "workInfoUi.picker.blowState", new object[] { pickerNo, blow ? "ON" : "OFF" }, 1);
 
                 if (index < _vacuumDots.Length)
                     SetDot(_vacuumDots[index], vacuumDisplay);
@@ -546,13 +542,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     SetDot(_blowDots[index], blow);
             }
 
-            _lblColletChangeValue.Text = Lang.Display(cdaOk ? "READY" : "CHECK");
-            _lblAutoPosValue.Text = Lang.Display(IsGroupInPosition(machine, "AvoidPosition") ? "AVOID" : "MOVING");
-            _lblColletCleaningValue.Text = Lang.Display(vacuumOk ? "READY" : "CHECK");
-            _lblColletCheckValue.Text = Lang.Display(cdaOk && vacuumOk ? "READY" : "CHECK");
+            Lang.BindDisplay(_lblColletChangeValue, cdaOk ? "READY" : "CHECK", Lang.Display);
+            Lang.BindDisplay(_lblAutoPosValue, IsGroupInPosition(machine, "AvoidPosition") ? "AVOID" : "MOVING", Lang.Display);
+            Lang.BindDisplay(_lblColletCleaningValue, vacuumOk ? "READY" : "CHECK", Lang.Display);
+            Lang.BindDisplay(_lblColletCheckValue, cdaOk && vacuumOk ? "READY" : "CHECK", Lang.Display);
             UpdateColletCleaningHistoryDisplay();
-            _lblPickFailValue.Text = GetPickFailCount(machine) + " ea";
-            _lblPlaceFailValue.Text = GetPlaceFailCount(machine) + " ea";
+            Lang.BindFormat(_lblPickFailValue, "workInfoUi.picker.count", GetPickFailCount(machine));
+            Lang.BindFormat(_lblPlaceFailValue, "workInfoUi.picker.count", GetPlaceFailCount(machine));
             string headZone = ResolveHeadZone(machine);
             string headProcess = ResolveHeadProcess(machine, headZone);
             bool pickerMoving = IsPickerMoving(machine);
@@ -573,8 +569,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 DialogResult answer = QMC.Common.MessageDialog.Show(
                     _owner,
-                    SideName + " count clear 진행하시겠습니까?",
-                    SideName,
+                    Lang.Format("message.picker.countClearConfirm", Lang.Display(SideName)),
+                    Lang.Display(SideName),
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
 
@@ -595,7 +591,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             catch (Exception ex)
             {
                 WriteAlarm("Count clear failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(_owner, ex.Message, SideName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(_owner, ex.Message, Lang.Display(SideName), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -744,8 +740,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 EventLogger.Write(EventKind.Warning, "QMC", LogCode, actionName + " blocked: " + ex.Message);
                 QMC.Common.MessageDialog.Show(
                     _owner,
-                    "지금은 수동 동작을 시작할 수 없습니다.\r\n\r\n" + ex.Message,
-                    SideName,
+                    Lang.Format("message.manual.blocked", ex.Message),
+                    Lang.Display(SideName),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
@@ -782,7 +778,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 ShowFailure(actionName);
 
             if (!string.IsNullOrWhiteSpace(exceptionMessage))
-                QMC.Common.MessageDialog.Show(_owner, exceptionMessage, SideName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(_owner, exceptionMessage, Lang.Display(SideName), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private async Task RunPickUpZMotionTestActionAsync()
@@ -802,8 +798,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 DialogResult answer = QMC.Common.MessageDialog.Show(
                     _owner,
-                    actionName + " 실행하시겠습니까?\r\nMaterial/DieMap 상태는 변경하지 않고 PickUp Z 세부 모션만 테스트합니다.",
-                    SideName,
+                    Lang.Format("message.picker.pickupTestConfirm", Lang.Display(actionName)),
+                    Lang.Display(SideName),
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
                 if (answer != DialogResult.Yes)
@@ -847,7 +843,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 ShowFailure(actionName);
 
             if (!string.IsNullOrWhiteSpace(exceptionMessage))
-                QMC.Common.MessageDialog.Show(_owner, exceptionMessage, SideName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(_owner, exceptionMessage, Lang.Display(SideName), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void ShowPickUpTestDialog()
@@ -884,7 +880,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             catch (Exception ex)
             {
                 WriteAlarm(actionName + " 다이얼로그 실행 예외: " + ex.Message);
-                QMC.Common.MessageDialog.Show(_owner, ex.Message, SideName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(_owner, ex.Message, Lang.Display(SideName), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -953,7 +949,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             string message = actionName + " 실행 불가: " + reason;
             WriteAlarm(message);
-            QMC.Common.MessageDialog.Show(_owner, message, SideName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            QMC.Common.MessageDialog.Show(_owner, Lang.Format("message.manual.unavailable", Lang.Display(actionName), reason), Lang.Display(SideName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return false;
         }
 
@@ -1004,8 +1000,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 WriteAlarm("Picker Head Die 정보 창 표시 실패: pickerNo=" + pickerNo + ", error=" + ex.Message);
                 QMC.Common.MessageDialog.Show(
                     _owner,
-                    "Picker Head Die 정보 창 표시 실패:\r\n" + ex.Message,
-                    SideName,
+                    Lang.Format("message.picker.headDialogFailed", ex.Message),
+                    Lang.Display(SideName),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -1578,8 +1574,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             string message = SequenceFailureStore.BuildManualFailureMessage(
                 actionName,
-                actionName + " 실패\r\nAlarm/Event Log를 확인하세요.");
-            QMC.Common.MessageDialog.Show(_owner, message, SideName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Lang.Format("message.manual.failed", Lang.Display(actionName)));
+            QMC.Common.MessageDialog.Show(_owner, message, Lang.Display(SideName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         private bool SelectManualSequenceStartMode(string actionName, out SequenceStartMode startMode)
@@ -1587,14 +1583,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             startMode = SequenceStartMode.Resume;
 
             string message =
-                actionName + " 시작 방식을 선택하세요.\r\n\r\n" +
-                "[예] 처음부터 시작\r\n" +
-                "[아니오] 현재 스텝에서 진행";
+                Lang.Format("message.manual.startMode", Lang.Display(actionName));
 
             DialogResult result = QMC.Common.MessageDialog.Show(
                 _owner,
                 message,
-                SideName,
+                Lang.Display(SideName),
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
 
@@ -1957,7 +1951,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
 
             // 상태 판정과 색상은 원래 토큰을 사용하고 화면 문구만 번역한다.
-            _lblHeadZoneValue.Text = Lang.Display(_lblHeadZoneValue.Text);
+            Lang.BindDisplay(_lblHeadZoneValue, _lblHeadZoneValue.Text, Lang.Display);
         }
 
         private string ResolveHeadProcess(CDT320_Machine machine, string encoderZone)
@@ -2051,7 +2045,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             string encoderZone = ResolveEncoderHeadZone(machine);
             string encoderText = string.IsNullOrWhiteSpace(encoderZone)
                 ? string.Empty
-                : " / " + Lang.Display("ENC") + "=" + Lang.Display(encoderZone);
+                : " / " + "ENC" + "=" + encoderZone;
 
             if (string.IsNullOrWhiteSpace(flowProcess) || flowProcess == "-")
                 return string.IsNullOrWhiteSpace(encoderText) ? "-" : encoderText.TrimStart(' ', '/');
@@ -2064,25 +2058,25 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (IsStableProcess(flowProcess) &&
                     IsStableProcess(_lastStableProcess) &&
                     !string.Equals(_lastStableProcess, flowProcess, StringComparison.OrdinalIgnoreCase))
-                    return Lang.Display(_lastStableProcess) + " -> " + Lang.Display(flowProcess) + " 이동 중" + encoderText;
+                    return _lastStableProcess + " -> " + flowProcess + " 이동 중" + encoderText;
 
-                return Lang.Display(flowProcess) + " 위치 이동 중" + encoderText;
+                return flowProcess + " 위치 이동 중" + encoderText;
             }
 
             switch (flowProcess)
             {
                 case "AVOID":
-                    return Lang.Display("AVOID") + " 대기" + encoderText;
+                    return "AVOID" + " 대기" + encoderText;
                 case "PICKUP":
-                    return Lang.Display("PICKUP") + " 공정 진행 중" + encoderText;
+                    return "PICKUP" + " 공정 진행 중" + encoderText;
                 case "BOTTOM":
-                    return Lang.Display("BOTTOM") + " 검사 진행 중" + encoderText;
+                    return "BOTTOM" + " 검사 진행 중" + encoderText;
                 case "SIDE":
-                    return Lang.Display("SIDE") + " 검사 진행 중" + encoderText;
+                    return "SIDE" + " 검사 진행 중" + encoderText;
                 case "PLACE":
-                    return Lang.Display("PLACE") + " 공정 진행 중" + encoderText;
+                    return "PLACE" + " 공정 진행 중" + encoderText;
                 default:
-                    return Lang.Display(flowProcess) + encoderText;
+                    return flowProcess + encoderText;
             }
         }
 
@@ -2091,7 +2085,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (_lblProcessDetailValue == null)
                 return;
 
-            _lblProcessDetailValue.Text = string.IsNullOrWhiteSpace(detail) ? "-" : detail;
+            Lang.BindDisplay(_lblProcessDetailValue, string.IsNullOrWhiteSpace(detail) ? "-" : detail, WorkInfoText.DisplayProcessDetail);
             _lblProcessDetailValue.ForeColor = Color.Black;
             _lblProcessDetailValue.BackColor = detail != null && detail.Contains("이동 중")
                 ? Color.FromArgb(255, 242, 204)

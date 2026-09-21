@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Dialogs;
@@ -27,10 +28,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 InitializeComponent();
+                InitializeRecipeLanguageBindings();
                 // 색/폰트(페이지·헤더·상태 라벨)는 Designer(.Designer.cs)로 이관
                 // 버튼 Click 이벤트 연결도 Designer(InitializeComponent)로 이관
                 LoadSafeMovePercentToUi();
-                lblStatus.Text = "캘리브레이션 항목을 선택하세요. 각 기능은 모달리스 창으로 열립니다.";
+                Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.text");
             }
             catch (Exception ex)
             {
@@ -91,7 +93,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (host == null || host.Machine == null || host.Machine.VisionUnit == null ||
                     host.Machine.VisionUnit.Config == null || host.Machine.VisionUnit.Config.CalibrationData == null)
                 {
-                    lblStatus.Text = "장비가 준비되지 않아 안전이동 %를 저장할 수 없습니다.";
+                    Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state2");
                     return;
                 }
 
@@ -100,15 +102,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 host.Machine.VisionUnit.Config.CalibrationData.EnsureObjects();
                 host.SaveMachineSettings();
 
-                lblStatus.Text = "안전위치(Avoid) 이동 속도 %를 " + percent.ToString("F1") +
-                                 "%로 저장했습니다. (각 축 Default × %) 측정 속도와는 무관합니다.";
+                Lang.BindFormat(lblStatus, "recipeUi.calibrationPage.lblStatus.state3", (object)(percent.ToString("F1")));
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "CalSafeMovePercent",
                     "캘리브레이션 안전이동 SafeMovePercent 저장. percent=" + percent.ToString("F3"));
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "CAL-SAFEMOVE-SAVE", "안전이동 % 저장 실패: " + ex.Message);
-                lblStatus.Text = "안전이동 % 저장 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "recipeUi.calibrationPage.lblStatus.state4", (object)(ex.Message));
             }
         }
 
@@ -129,7 +130,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _visionCameraDialog.StartPosition = FormStartPosition.Manual;
                     _visionCameraDialog.Location = ResolveDialogLocation(_visionCameraDialog);
                     _visionCameraDialog.Show(host);
-                    lblStatus.Text = "VISION CAMERA CAL 설정창을 열었습니다.";
+                    Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state5");
                     return;
                 }
 
@@ -138,7 +139,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 _visionCameraDialog.Activate();
                 _visionCameraDialog.BringToFront();
-                lblStatus.Text = "VISION CAMERA CAL 설정창이 이미 열려 있습니다.";
+                Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state6");
             }
             catch (Exception ex)
             {
@@ -159,12 +160,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 {
                     _colletDialog = ColletCalibrationDialog.Open(host);
                     ActivateDialog(host, _colletDialog);
-                    lblStatus.Text = "COLLET CAL 설정창을 열었습니다.";
+                    Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state7");
                     return;
                 }
 
                 ActivateDialog(host, _colletDialog);
-                lblStatus.Text = "COLLET CAL 설정창이 이미 열려 있습니다.";
+                Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state8");
             }
             catch (Exception ex)
             {
@@ -194,7 +195,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _sideVisionFocusDialog = SideVisionFocusCalibrationDialog.Open(host);
                     _sideVisionFocusDialog.StartPosition = FormStartPosition.Manual;
                     _sideVisionFocusDialog.Location = ResolveDialogLocation(_sideVisionFocusDialog);
-                    lblStatus.Text = "SIDE VISION FOCUS CAL 설정창을 열었습니다.";
+                    Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state9");
                     return;
                 }
 
@@ -203,7 +204,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 _sideVisionFocusDialog.Activate();
                 _sideVisionFocusDialog.BringToFront();
-                lblStatus.Text = "SIDE VISION FOCUS CAL 설정창이 이미 열려 있습니다.";
+                Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state10");
             }
             catch (Exception ex)
             {
@@ -225,7 +226,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _visionFocusDialog = VisionFocusCalibrationDialog.Open(host);
                     _visionFocusDialog.StartPosition = FormStartPosition.Manual;
                     _visionFocusDialog.Location = ResolveDialogLocation(_visionFocusDialog);
-                    lblStatus.Text = "VISION FOCUS CAL 설정창을 열었습니다.";
+                    Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state11");
                     return;
                 }
 
@@ -234,7 +235,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 _visionFocusDialog.Activate();
                 _visionFocusDialog.BringToFront();
-                lblStatus.Text = "VISION FOCUS CAL 설정창이 이미 열려 있습니다.";
+                Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state12");
             }
             catch (Exception ex)
             {
@@ -255,7 +256,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _colletRotationCenterDialog = ColletCalibrationDialog.Open(host);
 
                 ActivateDialog(host, _colletRotationCenterDialog);
-                lblStatus.Text = "COLLET CAL 화면에서 COC START를 실행하세요.";
+                Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state13");
             }
             catch (Exception ex)
             {
@@ -277,12 +278,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _pickUpZDialog = PickUpZCalibrationDialog.Open(host);
                     _pickUpZDialog.StartPosition = FormStartPosition.Manual;
                     _pickUpZDialog.Location = ResolveDialogLocation(_pickUpZDialog);
-                    lblStatus.Text = "PICKUP Z CAL 설정창을 열었습니다.";
+                    Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state14");
                     return;
                 }
 
                 ActivateDialog(host, _pickUpZDialog);
-                lblStatus.Text = "PICKUP Z CAL 설정창이 이미 열려 있습니다.";
+                Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state15");
             }
             catch (Exception ex)
             {
@@ -304,12 +305,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _placeZDialog = PlaceZCalibrationDialog.Open(host);
                     _placeZDialog.StartPosition = FormStartPosition.Manual;
                     _placeZDialog.Location = ResolveDialogLocation(_placeZDialog);
-                    lblStatus.Text = "PLACE Z CAL 설정창을 열었습니다.";
+                    Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state16");
                     return;
                 }
 
                 ActivateDialog(host, _placeZDialog);
-                lblStatus.Text = "PLACE Z CAL 설정창이 이미 열려 있습니다.";
+                Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state17");
             }
             catch (Exception ex)
             {
@@ -331,12 +332,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _needleZDialog = NeedleCalibrationDialog.Open(host);
                     _needleZDialog.StartPosition = FormStartPosition.Manual;
                     _needleZDialog.Location = ResolveDialogLocation(_needleZDialog);
-                    lblStatus.Text = "NEEDLE Z CAL 설정창을 열었습니다.";
+                    Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state18");
                     return;
                 }
 
                 ActivateDialog(host, _needleZDialog);
-                lblStatus.Text = "NEEDLE Z CAL 설정창이 이미 열려 있습니다.";
+                Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state19");
             }
             catch (Exception ex)
             {
@@ -358,12 +359,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _autoCalibrationDialog = AutoCalibrationDialog.Open(host);
                     _autoCalibrationDialog.StartPosition = FormStartPosition.Manual;
                     _autoCalibrationDialog.Location = ResolveDialogLocation(_autoCalibrationDialog);
-                    lblStatus.Text = "AUTO CALIBRATION 설정창을 열었습니다.";
+                    Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state20");
                     return;
                 }
 
                 ActivateDialog(host, _autoCalibrationDialog);
-                lblStatus.Text = "AUTO CALIBRATION 설정창이 이미 열려 있습니다.";
+                Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state21");
             }
             catch (Exception ex)
             {
@@ -390,12 +391,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _colletCleaningDialog = ColletCleaningControlDialog.Open(host);
                     _colletCleaningDialog.StartPosition = FormStartPosition.Manual;
                     _colletCleaningDialog.Location = ResolveDialogLocation(_colletCleaningDialog);
-                    lblStatus.Text = "COLLET CLEANING 설정창을 열었습니다.";
+                    Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state22");
                     return;
                 }
 
                 ActivateDialog(host, _colletCleaningDialog);
-                lblStatus.Text = "COLLET CLEANING 설정창이 이미 열려 있습니다.";
+                Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state23");
             }
             catch (Exception ex)
             {
@@ -422,12 +423,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     dialog = NeedlePinCalibrationDialog.Open(host);
                     dialog.StartPosition = FormStartPosition.Manual;
                     dialog.Location = ResolveDialogLocation(dialog);
-                    lblStatus.Text = "NEEDLE PIN CAL 설정창을 열었습니다.";
+                    Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state24");
                     return;
                 }
 
                 ActivateDialog(host, dialog);
-                lblStatus.Text = "NEEDLE PIN CAL 설정창이 이미 열려 있습니다.";
+                Lang.BindKey(lblStatus, "recipeUi.calibrationPage.lblStatus.state25");
             }
             catch (Exception ex)
             {
@@ -451,7 +452,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     dialog.StartPosition = FormStartPosition.Manual;
                     dialog.Location = ResolveDialogLocation(dialog);
                     dialog.Show(host);
-                    lblStatus.Text = title + " 설정창을 열었습니다.";
+                    Lang.BindFormat(lblStatus, "recipeUi.calibrationPage.lblStatus.state26", (object)(title));
                     return;
                 }
 
@@ -460,7 +461,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 dialog.Activate();
                 dialog.BringToFront();
-                lblStatus.Text = title + " 설정창이 이미 열려 있습니다.";
+                Lang.BindFormat(lblStatus, "recipeUi.calibrationPage.lblStatus.state27", (object)(title));
             }
             catch (Exception ex)
             {
@@ -520,6 +521,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+        // Keep Designer declarations intact; language bindings only affect displayed captions.
+        private void InitializeRecipeLanguageBindings()
+        {
+            Lang.BindKey(this.lblSafeMove, "recipeUi.calibrationPage.lblSafeMove.text");
+            Lang.BindKey(this.lblSafeMoveHint, "recipeUi.calibrationPage.lblSafeMoveHint.text");
+            Lang.BindKey(this.lblHeader, "recipeUi.calibrationPage.lblHeader.text");
+            Lang.BindKey(this.grpCal, "recipeUi.calibrationPage.grpCal.text");
+            Lang.BindKey(this.btnVisionCameraCal, "recipeUi.calibrationPage.btnVisionCameraCal.text");
+            Lang.BindKey(this.btnColletCal, "recipeUi.calibrationPage.btnColletCal.text");
+            Lang.BindKey(this.btnNeedleCal, "recipeUi.calibrationPage.btnNeedleCal.text");
+            Lang.BindKey(this.btnSideVisionFocusCal, "recipeUi.calibrationPage.btnSideVisionFocusCal.text");
+            Lang.BindKey(this.btnVisionFocusCal, "recipeUi.calibrationPage.btnVisionFocusCal.text");
+            Lang.BindKey(this.btnColletRotationCenterCal, "recipeUi.calibrationPage.btnColletRotationCenterCal.text");
+            Lang.BindKey(this.btnPickUpZCal, "recipeUi.calibrationPage.btnPickUpZCal.text");
+            Lang.BindKey(this.btnPlaceZCal, "recipeUi.calibrationPage.btnPlaceZCal.text");
+            Lang.BindKey(this.btnNeedleZCal, "recipeUi.calibrationPage.btnNeedleZCal.text");
+            Lang.BindKey(this.btnAutoCalibration, "recipeUi.calibrationPage.btnAutoCalibration.text");
+            Lang.BindKey(this.btnColletCleaning, "recipeUi.calibrationPage.btnColletCleaning.text");
+            Lang.BindKey(this.lblGuide, "recipeUi.calibrationPage.lblGuide.text");
         }
     }
 }

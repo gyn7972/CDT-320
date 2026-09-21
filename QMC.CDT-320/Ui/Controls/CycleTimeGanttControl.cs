@@ -1,5 +1,6 @@
 ﻿using QMC.CDT320.Diagnostics;
 using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -14,7 +15,7 @@ namespace QMC.CDT320.Ui.Controls
     /// 보기 모드: 픽커(8행 F1~F4/R1~R4) / 유닛(5행+픽커 서브레인) / 사이클(최근 목록+모터별 상세).
     /// 페인트 전용(운전 경로 무영향), 숨김 시 갱신 정지.
     /// </summary>
-    public partial class CycleTimeGanttControl : UserControl
+    public partial class CycleTimeGanttControl : UserControl, ILocalizedView
     {
         private enum ViewMode { Picker, Unit, Cycle }
 
@@ -56,6 +57,7 @@ namespace QMC.CDT320.Ui.Controls
         private bool _paused;
         private long _pauseTick;
         private readonly List<BarHit> _hits = new List<BarHit>();
+        private readonly Dictionary<long, CycleTimeEntry> _listedEntries = new Dictionary<long, CycleTimeEntry>();
         private CycleTimeEntry _hoverEntry;
         private long _selectedCycleSeq = -1;
         private long _lastListRefreshSeq = -1;
@@ -69,6 +71,12 @@ namespace QMC.CDT320.Ui.Controls
             InitializeComponent();
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer
                 | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
+            Lang.BindKey(_lblTitle, "diagram.cycle.title");
+            Lang.BindKey(_btnModePicker, "diagram.cycle.picker");
+            Lang.BindKey(_btnModeUnit, "diagram.cycle.unit");
+            Lang.BindKey(_btnModeCycle, "diagram.cycle.cycle");
+            _cmbWindow.DrawMode = DrawMode.OwnerDrawFixed;
+            _cmbWindow.DrawItem += cmbWindow_DrawItem;
             _cmbWindow.SelectedIndex = 3;   // 60초 기본
             _tip = new ToolTip { InitialDelay = 200, ReshowDelay = 100 };
             _timer = new Timer { Interval = RefreshMs };
@@ -77,6 +85,65 @@ namespace QMC.CDT320.Ui.Controls
             MouseMove += OnCanvasMouseMove;
             MouseDown += OnCanvasMouseDown;
             MouseLeave += (s, e) => HideTip();
+            ApplyLanguage();
+        }
+
+        public void ApplyLanguage()
+        {
+            _colTime.Text = Lang.T("diagram.cycle.time");
+            _colUnit.Text = Lang.T("diagram.cycle.unit");
+            _colDie.Text = Lang.T("diagram.cycle.die");
+            _colPicker.Text = Lang.T("diagram.cycle.picker");
+            _colTotal.Text = Lang.T("diagram.cycle.totalColumn");
+            _colState.Text = Lang.T("diagram.cycle.state");
+            _btnPause.Text = _paused ? Lang.T("diagram.cycle.resume") : Lang.T("diagram.cycle.pause");
+            UpdateMeasureText();
+            // 목록의 모델/Tag/선택은 유지하고 표시 문자열만 교체합니다.
+            foreach (ListViewItem item in _lstCycles.Items)
+            {
+                if (item.Tag is long seq && _listedEntries.TryGetValue(seq, out var entry))
+                {
+                    item.SubItems[1].Text = UnitDisplay(entry.Unit);
+                    item.SubItems[5].Text = ResultDisplay(entry.Failed);
+                }
+            }
+            _cmbWindow.Invalidate();
+            HideTip();
+            Invalidate();
+        }
+
+        private void UpdateMeasureText()
+        {
+            _lblMeasure.Text = _markStartTick < 0 ? Lang.T("diagram.cycle.measureHelp")
+                : (_markEndTick < 0 ? Lang.T("diagram.cycle.measureEnd") : Lang.Format("diagram.cycle.measureResult", Math.Abs(TickToMs(_markEndTick - _markStartTick)).ToString("0.0")));
+        }
+
+        private void cmbWindow_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            e.DrawBackground();
+            if (e.Index < 0 || e.Index >= WindowMsChoices.Length) return;
+            string text = e.Index == 4 ? Lang.Format("diagram.cycle.minutes", WindowMsChoices[e.Index] / 60000) : Lang.Format("diagram.cycle.seconds", WindowMsChoices[e.Index] / 1000);
+            TextRenderer.DrawText(e.Graphics, text, e.Font, e.Bounds, e.ForeColor,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+            e.DrawFocusRectangle();
+        }
+
+        private static string UnitDisplay(string unit)
+        {
+            switch (unit)
+            {
+                case "INPUTVISION": return Lang.T("diagram.cycle.unit.inputvision");
+                case "PICKUP": return Lang.T("diagram.cycle.unit.pickup");
+                case "BOTTOM": return Lang.T("diagram.cycle.unit.bottom");
+                case "SIDE": return Lang.T("diagram.cycle.unit.side");
+                case "PLACE": return Lang.T("diagram.cycle.unit.place");
+                default: return unit ?? string.Empty;
+            }
+        }
+
+        private static string ResultDisplay(bool failed)
+        {
+            return failed ? Lang.T("diagram.cycle.failed") : Lang.T("diagram.cycle.ok");
         }
 
         /// <summary>보기 모드 전환(테스트/외부 제어용). 0=픽커, 1=유닛, 2=사이클.</summary>
@@ -119,7 +186,7 @@ namespace QMC.CDT320.Ui.Controls
             _paused = !_paused;
             _pauseTick = Stopwatch.GetTimestamp();
             _btnPause.BackColor = _paused ? Color.FromArgb(0xd9, 0x77, 0x06) : Color.FromArgb(0x3a, 0x3a, 0x3e);
-            _btnPause.Text = _paused ? "재개" : "일시정지";
+            _btnPause.Text = _paused ? Lang.T("diagram.cycle.resume") : Lang.T("diagram.cycle.pause");
             Invalidate();
         }
 
@@ -246,8 +313,8 @@ namespace QMC.CDT320.Ui.Controls
                 {
                     using (var brush = new SolidBrush(UnitColor(unit)))
                         g.FillRectangle(brush, lx, canvas.Y + 5, 10, 10);
-                    TextRenderer.DrawText(g, unit, fontSmall, new Point(lx + 13, canvas.Y + 3), RowLabelFg);
-                    lx += 13 + TextRenderer.MeasureText(unit, fontSmall).Width + 12;
+                    TextRenderer.DrawText(g, UnitDisplay(unit), fontSmall, new Point(lx + 13, canvas.Y + 3), RowLabelFg);
+                    lx += 13 + TextRenderer.MeasureText(UnitDisplay(unit), fontSmall).Width + 12;
                 }
 
                 // 세로 시간 그리드(6분할) + 축 라벨
@@ -256,7 +323,7 @@ namespace QMC.CDT320.Ui.Controls
                     int x = plot.X + (int)(plot.Width * i / 6.0);
                     g.DrawLine(gridPen, x, plot.Y, x, plot.Bottom);
                     double secAgo = _windowMs * (6 - i) / 6.0 / 1000.0;
-                    string label = i == 6 ? "지금" : "-" + secAgo.ToString("0") + "s";
+                    string label = i == 6 ? Lang.T("diagram.cycle.now") : "-" + secAgo.ToString("0") + "s";
                     TextRenderer.DrawText(g, label, fontSmall, new Point(x - 12, plot.Bottom + 3), AxisFg);
                 }
 
@@ -289,7 +356,7 @@ namespace QMC.CDT320.Ui.Controls
                 {
                     float y = plot.Y + r * rowH;
                     g.DrawLine(gridPen, canvas.X, y, plot.Right + statW, y);
-                    TextRenderer.DrawText(g, rows[r], fontRow,
+                    TextRenderer.DrawText(g, _mode == ViewMode.Unit ? UnitDisplay(rows[r]) : rows[r], fontRow,
                         new Rectangle(canvas.X, (int)y, labelW - 6, (int)rowH),
                         RowLabelFg, TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
                     if (laneCount > 1)
@@ -310,8 +377,7 @@ namespace QMC.CDT320.Ui.Controls
                         }
                     }
                     string stat = lastMs[r] >= 0
-                        ? "last " + lastMs[r].ToString("0") + "ms · avg "
-                          + (cntMs[r] > 0 ? (sumMs[r] / cntMs[r]).ToString("0") : "-") + "ms"
+                        ? Lang.Format("diagram.cycle.statistics", lastMs[r].ToString("0"), cntMs[r] > 0 ? (sumMs[r] / cntMs[r]).ToString("0") : "-")
                         : "-";
                     TextRenderer.DrawText(g, stat, fontSmall,
                         new Rectangle(plot.Right + 6, (int)y, statW - 8, (int)rowH),
@@ -322,7 +388,7 @@ namespace QMC.CDT320.Ui.Controls
                 DrawMeasureMarkers(g, plot, pxPerMs, nowTick, fontRow);
 
                 if (entries.Count == 0)
-                    TextRenderer.DrawText(g, "계측 데이터 없음 — 운전 시작 시 표시됩니다", fontRow, plot,
+                    TextRenderer.DrawText(g, Lang.T("diagram.cycle.empty"), fontRow, plot,
                         AxisFg, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             }
         }
@@ -365,7 +431,7 @@ namespace QMC.CDT320.Ui.Controls
             if (e.Button == MouseButtons.Right)
             {
                 _markStartTick = -1; _markEndTick = -1;
-                _lblMeasure.Text = "구간측정: 차트 클릭→클릭 (우클릭 해제)";
+                UpdateMeasureText();
                 _lblMeasure.ForeColor = Color.FromArgb(0x9f, 0xb2, 0xc8);
                 Invalidate();
                 return;
@@ -379,14 +445,13 @@ namespace QMC.CDT320.Ui.Controls
             {
                 _markStartTick = clickTick;   // 새 구간 시작(기존 구간은 리셋)
                 _markEndTick = -1;
-                _lblMeasure.Text = "구간측정: 끝 지점 클릭...";
+                UpdateMeasureText();
                 _lblMeasure.ForeColor = Color.FromArgb(0x9f, 0xb2, 0xc8);
             }
             else
             {
                 _markEndTick = clickTick;
-                double deltaMs = Math.Abs(TickToMs(_markEndTick - _markStartTick));
-                _lblMeasure.Text = "구간: " + deltaMs.ToString("0.0") + " ms";
+                UpdateMeasureText();
                 _lblMeasure.ForeColor = Color.FromArgb(0xff, 0xb1, 0x4d);
             }
             Invalidate();
@@ -477,14 +542,16 @@ namespace QMC.CDT320.Ui.Controls
             try
             {
                 _lstCycles.Items.Clear();
+                _listedEntries.Clear();
                 foreach (CycleTimeEntry entry in recent)
                 {
+                    _listedEntries[entry.Seq] = entry;
                     var item = new ListViewItem(entry.StartUtc.ToLocalTime().ToString("HH:mm:ss.f"));
-                    item.SubItems.Add(entry.Unit);
+                    item.SubItems.Add(UnitDisplay(entry.Unit));
                     item.SubItems.Add(entry.DieIndex.ToString());
                     item.SubItems.Add(PickerLabel(entry.Picker));
                     item.SubItems.Add(entry.TotalMs.ToString("0"));
-                    item.SubItems.Add(entry.Failed ? "ERR" : "OK");
+                    item.SubItems.Add(ResultDisplay(entry.Failed));
                     item.ForeColor = entry.Failed ? Color.FromArgb(0xff, 0x6b, 0x6b) : Color.Gainsboro;
                     item.Tag = entry.Seq;
                     _lstCycles.Items.Add(item);
@@ -504,16 +571,13 @@ namespace QMC.CDT320.Ui.Controls
             {
                 if (entry == null)
                 {
-                    TextRenderer.DrawText(g, "왼쪽 목록에서 항목을 선택하면 모터별 상세가 표시됩니다", fontHead,
+                    TextRenderer.DrawText(g, Lang.T("diagram.cycle.selectDetail"), fontHead,
                         canvas, AxisFg, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                     return;
                 }
                 int x = canvas.X + 18, y = canvas.Y + 14;
                 TextRenderer.DrawText(g,
-                    entry.Unit + " · " + entry.Motion + " · Die " + entry.DieIndex
-                    + " · 픽커 " + PickerLabel(entry.Picker)
-                    + " · " + (entry.Failed ? "ERR" : "OK")
-                    + " · Total " + entry.TotalMs.ToString("0.0") + "ms",
+                    Lang.Format("diagram.cycle.detail", UnitDisplay(entry.Unit), entry.Motion, entry.DieIndex, PickerLabel(entry.Picker), ResultDisplay(entry.Failed), entry.TotalMs.ToString("0.0")),
                     fontHead, new Point(x, y), Color.White);
                 y += 34;
                 // 모터 세그먼트 스택 바
@@ -545,13 +609,13 @@ namespace QMC.CDT320.Ui.Controls
                         g.FillRectangle(brush, x, y + 3, 10, 10);
                     string durText = (toMs - seg.StartMs).ToString("0.0") + " ms"
                         + "   (" + seg.StartMs.ToString("0.0") + " → " + toMs.ToString("0.0") + ")"
-                        + (seg.EndMs < 0 ? "   [미종료]" : "");
+                        + (seg.EndMs < 0 ? Lang.T("diagram.cycle.unfinished") : "");
                     TextRenderer.DrawText(g, (seg.Axis ?? "-").PadRight(16) + durText, fontRow, new Point(x + 16, y), Color.Gainsboro);
                     y += 22;
                     if (y > canvas.Bottom - 60) break;   // 표가 화면을 넘으면 중단
                 }
-                TextRenderer.DrawText(g, "request_id: " + entry.RequestId, fontRow, new Point(x, y + 6), AxisFg);
-                TextRenderer.DrawText(g, "die: " + entry.Motion, fontRow, new Point(x, y + 26), AxisFg);
+                TextRenderer.DrawText(g, Lang.Format("diagram.cycle.request", entry.RequestId), fontRow, new Point(x, y + 6), AxisFg);
+                TextRenderer.DrawText(g, Lang.Format("diagram.cycle.motion", entry.Motion), fontRow, new Point(x, y + 26), AxisFg);
             }
         }
 
@@ -570,9 +634,8 @@ namespace QMC.CDT320.Ui.Controls
             _hoverEntry = hit;
             if (hit == null) { HideTip(); return; }
             var text = new System.Text.StringBuilder();
-            text.Append(hit.Unit).Append(" · Die ").Append(hit.DieIndex)
-                .Append(" · 픽커 ").Append(PickerLabel(hit.Picker));
-            text.Append("\nTotal ").Append(hit.IsCompleted ? hit.TotalMs.ToString("0.0") + "ms" : "(진행중)");
+            text.Append(Lang.Format("diagram.cycle.tooltipHeading", UnitDisplay(hit.Unit), hit.DieIndex, PickerLabel(hit.Picker)));
+            text.Append("\n").Append(Lang.Format("diagram.cycle.total", hit.IsCompleted ? hit.TotalMs.ToString("0.0") + "ms" : Lang.T("diagram.cycle.running")));
             int shown = 0;
             for (int i = 0; i < hit.Motions.Count && shown < 6; i++)
             {
@@ -582,8 +645,8 @@ namespace QMC.CDT320.Ui.Controls
                     .Append((seg.EndMs - seg.StartMs).ToString("0.0")).Append("ms");
                 shown++;
             }
-            if (hit.Failed) text.Append("\n상태 ERR");
-            text.Append("\nreq ").Append(hit.RequestId);
+            if (hit.Failed) text.Append("\n").Append(Lang.T("diagram.cycle.errorState"));
+            text.Append("\n").Append(Lang.Format("diagram.cycle.request", hit.RequestId));
             _tip.Show(text.ToString(), this, e.X + 14, e.Y + 18, 4000);
         }
 

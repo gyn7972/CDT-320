@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320;
@@ -105,6 +106,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 FlatStyle = FlatStyle.Flat, BackColor = UiTheme.Accent, ForeColor = Color.White,
                 Font = UiTheme.ButtonFont
             };
+            Lang.BindKey(_btnSave, "recipeUi.subset.save");
             _btnSave.Click += (s, e) => DoSave();
 
             var btnLoad = new Button
@@ -112,6 +114,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Dock = DockStyle.Right, Width = 150, Text = "새로고침",
                 FlatStyle = FlatStyle.Flat, BackColor = Color.White, Font = UiTheme.ButtonFont
             };
+            Lang.BindKey(btnLoad, "recipeUi.subset.reload");
             btnLoad.Click += (s, e) =>
             {
                 LoadCurrentProject();
@@ -124,6 +127,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(18, 0, 0, 0),
                 Text = "(no project)"
             };
+
+            Lang.BindKey(_lblProject, "recipeUi.subset.none");
 
             // Dock=Right 두 버튼 먼저 추가 → Fill 라벨
             topBar.Controls.Add(_lblProject);
@@ -160,9 +165,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var list = RecipeStore.List();
                 if (list.Count > 0) name = list[0];
             }
-            if (string.IsNullOrEmpty(name)) { _project = null; _lblProject.Text = "(no project)"; return; }
+            if (string.IsNullOrEmpty(name)) { _project = null; Lang.BindKey(_lblProject, "recipeUi.subset.none"); return; }
             _project = RecipeStore.Load(name);
-            _lblProject.Text = _project != null ? "레시피: " + _project.FileName : "(load failed: " + name + ")";
+            if (_project != null)
+                Lang.BindFormat(_lblProject, "recipeUi.subset.project", _project.FileName);
+            else
+                Lang.BindFormat(_lblProject, "recipeUi.subset.failed", name);
 
             // 누락된 subset 자동 보충
             if (_project != null)
@@ -193,7 +201,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void DoSave()
         {
-            if (_project == null) { QMC.Common.MessageDialog.Show("No project loaded."); return; }
+            if (_project == null) { QMC.Common.MessageDialog.Show(Lang.T("recipeUi.subset.noProject")); return; }
             try
             {
                 SafeSaveToRecipe();
@@ -219,14 +227,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 }
 
                 QMC.Common.MessageDialog.Show(
-                    $"Saved to {_project.FileName}.Project",
-                    "Recipe",
+                    Lang.Format("recipeUi.subset.saved", _project.FileName),
+                    Lang.T("recipeUi.subset.title"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show("Save failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(Lang.Format("recipeUi.subset.saveFailed", ex.Message));
             }
         }
 

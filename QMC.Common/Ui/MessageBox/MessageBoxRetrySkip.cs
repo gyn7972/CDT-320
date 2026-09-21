@@ -7,18 +7,21 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using QMC.Common.Localization;
 
 namespace QMC.Common
 {
-    public partial class MessageBoxRetrySkip : Form
+    public partial class MessageBoxRetrySkip : Form, ILocalizedView
     {
+        private string _originalTitle;
+
         /// <summary>
         /// 제목
         /// </summary>
         public string Title
         {
             get { return this.lblTitle.Text; }
-            set { this.lblTitle.Text = value; }
+            set { _originalTitle = value; this.lblTitle.Text = MessageDialog.TitleCaption(value); }
         }
         /// <summary>
         /// 본문
@@ -39,6 +42,8 @@ namespace QMC.Common
         public MessageBoxRetrySkip()
         {
             InitializeComponent();
+            _originalTitle = this.lblTitle.Text;
+            ApplyLanguage();
             //lblTitle.MouseMove += lblTitle_MouseDown;
             //lblTitle.MouseDown += lblTitle_MouseMove;
 
@@ -66,6 +71,13 @@ namespace QMC.Common
         /// 대화상자 출력 (Modal)
         /// </summary>
         /// <returns></returns>
+        public void ApplyLanguage()
+        {
+            this.lblTitle.Text = MessageDialog.TitleCaption(_originalTitle);
+            this.button1.Text = MessageDialog.ButtonCaption("Retry");
+            this.button2.Text = MessageDialog.ButtonCaption("Skip");
+        }
+
         public new DialogResult ShowDialog()
         {
             return base.ShowDialog();

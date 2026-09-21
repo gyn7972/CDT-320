@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,7 +22,7 @@ namespace QMC.CDT_320.Ui.Dialogs
     /// 자동 실행 조건(GOOD 빈 로딩 / 공정 횟수 / Auto 시작)도 이 화면에서 설정한다.
     /// 화면 구성은 COLLET CALIBRATION 다이얼로그와 동일한 디자인 규격을 따른다.
     /// </summary>
-    public partial class ColletCleaningControlDialog : Form
+    public partial class ColletCleaningControlDialog : Form, ILocalizedView
     {
         private enum SettingKey
         {
@@ -63,59 +64,49 @@ namespace QMC.CDT_320.Ui.Dialogs
         private static readonly SettingInfo[] SettingRows =
         {
             new SettingInfo { Key = SettingKey.CleanVelocity, Name = "Clean Z Speed", Unit = "mm/s", Numeric = true,
-                ToolTip = "콜렛을 눌러 닦을 때 사용하는 Picker Z축 이동 속도입니다.\r\n" +
-                          "값이 클수록 빨리 내려가고 충격이 커집니다. 처음에는 낮은 값으로 검증하세요." },
+                ToolTip = "calibration.tip.t102" },
             new SettingInfo { Key = SettingKey.CleanAcceleration, Name = "Clean Z Acc", Unit = "mm/s2", Numeric = true,
-                ToolTip = "누름 동작 Z축 가속도입니다. 속도와 함께 접촉 충격에 영향을 줍니다." },
+                ToolTip = "calibration.tip.t103" },
             new SettingInfo { Key = SettingKey.CleanDeceleration, Name = "Clean Z Dec", Unit = "mm/s2", Numeric = true,
-                ToolTip = "누름 동작 Z축 감속도입니다. 접촉 직전 감속에 영향을 줍니다." },
+                ToolTip = "calibration.tip.t104" },
             new SettingInfo { Key = SettingKey.ContactZUserOffset, Name = "Contact Z Offset", Unit = "mm", Numeric = true,
-                ToolTip = "접촉 Z 사용자 보정값입니다.\r\n" +
-                          "부호 규약: + 값이면 Z축이 상승(덜 누름), - 값이면 Z축이 더 하강(더 누름).\r\n" +
-                          "접촉 Z = Place 티칭 Z - 다이 높이 - 림 높이 - 필름 높이 + 이 보정값" },
+                ToolTip = "calibration.tip.t105" },
             new SettingInfo { Key = SettingKey.MaxExtraPressDepth, Name = "Max Extra Press", Unit = "mm", Numeric = true,
-                ToolTip = "과압 방지 한계입니다.\r\n" +
-                          "계산된 접촉 Z보다 추가로 더 내려갈 수 있는 최대 깊이(양수)이며,\r\n" +
-                          "Contact Z Offset이 음수로 이 값을 넘으면 실행을 차단합니다." },
+                ToolTip = "calibration.tip.t106" },
             new SettingInfo { Key = SettingKey.ArriveDwellMs, Name = "Arrive Dwell", Unit = "ms", Numeric = true, Integer = true,
-                ToolTip = "접촉 Z 위치에 도착한 뒤 그대로 눌러 유지하는 대기 시간입니다." },
+                ToolTip = "calibration.tip.t107" },
             new SettingInfo { Key = SettingKey.CleanPressCount, Name = "Press Count", Unit = "ea", Numeric = true, Integer = true,
-                ToolTip = "콜렛 1개당 눌렀다 떼는 동작을 반복하는 횟수입니다." },
+                ToolTip = "calibration.tip.t108" },
             new SettingInfo { Key = SettingKey.RepeatLiftHeight, Name = "Repeat Lift Height", Unit = "mm", Numeric = true,
-                ToolTip = "누름 반복 사이에 다시 올라가는 높이(양수)입니다.\r\n" +
-                          "접촉 Z + 이 값 만큼 상승했다가 다시 내려갑니다." },
+                ToolTip = "calibration.tip.t109" },
             new SettingInfo { Key = SettingKey.MoveTimeoutMs, Name = "Move Timeout", Unit = "ms", Numeric = true, Integer = true,
-                ToolTip = "축 이동 완료를 기다리는 최대 시간입니다. 초과하면 알람으로 중단합니다." },
+                ToolTip = "calibration.tip.t110" },
             new SettingInfo { Key = SettingKey.DieHeight, Name = "Die Height", Unit = "mm", Numeric = true,
-                ToolTip = "Place 티칭 Z에 포함된 다이 높이입니다.\r\n" +
-                          "티칭 Z는 이 높이만큼 올라가 있으므로 클리닝 접촉 Z 계산에서 빼줍니다." },
+                ToolTip = "calibration.tip.t111" },
             new SettingInfo { Key = SettingKey.RimHeight, Name = "Rim Height", Unit = "mm", Numeric = true,
-                ToolTip = "Place 티칭 Z에 포함된 림(rim) 높이입니다. 접촉 Z 계산에서 빼줍니다." },
+                ToolTip = "calibration.tip.t112" },
             new SettingInfo { Key = SettingKey.FilmHeight, Name = "Film Height", Unit = "mm", Numeric = true,
-                ToolTip = "Place 티칭 Z에 포함된 필름 높이입니다. 접촉 Z 계산에서 빼줍니다." },
+                ToolTip = "calibration.tip.t113" },
             new SettingInfo { Key = SettingKey.MaxRetryCount, Name = "Retry On NG", Unit = "ea", Numeric = true, Integer = true,
-                ToolTip = "콜렛 검사 결과가 NG일 때 클린 -> 검사를 다시 반복할 최대 횟수입니다.\r\n" +
-                          "이 횟수를 모두 쓰고도 NG면 콜렛 교체 알람을 발생시킵니다." },
+                ToolTip = "calibration.tip.t114" },
             new SettingInfo { Key = SettingKey.AllowPlaceOnCleanedCell, Name = "Place On Cleaned Cell", Unit = "", Options = new[] { "True", "False" },
-                ToolTip = "클리닝에 사용한 NG 다이맵 셀에 생산 NG die 배치를 허용할지 여부입니다.\r\n" +
-                          "True: 허용(해당 셀도 계속 사용)\r\nFalse: 그 셀을 배치 대상에서 제외" },
+                ToolTip = "calibration.tip.t115" },
             new SettingInfo { Key = SettingKey.DisablePickerOnReplaceAlarm, Name = "Disable On Replace", Unit = "", Options = new[] { "True", "False" },
-                ToolTip = "콜렛 교체 알람이 발생했을 때 해당 Picker만 생산에서 제외하고\r\n" +
-                          "나머지 Picker로 계속 운전할지 여부입니다." },
+                ToolTip = "calibration.tip.t116" },
             // [실행 창 변경 2026-08-28 팀장님 지시] 트리거 기준이 인풋 웨이퍼 교체 → GOOD Stage 빈
             // 로딩으로 바뀌었다(설정 필드명은 직렬화 호환을 위해 WaferExchange 유지, 의미만 변경).
             new SettingInfo { Key = SettingKey.UseTriggerOnWaferExchange, Name = "Trig Good Bin Load", Unit = "", Options = new[] { "True", "False" },
-                ToolTip = "자동 운전 중 GOOD Stage 빈 로딩 횟수를 기준으로 콜렛 클리닝을 실행할지 여부입니다." },
+                ToolTip = "calibration.tip.t117" },
             new SettingInfo { Key = SettingKey.WaferExchangeInterval, Name = "  Load Interval", Unit = "ea", Numeric = true, Integer = true,
-                ToolTip = "GOOD 빈 로딩 트리거 주기입니다. 로딩 n회마다 콜렛 클리닝을 실행합니다." },
+                ToolTip = "calibration.tip.t118" },
             new SettingInfo { Key = SettingKey.UseTriggerOnProcessCount, Name = "Trig Process Count", Unit = "", Options = new[] { "True", "False" },
-                ToolTip = "자동 운전 중 공정 처리 수량을 기준으로 콜렛 클리닝을 실행할지 여부입니다." },
+                ToolTip = "calibration.tip.t119" },
             new SettingInfo { Key = SettingKey.ProcessCountInterval, Name = "  Process Interval", Unit = "ea", Numeric = true, Integer = true,
-                ToolTip = "공정 횟수 트리거 주기입니다. 아래 Process Unit 기준 n개마다 실행합니다." },
+                ToolTip = "calibration.tip.t120" },
             new SettingInfo { Key = SettingKey.ProcessCountUnit, Name = "  Process Unit", Unit = "", Options = new[] { "Die", "Wafer" },
-                ToolTip = "공정 횟수 트리거의 계수 단위입니다.\r\nDie: 다이 개수 기준, Wafer: 웨이퍼 장수 기준" },
+                ToolTip = "calibration.tip.t121" },
             new SettingInfo { Key = SettingKey.UseTriggerOnAutoStart, Name = "Trig Auto Start", Unit = "", Options = new[] { "True", "False" },
-                ToolTip = "Auto 운전을 시작할 때(Ready 후 첫 Pick 전) 콜렛 클리닝을 1회 실행할지 여부입니다." }
+                ToolTip = "calibration.tip.t122" }
         };
 
         private ColletCleaningSettings _settings = new ColletCleaningSettings();
@@ -124,9 +115,49 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _busy;
         private bool _suppressUiEvents;
 
+        private void InitializeLocalization()
+        {
+            Lang.BindKey(lblHeader, "calibration.colletcleaning.lblHeader");
+            Lang.BindKey(targetGroup, "calibration.colletcleaning.targetGroup");
+            Lang.BindKey(chkTargetAll, "calibration.colletcleaning.chkTargetAll");
+            Lang.BindKey(groupSettings, "calibration.colletcleaning.groupSettings");
+            Lang.BindKey(colSettingName, "calibration.colletcleaning.colSettingName");
+            Lang.BindKey(colSettingValue, "calibration.colletcleaning.colSettingValue");
+            Lang.BindKey(colSettingUnit, "calibration.colletcleaning.colSettingUnit");
+            Lang.BindKey(groupResults, "calibration.colletcleaning.groupResults");
+            Lang.BindKey(colHistorySide, "calibration.colletcleaning.colHistorySide");
+            Lang.BindKey(colHistoryCollet, "calibration.colletcleaning.colHistoryCollet");
+            Lang.BindKey(colHistoryLastAt, "calibration.colletcleaning.colHistoryLastAt");
+            Lang.BindKey(colHistoryCount, "calibration.colletcleaning.colHistoryCount");
+            Lang.BindKey(colHistoryRetry, "calibration.colletcleaning.colHistoryRetry");
+            Lang.BindKey(colHistoryResult, "calibration.colletcleaning.colHistoryResult");
+            Lang.BindKey(lblRunLog, "calibration.colletcleaning.lblRunLog");
+            Lang.BindKey(lblStatus, "calibration.colletcleaning.lblStatus");
+            Lang.BindKey(btnStart, "calibration.colletcleaning.btnStart");
+            Lang.BindKey(btnStop, "calibration.colletcleaning.btnStop");
+            Lang.BindKey(btnSelectAll, "calibration.colletcleaning.btnSelectAll");
+            Lang.BindKey(btnSelectNone, "calibration.colletcleaning.btnSelectNone");
+            Lang.BindKey(btnReload, "calibration.colletcleaning.btnReload");
+            Lang.BindKey(btnParameterSave, "calibration.colletcleaning.btnParameterSave");
+            Lang.BindKey(btnClose, "calibration.colletcleaning.btnClose");
+            Lang.BindKey(this, "calibration.colletcleaning.this");
+            CalibrationDialogText.BindGrid(gridSettings);
+            CalibrationDialogText.BindGrid(gridHistory);
+        }
+
+        public void ApplyLanguage()
+        {
+            // 언어 변경은 표시만 무효화하며 선택/입력/설정값을 다시 불러오지 않습니다.
+            foreach (DataGridViewRow row in gridSettings.Rows)
+                if (row.Tag is SettingInfo info)
+                    foreach (DataGridViewCell cell in row.Cells) cell.ToolTipText = Lang.T(info.ToolTip);
+            Invalidate(true);
+        }
+
         public ColletCleaningControlDialog()
         {
             InitializeComponent();
+            InitializeLocalization();
             BuildSettingRows();
             WireEvents();
             LoadSettingsToUi();
@@ -201,9 +232,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 // 각 셀의 ToolTipText도 직접 채워 둔다(둘 중 하나만 동작해도 설명이 보인다).
                 if (!string.IsNullOrWhiteSpace(info.ToolTip))
                 {
-                    row.Cells[0].ToolTipText = info.ToolTip;
-                    row.Cells[1].ToolTipText = info.ToolTip;
-                    row.Cells[2].ToolTipText = info.ToolTip;
+                    row.Cells[0].ToolTipText = Lang.T(info.ToolTip);
+                    row.Cells[1].ToolTipText = Lang.T(info.ToolTip);
+                    row.Cells[2].ToolTipText = Lang.T(info.ToolTip);
                 }
             }
         }
@@ -224,7 +255,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (info != null && info.Numeric)
             {
                 e.Cancel = true;
-                lblStatus.Text = info.Name + " 값은 셀을 더블클릭해서 숫자 키패드로 입력하세요.";
+                Lang.BindFormat(lblStatus, "calibration.status.s199", info.Name);
             }
         }
 
@@ -250,7 +281,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     double value;
                     if (!double.TryParse(dialog.ValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
                     {
-                        lblStatus.Text = info.Name + " 설정값이 숫자가 아닙니다. value=" + dialog.ValueText;
+                        Lang.BindFormat(lblStatus, "calibration.status.s003", info.Name, dialog.ValueText);
                         return;
                     }
 
@@ -264,14 +295,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                         _suppressUiEvents = false;
                     }
 
-                    lblStatus.Text = info.Name + " 값을 " + FormatSettingValue(info, value) +
-                                     (string.IsNullOrEmpty(info.Unit) ? "" : " " + info.Unit) + "(으)로 입력했습니다. " +
-                                     "SAVE를 눌러야 저장됩니다.";
+                    Lang.BindFormat(lblStatus, "calibration.status.s200", info.Name, FormatSettingValue(info, value), (string.IsNullOrEmpty(info.Unit) ? "" : " " + info.Unit));
                 }
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "숫자 입력 처리에 실패했습니다. " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s201", ex.Message);
             }
             finally
             {
@@ -287,7 +316,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             DataGridViewRow row = gridSettings.Rows[e.RowIndex];
             var info = row != null ? row.Tag as SettingInfo : null;
             if (info != null && !string.IsNullOrWhiteSpace(info.ToolTip))
-                e.ToolTipText = info.ToolTip;
+                e.ToolTipText = Lang.T(info.ToolTip);
         }
 
         private double ReadSettingValue(SettingInfo info)
@@ -485,11 +514,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                     _suppressUiEvents = false;
                 }
 
-                lblStatus.Text = "대기 중입니다. 대상 콜렛과 클리닝 조건을 확인한 뒤 START를 실행하세요.";
+                Lang.BindFormat(lblStatus, "calibration.status.s202");
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "설정 불러오기에 실패했습니다. " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s203", ex.Message);
                 AppendLog(lblStatus.Text);
             }
             finally
@@ -510,15 +539,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string message;
                 if (!CalibrationDataStore.Save(data, out message))
                 {
-                    lblStatus.Text = "설정 저장에 실패했습니다. " + message;
+                    Lang.BindFormat(lblStatus, "calibration.status.s204", message);
                     if (showMessage)
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CLEANING",
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m020"),
                             MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return false;
                 }
 
                 _settings = settings;
-                lblStatus.Text = "설정을 저장했습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s205");
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCleaningSettings",
                     "콜렛 클리닝 설정을 저장했습니다. pressCount=" + settings.CleanPressCount +
                     ", contactOffset=" + settings.ContactZUserOffset.ToString("F4") +
@@ -528,7 +557,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "설정 저장 중 예외가 발생했습니다. " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s206", ex.Message);
                 AppendLog(lblStatus.Text);
                 return false;
             }
@@ -583,8 +612,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!CanRunManualCleaning(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "COLLET CLEANING",
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("calibration.message.m020"),
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -592,7 +621,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 host = ResolveHost(out reason);
                 if (host == null)
                 {
-                    lblStatus.Text = reason;
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
                     return;
                 }
 
@@ -601,8 +630,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 if (!_settings.HasAnySelection())
                 {
-                    lblStatus.Text = "선택된 콜렛이 없습니다.";
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CLEANING",
+                    Lang.BindFormat(lblStatus, "calibration.status.s207");
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m020"),
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -619,7 +648,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AppendLog("콜렛 클리닝을 시작합니다. pressCount=" + _settings.CleanPressCount +
                           ", dwell=" + _settings.ArriveDwellMs + "ms" +
                           ", lift=" + _settings.RepeatLiftHeight.ToString("0.###") + "mm");
-                lblStatus.Text = "콜렛 클리닝 실행 중입니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s208");
 
                 // 화면 값이 시퀀스로 그대로 전달되는지 파일 로그에도 남긴다.
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCleaningDialogStart",
@@ -645,9 +674,9 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 if (result != 0)
                 {
-                    lblStatus.Text = "콜렛 클리닝 실패. Alarm/Event Log를 확인하세요.";
+                    Lang.BindFormat(lblStatus, "calibration.status.s209");
                     AppendLog(lblStatus.Text);
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CLEANING",
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m020"),
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
@@ -655,24 +684,24 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (sequence.SkippedNoBin)
                 {
                     // 실행하지 않고 건너뛴 경우를 "완료"로 표시하면 오해가 생기므로 사유를 그대로 노출한다.
-                    lblStatus.Text = "[미실행] " + sequence.SkipReason;
+                    Lang.BindFormat(lblStatus, "calibration.status.s210", sequence.SkipReason);
                     AppendLog(lblStatus.Text);
-                    QMC.Common.MessageDialog.Show(this, sequence.SkipReason, "COLLET CLEANING",
+                    QMC.Common.MessageDialog.Show(this, sequence.SkipReason, Lang.T("calibration.message.m020"),
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                lblStatus.Text = "콜렛 클리닝을 완료했습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s211");
                 AppendLog(lblStatus.Text);
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "콜렛 클리닝이 정지되었습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s212");
                 AppendLog(lblStatus.Text);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "콜렛 클리닝 중 예외가 발생했습니다. " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s213", ex.Message);
                 AppendLog(lblStatus.Text);
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CLEAN-DIALOG",
                     "콜렛 클리닝 다이얼로그 실행 중 예외가 발생했습니다. error=" + ex.Message);

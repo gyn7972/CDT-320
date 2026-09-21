@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
@@ -22,6 +23,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _controller = controller;
                 InitializeComponent();
+            InitializeLanguageBindings();
 
                 cboSide.SelectedIndex = 0;
                 LoadSelectedSetup();
@@ -239,7 +241,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (host != null && !string.IsNullOrWhiteSpace(host.ActiveRecipeName))
                     host.SaveMachineRecipe(host.ActiveRecipeName);
 
-                lblStatus.Text = "저장 완료.";
+                Lang.BindKey(lblStatus, "extraDialog.pickerZone.saved");
                 UpdateCurrentDisplay();
             }
             catch (Exception ex)
@@ -280,7 +282,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (setup == null)
                 {
                     gridZones.Rows.Clear();
-                    lblStatus.Text = "Picker setup을 찾을 수 없습니다.";
+                    Lang.BindKey(lblStatus, "extraDialog.pickerZone.missing");
                     return;
                 }
 
@@ -299,13 +301,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 // 다이얼로그를 여는 즉시 상태줄로 알린다 — 신규 검증 도입 이전에 저장된 갭 인지용.
                 string adjacencyMessage;
                 if (!ValidateGridRanges(out adjacencyMessage))
-                    lblStatus.Text = "불러오기 완료 - 판정 불가 구간 있음(저장하려면 경계 수정 필요).";
+                    Lang.BindKey(lblStatus, "extraDialog.pickerZone.invalidLoaded");
                 else
-                    lblStatus.Text = "불러오기 완료.";
+                    Lang.BindKey(lblStatus, "extraDialog.pickerZone.loaded");
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "불러오기 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "extraDialog.pickerZone.loadFailed", ex.Message);
             }
             finally
             {
@@ -393,7 +395,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "안전거리 불러오기 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "extraDialog.pickerZone.clearanceFailed", ex.Message);
             }
             finally
             {
@@ -516,7 +518,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 gridZones.CurrentRow.Cells[columnIndex].Value = FormatNumber(pickerX.ActualPosition);
                 gridZones.CurrentRow.Cells[colUse.Index].Value = true;
-                lblStatus.Text = Convert.ToString(gridZones.CurrentRow.Cells[colZone.Index].Value) + " 티칭 완료.";
+                Lang.BindFormat(lblStatus, "extraDialog.pickerZone.taught", Convert.ToString(gridZones.CurrentRow.Cells[colZone.Index].Value));
                 UpdateCurrentDisplay();
             }
             catch (Exception ex)
@@ -537,12 +539,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             BaseAxis pickerX = GetSelectedPickerX();
             if (pickerX == null)
             {
-                lblCurrent.Text = "Current X: -";
+                Lang.BindKey(lblCurrent, "extraDialog.pickerZone.noCurrent");
                 return;
             }
 
             double actual = pickerX.ActualPosition;
-            lblCurrent.Text = "Current X: " + FormatNumber(actual) + " mm";
+            Lang.BindFormat(lblCurrent, "extraDialog.pickerZone.current", FormatNumber(actual));
 
             double tolerance;
             if (!TryParseDouble(txtTolerance.Text, out tolerance) || tolerance <= 0.0)
@@ -611,7 +613,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 {
                     foreach (DataGridViewRow row in matchedRows)
                         row.Cells[colMatch.Index].Value = "OVERLAP";
-                    lblStatus.Text = "현재 X 위치가 여러 Zone에 겹칩니다. Zone 범위를 다시 설정하세요.";
+                    Lang.BindKey(lblStatus, "extraDialog.pickerZone.overlap");
                 }
             }
         }
@@ -789,5 +791,28 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             return value.ToString("0.###", CultureInfo.InvariantCulture);
         }
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(lblTitle, "extraDialog.pickerZoneSetupDialog.lblTitle.caption");
+            Lang.BindKey(lblSide, "extraDialog.pickerZoneSetupDialog.lblSide.caption");
+            Lang.BindKey(chkUseEncoderZone, "extraDialog.pickerZoneSetupDialog.chkUseEncoderZone.caption");
+            Lang.BindKey(lblTolerance, "extraDialog.pickerZoneSetupDialog.lblTolerance.caption");
+            Lang.BindKey(lblXClearance, "extraDialog.pickerZoneSetupDialog.lblXClearance.caption");
+            Lang.BindKey(lblYOutDistance, "extraDialog.pickerZoneSetupDialog.lblYOutDistance.caption");
+            Lang.BindKey(colUse, "extraDialog.pickerZoneSetupDialog.colUse.caption");
+            Lang.BindKey(colZone, "extraDialog.pickerZoneSetupDialog.colZone.caption");
+            Lang.BindKey(colMin, "extraDialog.pickerZoneSetupDialog.colMin.caption");
+            Lang.BindKey(colMax, "extraDialog.pickerZoneSetupDialog.colMax.caption");
+            Lang.BindKey(colCurrent, "extraDialog.pickerZoneSetupDialog.colCurrent.caption");
+            Lang.BindKey(colMatch, "extraDialog.pickerZoneSetupDialog.colMatch.caption");
+            Lang.BindKey(btnReload, "extraDialog.pickerZoneSetupDialog.btnReload.caption");
+            Lang.BindKey(btnTeachMin, "extraDialog.pickerZoneSetupDialog.btnTeachMin.caption");
+            Lang.BindKey(btnTeachMax, "extraDialog.pickerZoneSetupDialog.btnTeachMax.caption");
+            Lang.BindKey(btnSave, "extraDialog.pickerZoneSetupDialog.btnSave.caption");
+            Lang.BindKey(btnClose, "extraDialog.pickerZoneSetupDialog.btnClose.caption");
+            Lang.BindKey(this, "extraDialog.pickerZoneSetupDialog.this.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 }

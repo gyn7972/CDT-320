@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="controls.log.snapshot" xml:space="preserve"><value>MATERIAL SNAPSHOT (material_state.json)</value></data>
+  <data name="controls.log.snapshotHint" xml:space="preserve"><value>OFF is recommended: exclude detailed Measurements/Alignments from snapshots.&#13;&#10;Turning ON increases file size by about 5 times per wafer and adds save overhead. Details are recorded separately in CSV.</value></data>
+  <data name="controls.log.maintenance" xml:space="preserve"><value>LOG MAINTENANCE</value></data>
+  <data name="controls.log.history" xml:space="preserve"><value>Log history view (Test)</value></data>
+  <data name="controls.log.compress" xml:space="preserve"><value>Log compress</value></data>
+  <data name="controls.log.compressDays" xml:space="preserve"><value>Compress after (days)</value></data>
+  <data name="controls.log.delete" xml:space="preserve"><value>Delete archived log</value></data>
+  <data name="controls.log.deleteDays" xml:space="preserve"><value>Delete after (days)</value></data>
+  <data name="controls.log.paths" xml:space="preserve"><value>LOG FILE PATH</value></data>
+  <data name="controls.log.pathMode" xml:space="preserve"><value>Log save mode</value></data>
+  <data name="controls.log.visionImages" xml:space="preserve"><value>VISION IMAGE (OK / NG)</value></data>
+  <data name="controls.log.imageFormat" xml:space="preserve"><value>Image format</value></data>
+  <data name="controls.log.type" xml:space="preserve"><value>LOG TYPE</value></data>
+  <data name="controls.log.filePath" xml:space="preserve"><value>FILE PATH</value></data>
+  <data name="controls.log.image" xml:space="preserve"><value>IMAGE</value></data>
+  <data name="controls.log.imagePath" xml:space="preserve"><value>IMAGE PATH</value></data>
+  <data name="controls.log.enable" xml:space="preserve"><value>ENABLE</value></data>
+  <data name="controls.log.disable" xml:space="preserve"><value>DISABLE</value></data>
+  <data name="controls.log.modeAll" xml:space="preserve"><value>ALL (single folder)</value></data>
+  <data name="controls.log.modeKind" xml:space="preserve"><value>KIND (per type)</value></data>
+  <data name="controls.log.all" xml:space="preserve"><value>ALL LOG</value></data>
+  <data name="controls.log.event" xml:space="preserve"><value>EVENT</value></data>
+  <data name="controls.log.warning" xml:space="preserve"><value>WARNING</value></data>
+  <data name="controls.log.alarm" xml:space="preserve"><value>ALARM</value></data>
+  <data name="controls.log.data" xml:space="preserve"><value>DATA</value></data>
+  <data name="controls.log.work" xml:space="preserve"><value>WORK</value></data>
+  <data name="controls.log.inputSequence" xml:space="preserve"><value>INPUT SEQ</value></data>
+  <data name="controls.log.frontSequence" xml:space="preserve"><value>FRONTHEAD SEQ</value></data>
+  <data name="controls.log.rearSequence" xml:space="preserve"><value>REARHEAD SEQ</value></data>
+  <data name="controls.log.outputSequence" xml:space="preserve"><value>OUTPUT SEQ</value></data>
+  <data name="controls.log.goodImage" xml:space="preserve"><value>OK IMAGE</value></data>
+  <data name="controls.log.ngImage" xml:space="preserve"><value>NG IMAGE</value></data>
+  <data name="controls.log.diagnostic" xml:space="preserve"><value>DIAGNOSTIC LOG (applied immediately)</value></data>
+  <data name="controls.log.minutes" xml:space="preserve"><value>Duration (min)</value></data>
+  <data name="controls.log.diagnosticUnlimited" xml:space="preserve"><value>Detailed logging (DiagnosticVerbose): enabled at startup with no expiry. Select DISABLE to turn it off.</value></data>
+  <data name="controls.log.diagnosticRemaining" xml:space="preserve"><value>Detailed logging (DiagnosticVerbose): turns off in {0} min {1} sec.</value></data>
+  <data name="controls.log.diagnosticMinimal" xml:space="preserve"><value>Minimal logging (ProductionMinimal): detailed Motion/Main logs are not saved to disk.</value></data>
+  <data name="controls.log.detailOn" xml:space="preserve"><value>Save detailed measurements [ON]</value></data>
+  <data name="controls.log.detailOff" xml:space="preserve"><value>Save detailed measurements [OFF]</value></data>
+  <data name="controls.log.selectPath" xml:space="preserve"><value>Select a folder</value></data>
+  <data name="controls.map.goodStage" xml:space="preserve"><value>GOOD STAGE</value></data>
+  <data name="controls.map.ngStage" xml:space="preserve"><value>NG STAGE</value></data>
+  <data name="controls.map.outputFeeder" xml:space="preserve"><value>OUT FEEDER</value></data>
+  <data name="controls.map.finish" xml:space="preserve"><value>FINISH</value></data>
+  <data name="controls.map.heldFront" xml:space="preserve"><value>Held by front picker {0}</value></data>
+  <data name="controls.map.heldRear" xml:space="preserve"><value>Held by rear picker {0}</value></data>
+  <data name="controls.map.reservedFront" xml:space="preserve"><value>Reserved for front picker {0}</value></data>
+  <data name="controls.map.reservedRear" xml:space="preserve"><value>Reserved for rear picker {0}</value></data>
+  <data name="controls.cassette.title" xml:space="preserve"><value>CASSETTE</value></data>
+  <data name="controls.cassette.summary" xml:space="preserve"><value>SLOTS {0} / WAFER {1}</value></data>
+  <data name="controls.cassette.move" xml:space="preserve"><value>MOVE</value></data>
+  <data name="controls.cassette.moveSlot" xml:space="preserve"><value>MOVE SLOT {0}</value></data>
+  <data name="controls.cassette.empty" xml:space="preserve"><value>EMPTY</value></data>
+  <data name="controls.cassette.ready" xml:space="preserve"><value>READY</value></data>
+  <data name="controls.cassette.working" xml:space="preserve"><value>WORKING</value></data>
+  <data name="controls.cassette.finish" xml:space="preserve"><value>FINISH</value></data>
+  <data name="controls.cassette.workReady" xml:space="preserve"><value>WORK READY</value></data>
+  <data name="controls.cassette.currentReady" xml:space="preserve"><value>CURRENT / READY</value></data>
+  <data name="controls.cassette.currentEmpty" xml:space="preserve"><value>CURRENT / EMPTY</value></data>
+  <data name="controls.action.select" xml:space="preserve"><value>SELECT</value></data>
+  <data name="controls.action.selected" xml:space="preserve"><value>SELECTED</value></data>
+  <data name="controls.jog.move" xml:space="preserve"><value>Move</value></data>
+  <data name="controls.jog.fine" xml:space="preserve"><value>Fine</value></data>
+  <data name="controls.jog.coarse" xml:space="preserve"><value>Coarse</value></data>
+  <data name="controls.jog.moveMode" xml:space="preserve"><value>Move Mode</value></data>
+  <data name="controls.jog.continuous" xml:space="preserve"><value>Continuous</value></data>
+  <data name="controls.jog.step" xml:space="preserve"><value>Step</value></data>
+  <data name="controls.jog.stop" xml:space="preserve"><value>STOP</value></data>
+  <data name="controls.jog.speedMode" xml:space="preserve"><value>Speed Mode</value></data>
+  <data name="controls.jog.current" xml:space="preserve"><value>Current</value></data>
+  <data name="controls.jog.title" xml:space="preserve"><value>Jog</value></data>
+  <data name="controls.jog.axisTitle" xml:space="preserve"><value>Jog Axis</value></data>
+  <data name="controls.jog.positionTitle" xml:space="preserve"><value>Jog Position</value></data>
+  <data name="controls.jog.homeRequired" xml:space="preserve"><value>{0} cannot jog: HOME END is not complete. Return to home first.</value></data>
+  <data name="controls.jog.positionBindFailed" xml:space="preserve"><value>Jog position bind failed: {0}</value></data>
+  <data name="controls.config.title" xml:space="preserve"><value>Unit Config</value></data>
+  <data name="controls.config.property" xml:space="preserve"><value>Property</value></data>
+  <data name="controls.config.value" xml:space="preserve"><value>Value</value></data>
+  <data name="controls.config.applySave" xml:space="preserve"><value>Apply &amp;&amp; Save</value></data>
+  <data name="controls.config.reload" xml:space="preserve"><value>Reload</value></data>
+  <data name="controls.config.saved" xml:space="preserve"><value>Configuration saved.</value></data>
+  <data name="controls.config.saveFailed" xml:space="preserve"><value>Save failed: {0}</value></data>
+  <data name="controls.config.loadFailed" xml:space="preserve"><value>Load failed: {0}</value></data>
+  <data name="controls.manual.title" xml:space="preserve"><value>Manual Action</value></data>
+  <data name="controls.command.title" xml:space="preserve"><value>Action Command</value></data>
+  <data name="controls.io.title" xml:space="preserve"><value>I/O Panel</value></data>
+  <data name="controls.io.setFailed" xml:space="preserve"><value>I/O panel setup failed: {0}&#13;&#10;{1}</value></data>
+  <data name="controls.io.refreshFailed" xml:space="preserve"><value>I/O panel refresh failed: {0}&#13;&#10;{1}</value></data>
+  <data name="controls.io.rowAddFailed" xml:space="preserve"><value>I/O row add failed: {0}&#13;&#10;{1}</value></data>
+  <data name="controls.io.rowRefreshFailed" xml:space="preserve"><value>I/O row refresh failed: {0}&#13;&#10;{1}</value></data>
+  <data name="controls.io.outputFailed" xml:space="preserve"><value>{0} output failed.</value></data>
+  <data name="controls.io.commandFailed" xml:space="preserve"><value>{0} {1} failed.</value></data>
+  <data name="controls.io.forceFlow" xml:space="preserve"><value>Force FLOW ON</value></data>
+  <data name="controls.manual.setFailed" xml:space="preserve"><value>Manual action setup failed: {0}&#13;&#10;{1}</value></data>
+  <data name="controls.command.bindFailed" xml:space="preserve"><value>Action command binding failed: {0}</value></data>
+  <data name="controls.command.failed" xml:space="preserve"><value>{0} failed. Result={1}</value></data>
+</root>

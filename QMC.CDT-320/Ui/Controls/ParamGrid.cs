@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -17,6 +18,10 @@ namespace QMC.CDT_320.Ui.Controls
     {
         private readonly Dictionary<string, Label> _valueByName =
             new Dictionary<string, Label>(StringComparer.OrdinalIgnoreCase);
+
+        private readonly List<KeyValuePair<Label, string>> _nameLabels =
+            new List<KeyValuePair<Label, string>>();
+        private Func<string, string> _nameDisplay;
 
         private readonly HashSet<string> _editable =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -106,6 +111,7 @@ namespace QMC.CDT_320.Ui.Controls
                 _layout.RowStyles.Clear();
                 _layout.ColumnStyles.Clear();
                 _valueByName.Clear();
+                _nameLabels.Clear();
                 _editable.Clear();
 
                 if (names == null) return;
@@ -150,6 +156,10 @@ namespace QMC.CDT_320.Ui.Controls
                         Margin = Padding.Empty,
                     };
 
+                    _nameLabels.Add(new KeyValuePair<Label, string>(nameLabel, list[i]));
+                    if (_nameDisplay != null)
+                        Lang.BindDisplay(nameLabel, list[i], _nameDisplay);
+
                     var valueLabel = new Label
                     {
                         Text = _placeholder,
@@ -183,6 +193,19 @@ namespace QMC.CDT_320.Ui.Controls
             finally
             {
                 _layout.ResumeLayout();
+            }
+        }
+
+        /// <summary>표시 이름만 변환합니다. 항목 키, 값, 편집 상태와 클릭 인자는 유지합니다.</summary>
+        public void BindNameDisplay(Func<string, string> formatter)
+        {
+            _nameDisplay = formatter;
+            foreach (var entry in _nameLabels)
+            {
+                if (formatter == null)
+                    Lang.BindDisplay(entry.Key, entry.Value, original => original);
+                else
+                    Lang.BindDisplay(entry.Key, entry.Value, formatter);
             }
         }
 
@@ -361,4 +384,3 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
-

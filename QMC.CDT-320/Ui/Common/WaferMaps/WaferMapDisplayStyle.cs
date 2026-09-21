@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Collections.Generic;
 using QMC.CDT320.Materials;
 using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Common.WaferMaps
 {
@@ -98,14 +99,14 @@ namespace QMC.CDT_320.Ui.Common.WaferMaps
         {
             switch (state)
             {
-                case WaferMapCellState.Wait: return "대기";
-                case WaferMapCellState.VisionDone: return "검사 완료";
-                case WaferMapCellState.PickerHeld: return "픽커 보유";
-                case WaferMapCellState.Placed: return "안착 완료 / 검사 전";
-                case WaferMapCellState.Good: return "GOOD";
-                case WaferMapCellState.Ng: return "NG";
-                case WaferMapCellState.Skip: return "SKIP";
-                default: return "상태 미확인";
+                case WaferMapCellState.Wait: return Lang.T("diagram.liveMap.state.wait");
+                case WaferMapCellState.VisionDone: return Lang.T("diagram.liveMap.state.visionDone");
+                case WaferMapCellState.PickerHeld: return Lang.T("diagram.liveMap.state.pickerHeld");
+                case WaferMapCellState.Placed: return Lang.T("diagram.liveMap.state.placed");
+                case WaferMapCellState.Good: return Lang.T("diagram.liveMap.state.good");
+                case WaferMapCellState.Ng: return Lang.T("diagram.liveMap.state.ng");
+                case WaferMapCellState.Skip: return Lang.T("diagram.liveMap.state.skip");
+                default: return Lang.T("diagram.liveMap.state.unknown");
             }
         }
 
@@ -129,6 +130,28 @@ namespace QMC.CDT_320.Ui.Common.WaferMaps
                 case MaterialLocationKind.OutputCassette: return "FINISH";
                 default: return string.Empty;
             }
+        }
+
+        /// <summary>스냅샷과 변경 감지용 원문은 유지하고 화면에 표시할 때만 번역합니다.</summary>
+        public static string DisplayTrackingText(string original)
+        {
+            switch (original)
+            {
+                case "GOOD STAGE": return Lang.T("controls.map.goodStage");
+                case "NG STAGE": return Lang.T("controls.map.ngStage");
+                case "OUT FEEDER": return Lang.T("controls.map.outputFeeder");
+                case "FINISH": return Lang.T("controls.map.finish");
+            }
+            if (original == null) return null;
+            if (original.StartsWith("보유 F", StringComparison.Ordinal))
+                return Lang.Format("controls.map.heldFront", original.Substring(4));
+            if (original.StartsWith("보유 R", StringComparison.Ordinal))
+                return Lang.Format("controls.map.heldRear", original.Substring(4));
+            if (original.StartsWith("예약 F", StringComparison.Ordinal))
+                return Lang.Format("controls.map.reservedFront", original.Substring(4));
+            if (original.StartsWith("예약 R", StringComparison.Ordinal))
+                return Lang.Format("controls.map.reservedRear", original.Substring(4));
+            return original;
         }
 
         public static Tuple<string, Color>[] BuildLegend()

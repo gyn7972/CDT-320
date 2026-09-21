@@ -27,6 +27,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         public VisionLinkPage()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
             ApplyRuntimeUi();
             SettingsPageLayoutStyler.Apply(this);
             ApplyCompactLayout();
@@ -85,16 +86,16 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblHeader.Text = Lang.T("set.visionLink");
             lblHeader.Tag = "i18n:set.visionLink";
 
-            grpLink.Text = "TCP 포트 / 상태 (명령=Handler ↔ Vision, Viewer=영상 스트림)";
-            grpLog.Text = "통신 로그 (TX / RX / EPD / ARM)";
-            lblColModule.Text = "Module";
-            lblColCmd.Text = "Command Port";
-            lblColViewer.Text = "Viewer Port";
-            lblColStatus.Text = "Status";
-            lblColRx.Text = "RX";
-            lblColViewerStatus.Text = "Viewer Status";
-            _btnClearLog.Text = "CLEAR LOG";
-            _btnCameraScale.Text = "CAMERA SCALE SETUP";
+            Lang.BindKey(grpLink, "visionUi.visionLinkPage.grpLink.text");
+            Lang.BindKey(grpLog, "visionUi.visionLinkPage.grpLog.text");
+            Lang.BindKey(lblColModule, "visionUi.visionMonitorControl.lblModule.text");
+            Lang.BindKey(lblColCmd, "visionUi.visionLinkPage.lblColCmd.text");
+            Lang.BindKey(lblColViewer, "visionUi.visionLinkPage.lblColViewer.text");
+            Lang.BindKey(lblColStatus, "visionUi.visionLinkPage.lblColStatus.text");
+            Lang.BindKey(lblColRx, "visionUi.visionLinkPage.lblColRx.text");
+            Lang.BindKey(lblColViewerStatus, "visionUi.visionLinkPage.lblColViewerStatus.text");
+            Lang.BindKey(_btnClearLog, "visionUi.visionLinkPage._btnClearLog.text");
+            Lang.BindKey(_btnCameraScale, "visionUi.visionLinkPage._btnCameraScale.text");
         }
 
         private void ApplyCompactLayout()
@@ -284,11 +285,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private static void SetViewerStatus(Label vs, int viewerPort)
         {
             if (vs == null) return;
-            if (viewerPort <= 0) { vs.ForeColor = Color.DimGray; vs.Text = "—"; return; }
+            if (viewerPort <= 0) { vs.ForeColor = Color.DimGray; Lang.BindFormat(vs, "visionUi.link.noViewer"); return; }
             if (VisionViewerRegistry.IsStreaming(viewerPort))
-            { vs.ForeColor = Color.LimeGreen; vs.Text = "● 스트리밍 :" + viewerPort; }
+            { vs.ForeColor = Color.LimeGreen; Lang.BindFormat(vs, "visionUi.link.streaming", (object)(viewerPort)); }
             else
-            { vs.ForeColor = Color.Gray; vs.Text = "● 대기 :" + viewerPort; }
+            { vs.ForeColor = Color.Gray; Lang.BindFormat(vs, "visionUi.link.waitingPort", (object)(viewerPort)); }
         }
 
         // ── 통신 로그 갱신(변경 시에만) ──
@@ -307,8 +308,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private static void SetLamp(Label lamp, bool connected, int port)
         {
             string suffix = port > 0 ? $" :{port}" : "";
-            if (connected) { lamp.ForeColor = Color.LimeGreen; lamp.Text = "● 접속됨" + suffix; }
-            else           { lamp.ForeColor = Color.Gray;      lamp.Text = "● 대기"   + suffix; }
+            if (connected) { lamp.ForeColor = Color.LimeGreen; Lang.BindFormat(lamp, "visionUi.link.connected", (object)(suffix)); }
+            else           { lamp.ForeColor = Color.Gray;      Lang.BindFormat(lamp, "visionUi.link.waiting", (object)(suffix)); }
         }
 
         /// <summary>마지막 수신 경과. 접속 중 무통신이 길면(StaleSeconds↑) 경고색.</summary>
@@ -317,20 +318,65 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (lastUtc == default(DateTime))
             {
                 rx.ForeColor = Color.DimGray;
-                rx.Text = "RX -";
+                Lang.BindKey(rx, "visionUi.visionLinkPage.rx.text");
                 return;
             }
             var d = DateTime.UtcNow - lastUtc;
             if (d.Ticks < 0) d = TimeSpan.Zero;
 
-            string ago;
-            if (d.TotalSeconds < 60)      ago = $"{(int)d.TotalSeconds}s 전";
-            else if (d.TotalMinutes < 60) ago = $"{(int)d.TotalMinutes}m 전";
-            else                          ago = $"{(int)d.TotalHours}h 전";
+            string ageKey;
+            int age;
+            if (d.TotalSeconds < 60) { ageKey = "visionUi.link.secondsAgo"; age = (int)d.TotalSeconds; }
+            else if (d.TotalMinutes < 60) { ageKey = "visionUi.link.minutesAgo"; age = (int)d.TotalMinutes; }
+            else { ageKey = "visionUi.link.hoursAgo"; age = (int)d.TotalHours; }
 
             bool stale = connected && d.TotalSeconds > StaleSeconds;
             rx.ForeColor = stale ? Color.Goldenrod : Color.DimGray;
-            rx.Text = "RX " + ago;
+            Lang.BindFormat(rx, ageKey, age);
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this.lblHeader, "visionUi.visionLinkPage.lblHeader.text");
+            Lang.BindKey(this.grpLink, "visionUi.visionLinkPage.grpLink.state2");
+            Lang.BindKey(this.lblHost, "visionUi.visionLinkPage.lblHost.text");
+            Lang.BindKey(this.lblColModule, "visionUi.visionLinkPage.lblColModule.text");
+            Lang.BindKey(this.lblColCmd, "visionUi.visionLinkPage.lblColCmd.state2");
+            Lang.BindKey(this.lblColViewer, "visionUi.visionLinkPage.lblColViewer.state2");
+            Lang.BindKey(this.lblColStatus, "visionUi.visionLinkPage.lblColStatus.state2");
+            Lang.BindKey(this.lblColRx, "visionUi.visionLinkPage.lblColRx.state2");
+            Lang.BindKey(this.lblColViewerStatus, "visionUi.visionLinkPage.lblColViewerStatus.state2");
+            Lang.BindKey(this.lblWaferPort, "visionUi.visionLinkPage.lblWaferPort.text");
+            Lang.BindKey(this._lblWafer, "visionUi.visionLinkPage._lblWafer.text");
+            Lang.BindKey(this._rxWafer, "visionUi.visionLinkPage.rx.text");
+            Lang.BindFormat(this._vsWafer, "visionUi.literal", (object)("—"));
+            Lang.BindKey(this.lblInspectionPort, "visionUi.visionLinkPage.lblInspectionPort.text");
+            Lang.BindKey(this._lblInsp, "visionUi.visionLinkPage._lblWafer.text");
+            Lang.BindKey(this._rxInsp, "visionUi.visionLinkPage.rx.text");
+            Lang.BindFormat(this._vsInsp, "visionUi.literal", (object)("—"));
+            Lang.BindKey(this.lblBinPort, "visionUi.visionLinkPage.lblBinPort.text");
+            Lang.BindKey(this._lblBin, "visionUi.visionLinkPage._lblWafer.text");
+            Lang.BindKey(this._rxBin, "visionUi.visionLinkPage.rx.text");
+            Lang.BindFormat(this._vsBin, "visionUi.literal", (object)("—"));
+            Lang.BindKey(this.lblMainPort, "visionUi.visionLinkPage.lblMainPort.text");
+            Lang.BindKey(this._lblMain, "visionUi.visionLinkPage._lblWafer.text");
+            Lang.BindKey(this._rxMain, "visionUi.visionLinkPage.rx.text");
+            Lang.BindKey(this.lblTopPort, "visionUi.visionLinkPage.lblTopPort.text");
+            Lang.BindKey(this._lblTop, "visionUi.visionLinkPage._lblWafer.text");
+            Lang.BindKey(this._rxTop, "visionUi.visionLinkPage.rx.text");
+            Lang.BindFormat(this._vsTop, "visionUi.literal", (object)("—"));
+            Lang.BindKey(this.lblBotPort, "visionUi.visionLinkPage.lblBotPort.text");
+            Lang.BindKey(this._lblBot, "visionUi.visionLinkPage._lblWafer.text");
+            Lang.BindKey(this._rxBot, "visionUi.visionLinkPage.rx.text");
+            Lang.BindFormat(this._vsBot, "visionUi.literal", (object)("—"));
+            Lang.BindKey(this._cbAuto, "visionUi.visionLinkPage._cbAuto.text");
+            Lang.BindKey(this._actionGroup, "visionUi.visionLinkPage._actionGroup.text");
+            Lang.BindKey(this._btnConnect, "visionUi.visionLinkPage._btnConnect.text");
+            Lang.BindKey(this._btnDisconnect, "visionUi.visionLinkPage._btnDisconnect.text");
+            Lang.BindKey(this._btnPing, "visionUi.visionLinkPage._btnPing.text");
+            Lang.BindKey(this._btnClearLog, "visionUi.visionLinkPage._btnClearLog.state2");
+            Lang.BindKey(this._btnCameraScale, "visionUi.visionLinkPage._btnCameraScale.text");
+            Lang.BindKey(this.grpLog, "visionUi.visionLinkPage.grpLog.text");
         }
     }
 }

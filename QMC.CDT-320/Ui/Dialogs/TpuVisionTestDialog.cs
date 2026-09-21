@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320.VisionComm;
@@ -44,23 +45,24 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (actions == null)
                 return;
 
-            void Add(string label, Action open)
+            void Add(string labelKey, Action open)
             {
                 var button = new ActionButton
                 {
-                    Text = label,
+                    Text = Lang.T(labelKey),
                     Width = 132,
                     Height = 60,
                     Margin = new Padding(6),
                     Font = new Font("맑은 고딕", 11F)
                 };
+                Lang.BindKey(button, labelKey);
                 button.Click += (s, e) => open();
                 actions.Add(button);
             }
 
-            Add("VISION: BOTTOM INSP", () => Open(owner, "Bottom Inspection", Mode.BottomInspection));
-            Add("VISION: FRONT SIDE", () => Open(owner, "FrontSideVision", Mode.Side, 1, () => VisionHub.FrontSideVision, VisionViewerPorts.FrontSideVision, VisionToolIds.FrontSide.SurfaceInspector));
-            Add("VISION: REAR SIDE", () => Open(owner, "RearSideVision", Mode.Side, 1, () => VisionHub.RearSideVision, VisionViewerPorts.RearSideVision, VisionToolIds.RearSide.SurfaceInspector));
+            Add("visionUi.launch.bottom", () => Open(owner, "Bottom Inspection", Mode.BottomInspection));
+            Add("visionUi.launch.front", () => Open(owner, "FrontSideVision", Mode.Side, 1, () => VisionHub.FrontSideVision, VisionViewerPorts.FrontSideVision, VisionToolIds.FrontSide.SurfaceInspector));
+            Add("visionUi.launch.rear", () => Open(owner, "RearSideVision", Mode.Side, 1, () => VisionHub.RearSideVision, VisionViewerPorts.RearSideVision, VisionToolIds.RearSide.SurfaceInspector));
 
             if (stopButton != null && actions.Contains(stopButton))
                 actions.SetChildIndex(stopButton, actions.Count - 1);
@@ -69,6 +71,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         public TpuVisionTestDialog()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
         }
 
         public TpuVisionTestDialog(
@@ -81,6 +84,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             int pickerFb)
         {
             InitializeComponent();
+            InitializeLanguageBindings();
 
             tpuVisionTestControl.Configure(
                 title,
@@ -93,13 +97,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                 sideInspectorId,
                 pickerFb);
 
-            Text = tpuVisionTestControl.DialogTitle;
+            tpuVisionTestControl.BindDialogTitle(this);
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             tpuVisionTestControl.StopLive();
             base.OnFormClosing(e);
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this, "visionUi.tpuVisionTestDialog.Text.text");
         }
     }
 }

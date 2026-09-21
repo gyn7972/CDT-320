@@ -10,6 +10,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
+using QMC.CDT_320.Ui.Localization;
+
 namespace QMC.CDT_320.Ui.Controls
 {
     public enum JogAxisMoveLayoutMode
@@ -344,6 +346,13 @@ namespace QMC.CDT_320.Ui.Controls
             try
             {
                 InitializeComponent();
+                Lang.BindKey(grpSpeedMode, "controls.jog.speedMode");
+                Lang.BindKey(rdoFine, "controls.jog.fine");
+                Lang.BindKey(rdoCurrent, "controls.jog.current");
+                Lang.BindKey(rdoCoarse, "controls.jog.coarse");
+                Lang.BindKey(grpMoveMode, "controls.jog.moveMode");
+                Lang.BindKey(rdoContinuous, "controls.jog.continuous");
+                Lang.BindKey(rdoStep, "controls.jog.step");
                 ApplyStepPresetItems();
                 SizeChanged += JogAxisMoveControl_SizeChanged;
                 ApplyCurrentSpeedModeVisibility();
@@ -499,7 +508,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 string message = "Jog axis bind failed: " + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "JOG-AXIS", message);
-                QMC.Common.MessageDialog.Show(this, message, "Jog Axis", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, message, Lang.T("controls.jog.axisTitle"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -2264,7 +2273,7 @@ namespace QMC.CDT_320.Ui.Controls
                 button.Width = StageJogButtonWidth;
                 button.Height = StageJogButtonHeight;
                 button.Margin = new Padding(0);
-                button.Text = "STOP";
+                Lang.BindKey(button, "controls.jog.stop");
                 button.UseVisualStyleBackColor = false;
                 button.Click += async (s, e) =>
                 {
@@ -2609,7 +2618,7 @@ namespace QMC.CDT_320.Ui.Controls
                         "Jog: " + (item.AxisName ?? string.Empty),
                         out recipeOperationScope, out recipeBlockReason))
                 {
-                    QMC.Common.MessageDialog.Show(this, recipeBlockReason, "Jog Axis",
+                    QMC.Common.MessageDialog.Show(this, recipeBlockReason, Lang.T("controls.jog.axisTitle"),
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -2639,7 +2648,7 @@ namespace QMC.CDT_320.Ui.Controls
                     string homeEndMsg = (item.AxisName ?? "Axis") +
                         " 조그 불가: HOME END가 완료되지 않았습니다(원점복귀 필요).";
                     QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Warning, "JOG-AXIS", "UI", homeEndMsg);
-                    QMC.Common.MessageDialog.Show(this, homeEndMsg, "Jog Axis",
+                    QMC.Common.MessageDialog.Show(this, Lang.Format("controls.jog.homeRequired", item.AxisName ?? "Axis"), Lang.T("controls.jog.axisTitle"),
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -3280,7 +3289,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 string message = title + ": " + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "JOG-AXIS", message);
-                QMC.Common.MessageDialog.Show(this, message, "Jog Axis", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, message, Lang.T("controls.jog.axisTitle"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             catch
             {

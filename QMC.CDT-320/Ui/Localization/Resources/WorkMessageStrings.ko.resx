@@ -1,0 +1,618 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="workMessage.text.1" xml:space="preserve">
+    <value>입력 스테이지 장비 정보를 찾을 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.2" xml:space="preserve">
+    <value>웨이퍼 정렬 / 다이 맵 검토</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.3" xml:space="preserve">
+    <value>입력 스테이지에 배치된 웨이퍼 자재 데이터가 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.4" xml:space="preserve">
+    <value>웨이퍼 정렬 / 다이 맵 검토 화면을 열지 못했습니다.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.5" xml:space="preserve">
+    <value>더블클릭 MOVE VISION 처리에 실패했습니다.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.6" xml:space="preserve">
+    <value>입력 다이 맵</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.7" xml:space="preserve">
+    <value>픽커로 이동할 Input 다이를 먼저 선택하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.8" xml:space="preserve">
+    <value>선택한 다이의 자재 데이터를 찾을 수 없습니다.&#13;&#10;다이={0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.9" xml:space="preserve">
+    <value>선택한 픽커가 이미 다이를 가지고 있습니다.&#13;&#10;픽커={0} #{1}&#13;&#10;다이={2}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.10" xml:space="preserve">
+    <value>선택한 Input 다이 데이터를 픽커로 이동하시겠습니까?&#13;&#10;실제 모션은 동작하지 않고 자재 데이터만 이동합니다.&#13;&#10;&#13;&#10;다이={0}&#13;&#10;맵={1}&#13;&#10;대상={2} 픽커 #{3}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.11" xml:space="preserve">
+    <value>다이 데이터를 {0} 픽커 #{1}로 이동했습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.12" xml:space="preserve">
+    <value>Input 다이 데이터 픽커 이동 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.13" xml:space="preserve">
+    <value>오프셋을 설정할 다이가 선택되지 않았습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.14" xml:space="preserve">
+    <value>장비 정보를 찾을 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.15" xml:space="preserve">
+    <value>{0} 입력 비전 → 픽커 오프셋 저장 완료&#13;&#10;InputVisionToPicker X={1} mm, Y={2} mm{3}{4}&#13;&#10;자동 픽업과 수동 우클릭 이동은 같은 설정 값을 사용합니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.16" xml:space="preserve">
+    <value>입력 픽커 오프셋 설정 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.17" xml:space="preserve">
+    <value>현재 화면은 레시피 중심 (0,0) 상대좌표 미리보기입니다.&#13;&#10;실제 입력 카메라 X / 입력 스테이지 Y 절대좌표는 웨이퍼 정렬 + 다이 매핑 완료 후 생성됩니다.&#13;&#10;{0}을 차단했습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.18" xml:space="preserve">
+    <value>현재 입력 스테이지 정렬/다이 매핑 결과를 이 운전 모드에서 사용할 수 없습니다.&#13;&#10;{0}&#13;&#10;정렬과 다이 매핑을 다시 완료하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.19" xml:space="preserve">
+    <value>현재 매핑 결과가 활성 레시피의 FINAL APPLY 맵과 일치하지 않습니다.&#13;&#10;Map Create FINAL APPLY 후 새 웨이퍼 매핑을 완료하세요.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.20" xml:space="preserve">
+    <value>저장하지 않은 픽업 상태 변경이 있습니다.&#13;&#10;다시 불러오시겠습니까?</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.21" xml:space="preserve">
+    <value>입력 다이 맵을 다시 불러오지 못했습니다:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.22" xml:space="preserve">
+    <value>저장할 입력 다이 맵 데이터가 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.23" xml:space="preserve">
+    <value>현재 픽업 상태를 저장하고 픽업 시퀀스를 갱신하시겠습니까?</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.24" xml:space="preserve">
+    <value>픽업 상태를 자재에 반영하고 저장을 요청했습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.25" xml:space="preserve">
+    <value>픽업 상태 반영 또는 저장 요청에 실패했습니다.&#13;&#10;{0}&#13;&#10;&#13;&#10;화면이나 메모리에 일부 변경이 반영되었을 수 있으며 저장 완료는 확인되지 않았습니다. 현재 자재 상태와 오류 로그를 확인한 뒤 다시 저장하십시오.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.26" xml:space="preserve">
+    <value>{0} 동작을 진행하시겠습니까?</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.27" xml:space="preserve">
+    <value>{0} 완료.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.28" xml:space="preserve">
+    <value>{0} 실패&#13;&#10;결과={1}&#13;&#10;알람/이벤트 로그를 확인하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.29" xml:space="preserve">
+    <value>{0} 실패:&#13;&#10;{1}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.30" xml:space="preserve">
+    <value>수동 다이 검출을 적용할 활성 입력 다이 맵 데이터가 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.31" xml:space="preserve">
+    <value>수동 다이 검출 기준 다이를 먼저 선택하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.32" xml:space="preserve">
+    <value>입력 스테이지 비전 정보를 찾을 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.33" xml:space="preserve">
+    <value>입력 스테이지 비전 X 또는 Stage Y 축 정보를 찾을 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.34" xml:space="preserve">
+    <value>T 보정 완료 상태가 아니라 다이 검출을 진행할 수 없습니다.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.35" xml:space="preserve">
+    <value>현재 비전 화면에서 선택 다이 중심을 검출하시겠습니까?&#13;&#10;다이={0}&#13;&#10;보낸 다이 위치({1}) X={2} mm, Y={3} mm&#13;&#10;현재 비전 위치 X={4} mm, StageY={5} mm</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.36" xml:space="preserve">
+    <value>저장된 입력 스테이지 정렬/다이 매핑 결과를 현재 운전 모드에서 복원할 수 없습니다.&#13;&#10;정렬과 다이 매핑을 다시 완료하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.37" xml:space="preserve">
+    <value>다이 검출 전 픽커 회피 준비 실패&#13;&#10;결과={0}&#13;&#10;알람/이벤트 로그를 확인하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.38" xml:space="preserve">
+    <value>다이 검출 전 EjectPinZ Avoid 준비 실패&#13;&#10;결과={0}&#13;&#10;알람/이벤트 로그를 확인하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.39" xml:space="preserve">
+    <value>다이 검출 전 StageT 보정 위치 확인/이동 실패&#13;&#10;결과={0}&#13;&#10;알람/이벤트 로그를 확인하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.40" xml:space="preserve">
+    <value>InputPick다이 비전 검출 결과가 유효하지 않습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.41" xml:space="preserve">
+    <value>다이 검출 오프셋이 허용 한계값을 초과했습니다.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.42" xml:space="preserve">
+    <value>검출 다이 중심 좌표 이동 실패&#13;&#10;결과={0}&#13;&#10;알람/이벤트 로그를 확인하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.43" xml:space="preserve">
+    <value>다이 검출 완료.&#13;&#10;보낸 다이 위치 X={0} mm, Y={1} mm&#13;&#10;현재 조그 위치 X={2} mm, Y={3} mm&#13;&#10;조그 이동량 X={4} mm, Y={5} mm&#13;&#10;비전 변화량 X(카메라 순수값)={6} mm, Y(카메라 순수값)={7} mm&#13;&#10;카메라 오프셋 X={8} mm (참고값, 이동식 미적용), Y={9} mm (참고값, 이동식 미적용)&#13;&#10;중심 이동량 X={10} mm, Y={11} mm&#13;&#10;비전 변화량 T={12} deg (T 보정 미적용)&#13;&#10;검출 중심 X={13} mm, Y={14} mm&#13;&#10;맵 오프셋 X={15} mm, Y={16} mm&#13;&#10;(맵 오프셋 = 조그 이동량 + 중심 이동량)&#13;&#10;&#13;&#10;[오프셋 적용] 버튼을 누르면 전체 다이 맵에 적용됩니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.44" xml:space="preserve">
+    <value>다이 검출 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.45" xml:space="preserve">
+    <value>적용할 다이 검출 오프셋이 없습니다.&#13;&#10;먼저 [다이 검출]을 진행하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.46" xml:space="preserve">
+    <value>오프셋을 적용할 활성 입력 다이 맵 데이터가 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.47" xml:space="preserve">
+    <value>다이 검출 이후 다이 맵이 변경되어 오프셋을 적용할 수 없습니다.&#13;&#10;다시 [다이 검출]을 진행하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.48" xml:space="preserve">
+    <value>검출 기준 다이를 현재 Map에서 찾을 수 없습니다.&#13;&#10;다시 [다이 검출]을 진행하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.49" xml:space="preserve">
+    <value>장비 동작 중에는 오프셋을 적용할 수 없습니다.&#13;&#10;자동/수동 동작을 정지한 뒤 다시 시도하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.50" xml:space="preserve">
+    <value>검출된 오프셋을 전체 입력 다이 맵에 적용하시겠습니까?&#13;&#10;다이={0}&#13;&#10;보낸 다이 위치 X={1} mm, Y={2} mm&#13;&#10;현재 조그 위치 X={3} mm, Y={4} mm&#13;&#10;조그 이동량 X={5} mm, Y={6} mm&#13;&#10;비전 변화량 X(카메라 순수값)={7} mm, Y(카메라 순수값)={8} mm&#13;&#10;카메라 오프셋 X={9} mm (참고값, 이동식 미적용), Y={10} mm (참고값, 이동식 미적용)&#13;&#10;중심 이동량 X={11} mm, Y={12} mm&#13;&#10;비전 변화량 T={13} deg (T 보정 미적용)&#13;&#10;검출 중심 X={14} mm, Y={15} mm&#13;&#10;맵 오프셋 X={16} mm, Y={17} mm&#13;&#10;(맵 오프셋 = 조그 이동량 + 중심 이동량)</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.51" xml:space="preserve">
+    <value>현재 입력 스테이지 다이 매핑 결과를 이 운전 모드에서 갱신할 수 없습니다.&#13;&#10;{0}&#13;&#10;정렬과 다이 매핑을 다시 완료하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.52" xml:space="preserve">
+    <value>레시피 미리보기를 장비 절대좌표 다이 맵으로 변환하지 못했습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.53" xml:space="preserve">
+    <value>오프셋 적용 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.54" xml:space="preserve">
+    <value>오프셋 적용 완료.&#13;&#10;오프셋 X={0} mm, Y={1} mm&#13;&#10;{2}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.55" xml:space="preserve">
+    <value>입력 스테이지 StageT 축 정보를 찾을 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.56" xml:space="preserve">
+    <value>StageT Alarm 상태에서는 T 보정을 저장할 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.57" xml:space="preserve">
+    <value>입력 스테이지 위에 웨이퍼 데이터가 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.58" xml:space="preserve">
+    <value>T 보정 오프셋이 0입니다.&#13;&#10;현재 StageT 위치가 티칭 기준 T와 같아 보정 완료값으로 저장할 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.59" xml:space="preserve">
+    <value>T 보정 오프셋이 허용 한계값을 초과했습니다.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.60" xml:space="preserve">
+    <value>T 보정 저장 완료.&#13;&#10;오프셋 T = {0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.61" xml:space="preserve">
+    <value>T 보정 저장 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.62" xml:space="preserve">
+    <value>현재 입력 스테이지 wafer를 수동 정렬 완료 상태로 저장하시겠습니까?</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.63" xml:space="preserve">
+    <value>수동 정렬 완료 저장 완료.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.64" xml:space="preserve">
+    <value>수동 정렬 완료 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.65" xml:space="preserve">
+    <value>MOVE VISION 목표 좌표를 계산할 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.66" xml:space="preserve">
+    <value>비전 이동 전 픽커 회피 준비 실패&#13;&#10;결과={0}&#13;&#10;알람/이벤트 로그를 확인하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.67" xml:space="preserve">
+    <value>선택 다이 좌표 이동 실패&#13;&#10;결과={0}&#13;&#10;알람/이벤트 로그를 확인하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.68" xml:space="preserve">
+    <value>{0} 이동 완료.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.69" xml:space="preserve">
+    <value>선택 다이 좌표 이동 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.70" xml:space="preserve">
+    <value>이동할 다이가 선택되지 않았습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.71" xml:space="preserve">
+    <value>{0}의 Input비전 기준 오프셋을 찾을 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.72" xml:space="preserve">
+    <value>{0} 좌표 이동 실패&#13;&#10;결과={1}&#13;&#10;알람/이벤트 로그를 확인하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.73" xml:space="preserve">
+    <value>{0} 좌표 이동 완료.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.74" xml:space="preserve">
+    <value>픽커 좌표 이동 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.75" xml:space="preserve">
+    <value>픽업 테스트 대상 다이가 선택되지 않았습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.76" xml:space="preserve">
+    <value>픽업 테스트를 실행할 제어기 정보를 찾을 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.77" xml:space="preserve">
+    <value>픽업 테스트 대상 다이 UID를 찾을 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.78" xml:space="preserve">
+    <value>픽업 테스트 다이얼로그 실행 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.79" xml:space="preserve">
+    <value>상태를 변경할 활성 입력 다이 맵 데이터가 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.80" xml:space="preserve">
+    <value>상태를 변경할 다이를 먼저 선택하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.81" xml:space="preserve">
+    <value>선택 다이 중 상태 변경이 차단된 항목이 있습니다.&#13;&#10;다이={0}&#13;&#10;{1}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.82" xml:space="preserve">
+    <value>선택 다이 {0}개 상태를 [{1}]로 변경하시겠습니까?&#13;&#10;첫 다이={2}&#13;&#10;UID={3}{4}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.83" xml:space="preserve">
+    <value>선택 다이를 재픽업 대기로 복구하지 못했습니다.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.84" xml:space="preserve">
+    <value>Input 다이 상태 변경 또는 저장에 실패했습니다.&#13;&#10;{0}&#13;&#10;&#13;&#10;화면이나 메모리에 일부 변경이 반영되었을 수 있습니다. {1} 현재 자재 상태와 오류 로그를 확인한 뒤 다시 적용하십시오.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.85" xml:space="preserve">
+    <value>더블클릭 MOVE SELECTED SLOT 처리에 실패했습니다.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.86" xml:space="preserve">
+    <value>출력 스테이지 맵</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.87" xml:space="preserve">
+    <value>상태를 변경할 출력 다이 맵 데이터가 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.88" xml:space="preserve">
+    <value>선택 Output 다이 {0}개 상태를 [{1}]로 변경하시겠습니까?&#13;&#10;첫 다이={2}&#13;&#10;UID={3}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.89" xml:space="preserve">
+    <value>선택 Output 다이 {0}개 상태 변경 완료.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.90" xml:space="preserve">
+    <value>Output 다이 상태 변경 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.91" xml:space="preserve">
+    <value>배치 테스트 대상 Output Slot이 선택되지 않았습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.92" xml:space="preserve">
+    <value>배치 테스트를 실행할 제어기 정보를 찾을 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.93" xml:space="preserve">
+    <value>배치 테스트 다이얼로그 실행 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.94" xml:space="preserve">
+    <value>이동할 빈 슬롯이 선택되지 않았습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.95" xml:space="preserve">
+    <value>출력 스테이지 장비 정보를 찾을 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.96" xml:space="preserve">
+    <value>출력 스테이지 레시피 정보를 찾을 수 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.97" xml:space="preserve">
+    <value>출력 이동 전 픽커 회피 준비 실패&#13;&#10;결과={0}&#13;&#10;알람/이벤트 로그를 확인하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.98" xml:space="preserve">
+    <value>빈 슬롯 행(Y) 이동 실패&#13;&#10;결과={0}&#13;&#10;알람/이벤트 로그를 확인하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.99" xml:space="preserve">
+    <value>빈 슬롯 열(비전X) 이동 실패&#13;&#10;결과={0}&#13;&#10;알람/이벤트 로그를 확인하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.100" xml:space="preserve">
+    <value>선택 빈 슬롯 좌표 이동 완료.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.101" xml:space="preserve">
+    <value>선택 빈 슬롯 좌표 이동 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.102" xml:space="preserve">
+    <value>픽커 Place 좌표를 계산할 수 없습니다.&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.103" xml:space="preserve">
+    <value>{0} Place 보기 위치 이동 실패&#13;&#10;결과={1}&#13;&#10;알람/이벤트 로그를 확인하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.104" xml:space="preserve">
+    <value>{0} Place 보기 위치 이동 완료.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.105" xml:space="preserve">
+    <value>픽커 Place 보기 위치 이동 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.106" xml:space="preserve">
+    <value>Output {0} Stage 수신 계획을 입력 스테이지 다이 맵 기준으로 초기화하시겠습니까?</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.107" xml:space="preserve">
+    <value>수신 계획 초기화 실패.&#13;&#10;출력 스테이지 빈 데이터와 입력 스테이지 다이 맵을 확인하세요.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.108" xml:space="preserve">
+    <value>수신 계획 초기화 완료.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.109" xml:space="preserve">
+    <value>수신 계획 초기화 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.110" xml:space="preserve">
+    <value>현재 자재 상태를 저장하시겠습니까?&#13;&#10;화면 맵으로 슬롯을 다시 만들지 않고, 기록된 검사·추적 정보를 저장합니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.111" xml:space="preserve">
+    <value>자재 상태 저장 완료.&#13;&#10;검사·추적 정보를 그대로 저장했습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.112" xml:space="preserve">
+    <value>자재 상태 저장 실패:&#13;&#10;{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.113" xml:space="preserve">
+    <value>{0} 위치로 이동하시겠습니까?&#13;&#10;좌표 기준={1}&#13;&#10;최종 이동 위치 X={2} mm, Y={3} mm</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.114" xml:space="preserve">
+    <value>{0}를 선택 다이 위치로 이동하시겠습니까?&#13;&#10;다이={1}&#13;&#10;{2}&#13;&#10;픽커 X={3} mm&#13;&#10;픽커 Y={4} mm&#13;&#10;니들 X={5} mm&#13;&#10;스테이지 Y={6} mm&#13;&#10;(입력 비전 오프셋 X={7} mm, Y={8} mm&#13;&#10; 하부-입력 카메라 오프셋 X={9} mm, Y={10} mm (InputVisionToPicker X/Y에 1회 반영됨, 이동 공식에서 재적용 안 함)&#13;&#10; 자동 공식 기준, 실행 중 정렬 오프셋 X/Y=0 (다이 맵 좌표에 이미 적용됨)&#13;&#10; {11})</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.115" xml:space="preserve">
+    <value>빈 슬롯 {0}의 좌표로 이동하시겠습니까?&#13;&#10;X(비전 X)={1} mm, Y(스테이지 Y)={2} mm</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.text.116" xml:space="preserve">
+    <value>{0}를 선택 빈 슬롯 배치 위치로 이동하시겠습니까?&#13;&#10;슬롯={1}&#13;&#10;스테이지 Y={2} mm&#13;&#10;픽커 X={3} mm&#13;&#10;픽커 Y={4} mm&#13;&#10;픽커 Y 전진={5} mm&#13;&#10;픽커 T={6} deg&#13;&#10;공식={7}&#13;&#10;픽커 Z는 이동하지 않습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.motion" xml:space="preserve">
+    <value>모션</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.needleUnavailable" xml:space="preserve">
+    <value>니들 블록 하강 단위동작 함수가 아직 연결되어 있지 않습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.absoluteSource" xml:space="preserve">
+    <value>현재 선택 다이 절대좌표</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.estimatedSource" xml:space="preserve">
+    <value>공정 중심 기준 예상 다이 좌표</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.lastVisionSource" xml:space="preserve">
+    <value>마지막 비전 이동 전송 위치</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.processCenter" xml:space="preserve">
+    <value>입력 공정 중심</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.applyMissing" xml:space="preserve">
+    <value>다이 맵 적용 결과가 없습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.mappingSaved" xml:space="preserve">
+    <value>절대좌표 다이 맵과 매핑 완료 상태를 저장했습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.historyRetained" xml:space="preserve">
+    <value>기존 다이 상태와 검사 이력은 유지했습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.savePartial" xml:space="preserve">
+    <value>현재 자재 데이터의 저장은 완료되었지만 요청한 작업은 모두 완료되지 않았습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.saveUnconfirmed" xml:space="preserve">
+    <value>저장 완료는 확인되지 않았습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.repickWarning" xml:space="preserve">
+    <value>&#13;&#10;&#13;&#10;[재픽업 복구]&#13;&#10;선택 다이가 실제로 입력 스테이지에 있는 것을 눈으로 확인한 경우에만 진행하십시오.&#13;&#10;이전 픽업/검사/출력 수신 상태를 초기화하여 다시 픽업 가능하게 만듭니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.front" xml:space="preserve">
+    <value>전면</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.rear" xml:space="preserve">
+    <value>후면</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.frontPicker" xml:space="preserve">
+    <value>전면 픽커 #{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.rearPicker" xml:space="preserve">
+    <value>후면 픽커 #{0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.die" xml:space="preserve">
+    <value>다이 {0}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.thetaConfirm" xml:space="preserve">
+    <value>현재 스테이지 T 위치를 입력 스테이지 웨이퍼 T 보정값으로 저장하시겠습니까?&#13;&#10;&#13;&#10;기준 T : {0}&#13;&#10;현재 T : {1}&#13;&#10;오프셋 T : {2}&#13;&#10;허용 한계 T : {3}</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.repickComplete" xml:space="preserve">
+    <value>선택 다이 {0}개를 재픽업 대기로 복구했습니다.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.stateComplete" xml:space="preserve">
+    <value>선택 다이 {0}개 상태 변경 완료.</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.effectiveOffset" xml:space="preserve">
+    <value>&#13;&#10;실제 적용 오프셋 X={0} mm, Y={1} mm</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.needleTargets" xml:space="preserve">
+    <value>&#13;&#10;니들 X 이동 목표 X={0} mm (다이 비전 X={1} - NeedleXToVisionXOffset={2})&#13;&#10;픽커 이동 목표 X={3} mm, Y={4} mm, 스테이지 Y={5} mm (카메라 오프셋 X={6}, Y={7}는 InputVisionToPicker 내부에 한 번 적용됨)</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+  <data name="workMessage.fragment.diePosition" xml:space="preserve">
+    <value>다이 위치(오프셋 전) X={0} mm, Y={1} mm&#13;&#10;적용 오프셋 X={2} mm, Y={3} mm&#13;&#10;최종 다이 위치 X={4} mm, Y={5} mm</value>
+    <comment>Work map display only. Raw message, log, coordinates and command inputs are preserved.</comment>
+  </data>
+</root>

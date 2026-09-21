@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +16,7 @@ using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public partial class AutoCalibrationDialog : Form
+    public partial class AutoCalibrationDialog : Form, ILocalizedView
     {
         private bool _busy;
         private bool _loading;
@@ -23,11 +24,37 @@ namespace QMC.CDT_320.Ui.Dialogs
         private AutoCalibrationSequence _activeSequence;
         private Action _controllerStopHandler;
 
+        private void InitializeLocalization()
+        {
+            Lang.BindKey(lblHeader, "calibration.auto.lblHeader");
+            Lang.BindKey(grpSelection, "calibration.auto.grpSelection");
+            Lang.BindKey(chkColletCal, "calibration.auto.chkColletCal");
+            Lang.BindKey(chkPickZCal, "calibration.auto.chkPickZCal");
+            Lang.BindKey(chkPlaceZCal, "calibration.auto.chkPlaceZCal");
+            Lang.BindKey(lblPlaceZGuide, "calibration.auto.lblPlaceZGuide");
+            Lang.BindKey(grpProgress, "calibration.auto.grpProgress");
+            Lang.BindKey(lblCurrentTarget, "calibration.auto.lblCurrentTarget");
+            Lang.BindKey(lblStatus, "calibration.auto.lblStatus");
+            Lang.BindKey(btnReload, "calibration.auto.btnReload");
+            Lang.BindKey(btnSave, "calibration.auto.btnSave");
+            Lang.BindKey(btnStart, "calibration.auto.btnStart");
+            Lang.BindKey(btnStop, "calibration.auto.btnStop");
+            Lang.BindKey(btnClose, "calibration.auto.btnClose");
+            Lang.BindKey(this, "calibration.auto.this");
+        }
+
+        public void ApplyLanguage()
+        {
+            // 언어 변경은 표시만 무효화하며 선택/입력/설정값을 다시 불러오지 않습니다.
+            Invalidate(true);
+        }
+
         public AutoCalibrationDialog()
         {
             try
             {
                 InitializeComponent();
+            InitializeLocalization();
                 LoadSettingsToUi();
                 UpdateSelectionStyles();
             }
@@ -36,8 +63,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 EventLogger.Write(EventKind.Alarm, "UI", "AUTO-CAL-DLG-INIT",
                     "Auto Calibration 화면 초기화 실패: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this,
-                    "Auto Calibration 화면 초기화에 실패했습니다.\r\n" + ex.Message,
-                    "AUTO CALIBRATION",
+                    Lang.Format("calibration.message.m008", ex.Message),
+                    Lang.T("calibration.message.m009"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -59,7 +86,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             try
             {
                 if (!_loading)
-                    lblStatus.Text = "사용 항목이 변경되었습니다. SAVE를 눌러 저장하세요.";
+                    Lang.BindFormat(lblStatus, "calibration.status.s118");
                 UpdateSelectionStyles();
             }
             catch (Exception ex)
@@ -114,8 +141,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
 
                 DialogResult result = QMC.Common.MessageDialog.Show(this,
-                    "Auto Calibration이 실행 중입니다. 정지 요청 후 창을 닫을까요?",
-                    "AUTO CALIBRATION",
+                    Lang.T("calibration.message.m010"),
+                    Lang.T("calibration.message.m009"),
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning);
                 if (result != DialogResult.Yes)
@@ -126,7 +153,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 RequestStop("Auto Calibration 창 닫기");
                 e.Cancel = true;
-                lblStatus.Text = "정지 처리 중입니다. 완료 후 창을 닫으세요.";
+                Lang.BindFormat(lblStatus, "calibration.status.s008");
             }
             catch (Exception ex)
             {
@@ -160,8 +187,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!CheckRunReady(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "AUTO CALIBRATION",
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("calibration.message.m009"),
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -172,11 +199,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 host = ResolveHost(out reason);
                 if (host == null)
                 {
-                    lblStatus.Text = reason;
+                    CalibrationDialogText.BindStatus(lblStatus, reason);
                     return;
                 }
 
-                lblStatus.Text = "Picker 제품 유무와 시작 조건을 확인하고 있습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s119");
                 if (!await CheckPreconditionsAsync(host).ConfigureAwait(true))
                     return;
 
@@ -195,40 +222,40 @@ namespace QMC.CDT_320.Ui.Dialogs
                 host.Controller.StopRequested += stopHandler;
 
                 AppendHistory("Auto Calibration 시작");
-                lblStatus.Text = "Auto Calibration을 실행 중입니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s120");
                 int result = await _activeSequence.RunAsync(runCts.Token).ConfigureAwait(true);
                 if (result != 0)
                 {
-                    lblStatus.Text = "Auto Calibration이 실패했습니다. Alarm/Event Log와 진행 이력을 확인하세요.";
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "AUTO CALIBRATION",
+                    Lang.BindFormat(lblStatus, "calibration.status.s121");
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m009"),
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
                 host.SaveMachineSettings();
-                lblStatus.Text = "Auto Calibration 전체 작업을 완료했습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s122");
                 AppendHistory(lblStatus.Text);
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "AUTO CALIBRATION",
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m009"),
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "Auto Calibration이 정지 요청으로 중단되었습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s123");
                 AppendHistory(lblStatus.Text);
                 EventLogger.Write(EventKind.Event, "CAL", "AUTO-CAL-STOP", lblStatus.Text);
             }
             catch (SequenceStopException ex)
             {
-                lblStatus.Text = "Auto Calibration 정지: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s124", ex.Message);
                 AppendHistory(lblStatus.Text);
                 EventLogger.Write(EventKind.Event, "CAL", "AUTO-CAL-STOP", lblStatus.Text);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Auto Calibration 실행 중 예외가 발생했습니다: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s125", ex.Message);
                 AppendHistory(lblStatus.Text);
                 EventLogger.Write(EventKind.Alarm, "CAL", "AUTO-CAL-DLG-RUN", lblStatus.Text);
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "AUTO CALIBRATION",
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m009"),
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
@@ -304,7 +331,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     }
                     catch (Exception ex)
                     {
-                        lblStatus.Text = pickerName + " Vacuum/Flow 확인 실패: " + ex.Message;
+                        Lang.BindFormat(lblStatus, "calibration.status.s126", pickerName, ex.Message);
                         EventLogger.Write(EventKind.Alarm, "CAL", "AUTO-CAL-PICKER-FLOW-CHECK", lblStatus.Text);
                         return false;
                     }
@@ -329,24 +356,20 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (physicalDetected.Count > 0)
             {
-                string message = "다음 Picker에서 Vacuum ON 후 Flow가 감지되었습니다.\r\n" +
-                                 string.Join(", ", physicalDetected.ToArray()) +
-                                 "\r\n\r\n제품을 제거한 후 START를 다시 누르세요.";
-                lblStatus.Text = "Picker에 제품이 감지되어 시작하지 않습니다.";
-                QMC.Common.MessageDialog.Show(this, message, "AUTO CALIBRATION",
+                string message = Lang.Format("calibration.auto.confirm.pickerFlow", string.Join(", ", physicalDetected.ToArray()));
+                Lang.BindFormat(lblStatus, "calibration.status.s127");
+                QMC.Common.MessageDialog.Show(this, message, Lang.T("calibration.message.m009"),
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
 
             if (materialDetected.Count > 0)
             {
-                string message = "실제 Flow는 감지되지 않았지만 다음 Picker에 Material Data가 남아 있습니다.\r\n" +
-                                 string.Join("\r\n", materialDetected.ToArray()) +
-                                 "\r\n\r\nData를 유지한 상태로 Auto Calibration을 진행할까요?";
-                if (QMC.Common.MessageDialog.Show(this, message, "AUTO CALIBRATION",
+                string message = Lang.Format("calibration.auto.confirm.pickerMaterial", string.Join("\r\n", materialDetected.ToArray()));
+                if (QMC.Common.MessageDialog.Show(this, message, Lang.T("calibration.message.m009"),
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                 {
-                    lblStatus.Text = "Picker Material Data 확인에서 사용자가 진행을 취소했습니다.";
+                    Lang.BindFormat(lblStatus, "calibration.status.s128");
                     return false;
                 }
 
@@ -367,14 +390,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                           stage.WaferStage12RingCheckSensor.IsOn;
             WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
             string message =
-                "PickZ Calibration 시작 조건을 확인합니다.\r\n\r\n" +
-                "Input Stage에 다이가 없는 빈 웨이퍼를 준비했습니까?\r\n\r\n" +
-                "8 inch Ring Sensor=" + ring8 + "\r\n" +
-                "12 inch Ring Sensor=" + ring12 + "\r\n" +
-                "Input Stage Data=" + (wafer != null ? wafer.WaferId : "-") + "\r\n\r\n" +
-                "준비가 완료된 경우에만 Yes를 누르세요.";
+                Lang.Format("calibration.auto.confirm.inputWafer", ring8, ring12, (wafer != null ? wafer.WaferId : "-"));
 
-            if (QMC.Common.MessageDialog.Show(this, message, "PICK Z CAL 준비 확인",
+            if (QMC.Common.MessageDialog.Show(this, message, Lang.T("calibration.message.m011"),
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
                 QMC.Common.Log.Write("Calibration", UserSession.Name, "AutoCalibrationEmptyWaferConfirm",
@@ -384,7 +402,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return true;
             }
 
-            lblStatus.Text = "빈 웨이퍼 준비가 확인되지 않아 PickZ Calibration을 시작하지 않습니다.";
+            Lang.BindFormat(lblStatus, "calibration.status.s129");
             return false;
         }
 
@@ -393,7 +411,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             OutputStageUnit stage = host != null && host.Machine != null ? host.Machine.OutputStageUnit : null;
             if (stage == null)
             {
-                lblStatus.Text = "OutputStageUnit이 없어 PlaceZ Calibration 준비 상태를 확인할 수 없습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s130");
                 return false;
             }
 
@@ -405,7 +423,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                                 !AjinFactory.IsRealBoardReady;
             if (!bypassSensor && (stage.GoodBinRingSensor == null || stage.NgBinRingSensor == null))
             {
-                lblStatus.Text = "Good/NG Output Stage 제품 확인 센서를 찾을 수 없어 PlaceZ Calibration을 시작하지 않습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s131");
                 EventLogger.Write(EventKind.Alarm, "CAL", "AUTO-CAL-PLACE-Z-SENSOR-MISSING", lblStatus.Text);
                 return false;
             }
@@ -417,15 +435,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (goodDetected || ngDetected)
             {
-                string message = "Output Stage 제품 확인 센서가 감지 상태입니다.\r\n" +
-                                 "Good Sensor=" + goodDetected + "\r\n" +
-                                 "NG Sensor=" + ngDetected + "\r\n\r\n" +
-                                 "PlaceZ Calibration은 Good/NG Stage가 비어 있는 상태가 기준입니다.\r\n" +
-                                 "실제 상태를 확인했으며 이 센서 상태에서도 진행하려면 Yes를 누르세요.";
-                if (QMC.Common.MessageDialog.Show(this, message, "PLACE Z CAL 준비 확인",
+                string message = Lang.Format("calibration.auto.confirm.outputSensor", goodDetected, ngDetected);
+                if (QMC.Common.MessageDialog.Show(this, message, Lang.T("calibration.message.m012"),
                         MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                 {
-                    lblStatus.Text = "Output Stage 제품 센서 확인에서 사용자가 진행을 취소했습니다.";
+                    Lang.BindFormat(lblStatus, "calibration.status.s132");
                     return false;
                 }
 
@@ -436,14 +450,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (goodData != null || ngData != null)
             {
-                string message = "Good/NG Stage 센서는 Empty이지만 Material Data가 남아 있습니다.\r\n" +
-                                 "Good Data=" + (goodData != null ? goodData.WaferId : "-") + "\r\n" +
-                                 "NG Data=" + (ngData != null ? ngData.WaferId : "-") + "\r\n\r\n" +
-                                 "Data를 유지한 상태로 Good Stage 기준 PlaceZ Calibration 8회를 진행할까요?";
-                if (QMC.Common.MessageDialog.Show(this, message, "PLACE Z CAL 준비 확인",
+                string message = Lang.Format("calibration.auto.confirm.outputMaterial", (goodData != null ? goodData.WaferId : "-"), (ngData != null ? ngData.WaferId : "-"));
+                if (QMC.Common.MessageDialog.Show(this, message, Lang.T("calibration.message.m012"),
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                 {
-                    lblStatus.Text = "Output Stage Material Data 확인에서 사용자가 진행을 취소했습니다.";
+                    Lang.BindFormat(lblStatus, "calibration.status.s133");
                     return false;
                 }
 
@@ -524,7 +535,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 CalibrationData data = ResolveCalibrationData(host);
                 if (data == null)
                 {
-                    lblStatus.Text = reason.Length > 0 ? reason : "Auto Calibration 설정을 불러올 수 없습니다.";
+                    { if (reason.Length > 0) CalibrationDialogText.BindStatus(lblStatus, reason); else Lang.BindFormat(lblStatus, "calibration.status.s134"); }
                     return;
                 }
 
@@ -532,11 +543,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 chkColletCal.Checked = data.AutoCalibration.UseColletCalibration;
                 chkPickZCal.Checked = data.AutoCalibration.UsePickUpZCalibration;
                 chkPlaceZCal.Checked = data.AutoCalibration.UsePlaceZCalibration;
-                lblStatus.Text = "저장된 Auto Calibration 사용 설정을 불러왔습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s135");
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Auto Calibration 설정 로드 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s136", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "AUTO-CAL-LOAD", lblStatus.Text);
             }
             finally
@@ -555,7 +566,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 CalibrationData data = ResolveCalibrationData(host);
                 if (host == null || data == null)
                 {
-                    lblStatus.Text = reason.Length > 0 ? reason : "Auto Calibration 설정 저장 대상이 없습니다.";
+                    { if (reason.Length > 0) CalibrationDialogText.BindStatus(lblStatus, reason); else Lang.BindFormat(lblStatus, "calibration.status.s137"); }
                     return false;
                 }
 
@@ -564,32 +575,32 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string saveReason;
                 if (!CalibrationDataStore.Save(data, out saveReason))
                 {
-                    lblStatus.Text = "Auto Calibration 사용 설정 저장 실패: " + saveReason;
+                    Lang.BindFormat(lblStatus, "calibration.status.s138", saveReason);
                     if (showMessage)
-                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "AUTO CALIBRATION",
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m009"),
                             MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return false;
                 }
 
                 if (!host.Machine.SaveSettings())
                 {
-                    lblStatus.Text = "Auto Calibration 설정을 장비 Config에 저장하지 못했습니다.";
+                    Lang.BindFormat(lblStatus, "calibration.status.s139");
                     return false;
                 }
 
-                lblStatus.Text = "Auto Calibration 사용 설정을 저장했습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s140");
                 QMC.Common.Log.Write("Calibration", UserSession.Name, "AutoCalibrationSaveSettings",
                     "UseCollet=" + chkColletCal.Checked +
                     ", UsePickZ=" + chkPickZCal.Checked +
                     ", UsePlaceZ=" + chkPlaceZCal.Checked + " - Ok");
                 if (showMessage)
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "AUTO CALIBRATION",
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("calibration.message.m009"),
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return true;
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Auto Calibration 설정 저장 중 예외가 발생했습니다: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s141", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "AUTO-CAL-SAVE", lblStatus.Text);
                 return false;
             }
@@ -628,12 +639,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (_activeSequence != null)
                     _activeSequence.RequestImmediateStop(reason);
 
-                lblStatus.Text = "Auto Calibration 정지 요청을 보냈습니다.";
+                Lang.BindFormat(lblStatus, "calibration.status.s142");
                 AppendHistory(lblStatus.Text + " reason=" + reason);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Auto Calibration 정지 요청 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s143", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "AUTO-CAL-STOP-REQUEST", lblStatus.Text);
             }
             finally
@@ -655,11 +666,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             int maximum = Math.Max(1, progress.TotalCount);
             progressCalibration.Maximum = maximum;
             progressCalibration.Value = Math.Max(0, Math.Min(maximum, progress.CompletedCount));
-            lblCurrentTarget.Text = progress.CalibrationKind + " / " + progress.Side +
-                                    (progress.PickerNo > 0 ? " #" + progress.PickerNo : string.Empty) +
-                                    " / " + progress.Step + " / " +
-                                    progress.CompletedCount + " / " + progress.TotalCount;
-            lblStatus.Text = progress.Message;
+            Lang.BindFormat(lblCurrentTarget, "calibration.status.s144", progress.CalibrationKind, progress.Side, (progress.PickerNo > 0 ? " #" + progress.PickerNo : string.Empty), progress.Step, progress.CompletedCount, progress.TotalCount);
+            CalibrationDialogText.BindStatus(lblStatus, progress.Message);
             AppendHistory(lblCurrentTarget.Text + " - " + progress.Message);
         }
 

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -8,7 +9,7 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public partial class AxisPositionPopup : Form
+    public partial class AxisPositionPopup : Form, ILocalizedView
     {
         private const int DefaultTargetRows = 40;
         private const int RefreshIntervalMs = 500;
@@ -29,6 +30,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _monitor = monitor;
 
             InitializeComponent();
+            InitializeLanguageBindings();
             // To do: [앱 아이콘] 포지션 팝업 작업표시줄/타이틀바 아이콘 (2026-08-05 지시).
             QMC.CDT_320.Ui.AppIcons.ApplyEmbeddedIcon(this, "axis-position.ico");
             EnableDoubleBuffer(listViewAxis);
@@ -78,7 +80,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             for (int i = _rows.Count; i < DefaultTargetRows; i++)
             {
                 var item = new ListViewItem("--");
-                item.SubItems.Add("(Empty)");
+                item.SubItems.Add(Lang.T("extraDialog.axisPosition.empty"));
                 item.SubItems.Add("-");
                 item.SubItems.Add("-");
                 listViewAxis.Items.Add(item);
@@ -247,5 +249,23 @@ namespace QMC.CDT_320.Ui.Dialogs
             public BaseAxis Axis { get; private set; }
             public ListViewItem Item { get; private set; }
         }
+        public void ApplyLanguage()
+        {
+            foreach (ListViewItem item in listViewAxis.Items)
+                if (item.Tag == null && item.SubItems.Count > 1)
+                    item.SubItems[1].Text = Lang.T("extraDialog.axisPosition.empty");
+            listViewAxis.Invalidate();
+        }
+
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(colAxisNo, "extraDialog.axisPositionPopup.colAxisNo.caption");
+            Lang.BindKey(colAxisName, "extraDialog.axisPositionPopup.colAxisName.caption");
+            Lang.BindKey(colPosition, "extraDialog.axisPositionPopup.colPosition.caption");
+            Lang.BindKey(colUnit, "extraDialog.axisPositionPopup.colUnit.caption");
+            Lang.BindKey(this, "extraDialog.axisPositionPopup.this.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 }

@@ -39,12 +39,35 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private static readonly string SavePath =
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "camera_setup.json");
 
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(_cameraGroup, "settingsUi.caption.cameraSetup");
+            Lang.BindKey(_actionGroup, "settingsUi.caption.action");
+            Lang.BindKey(btnSave, "settingsUi.caption.save");
+            Lang.BindKey(btnReload, "settingsUi.caption.reload");
+            Lang.BindKey(btnTest, "settingsUi.caption.testConn");
+            Lang.BindKey(btnApply, "settingsUi.caption.apply");
+            Lang.BindKey(_grid.Columns["IDX"], "settingsUi.caption.index");
+            Lang.BindKey(_grid.Columns["CH"], "settingsUi.caption.channel");
+            Lang.BindKey(_grid.Columns["ROLE"], "settingsUi.caption.role");
+            Lang.BindKey(_grid.Columns["HOST"], "settingsUi.caption.host");
+            Lang.BindKey(_grid.Columns["PORT"], "settingsUi.caption.port");
+            Lang.BindKey(_grid.Columns["W"], "settingsUi.caption.width");
+            Lang.BindKey(_grid.Columns["H"], "settingsUi.caption.height");
+            Lang.BindKey(_grid.Columns["EXP"], "settingsUi.caption.exposureMs");
+            Lang.BindKey(_grid.Columns["LIGHT"], "settingsUi.caption.light");
+            Lang.BindKey(_grid.Columns["TRG"], "settingsUi.caption.trigger");
+            Lang.BindKey(_grid.Columns["AUTO"], "settingsUi.caption.autoConn");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
         public CameraSetupPage()
         {
             InitializeComponent();
             ApplyRuntimeUi();
             SettingsPageLayoutStyler.Apply(this);
             ApplyCompactLayout();
+            InitializeLanguageBindings();
             _items = LoadOrSeed();
             FillGrid();
         }
@@ -108,9 +131,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 {
                     JsonPrettySerializer.WriteObject(fs, typeof(CameraStore), new CameraStore { Items = _items });
                 }
-                QMC.Common.MessageDialog.Show("Save complete.\n" + SavePath);
+                QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.message.savedPath", SavePath));
             }
-            catch (Exception ex) { QMC.Common.MessageDialog.Show("Save failed: " + ex.Message); }
+            catch (Exception ex) { QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.message.saveFailed", ex.Message)); }
         }
 
         private void FillGrid()
@@ -220,7 +243,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 if (ok) success++;
             }
 
-            QMC.Common.MessageDialog.Show($"TCP connection test: {success}/{_items.Count}", "Test Connection",
+            QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.camera.connectionTest", success, _items.Count), Lang.T("settingsUi.caption.testConnection"),
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
@@ -248,10 +271,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     }
                 }
                 QMC.CDT320.AppSettingsStore.Save();
-                QMC.Common.MessageDialog.Show("AppSettings apply complete. Restart may be required.");
+                QMC.Common.MessageDialog.Show(Lang.T("settingsUi.camera.settingsApplied"));
             }
-            catch (Exception ex) { QMC.Common.MessageDialog.Show("Apply failed: " + ex.Message); }
+            catch (Exception ex) { QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.message.applyFailed", ex.Message)); }
         }
     }
 }
-

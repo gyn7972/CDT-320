@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
@@ -15,7 +16,7 @@ namespace QMC.CDT_320.Ui.Dialogs
     /// 교체 위치(X)는 Recipe가 아니라 Config(ColletExchangeInputX / ColletExchangeOutputX)에 있어
     /// 레시피를 바꿔도 같은 위치를 사용한다. Y/T/Z는 항상 Avoid로 후퇴한다.
     /// </summary>
-    public partial class ColletChangeDialog : Form
+    public partial class ColletChangeDialog : Form, ILocalizedView
     {
         private static readonly PickerAxis[] ZAxes =
             { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
@@ -24,9 +25,34 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private bool _busy;
 
+        private void InitializeLocalization()
+        {
+            Lang.BindKey(lblHeader, "calibration.colletchange.lblHeader");
+            Lang.BindKey(groupSelect, "calibration.colletchange.groupSelect");
+            Lang.BindKey(lblPickerCaption, "calibration.colletchange.lblPickerCaption");
+            Lang.BindKey(rdoFront, "calibration.colletchange.rdoFront");
+            Lang.BindKey(rdoRear, "calibration.colletchange.rdoRear");
+            Lang.BindKey(lblSideCaption, "calibration.colletchange.lblSideCaption");
+            Lang.BindKey(rdoInputSide, "calibration.colletchange.rdoInputSide");
+            Lang.BindKey(rdoOutputSide, "calibration.colletchange.rdoOutputSide");
+            Lang.BindKey(lblTargetCaption, "calibration.colletchange.lblTargetCaption");
+            Lang.BindKey(lblStatus, "calibration.colletchange.lblStatus");
+            Lang.BindKey(btnMove, "calibration.colletchange.btnMove");
+            Lang.BindKey(btnAvoid, "calibration.colletchange.btnAvoid");
+            Lang.BindKey(btnClose, "calibration.colletchange.btnClose");
+            Lang.BindKey(this, "calibration.colletchange.this");
+        }
+
+        public void ApplyLanguage()
+        {
+            // 언어 변경은 표시만 무효화하며 선택/입력/설정값을 다시 불러오지 않습니다.
+            Invalidate(true);
+        }
+
         public ColletChangeDialog()
         {
             InitializeComponent();
+            InitializeLocalization();
             rdoFront.CheckedChanged += (s, e) => RefreshTargetText();
             rdoRear.CheckedChanged += (s, e) => RefreshTargetText();
             rdoInputSide.CheckedChanged += (s, e) => RefreshTargetText();
@@ -116,8 +142,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (targetX == 0.0 &&
                 MessageDialog.Show(this,
-                    "선택한 교체 위치 X가 0.000 mm입니다(티칭 전일 수 있음).\r\n그대로 이동할까요?",
-                    "콜렛 교체", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    Lang.T("calibration.message.m021"),
+                    Lang.T("calibration.message.m022"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             {
                 return;
             }
@@ -147,22 +173,21 @@ namespace QMC.CDT_320.Ui.Dialogs
             Form1 host = ResolveHost();
             if (host == null || host.Controller == null)
             {
-                ShowWarning("장비가 준비되지 않았습니다.");
+                ShowWarning(Lang.T("calibration.message.m023"));
                 return;
             }
 
             if (host.Controller.Status == EquipmentStatus.AutoRunning)
             {
-                ShowWarning("자동 운전 중에는 콜렛 교체 위치로 이동할 수 없습니다.\r\n정지 후 다시 시도하세요.");
+                ShowWarning(Lang.T("calibration.message.m024"));
                 return;
             }
 
             string pickerName = IsFront ? "FRONT" : "REAR";
             string sideName = IsInputSide ? "INPUT" : "OUTPUT";
             if (MessageDialog.Show(this,
-                    pickerName + " PICKER를 " + sideName + " 쪽 " + actionName + " 하시겠습니까?\r\n" +
-                    "Y/T/Z를 Avoid로 후퇴한 뒤 X가 이동합니다.",
-                    "콜렛 교체", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    Lang.Format("calibration.message.m025", pickerName, sideName, actionName),
+                    Lang.T("calibration.message.m022"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             {
                 return;
             }
@@ -172,7 +197,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _busy = true;
                 SetButtonsEnabled(false);
-                lblStatus.Text = actionName + " 진행 중입니다...";
+                Lang.BindFormat(lblStatus, "calibration.status.s214", actionName);
 
                 actionScope = host.Controller.BeginManualActionScope(
                     ManualMotionScopeKind.ProcessSequence, "ColletChangeDialog:" + actionName);
@@ -185,16 +210,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                     result = await MoveSelectedPickerAsync(host, targetX).ConfigureAwait(true);
                 }
 
-                lblStatus.Text = result == 0
-                    ? pickerName + " PICKER " + actionName + " 완료."
-                    : pickerName + " PICKER " + actionName + " 실패(result=" + result + "). Alarm/Event Log를 확인하세요.";
+                { if (result == 0) Lang.BindFormat(lblStatus, "calibration.status.s215", pickerName, actionName); else Lang.BindFormat(lblStatus, "calibration.status.s216", pickerName, actionName, result); }
                 EventLogger.Write(result == 0 ? EventKind.Event : EventKind.Alarm, "UI", "COLLET-CHANGE-MOVE",
                     pickerName + "/" + sideName + " " + actionName + " result=" + result +
                     ", targetX=" + (double.IsNaN(targetX) ? "AvoidPosition" : targetX.ToString("F3")));
             }
             catch (Exception ex)
             {
-                lblStatus.Text = actionName + " 예외 발생: " + ex.Message;
+                Lang.BindFormat(lblStatus, "calibration.status.s217", actionName, ex.Message);
                 EventLogger.Write(EventKind.Alarm, "UI", "COLLET-CHANGE-MOVE-EX", lblStatus.Text);
             }
             finally
@@ -288,8 +311,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void ShowWarning(string message)
         {
-            lblStatus.Text = message;
-            MessageDialog.Show(this, message, "콜렛 교체", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            CalibrationDialogText.BindStatus(lblStatus, message);
+            MessageDialog.Show(this, message, Lang.T("calibration.message.m022"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 }

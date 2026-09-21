@@ -1,0 +1,473 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="workInfoUi.choice.all" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="workInfoUi.choice.bottom_inspect" xml:space="preserve">
+    <value>Bottom inspection</value>
+  </data>
+  <data name="workInfoUi.choice.bottom_interval" xml:space="preserve">
+    <value>Bottom interval</value>
+  </data>
+  <data name="workInfoUi.choice.bottom_vision_pitch" xml:space="preserve">
+    <value>Bottom vision to pitch</value>
+  </data>
+  <data name="workInfoUi.choice.canceled" xml:space="preserve">
+    <value>Canceled</value>
+  </data>
+  <data name="workInfoUi.choice.completed" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="workInfoUi.choice.failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="workInfoUi.choice.good" xml:space="preserve">
+    <value>Good / complete</value>
+  </data>
+  <data name="workInfoUi.choice.io" xml:space="preserve">
+    <value>I/O</value>
+  </data>
+  <data name="workInfoUi.choice.logic" xml:space="preserve">
+    <value>Logic</value>
+  </data>
+  <data name="workInfoUi.choice.motion" xml:space="preserve">
+    <value>Motion</value>
+  </data>
+  <data name="workInfoUi.choice.ng" xml:space="preserve">
+    <value>NG / defective</value>
+  </data>
+  <data name="workInfoUi.choice.output_receive" xml:space="preserve">
+    <value>Output receive</value>
+  </data>
+  <data name="workInfoUi.choice.process" xml:space="preserve">
+    <value>Process</value>
+  </data>
+  <data name="workInfoUi.choice.resource" xml:space="preserve">
+    <value>Resource</value>
+  </data>
+  <data name="workInfoUi.choice.run" xml:space="preserve">
+    <value>Run</value>
+  </data>
+  <data name="workInfoUi.choice.sequence" xml:space="preserve">
+    <value>Sequence</value>
+  </data>
+  <data name="workInfoUi.choice.side_0_90_motion" xml:space="preserve">
+    <value>Side 0° to 90° motion</value>
+  </data>
+  <data name="workInfoUi.choice.side_0_inspect" xml:space="preserve">
+    <value>Side 0° inspection</value>
+  </data>
+  <data name="workInfoUi.choice.side_0_interval" xml:space="preserve">
+    <value>Side 0° interval</value>
+  </data>
+  <data name="workInfoUi.choice.side_90_inspect" xml:space="preserve">
+    <value>Side 90° inspection</value>
+  </data>
+  <data name="workInfoUi.choice.side_90_interval" xml:space="preserve">
+    <value>Side 90° interval</value>
+  </data>
+  <data name="workInfoUi.choice.skip" xml:space="preserve">
+    <value>Skip</value>
+  </data>
+  <data name="workInfoUi.choice.skipped" xml:space="preserve">
+    <value>Skipped</value>
+  </data>
+  <data name="workInfoUi.choice.step" xml:space="preserve">
+    <value>Step</value>
+  </data>
+  <data name="workInfoUi.choice.stopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="workInfoUi.choice.success" xml:space="preserve">
+    <value>Success</value>
+  </data>
+  <data name="workInfoUi.choice.timeline" xml:space="preserve">
+    <value>Equipment timeline</value>
+  </data>
+  <data name="workInfoUi.choice.trend" xml:space="preserve">
+    <value>Tact-time trend</value>
+  </data>
+  <data name="workInfoUi.choice.unit" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="workInfoUi.choice.unit_flow" xml:space="preserve">
+    <value>Unit flow</value>
+  </data>
+  <data name="workInfoUi.choice.vision" xml:space="preserve">
+    <value>Vision</value>
+  </data>
+  <data name="workInfoUi.choice.wait" xml:space="preserve">
+    <value>Wait</value>
+  </data>
+  <data name="workInfoUi.die.btnApply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="workInfoUi.die.btnClear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="workInfoUi.die.btnClose" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="workInfoUi.die.clearConfirm" xml:space="preserve">
+    <value>Remove the die information from the current head?&#13;&#10;The actual material location will be changed to Unknown.</value>
+  </data>
+  <data name="workInfoUi.die.frontTitle" xml:space="preserve">
+    <value>Front picker head #{0} die</value>
+  </data>
+  <data name="workInfoUi.die.lblDieIdTitle" xml:space="preserve">
+    <value>Die ID</value>
+  </data>
+  <data name="workInfoUi.die.lblLocationTitle" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="workInfoUi.die.lblMapTitle" xml:space="preserve">
+    <value>Map X/Y</value>
+  </data>
+  <data name="workInfoUi.die.lblNgCodeTitle" xml:space="preserve">
+    <value>NG code</value>
+  </data>
+  <data name="workInfoUi.die.lblReasonTitle" xml:space="preserve">
+    <value>Reason</value>
+  </data>
+  <data name="workInfoUi.die.lblResultTitle" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="workInfoUi.die.lblSequenceTitle" xml:space="preserve">
+    <value>Sequence</value>
+  </data>
+  <data name="workInfoUi.die.lblTitle" xml:space="preserve">
+    <value>Picker head die</value>
+  </data>
+  <data name="workInfoUi.die.lblWaferTitle" xml:space="preserve">
+    <value>Wafer</value>
+  </data>
+  <data name="workInfoUi.die.rearTitle" xml:space="preserve">
+    <value>Rear picker head #{0} die</value>
+  </data>
+  <data name="workInfoUi.logic.btnCancelHistory" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="workInfoUi.logic.btnClearView" xml:space="preserve">
+    <value>Clear view</value>
+  </data>
+  <data name="workInfoUi.logic.btnLiveView" xml:space="preserve">
+    <value>Live view</value>
+  </data>
+  <data name="workInfoUi.logic.btnOpenHistory" xml:space="preserve">
+    <value>Open history</value>
+  </data>
+  <data name="workInfoUi.logic.btnResetChart" xml:space="preserve">
+    <value>Show all</value>
+  </data>
+  <data name="workInfoUi.logic.chkAutoRefresh" xml:space="preserve">
+    <value>Auto refresh</value>
+  </data>
+  <data name="workInfoUi.logic.column.category" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="workInfoUi.logic.column.detail" xml:space="preserve">
+    <value>Detail</value>
+  </data>
+  <data name="workInfoUi.logic.column.elapsed" xml:space="preserve">
+    <value>Elapsed (ms)</value>
+  </data>
+  <data name="workInfoUi.logic.column.end" xml:space="preserve">
+    <value>End</value>
+  </data>
+  <data name="workInfoUi.logic.column.no" xml:space="preserve">
+    <value>No.</value>
+  </data>
+  <data name="workInfoUi.logic.column.process" xml:space="preserve">
+    <value>Process</value>
+  </data>
+  <data name="workInfoUi.logic.column.result" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="workInfoUi.logic.column.sequence" xml:space="preserve">
+    <value>Sequence</value>
+  </data>
+  <data name="workInfoUi.logic.column.start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="workInfoUi.logic.column.step" xml:space="preserve">
+    <value>Step</value>
+  </data>
+  <data name="workInfoUi.logic.column.unit" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="workInfoUi.logic.containersExcluded" xml:space="preserve">
+    <value> / Run/Unit containers excluded from statistics</value>
+  </data>
+  <data name="workInfoUi.logic.gridCount" xml:space="preserve">
+    <value> (Grid {0})</value>
+  </data>
+  <data name="workInfoUi.logic.historyOpenFailed" xml:space="preserve">
+    <value>Unable to load tact-time history.</value>
+  </data>
+  <data name="workInfoUi.logic.historyRunFailed" xml:space="preserve">
+    <value>Unable to load the selected run.</value>
+  </data>
+  <data name="workInfoUi.logic.incompleteWarning" xml:space="preserve">
+    <value>, incomplete final row skipped</value>
+  </data>
+  <data name="workInfoUi.logic.lblCategoryCaption" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="workInfoUi.logic.lblChartCaption" xml:space="preserve">
+    <value>Chart</value>
+  </data>
+  <data name="workInfoUi.logic.lblDataSource" xml:space="preserve">
+    <value>Live</value>
+  </data>
+  <data name="workInfoUi.logic.lblFileInfo" xml:space="preserve">
+    <value>Live records in memory</value>
+  </data>
+  <data name="workInfoUi.logic.lblItemCaption" xml:space="preserve">
+    <value>Item</value>
+  </data>
+  <data name="workInfoUi.logic.lblRunCaption" xml:space="preserve">
+    <value>Run</value>
+  </data>
+  <data name="workInfoUi.logic.lblSourceCaption" xml:space="preserve">
+    <value>Data</value>
+  </data>
+  <data name="workInfoUi.logic.lblStatus" xml:space="preserve">
+    <value>Waiting for tact-time records.</value>
+  </data>
+  <data name="workInfoUi.logic.lblSummary" xml:space="preserve">
+    <value>Waiting for tact-time records</value>
+  </data>
+  <data name="workInfoUi.logic.messageTitle" xml:space="preserve">
+    <value>Time chart</value>
+  </data>
+  <data name="workInfoUi.logic.mixedStatistics" xml:space="preserve">
+    <value> / Mixed mean/P95 reference ({0} types)</value>
+  </data>
+  <data name="workInfoUi.logic.openFilter" xml:space="preserve">
+    <value>Tact-time CSV (*.csv)|*.csv|All files (*.*)|*.*</value>
+  </data>
+  <data name="workInfoUi.logic.openTitle" xml:space="preserve">
+    <value>Open tact-time history</value>
+  </data>
+  <data name="workInfoUi.logic.outsideGrid" xml:space="preserve">
+    <value> / This record is outside the grid display limit.</value>
+  </data>
+  <data name="workInfoUi.logic.phase.index" xml:space="preserve">
+    <value>Reading run list</value>
+  </data>
+  <data name="workInfoUi.logic.phase.load" xml:space="preserve">
+    <value>Loading run records</value>
+  </data>
+  <data name="workInfoUi.logic.skippedWarning" xml:space="preserve">
+    <value> / Skipped={0}</value>
+  </data>
+  <data name="workInfoUi.logic.status.clearFailed" xml:space="preserve">
+    <value>Failed to reset the tact-time view: {0}</value>
+  </data>
+  <data name="workInfoUi.logic.status.empty" xml:space="preserve">
+    <value>No tact-time records to display.</value>
+  </data>
+  <data name="workInfoUi.logic.status.emptyHistory" xml:space="preserve">
+    <value>No records match the selected run or filter.</value>
+  </data>
+  <data name="workInfoUi.logic.status.failure" xml:space="preserve">
+    <value>{0} {1}</value>
+  </data>
+  <data name="workInfoUi.logic.status.history" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="workInfoUi.logic.status.historyCancelRequested" xml:space="preserve">
+    <value>History loading cancellation was requested.</value>
+  </data>
+  <data name="workInfoUi.logic.status.historyCanceled" xml:space="preserve">
+    <value>History loading was canceled.</value>
+  </data>
+  <data name="workInfoUi.logic.status.historyCleared" xml:space="preserve">
+    <value>The history view was cleared. The source CSV was not changed.</value>
+  </data>
+  <data name="workInfoUi.logic.status.historyFile" xml:space="preserve">
+    <value>{0} / {1} / {2} runs</value>
+  </data>
+  <data name="workInfoUi.logic.status.historyProgress" xml:space="preserve">
+    <value>{0} {1}% / {2} records</value>
+  </data>
+  <data name="workInfoUi.logic.status.historyReloadHint" xml:space="preserve">
+    <value>Select a run again to reload its history.</value>
+  </data>
+  <data name="workInfoUi.logic.status.indexLoading" xml:space="preserve">
+    <value>Reading the run list from the tact-time history file.</value>
+  </data>
+  <data name="workInfoUi.logic.status.live" xml:space="preserve">
+    <value>Live</value>
+  </data>
+  <data name="workInfoUi.logic.status.liveCleared" xml:space="preserve">
+    <value>The live record view was reset.</value>
+  </data>
+  <data name="workInfoUi.logic.status.liveClearedSummary" xml:space="preserve">
+    <value>The view was reset. Only subsequent tact-time records are shown.</value>
+  </data>
+  <data name="workInfoUi.logic.status.liveMemory" xml:space="preserve">
+    <value>Live records in memory (up to 5,000)</value>
+  </data>
+  <data name="workInfoUi.logic.status.loadedFile" xml:space="preserve">
+    <value>{0} / {1} / Run {2}/{3} / {4} records</value>
+  </data>
+  <data name="workInfoUi.logic.status.refreshFailed" xml:space="preserve">
+    <value>Failed to refresh the tact-time view: {0}</value>
+  </data>
+  <data name="workInfoUi.logic.status.runCanceled" xml:space="preserve">
+    <value>Loading the selected run was canceled.</value>
+  </data>
+  <data name="workInfoUi.logic.status.runLoaded" xml:space="preserve">
+    <value>History loaded. records={0}{1}</value>
+  </data>
+  <data name="workInfoUi.logic.status.runLoading" xml:space="preserve">
+    <value>Loading tact-time records for the selected run. run={0}</value>
+  </data>
+  <data name="workInfoUi.logic.status.selectedRecord" xml:space="preserve">
+    <value>Selected: {0} / {1} / {2} / {3} / {4} ms / {5}{6}{7}</value>
+  </data>
+  <data name="workInfoUi.logic.status.summary" xml:space="preserve">
+    <value>Records {0}{1} / Span {2} / Mean {3} / Min {4} / P95 {5} / Max {6} / Failed {7} / Stopped {8}{9}{10}</value>
+  </data>
+  <data name="workInfoUi.logic.status.waiting" xml:space="preserve">
+    <value>Waiting for tact-time records.</value>
+  </data>
+  <data name="workInfoUi.logic.tabCycle" xml:space="preserve">
+    <value>Cycle time</value>
+  </data>
+  <data name="workInfoUi.logic.warningCount" xml:space="preserve">
+    <value>, warnings={0}</value>
+  </data>
+  <data name="workInfoUi.picker.blowState" xml:space="preserve">
+    <value>Blow #{0}&#13;&#10;: {1}</value>
+  </data>
+  <data name="workInfoUi.picker.colletUnused" xml:space="preserve">
+    <value>#{0} Collet unused</value>
+  </data>
+  <data name="workInfoUi.picker.colletUsed" xml:space="preserve">
+    <value>#{0} Collet used</value>
+  </data>
+  <data name="workInfoUi.picker.count" xml:space="preserve">
+    <value>{0} ea</value>
+  </data>
+  <data name="workInfoUi.picker.front" xml:space="preserve">
+    <value>Front</value>
+  </data>
+  <data name="workInfoUi.picker.frontMoveConfirm" xml:space="preserve">
+    <value>Run the Front picker ContiNode move test at the taught place center?&#13;&#10;Order: Picker #4 -&gt; #3 -&gt; #2 -&gt; #1&#13;&#10;Before starting, move to the taught place position for #4. Each segment drives Good stage Y + picker X + previous picker Z + current picker Z using ContiNode.&#13;&#10;Conti parameters: coord={0}, maxVel={1}, maxAcc={2}, maxDec={3}&#13;&#10;Check that the axes and material are safe before running.</value>
+  </data>
+  <data name="workInfoUi.picker.lineMapDetail" xml:space="preserve">
+    <value>{0}&#13;&#10;See the alarm/event log for details.</value>
+  </data>
+  <data name="workInfoUi.picker.lineMapException" xml:space="preserve">
+    <value>An exception occurred during ContiNode line-map verification using the Good stage Y reference. error={0}</value>
+  </data>
+  <data name="workInfoUi.picker.lineMapFailed" xml:space="preserve">
+    <value>ContiNode line-map verification using the Good stage Y reference had failures. Failed={0} / Total={1}</value>
+  </data>
+  <data name="workInfoUi.picker.lineMapNoMachine" xml:space="preserve">
+    <value>The machine object was not found. ContiNode line-map verification cannot run.</value>
+  </data>
+  <data name="workInfoUi.picker.lineMapSuccess" xml:space="preserve">
+    <value>ContiNode line-map verification using the Good stage Y reference is complete. All {0} tests succeeded.</value>
+  </data>
+  <data name="workInfoUi.picker.lineMapTitle" xml:space="preserve">
+    <value>Line map test</value>
+  </data>
+  <data name="workInfoUi.picker.lineMoveException" xml:space="preserve">
+    <value>An exception occurred during the {0} picker ContiNode move test using the Good stage Y reference. error={1}</value>
+  </data>
+  <data name="workInfoUi.picker.lineMoveNoMachine" xml:space="preserve">
+    <value>The machine object was not found. The ContiNode move test cannot run.</value>
+  </data>
+  <data name="workInfoUi.picker.lineMoveTitle" xml:space="preserve">
+    <value>Line move test</value>
+  </data>
+  <data name="workInfoUi.picker.process.inspect" xml:space="preserve">
+    <value>{0} inspection running</value>
+  </data>
+  <data name="workInfoUi.picker.process.move" xml:space="preserve">
+    <value>Moving to {0}</value>
+  </data>
+  <data name="workInfoUi.picker.process.running" xml:space="preserve">
+    <value>{0} process running</value>
+  </data>
+  <data name="workInfoUi.picker.process.transition" xml:space="preserve">
+    <value>Moving from {0} to {1}</value>
+  </data>
+  <data name="workInfoUi.picker.process.unknown" xml:space="preserve">
+    <value>Check the current position</value>
+  </data>
+  <data name="workInfoUi.picker.process.wait" xml:space="preserve">
+    <value>{0} standby</value>
+  </data>
+  <data name="workInfoUi.picker.rear" xml:space="preserve">
+    <value>Rear</value>
+  </data>
+  <data name="workInfoUi.picker.rearMoveConfirm" xml:space="preserve">
+    <value>Run the Rear picker ContiNode move test at the taught place center?&#13;&#10;Order: Picker #4 -&gt; #3 -&gt; #2 -&gt; #1&#13;&#10;Before starting, move to the taught place position for #4. Each segment drives Good stage Y + picker X + previous picker Z + current picker Z using ContiNode.&#13;&#10;Conti parameters: coord={0}, maxVel={1}, maxAcc={2}, maxDec={3}&#13;&#10;Check that the axes and material are safe before running.</value>
+  </data>
+  <data name="workInfoUi.picker.vacuumState" xml:space="preserve">
+    <value>Vacuum #{0}&#13;&#10;: {1}</value>
+  </data>
+</root>

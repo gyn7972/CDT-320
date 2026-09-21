@@ -1,3 +1,4 @@
+﻿using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Equipment.Vision;
 using QMC.CDT320.VisionComm;
 using QMC.Common.Ui.Controls;
@@ -118,7 +119,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private Control CreateTile(string title, int viewerPort)
         {
-            CameraViewBase camera = new CameraViewBase
+            CameraViewBase camera = new RecipeLocalizedCameraView
             {
                 BackColor = Color.Black,
                 Dock = DockStyle.Fill,
@@ -294,7 +295,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                if (camera != null)
+                RecipeLocalizedCameraView localized = camera as RecipeLocalizedCameraView;
+                if (localized != null)
+                    localized.SetDisplayInfo(text);
+                else if (camera != null)
                     camera.InfoText = text;
             }
             catch
@@ -319,4 +323,41 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return value.Length == 0 ? "Vision" : value;
         }
     }
+    // Retain SDK metadata and camera identifiers; translate only the painted info text.
+    internal sealed class RecipeLocalizedCameraView : CameraViewBase, ILocalizedView
+    {
+        private string _rawInfoText;
+
+        internal void SetDisplayInfo(string text)
+        {
+            _rawInfoText = text;
+            ApplyLanguage();
+        }
+
+        public void ApplyLanguage()
+        {
+            if (_rawInfoText == null)
+                return;
+            string[] lines = _rawInfoText.Split(new[] { "\r\n" }, StringSplitOptions.None);
+            for (int i = 0; i < Math.Min(2, lines.Length); i++)
+                lines[i] = FormatPreviewCaption(lines[i]);
+            InfoText = string.Join("\r\n", lines);
+        }
+
+        internal static string FormatPreviewCaption(string value)
+        {
+            switch (value)
+            {
+                case "BOTTOM VISION": return Lang.T("recipeUi.preview.bottom");
+                case "FRONT SIDE VISION": return Lang.T("recipeUi.preview.frontSide");
+                case "REAR SIDE VISION": return Lang.T("recipeUi.preview.rearSide");
+                case "WAFER VISION": return Lang.T("recipeUi.preview.wafer");
+                case "BIN VISION": return Lang.T("recipeUi.preview.bin");
+                case "VISION": return Lang.T("recipeUi.preview.vision");
+                case "STAGE": return Lang.T("recipeUi.preview.stage");
+                default: return value;
+            }
+        }
+    }
+
 }

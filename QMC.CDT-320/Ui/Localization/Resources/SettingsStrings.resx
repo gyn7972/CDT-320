@@ -1,0 +1,337 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="settingsUi.action.applyAxisSettings" xml:space="preserve"><value>Apply axis settings</value></data>
+  <data name="settingsUi.action.changeAllAxisSettings" xml:space="preserve"><value>Change all axis settings</value></data>
+  <data name="settingsUi.action.changeAxisSettings" xml:space="preserve"><value>Change axis settings</value></data>
+  <data name="settingsUi.action.changeBarcodeConnection" xml:space="preserve"><value>Change barcode connection</value></data>
+  <data name="settingsUi.action.changeBarcodeSettings" xml:space="preserve"><value>Change barcode settings</value></data>
+  <data name="settingsUi.action.saveAxisSettings" xml:space="preserve"><value>Save axis settings</value></data>
+  <data name="settingsUi.action.saveBarcodeSettings" xml:space="preserve"><value>Save barcode settings</value></data>
+  <data name="settingsUi.action.testBarcodeRead" xml:space="preserve"><value>Barcode read test</value></data>
+  <data name="settingsUi.alarm.saved" xml:space="preserve"><value>Saved: {0}</value></data>
+  <data name="settingsUi.axis.appliedCount" xml:space="preserve"><value>Axis setup applied: {0} axes</value></data>
+  <data name="settingsUi.axis.applyFailed" xml:space="preserve"><value>Axis setup apply failed: {0}</value></data>
+  <data name="settingsUi.axis.confirmAllMode" xml:space="preserve"><value>Change all axes to {0} mode?</value></data>
+  <data name="settingsUi.axis.confirmMode" xml:space="preserve"><value>Change axis {0} to {1} mode?</value></data>
+  <data name="settingsUi.axis.pickerZoneOpenFailed" xml:space="preserve"><value>Failed to open Picker Zone: {0}</value></data>
+  <data name="settingsUi.axis.savePartial" xml:space="preserve"><value>Axis settings were applied, but some unit settings failed to save.&#10;Check Alarm/Event Log.</value></data>
+  <data name="settingsUi.axis.saved" xml:space="preserve"><value>Save complete.&#10;{0}&#10;Applied axes: {1}</value></data>
+  <data name="settingsUi.axis.sharedRailOpenFailed" xml:space="preserve"><value>Failed to open Shared Rail X: {0}</value></data>
+  <data name="settingsUi.barcode.connected" xml:space="preserve"><value>{0} connected.</value></data>
+  <data name="settingsUi.barcode.connectionFailed" xml:space="preserve"><value>{0} connection failed.</value></data>
+  <data name="settingsUi.barcode.disconnected" xml:space="preserve"><value>{0} disconnected.</value></data>
+  <data name="settingsUi.barcode.inputTriggerError" xml:space="preserve"><value>INPUT WAFER trigger configuration error: {0}</value></data>
+  <data name="settingsUi.barcode.lastResult" xml:space="preserve"><value>Last Result : {0}</value></data>
+  <data name="settingsUi.barcode.outputTriggerError" xml:space="preserve"><value>OUTPUT BIN trigger configuration error: {0}</value></data>
+  <data name="settingsUi.barcode.readFailed" xml:space="preserve"><value>{0} TEST READ failed: {1}</value></data>
+  <data name="settingsUi.barcode.readResult" xml:space="preserve"><value>{0} TEST READ: {1}</value></data>
+  <data name="settingsUi.barcode.readTimeout" xml:space="preserve"><value>{0} TEST READ failed/timeout.</value></data>
+  <data name="settingsUi.barcode.readerFailed" xml:space="preserve"><value>{0} reader connection failed.</value></data>
+  <data name="settingsUi.barcode.saved" xml:space="preserve"><value>Barcode settings saved. Reader instances reloaded.</value></data>
+  <data name="settingsUi.barcode.trigger" xml:space="preserve"><value>NLV-5201 TRIGGER (blank=Z/Y)</value></data>
+  <data name="settingsUi.barcode.waiting" xml:space="preserve"><value>{0} waiting for barcode...</value></data>
+  <data name="settingsUi.camera.connectionTest" xml:space="preserve"><value>TCP connection test: {0}/{1}</value></data>
+  <data name="settingsUi.camera.settingsApplied" xml:space="preserve"><value>AppSettings apply complete. Restart may be required.</value></data>
+  <data name="settingsUi.caption.accJerk" xml:space="preserve"><value>ACC JERK %</value></data>
+  <data name="settingsUi.caption.accel" xml:space="preserve"><value>ACCEL</value></data>
+  <data name="settingsUi.caption.action" xml:space="preserve"><value>ACTION</value></data>
+  <data name="settingsUi.caption.action2" xml:space="preserve"><value>Action</value></data>
+  <data name="settingsUi.caption.active" xml:space="preserve"><value>ACTIVE</value></data>
+  <data name="settingsUi.caption.actual" xml:space="preserve"><value>ACTUAL</value></data>
+  <data name="settingsUi.caption.actualPosition" xml:space="preserve"><value>ACTUAL POSITION</value></data>
+  <data name="settingsUi.caption.addRow" xml:space="preserve"><value>ADD ROW</value></data>
+  <data name="settingsUi.caption.addr" xml:space="preserve"><value>ADDR</value></data>
+  <data name="settingsUi.caption.alarm" xml:space="preserve"><value>ALARM</value></data>
+  <data name="settingsUi.caption.alarmClear" xml:space="preserve"><value>ALARM CLEAR</value></data>
+  <data name="settingsUi.caption.alarmCode" xml:space="preserve"><value>ALARM CODE</value></data>
+  <data name="settingsUi.caption.alarmLevel" xml:space="preserve"><value>ALARM LEVEL</value></data>
+  <data name="settingsUi.caption.alarmValue" xml:space="preserve"><value>ALARM VALUE</value></data>
+  <data name="settingsUi.caption.alarmmaster" xml:space="preserve"><value>AlarmMaster</value></data>
+  <data name="settingsUi.caption.allOff" xml:space="preserve"><value>ALL OFF</value></data>
+  <data name="settingsUi.caption.allOn" xml:space="preserve"><value>ALL ON</value></data>
+  <data name="settingsUi.caption.allStop" xml:space="preserve"><value>ALL STOP</value></data>
+  <data name="settingsUi.caption.ampFaultLevel" xml:space="preserve"><value>AMP FAULT LEVEL</value></data>
+  <data name="settingsUi.caption.ampFaultValue" xml:space="preserve"><value>AMP FAULT VALUE</value></data>
+  <data name="settingsUi.caption.applied" xml:space="preserve"><value>APPLIED</value></data>
+  <data name="settingsUi.caption.apply" xml:space="preserve"><value>APPLY</value></data>
+  <data name="settingsUi.caption.apply2" xml:space="preserve"><value>Apply</value></data>
+  <data name="settingsUi.caption.applyFail" xml:space="preserve"><value>APPLY FAIL</value></data>
+  <data name="settingsUi.caption.applySoftLimit" xml:space="preserve"><value>APPLY (Soft Limits)</value></data>
+  <data name="settingsUi.caption.autoConn" xml:space="preserve"><value>AUTO CONN</value></data>
+  <data name="settingsUi.caption.axis" xml:space="preserve"><value>AXIS</value></data>
+  <data name="settingsUi.caption.axisJog" xml:space="preserve"><value>AXIS JOG</value></data>
+  <data name="settingsUi.caption.axisName" xml:space="preserve"><value>AXIS NAME</value></data>
+  <data name="settingsUi.caption.axisNo" xml:space="preserve"><value>AXIS (#No)</value></data>
+  <data name="settingsUi.caption.axisSetupList" xml:space="preserve"><value>AXIS SETUP LIST</value></data>
+  <data name="settingsUi.caption.baudRate" xml:space="preserve"><value>BAUD RATE</value></data>
+  <data name="settingsUi.caption.bit" xml:space="preserve"><value>BIT</value></data>
+  <data name="settingsUi.caption.board" xml:space="preserve"><value>BOARD#</value></data>
+  <data name="settingsUi.caption.board2" xml:space="preserve"><value>BOARD</value></data>
+  <data name="settingsUi.caption.boardScan" xml:space="preserve"><value>BOARD SCAN</value></data>
+  <data name="settingsUi.caption.bottomVision" xml:space="preserve"><value>BOTTOM VISION</value></data>
+  <data name="settingsUi.caption.brakeType" xml:space="preserve"><value>BRAKE TYPE</value></data>
+  <data name="settingsUi.caption.bwd" xml:space="preserve"><value>BWD</value></data>
+  <data name="settingsUi.caption.bwdDi" xml:space="preserve"><value>BWD DI</value></data>
+  <data name="settingsUi.caption.bwdDo" xml:space="preserve"><value>BWD DO</value></data>
+  <data name="settingsUi.caption.bwdText" xml:space="preserve"><value>BWD TEXT</value></data>
+  <data name="settingsUi.caption.bwdWaitMs" xml:space="preserve"><value>BWD WAIT(ms)</value></data>
+  <data name="settingsUi.caption.cameraSetup" xml:space="preserve"><value>CAMERA SETUP</value></data>
+  <data name="settingsUi.caption.category" xml:space="preserve"><value>Category:</value></data>
+  <data name="settingsUi.caption.category2" xml:space="preserve"><value>Category</value></data>
+  <data name="settingsUi.caption.cause" xml:space="preserve"><value>Cause</value></data>
+  <data name="settingsUi.caption.ch" xml:space="preserve"><value>CH</value></data>
+  <data name="settingsUi.caption.chSlot" xml:space="preserve"><value>CH (slot)</value></data>
+  <data name="settingsUi.caption.channel" xml:space="preserve"><value>CHANNEL</value></data>
+  <data name="settingsUi.caption.code" xml:space="preserve"><value>Code</value></data>
+  <data name="settingsUi.caption.color" xml:space="preserve"><value>COLOR</value></data>
+  <data name="settingsUi.caption.comPort" xml:space="preserve"><value>COM PORT</value></data>
+  <data name="settingsUi.caption.command" xml:space="preserve"><value>COMMAND</value></data>
+  <data name="settingsUi.caption.commandPosition" xml:space="preserve"><value>COMMAND POSITION</value></data>
+  <data name="settingsUi.caption.config" xml:space="preserve"><value>CONFIG</value></data>
+  <data name="settingsUi.caption.configuration" xml:space="preserve"><value>CONFIGURATION</value></data>
+  <data name="settingsUi.caption.connect" xml:space="preserve"><value>CONNECT</value></data>
+  <data name="settingsUi.caption.cylinder" xml:space="preserve"><value>CYLINDER</value></data>
+  <data name="settingsUi.caption.cylinderList" xml:space="preserve"><value>CYLINDER LIST</value></data>
+  <data name="settingsUi.caption.cylinderTest" xml:space="preserve"><value>CYLINDER TEST</value></data>
+  <data name="settingsUi.caption.dataBits" xml:space="preserve"><value>DATA BITS</value></data>
+  <data name="settingsUi.caption.decJerk" xml:space="preserve"><value>DEC JERK %</value></data>
+  <data name="settingsUi.caption.decel" xml:space="preserve"><value>DECEL</value></data>
+  <data name="settingsUi.caption.defaultSpeedScale" xml:space="preserve"><value>DEFAULT SPEED SCALE %</value></data>
+  <data name="settingsUi.caption.defaultVel" xml:space="preserve"><value>DEFAULT VEL</value></data>
+  <data name="settingsUi.caption.description" xml:space="preserve"><value>DESCRIPTION</value></data>
+  <data name="settingsUi.caption.di" xml:space="preserve"><value>DI</value></data>
+  <data name="settingsUi.caption.digitalIOList" xml:space="preserve"><value>DIGITAL I/O LIST</value></data>
+  <data name="settingsUi.caption.digitalInput" xml:space="preserve"><value>DIGITAL INPUT</value></data>
+  <data name="settingsUi.caption.digitalLink" xml:space="preserve"><value>DIGITAL LINK</value></data>
+  <data name="settingsUi.caption.digitalOutput" xml:space="preserve"><value>DIGITAL OUTPUT</value></data>
+  <data name="settingsUi.caption.direction" xml:space="preserve"><value>DIRECTION</value></data>
+  <data name="settingsUi.caption.disconnect" xml:space="preserve"><value>DISCONNECT</value></data>
+  <data name="settingsUi.caption.do" xml:space="preserve"><value>DO</value></data>
+  <data name="settingsUi.caption.doOff" xml:space="preserve"><value>DO OFF</value></data>
+  <data name="settingsUi.caption.doOn" xml:space="preserve"><value>DO ON</value></data>
+  <data name="settingsUi.caption.done" xml:space="preserve"><value>DONE</value></data>
+  <data name="settingsUi.caption.emergency" xml:space="preserve"><value>EMERGENCY</value></data>
+  <data name="settingsUi.caption.emergencySignal" xml:space="preserve"><value>EMERGENCY SIGNAL</value></data>
+  <data name="settingsUi.caption.emgLevel" xml:space="preserve"><value>EMG LEVEL</value></data>
+  <data name="settingsUi.caption.enable" xml:space="preserve"><value>ENABLE</value></data>
+  <data name="settingsUi.caption.error" xml:space="preserve"><value>ERROR</value></data>
+  <data name="settingsUi.caption.exposureMs" xml:space="preserve"><value>EXPOSURE(ms)</value></data>
+  <data name="settingsUi.caption.fwd" xml:space="preserve"><value>FWD</value></data>
+  <data name="settingsUi.caption.fwdDi" xml:space="preserve"><value>FWD DI</value></data>
+  <data name="settingsUi.caption.fwdDo" xml:space="preserve"><value>FWD DO</value></data>
+  <data name="settingsUi.caption.fwdText" xml:space="preserve"><value>FWD TEXT</value></data>
+  <data name="settingsUi.caption.fwdWaitMs" xml:space="preserve"><value>FWD WAIT(ms)</value></data>
+  <data name="settingsUi.caption.headChar" xml:space="preserve"><value>HEAD CHAR</value></data>
+  <data name="settingsUi.caption.height" xml:space="preserve"><value>HEIGHT</value></data>
+  <data name="settingsUi.caption.home" xml:space="preserve"><value>HOME</value></data>
+  <data name="settingsUi.caption.homeAcc1" xml:space="preserve"><value>HOME ACC 1</value></data>
+  <data name="settingsUi.caption.homeAcc2" xml:space="preserve"><value>HOME ACC 2</value></data>
+  <data name="settingsUi.caption.homeDec1" xml:space="preserve"><value>HOME DEC 1</value></data>
+  <data name="settingsUi.caption.homeDec2" xml:space="preserve"><value>HOME DEC 2</value></data>
+  <data name="settingsUi.caption.homeEnd" xml:space="preserve"><value>HOME END</value></data>
+  <data name="settingsUi.caption.homeVel1" xml:space="preserve"><value>HOME VEL 1</value></data>
+  <data name="settingsUi.caption.homeVel2" xml:space="preserve"><value>HOME VEL 2</value></data>
+  <data name="settingsUi.caption.homeVel3" xml:space="preserve"><value>HOME VEL 3</value></data>
+  <data name="settingsUi.caption.homeVel4" xml:space="preserve"><value>HOME VEL 4</value></data>
+  <data name="settingsUi.caption.host" xml:space="preserve"><value>HOST</value></data>
+  <data name="settingsUi.caption.iOControl" xml:space="preserve"><value>I/O Control</value></data>
+  <data name="settingsUi.caption.iOSim" xml:space="preserve"><value>I/O SIM</value></data>
+  <data name="settingsUi.caption.iOSimMode" xml:space="preserve"><value>I/O SIM MODE</value></data>
+  <data name="settingsUi.caption.inPosTol" xml:space="preserve"><value>IN-POS TOL</value></data>
+  <data name="settingsUi.caption.index" xml:space="preserve"><value>INDEX</value></data>
+  <data name="settingsUi.caption.initAxis" xml:space="preserve"><value>INIT AXIS</value></data>
+  <data name="settingsUi.caption.inpDone" xml:space="preserve"><value>INP DONE</value></data>
+  <data name="settingsUi.caption.inposition" xml:space="preserve"><value>INPOSITION</value></data>
+  <data name="settingsUi.caption.input" xml:space="preserve"><value>input</value></data>
+  <data name="settingsUi.caption.inputMode" xml:space="preserve"><value>INPUT MODE</value></data>
+  <data name="settingsUi.caption.inputSource" xml:space="preserve"><value>INPUT SOURCE</value></data>
+  <data name="settingsUi.caption.inputVision" xml:space="preserve"><value>INPUT VISION</value></data>
+  <data name="settingsUi.caption.inputWaferBarcode" xml:space="preserve"><value>INPUT WAFER BARCODE</value></data>
+  <data name="settingsUi.caption.jog" xml:space="preserve"><value>Jog</value></data>
+  <data name="settingsUi.caption.jogAcc" xml:space="preserve"><value>JOG ACC</value></data>
+  <data name="settingsUi.caption.jogCoarse" xml:space="preserve"><value>JOG COARSE</value></data>
+  <data name="settingsUi.caption.jogDec" xml:space="preserve"><value>JOG DEC</value></data>
+  <data name="settingsUi.caption.jogFine" xml:space="preserve"><value>JOG FINE</value></data>
+  <data name="settingsUi.caption.jogStopDec" xml:space="preserve"><value>JOG STOP DEC</value></data>
+  <data name="settingsUi.caption.key" xml:space="preserve"><value>KEY</value></data>
+  <data name="settingsUi.caption.lampList" xml:space="preserve"><value>LAMP LIST</value></data>
+  <data name="settingsUi.caption.level" xml:space="preserve"><value>LEVEL</value></data>
+  <data name="settingsUi.caption.level0255" xml:space="preserve"><value>LEVEL (0~255)</value></data>
+  <data name="settingsUi.caption.light" xml:space="preserve"><value>LIGHT</value></data>
+  <data name="settingsUi.caption.lightController" xml:space="preserve"><value>LIGHT CONTROLLER</value></data>
+  <data name="settingsUi.caption.lightSourceList" xml:space="preserve"><value>LIGHT SOURCE LIST</value></data>
+  <data name="settingsUi.caption.limit" xml:space="preserve"><value>LIMIT</value></data>
+  <data name="settingsUi.caption.limitMax" xml:space="preserve"><value>LIMIT MAX</value></data>
+  <data name="settingsUi.caption.limitMin" xml:space="preserve"><value>LIMIT MIN</value></data>
+  <data name="settingsUi.caption.lowerVision" xml:space="preserve"><value>LOWER VISION</value></data>
+  <data name="settingsUi.caption.maxVelocity" xml:space="preserve"><value>MAX VELOCITY</value></data>
+  <data name="settingsUi.caption.mel" xml:space="preserve"><value>MEL</value></data>
+  <data name="settingsUi.caption.mode" xml:space="preserve"><value>MODE</value></data>
+  <data name="settingsUi.caption.module" xml:space="preserve"><value>MODULE</value></data>
+  <data name="settingsUi.caption.moduleList" xml:space="preserve"><value>MODULE LIST</value></data>
+  <data name="settingsUi.caption.motion" xml:space="preserve"><value>Motion</value></data>
+  <data name="settingsUi.caption.motion2" xml:space="preserve"><value>MOTION</value></data>
+  <data name="settingsUi.caption.motionTest" xml:space="preserve"><value>MOTION TEST</value></data>
+  <data name="settingsUi.caption.moveTimeoutMs" xml:space="preserve"><value>MOVE TIMEOUT(ms)</value></data>
+  <data name="settingsUi.caption.moveTo" xml:space="preserve"><value>MOVE TO</value></data>
+  <data name="settingsUi.caption.name" xml:space="preserve"><value>NAME</value></data>
+  <data name="settingsUi.caption.negAction" xml:space="preserve"><value>NEG ACTION</value></data>
+  <data name="settingsUi.caption.negLevel" xml:space="preserve"><value>NEG LEVEL</value></data>
+  <data name="settingsUi.caption.negValue" xml:space="preserve"><value>NEG VALUE</value></data>
+  <data name="settingsUi.caption.no" xml:space="preserve"><value>NO.</value></data>
+  <data name="settingsUi.caption.no2" xml:space="preserve"><value>NO</value></data>
+  <data name="settingsUi.caption.off" xml:space="preserve"><value>OFF</value></data>
+  <data name="settingsUi.caption.offset" xml:space="preserve"><value>OFFSET</value></data>
+  <data name="settingsUi.caption.on" xml:space="preserve"><value>ON</value></data>
+  <data name="settingsUi.caption.org" xml:space="preserve"><value>ORG</value></data>
+  <data name="settingsUi.caption.output" xml:space="preserve"><value>output</value></data>
+  <data name="settingsUi.caption.outputBinBarcode" xml:space="preserve"><value>OUTPUT BIN BARCODE</value></data>
+  <data name="settingsUi.caption.outputMode" xml:space="preserve"><value>OUTPUT MODE</value></data>
+  <data name="settingsUi.caption.outputVision" xml:space="preserve"><value>OUTPUT VISION</value></data>
+  <data name="settingsUi.caption.paraLoad" xml:space="preserve"><value>PARA LOAD</value></data>
+  <data name="settingsUi.caption.paraSave" xml:space="preserve"><value>PARA SAVE</value></data>
+  <data name="settingsUi.caption.parity" xml:space="preserve"><value>PARITY</value></data>
+  <data name="settingsUi.caption.pel" xml:space="preserve"><value>PEL</value></data>
+  <data name="settingsUi.caption.pickerZone" xml:space="preserve"><value>PICKER ZONE</value></data>
+  <data name="settingsUi.caption.pickerZone2" xml:space="preserve"><value>Picker Zone</value></data>
+  <data name="settingsUi.caption.port" xml:space="preserve"><value>PORT</value></data>
+  <data name="settingsUi.caption.posAction" xml:space="preserve"><value>POS ACTION</value></data>
+  <data name="settingsUi.caption.posLevel" xml:space="preserve"><value>POS LEVEL</value></data>
+  <data name="settingsUi.caption.posValue" xml:space="preserve"><value>POS VALUE</value></data>
+  <data name="settingsUi.caption.position" xml:space="preserve"><value>POSITION</value></data>
+  <data name="settingsUi.caption.positionTeaching" xml:space="preserve"><value>Position Teaching</value></data>
+  <data name="settingsUi.caption.positionTeachingList" xml:space="preserve"><value>POSITION TEACHING LIST</value></data>
+  <data name="settingsUi.caption.profile" xml:space="preserve"><value>PROFILE</value></data>
+  <data name="settingsUi.caption.pulse200Ms" xml:space="preserve"><value>PULSE 200ms</value></data>
+  <data name="settingsUi.caption.pulsesUnit" xml:space="preserve"><value>PULSES/UNIT</value></data>
+  <data name="settingsUi.caption.readTimeout" xml:space="preserve"><value>READ TIMEOUT</value></data>
+  <data name="settingsUi.caption.readTimeoutMs" xml:space="preserve"><value>READ TIMEOUT (ms)</value></data>
+  <data name="settingsUi.caption.ready" xml:space="preserve"><value>READY</value></data>
+  <data name="settingsUi.caption.refresh" xml:space="preserve"><value>REFRESH</value></data>
+  <data name="settingsUi.caption.reload" xml:space="preserve"><value>RELOAD</value></data>
+  <data name="settingsUi.caption.reloadJson" xml:space="preserve"><value>Reload JSON</value></data>
+  <data name="settingsUi.caption.reset" xml:space="preserve"><value>Reset</value></data>
+  <data name="settingsUi.caption.resetDefault" xml:space="preserve"><value>RESET DEFAULT</value></data>
+  <data name="settingsUi.caption.resetLevel" xml:space="preserve"><value>RESET LEVEL</value></data>
+  <data name="settingsUi.caption.retryCount" xml:space="preserve"><value>RETRY COUNT</value></data>
+  <data name="settingsUi.caption.role" xml:space="preserve"><value>ROLE</value></data>
+  <data name="settingsUi.caption.save" xml:space="preserve"><value>SAVE</value></data>
+  <data name="settingsUi.caption.saveBarcodeSettings" xml:space="preserve"><value>SAVE BARCODE SETTINGS</value></data>
+  <data name="settingsUi.caption.search" xml:space="preserve"><value>Search:</value></data>
+  <data name="settingsUi.caption.selectAGridRowToSwitchAxisAutomatically" xml:space="preserve"><value>Select a grid row to switch axis automatically.</value></data>
+  <data name="settingsUi.caption.sensor1" xml:space="preserve"><value>SENSOR #1</value></data>
+  <data name="settingsUi.caption.sensor2" xml:space="preserve"><value>SENSOR #2</value></data>
+  <data name="settingsUi.caption.sensorLevel" xml:space="preserve"><value>SENSOR LEVEL</value></data>
+  <data name="settingsUi.caption.sensorValue" xml:space="preserve"><value>SENSOR VALUE</value></data>
+  <data name="settingsUi.caption.serialPortCom" xml:space="preserve"><value>SERIAL PORT (COM)</value></data>
+  <data name="settingsUi.caption.servo" xml:space="preserve"><value>SERVO</value></data>
+  <data name="settingsUi.caption.servoLevel" xml:space="preserve"><value>SERVO LEVEL</value></data>
+  <data name="settingsUi.caption.servoOff" xml:space="preserve"><value>SERVO OFF</value></data>
+  <data name="settingsUi.caption.servoOn" xml:space="preserve"><value>SERVO ON</value></data>
+  <data name="settingsUi.caption.severity" xml:space="preserve"><value>Severity</value></data>
+  <data name="settingsUi.caption.sharedRailX" xml:space="preserve"><value>SHARED RAIL X</value></data>
+  <data name="settingsUi.caption.sideVisionFront" xml:space="preserve"><value>SIDE VISION (FRONT)</value></data>
+  <data name="settingsUi.caption.sideVisionRear" xml:space="preserve"><value>SIDE VISION (REAR)</value></data>
+  <data name="settingsUi.caption.signal" xml:space="preserve"><value>SIGNAL</value></data>
+  <data name="settingsUi.caption.sim" xml:space="preserve"><value>SIM</value></data>
+  <data name="settingsUi.caption.simMode" xml:space="preserve"><value>SIM MODE</value></data>
+  <data name="settingsUi.caption.single" xml:space="preserve"><value>SINGLE</value></data>
+  <data name="settingsUi.caption.softLimitNegative" xml:space="preserve"><value>SOFT LIMIT(-)</value></data>
+  <data name="settingsUi.caption.softLimitPositive" xml:space="preserve"><value>SOFT LIMIT(+)</value></data>
+  <data name="settingsUi.caption.speed" xml:space="preserve"><value>SPEED</value></data>
+  <data name="settingsUi.caption.speed2" xml:space="preserve"><value>Speed</value></data>
+  <data name="settingsUi.caption.state" xml:space="preserve"><value>STATE</value></data>
+  <data name="settingsUi.caption.status" xml:space="preserve"><value>STATUS</value></data>
+  <data name="settingsUi.caption.stopBits" xml:space="preserve"><value>STOP BITS</value></data>
+  <data name="settingsUi.caption.stopDec" xml:space="preserve"><value>STOP DEC</value></data>
+  <data name="settingsUi.caption.stopMode" xml:space="preserve"><value>STOP MODE</value></data>
+  <data name="settingsUi.caption.stroke" xml:space="preserve"><value>STROKE</value></data>
+  <data name="settingsUi.caption.swEnabled" xml:space="preserve"><value>SW ENABLED</value></data>
+  <data name="settingsUi.caption.swNegative" xml:space="preserve"><value>SW NEGATIVE</value></data>
+  <data name="settingsUi.caption.swPositive" xml:space="preserve"><value>SW POSITIVE</value></data>
+  <data name="settingsUi.caption.switchList" xml:space="preserve"><value>SWITCH LIST</value></data>
+  <data name="settingsUi.caption.symbol" xml:space="preserve"><value>SYMBOL</value></data>
+  <data name="settingsUi.caption.tailChar" xml:space="preserve"><value>TAIL CHAR</value></data>
+  <data name="settingsUi.caption.teach" xml:space="preserve"><value>TEACH</value></data>
+  <data name="settingsUi.caption.testConn" xml:space="preserve"><value>TEST CONN</value></data>
+  <data name="settingsUi.caption.testConnection" xml:space="preserve"><value>Test Connection</value></data>
+  <data name="settingsUi.caption.testRead" xml:space="preserve"><value>TEST READ</value></data>
+  <data name="settingsUi.caption.timeoutMs" xml:space="preserve"><value>TIMEOUT(ms)</value></data>
+  <data name="settingsUi.caption.title" xml:space="preserve"><value>Title</value></data>
+  <data name="settingsUi.caption.tolerance" xml:space="preserve"><value>TOLERANCE</value></data>
+  <data name="settingsUi.caption.trigger" xml:space="preserve"><value>TRIGGER</value></data>
+  <data name="settingsUi.caption.unit" xml:space="preserve"><value>UNIT</value></data>
+  <data name="settingsUi.caption.unitPulse" xml:space="preserve"><value>UNIT/PULSE</value></data>
+  <data name="settingsUi.caption.useInputWaferBarcode" xml:space="preserve"><value>USE INPUT WAFER BARCODE</value></data>
+  <data name="settingsUi.caption.useOutputBinBarcode" xml:space="preserve"><value>USE OUTPUT BIN BARCODE</value></data>
+  <data name="settingsUi.caption.value" xml:space="preserve"><value>VALUE</value></data>
+  <data name="settingsUi.caption.velocity" xml:space="preserve"><value>VELOCITY</value></data>
+  <data name="settingsUi.caption.width" xml:space="preserve"><value>WIDTH</value></data>
+  <data name="settingsUi.caption.yRetryStepMm" xml:space="preserve"><value>Y RETRY STEP (mm)</value></data>
+  <data name="settingsUi.caption.zPhaseLevel" xml:space="preserve"><value>Z PHASE LEVEL</value></data>
+  <data name="settingsUi.caption.zero" xml:space="preserve"><value>ZERO</value></data>
+  <data name="settingsUi.caption.zoom" xml:space="preserve"><value>ZOOM</value></data>
+  <data name="settingsUi.io.confirmAllMode" xml:space="preserve"><value>Change all I/O to {0} mode?</value></data>
+  <data name="settingsUi.io.confirmMode" xml:space="preserve"><value>Change {0} I/O to {1} mode?</value></data>
+  <data name="settingsUi.io.confirmOutput" xml:space="preserve"><value>Set {0} output to {1}?</value></data>
+  <data name="settingsUi.io.confirmState" xml:space="preserve"><value>Change {0} {1} state to {2}?</value></data>
+  <data name="settingsUi.io.error" xml:space="preserve"><value>{0} ERROR</value></data>
+  <data name="settingsUi.io.failed" xml:space="preserve"><value>{0} FAIL</value></data>
+  <data name="settingsUi.io.listTitle" xml:space="preserve"><value>{0} LIST</value></data>
+  <data name="settingsUi.io.live" xml:space="preserve"><value>Live hardware I/O. DO commands are written directly to the mapped Ajin output.</value></data>
+  <data name="settingsUi.io.loaded" xml:space="preserve"><value>( Loaded DI {0} / DO {1} )</value></data>
+  <data name="settingsUi.io.loadedSim" xml:space="preserve"><value>( Loaded DI {0} / DO {1} · SIM )</value></data>
+  <data name="settingsUi.io.mappingSaved" xml:space="preserve"><value>Cylinder I/O mapping saved and applied.&#13;&#10;{0}</value></data>
+  <data name="settingsUi.io.notReady" xml:space="preserve"><value>Machine is not ready.</value></data>
+  <data name="settingsUi.io.running" xml:space="preserve"><value>{0} RUN</value></data>
+  <data name="settingsUi.io.simRequired" xml:space="preserve"><value>I/O state can be changed directly only when SIM is ON.</value></data>
+  <data name="settingsUi.io.state" xml:space="preserve"><value>STATE : {0}</value></data>
+  <data name="settingsUi.io.success" xml:space="preserve"><value>{0} OK</value></data>
+  <data name="settingsUi.light.saved" xml:space="preserve"><value>Save complete.&#10;{0}&#10;&#10;Light command sent: {1}/{2}</value></data>
+  <data name="settingsUi.message.applyFailed" xml:space="preserve"><value>Apply failed: {0}</value></data>
+  <data name="settingsUi.message.blockedWhileRunning" xml:space="preserve"><value>Cannot perform {0} while the equipment is running. Stop the equipment and try again.</value></data>
+  <data name="settingsUi.message.failed" xml:space="preserve"><value>Failed: {0}</value></data>
+  <data name="settingsUi.message.machineNotInitialized" xml:space="preserve"><value>Machine is not initialized.</value></data>
+  <data name="settingsUi.message.resetDefault" xml:space="preserve"><value>Reset to defaults?</value></data>
+  <data name="settingsUi.message.saveFailed" xml:space="preserve"><value>Save failed: {0}</value></data>
+  <data name="settingsUi.message.savedPath" xml:space="preserve"><value>Save complete.&#10;{0}</value></data>
+  <data name="settingsUi.motion.actionFailed" xml:space="preserve"><value>Motion action failed. result={0}. Check Alarm/Event Log.</value></data>
+  <data name="settingsUi.motion.allAxesTitle" xml:space="preserve"><value>ALL AXES - {0}</value></data>
+  <data name="settingsUi.motion.axlDisabled" xml:space="preserve"><value>AXL library is not open. Enable UseAjin in Settings &gt; GENERAL and restart.</value></data>
+  <data name="settingsUi.motion.axlNotOpen" xml:space="preserve"><value>AXL library is not open.</value></data>
+  <data name="settingsUi.motion.configSaveFailed" xml:space="preserve"><value>Failed to save motion axis settings.&#13;&#10;Applied values may differ from the saved file, and restarting may restore previous values.&#13;&#10;Check Alarm/Event Log.</value></data>
+  <data name="settingsUi.motion.configSaveFailedTitle" xml:space="preserve"><value>Motion settings save failed</value></data>
+  <data name="settingsUi.motion.configuration" xml:space="preserve"><value>Motion settings</value></data>
+  <data name="settingsUi.motion.confirmInitialize" xml:space="preserve"><value>Initialize axis {0}?</value></data>
+  <data name="settingsUi.motion.initializeFailed" xml:space="preserve"><value>Axis initialization failed:&#13;&#10;{0}</value></data>
+  <data name="settingsUi.motion.invalidSpeedScale" xml:space="preserve"><value>Invalid speed scale value. Enter {0} ~ {1} %.</value></data>
+  <data name="settingsUi.motion.motSaveBlocked" xml:space="preserve"><value>Cannot save a mot file during equipment setup.</value></data>
+  <data name="settingsUi.motion.moveTimeoutInput" xml:space="preserve"><value>Enter MOVE TIMEOUT as an integer (ms) greater than or equal to 0.</value></data>
+  <data name="settingsUi.motion.noAxis" xml:space="preserve"><value>No axis is selected.</value></data>
+  <data name="settingsUi.motion.noController" xml:space="preserve"><value>Machine controller was not found.</value></data>
+  <data name="settingsUi.motion.openFilter" xml:space="preserve"><value>Motion parameters (*.mot)|*.mot|All files (*.*)|*.*</value></data>
+  <data name="settingsUi.motion.openTestFailed" xml:space="preserve"><value>Unable to open Motion Test:&#13;&#10;{0}</value></data>
+  <data name="settingsUi.motion.parameterLoadFailed" xml:space="preserve"><value>Parameter load failed. 0x{0}</value></data>
+  <data name="settingsUi.motion.parameterLoaded" xml:space="preserve"><value>Parameter load complete.</value></data>
+  <data name="settingsUi.motion.parameterSaveFailed" xml:space="preserve"><value>Parameter save failed. 0x{0}</value></data>
+  <data name="settingsUi.motion.parameterSaved" xml:space="preserve"><value>Parameter save complete.</value></data>
+  <data name="settingsUi.motion.saveFilter" xml:space="preserve"><value>Motion parameters (*.mot)|*.mot</value></data>
+  <data name="settingsUi.motion.speedSavePartial" xml:space="preserve"><value>Speed parameters were applied, but some settings failed to save. Check Alarm/Event Log.</value></data>
+  <data name="settingsUi.motion.speedSaved" xml:space="preserve"><value>Saved speed parameters for {0} axes.</value></data>
+  <data name="settingsUi.motion.speedScaleFailed" xml:space="preserve"><value>Speed scale change failed: {0}</value></data>
+  <data name="settingsUi.teach.actual" xml:space="preserve"><value>Actual Pos: {0}</value></data>
+  <data name="settingsUi.teach.applied" xml:space="preserve"><value>Teaching applied: {0} items&#10;&#10;Picker position teaching is saved to Recipe.&#10;(Unapplied items are saved only to JSON — see EventLog TEACH-NOAPPLY)</value></data>
+  <data name="settingsUi.teach.axis" xml:space="preserve"><value>Axis: {0}</value></data>
+  <data name="settingsUi.teach.axisNone" xml:space="preserve"><value>Axis: (None)</value></data>
+  <data name="settingsUi.teach.axisNotFound" xml:space="preserve"><value>Axis not found: {0}</value></data>
+  <data name="settingsUi.teach.axisUnknown" xml:space="preserve"><value>Unable to identify axis: {0}</value></data>
+  <data name="settingsUi.teach.jogFailed" xml:space="preserve"><value>Jog failed: {0}</value></data>
+  <data name="settingsUi.teach.moveFailed" xml:space="preserve"><value>Move failed: {0}</value></data>
+  <data name="settingsUi.teach.numericOnly" xml:space="preserve"><value>Enter a numeric value.</value></data>
+  <data name="settingsUi.teach.saved" xml:space="preserve"><value>Teaching data saved.&#10;{0}</value></data>
+  <data name="settingsUi.teach.step" xml:space="preserve"><value>Step ({0})</value></data>
+</root>

@@ -69,6 +69,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 _titleI18n = titleI18n;
                 InitializeComponent();
+                InitializeRecipeLanguageBindings();
                 if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                     return;
 
@@ -147,7 +148,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 BindParameterGridMenus();
 
                 grpIo.ContextMenuStrip = new ContextMenuStrip();
-                grpIo.ContextMenuStrip.Items.Add("Output feeder DI 상태를 다시 읽습니다.", null, IoRefresh_Click);
+                Lang.BindKey(grpIo.ContextMenuStrip.Items.Add("Output feeder DI 상태를 다시 읽습니다.", null, IoRefresh_Click), "recipeUi.menu.outputFeeder");
             }
             catch (Exception ex)
             {
@@ -188,7 +189,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (button == null || position == null)
                 return;
 
-            button.Text = position.DisplayName;
+            Lang.BindFormat(button, "recipeUi.literal", (object)(position.DisplayName));
             button.Tag = position;
             button.Cursor = Cursors.Hand;
             StyleActionButton(button);
@@ -820,6 +821,53 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
             }
         }
-
+        // Keep Designer declarations intact; language bindings only affect displayed captions.
+        private void InitializeRecipeLanguageBindings()
+        {
+            Lang.BindKey(this.lblHeader, "recipeUi.outputFeederRecipePage.lblHeader.text");
+            Lang.BindKey(this.grpActions, "recipeUi.forceControlPage.grpActions.text");
+            Lang.BindKey(this.grpIo, "recipeUi.frontPickerRecipePage.grpIo.text");
+            Lang.BindKey(this.grpWait, "recipeUi.frontPickerRecipePage.grpWait.text");
+            Lang.BindKey(this.grpOptions, "recipeUi.frontPickerRecipePage.grpOptions.text");
+            Lang.BindKey(this.grpJog, "recipeUi.frontPickerRecipePage.grpJog.text");
+            Lang.BindKey(this.grpSpeed, "recipeUi.frontPickerRecipePage.grpSpeed.text");
+            Lang.BindKey(this.lbl8Inch, "recipeUi.inputCassetteRecipePage.lbl8Inch.text");
+            Lang.BindKey(this.lbl12Inch, "recipeUi.inputCassetteRecipePage.lbl12Inch.text");
+            Lang.BindKey(this.lblProtrusion, "recipeUi.inputCassetteRecipePage.lblProtrusion.text");
+            Lang.BindKey(this.lblMapping, "recipeUi.inputCassetteRecipePage.lblMapping.text");
+            Lang.BindKey(this.lblRecipeLoadingKey, "recipeUi.inputCassetteRecipePage.lblRecipeLoadingKey.text");
+            Lang.BindKey(this.lblRecipeLoadingVal, "recipeUi.inputCassetteRecipePage.lblRecipeLoadingVal.text");
+            Lang.BindKey(this.lblRecipeUnloadingKey, "recipeUi.inputCassetteRecipePage.lblRecipeUnloadingKey.text");
+            Lang.BindKey(this.lblRecipeUnloadingVal, "recipeUi.inputCassetteRecipePage.lblRecipeLoadingVal.text");
+            Lang.BindKey(this.lblRecipeAvoidKey, "recipeUi.inputCassetteRecipePage.lblRecipeAvoidKey.text");
+            Lang.BindKey(this.lblRecipeAvoidVal, "recipeUi.inputCassetteRecipePage.lblRecipeAvoidVal.text");
+            Lang.BindKey(this.lblRecipeFirstSlotKey, "recipeUi.inputCassetteRecipePage.lblRecipeFirstSlotKey.text");
+            Lang.BindKey(this.lblRecipeFirstSlotVal, "recipeUi.inputCassetteRecipePage.lblRecipeFirstSlotVal.text");
+            Lang.BindKey(this.lblRecipeMappingStartKey, "recipeUi.inputCassetteRecipePage.lblRecipeMappingStartKey.text");
+            Lang.BindKey(this.lblRecipeMappingStartVal, "recipeUi.inputCassetteRecipePage.lblRecipeMappingStartVal.text");
+            Lang.BindKey(this.lblRecipeMappingEndKey, "recipeUi.inputCassetteRecipePage.lblRecipeMappingEndKey.text");
+            Lang.BindKey(this.lblRecipeMappingEndVal, "recipeUi.inputCassetteRecipePage.lblRecipeMappingEndVal.text");
+            Lang.BindKey(this.lblConfigLoadingOffsetKey, "recipeUi.inputCassetteRecipePage.lblConfigLoadingOffsetKey.text");
+            Lang.BindKey(this.lblConfigLoadingOffsetVal, "recipeUi.inputCassetteRecipePage.lblRecipeAvoidVal.text");
+            Lang.BindKey(this.lblConfigUnloadingOffsetKey, "recipeUi.inputCassetteRecipePage.lblConfigUnloadingOffsetKey.text");
+            Lang.BindKey(this.lblConfigUnloadingOffsetVal, "recipeUi.inputCassetteRecipePage.lblRecipeAvoidVal.text");
+            Lang.BindKey(this.lblConfigSlotPitchKey, "recipeUi.inputCassetteRecipePage.lblConfigSlotPitchKey.text");
+            Lang.BindKey(this.lblConfigSlotPitchVal, "recipeUi.inputCassetteRecipePage.lblRecipeMappingStartVal.text");
+            Lang.BindKey(this.lblConfigSlotCountKey, "recipeUi.inputCassetteRecipePage.lblConfigSlotCountKey.text");
+            Lang.BindKey(this.lblConfigScanVelocityKey, "recipeUi.inputCassetteRecipePage.lblConfigScanVelocityKey.text");
+            Lang.BindKey(this.lblConfigScanVelocityVal, "recipeUi.inputCassetteRecipePage.lblConfigScanVelocityVal.text");
+            Lang.BindKey(this.lblSetupToleranceKey, "recipeUi.inputCassetteRecipePage.lblSetupToleranceKey.text");
+            Lang.BindKey(this.lblSetupToleranceVal, "recipeUi.inputCassetteRecipePage.lblSetupToleranceVal.text");
+            Lang.BindKey(this.lblConfigInchKey, "recipeUi.inputCassetteRecipePage.lblConfigInchKey.text");
+            Lang.BindKey(this.lblConfigLevelKey, "recipeUi.inputCassetteRecipePage.lblConfigLevelKey.text");
+            Lang.BindKey(this.lblSetupSimulationKey, "recipeUi.inputCassetteRecipePage.lblSetupSimulationKey.text");
+            Lang.BindKey(this.lblSetupSimulationVal, "recipeUi.inputCassetteRecipePage.lblSetupSimulationVal.text");
+            Lang.BindKey(this.lblConfigDryRunKey, "recipeUi.inputCassetteRecipePage.lblConfigDryRunKey.text");
+            Lang.BindKey(this.lblConfigDryRunVal, "recipeUi.inputCassetteRecipePage.lblSetupSimulationVal.text");
+            Lang.BindKey(this.lblWaitScanSettleKey, "recipeUi.inputCassetteRecipePage.lblWaitScanSettleKey.text");
+            Lang.BindKey(this.lblWaitScanSettleVal, "recipeUi.inputCassetteRecipePage.lblWaitScanSettleVal.state2");
+            Lang.BindKey(this.lblWaitMoveTimeoutKey, "recipeUi.inputCassetteRecipePage.lblWaitMoveTimeoutKey.text");
+            Lang.BindKey(this.lblWaitMoveTimeoutVal, "recipeUi.inputCassetteRecipePage.lblWaitMoveTimeoutVal.text");
+        }
     }
 }

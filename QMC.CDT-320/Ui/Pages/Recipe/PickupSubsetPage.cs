@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using QMC.CDT_320.Ui.Localization;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -15,6 +16,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         public PickupSubsetPage() : base("recipe.pickupSubset")
         {
             InitializeComponent();
+            InitializeRecipeLanguageBindings();
         }
 
         protected override void BuildEditor(Panel c)
@@ -282,6 +284,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return "-";
 
             return pickup.StartCorner + "/" + pickup.Direction + "/" + pickup.Pattern;
+        }
+        // Keep Designer declarations intact; language bindings only affect displayed captions.
+        private void InitializeRecipeLanguageBindings()
+        {
+            Lang.BindKey(this.lblPreviewCaption, "recipeUi.pickupSubsetPage.lblPreviewCaption.text");
+            Lang.BindKey(this.lblTargetCaption, "recipeUi.pickupSubsetPage.lblTargetCaption.text");
+            Lang.BindKey(this.lblCornerCaption, "recipeUi.pickupSubsetPage.lblCornerCaption.text");
+            Lang.BindKey(this.lblDirectionCaption, "recipeUi.pickupSubsetPage.lblDirectionCaption.text");
+            Lang.BindKey(this.lblPatternCaption, "recipeUi.pickupSubsetPage.lblPatternCaption.text");
+            Lang.BindKey(this._rbWafer, "recipeUi.pickupSubsetPage._rbWafer.text");
+            Lang.BindKey(this._rbBin, "recipeUi.pickupSubsetPage._rbBin.text");
+            Lang.BindKey(this._rbTL, "recipeUi.pickupSubsetPage._rbTL.text");
+            Lang.BindKey(this._rbTR, "recipeUi.pickupSubsetPage._rbTR.text");
+            Lang.BindKey(this._rbBL, "recipeUi.pickupSubsetPage._rbBL.text");
+            Lang.BindKey(this._rbBR, "recipeUi.pickupSubsetPage._rbBR.text");
+            Lang.BindKey(this._rbHoriz, "recipeUi.pickupSubsetPage._rbHoriz.text");
+            Lang.BindKey(this._rbVert, "recipeUi.pickupSubsetPage._rbVert.text");
+            Lang.BindKey(this._rbStraight, "recipeUi.pickupSubsetPage._rbStraight.text");
+            Lang.BindKey(this._rbZigZag, "recipeUi.pickupSubsetPage._rbZigZag.text");
         }
     }
 

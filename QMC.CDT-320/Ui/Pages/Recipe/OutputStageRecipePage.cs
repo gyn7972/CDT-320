@@ -34,6 +34,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 _titleI18n = titleI18n;
                 InitializeComponent();
+                InitializeRecipeLanguageBindings();
                 if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                     return;
 
@@ -1461,14 +1462,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ioCylinderPanel.RefreshStates();
                 jogPositionListControl.RefreshState();
 
-                lblVisionInfo.Text =
-                    "OUTPUT STAGE" + Environment.NewLine +
-                    "GOOD Y : " + FormatAxis(unit.GoodStage.StageY.ActualPosition, unit.GoodStage.StageY) + Environment.NewLine +
-                    "GOOD Z : " + FormatAxis(unit.GoodStage.StageZ.ActualPosition, unit.GoodStage.StageZ) + Environment.NewLine +
-                    "NG Y   : " + FormatAxis(unit.NgStage.StageY.ActualPosition, unit.NgStage.StageY) + Environment.NewLine +
-                    "BIN X  : " + FormatAxis(unit.OutputCameraX.ActualPosition, unit.OutputCameraX) + Environment.NewLine +
-                    "G-AVOID: " + OnOff(unit.GoodStage.IsAtAvoidPosition()) + Environment.NewLine +
-                    "N-AVOID: " + OnOff(unit.NgStage.IsAtAvoidPosition());
+                Lang.BindFormat(lblVisionInfo, "recipeUi.outputStageRecipePage.lblVisionInfo.text", (object)(Environment.NewLine), (object)(FormatAxis(unit.GoodStage.StageY.ActualPosition, unit.GoodStage.StageY)), (object)(Environment.NewLine), (object)(FormatAxis(unit.GoodStage.StageZ.ActualPosition, unit.GoodStage.StageZ)), (object)(Environment.NewLine), (object)(FormatAxis(unit.NgStage.StageY.ActualPosition, unit.NgStage.StageY)), (object)(Environment.NewLine), (object)(FormatAxis(unit.OutputCameraX.ActualPosition, unit.OutputCameraX)), (object)(Environment.NewLine), (object)(OnOff(unit.GoodStage.IsAtAvoidPosition())), (object)(Environment.NewLine), (object)(OnOff(unit.NgStage.IsAtAvoidPosition())));
             }
             catch
             {
@@ -1518,6 +1512,70 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+        // Keep Designer declarations intact; language bindings only affect displayed captions.
+        private void InitializeRecipeLanguageBindings()
+        {
+            Lang.BindKey(this.lblHeader, "recipeUi.outputStageRecipePage.lblHeader.text");
+            Lang.BindKey(this.grpVision, "recipeUi.frontPickerRecipePage.grpVision.text");
+            Lang.BindKey(this.lblVisionInfo, "recipeUi.inputStageRecipePage.lblVisionInfo.state2");
+            Lang.BindKey(this.grpManual, "recipeUi.forceControlPage.grpActions.text");
+            Lang.BindKey(this.grpOptions, "recipeUi.frontPickerRecipePage.grpOptions.text");
+            Lang.BindKey(this.grpWait, "recipeUi.frontPickerRecipePage.grpWait.text");
+            Lang.BindKey(this.grpIo, "recipeUi.frontPickerRecipePage.grpIo.text");
+            Lang.BindKey(this.grpJog, "recipeUi.frontPickerRecipePage.grpJog.text");
+            Lang.BindKey(this.grpSpeed, "recipeUi.frontPickerRecipePage.grpSpeed.text");
+            Lang.BindKey(this.lblLoadingPositionKey, "recipeUi.inputStageRecipePage.lblLoadingPositionKey.text");
+            Lang.BindKey(this.lblLoadingPositionValue, "recipeUi.inputStageRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblCenterPositionKey, "recipeUi.inputStageRecipePage.lblCenterPositionKey.text");
+            Lang.BindKey(this.lblCenterPositionValue, "recipeUi.inputStageRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblNeedlePositionKey, "recipeUi.inputStageRecipePage.lblNeedlePositionKey.text");
+            Lang.BindKey(this.lblNeedlePositionValue, "recipeUi.inputStageRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblTestBedPositionKey, "recipeUi.inputStageRecipePage.lblTestBedPositionKey.text");
+            Lang.BindKey(this.lblTestBedPositionValue, "recipeUi.inputStageRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblBarcodePositionKey, "recipeUi.inputStageRecipePage.lblBarcodePositionKey.text");
+            Lang.BindKey(this.lblBarcodePositionValue, "recipeUi.inputStageRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblVisionAlignKey, "recipeUi.inputStageRecipePage.lblVisionAlignKey.text");
+            Lang.BindKey(this.lblVisionAlignValue, "recipeUi.inputStageRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblWorkRadiusKey, "recipeUi.inputStageRecipePage.lblWorkRadiusKey.text");
+            Lang.BindKey(this.lblWorkRadiusValue, "recipeUi.inputStageRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblFirstDiePositionKey, "recipeUi.inputStageRecipePage.lblFirstDiePositionKey.text");
+            Lang.BindKey(this.lblFirstDiePositionValue, "recipeUi.inputStageRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblNeedleMeasurePositionKey, "recipeUi.inputStageRecipePage.lblNeedleMeasurePositionKey.text");
+            Lang.BindKey(this.lblNeedleMeasurePositionValue, "recipeUi.inputStageRecipePage.lblLoadingPositionValue.text");
+            Lang.BindKey(this.lblNeedleUpWaitKey, "recipeUi.inputStageRecipePage.lblNeedleUpWaitKey.text");
+            Lang.BindKey(this.lblNeedleUpWaitValue, "recipeUi.inputStageRecipePage.lblNeedleUpWaitValue.text");
+            Lang.BindKey(this.lblVacuumOnWaitKey, "recipeUi.inputStageRecipePage.lblVacuumOnWaitKey.text");
+            Lang.BindKey(this.lblVacuumOnWaitValue, "recipeUi.inputStageRecipePage.lblNeedleUpWaitValue.text");
+            Lang.BindKey(this.lblNeedleDownWaitKey, "recipeUi.inputStageRecipePage.lblNeedleDownWaitKey.text");
+            Lang.BindKey(this.lblNeedleDownWaitValue, "recipeUi.inputStageRecipePage.lblNeedleUpWaitValue.text");
+            Lang.BindKey(this.lblVacuumOffWaitKey, "recipeUi.inputStageRecipePage.lblVacuumOffWaitKey.text");
+            Lang.BindKey(this.lblVacuumOffWaitValue, "recipeUi.inputStageRecipePage.lblNeedleUpWaitValue.text");
+            Lang.BindKey(this.lblMovingWaitKey, "recipeUi.inputStageRecipePage.lblMovingWaitKey.text");
+            Lang.BindKey(this.lblMovingWaitValue, "recipeUi.inputStageRecipePage.lblNeedleUpWaitValue.text");
+            Lang.BindKey(this.lblNeedleVacuumKey, "recipeUi.inputStageRecipePage.lblNeedleVacuumKey.text");
+            Lang.BindKey(this.lblNeedleVacuumValue, "recipeUi.inputStageRecipePage.lblNeedleVacuumValue.text");
+            Lang.BindKey(this.lblRingSensorKey, "recipeUi.inputStageRecipePage.lblRingSensorKey.text");
+            Lang.BindKey(this.lblRingSensorValue, "recipeUi.inputStageRecipePage.lblRingSensorValue.text");
+            Lang.BindKey(this.lblExpandCylinderKey, "recipeUi.inputStageRecipePage.lblExpandCylinderKey.text");
+            Lang.BindKey(this.lblExpandCylinderValue, "recipeUi.inputStageRecipePage.lblExpandCylinderValue.text");
+            Lang.BindKey(this.lblNeedleBlockKey, "recipeUi.inputStageRecipePage.lblNeedleBlockKey.text");
+            Lang.BindKey(this.lblNeedleBlockValue, "recipeUi.inputStageRecipePage.lblExpandCylinderValue.text");
+            Lang.BindKey(this.lblAxisXKey, "recipeUi.inputStageRecipePage.lblAxisXKey.text");
+            Lang.BindKey(this.lblAxisXValue, "recipeUi.inputCassetteRecipePage.lblRecipeAvoidVal.text");
+            Lang.BindKey(this.lblAxisYKey, "recipeUi.inputStageRecipePage.lblAxisYKey.text");
+            Lang.BindKey(this.lblAxisYValue, "recipeUi.inputCassetteRecipePage.lblRecipeAvoidVal.text");
+            Lang.BindKey(this.lblAxisTKey, "recipeUi.inputStageRecipePage.lblAxisTKey.text");
+            Lang.BindKey(this.lblAxisTValue, "recipeUi.inputStageRecipePage.lblAxisTValue.text");
+            Lang.BindKey(this.lblExpandZKey, "recipeUi.inputStageRecipePage.lblExpandZKey.text");
+            Lang.BindKey(this.lblExpandZValue, "recipeUi.inputCassetteRecipePage.lblRecipeAvoidVal.text");
+            Lang.BindKey(this.lblNeedleZKey, "recipeUi.inputStageRecipePage.lblNeedleZKey.text");
+            Lang.BindKey(this.lblNeedleZValue, "recipeUi.inputCassetteRecipePage.lblRecipeAvoidVal.text");
+            Lang.BindKey(this.lblNeedleBlockZKey, "recipeUi.inputStageRecipePage.lblNeedleBlockZKey.text");
+            Lang.BindKey(this.lblNeedleBlockZValue, "recipeUi.inputCassetteRecipePage.lblRecipeAvoidVal.text");
+            Lang.BindKey(this.lblExpandAxis, "recipeUi.inputStageRecipePage.lblExpandAxis.text");
+            Lang.BindKey(this.lblNeedleAxis, "recipeUi.inputStageRecipePage.lblNeedleAxis.text");
+            Lang.BindKey(this.lblBlockAxis, "recipeUi.inputStageRecipePage.lblBlockAxis.text");
         }
     }
 }

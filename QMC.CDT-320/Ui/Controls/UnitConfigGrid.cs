@@ -32,12 +32,17 @@ namespace QMC.CDT_320.Ui.Controls
         public string Title
         {
             get => lblTitle.Text;
-            set => lblTitle.Text = value ?? string.Empty;
+            set => Lang.Bind(lblTitle, value ?? string.Empty);
         }
 
         public UnitConfigGrid()
         {
             InitializeComponent();
+            Lang.BindKey(lblTitle, "controls.config.title");
+            Lang.BindKey(grid.Columns[0], "controls.config.property");
+            Lang.BindKey(grid.Columns[1], "controls.config.value");
+            Lang.BindKey(btnApply, "controls.config.applySave");
+            Lang.BindKey(btnReload, "controls.config.reload");
             ApplyTheme();
         }
 
@@ -161,12 +166,12 @@ namespace QMC.CDT_320.Ui.Controls
 
                 SaveJson();
                 ConfigApplied?.Invoke(this, EventArgs.Empty);
-                QMC.Common.MessageDialog.Show("Config 저장 완료", "Unit Config",
+                QMC.Common.MessageDialog.Show(Lang.T("controls.config.saved"), Lang.T("controls.config.title"),
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show("저장 실패: " + ex.Message, "Unit Config",
+                QMC.Common.MessageDialog.Show(Lang.Format("controls.config.saveFailed", ex.Message), Lang.T("controls.config.title"),
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -183,7 +188,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show("로드 실패: " + ex.Message, "Unit Config",
+                QMC.Common.MessageDialog.Show(Lang.Format("controls.config.loadFailed", ex.Message), Lang.T("controls.config.title"),
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

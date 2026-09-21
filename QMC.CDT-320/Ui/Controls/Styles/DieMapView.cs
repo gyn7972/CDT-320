@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -13,7 +14,7 @@ namespace QMC.CDT320.Ui.Controls
     /// 다이 맵 시각화 컨트롤 — 격자 셀 색상 표시 + hover 정보 + 클릭 이벤트.
     /// 310 의 wafer map view 와 동등한 기능 (코드는 독자 작성).
     /// </summary>
-    public class DieMapView : Control
+    public class DieMapView : Control, ILocalizedView
     {
         private DieMap _map;
         private DieMapEntry _hover;
@@ -29,6 +30,11 @@ namespace QMC.CDT320.Ui.Controls
         private bool _rectangleSelecting;
         private Point _selectionStart;
         private Point _selectionEnd;
+
+        public virtual void ApplyLanguage()
+        {
+            Invalidate();
+        }
 
         public event Action<DieMapEntry> CellClicked;
         public event Action<DieMapEntry> CellDoubleClicked;
@@ -150,13 +156,13 @@ namespace QMC.CDT320.Ui.Controls
             Color textColor = ResolveOverlayTextColor();
             using (var br = new SolidBrush(textColor))
             using (var f  = new Font(OverlayFontFamily, 10F, FontStyle.Bold))
-                g.DrawString(Caption, f, br, 8, 6);
+                g.DrawString(Caption == "Die Map" ? Lang.T("diagram.map.title") : Caption, f, br, 8, 6);
 
             if (_map == null || _map.DieMapX <= 0 || _map.DieMapY <= 0)
             {
                 using (var br = new SolidBrush(Color.Gray))
                 using (var f  = new Font("맑은 고딕", 14F))
-                    g.DrawString("(no map)", f, br,
+                    g.DrawString(Lang.T("diagram.map.empty"), f, br,
                         (Width - 100) / 2.0f, (Height - 30) / 2.0f);
                 return;
             }
@@ -265,25 +271,27 @@ namespace QMC.CDT320.Ui.Controls
                 {
                     string dieSizeInfo = FormatDieSizeInfo();
                     string waferInfo = _map.OuterDiameterMm > 0.0
-                        ? $"wafer={_map.OuterDiameterMm:F3}mm"
-                        : "wafer=(not set)";
+                        ? Lang.Format("diagram.map.wafer", _map.OuterDiameterMm.ToString("F3"))
+                        : Lang.T("diagram.map.waferUnset");
                     string info = bounds.Compacted
-                        ? $"{bounds.Width}×{bounds.Height} display={bounds.VisibleCount}  source={_map.DieMapX}×{_map.DieMapY}  step=({_map.PitchX:F3},{_map.PitchY:F3})mm  {dieSizeInfo}  {waferInfo}  zoom={_zoom * 100.0F:F0}%"
-                        : $"{_map.DieMapX}×{_map.DieMapY}  step=({_map.PitchX:F3},{_map.PitchY:F3})mm  {dieSizeInfo}  {waferInfo}  total={_map.TotalCells}  zoom={_zoom * 100.0F:F0}%";
+                        ? Lang.Format("diagram.map.compactInfo", bounds.Width, bounds.Height, bounds.VisibleCount, _map.DieMapX, _map.DieMapY,
+                            _map.PitchX.ToString("F3"), _map.PitchY.ToString("F3"), dieSizeInfo, waferInfo, (_zoom * 100.0F).ToString("F0"))
+                        : Lang.Format("diagram.map.info", _map.DieMapX, _map.DieMapY, _map.PitchX.ToString("F3"), _map.PitchY.ToString("F3"),
+                            dieSizeInfo, waferInfo, _map.TotalCells, (_zoom * 100.0F).ToString("F0"));
                     if (_map.Generation != null)
-                        info += "  rotation=" + _map.Generation.RotationDegrees + "° CW";
+                        info += Lang.Format("diagram.map.rotation", _map.Generation.RotationDegrees);
                     if (_map.ProcessTransform != null)
-                        info += "  맵 원점=" + (_map.ProcessTransform.Settings != null
-                            ? _map.ProcessTransform.Settings.GridOrigin : WaferMapGridOrigin.TopLeft);
+                        info += Lang.Format("diagram.map.origin", OriginDisplay(_map.ProcessTransform.Settings != null
+                            ? _map.ProcessTransform.Settings.GridOrigin : WaferMapGridOrigin.TopLeft));
                     g.DrawString(info, f, br, 8, 24);
                 }
                 if (_hover != null && IsEntryVisible(_hover))
                 {
-                    string status = CellStatusResolver != null ? CellStatusResolver(_hover) : _hover.Result.ToString();
+                    string status = CellStatusResolver != null ? CellStatusResolver(_hover) : ResultDisplay(_hover.Result);
                     string h = WaferMapProcessService.FormatMapPosition(_hover) +
-                        $"  순서={_hover.SequenceNo}  상태={status}  BIN={_hover.BinCode}";
+                        Lang.Format("diagram.map.hover", _hover.SequenceNo, status, _hover.BinCode);
                     if (!_hover.LogicalGridX.HasValue || !_hover.LogicalGridY.HasValue)
-                        h += "  (적용 맵 좌표 없음)";
+                        h += Lang.T("diagram.map.noAppliedPosition");
                     g.DrawString(h, f, br, 8, Height - 18);
                 }
             }
@@ -446,11 +454,11 @@ namespace QMC.CDT320.Ui.Controls
                 ? LegendItemsResolver()
                 : new[]
                 {
-                    Tuple.Create("Good", BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)),
-                    Tuple.Create("Pre-NG", BinCodeMap.ConvertToBinCodeColor(110)),
-                    Tuple.Create("Critical", BinCodeMap.ConvertToBinCodeColor(200)),
-                    Tuple.Create("Unknown", WaferMapPalette.Unknown),
-                    Tuple.Create("Skip", WaferMapPalette.Skip),
+                    Tuple.Create(Lang.T("diagram.map.legend.good"), BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)),
+                    Tuple.Create(Lang.T("diagram.map.legend.preng"), BinCodeMap.ConvertToBinCodeColor(110)),
+                    Tuple.Create(Lang.T("diagram.map.legend.critical"), BinCodeMap.ConvertToBinCodeColor(200)),
+                    Tuple.Create(Lang.T("diagram.map.legend.unknown"), WaferMapPalette.Unknown),
+                    Tuple.Create(Lang.T("diagram.map.legend.skip"), WaferMapPalette.Skip),
                 };
         }
 
@@ -868,11 +876,35 @@ namespace QMC.CDT320.Ui.Controls
             return result;
         }
 
+        private static string OriginDisplay(WaferMapGridOrigin origin)
+        {
+            switch (origin)
+            {
+                case WaferMapGridOrigin.TopLeft: return Lang.T("diagram.map.origin.topleft");
+                case WaferMapGridOrigin.BottomLeft: return Lang.T("diagram.map.origin.bottomleft");
+                case WaferMapGridOrigin.TopRight: return Lang.T("diagram.map.origin.topright");
+                case WaferMapGridOrigin.BottomRight: return Lang.T("diagram.map.origin.bottomright");
+                case WaferMapGridOrigin.Center: return Lang.T("diagram.map.origin.center");
+                default: return origin.ToString();
+            }
+        }
+
+        private static string ResultDisplay(QMC.CDT320.Materials.DieResult result)
+        {
+            switch (result)
+            {
+                case QMC.CDT320.Materials.DieResult.Unknown: return Lang.T("diagram.map.result.unknown");
+                case QMC.CDT320.Materials.DieResult.Good: return Lang.T("diagram.map.result.good");
+                case QMC.CDT320.Materials.DieResult.NG: return Lang.T("diagram.map.result.ng");
+                default: return result.ToString();
+            }
+        }
+
         private string FormatDieSizeInfo()
         {
             double dieSizeX = _map != null && _map.DieSizeX > 0.0 ? _map.DieSizeX : ResolvePhysicalCellX();
             double dieSizeY = _map != null && _map.DieSizeY > 0.0 ? _map.DieSizeY : ResolvePhysicalCellY();
-            return $"die=({dieSizeX:F2},{dieSizeY:F2})mm";
+            return Lang.Format("diagram.map.dieSize", dieSizeX.ToString("F2"), dieSizeY.ToString("F2"));
         }
 
         private VisibleBounds CalculateVisibleBounds()

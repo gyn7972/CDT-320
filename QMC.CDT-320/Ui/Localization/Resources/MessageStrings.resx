@@ -1,0 +1,494 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 메시지 본문과 제목. 고정 키와 {0} 인수 번호를 유지하고 표시 문구만 번역합니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="message.manual.blocked" xml:space="preserve">
+    <value>Manual operation cannot be started now.&#13;&#10;&#13;&#10;{0}</value>
+  </data>
+  <data name="message.title.inputStage" xml:space="preserve">
+    <value>Input Stage</value>
+  </data>
+  <data name="message.manual.confirm" xml:space="preserve">
+    <value>Proceed with {0}?</value>
+  </data>
+  <data name="message.inputStage.clearSaveFailed" xml:space="preserve">
+    <value>Input Stage material data was cleared in memory, but the saved file could not be updated.&#13;&#10;Do not restart the program. Check the log.</value>
+  </data>
+  <data name="message.title.materialData" xml:space="preserve">
+    <value>Material Data</value>
+  </data>
+  <data name="message.title.outputStage" xml:space="preserve">
+    <value>Output Stage</value>
+  </data>
+  <data name="message.outputStage.createGoodConfirm" xml:space="preserve">
+    <value>Create material data at the Output Stage Good position?</value>
+  </data>
+  <data name="message.outputStage.createFailed" xml:space="preserve">
+    <value>Failed to create Output Stage material data:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.outputStage.clearConfirm" xml:space="preserve">
+    <value>Clear Output Stage material data?</value>
+  </data>
+  <data name="message.outputStage.clearFailed" xml:space="preserve">
+    <value>Failed to clear Output Stage material data:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.outputStage.controllerMissing" xml:space="preserve">
+    <value>The machine controller is not ready. Output Stage test data cannot be created.</value>
+  </data>
+  <data name="message.material.testDataBusy" xml:space="preserve">
+    <value>Test data that changes the production lot cannot be created while a sequence or manual operation is running.</value>
+  </data>
+  <data name="message.outputStage.createSideConfirm" xml:space="preserve">
+    <value>Create new wafer data at the Output Stage {0} position?</value>
+  </data>
+  <data name="message.outputStage.createWaferFailed" xml:space="preserve">
+    <value>Failed to create Output Stage wafer data.&#13;&#10;{0}</value>
+  </data>
+  <data name="message.outputStage.clearSideConfirm" xml:space="preserve">
+    <value>Clear Output Stage {0} material data?</value>
+  </data>
+  <data name="message.outputStage.clearSideSaveFailed" xml:space="preserve">
+    <value>Output Stage {0} material data was cleared in memory, but the saved file could not be updated.&#13;&#10;Do not restart the program. Check the log.</value>
+  </data>
+  <data name="message.title.inputCassette" xml:space="preserve">
+    <value>Input Cassette</value>
+  </data>
+  <data name="message.inputCassette.lotPortError" xml:space="preserve">
+    <value>Lot port error:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.title.error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="message.inputCassette.stateControllerMissing" xml:space="preserve">
+    <value>The machine controller is unavailable. Input Cassette state cannot be changed.</value>
+  </data>
+  <data name="message.title.waferState" xml:space="preserve">
+    <value>Change Wafer State</value>
+  </data>
+  <data name="message.inputCassette.stateBusy" xml:space="preserve">
+    <value>Input Cassette state cannot be changed.&#13;&#10;Wait until Auto, Manual, Initialization and Ready sequences have completely stopped, then retry.&#13;&#10;status={0}, sequenceRunning={1}, manualBusy={2}, readyRunning={3}</value>
+  </data>
+  <data name="message.inputCassette.exchangeConfirm" xml:space="preserve">
+    <value>Move the INPUT lifter to the cassette exchange (loading) position.&#13;&#10;1. Move the lifter to the loading position&#13;&#10;2. Replace the cassette&#13;&#10;3. Clear the data with [CST CLEAR]&#13;&#10;&#13;&#10;Proceed?</value>
+  </data>
+  <data name="message.title.cassetteExchange" xml:space="preserve">
+    <value>Cassette Exchange</value>
+  </data>
+  <data name="message.inputCassette.exchangeReady" xml:space="preserve">
+    <value>The INPUT cassette has moved to the exchange (loading) position.&#13;&#10;&#13;&#10;1. Replace the cassette.&#13;&#10;2. Clear the data with [CST CLEAR] after replacement.&#13;&#10;3. Close the door and press START to begin again with mapping.</value>
+  </data>
+  <data name="message.inputCassette.dataControllerMissing" xml:space="preserve">
+    <value>The machine controller is unavailable. Input Cassette data cannot be changed.</value>
+  </data>
+  <data name="message.title.cassetteData" xml:space="preserve">
+    <value>Cassette Data</value>
+  </data>
+  <data name="message.cassette.dataBusy" xml:space="preserve">
+    <value>Cannot perform {0}.&#13;&#10;Wait until Auto, Manual, Initialization and Ready sequences have completely stopped, then retry.&#13;&#10;status={1}, sequenceRunning={2}, manualBusy={3}, readyRunning={4}</value>
+  </data>
+  <data name="message.inputCassette.feederOccupied" xml:space="preserve">
+    <value>A wafer is in progress on the Input Feeder: {0}&#13;&#10;Return the wafer to its original cassette (LIFT WAFER UNLOADING) or remove it before retrying.&#13;&#10;wafer={1}</value>
+  </data>
+  <data name="message.inputCassette.stageOccupied" xml:space="preserve">
+    <value>A wafer is in progress on the Input Stage: {0}&#13;&#10;Return the wafer to its original cassette or remove it before retrying.&#13;&#10;wafer={1}</value>
+  </data>
+  <data name="message.inputCassette.clearConfirm" xml:space="preserve">
+    <value>Clear INPUT cassette data?&#13;&#10;&#13;&#10;Target: all INPUT cassette levels 1 and 2&#13;&#10;Data is cleared after checking Finish completion and the material state inside the equipment.&#13;&#10;OUTPUT cassette data is retained.</value>
+  </data>
+  <data name="message.title.inputCassetteClear" xml:space="preserve">
+    <value>Confirm INPUT CST CLEAR</value>
+  </data>
+  <data name="message.inputCassette.clearComplete" xml:space="preserve">
+    <value>INPUT cassette material data has been cleared.&#13;&#10;&#13;&#10;Close the door and press START to begin again with mapping.</value>
+  </data>
+  <data name="message.cassette.exchangeFailed" xml:space="preserve">
+    <value>Failed to complete cassette exchange:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.inputCassette.clearIncomplete" xml:space="preserve">
+    <value>INPUT cassette initialization could not be completed.&#13;&#10;&#13;&#10;{0}</value>
+  </data>
+  <data name="message.material.mappedSlotRequired" xml:space="preserve">
+    <value>Material can only be edited in a cassette slot with completed mapping.</value>
+  </data>
+  <data name="message.title.material" xml:space="preserve">
+    <value>Material</value>
+  </data>
+  <data name="message.material.slotEmptyForState" xml:space="preserve">
+    <value>There is no material data in this slot.&#13;&#10;Use DATA CREATE to create it before changing the state.</value>
+  </data>
+  <data name="message.material.waferStateSaveFailed" xml:space="preserve">
+    <value>The wafer state was updated in memory, but equipment state synchronization or file saving failed.&#13;&#10;Do not start Auto. Check the Alarm/Event Log and save path.</value>
+  </data>
+  <data name="message.title.waferStateSaveFailed" xml:space="preserve">
+    <value>Wafer State Save Failed</value>
+  </data>
+  <data name="message.material.valueChangeFailed" xml:space="preserve">
+    <value>The material value could not be changed.</value>
+  </data>
+  <data name="message.material.mappedSlotCreateRequired" xml:space="preserve">
+    <value>Data can only be created in a cassette slot with completed mapping.</value>
+  </data>
+  <data name="message.title.processTestData" xml:space="preserve">
+    <value>Process Test Data</value>
+  </data>
+  <data name="message.material.processTestCreateFailed" xml:space="preserve">
+    <value>Failed to create process test data:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.inputCassette.slotClearBlocked" xml:space="preserve">
+    <value>Clearing the selected Input Cassette slot data was blocked.&#13;&#10;The saved file was not changed.&#13;&#10;&#13;&#10;Reason: {0}</value>
+  </data>
+  <data name="message.cassette.slotClearSaveFailed" xml:space="preserve">
+    <value>The selected slot data was cleared, but the saved file could not be updated.&#13;&#10;&#13;&#10;Reason: {0}</value>
+  </data>
+  <data name="message.inputCassette.allClearBlocked" xml:space="preserve">
+    <value>Clearing all Input Cassette data was blocked.&#13;&#10;The saved file was not changed.&#13;&#10;&#13;&#10;Reason: {0}</value>
+  </data>
+  <data name="message.inputCassette.allClearSaveFailed" xml:space="preserve">
+    <value>All Input Cassette data was cleared, but the saved file could not be updated.&#13;&#10;&#13;&#10;Reason: {0}</value>
+  </data>
+  <data name="message.cassette.slotLocationMismatch" xml:space="preserve">
+    <value>The selected cassette slot has no material data matching its physical location.&#13;&#10;Check whether the displayed material has moved to the Feeder or Stage.&#13;&#10;&#13;&#10;Reason: {0}</value>
+  </data>
+  <data name="message.dataOnly.selectEndpoints" xml:space="preserve">
+    <value>Select Source and Destination first.</value>
+  </data>
+  <data name="message.title.dataOnly" xml:space="preserve">
+    <value>DATA ONLY</value>
+  </data>
+  <data name="message.dataOnly.saveFailed" xml:space="preserve">
+    <value>The material location changed, but saving failed.&#13;&#10;Do not restart the program or start Auto. Check the log and save path.</value>
+  </data>
+  <data name="message.title.dataOnlySaveFailed" xml:space="preserve">
+    <value>DATA ONLY Save Failed</value>
+  </data>
+  <data name="message.dataOnly.moveComplete" xml:space="preserve">
+    <value>Material data was moved (NO MOTION).&#13;&#10;Material ID: {0}&#13;&#10;State: {1}&#13;&#10;{2} → {3}{4}</value>
+  </data>
+  <data name="message.dataOnly.moveFailed" xml:space="preserve">
+    <value>Failed to move material data.&#13;&#10;{0}</value>
+  </data>
+  <data name="message.dataOnly.selectDeleteSource" xml:space="preserve">
+    <value>Select the location to delete in Source first.</value>
+  </data>
+  <data name="message.dataOnly.deleteComplete" xml:space="preserve">
+    <value>Material data was deleted (NO MOTION).&#13;&#10;Material ID: {0}</value>
+  </data>
+  <data name="message.dataOnly.deleteFailed" xml:space="preserve">
+    <value>Failed to delete material data.&#13;&#10;{0}</value>
+  </data>
+  <data name="message.title.outputCassette" xml:space="preserve">
+    <value>Output Cassette</value>
+  </data>
+  <data name="message.outputCassette.error" xml:space="preserve">
+    <value>Output Cassette error:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.outputCassette.dataControllerMissing" xml:space="preserve">
+    <value>The machine controller is unavailable. Output Cassette data cannot be changed.</value>
+  </data>
+  <data name="message.outputCassette.stageOccupied" xml:space="preserve">
+    <value>A bin is in progress on the {0} Output Stage. Cassette exchange cannot be prepared.&#13;&#10;Unload the bin to its existing cassette before retrying.&#13;&#10;wafer={1}</value>
+  </data>
+  <data name="message.outputCassette.feederOccupied" xml:space="preserve">
+    <value>A bin is in progress on the Output Feeder. Cassette data cannot be cleared.&#13;&#10;Return the bin to its original cassette and recover the feeder to a safe position before retrying.&#13;&#10;wafer={0}</value>
+  </data>
+  <data name="message.outputCassette.cycleStopClearBlocked" xml:space="preserve">
+    <value>Cycle Stop resume information remains. Slot/Data All Clear cannot be performed.&#13;&#10;Switch to normal STOP before retrying.</value>
+  </data>
+  <data name="message.cassette.autoExchangeBlocked" xml:space="preserve">
+    <value>The cassette cannot be replaced during automatic operation.&#13;&#10;Stop the equipment before retrying.</value>
+  </data>
+  <data name="message.outputCassette.exchangeReady" xml:space="preserve">
+    <value>The {0} cassette has moved to the exchange (loading) position.&#13;&#10;&#13;&#10;1. Replace the cassette.&#13;&#10;2. Clear the data with [{1} CST CLEAR] after replacement.&#13;&#10;3. Close the door and press START to begin again with mapping.</value>
+  </data>
+  <data name="message.outputCassette.returnBinFirst" xml:space="preserve">
+    <value>The feeder is holding a {0} bin.&#13;&#10;Return that bin before replacing the {1} cassette.</value>
+  </data>
+  <data name="message.outputCassette.clearSideFailed" xml:space="preserve">
+    <value>Failed to clear {0} cassette material data.</value>
+  </data>
+  <data name="message.outputCassette.clearSideSaveFailed" xml:space="preserve">
+    <value>{0} cassette material data was cleared in memory, but the saved file could not be updated.&#13;&#10;Do not restart the program. Check the log.</value>
+  </data>
+  <data name="message.outputCassette.clearSideComplete" xml:space="preserve">
+    <value>{0} cassette material data has been cleared.&#13;&#10;&#13;&#10;Close the door and press START to begin again with mapping.</value>
+  </data>
+  <data name="message.material.binStateSaveFailed" xml:space="preserve">
+    <value>The bin state was updated in memory, but equipment state synchronization or file saving failed.&#13;&#10;Do not start Auto. Check the Alarm/Event Log and save path.</value>
+  </data>
+  <data name="message.title.binStateSaveFailed" xml:space="preserve">
+    <value>Bin State Save Failed</value>
+  </data>
+  <data name="message.material.invalidTargetCount" xml:space="preserve">
+    <value>The target count must be an integer greater than or equal to 0. (0 = entire map)</value>
+  </data>
+  <data name="message.material.slotEmptyForCount" xml:space="preserve">
+    <value>There is no material data in this slot.&#13;&#10;Use DATA CREATE to create it before entering the count.</value>
+  </data>
+  <data name="message.material.targetCountChangeFailed" xml:space="preserve">
+    <value>The target count could not be changed.&#13;&#10;{0}</value>
+  </data>
+  <data name="message.material.createFailed" xml:space="preserve">
+    <value>Failed to create material data:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.outputCassette.slotClearFailed" xml:space="preserve">
+    <value>Failed to clear material data in the selected Output Cassette slot.</value>
+  </data>
+  <data name="message.outputCassette.slotClearSaveFailed" xml:space="preserve">
+    <value>The selected Output Cassette slot data was cleared in memory, but the saved file could not be updated.&#13;&#10;Do not restart the program. Check the log.</value>
+  </data>
+  <data name="message.material.clearFailed" xml:space="preserve">
+    <value>Failed to clear material data:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.outputCassette.allClearFailed" xml:space="preserve">
+    <value>Failed to clear all Output Cassette material data.</value>
+  </data>
+  <data name="message.outputCassette.allClearSaveFailed" xml:space="preserve">
+    <value>All Output Cassette data was cleared in memory, but the saved file could not be updated.&#13;&#10;Do not restart the program. Check the log.</value>
+  </data>
+  <data name="message.material.clearAllFailed" xml:space="preserve">
+    <value>Failed to clear all material data:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.dataOnly.invalidDestination" xml:space="preserve">
+    <value>Cannot move to the selected Destination.&#13;&#10;{0}</value>
+  </data>
+  <data name="message.title.inputFeeder" xml:space="preserve">
+    <value>Input Feeder</value>
+  </data>
+  <data name="message.title.outputFeeder" xml:space="preserve">
+    <value>Output Feeder</value>
+  </data>
+  <data name="message.outputFeeder.createFailed" xml:space="preserve">
+    <value>Failed to create Output Feeder material data:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.outputFeeder.clearFailed" xml:space="preserve">
+    <value>Failed to clear Output Feeder material data:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.picker.inspectionClearBusy" xml:space="preserve">
+    <value>Inspection data cannot be deleted while the equipment is operating.&#13;&#10;Stop Auto and Manual operations before retrying.</value>
+  </data>
+  <data name="message.picker.noHeldDie" xml:space="preserve">
+    <value>No die is held by the picker.</value>
+  </data>
+  <data name="message.picker.inspectionClearConfirm" xml:space="preserve">
+    <value>Delete BOTTOM/SIDE inspection data for {1} die(s) on {0} heads?&#13;&#10;After deletion, use BOTTOM/SIDE to inspect again. PLACE remains blocked until reinspection is complete.&#13;&#10;&#13;&#10;{2}</value>
+  </data>
+  <data name="message.picker.inspectionClearTitle" xml:space="preserve">
+    <value>{0} Inspection Data Deletion</value>
+  </data>
+  <data name="message.picker.inspectionClearFailed" xml:space="preserve">
+    <value>Failed to delete inspection data:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.picker.countClearConfirm" xml:space="preserve">
+    <value>Clear the {0} count?</value>
+  </data>
+  <data name="message.picker.pickupTestConfirm" xml:space="preserve">
+    <value>Run {0}?&#13;&#10;Only detailed PickUp Z motions are tested. Material and DieMap states are not changed.</value>
+  </data>
+  <data name="message.picker.headDialogFailed" xml:space="preserve">
+    <value>Failed to open the picker head die information dialog:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.work.controllerMissing" xml:space="preserve">
+    <value>Machine Controller was not found.</value>
+  </data>
+  <data name="message.title.start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="message.work.focusSelectionFailed" xml:space="preserve">
+    <value>Failed to process the startup AutoFocus selection.&#13;&#10;{0}</value>
+  </data>
+  <data name="message.title.work" xml:space="preserve">
+    <value>Work</value>
+  </data>
+  <data name="message.work.actionFailed" xml:space="preserve">
+    <value>Work action failed:&#10;{0}</value>
+  </data>
+  <data name="message.work.readyDialogFailed" xml:space="preserve">
+    <value>Failed to open the Ready progress dialog.&#10;{0}</value>
+  </data>
+  <data name="message.title.ready" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="message.title.readyFailed" xml:space="preserve">
+    <value>Ready Failed</value>
+  </data>
+  <data name="message.work.initializationDialogFailed" xml:space="preserve">
+    <value>Failed to open the initialization monitor.&#10;{0}</value>
+  </data>
+  <data name="message.title.cycleRun" xml:space="preserve">
+    <value>Cycle Run</value>
+  </data>
+  <data name="message.recipe.inputStageMissing" xml:space="preserve">
+    <value>Input Stage Unit was not found.</value>
+  </data>
+  <data name="message.title.dieMapSetup" xml:space="preserve">
+    <value>Die Map Setup</value>
+  </data>
+  <data name="message.recipe.dieMapOpenFailed" xml:space="preserve">
+    <value>Failed to open Die Map Setup:&#13;&#10;{0}</value>
+  </data>
+  <data name="message.material.slotCreateConfirm" xml:space="preserve">
+    <value>Create material data in the selected cassette slot?</value>
+  </data>
+  <data name="message.material.processTestCreateConfirm" xml:space="preserve">
+    <value>Create new process test data?&#13;&#10;&#13;&#10;- Input Cassette / Output Cassette mapping data&#13;&#10;- Input Stage DieMap data available for picking&#13;&#10;- Output Good/NG Stage bin map data available for placing&#13;&#10;&#13;&#10;Existing stage work data and sequence resume states will be reset based on the test data.</value>
+  </data>
+  <data name="message.material.slotClearConfirm" xml:space="preserve">
+    <value>Clear material data in the selected cassette slot?</value>
+  </data>
+  <data name="message.inputCassette.allClearConfirm" xml:space="preserve">
+    <value>Clear all Input Cassette material data?</value>
+  </data>
+  <data name="message.inputFeeder.createConfirm" xml:space="preserve">
+    <value>Create material data on the Input Feeder?</value>
+  </data>
+  <data name="message.inputFeeder.clearConfirm" xml:space="preserve">
+    <value>Clear Input Feeder material data?</value>
+  </data>
+  <data name="message.inputStage.createConfirm" xml:space="preserve">
+    <value>Create material data on the Input Stage?</value>
+  </data>
+  <data name="message.inputStage.clearConfirm" xml:space="preserve">
+    <value>Clear Input Stage material data?</value>
+  </data>
+  <data name="message.outputCassette.slotCreateConfirm" xml:space="preserve">
+    <value>Create material data in the selected Output Cassette slot?</value>
+  </data>
+  <data name="message.outputCassette.slotClearConfirm" xml:space="preserve">
+    <value>Clear material data in the selected Output Cassette slot?</value>
+  </data>
+  <data name="message.outputCassette.allClearConfirm" xml:space="preserve">
+    <value>Clear all Output Cassette material data?</value>
+  </data>
+  <data name="message.outputFeeder.createConfirm" xml:space="preserve">
+    <value>Create material data on the Output Feeder?</value>
+  </data>
+  <data name="message.outputFeeder.clearConfirm" xml:space="preserve">
+    <value>Clear Output Feeder material data?</value>
+  </data>
+  <data name="message.manual.failed" xml:space="preserve">
+    <value>{0} failed.&#13;&#10;Check the Alarm/Event Log.</value>
+  </data>
+  <data name="message.manual.failedResult" xml:space="preserve">
+    <value>{0} failed. result={1}&#13;&#10;Check the Alarm/Event Log.</value>
+  </data>
+  <data name="message.inputCassette.conditionsFailed" xml:space="preserve">
+    <value>The Input Cassette operation was stopped because its conditions were not met.&#13;&#10;Check the Alarm/Event Log.</value>
+  </data>
+  <data name="message.inputCassette.exchangeCannotPrepare" xml:space="preserve">
+    <value>Cassette exchange cannot be prepared.</value>
+  </data>
+  <data name="message.reason.none" xml:space="preserve">
+    <value>(No reason provided)</value>
+  </data>
+  <data name="message.reason.checkSaveLog" xml:space="preserve">
+    <value>(No reason provided - check MATERIAL-SAVE-FAIL in the log)</value>
+  </data>
+  <data name="message.work.readyConfirm" xml:space="preserve">
+    <value>Move the axes to the Ready (Avoid) position?</value>
+  </data>
+  <data name="message.work.startConfirm" xml:space="preserve">
+    <value>Start the equipment and begin processing?</value>
+  </data>
+  <data name="message.work.axesNotHomed" xml:space="preserve">
+    <value>Cannot perform {0}: axis HOME END (homing) is not complete.&#10;{1}</value>
+  </data>
+  <data name="message.work.failedCheckLog" xml:space="preserve">
+    <value>The operation failed.&#10;Check the Alarm/Event Log.</value>
+  </data>
+  <data name="message.work.readyFailed" xml:space="preserve">
+    <value>Ready failed.</value>
+  </data>
+  <data name="message.work.startFocusTitle" xml:space="preserve">
+    <value>Bottom Die AutoFocus at Startup</value>
+  </data>
+  <data name="message.picker.inspectionHead" xml:space="preserve">
+    <value>HEAD #{0}: {1} (Result={2})</value>
+  </data>
+  <data name="message.picker.inspectAgain" xml:space="preserve">
+    <value>&#13;&#10;Use BOTTOM then SIDE to inspect again.</value>
+  </data>
+  <data name="message.manual.unavailable" xml:space="preserve">
+    <value>Cannot run {0}: {1}</value>
+  </data>
+  <data name="message.manual.startMode" xml:space="preserve">
+    <value>Choose how to start {0}.&#13;&#10;&#13;&#10;[Yes] Start from the beginning&#13;&#10;[No] Continue from the current step</value>
+  </data>
+  <data name="message.outputCassette.clearOneSideConfirm" xml:space="preserve">
+    <value>Clear material data only for the {0} cassette.&#13;&#10;({1} cassette data is retained.)&#13;&#10;&#13;&#10;Proceed?</value>
+  </data>
+  <data name="message.cassette.moveWaferConfirm" xml:space="preserve">
+    <value>[{0} / SLOT {1}]&#13;&#10;Wafer: {2}&#13;&#10;Target: {3} mm ({4})&#13;&#10;&#13;&#10;The cassette Z axis will physically move.&#13;&#10;Move to this position?</value>
+  </data>
+  <data name="message.cassette.moveBinConfirm" xml:space="preserve">
+    <value>[{0} / SLOT {1}]&#13;&#10;Bin: {2}&#13;&#10;Target: {3} mm ({4})&#13;&#10;&#13;&#10;The cassette Z axis will physically move.&#13;&#10;Move to this position?</value>
+  </data>
+  <data name="message.dataOnly.swapNotice" xml:space="preserve">
+    <value>[{0}] at Destination will be swapped to {1}.&#13;&#10;</value>
+  </data>
+  <data name="message.dataOnly.moveConfirm" xml:space="preserve">
+    <value>[DATA ONLY Move]&#13;&#10;Source: {0}&#13;&#10;Destination: {1}&#13;&#10;Material ID: {2}&#13;&#10;{3}&#13;&#10;The physical equipment will not move (NO MOTION).&#13;&#10;Move only the material data?</value>
+  </data>
+  <data name="message.dataOnly.deleteConfirm" xml:space="preserve">
+    <value>[DATA ONLY Delete]&#13;&#10;Delete the data for material [{1}] at {0}?&#13;&#10;&#13;&#10;The physical equipment will not move and the physical material will not be removed.</value>
+  </data>
+  <data name="message.dataOnly.swapComplete" xml:space="preserve">
+    <value>&#13;&#10;Swapped: {0} → {1} / State: {2}</value>
+  </data>
+</root>

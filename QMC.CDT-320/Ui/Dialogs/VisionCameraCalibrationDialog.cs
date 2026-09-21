@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -65,6 +66,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             try
             {
                 InitializeComponent();
+                InitializeLanguageBindings();
+                Lang.BindReadOnlyCells(gridMeasurements, FormatLocalizedRow, cell => cell.ColumnIndex == colItem.Index);
+                Lang.BindReadOnlyCells(gridAppliedValues, FormatLocalizedRow, cell => cell.ColumnIndex == colValueName.Index);
                 ApplyText();
                 CalibrationDialogGridBehavior.Apply(gridMeasurements, gridAppliedValues);
                 gridAppliedValues.CellDoubleClick += gridAppliedValues_CellDoubleClick;
@@ -93,7 +97,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "초기 상태 확인 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.text", (object)(ex.Message));
             }
             finally
             {
@@ -103,7 +107,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             if (_manualDraft != null && !_busy && QMC.Common.MessageDialog.Show(this,
-                "저장하지 않은 수정값을 취소하고 닫으시겠습니까?", "VISION CAMERA CAL",
+                Lang.T("visionUi.visionCameraCalibrationDialog.message.text"), Lang.T("visionUi.visionCameraCalibrationDialog.message.state2"),
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             {
                 e.Cancel = true;
@@ -156,23 +160,23 @@ namespace QMC.CDT_320.Ui.Dialogs
                     null,
                     new[] { btnHelp });
 
-                lblGuide.Text = "Bottom/Input/Output 카메라가 같은 Reticle Mark를 찾은 좌표와 현재 모터 위치를 VisionUnit Config에 저장합니다.";
-                lblValueTitle.Text = "FIDUCIAL OFFSET";
-                btnSaveReticleValues.Text = "SAVE / APPLY";
-                lblStatus.Text = "대기 중입니다.";
+                Lang.BindKey(lblGuide, "visionUi.visionCameraCalibrationDialog.lblGuide.text");
+                Lang.BindKey(lblValueTitle, "visionUi.visionCameraCalibrationDialog.lblValueTitle.text");
+                Lang.BindKey(btnSaveReticleValues, "visionUi.visionCameraCalibrationDialog.btnSaveReticleValues.text");
+                Lang.BindKey(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state2");
 
-                toolTip.SetToolTip(btnLoadValues, "저장 파일에서 Machine Settings와 현재 Recipe 값을 다시 읽어 표시합니다.");
-                toolTip.SetToolTip(btnSaveReticleValues, "수정값을 저장하고 픽커 보정에 적용합니다.\r\n이번에 측정하거나 직접 수정한 Encoder 위치만 현재 Recipe에도 저장합니다.");
-                toolTip.SetToolTip(gridAppliedValues, "Admin 권한에서 더블클릭하여 편집합니다. SAVE / APPLY 전까지 운전값은 변경되지 않습니다.");
-                toolTip.SetToolTip(btnCheck, "자동 운전, 다른 수동 동작, 알람 상태를 확인합니다.\r\n측정 버튼을 누르기 전에 현재 장비 상태가 안전한지 확인합니다.");
-                toolTip.SetToolTip(btnRunAll, "사전 준비 후 Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 Rear Back -> Lift Down으로 복귀한 뒤 Front/Rear Picker를 Output-side Avoid로 안전 순차 이동합니다. Front Slide는 Rear Back 기준으로 확인합니다.");
-                toolTip.SetToolTip(btnFindBottom, "Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\n성공하면 X/Y/T/Score를 VisionUnit Config의 Bottom 측정값으로 저장합니다.");
-                toolTip.SetToolTip(btnFindInput, "Input Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 안전 위치로 복귀하고 Front/Rear Picker를 Output-side Avoid로 안전 순차 이동한 뒤 InputVisionX를 Reticle 위치로 이동합니다.");
-                toolTip.SetToolTip(btnFindOutput, "Output Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 안전 위치로 복귀하고 Front/Rear Picker를 Input-side Avoid로 안전 순차 이동한 뒤 OutputVisionX를 Reticle 위치로 이동합니다.");
-                toolTip.SetToolTip(btnRetractReticle, "Reticle을 촬영 준비 위치에서 복귀합니다.\r\nRear Slide 후진, Lift Down 순서로 실행하고 최종 위치를 확인합니다. Front Slide는 Rear Back 기준으로 확인합니다.");
-                toolTip.SetToolTip(btnCalculateSave, "Bottom/Input/Output 측정값으로 카메라 간 Offset을 계산하고 수동 보정량을 유지합니다.\r\nSAVE / APPLY와 동일하게 파일과 픽커 보정을 함께 저장·적용합니다.");
-                toolTip.SetToolTip(btnHelp, "Vision Camera Calibration 수행 순서를 표시합니다.");
-                toolTip.SetToolTip(btnClose, "Vision Camera Calibration 창을 닫습니다.");
+                Lang.BindKey(toolTip, btnLoadValues, "visionUi.visionCameraCalibrationDialog.tooltip.text");
+                Lang.BindKey(toolTip, btnSaveReticleValues, "visionUi.visionCameraCalibrationDialog.tooltip.state2");
+                Lang.BindKey(toolTip, gridAppliedValues, "visionUi.visionCameraCalibrationDialog.tooltip.state3");
+                Lang.BindKey(toolTip, btnCheck, "visionUi.visionCameraCalibrationDialog.tooltip.state4");
+                Lang.BindKey(toolTip, btnRunAll, "visionUi.visionCameraCalibrationDialog.tooltip.state5");
+                Lang.BindKey(toolTip, btnFindBottom, "visionUi.visionCameraCalibrationDialog.tooltip.state6");
+                Lang.BindKey(toolTip, btnFindInput, "visionUi.visionCameraCalibrationDialog.tooltip.state7");
+                Lang.BindKey(toolTip, btnFindOutput, "visionUi.visionCameraCalibrationDialog.tooltip.state8");
+                Lang.BindKey(toolTip, btnRetractReticle, "visionUi.visionCameraCalibrationDialog.tooltip.state9");
+                Lang.BindKey(toolTip, btnCalculateSave, "visionUi.visionCameraCalibrationDialog.tooltip.state10");
+                Lang.BindKey(toolTip, btnHelp, "visionUi.visionCameraCalibrationDialog.tooltip.state11");
+                Lang.BindKey(toolTip, btnClose, "visionUi.visionCameraCalibrationDialog.tooltip.state12");
             }
             catch (Exception ex)
             {
@@ -213,19 +217,20 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "VISION CAMERA CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("visionUi.visionCameraCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 EnsureSequence();
-                lblStatus.Text = "실행 가능한 상태입니다. 각 카메라를 Reticle Mark가 보이는 위치에 준비한 뒤 Find를 실행하세요.";
+                Lang.BindKey(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state3");
                 RefreshData();
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "상태 확인 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "UI", "VISION-CAMERA-CAL-CHECK", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state4", (object)(ex.Message));
+                string statusLogText1 = "상태 확인 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION-CAMERA-CAL-CHECK", statusLogText1);
             }
             finally
             {
@@ -240,7 +245,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "수행 순서 표시 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state5", (object)(ex.Message));
             }
             finally
             {
@@ -254,8 +259,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "VISION CAMERA CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("visionUi.visionCameraCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -278,12 +283,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 DiscardManualDraft();
                 ClearReticleMeasuredInSession();
                 RefreshData();
-                lblStatus.Text = "미저장 편집을 취소하고 저장된 Settings와 현재 Recipe를 불러왔습니다.";
+                Lang.BindKey(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state6");
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "값 로드 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "UI", "VISION-CAMERA-CAL-LOAD-VALUE", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state7", (object)(ex.Message));
+                string statusLogText2 = "값 로드 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION-CAMERA-CAL-LOAD-VALUE", statusLogText2);
             }
             finally
             {
@@ -358,7 +364,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             if (_manualDraft != null && actionName != "RETICLE BACK")
             {
-                lblStatus.Text = "미저장 편집이 있습니다. SAVE / APPLY 또는 LOAD 후 측정하세요.";
+                Lang.BindKey(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state8");
                 return;
             }
 
@@ -372,8 +378,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!CanRunManualCalibration(readinessTarget, out reason))
                 {
-                    lblStatus.Text = reason;
-                    QMC.Common.MessageDialog.Show(this, reason, "VISION CAMERA CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.BindFormat(lblStatus, "visionUi.literal", (object)(reason));
+                    QMC.Common.MessageDialog.Show(this, reason, Lang.T("visionUi.visionCameraCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -405,7 +411,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 };
                 host.Controller.StopRequested += stopHandler;
 
-                lblStatus.Text = actionName + " 실행 중입니다. Vision 응답을 기다립니다.";
+                Lang.BindFormat(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state9", (object)(actionName));
 
                 int result = await operation(runCts.Token).ConfigureAwait(true);
                 RefreshData();
@@ -413,20 +419,25 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (result == 0 && onSuccess != null)
                     onSuccess();
 
-                lblStatus.Text = result == 0
-                    ? actionName + " 완료. 측정값이 VisionUnit Config에 반영되었습니다."
-                    : actionName + " 실패. result=" + result;
+                {
+                    if (result == 0)
+                        Lang.BindFormat(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state10", (object)(actionName));
+                    else
+                        Lang.BindFormat(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state11", (object)(actionName), (object)(result));
+                }
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = actionName + " 작업이 취소되었습니다.";
-                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-STOP", lblStatus.Text);
+                Lang.BindFormat(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state12", (object)(actionName));
+                string statusLogText3 = actionName + " 작업이 취소되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-STOP", statusLogText3);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = actionName + " 예외 발생: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "UI", "VISION-CAMERA-CAL-RUN", lblStatus.Text);
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION CAMERA CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Lang.BindFormat(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state13", (object)(actionName), (object)(ex.Message));
+                string statusLogText4 = actionName + " 예외 발생: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION-CAMERA-CAL-RUN", statusLogText4);
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionCameraCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -701,7 +712,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     AddMeasurementRow("Bottom", null);
                     AddMeasurementRow("Input", null);
                     AddMeasurementRow("Output", null);
-                    lblOffsets.Text = "Offset: 데이터 없음";
+                    Lang.BindKey(lblOffsets, "visionUi.visionCameraCalibrationDialog.lblOffsets.text");
                     RefreshAppliedValueGrid();
                     return;
                 }
@@ -711,16 +722,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddMeasurementRow("Input", data.InputReticle);
                 AddMeasurementRow("Output", data.OutputReticle);
 
-                lblOffsets.Text =
-                    (_manualDraft != null ? "[미저장 편집] " : "") + "Offset: Bottom-Input=(" + data.InputToBottomOffsetX.ToString("F6") + ", " + data.InputToBottomOffsetY.ToString("F6") + ") mm" +
-                    " / Bottom-Output=(" + data.OutputToBottomOffsetX.ToString("F6") + ", " + data.OutputToBottomOffsetY.ToString("F6") + ") mm" +
-                    " / valid=" + data.Valid;
+                Lang.BindFormat(lblOffsets, "visionUi.visionCameraCalibrationDialog.lblOffsets.state2", (object)((_manualDraft != null ? "[미저장 편집] " : "")), (object)(data.InputToBottomOffsetX.ToString("F6")), (object)(data.InputToBottomOffsetY.ToString("F6")), (object)(data.OutputToBottomOffsetX.ToString("F6")), (object)(data.OutputToBottomOffsetY.ToString("F6")), (object)(data.Valid));
 
                 RefreshAppliedValueGrid();
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "측정값 표시 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state14", (object)(ex.Message));
             }
             finally
             {
@@ -829,31 +837,31 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 case BottomPixelXRow:
                 case BottomPixelYRow:
-                    return "Bottom 카메라에서 Reticle Finder로 측정한 픽셀 좌표입니다. 카메라 간 Offset 계산의 기준이 됩니다.";
+                    return Lang.T("visionUi.cameraCalibration.tip.1");
                 case InputPixelXRow:
                 case InputPixelYRow:
-                    return "Input 카메라에서 Reticle Finder로 측정한 픽셀 좌표입니다. Bottom 기준 Input Camera Offset 계산에 사용합니다.";
+                    return Lang.T("visionUi.cameraCalibration.tip.2");
                 case OutputPixelXRow:
                 case OutputPixelYRow:
-                    return "Output 카메라에서 Reticle Finder로 측정한 픽셀 좌표입니다. Bottom 기준 Output Camera Offset 계산에 사용합니다.";
+                    return Lang.T("visionUi.cameraCalibration.tip.3");
                 case InputVisionXEncoderRow:
-                    return "Input 카메라 Reticle 촬영 시 VisionX 실제 Encoder 위치입니다. 이번에 측정하거나 직접 수정한 경우 SAVE / APPLY로 현재 Recipe에 저장합니다.";
+                    return Lang.T("visionUi.cameraCalibration.tip.4");
                 case OutputVisionXEncoderRow:
-                    return "Output 카메라 Reticle 촬영 시 VisionX 실제 Encoder 위치입니다. 이번에 측정하거나 직접 수정한 경우 SAVE / APPLY로 현재 Recipe에 저장합니다.";
+                    return Lang.T("visionUi.cameraCalibration.tip.5");
                 case BottomInputOffsetXRow:
                 case BottomInputOffsetYRow:
-                    return "측정 산식과 수동 보정을 합친 Input 최종 Offset입니다. 수정 후 SAVE / APPLY로 저장하며 CALC 후에도 수동 보정이 유지됩니다.";
+                    return Lang.T("visionUi.cameraCalibration.tip.6");
                 case BottomOutputOffsetXRow:
                 case BottomOutputOffsetYRow:
-                    return "측정 산식과 수동 보정을 합친 Output 최종 Offset입니다. 수정 후 SAVE / APPLY로 저장하며 CALC 후에도 수동 보정이 유지됩니다.";
+                    return Lang.T("visionUi.cameraCalibration.tip.7");
                 case MotionSpeedRow:
-                    return "Vision Camera Calibration에서 Reticle 촬영 위치로 이동할 때 사용하는 전용 속도입니다. 더블클릭하면 키패드로 수정합니다.";
+                    return Lang.T("visionUi.cameraCalibration.tip.8");
                 case MotionAccRow:
-                    return "Vision Camera Calibration 전용 이동 가속도입니다. 더블클릭하면 키패드로 수정합니다.";
+                    return Lang.T("visionUi.cameraCalibration.tip.9");
                 case MotionDecRow:
-                    return "Vision Camera Calibration 전용 이동 감속도입니다. 더블클릭하면 키패드로 수정합니다.";
+                    return Lang.T("visionUi.cameraCalibration.tip.10");
                 case MotionTimeoutRow:
-                    return "Reticle 촬영 위치 이동 완료를 기다리는 최대 시간입니다. 더블클릭하면 키패드로 수정합니다.";
+                    return Lang.T("visionUi.cameraCalibration.tip.11");
                 default:
                     return string.Empty;
             }
@@ -1181,7 +1189,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (!CanEditAppliedValues())
             {
-                lblStatus.Text = "Admin 권한에서만 Vision Camera Calibration 값을 수정할 수 있습니다.";
+                Lang.BindKey(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state15");
                 return;
             }
 
@@ -1207,13 +1215,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                 ApplyManualAppliedValue(item, valueText);
                 RefreshData();
 
-                lblStatus.Text = item + " 수정값은 미저장 상태입니다. SAVE / APPLY로 저장·적용하세요. LOAD는 편집을 취소합니다.";
+                Lang.BindFormat(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state16", (object)(item));
             }
             catch (Exception ex)
             {
-                lblStatus.Text = item + " 키패드 수정 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "UI", "VISION-CAMERA-CAL-KEYPAD-SAVE", lblStatus.Text);
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION CAMERA CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Lang.BindFormat(lblStatus, "visionUi.visionCameraCalibrationDialog.lblStatus.state17", (object)(item), (object)(ex.Message));
+                string statusLogText5 = item + " 키패드 수정 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION-CAMERA-CAL-KEYPAD-SAVE", statusLogText5);
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, Lang.T("visionUi.visionCameraCalibrationDialog.message.state2"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                 RefreshAppliedValueGrid();
             }
             finally
@@ -1566,6 +1575,64 @@ namespace QMC.CDT_320.Ui.Dialogs
             finally
             {
             }
+        }
+        // Translate only the rendered caption; raw row values remain available to editing and save logic.
+        private static string FormatLocalizedRow(string value)
+        {
+            switch (value)
+            {
+                case "Bottom": return Lang.T("visionUi.visionCameraCalibrationDialog.row.1");
+                case "Input": return Lang.T("visionUi.visionCameraCalibrationDialog.row.2");
+                case "Output": return Lang.T("visionUi.visionCameraCalibrationDialog.row.3");
+                case "Move Speed": return Lang.T("visionUi.visionCameraCalibrationDialog.row.4");
+                case "Move Acc": return Lang.T("visionUi.visionCameraCalibrationDialog.row.5");
+                case "Move Dec": return Lang.T("visionUi.visionCameraCalibrationDialog.row.6");
+                case "Move Timeout": return Lang.T("visionUi.visionCameraCalibrationDialog.row.7");
+                case "Bottom Pixel X": return Lang.T("visionUi.visionCameraCalibrationDialog.row.8");
+                case "Bottom Pixel Y": return Lang.T("visionUi.visionCameraCalibrationDialog.row.9");
+                case "Input Pixel X": return Lang.T("visionUi.visionCameraCalibrationDialog.row.10");
+                case "Input Pixel Y": return Lang.T("visionUi.visionCameraCalibrationDialog.row.11");
+                case "Output Pixel X": return Lang.T("visionUi.visionCameraCalibrationDialog.row.12");
+                case "Output Pixel Y": return Lang.T("visionUi.visionCameraCalibrationDialog.row.13");
+                case "Input VisionX Encoder": return Lang.T("visionUi.visionCameraCalibrationDialog.row.14");
+                case "Output VisionX Encoder": return Lang.T("visionUi.visionCameraCalibrationDialog.row.15");
+                case "Bottom-Input Offset X": return Lang.T("visionUi.visionCameraCalibrationDialog.row.16");
+                case "Bottom-Input Offset Y": return Lang.T("visionUi.visionCameraCalibrationDialog.row.17");
+                case "Bottom-Output Offset X": return Lang.T("visionUi.visionCameraCalibrationDialog.row.18");
+                case "Bottom-Output Offset Y": return Lang.T("visionUi.visionCameraCalibrationDialog.row.19");
+                default: return value;
+            }
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this.lblTitle, "visionUi.visionCameraCalibrationDialog.message.state2");
+            Lang.BindKey(this.colItem, "visionUi.visionCameraCalibrationDialog.colItem.text");
+            Lang.BindKey(this.colPixelX, "visionUi.visionCameraCalibrationDialog.colPixelX.text");
+            Lang.BindKey(this.colPixelY, "visionUi.visionCameraCalibrationDialog.colPixelY.text");
+            Lang.BindKey(this.colMmX, "visionUi.visionCameraCalibrationDialog.colMmX.text");
+            Lang.BindKey(this.colMmY, "visionUi.visionCameraCalibrationDialog.colMmY.text");
+            Lang.BindKey(this.colAngle, "visionUi.visionCameraCalibrationDialog.colAngle.text");
+            Lang.BindKey(this.colAxis, "visionUi.visionCameraCalibrationDialog.colAxis.text");
+            Lang.BindKey(this.colScore, "visionUi.visionCameraCalibrationDialog.colScore.text");
+            Lang.BindKey(this.lblValueTitle, "visionUi.visionCameraCalibrationDialog.lblValueTitle.text");
+            Lang.BindKey(this.colValueName, "visionUi.visionCameraCalibrationDialog.colValueName.text");
+            Lang.BindKey(this.colSavedValue, "visionUi.visionCameraCalibrationDialog.colSavedValue.text");
+            Lang.BindKey(this.colCurrentValue, "visionUi.visionCameraCalibrationDialog.colCurrentValue.text");
+            Lang.BindKey(this.colApplyValue, "visionUi.visionCameraCalibrationDialog.colApplyValue.text");
+            Lang.BindKey(this.btnLoadValues, "visionUi.visionCameraCalibrationDialog.btnLoadValues.text");
+            Lang.BindKey(this.btnSaveReticleValues, "visionUi.visionCameraCalibrationDialog.btnSaveReticleValues.state2");
+            Lang.BindKey(this.lblOffsets, "visionUi.visionCameraCalibrationDialog.lblOffsets.state3");
+            Lang.BindKey(this.btnCheck, "visionUi.visionCameraCalibrationDialog.btnCheck.text");
+            Lang.BindKey(this.btnRunAll, "visionUi.visionCameraCalibrationDialog.btnRunAll.text");
+            Lang.BindKey(this.btnFindBottom, "visionUi.visionCameraCalibrationDialog.btnFindBottom.text");
+            Lang.BindKey(this.btnFindInput, "visionUi.visionCameraCalibrationDialog.btnFindInput.text");
+            Lang.BindKey(this.btnFindOutput, "visionUi.visionCameraCalibrationDialog.btnFindOutput.text");
+            Lang.BindKey(this.btnRetractReticle, "visionUi.visionCameraCalibrationDialog.btnRetractReticle.text");
+            Lang.BindKey(this.btnCalculateSave, "visionUi.visionCameraCalibrationDialog.btnCalculateSave.text");
+            Lang.BindFormat(this.btnHelp, "visionUi.literal", (object)("?"));
+            Lang.BindKey(this.btnClose, "visionUi.visionCameraCalibrationDialog.btnClose.text");
+            Lang.BindKey(this, "visionUi.visionCameraCalibrationDialog.Text.text");
         }
     }
 }

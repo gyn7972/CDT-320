@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Threading;
@@ -105,8 +106,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 EventLogger.Write(EventKind.Warning, "UI", "INPUT-FEEDER-ACTION-BLOCKED", actionName + " blocked: " + ex.Message);
                 QMC.Common.MessageDialog.Show(
                     this,
-                    "지금은 수동 동작을 시작할 수 없습니다.\r\n\r\n" + ex.Message,
-                    "Input Feeder",
+                    Lang.Format("message.manual.blocked", ex.Message),
+                    Lang.T("message.title.inputFeeder"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
@@ -138,17 +139,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 string message = SequenceFailureStore.BuildManualFailureMessage(
                     actionName,
-                    actionName + " 실패\r\nAlarm/Event Log를 확인하세요.");
-                QMC.Common.MessageDialog.Show(this, message, "Input Feeder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.Format("message.manual.failed", Lang.Display(actionName)));
+                QMC.Common.MessageDialog.Show(this, message, Lang.T("message.title.inputFeeder"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
             if (!string.IsNullOrWhiteSpace(exceptionMessage))
-                QMC.Common.MessageDialog.Show(this, exceptionMessage, "Input Feeder", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, exceptionMessage, Lang.T("message.title.inputFeeder"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private bool ConfirmAction(string actionName)
         {
-            return QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Input Feeder", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+            return QMC.Common.MessageDialog.Show(this, Lang.Format("message.manual.confirm", Lang.Display(actionName)), Lang.T("message.title.inputFeeder"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
         }
 
         private void SetSequenceButtonsEnabled(bool enabled)
@@ -409,7 +410,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             try
             {
-                if (!ConfirmMaterialDataAction("Input Feeder에 Material Data를 생성하시겠습니까?"))
+                if (!ConfirmMaterialDataAction(Lang.T("message.inputFeeder.createConfirm")))
                     return;
 
                 var wafer = MaterialStateService.CreateWaferAtLocation(
@@ -435,7 +436,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             try
             {
-                if (!ConfirmMaterialDataAction("Input Feeder의 Material Data를 초기화하시겠습니까?"))
+                if (!ConfirmMaterialDataAction(Lang.T("message.inputFeeder.clearConfirm")))
                     return;
 
                 MaterialStateService.ClearWaferAtLocation(MaterialLocationKind.InputFeeder);
@@ -455,7 +456,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private bool ConfirmMaterialDataAction(string message)
         {
-            return QMC.Common.MessageDialog.Show(this, message, "Material Data", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+            return QMC.Common.MessageDialog.Show(this, message, Lang.T("message.title.materialData"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
         }
 
         private static IEnumerable<MaterialDetailRow> BuildFeederMaterialRows(WaferMaterial wafer)

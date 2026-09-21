@@ -1,0 +1,473 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="workInfoUi.choice.all" xml:space="preserve">
+    <value>전체</value>
+  </data>
+  <data name="workInfoUi.choice.bottom_inspect" xml:space="preserve">
+    <value>하부 검사</value>
+  </data>
+  <data name="workInfoUi.choice.bottom_interval" xml:space="preserve">
+    <value>하부 간격</value>
+  </data>
+  <data name="workInfoUi.choice.bottom_vision_pitch" xml:space="preserve">
+    <value>하부 비전→피치</value>
+  </data>
+  <data name="workInfoUi.choice.canceled" xml:space="preserve">
+    <value>취소</value>
+  </data>
+  <data name="workInfoUi.choice.completed" xml:space="preserve">
+    <value>완료</value>
+  </data>
+  <data name="workInfoUi.choice.failed" xml:space="preserve">
+    <value>실패</value>
+  </data>
+  <data name="workInfoUi.choice.good" xml:space="preserve">
+    <value>양품 / 완료</value>
+  </data>
+  <data name="workInfoUi.choice.io" xml:space="preserve">
+    <value>입출력</value>
+  </data>
+  <data name="workInfoUi.choice.logic" xml:space="preserve">
+    <value>로직</value>
+  </data>
+  <data name="workInfoUi.choice.motion" xml:space="preserve">
+    <value>모션</value>
+  </data>
+  <data name="workInfoUi.choice.ng" xml:space="preserve">
+    <value>불량</value>
+  </data>
+  <data name="workInfoUi.choice.output_receive" xml:space="preserve">
+    <value>배출 인수</value>
+  </data>
+  <data name="workInfoUi.choice.process" xml:space="preserve">
+    <value>공정</value>
+  </data>
+  <data name="workInfoUi.choice.resource" xml:space="preserve">
+    <value>자원</value>
+  </data>
+  <data name="workInfoUi.choice.run" xml:space="preserve">
+    <value>실행</value>
+  </data>
+  <data name="workInfoUi.choice.sequence" xml:space="preserve">
+    <value>시퀀스</value>
+  </data>
+  <data name="workInfoUi.choice.side_0_90_motion" xml:space="preserve">
+    <value>측면 0°→90° 이동</value>
+  </data>
+  <data name="workInfoUi.choice.side_0_inspect" xml:space="preserve">
+    <value>측면 0° 검사</value>
+  </data>
+  <data name="workInfoUi.choice.side_0_interval" xml:space="preserve">
+    <value>측면 0° 간격</value>
+  </data>
+  <data name="workInfoUi.choice.side_90_inspect" xml:space="preserve">
+    <value>측면 90° 검사</value>
+  </data>
+  <data name="workInfoUi.choice.side_90_interval" xml:space="preserve">
+    <value>측면 90° 간격</value>
+  </data>
+  <data name="workInfoUi.choice.skip" xml:space="preserve">
+    <value>제외</value>
+  </data>
+  <data name="workInfoUi.choice.skipped" xml:space="preserve">
+    <value>건너뜀</value>
+  </data>
+  <data name="workInfoUi.choice.step" xml:space="preserve">
+    <value>단계</value>
+  </data>
+  <data name="workInfoUi.choice.stopped" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="workInfoUi.choice.success" xml:space="preserve">
+    <value>성공</value>
+  </data>
+  <data name="workInfoUi.choice.timeline" xml:space="preserve">
+    <value>장비 타임라인</value>
+  </data>
+  <data name="workInfoUi.choice.trend" xml:space="preserve">
+    <value>택타임 추이</value>
+  </data>
+  <data name="workInfoUi.choice.unit" xml:space="preserve">
+    <value>유닛</value>
+  </data>
+  <data name="workInfoUi.choice.unit_flow" xml:space="preserve">
+    <value>유닛 흐름</value>
+  </data>
+  <data name="workInfoUi.choice.vision" xml:space="preserve">
+    <value>비전</value>
+  </data>
+  <data name="workInfoUi.choice.wait" xml:space="preserve">
+    <value>대기</value>
+  </data>
+  <data name="workInfoUi.die.btnApply" xml:space="preserve">
+    <value>적용</value>
+  </data>
+  <data name="workInfoUi.die.btnClear" xml:space="preserve">
+    <value>제거</value>
+  </data>
+  <data name="workInfoUi.die.btnClose" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="workInfoUi.die.clearConfirm" xml:space="preserve">
+    <value>현재 헤드의 다이 정보를 제거하시겠습니까?&#13;&#10;실제 자재 상태가 위치 불명으로 변경됩니다.</value>
+  </data>
+  <data name="workInfoUi.die.frontTitle" xml:space="preserve">
+    <value>전면 피커 헤드 #{0} 다이</value>
+  </data>
+  <data name="workInfoUi.die.lblDieIdTitle" xml:space="preserve">
+    <value>다이 ID</value>
+  </data>
+  <data name="workInfoUi.die.lblLocationTitle" xml:space="preserve">
+    <value>위치</value>
+  </data>
+  <data name="workInfoUi.die.lblMapTitle" xml:space="preserve">
+    <value>맵 X/Y</value>
+  </data>
+  <data name="workInfoUi.die.lblNgCodeTitle" xml:space="preserve">
+    <value>불량 코드</value>
+  </data>
+  <data name="workInfoUi.die.lblReasonTitle" xml:space="preserve">
+    <value>사유</value>
+  </data>
+  <data name="workInfoUi.die.lblResultTitle" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="workInfoUi.die.lblSequenceTitle" xml:space="preserve">
+    <value>순번</value>
+  </data>
+  <data name="workInfoUi.die.lblTitle" xml:space="preserve">
+    <value>피커 헤드 다이</value>
+  </data>
+  <data name="workInfoUi.die.lblWaferTitle" xml:space="preserve">
+    <value>웨이퍼</value>
+  </data>
+  <data name="workInfoUi.die.rearTitle" xml:space="preserve">
+    <value>후면 피커 헤드 #{0} 다이</value>
+  </data>
+  <data name="workInfoUi.logic.btnCancelHistory" xml:space="preserve">
+    <value>취소</value>
+  </data>
+  <data name="workInfoUi.logic.btnClearView" xml:space="preserve">
+    <value>화면 비우기</value>
+  </data>
+  <data name="workInfoUi.logic.btnLiveView" xml:space="preserve">
+    <value>실시간 보기</value>
+  </data>
+  <data name="workInfoUi.logic.btnOpenHistory" xml:space="preserve">
+    <value>지난 기록 불러오기</value>
+  </data>
+  <data name="workInfoUi.logic.btnResetChart" xml:space="preserve">
+    <value>전체 보기</value>
+  </data>
+  <data name="workInfoUi.logic.chkAutoRefresh" xml:space="preserve">
+    <value>자동 갱신</value>
+  </data>
+  <data name="workInfoUi.logic.column.category" xml:space="preserve">
+    <value>분류</value>
+  </data>
+  <data name="workInfoUi.logic.column.detail" xml:space="preserve">
+    <value>상세</value>
+  </data>
+  <data name="workInfoUi.logic.column.elapsed" xml:space="preserve">
+    <value>경과 시간(ms)</value>
+  </data>
+  <data name="workInfoUi.logic.column.end" xml:space="preserve">
+    <value>종료</value>
+  </data>
+  <data name="workInfoUi.logic.column.no" xml:space="preserve">
+    <value>번호</value>
+  </data>
+  <data name="workInfoUi.logic.column.process" xml:space="preserve">
+    <value>공정</value>
+  </data>
+  <data name="workInfoUi.logic.column.result" xml:space="preserve">
+    <value>결과</value>
+  </data>
+  <data name="workInfoUi.logic.column.sequence" xml:space="preserve">
+    <value>시퀀스</value>
+  </data>
+  <data name="workInfoUi.logic.column.start" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="workInfoUi.logic.column.step" xml:space="preserve">
+    <value>단계</value>
+  </data>
+  <data name="workInfoUi.logic.column.unit" xml:space="preserve">
+    <value>유닛</value>
+  </data>
+  <data name="workInfoUi.logic.containersExcluded" xml:space="preserve">
+    <value> / 통계 Run·Unit 중첩 제외</value>
+  </data>
+  <data name="workInfoUi.logic.gridCount" xml:space="preserve">
+    <value> (표 {0}건)</value>
+  </data>
+  <data name="workInfoUi.logic.historyOpenFailed" xml:space="preserve">
+    <value>과거 택타임 기록을 불러오지 못했습니다.</value>
+  </data>
+  <data name="workInfoUi.logic.historyRunFailed" xml:space="preserve">
+    <value>선택한 Run을 불러오지 못했습니다.</value>
+  </data>
+  <data name="workInfoUi.logic.incompleteWarning" xml:space="preserve">
+    <value>, 마지막 미완성 행 제외</value>
+  </data>
+  <data name="workInfoUi.logic.lblCategoryCaption" xml:space="preserve">
+    <value>분류</value>
+  </data>
+  <data name="workInfoUi.logic.lblChartCaption" xml:space="preserve">
+    <value>차트</value>
+  </data>
+  <data name="workInfoUi.logic.lblDataSource" xml:space="preserve">
+    <value>실시간</value>
+  </data>
+  <data name="workInfoUi.logic.lblFileInfo" xml:space="preserve">
+    <value>실시간 메모리 기록</value>
+  </data>
+  <data name="workInfoUi.logic.lblItemCaption" xml:space="preserve">
+    <value>항목</value>
+  </data>
+  <data name="workInfoUi.logic.lblRunCaption" xml:space="preserve">
+    <value>실행</value>
+  </data>
+  <data name="workInfoUi.logic.lblSourceCaption" xml:space="preserve">
+    <value>데이터</value>
+  </data>
+  <data name="workInfoUi.logic.lblStatus" xml:space="preserve">
+    <value>택타임 기록을 기다리는 중입니다.</value>
+  </data>
+  <data name="workInfoUi.logic.lblSummary" xml:space="preserve">
+    <value>택타임 기록 대기 중</value>
+  </data>
+  <data name="workInfoUi.logic.messageTitle" xml:space="preserve">
+    <value>시간 차트</value>
+  </data>
+  <data name="workInfoUi.logic.mixedStatistics" xml:space="preserve">
+    <value> / 평균·P95 혼합 참고값({0}종)</value>
+  </data>
+  <data name="workInfoUi.logic.openFilter" xml:space="preserve">
+    <value>택타임 CSV (*.csv)|*.csv|모든 파일 (*.*)|*.*</value>
+  </data>
+  <data name="workInfoUi.logic.openTitle" xml:space="preserve">
+    <value>이전 택타임 기록 불러오기</value>
+  </data>
+  <data name="workInfoUi.logic.outsideGrid" xml:space="preserve">
+    <value> / 해당 기록은 표 표시 한도 밖에 있습니다.</value>
+  </data>
+  <data name="workInfoUi.logic.phase.index" xml:space="preserve">
+    <value>Run 목록 확인</value>
+  </data>
+  <data name="workInfoUi.logic.phase.load" xml:space="preserve">
+    <value>Run 기록 불러오기</value>
+  </data>
+  <data name="workInfoUi.logic.skippedWarning" xml:space="preserve">
+    <value> / 제외={0}건</value>
+  </data>
+  <data name="workInfoUi.logic.status.clearFailed" xml:space="preserve">
+    <value>택타임 화면 초기화에 실패했습니다: {0}</value>
+  </data>
+  <data name="workInfoUi.logic.status.empty" xml:space="preserve">
+    <value>표시할 택타임 기록이 없습니다.</value>
+  </data>
+  <data name="workInfoUi.logic.status.emptyHistory" xml:space="preserve">
+    <value>선택한 Run 또는 필터에 해당하는 기록이 없습니다.</value>
+  </data>
+  <data name="workInfoUi.logic.status.failure" xml:space="preserve">
+    <value>{0} {1}</value>
+  </data>
+  <data name="workInfoUi.logic.status.history" xml:space="preserve">
+    <value>HISTORY</value>
+  </data>
+  <data name="workInfoUi.logic.status.historyCancelRequested" xml:space="preserve">
+    <value>과거 택타임 기록 불러오기 취소를 요청했습니다.</value>
+  </data>
+  <data name="workInfoUi.logic.status.historyCanceled" xml:space="preserve">
+    <value>과거 택타임 기록 불러오기를 취소했습니다.</value>
+  </data>
+  <data name="workInfoUi.logic.status.historyCleared" xml:space="preserve">
+    <value>과거 기록 화면을 비웠습니다. 원본 CSV는 변경되지 않았습니다.</value>
+  </data>
+  <data name="workInfoUi.logic.status.historyFile" xml:space="preserve">
+    <value>{0} / {1} / Run {2}개</value>
+  </data>
+  <data name="workInfoUi.logic.status.historyProgress" xml:space="preserve">
+    <value>{0} {1}% / {2}건</value>
+  </data>
+  <data name="workInfoUi.logic.status.historyReloadHint" xml:space="preserve">
+    <value>Run을 다시 선택하면 과거 기록을 다시 불러옵니다.</value>
+  </data>
+  <data name="workInfoUi.logic.status.indexLoading" xml:space="preserve">
+    <value>과거 택타임 파일의 Run 목록을 확인하고 있습니다.</value>
+  </data>
+  <data name="workInfoUi.logic.status.live" xml:space="preserve">
+    <value>LIVE</value>
+  </data>
+  <data name="workInfoUi.logic.status.liveCleared" xml:space="preserve">
+    <value>실시간 화면 기록을 초기화했습니다.</value>
+  </data>
+  <data name="workInfoUi.logic.status.liveClearedSummary" xml:space="preserve">
+    <value>화면 기록을 초기화했습니다. 이후 발생한 택타임만 표시합니다.</value>
+  </data>
+  <data name="workInfoUi.logic.status.liveMemory" xml:space="preserve">
+    <value>실시간 메모리 기록 (최대 5,000건)</value>
+  </data>
+  <data name="workInfoUi.logic.status.loadedFile" xml:space="preserve">
+    <value>{0} / {1} / Run {2}/{3} / {4}건</value>
+  </data>
+  <data name="workInfoUi.logic.status.refreshFailed" xml:space="preserve">
+    <value>택타임 화면 갱신에 실패했습니다: {0}</value>
+  </data>
+  <data name="workInfoUi.logic.status.runCanceled" xml:space="preserve">
+    <value>선택한 Run 불러오기를 취소했습니다.</value>
+  </data>
+  <data name="workInfoUi.logic.status.runLoaded" xml:space="preserve">
+    <value>과거 Run을 불러왔습니다. records={0}{1}</value>
+  </data>
+  <data name="workInfoUi.logic.status.runLoading" xml:space="preserve">
+    <value>선택한 Run의 택타임 기록을 불러오고 있습니다. run={0}</value>
+  </data>
+  <data name="workInfoUi.logic.status.selectedRecord" xml:space="preserve">
+    <value>선택: {0} / {1} / {2} / {3} / {4} ms / {5}{6}{7}</value>
+  </data>
+  <data name="workInfoUi.logic.status.summary" xml:space="preserve">
+    <value>기록 {0}건{1} / 구간 {2} / 평균 {3} / 최소 {4} / P95 {5} / 최대 {6} / 실패 {7} / 정지 {8}{9}{10}</value>
+  </data>
+  <data name="workInfoUi.logic.status.waiting" xml:space="preserve">
+    <value>택타임 기록을 기다리는 중입니다.</value>
+  </data>
+  <data name="workInfoUi.logic.tabCycle" xml:space="preserve">
+    <value>주기 시간</value>
+  </data>
+  <data name="workInfoUi.logic.warningCount" xml:space="preserve">
+    <value>, 경고={0}건</value>
+  </data>
+  <data name="workInfoUi.picker.blowState" xml:space="preserve">
+    <value>에어 분사 #{0}&#13;&#10;: {1}</value>
+  </data>
+  <data name="workInfoUi.picker.colletUnused" xml:space="preserve">
+    <value>#{0} 콜렛 미사용</value>
+  </data>
+  <data name="workInfoUi.picker.colletUsed" xml:space="preserve">
+    <value>#{0} 콜렛 사용</value>
+  </data>
+  <data name="workInfoUi.picker.count" xml:space="preserve">
+    <value>{0}개</value>
+  </data>
+  <data name="workInfoUi.picker.front" xml:space="preserve">
+    <value>전면</value>
+  </data>
+  <data name="workInfoUi.picker.frontMoveConfirm" xml:space="preserve">
+    <value>전면 피커 배출 티칭 중심 ContiNode 이동 시험을 실행할까요?&#13;&#10;순서: 피커 #4 → #3 → #2 → #1&#13;&#10;시작 전 #4 배출 티칭 위치로 이동한 뒤, 각 세그먼트는 양품 스테이지 Y + 피커 X + 이전 피커 Z + 현재 피커 Z를 ContiNode로 구동합니다.&#13;&#10;Conti 파라미터: coord={0}, maxVel={1}, maxAcc={2}, maxDec={3}&#13;&#10;축 주변 안전 상태와 제품 유무를 확인한 뒤 실행하세요.</value>
+  </data>
+  <data name="workInfoUi.picker.lineMapDetail" xml:space="preserve">
+    <value>{0}&#13;&#10;상세 내용은 알람/이벤트 로그를 확인하세요.</value>
+  </data>
+  <data name="workInfoUi.picker.lineMapException" xml:space="preserve">
+    <value>양품 스테이지 Y 기준 ContiNode 라인 맵 검증 중 예외가 발생했습니다. 오류={0}</value>
+  </data>
+  <data name="workInfoUi.picker.lineMapFailed" xml:space="preserve">
+    <value>양품 스테이지 Y 기준 ContiNode 라인 맵 검증 중 실패가 있습니다. 실패={0}건 / 전체={1}건</value>
+  </data>
+  <data name="workInfoUi.picker.lineMapNoMachine" xml:space="preserve">
+    <value>장비 객체를 찾을 수 없어 ContiNode 라인 맵 검증을 실행할 수 없습니다.</value>
+  </data>
+  <data name="workInfoUi.picker.lineMapSuccess" xml:space="preserve">
+    <value>양품 스테이지 Y 기준 ContiNode 라인 맵 검증이 완료되었습니다. 전체 성공={0}건</value>
+  </data>
+  <data name="workInfoUi.picker.lineMapTitle" xml:space="preserve">
+    <value>라인 맵 검증</value>
+  </data>
+  <data name="workInfoUi.picker.lineMoveException" xml:space="preserve">
+    <value>{0} 피커 양품 스테이지 Y 기준 ContiNode 이동 시험 중 예외가 발생했습니다. 오류={1}</value>
+  </data>
+  <data name="workInfoUi.picker.lineMoveNoMachine" xml:space="preserve">
+    <value>장비 객체를 찾을 수 없어 ContiNode 이동 시험을 실행할 수 없습니다.</value>
+  </data>
+  <data name="workInfoUi.picker.lineMoveTitle" xml:space="preserve">
+    <value>라인 이동 시험</value>
+  </data>
+  <data name="workInfoUi.picker.process.inspect" xml:space="preserve">
+    <value>{0} 검사 진행 중</value>
+  </data>
+  <data name="workInfoUi.picker.process.move" xml:space="preserve">
+    <value>{0} 위치 이동 중</value>
+  </data>
+  <data name="workInfoUi.picker.process.running" xml:space="preserve">
+    <value>{0} 공정 진행 중</value>
+  </data>
+  <data name="workInfoUi.picker.process.transition" xml:space="preserve">
+    <value>{0} → {1} 이동 중</value>
+  </data>
+  <data name="workInfoUi.picker.process.unknown" xml:space="preserve">
+    <value>현재 위치 확인 필요</value>
+  </data>
+  <data name="workInfoUi.picker.process.wait" xml:space="preserve">
+    <value>{0} 대기</value>
+  </data>
+  <data name="workInfoUi.picker.rear" xml:space="preserve">
+    <value>후면</value>
+  </data>
+  <data name="workInfoUi.picker.rearMoveConfirm" xml:space="preserve">
+    <value>후면 피커 배출 티칭 중심 ContiNode 이동 시험을 실행할까요?&#13;&#10;순서: 피커 #4 → #3 → #2 → #1&#13;&#10;시작 전 #4 배출 티칭 위치로 이동한 뒤, 각 세그먼트는 양품 스테이지 Y + 피커 X + 이전 피커 Z + 현재 피커 Z를 ContiNode로 구동합니다.&#13;&#10;Conti 파라미터: coord={0}, maxVel={1}, maxAcc={2}, maxDec={3}&#13;&#10;축 주변 안전 상태와 제품 유무를 확인한 뒤 실행하세요.</value>
+  </data>
+  <data name="workInfoUi.picker.vacuumState" xml:space="preserve">
+    <value>진공 #{0}&#13;&#10;: {1}</value>
+  </data>
+</root>

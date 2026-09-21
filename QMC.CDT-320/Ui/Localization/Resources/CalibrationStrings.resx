@@ -1,0 +1,2522 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="calibration.auto.btnClose" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="calibration.auto.btnReload" xml:space="preserve">
+    <value>RELOAD</value>
+  </data>
+  <data name="calibration.auto.btnSave" xml:space="preserve">
+    <value>SAVE</value>
+  </data>
+  <data name="calibration.auto.btnStart" xml:space="preserve">
+    <value>START</value>
+  </data>
+  <data name="calibration.auto.btnStop" xml:space="preserve">
+    <value>STOP</value>
+  </data>
+  <data name="calibration.auto.chkColletCal" xml:space="preserve">
+    <value>Enable COLLET CAL</value>
+  </data>
+  <data name="calibration.auto.chkPickZCal" xml:space="preserve">
+    <value>Enable PICK Z CAL</value>
+  </data>
+  <data name="calibration.auto.chkPlaceZCal" xml:space="preserve">
+    <value>Enable PLACE Z CAL</value>
+  </data>
+  <data name="calibration.auto.confirm.inputWafer" xml:space="preserve">
+    <value>Check the starting conditions for pickup Z calibration.&#13;&#10;&#13;&#10;Have you prepared an empty wafer without dies on the input stage?&#13;&#10;&#13;&#10;8 inch ring sensor={0}&#13;&#10;12 inch ring sensor={1}&#13;&#10;Input stage data={2}&#13;&#10;&#13;&#10;Press Yes only when preparation is complete.</value>
+  </data>
+  <data name="calibration.auto.confirm.outputMaterial" xml:space="preserve">
+    <value>The Good/NG stage sensors indicate Empty, but material data remains.&#13;&#10;Good data={0}&#13;&#10;NG data={1}&#13;&#10;&#13;&#10;Perform eight place Z calibrations using the Good stage while retaining this data?</value>
+  </data>
+  <data name="calibration.auto.confirm.outputSensor" xml:space="preserve">
+    <value>The output stage material sensors are detecting material.&#13;&#10;Good sensor={0}&#13;&#10;NG sensor={1}&#13;&#10;&#13;&#10;Place Z calibration assumes that the Good/NG stages are empty.&#13;&#10;Press Yes only if you have checked the actual state and intend to continue with these sensor readings.</value>
+  </data>
+  <data name="calibration.auto.confirm.pickerFlow" xml:space="preserve">
+    <value>Flow was detected on the following pickers after vacuum was turned on.&#13;&#10;{0}&#13;&#10;&#13;&#10;Remove the material, then press Start again.</value>
+  </data>
+  <data name="calibration.auto.confirm.pickerMaterial" xml:space="preserve">
+    <value>No flow was detected, but material data remains for the following pickers.&#13;&#10;{0}&#13;&#10;&#13;&#10;Continue automatic calibration while retaining this data?</value>
+  </data>
+  <data name="calibration.auto.grpProgress" xml:space="preserve">
+    <value>Progress</value>
+  </data>
+  <data name="calibration.auto.grpSelection" xml:space="preserve">
+    <value>Select and save enabled items</value>
+  </data>
+  <data name="calibration.auto.lblCurrentTarget" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="calibration.auto.lblHeader" xml:space="preserve">
+    <value>AUTO CALIBRATION</value>
+  </data>
+  <data name="calibration.auto.lblPlaceZGuide" xml:space="preserve">
+    <value>Order: Front 4→3→2→1, Rear 4→3→2→1 / PlaceZ measures 8 times on Good Stage; both Good and NG stages must be empty.</value>
+  </data>
+  <data name="calibration.auto.lblStatus" xml:space="preserve">
+    <value>Check the settings, then press START.</value>
+  </data>
+  <data name="calibration.auto.this" xml:space="preserve">
+    <value>AUTO CALIBRATION</value>
+  </data>
+  <data name="calibration.calibrationsetup.btnCheck" xml:space="preserve">
+    <value>CHECK READY</value>
+  </data>
+  <data name="calibration.calibrationsetup.btnClose" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="calibration.calibrationsetup.lblPurposeHeader" xml:space="preserve">
+    <value>Purpose</value>
+  </data>
+  <data name="calibration.calibrationsetup.lblStatusHeader" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="calibration.calibrationsetup.lblStorageHeader" xml:space="preserve">
+    <value>Data storage location</value>
+  </data>
+  <data name="calibration.calibrationsetup.lblTitle" xml:space="preserve">
+    <value>CALIBRATION</value>
+  </data>
+  <data name="calibration.calibrationsetup.this" xml:space="preserve">
+    <value>Calibration</value>
+  </data>
+  <data name="calibration.collet.batchGroup" xml:space="preserve">
+    <value>BATCH (each side C4 → C3 → C2 → C1; calibration followed by COC)</value>
+  </data>
+  <data name="calibration.collet.btnApplyHomeOffset" xml:space="preserve">
+    <value>APPLY T&#13;&#10;HOME</value>
+  </data>
+  <data name="calibration.collet.btnBatchStart" xml:space="preserve">
+    <value>BATCH START</value>
+  </data>
+  <data name="calibration.collet.btnCheck" xml:space="preserve">
+    <value>CHECK</value>
+  </data>
+  <data name="calibration.collet.btnClose" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="calibration.collet.btnCoc" xml:space="preserve">
+    <value>COC START</value>
+  </data>
+  <data name="calibration.collet.btnCocCenter" xml:space="preserve">
+    <value>COC &#13;&#10;RE-CAL</value>
+  </data>
+  <data name="calibration.collet.btnMoveYAvoid" xml:space="preserve">
+    <value>P-Y AVOID</value>
+  </data>
+  <data name="calibration.collet.btnMoveZForward" xml:space="preserve">
+    <value>Z-AVOID</value>
+  </data>
+  <data name="calibration.collet.btnParameterSave" xml:space="preserve">
+    <value>PARAMETER SAVE</value>
+  </data>
+  <data name="calibration.collet.btnReload" xml:space="preserve">
+    <value>RELOAD</value>
+  </data>
+  <data name="calibration.collet.btnSave" xml:space="preserve">
+    <value>SAVE RESULT</value>
+  </data>
+  <data name="calibration.collet.btnSaveBottomTeaching" xml:space="preserve">
+    <value>SAVE BOT.&#13;&#10;POS</value>
+  </data>
+  <data name="calibration.collet.btnSeqStop" xml:space="preserve">
+    <value>SEQ STOP</value>
+  </data>
+  <data name="calibration.collet.btnStart" xml:space="preserve">
+    <value>START</value>
+  </data>
+  <data name="calibration.collet.chkBatchAll" xml:space="preserve">
+    <value>ALL</value>
+  </data>
+  <data name="calibration.collet.colCocMachineX" xml:space="preserve">
+    <value>COC Xmm</value>
+  </data>
+  <data name="calibration.collet.colCocMachineY" xml:space="preserve">
+    <value>COC Ymm</value>
+  </data>
+  <data name="calibration.collet.colCocPixelX" xml:space="preserve">
+    <value>COC Xpx</value>
+  </data>
+  <data name="calibration.collet.colCocPixelY" xml:space="preserve">
+    <value>COC Ypx</value>
+  </data>
+  <data name="calibration.collet.colCocValid" xml:space="preserve">
+    <value>COC</value>
+  </data>
+  <data name="calibration.collet.colCollet" xml:space="preserve">
+    <value>COLLET</value>
+  </data>
+  <data name="calibration.collet.colFinalX" xml:space="preserve">
+    <value>FINAL X</value>
+  </data>
+  <data name="calibration.collet.colFinalY" xml:space="preserve">
+    <value>FINAL Y</value>
+  </data>
+  <data name="calibration.collet.colFinalZ" xml:space="preserve">
+    <value>FINAL Z</value>
+  </data>
+  <data name="calibration.collet.colItem" xml:space="preserve">
+    <value>ITEM</value>
+  </data>
+  <data name="calibration.collet.colOffsetX" xml:space="preserve">
+    <value>OFFSET X</value>
+  </data>
+  <data name="calibration.collet.colOffsetY" xml:space="preserve">
+    <value>OFFSET Y</value>
+  </data>
+  <data name="calibration.collet.colPickZ" xml:space="preserve">
+    <value>PICK Z</value>
+  </data>
+  <data name="calibration.collet.colPlaceZ" xml:space="preserve">
+    <value>PLACE Z</value>
+  </data>
+  <data name="calibration.collet.colSettingName" xml:space="preserve">
+    <value>PARAMETER</value>
+  </data>
+  <data name="calibration.collet.colSettingUnit" xml:space="preserve">
+    <value>UNIT</value>
+  </data>
+  <data name="calibration.collet.colSettingValue" xml:space="preserve">
+    <value>VALUE</value>
+  </data>
+  <data name="calibration.collet.colSide" xml:space="preserve">
+    <value>SIDE</value>
+  </data>
+  <data name="calibration.collet.colTZero" xml:space="preserve">
+    <value>T ZERO</value>
+  </data>
+  <data name="calibration.collet.colTheta" xml:space="preserve">
+    <value>THETA</value>
+  </data>
+  <data name="calibration.collet.colValid" xml:space="preserve">
+    <value>VALID</value>
+  </data>
+  <data name="calibration.collet.groupResults" xml:space="preserve">
+    <value>SAVED COLLET OFFSET</value>
+  </data>
+  <data name="calibration.collet.groupSettings" xml:space="preserve">
+    <value>SETTING</value>
+  </data>
+  <data name="calibration.collet.lblHeader" xml:space="preserve">
+    <value>COLLET CALIBRATION</value>
+  </data>
+  <data name="calibration.collet.lblSaveHistory" xml:space="preserve">
+    <value>SAVE HISTORY</value>
+  </data>
+  <data name="calibration.collet.lblStatus" xml:space="preserve">
+    <value>Ready.</value>
+  </data>
+  <data name="calibration.collet.this" xml:space="preserve">
+    <value>COLLET CALIBRATION</value>
+  </data>
+  <data name="calibration.colletchange.btnAvoid" xml:space="preserve">
+    <value>Return to AVOID</value>
+  </data>
+  <data name="calibration.colletchange.btnClose" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="calibration.colletchange.btnMove" xml:space="preserve">
+    <value>Move to replacement position</value>
+  </data>
+  <data name="calibration.colletchange.groupSelect" xml:space="preserve">
+    <value>Select replacement target</value>
+  </data>
+  <data name="calibration.colletchange.lblHeader" xml:space="preserve">
+    <value>COLLET CHANGE MODE</value>
+  </data>
+  <data name="calibration.colletchange.lblPickerCaption" xml:space="preserve">
+    <value>Picker</value>
+  </data>
+  <data name="calibration.colletchange.lblSideCaption" xml:space="preserve">
+    <value>Replacement direction</value>
+  </data>
+  <data name="calibration.colletchange.lblStatus" xml:space="preserve">
+    <value>Retract Y/T/Z to Avoid, then move X to the replacement position.</value>
+  </data>
+  <data name="calibration.colletchange.lblTargetCaption" xml:space="preserve">
+    <value>Replacement X position</value>
+  </data>
+  <data name="calibration.colletchange.rdoFront" xml:space="preserve">
+    <value>FRONT PICKER</value>
+  </data>
+  <data name="calibration.colletchange.rdoInputSide" xml:space="preserve">
+    <value>INPUT side</value>
+  </data>
+  <data name="calibration.colletchange.rdoOutputSide" xml:space="preserve">
+    <value>OUTPUT side</value>
+  </data>
+  <data name="calibration.colletchange.rdoRear" xml:space="preserve">
+    <value>REAR PICKER</value>
+  </data>
+  <data name="calibration.colletchange.this" xml:space="preserve">
+    <value>COLLET CHANGE MODE</value>
+  </data>
+  <data name="calibration.colletcleaning.btnClose" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="calibration.colletcleaning.btnParameterSave" xml:space="preserve">
+    <value>PARAMETER SAVE</value>
+  </data>
+  <data name="calibration.colletcleaning.btnReload" xml:space="preserve">
+    <value>RELOAD</value>
+  </data>
+  <data name="calibration.colletcleaning.btnSelectAll" xml:space="preserve">
+    <value>SELECT ALL</value>
+  </data>
+  <data name="calibration.colletcleaning.btnSelectNone" xml:space="preserve">
+    <value>CLEAR ALL</value>
+  </data>
+  <data name="calibration.colletcleaning.btnStart" xml:space="preserve">
+    <value>START</value>
+  </data>
+  <data name="calibration.colletcleaning.btnStop" xml:space="preserve">
+    <value>SEQ STOP</value>
+  </data>
+  <data name="calibration.colletcleaning.chkTargetAll" xml:space="preserve">
+    <value>ALL</value>
+  </data>
+  <data name="calibration.colletcleaning.colHistoryCollet" xml:space="preserve">
+    <value>COLLET</value>
+  </data>
+  <data name="calibration.colletcleaning.colHistoryCount" xml:space="preserve">
+    <value>TOTAL</value>
+  </data>
+  <data name="calibration.colletcleaning.colHistoryLastAt" xml:space="preserve">
+    <value>LAST CLEANED</value>
+  </data>
+  <data name="calibration.colletcleaning.colHistoryResult" xml:space="preserve">
+    <value>RESULT</value>
+  </data>
+  <data name="calibration.colletcleaning.colHistoryRetry" xml:space="preserve">
+    <value>RETRY</value>
+  </data>
+  <data name="calibration.colletcleaning.colHistorySide" xml:space="preserve">
+    <value>SIDE</value>
+  </data>
+  <data name="calibration.colletcleaning.colSettingName" xml:space="preserve">
+    <value>PARAMETER</value>
+  </data>
+  <data name="calibration.colletcleaning.colSettingUnit" xml:space="preserve">
+    <value>UNIT</value>
+  </data>
+  <data name="calibration.colletcleaning.colSettingValue" xml:space="preserve">
+    <value>VALUE</value>
+  </data>
+  <data name="calibration.colletcleaning.groupResults" xml:space="preserve">
+    <value>COLLET CLEANING HISTORY</value>
+  </data>
+  <data name="calibration.colletcleaning.groupSettings" xml:space="preserve">
+    <value>SETTING</value>
+  </data>
+  <data name="calibration.colletcleaning.lblHeader" xml:space="preserve">
+    <value>COLLET CLEANING</value>
+  </data>
+  <data name="calibration.colletcleaning.lblRunLog" xml:space="preserve">
+    <value>RUN LOG</value>
+  </data>
+  <data name="calibration.colletcleaning.lblStatus" xml:space="preserve">
+    <value>Ready. Check the target collets and cleaning settings, then press START.</value>
+  </data>
+  <data name="calibration.colletcleaning.targetGroup" xml:space="preserve">
+    <value>TARGET (each side C4 → C3~1; clean all selected collets, then inspect all)</value>
+  </data>
+  <data name="calibration.colletcleaning.this" xml:space="preserve">
+    <value>COLLET CLEANING</value>
+  </data>
+  <data name="calibration.item.actual.upper" xml:space="preserve">
+    <value>ACTUAL</value>
+  </data>
+  <data name="calibration.item.all.upper" xml:space="preserve">
+    <value>ALL</value>
+  </data>
+  <data name="calibration.item.apply_t_home.upper" xml:space="preserve">
+    <value>APPLY T&#13;&#10;HOME</value>
+  </data>
+  <data name="calibration.item.arrive_dwell" xml:space="preserve">
+    <value>Arrive Dwell</value>
+  </data>
+  <data name="calibration.item.auto_calibration.upper" xml:space="preserve">
+    <value>AUTO CALIBRATION</value>
+  </data>
+  <data name="calibration.item.autofocus" xml:space="preserve">
+    <value>AutoFocus</value>
+  </data>
+  <data name="calibration.item.axis" xml:space="preserve">
+    <value>Axis</value>
+  </data>
+  <data name="calibration.item.backoff_distance" xml:space="preserve">
+    <value>BackOff Distance</value>
+  </data>
+  <data name="calibration.item.batch_start.upper" xml:space="preserve">
+    <value>BATCH START</value>
+  </data>
+  <data name="calibration.item.blow_pulse_time" xml:space="preserve">
+    <value>Blow Pulse Time</value>
+  </data>
+  <data name="calibration.item.blow_settle_time" xml:space="preserve">
+    <value>Blow Settle Time</value>
+  </data>
+  <data name="calibration.item.cal_setting.upper" xml:space="preserve">
+    <value>CAL SETTING</value>
+  </data>
+  <data name="calibration.item.calibration" xml:space="preserve">
+    <value>Calibration</value>
+  </data>
+  <data name="calibration.item.calibration.upper" xml:space="preserve">
+    <value>CALIBRATION</value>
+  </data>
+  <data name="calibration.item.calibration_valid" xml:space="preserve">
+    <value>Calibration Valid</value>
+  </data>
+  <data name="calibration.item.cap_near_touch_offset" xml:space="preserve">
+    <value>Cap Near Touch Offset</value>
+  </data>
+  <data name="calibration.item.cap_search_100um_max" xml:space="preserve">
+    <value>Cap Search 100um Max</value>
+  </data>
+  <data name="calibration.item.cap_search_10um_max" xml:space="preserve">
+    <value>Cap Search 10um Max</value>
+  </data>
+  <data name="calibration.item.cap_search_1um_max" xml:space="preserve">
+    <value>Cap Search 1um Max</value>
+  </data>
+  <data name="calibration.item.check.upper" xml:space="preserve">
+    <value>CHECK</value>
+  </data>
+  <data name="calibration.item.check_ready.upper" xml:space="preserve">
+    <value>CHECK READY</value>
+  </data>
+  <data name="calibration.item.clean_z_acc" xml:space="preserve">
+    <value>Clean Z Acc</value>
+  </data>
+  <data name="calibration.item.clean_z_dec" xml:space="preserve">
+    <value>Clean Z Dec</value>
+  </data>
+  <data name="calibration.item.clean_z_speed" xml:space="preserve">
+    <value>Clean Z Speed</value>
+  </data>
+  <data name="calibration.item.clear_all.upper" xml:space="preserve">
+    <value>CLEAR ALL</value>
+  </data>
+  <data name="calibration.item.close.upper" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="calibration.item.coarse_search_acc" xml:space="preserve">
+    <value>Coarse Search Acc</value>
+  </data>
+  <data name="calibration.item.coarse_search_dec" xml:space="preserve">
+    <value>Coarse Search Dec</value>
+  </data>
+  <data name="calibration.item.coarse_search_speed" xml:space="preserve">
+    <value>Coarse Search Speed</value>
+  </data>
+  <data name="calibration.item.coc.upper" xml:space="preserve">
+    <value>COC</value>
+  </data>
+  <data name="calibration.item.coc_re_cal.upper" xml:space="preserve">
+    <value>COC &#13;&#10;RE-CAL</value>
+  </data>
+  <data name="calibration.item.coc_start.upper" xml:space="preserve">
+    <value>COC START</value>
+  </data>
+  <data name="calibration.item.coc_t_speed" xml:space="preserve">
+    <value>COC T Speed</value>
+  </data>
+  <data name="calibration.item.coc_xmm" xml:space="preserve">
+    <value>COC Xmm</value>
+  </data>
+  <data name="calibration.item.coc_xpx" xml:space="preserve">
+    <value>COC Xpx</value>
+  </data>
+  <data name="calibration.item.coc_ymm" xml:space="preserve">
+    <value>COC Ymm</value>
+  </data>
+  <data name="calibration.item.coc_ypx" xml:space="preserve">
+    <value>COC Ypx</value>
+  </data>
+  <data name="calibration.item.collet.upper" xml:space="preserve">
+    <value>COLLET</value>
+  </data>
+  <data name="calibration.item.collet_calibration.upper" xml:space="preserve">
+    <value>COLLET CALIBRATION</value>
+  </data>
+  <data name="calibration.item.collet_change_mode.upper" xml:space="preserve">
+    <value>COLLET CHANGE MODE</value>
+  </data>
+  <data name="calibration.item.collet_cleaning.upper" xml:space="preserve">
+    <value>COLLET CLEANING</value>
+  </data>
+  <data name="calibration.item.collet_cleaning_history.upper" xml:space="preserve">
+    <value>COLLET CLEANING HISTORY</value>
+  </data>
+  <data name="calibration.item.collet_no" xml:space="preserve">
+    <value>Collet No</value>
+  </data>
+  <data name="calibration.item.contact_offset" xml:space="preserve">
+    <value>Contact Offset</value>
+  </data>
+  <data name="calibration.item.contact_z_offset" xml:space="preserve">
+    <value>Contact Z Offset</value>
+  </data>
+  <data name="calibration.item.current_position.upper" xml:space="preserve">
+    <value>CURRENT POSITION</value>
+  </data>
+  <data name="calibration.item.diagonal" xml:space="preserve">
+    <value>Diagonal</value>
+  </data>
+  <data name="calibration.item.die" xml:space="preserve">
+    <value>Die</value>
+  </data>
+  <data name="calibration.item.die.upper" xml:space="preserve">
+    <value>DIE</value>
+  </data>
+  <data name="calibration.item.die_height" xml:space="preserve">
+    <value>Die Height</value>
+  </data>
+  <data name="calibration.item.die_thickness" xml:space="preserve">
+    <value>Die Thickness</value>
+  </data>
+  <data name="calibration.item.disable_on_replace" xml:space="preserve">
+    <value>Disable On Replace</value>
+  </data>
+  <data name="calibration.item.ejectpinz_cal" xml:space="preserve">
+    <value>EjectPinZ Cal</value>
+  </data>
+  <data name="calibration.item.ejectpinz_cal_position" xml:space="preserve">
+    <value>EjectPinZ Cal Position</value>
+  </data>
+  <data name="calibration.item.ejectpinz_needlecap" xml:space="preserve">
+    <value>EjectPinZ / NeedleCap</value>
+  </data>
+  <data name="calibration.item.expanderz_process" xml:space="preserve">
+    <value>ExpanderZ Process</value>
+  </data>
+  <data name="calibration.item.fail_if_flow_already_on" xml:space="preserve">
+    <value>Fail If Flow Already On</value>
+  </data>
+  <data name="calibration.item.false" xml:space="preserve">
+    <value>False</value>
+  </data>
+  <data name="calibration.item.film.upper" xml:space="preserve">
+    <value>FILM</value>
+  </data>
+  <data name="calibration.item.film_height" xml:space="preserve">
+    <value>Film Height</value>
+  </data>
+  <data name="calibration.item.film_thickness" xml:space="preserve">
+    <value>Film Thickness</value>
+  </data>
+  <data name="calibration.item.final_x.upper" xml:space="preserve">
+    <value>FINAL X</value>
+  </data>
+  <data name="calibration.item.final_y.upper" xml:space="preserve">
+    <value>FINAL Y</value>
+  </data>
+  <data name="calibration.item.final_z.upper" xml:space="preserve">
+    <value>FINAL Z</value>
+  </data>
+  <data name="calibration.item.finder" xml:space="preserve">
+    <value>Finder</value>
+  </data>
+  <data name="calibration.item.fine_search_acc" xml:space="preserve">
+    <value>Fine Search Acc</value>
+  </data>
+  <data name="calibration.item.fine_search_dec" xml:space="preserve">
+    <value>Fine Search Dec</value>
+  </data>
+  <data name="calibration.item.fine_search_speed" xml:space="preserve">
+    <value>Fine Search Speed</value>
+  </data>
+  <data name="calibration.item.flat_collet_offset" xml:space="preserve">
+    <value>Flat Collet Offset</value>
+  </data>
+  <data name="calibration.item.flow_off_confirm_timeout" xml:space="preserve">
+    <value>Flow Off Confirm Timeout</value>
+  </data>
+  <data name="calibration.item.flow_poll_interval" xml:space="preserve">
+    <value>Flow Poll Interval</value>
+  </data>
+  <data name="calibration.item.flow_stable" xml:space="preserve">
+    <value>Flow Stable</value>
+  </data>
+  <data name="calibration.item.flow_z.upper" xml:space="preserve">
+    <value>FLOW Z</value>
+  </data>
+  <data name="calibration.item.front" xml:space="preserve">
+    <value>Front</value>
+  </data>
+  <data name="calibration.item.front_picker.upper" xml:space="preserve">
+    <value>FRONT PICKER</value>
+  </data>
+  <data name="calibration.item.frontpickerx_avoid" xml:space="preserve">
+    <value>FrontPickerX Avoid</value>
+  </data>
+  <data name="calibration.item.good" xml:space="preserve">
+    <value>Good</value>
+  </data>
+  <data name="calibration.item.item.upper" xml:space="preserve">
+    <value>ITEM</value>
+  </data>
+  <data name="calibration.item.last_cleaned.upper" xml:space="preserve">
+    <value>LAST CLEANED</value>
+  </data>
+  <data name="calibration.item.load_interval" xml:space="preserve">
+    <value>  Load Interval</value>
+  </data>
+  <data name="calibration.item.max_extra_press" xml:space="preserve">
+    <value>Max Extra Press</value>
+  </data>
+  <data name="calibration.item.move_acc" xml:space="preserve">
+    <value>Move Acc</value>
+  </data>
+  <data name="calibration.item.move_avoid_after_cal" xml:space="preserve">
+    <value>Move Avoid After Cal</value>
+  </data>
+  <data name="calibration.item.move_avoid_after_scan" xml:space="preserve">
+    <value>Move Avoid After Scan</value>
+  </data>
+  <data name="calibration.item.move_dec" xml:space="preserve">
+    <value>Move Dec</value>
+  </data>
+  <data name="calibration.item.move_ready.upper" xml:space="preserve">
+    <value>MOVE READY</value>
+  </data>
+  <data name="calibration.item.move_speed" xml:space="preserve">
+    <value>Move Speed</value>
+  </data>
+  <data name="calibration.item.move_start.upper" xml:space="preserve">
+    <value>MOVE START</value>
+  </data>
+  <data name="calibration.item.move_teach.upper" xml:space="preserve">
+    <value>MOVE TEACH</value>
+  </data>
+  <data name="calibration.item.move_timeout" xml:space="preserve">
+    <value>Move Timeout</value>
+  </data>
+  <data name="calibration.item.move_touch.upper" xml:space="preserve">
+    <value>MOVE TOUCH</value>
+  </data>
+  <data name="calibration.item.needle_pin_cal.upper" xml:space="preserve">
+    <value>NEEDLE PIN CAL</value>
+  </data>
+  <data name="calibration.item.needle_pin_calibration" xml:space="preserve">
+    <value>Needle Pin Calibration</value>
+  </data>
+  <data name="calibration.item.needle_z_cal.upper" xml:space="preserve">
+    <value>NEEDLE Z CAL</value>
+  </data>
+  <data name="calibration.item.needle_z_calibration" xml:space="preserve">
+    <value>Needle Z Calibration</value>
+  </data>
+  <data name="calibration.item.needlecap_teaching_position" xml:space="preserve">
+    <value>NeedleCap Teaching Position</value>
+  </data>
+  <data name="calibration.item.needlecaptouchposition" xml:space="preserve">
+    <value>NeedleCapTouchPosition</value>
+  </data>
+  <data name="calibration.item.needlepin_teaching_position" xml:space="preserve">
+    <value>NeedlePin Teaching Position</value>
+  </data>
+  <data name="calibration.item.needlepinflushposition" xml:space="preserve">
+    <value>NeedlePinFlushPosition</value>
+  </data>
+  <data name="calibration.item.needlepinreadyposition" xml:space="preserve">
+    <value>NeedlePinReadyPosition</value>
+  </data>
+  <data name="calibration.item.needlex" xml:space="preserve">
+    <value>NeedleX</value>
+  </data>
+  <data name="calibration.item.needlex_cal" xml:space="preserve">
+    <value>NeedleX Cal</value>
+  </data>
+  <data name="calibration.item.needlex_cal_position" xml:space="preserve">
+    <value>NeedleX Cal Position</value>
+  </data>
+  <data name="calibration.item.needlex_to_visionx" xml:space="preserve">
+    <value>NeedleX To VisionX</value>
+  </data>
+  <data name="calibration.item.needley_to_visiony" xml:space="preserve">
+    <value>NeedleY To VisionY</value>
+  </data>
+  <data name="calibration.item.needlez" xml:space="preserve">
+    <value>NeedleZ</value>
+  </data>
+  <data name="calibration.item.needlez_cal" xml:space="preserve">
+    <value>NeedleZ Cal</value>
+  </data>
+  <data name="calibration.item.needlez_cal_position" xml:space="preserve">
+    <value>NeedleZ Cal Position</value>
+  </data>
+  <data name="calibration.item.ng.upper" xml:space="preserve">
+    <value>NG</value>
+  </data>
+  <data name="calibration.item.off.upper" xml:space="preserve">
+    <value>OFF</value>
+  </data>
+  <data name="calibration.item.offset_x.upper" xml:space="preserve">
+    <value>OFFSET X</value>
+  </data>
+  <data name="calibration.item.offset_y.upper" xml:space="preserve">
+    <value>OFFSET Y</value>
+  </data>
+  <data name="calibration.item.ok.upper" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="calibration.item.old_pick.upper" xml:space="preserve">
+    <value>OLD PICK</value>
+  </data>
+  <data name="calibration.item.old_place.upper" xml:space="preserve">
+    <value>OLD PLACE</value>
+  </data>
+  <data name="calibration.item.on.upper" xml:space="preserve">
+    <value>ON</value>
+  </data>
+  <data name="calibration.item.output" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="calibration.item.output.upper" xml:space="preserve">
+    <value>OUTPUT</value>
+  </data>
+  <data name="calibration.item.outputcamerax_avoid" xml:space="preserve">
+    <value>OutputCameraX Avoid</value>
+  </data>
+  <data name="calibration.item.p_y_avoid.upper" xml:space="preserve">
+    <value>P-Y AVOID</value>
+  </data>
+  <data name="calibration.item.parameter.upper" xml:space="preserve">
+    <value>PARAMETER</value>
+  </data>
+  <data name="calibration.item.parameter_save.upper" xml:space="preserve">
+    <value>PARAMETER SAVE</value>
+  </data>
+  <data name="calibration.item.pick_z.upper" xml:space="preserve">
+    <value>PICK Z</value>
+  </data>
+  <data name="calibration.item.picker.upper" xml:space="preserve">
+    <value>PICKER</value>
+  </data>
+  <data name="calibration.item.picker_no" xml:space="preserve">
+    <value>Picker No</value>
+  </data>
+  <data name="calibration.item.pickup_z_cal.upper" xml:space="preserve">
+    <value>PICKUP Z CAL</value>
+  </data>
+  <data name="calibration.item.pickup_z_calibration" xml:space="preserve">
+    <value>PickUp Z Calibration</value>
+  </data>
+  <data name="calibration.item.pin_ready_below_flush" xml:space="preserve">
+    <value>Pin Ready Below Flush</value>
+  </data>
+  <data name="calibration.item.pin_search_10um_max" xml:space="preserve">
+    <value>Pin Search 10um Max</value>
+  </data>
+  <data name="calibration.item.pin_search_1um_max" xml:space="preserve">
+    <value>Pin Search 1um Max</value>
+  </data>
+  <data name="calibration.item.place_on_cleaned_cell" xml:space="preserve">
+    <value>Place On Cleaned Cell</value>
+  </data>
+  <data name="calibration.item.place_z.upper" xml:space="preserve">
+    <value>PLACE Z</value>
+  </data>
+  <data name="calibration.item.place_z_cal.upper" xml:space="preserve">
+    <value>PLACE Z CAL</value>
+  </data>
+  <data name="calibration.item.place_z_calibration" xml:space="preserve">
+    <value>Place Z Calibration</value>
+  </data>
+  <data name="calibration.item.position_offset_x" xml:space="preserve">
+    <value>Position Offset X</value>
+  </data>
+  <data name="calibration.item.position_offset_y" xml:space="preserve">
+    <value>Position Offset Y</value>
+  </data>
+  <data name="calibration.item.press_count" xml:space="preserve">
+    <value>Press Count</value>
+  </data>
+  <data name="calibration.item.process_interval" xml:space="preserve">
+    <value>  Process Interval</value>
+  </data>
+  <data name="calibration.item.process_unit" xml:space="preserve">
+    <value>  Process Unit</value>
+  </data>
+  <data name="calibration.item.rear" xml:space="preserve">
+    <value>Rear</value>
+  </data>
+  <data name="calibration.item.rear_picker.upper" xml:space="preserve">
+    <value>REAR PICKER</value>
+  </data>
+  <data name="calibration.item.rearpickerx_avoid" xml:space="preserve">
+    <value>RearPickerX Avoid</value>
+  </data>
+  <data name="calibration.item.reload.upper" xml:space="preserve">
+    <value>RELOAD</value>
+  </data>
+  <data name="calibration.item.repeat_count" xml:space="preserve">
+    <value>Repeat Count</value>
+  </data>
+  <data name="calibration.item.repeat_lift_height" xml:space="preserve">
+    <value>Repeat Lift Height</value>
+  </data>
+  <data name="calibration.item.repeat_tolerance" xml:space="preserve">
+    <value>Repeat Tolerance</value>
+  </data>
+  <data name="calibration.item.result.upper" xml:space="preserve">
+    <value>RESULT</value>
+  </data>
+  <data name="calibration.item.retry.upper" xml:space="preserve">
+    <value>RETRY</value>
+  </data>
+  <data name="calibration.item.retry_on_ng" xml:space="preserve">
+    <value>Retry On NG</value>
+  </data>
+  <data name="calibration.item.rim_collet_offset" xml:space="preserve">
+    <value>Rim Collet Offset</value>
+  </data>
+  <data name="calibration.item.rim_height" xml:space="preserve">
+    <value>Rim Height</value>
+  </data>
+  <data name="calibration.item.run_log.upper" xml:space="preserve">
+    <value>RUN LOG</value>
+  </data>
+  <data name="calibration.item.save.upper" xml:space="preserve">
+    <value>SAVE</value>
+  </data>
+  <data name="calibration.item.save_bot_pos.upper" xml:space="preserve">
+    <value>SAVE BOT.&#13;&#10;POS</value>
+  </data>
+  <data name="calibration.item.save_history.upper" xml:space="preserve">
+    <value>SAVE HISTORY</value>
+  </data>
+  <data name="calibration.item.save_result.upper" xml:space="preserve">
+    <value>SAVE RESULT</value>
+  </data>
+  <data name="calibration.item.saved_collet_offset.upper" xml:space="preserve">
+    <value>SAVED COLLET OFFSET</value>
+  </data>
+  <data name="calibration.item.saved_pick.upper" xml:space="preserve">
+    <value>SAVED PICK</value>
+  </data>
+  <data name="calibration.item.saved_pickup_z.upper" xml:space="preserve">
+    <value>SAVED PICKUP Z</value>
+  </data>
+  <data name="calibration.item.saved_place.upper" xml:space="preserve">
+    <value>SAVED PLACE</value>
+  </data>
+  <data name="calibration.item.saved_place_z.upper" xml:space="preserve">
+    <value>SAVED PLACE Z</value>
+  </data>
+  <data name="calibration.item.saved_result.upper" xml:space="preserve">
+    <value>SAVED RESULT</value>
+  </data>
+  <data name="calibration.item.score_min" xml:space="preserve">
+    <value>Score Min</value>
+  </data>
+  <data name="calibration.item.search_max_distance" xml:space="preserve">
+    <value>Search Max Distance</value>
+  </data>
+  <data name="calibration.item.search_start_offset" xml:space="preserve">
+    <value>Search Start Offset</value>
+  </data>
+  <data name="calibration.item.select_all.upper" xml:space="preserve">
+    <value>SELECT ALL</value>
+  </data>
+  <data name="calibration.item.seq_stop.upper" xml:space="preserve">
+    <value>SEQ STOP</value>
+  </data>
+  <data name="calibration.item.setting.upper" xml:space="preserve">
+    <value>SETTING</value>
+  </data>
+  <data name="calibration.item.side" xml:space="preserve">
+    <value>Side</value>
+  </data>
+  <data name="calibration.item.side.upper" xml:space="preserve">
+    <value>SIDE</value>
+  </data>
+  <data name="calibration.item.side_autofocus" xml:space="preserve">
+    <value>Side AutoFocus</value>
+  </data>
+  <data name="calibration.item.staget_process" xml:space="preserve">
+    <value>StageT Process</value>
+  </data>
+  <data name="calibration.item.stagey" xml:space="preserve">
+    <value>StageY</value>
+  </data>
+  <data name="calibration.item.stagey_process" xml:space="preserve">
+    <value>StageY Process</value>
+  </data>
+  <data name="calibration.item.stagey_process_position" xml:space="preserve">
+    <value>StageY Process Position</value>
+  </data>
+  <data name="calibration.item.start.upper" xml:space="preserve">
+    <value>START</value>
+  </data>
+  <data name="calibration.item.start_cal.upper" xml:space="preserve">
+    <value>START CAL</value>
+  </data>
+  <data name="calibration.item.start_scan.upper" xml:space="preserve">
+    <value>START SCAN</value>
+  </data>
+  <data name="calibration.item.start_z" xml:space="preserve">
+    <value>Start Z</value>
+  </data>
+  <data name="calibration.item.start_z.upper" xml:space="preserve">
+    <value>START Z</value>
+  </data>
+  <data name="calibration.item.stop.upper" xml:space="preserve">
+    <value>STOP</value>
+  </data>
+  <data name="calibration.item.t_teaching" xml:space="preserve">
+    <value>T Teaching</value>
+  </data>
+  <data name="calibration.item.t_zero.upper" xml:space="preserve">
+    <value>T ZERO</value>
+  </data>
+  <data name="calibration.item.target.upper" xml:space="preserve">
+    <value>TARGET</value>
+  </data>
+  <data name="calibration.item.teaching_data.upper" xml:space="preserve">
+    <value>TEACHING DATA</value>
+  </data>
+  <data name="calibration.item.theta.upper" xml:space="preserve">
+    <value>THETA</value>
+  </data>
+  <data name="calibration.item.theta_gain" xml:space="preserve">
+    <value>Theta Gain</value>
+  </data>
+  <data name="calibration.item.theta_retry" xml:space="preserve">
+    <value>Theta Retry</value>
+  </data>
+  <data name="calibration.item.theta_tol" xml:space="preserve">
+    <value>Theta Tol</value>
+  </data>
+  <data name="calibration.item.total.upper" xml:space="preserve">
+    <value>TOTAL</value>
+  </data>
+  <data name="calibration.item.touch_needlex_position" xml:space="preserve">
+    <value>Touch NeedleX Position</value>
+  </data>
+  <data name="calibration.item.touch_poll_interval" xml:space="preserve">
+    <value>Touch Poll Interval</value>
+  </data>
+  <data name="calibration.item.touch_sensor" xml:space="preserve">
+    <value>Touch Sensor</value>
+  </data>
+  <data name="calibration.item.touch_stable" xml:space="preserve">
+    <value>Touch Stable</value>
+  </data>
+  <data name="calibration.item.touch_stagey_position" xml:space="preserve">
+    <value>Touch StageY Position</value>
+  </data>
+  <data name="calibration.item.trig_auto_start" xml:space="preserve">
+    <value>Trig Auto Start</value>
+  </data>
+  <data name="calibration.item.trig_good_bin_load" xml:space="preserve">
+    <value>Trig Good Bin Load</value>
+  </data>
+  <data name="calibration.item.trig_process_count" xml:space="preserve">
+    <value>Trig Process Count</value>
+  </data>
+  <data name="calibration.item.true" xml:space="preserve">
+    <value>True</value>
+  </data>
+  <data name="calibration.item.unit.upper" xml:space="preserve">
+    <value>UNIT</value>
+  </data>
+  <data name="calibration.item.updated" xml:space="preserve">
+    <value>Updated</value>
+  </data>
+  <data name="calibration.item.use_current.upper" xml:space="preserve">
+    <value>USE CURRENT</value>
+  </data>
+  <data name="calibration.item.vac_off.upper" xml:space="preserve">
+    <value>VAC OFF</value>
+  </data>
+  <data name="calibration.item.vacuum_on_delay" xml:space="preserve">
+    <value>Vacuum On Delay</value>
+  </data>
+  <data name="calibration.item.vacuum_re_on_delay" xml:space="preserve">
+    <value>Vacuum Re-On Delay</value>
+  </data>
+  <data name="calibration.item.valid" xml:space="preserve">
+    <value>Valid</value>
+  </data>
+  <data name="calibration.item.valid.upper" xml:space="preserve">
+    <value>VALID</value>
+  </data>
+  <data name="calibration.item.value.upper" xml:space="preserve">
+    <value>VALUE</value>
+  </data>
+  <data name="calibration.item.vision_pixel_offset_x" xml:space="preserve">
+    <value>Vision Pixel Offset X</value>
+  </data>
+  <data name="calibration.item.vision_pixel_offset_y" xml:space="preserve">
+    <value>Vision Pixel Offset Y</value>
+  </data>
+  <data name="calibration.item.vision_target" xml:space="preserve">
+    <value>Vision Target</value>
+  </data>
+  <data name="calibration.item.vision_timeout" xml:space="preserve">
+    <value>Vision Timeout</value>
+  </data>
+  <data name="calibration.item.visionx_cal" xml:space="preserve">
+    <value>VisionX Cal</value>
+  </data>
+  <data name="calibration.item.visionx_cal_position" xml:space="preserve">
+    <value>VisionX Cal Position</value>
+  </data>
+  <data name="calibration.item.wafer" xml:space="preserve">
+    <value>Wafer</value>
+  </data>
+  <data name="calibration.item.xy_fine_max" xml:space="preserve">
+    <value>XY Fine Max</value>
+  </data>
+  <data name="calibration.item.xy_gain_x" xml:space="preserve">
+    <value>XY Gain X</value>
+  </data>
+  <data name="calibration.item.xy_gain_y" xml:space="preserve">
+    <value>XY Gain Y</value>
+  </data>
+  <data name="calibration.item.xy_retry" xml:space="preserve">
+    <value>XY Retry</value>
+  </data>
+  <data name="calibration.item.xy_tol" xml:space="preserve">
+    <value>XY Tol</value>
+  </data>
+  <data name="calibration.item.xy_tol_mode" xml:space="preserve">
+    <value>XY Tol Mode</value>
+  </data>
+  <data name="calibration.item.z_avoid.upper" xml:space="preserve">
+    <value>Z-AVOID</value>
+  </data>
+  <data name="calibration.item.z_avoid.upper_alt" xml:space="preserve">
+    <value>Z AVOID</value>
+  </data>
+  <data name="calibration.message.m000" xml:space="preserve">
+    <value>COLLET CAL</value>
+  </data>
+  <data name="calibration.message.m001" xml:space="preserve">
+    <value>Collet calibration is running. Request a stop before closing the window?</value>
+  </data>
+  <data name="calibration.message.m002" xml:space="preserve">
+    <value>COLLET COC</value>
+  </data>
+  <data name="calibration.message.m003" xml:space="preserve">
+    <value>COLLET BATCH</value>
+  </data>
+  <data name="calibration.message.m004" xml:space="preserve">
+    <value>Place Z calibration is running. Request a stop before closing the window?</value>
+  </data>
+  <data name="calibration.message.m005" xml:space="preserve">
+    <value>PLACE Z CAL</value>
+  </data>
+  <data name="calibration.message.m006" xml:space="preserve">
+    <value>PickUp Z calibration is running. Request a stop before closing the window?</value>
+  </data>
+  <data name="calibration.message.m007" xml:space="preserve">
+    <value>PICKUP Z CAL</value>
+  </data>
+  <data name="calibration.message.m008" xml:space="preserve">
+    <value>Failed to initialize the auto calibration screen.&#13;&#10;{0}</value>
+  </data>
+  <data name="calibration.message.m009" xml:space="preserve">
+    <value>AUTO CALIBRATION</value>
+  </data>
+  <data name="calibration.message.m010" xml:space="preserve">
+    <value>Auto calibration is running. Request a stop before closing the window?</value>
+  </data>
+  <data name="calibration.message.m011" xml:space="preserve">
+    <value>PICK Z CAL readiness check</value>
+  </data>
+  <data name="calibration.message.m012" xml:space="preserve">
+    <value>PLACE Z CAL readiness check</value>
+  </data>
+  <data name="calibration.message.m013" xml:space="preserve">
+    <value>Needle calibration is running. Request a stop before closing the window?</value>
+  </data>
+  <data name="calibration.message.m014" xml:space="preserve">
+    <value>NEEDLE CAL</value>
+  </data>
+  <data name="calibration.message.m015" xml:space="preserve">
+    <value>NEEDLE Z CAL</value>
+  </data>
+  <data name="calibration.message.m016" xml:space="preserve">
+    <value>Needle pin calibration is running. Request a stop before closing the window?</value>
+  </data>
+  <data name="calibration.message.m017" xml:space="preserve">
+    <value>NEEDLE PIN CAL</value>
+  </data>
+  <data name="calibration.message.m018" xml:space="preserve">
+    <value>Manually overwrite measurement result {0}.&#13;&#10;This changes the calibration value without measuring and saves it immediately.&#13;&#10;&#13;&#10;Continue?</value>
+  </data>
+  <data name="calibration.message.m019" xml:space="preserve">
+    <value>The value of {0} is not numeric.</value>
+  </data>
+  <data name="calibration.message.m020" xml:space="preserve">
+    <value>COLLET CLEANING</value>
+  </data>
+  <data name="calibration.message.m021" xml:space="preserve">
+    <value>The selected replacement X position is 0.000 mm (it may not have been taught).&#13;&#10;Move anyway?</value>
+  </data>
+  <data name="calibration.message.m022" xml:space="preserve">
+    <value>Collet replacement</value>
+  </data>
+  <data name="calibration.message.m023" xml:space="preserve">
+    <value>The equipment is not ready.</value>
+  </data>
+  <data name="calibration.message.m024" xml:space="preserve">
+    <value>Cannot move to the collet replacement position during automatic operation.&#13;&#10;Stop operation and try again.</value>
+  </data>
+  <data name="calibration.message.m025" xml:space="preserve">
+    <value>Run {2} for the {0} PICKER on the {1} side?&#13;&#10;Y/T/Z retract to Avoid before X moves.</value>
+  </data>
+  <data name="calibration.needle.btnAvoid" xml:space="preserve">
+    <value>Z AVOID</value>
+  </data>
+  <data name="calibration.needle.btnCheck" xml:space="preserve">
+    <value>CHECK</value>
+  </data>
+  <data name="calibration.needle.btnClose" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="calibration.needle.btnMoveTouch" xml:space="preserve">
+    <value>MOVE TOUCH</value>
+  </data>
+  <data name="calibration.needle.btnReload" xml:space="preserve">
+    <value>RELOAD</value>
+  </data>
+  <data name="calibration.needle.btnSave" xml:space="preserve">
+    <value>SAVE RESULT</value>
+  </data>
+  <data name="calibration.needle.btnSaveParameters" xml:space="preserve">
+    <value>PARAMETER SAVE</value>
+  </data>
+  <data name="calibration.needle.btnSeqStop" xml:space="preserve">
+    <value>SEQ STOP</value>
+  </data>
+  <data name="calibration.needle.btnStart" xml:space="preserve">
+    <value>START CAL</value>
+  </data>
+  <data name="calibration.needle.btnUseCurrent" xml:space="preserve">
+    <value>USE CURRENT</value>
+  </data>
+  <data name="calibration.needle.colResultItem" xml:space="preserve">
+    <value>ITEM</value>
+  </data>
+  <data name="calibration.needle.colResultUnit" xml:space="preserve">
+    <value>UNIT</value>
+  </data>
+  <data name="calibration.needle.colResultValue" xml:space="preserve">
+    <value>VALUE</value>
+  </data>
+  <data name="calibration.needle.colSettingItem" xml:space="preserve">
+    <value>ITEM</value>
+  </data>
+  <data name="calibration.needle.colSettingUnit" xml:space="preserve">
+    <value>UNIT</value>
+  </data>
+  <data name="calibration.needle.colSettingValue" xml:space="preserve">
+    <value>VALUE</value>
+  </data>
+  <data name="calibration.needle.colTeachingActual" xml:space="preserve">
+    <value>ACTUAL</value>
+  </data>
+  <data name="calibration.needle.colTeachingItem" xml:space="preserve">
+    <value>ITEM</value>
+  </data>
+  <data name="calibration.needle.colTeachingUnit" xml:space="preserve">
+    <value>UNIT</value>
+  </data>
+  <data name="calibration.needle.groupResults" xml:space="preserve">
+    <value>SAVED RESULT</value>
+  </data>
+  <data name="calibration.needle.groupSettings" xml:space="preserve">
+    <value>CAL SETTING</value>
+  </data>
+  <data name="calibration.needle.groupTeaching" xml:space="preserve">
+    <value>CURRENT POSITION</value>
+  </data>
+  <data name="calibration.needle.lblHeader" xml:space="preserve">
+    <value>NEEDLE Z CAL</value>
+  </data>
+  <data name="calibration.needle.status" xml:space="preserve">
+    <value>Check the teaching position with USE CURRENT, then run START CAL.</value>
+  </data>
+  <data name="calibration.needle.this" xml:space="preserve">
+    <value>Needle Z Calibration</value>
+  </data>
+  <data name="calibration.needlepin.btnCheck" xml:space="preserve">
+    <value>CHECK READY</value>
+  </data>
+  <data name="calibration.needlepin.btnClose" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="calibration.needlepin.btnMoveReady" xml:space="preserve">
+    <value>MOVE READY</value>
+  </data>
+  <data name="calibration.needlepin.btnMoveTeach" xml:space="preserve">
+    <value>MOVE TEACH</value>
+  </data>
+  <data name="calibration.needlepin.btnParameterSave" xml:space="preserve">
+    <value>PARAMETER SAVE</value>
+  </data>
+  <data name="calibration.needlepin.btnReload" xml:space="preserve">
+    <value>RELOAD</value>
+  </data>
+  <data name="calibration.needlepin.btnSave" xml:space="preserve">
+    <value>SAVE RESULT</value>
+  </data>
+  <data name="calibration.needlepin.btnStart" xml:space="preserve">
+    <value>START CAL</value>
+  </data>
+  <data name="calibration.needlepin.btnTeach" xml:space="preserve">
+    <value>USE CURRENT</value>
+  </data>
+  <data name="calibration.needlepin.colResultItem" xml:space="preserve">
+    <value>ITEM</value>
+  </data>
+  <data name="calibration.needlepin.colResultUnit" xml:space="preserve">
+    <value>UNIT</value>
+  </data>
+  <data name="calibration.needlepin.colResultValue" xml:space="preserve">
+    <value>VALUE</value>
+  </data>
+  <data name="calibration.needlepin.colSettingItem" xml:space="preserve">
+    <value>ITEM</value>
+  </data>
+  <data name="calibration.needlepin.colSettingUnit" xml:space="preserve">
+    <value>UNIT</value>
+  </data>
+  <data name="calibration.needlepin.colSettingValue" xml:space="preserve">
+    <value>VALUE</value>
+  </data>
+  <data name="calibration.needlepin.colTeachingActual" xml:space="preserve">
+    <value>ACTUAL</value>
+  </data>
+  <data name="calibration.needlepin.colTeachingItem" xml:space="preserve">
+    <value>ITEM</value>
+  </data>
+  <data name="calibration.needlepin.colTeachingTarget" xml:space="preserve">
+    <value>TARGET</value>
+  </data>
+  <data name="calibration.needlepin.colTeachingUnit" xml:space="preserve">
+    <value>UNIT</value>
+  </data>
+  <data name="calibration.needlepin.groupSaved" xml:space="preserve">
+    <value>SAVED RESULT</value>
+  </data>
+  <data name="calibration.needlepin.groupSetting" xml:space="preserve">
+    <value>CAL SETTING</value>
+  </data>
+  <data name="calibration.needlepin.groupTeaching" xml:space="preserve">
+    <value>TEACHING DATA</value>
+  </data>
+  <data name="calibration.needlepin.lblHeader" xml:space="preserve">
+    <value>NEEDLE PIN CAL</value>
+  </data>
+  <data name="calibration.needlepin.status" xml:space="preserve">
+    <value>1) MOVE READY  2) USE CURRENT  3) MOVE TEACH  4) START CAL</value>
+  </data>
+  <data name="calibration.needlepin.this" xml:space="preserve">
+    <value>Needle Pin Calibration</value>
+  </data>
+  <data name="calibration.pickupz.batchGroup" xml:space="preserve">
+    <value>BATCH (sequential: Front P4→P1, Rear P4→P1)</value>
+  </data>
+  <data name="calibration.pickupz.btnBatchStart" xml:space="preserve">
+    <value>BATCH START</value>
+  </data>
+  <data name="calibration.pickupz.btnCheck" xml:space="preserve">
+    <value>CHECK</value>
+  </data>
+  <data name="calibration.pickupz.btnClose" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="calibration.pickupz.btnMoveAvoid" xml:space="preserve">
+    <value>Z AVOID</value>
+  </data>
+  <data name="calibration.pickupz.btnMoveStart" xml:space="preserve">
+    <value>MOVE START</value>
+  </data>
+  <data name="calibration.pickupz.btnParameterSave" xml:space="preserve">
+    <value>PARAMETER SAVE</value>
+  </data>
+  <data name="calibration.pickupz.btnReload" xml:space="preserve">
+    <value>RELOAD</value>
+  </data>
+  <data name="calibration.pickupz.btnSave" xml:space="preserve">
+    <value>SAVE RESULT</value>
+  </data>
+  <data name="calibration.pickupz.btnSeqStop" xml:space="preserve">
+    <value>SEQ STOP</value>
+  </data>
+  <data name="calibration.pickupz.btnStartScan" xml:space="preserve">
+    <value>START SCAN</value>
+  </data>
+  <data name="calibration.pickupz.btnVacOff" xml:space="preserve">
+    <value>VAC OFF</value>
+  </data>
+  <data name="calibration.pickupz.chkBatchAll" xml:space="preserve">
+    <value>ALL</value>
+  </data>
+  <data name="calibration.pickupz.headerLabel" xml:space="preserve">
+    <value>PICKUP Z CAL</value>
+  </data>
+  <data name="calibration.pickupz.pickerLabel" xml:space="preserve">
+    <value>Picker No</value>
+  </data>
+  <data name="calibration.pickupz.resultDieColumn" xml:space="preserve">
+    <value>DIE</value>
+  </data>
+  <data name="calibration.pickupz.resultFilmColumn" xml:space="preserve">
+    <value>FILM</value>
+  </data>
+  <data name="calibration.pickupz.resultFlowZColumn" xml:space="preserve">
+    <value>FLOW Z</value>
+  </data>
+  <data name="calibration.pickupz.resultGroup" xml:space="preserve">
+    <value>SAVED PICKUP Z</value>
+  </data>
+  <data name="calibration.pickupz.resultItemColumn" xml:space="preserve">
+    <value>ITEM</value>
+  </data>
+  <data name="calibration.pickupz.resultOldPickColumn" xml:space="preserve">
+    <value>OLD PICK</value>
+  </data>
+  <data name="calibration.pickupz.resultPickerColumn" xml:space="preserve">
+    <value>PICKER</value>
+  </data>
+  <data name="calibration.pickupz.resultSavedPickColumn" xml:space="preserve">
+    <value>SAVED PICK</value>
+  </data>
+  <data name="calibration.pickupz.resultSideColumn" xml:space="preserve">
+    <value>SIDE</value>
+  </data>
+  <data name="calibration.pickupz.resultStartZColumn" xml:space="preserve">
+    <value>START Z</value>
+  </data>
+  <data name="calibration.pickupz.resultValidColumn" xml:space="preserve">
+    <value>VALID</value>
+  </data>
+  <data name="calibration.pickupz.settingsGroup" xml:space="preserve">
+    <value>CAL SETTING</value>
+  </data>
+  <data name="calibration.pickupz.settingsParameterColumn" xml:space="preserve">
+    <value>PARAMETER</value>
+  </data>
+  <data name="calibration.pickupz.settingsUnitColumn" xml:space="preserve">
+    <value>UNIT</value>
+  </data>
+  <data name="calibration.pickupz.settingsValueColumn" xml:space="preserve">
+    <value>VALUE</value>
+  </data>
+  <data name="calibration.pickupz.sideLabel" xml:space="preserve">
+    <value>Side</value>
+  </data>
+  <data name="calibration.pickupz.status" xml:space="preserve">
+    <value>Position the picker above the wafer film, then run START SCAN.</value>
+  </data>
+  <data name="calibration.pickupz.this" xml:space="preserve">
+    <value>PickUp Z Calibration</value>
+  </data>
+  <data name="calibration.placez.batchGroup" xml:space="preserve">
+    <value>BATCH (fixed output; sequential: Front P4→P1, Rear P4→P1)</value>
+  </data>
+  <data name="calibration.placez.btnBatchStart" xml:space="preserve">
+    <value>BATCH START</value>
+  </data>
+  <data name="calibration.placez.btnCheck" xml:space="preserve">
+    <value>CHECK</value>
+  </data>
+  <data name="calibration.placez.btnClose" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="calibration.placez.btnMoveAvoid" xml:space="preserve">
+    <value>Z AVOID</value>
+  </data>
+  <data name="calibration.placez.btnMoveStart" xml:space="preserve">
+    <value>MOVE START</value>
+  </data>
+  <data name="calibration.placez.btnParameterSave" xml:space="preserve">
+    <value>PARAMETER SAVE</value>
+  </data>
+  <data name="calibration.placez.btnReload" xml:space="preserve">
+    <value>RELOAD</value>
+  </data>
+  <data name="calibration.placez.btnSave" xml:space="preserve">
+    <value>SAVE RESULT</value>
+  </data>
+  <data name="calibration.placez.btnSeqStop" xml:space="preserve">
+    <value>SEQ STOP</value>
+  </data>
+  <data name="calibration.placez.btnStartScan" xml:space="preserve">
+    <value>START SCAN</value>
+  </data>
+  <data name="calibration.placez.btnVacOff" xml:space="preserve">
+    <value>VAC OFF</value>
+  </data>
+  <data name="calibration.placez.chkBatchAll" xml:space="preserve">
+    <value>ALL</value>
+  </data>
+  <data name="calibration.placez.headerLabel" xml:space="preserve">
+    <value>PLACE Z CAL</value>
+  </data>
+  <data name="calibration.placez.outputLabel" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="calibration.placez.pickerLabel" xml:space="preserve">
+    <value>Picker No</value>
+  </data>
+  <data name="calibration.placez.resultDieColumn" xml:space="preserve">
+    <value>DIE</value>
+  </data>
+  <data name="calibration.placez.resultFilmColumn" xml:space="preserve">
+    <value>FILM</value>
+  </data>
+  <data name="calibration.placez.resultFlowZColumn" xml:space="preserve">
+    <value>FLOW Z</value>
+  </data>
+  <data name="calibration.placez.resultGroup" xml:space="preserve">
+    <value>SAVED PLACE Z</value>
+  </data>
+  <data name="calibration.placez.resultItemColumn" xml:space="preserve">
+    <value>ITEM</value>
+  </data>
+  <data name="calibration.placez.resultOldPlaceColumn" xml:space="preserve">
+    <value>OLD PLACE</value>
+  </data>
+  <data name="calibration.placez.resultOutputColumn" xml:space="preserve">
+    <value>OUTPUT</value>
+  </data>
+  <data name="calibration.placez.resultPickerColumn" xml:space="preserve">
+    <value>PICKER</value>
+  </data>
+  <data name="calibration.placez.resultSavedPlaceColumn" xml:space="preserve">
+    <value>SAVED PLACE</value>
+  </data>
+  <data name="calibration.placez.resultSideColumn" xml:space="preserve">
+    <value>SIDE</value>
+  </data>
+  <data name="calibration.placez.resultStartZColumn" xml:space="preserve">
+    <value>START Z</value>
+  </data>
+  <data name="calibration.placez.resultValidColumn" xml:space="preserve">
+    <value>VALID</value>
+  </data>
+  <data name="calibration.placez.settingsGroup" xml:space="preserve">
+    <value>CAL SETTING</value>
+  </data>
+  <data name="calibration.placez.settingsParameterColumn" xml:space="preserve">
+    <value>PARAMETER</value>
+  </data>
+  <data name="calibration.placez.settingsUnitColumn" xml:space="preserve">
+    <value>UNIT</value>
+  </data>
+  <data name="calibration.placez.settingsValueColumn" xml:space="preserve">
+    <value>VALUE</value>
+  </data>
+  <data name="calibration.placez.sideLabel" xml:space="preserve">
+    <value>Side</value>
+  </data>
+  <data name="calibration.placez.status" xml:space="preserve">
+    <value>Position the picker above the output place position, then run START SCAN.</value>
+  </data>
+  <data name="calibration.placez.this" xml:space="preserve">
+    <value>Place Z Calibration</value>
+  </data>
+  <data name="calibration.raw" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="calibration.status.s000" xml:space="preserve">
+    <value>Ready. Check the collet and calibration settings, then press START.</value>
+  </data>
+  <data name="calibration.status.s001" xml:space="preserve">
+    <value>Failed to change settings: {0}</value>
+  </data>
+  <data name="calibration.status.s002" xml:space="preserve">
+    <value>{0} cannot be edited with the numeric keypad.</value>
+  </data>
+  <data name="calibration.status.s003" xml:space="preserve">
+    <value>The setting for {0} is not numeric. value={1}</value>
+  </data>
+  <data name="calibration.status.s004" xml:space="preserve">
+    <value>Enter a finite angle for T Teaching. value={0}</value>
+  </data>
+  <data name="calibration.status.s005" xml:space="preserve">
+    <value>Failed to process numeric input: {0}</value>
+  </data>
+  <data name="calibration.status.s006" xml:space="preserve">
+    <value>Ready to run.</value>
+  </data>
+  <data name="calibration.status.s007" xml:space="preserve">
+    <value>Collet calibration settings and saved values reloaded.</value>
+  </data>
+  <data name="calibration.status.s008" xml:space="preserve">
+    <value>Stopping. Close the window after stopping completes.</value>
+  </data>
+  <data name="calibration.status.s009" xml:space="preserve">
+    <value>Collet calibration running. Side={0}, Collet={1}</value>
+  </data>
+  <data name="calibration.status.s010" xml:space="preserve">
+    <value>Collet calibration failed. Check the Alarm/Event Log.</value>
+  </data>
+  <data name="calibration.status.s011" xml:space="preserve">
+    <value>Collet calibration completed. OffsetX={0}, OffsetY={1}, TZero={2}</value>
+  </data>
+  <data name="calibration.status.s012" xml:space="preserve">
+    <value>Collet calibration was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s013" xml:space="preserve">
+    <value>Collet calibration stopped: {0}</value>
+  </data>
+  <data name="calibration.status.s014" xml:space="preserve">
+    <value>Collet calibration exception: {0}</value>
+  </data>
+  <data name="calibration.status.s015" xml:space="preserve">
+    <value>Run COC START to detect the selected collet's initial rotation center first.</value>
+  </data>
+  <data name="calibration.status.s016" xml:space="preserve">
+    <value>No active recipe. Cannot save the rotation center machine coordinates.</value>
+  </data>
+  <data name="calibration.status.s017" xml:space="preserve">
+    <value>Moving X/Y to the saved rotation center and running COC again.</value>
+  </data>
+  <data name="calibration.status.s018" xml:space="preserve">
+    <value>COC running. Rotating T through 360 degrees at {0} deg/s from the existing collet calibration position.</value>
+  </data>
+  <data name="calibration.status.s019" xml:space="preserve">
+    <value>COC failed. Check the Alarm/Event Log.</value>
+  </data>
+  <data name="calibration.status.s020" xml:space="preserve">
+    <value>COC was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s021" xml:space="preserve">
+    <value>COC stopped: {0}</value>
+  </data>
+  <data name="calibration.status.s022" xml:space="preserve">
+    <value>Exception while running COC: {0}</value>
+  </data>
+  <data name="calibration.status.s023" xml:space="preserve">
+    <value>No collets selected for BATCH. Select the F/R C1-C4 check boxes.</value>
+  </data>
+  <data name="calibration.status.s024" xml:space="preserve">
+    <value>[BATCH] {0} collet calibration running...</value>
+  </data>
+  <data name="calibration.status.s025" xml:space="preserve">
+    <value>BATCH interrupted. {0}/{1} collets succeeded. Check the Alarm/Event Log.</value>
+  </data>
+  <data name="calibration.status.s026" xml:space="preserve">
+    <value>BATCH completed. {0}/{1} collets succeeded.</value>
+  </data>
+  <data name="calibration.status.s027" xml:space="preserve">
+    <value>BATCH was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s028" xml:space="preserve">
+    <value>BATCH stopped: {0}</value>
+  </data>
+  <data name="calibration.status.s029" xml:space="preserve">
+    <value>Exception while running BATCH: {0}</value>
+  </data>
+  <data name="calibration.status.s030" xml:space="preserve">
+    <value>All front/rear picker Z axes moved to Avoid.</value>
+  </data>
+  <data name="calibration.status.s031" xml:space="preserve">
+    <value>Picker Z Avoid move failed. Check the Alarm/Event Log.</value>
+  </data>
+  <data name="calibration.status.s032" xml:space="preserve">
+    <value>Picker Z Avoid move was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s033" xml:space="preserve">
+    <value>Picker Z Avoid move exception: {0}</value>
+  </data>
+  <data name="calibration.status.s034" xml:space="preserve">
+    <value>Move all front/rear picker Z axes to Avoid before moving Picker Y to Avoid. (Z-AVOID button)</value>
+  </data>
+  <data name="calibration.status.s035" xml:space="preserve">
+    <value>Front/rear Picker Y axes moved to Avoid.</value>
+  </data>
+  <data name="calibration.status.s036" xml:space="preserve">
+    <value>Picker Y Avoid move failed. Check the Alarm/Event Log.</value>
+  </data>
+  <data name="calibration.status.s037" xml:space="preserve">
+    <value>Picker Y Avoid move was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s038" xml:space="preserve">
+    <value>Picker Y Avoid move exception: {0}</value>
+  </data>
+  <data name="calibration.status.s039" xml:space="preserve">
+    <value>Failed to load collet calibration settings: {0}</value>
+  </data>
+  <data name="calibration.status.s040" xml:space="preserve">
+    <value>Could not save collet calibration parameters, including T Teaching. Check the saved state and try again.</value>
+  </data>
+  <data name="calibration.status.s041" xml:space="preserve">
+    <value>Collet calibration parameters saved. Measurement results and picker teaching values were not changed.</value>
+  </data>
+  <data name="calibration.status.s042" xml:space="preserve">
+    <value>Failed to save collet calibration settings: {0}</value>
+  </data>
+  <data name="calibration.status.s043" xml:space="preserve">
+    <value>Last collet calibration result saved. target={0} C{1}, currentSelector={2} C{3}, updatedAt={4}</value>
+  </data>
+  <data name="calibration.status.s044" xml:space="preserve">
+    <value>No collet calibration operation is running to stop.</value>
+  </data>
+  <data name="calibration.status.s045" xml:space="preserve">
+    <value>Collet calibration stop requested by {0}.</value>
+  </data>
+  <data name="calibration.status.s046" xml:space="preserve">
+    <value>Failed to request collet calibration stop: {0}</value>
+  </data>
+  <data name="calibration.status.s047" xml:space="preserve">
+    <value>PlaceZ calibration data was not found.</value>
+  </data>
+  <data name="calibration.status.s048" xml:space="preserve">
+    <value>Settings loaded. Select Output Good/NG and a picker, then run START SCAN.</value>
+  </data>
+  <data name="calibration.status.s049" xml:space="preserve">
+    <value>Failed to load settings: {0}</value>
+  </data>
+  <data name="calibration.status.s050" xml:space="preserve">
+    <value>Failed to display results: {0}</value>
+  </data>
+  <data name="calibration.status.s051" xml:space="preserve">
+    <value>PlaceZ calibration settings saved.</value>
+  </data>
+  <data name="calibration.status.s052" xml:space="preserve">
+    <value>Failed to save settings: {0}</value>
+  </data>
+  <data name="calibration.status.s053" xml:space="preserve">
+    <value>No PlaceZ measurement result to save. Complete START SCAN or BATCH first.</value>
+  </data>
+  <data name="calibration.status.s054" xml:space="preserve">
+    <value>No active recipe. Cannot save the PlaceZ measurement result.</value>
+  </data>
+  <data name="calibration.status.s055" xml:space="preserve">
+    <value>The active recipe changed after measurement. Saving is blocked. measuredRecipe={0}, activeRecipe={1}</value>
+  </data>
+  <data name="calibration.status.s056" xml:space="preserve">
+    <value>The last PlaceZ result does not match the data to save. Saving is blocked. side={0}, output={1}, pickerNo={2}, measured={3}, record={4}</value>
+  </data>
+  <data name="calibration.status.s057" xml:space="preserve">
+    <value>Failed to save the PlaceZ result to the recipe. recipe={0}, side={1}, output={2}, pickerNo={3}</value>
+  </data>
+  <data name="calibration.status.s058" xml:space="preserve">
+    <value>PlaceZ result saved. recipe={0}, side={1}, output={2}, pickerNo={3}, PlaceZ={4}</value>
+  </data>
+  <data name="calibration.status.s059" xml:space="preserve">
+    <value>Exception saving the PlaceZ result: {0}</value>
+  </data>
+  <data name="calibration.status.s060" xml:space="preserve">
+    <value>The equipment is not ready.</value>
+  </data>
+  <data name="calibration.status.s061" xml:space="preserve">
+    <value>No active recipe. Load a recipe before saving PlacePosition.</value>
+  </data>
+  <data name="calibration.status.s062" xml:space="preserve">
+    <value>The selected picker Z axis was not found.</value>
+  </data>
+  <data name="calibration.status.s063" xml:space="preserve">
+    <value>The selected picker Z axis is not ready. servo={0}, alarm={1}</value>
+  </data>
+  <data name="calibration.status.s064" xml:space="preserve">
+    <value>Ready to run PlaceZ calibration for the selected output stage and picker.</value>
+  </data>
+  <data name="calibration.status.s065" xml:space="preserve">
+    <value>Readiness check failed: {0}</value>
+  </data>
+  <data name="calibration.status.s066" xml:space="preserve">
+    <value>Select at least one picker for batch measurement.</value>
+  </data>
+  <data name="calibration.status.s067" xml:space="preserve">
+    <value>PlaceZ batch {0}/{1} running. output={2}, side={3}, pickerNo={4}</value>
+  </data>
+  <data name="calibration.status.s068" xml:space="preserve">
+    <value>PlaceZ batch failed. output={0}, side={1}, pickerNo={2}, detail={3}</value>
+  </data>
+  <data name="calibration.status.s069" xml:space="preserve">
+    <value>The PlaceZ batch result's output side does not match the fixed target. Stopping. expected={0}, actual={1}, side={2}, pickerNo={3}</value>
+  </data>
+  <data name="calibration.status.s070" xml:space="preserve">
+    <value>Failed to save the PlaceZ batch result to the recipe. output={0}, side={1}, pickerNo={2}, recipe={3}</value>
+  </data>
+  <data name="calibration.status.s071" xml:space="preserve">
+    <value>PlaceZ batch {0} P{1} completed. The next target's preparation step establishes safe conditions (duplicate Avoid return omitted).</value>
+  </data>
+  <data name="calibration.status.s072" xml:space="preserve">
+    <value>Returning to the final safe position after PlaceZ batch. output={0}, side={1}, pickerNo={2}</value>
+  </data>
+  <data name="calibration.status.s073" xml:space="preserve">
+    <value>PlaceZ batch final safe-position return failed. Check the final safe state. output={0}, side={1}, pickerNo={2}, result={3}</value>
+  </data>
+  <data name="calibration.status.s074" xml:space="preserve">
+    <value>PlaceZ batch completed. output={0}, count={1}. Results were saved automatically. Use SAVE RESULT to verify and save the last successful result again.</value>
+  </data>
+  <data name="calibration.status.s075" xml:space="preserve">
+    <value>PlaceZ batch was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s076" xml:space="preserve">
+    <value>PlaceZ batch stopped: {0}</value>
+  </data>
+  <data name="calibration.status.s077" xml:space="preserve">
+    <value>PlaceZ batch exception: {0}</value>
+  </data>
+  <data name="calibration.status.s078" xml:space="preserve">
+    <value>PlaceZ calibration failed. Check the Alarm/Event Log. {0}</value>
+  </data>
+  <data name="calibration.status.s079" xml:space="preserve">
+    <value>Completed. FlowZ={0}, SavedPlaceZ={1}, RecipeSave={2}. Use SAVE RESULT to verify and save the last successful result again.</value>
+  </data>
+  <data name="calibration.status.s080" xml:space="preserve">
+    <value>PlaceZ calibration was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s081" xml:space="preserve">
+    <value>PlaceZ calibration stopped: {0}</value>
+  </data>
+  <data name="calibration.status.s082" xml:space="preserve">
+    <value>PlaceZ calibration exception: {0}</value>
+  </data>
+  <data name="calibration.status.s083" xml:space="preserve">
+    <value>{0} Picker #{1} vacuum turned off.</value>
+  </data>
+  <data name="calibration.status.s084" xml:space="preserve">
+    <value>Vacuum OFF failed: {0}</value>
+  </data>
+  <data name="calibration.status.s085" xml:space="preserve">
+    <value>No PlaceZ calibration sequence is running.</value>
+  </data>
+  <data name="calibration.status.s086" xml:space="preserve">
+    <value>PlaceZ calibration stop requested. Check the Z-axis stop log.</value>
+  </data>
+  <data name="calibration.status.s087" xml:space="preserve">
+    <value>VAC OFF&#13;&#10;FLOW ON</value>
+  </data>
+  <data name="calibration.status.s088" xml:space="preserve">
+    <value>VAC OFF&#13;&#10;FLOW OFF</value>
+  </data>
+  <data name="calibration.status.s089" xml:space="preserve">
+    <value>VAC OFF&#13;&#10;FLOW ?</value>
+  </data>
+  <data name="calibration.status.s090" xml:space="preserve">
+    <value>PickUpZ calibration data was not found.</value>
+  </data>
+  <data name="calibration.status.s091" xml:space="preserve">
+    <value>Settings loaded. Position the picker above the film, then run START SCAN.</value>
+  </data>
+  <data name="calibration.status.s092" xml:space="preserve">
+    <value>PickUpZ calibration settings saved.</value>
+  </data>
+  <data name="calibration.status.s093" xml:space="preserve">
+    <value>No PickUpZ measurement result to save. Complete START SCAN or BATCH first.</value>
+  </data>
+  <data name="calibration.status.s094" xml:space="preserve">
+    <value>No active recipe. Cannot save the PickUpZ measurement result.</value>
+  </data>
+  <data name="calibration.status.s095" xml:space="preserve">
+    <value>The last PickUpZ result does not match the data to save. Saving is blocked. side={0}, pickerNo={1}, measured={2}, record={3}</value>
+  </data>
+  <data name="calibration.status.s096" xml:space="preserve">
+    <value>Failed to save the PickUpZ result to the recipe. recipe={0}, side={1}, pickerNo={2}</value>
+  </data>
+  <data name="calibration.status.s097" xml:space="preserve">
+    <value>PickUpZ result saved. recipe={0}, side={1}, pickerNo={2}, PickZ={3}</value>
+  </data>
+  <data name="calibration.status.s098" xml:space="preserve">
+    <value>Exception saving the PickUpZ result: {0}</value>
+  </data>
+  <data name="calibration.status.s099" xml:space="preserve">
+    <value>No active recipe. Load a recipe before saving PickPosition.</value>
+  </data>
+  <data name="calibration.status.s100" xml:space="preserve">
+    <value>Ready to run. Check that the current XY position is above the wafer film.</value>
+  </data>
+  <data name="calibration.status.s101" xml:space="preserve">
+    <value>PickUpZ batch {0}/{1} running. side={2}, pickerNo={3}</value>
+  </data>
+  <data name="calibration.status.s102" xml:space="preserve">
+    <value>PickUpZ batch failed. side={0}, pickerNo={1}, detail={2}</value>
+  </data>
+  <data name="calibration.status.s103" xml:space="preserve">
+    <value>Failed to save the PickUpZ batch result to the recipe. side={0}, pickerNo={1}, recipe={2}</value>
+  </data>
+  <data name="calibration.status.s104" xml:space="preserve">
+    <value>PickUpZ batch {0} P{1} completed. The next target's preparation step establishes safe conditions (duplicate Avoid return omitted).</value>
+  </data>
+  <data name="calibration.status.s105" xml:space="preserve">
+    <value>Returning to the final safe position after PickUpZ batch. side={0}, pickerNo={1}</value>
+  </data>
+  <data name="calibration.status.s106" xml:space="preserve">
+    <value>PickUpZ batch final safe-position return failed. Check the final safe state. side={0}, pickerNo={1}, result={2}</value>
+  </data>
+  <data name="calibration.status.s107" xml:space="preserve">
+    <value>PickUpZ batch completed. count={0}. Results were saved automatically. Use SAVE RESULT to verify and save the last successful result again.</value>
+  </data>
+  <data name="calibration.status.s108" xml:space="preserve">
+    <value>PickUpZ batch was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s109" xml:space="preserve">
+    <value>PickUpZ batch stopped: {0}</value>
+  </data>
+  <data name="calibration.status.s110" xml:space="preserve">
+    <value>PickUpZ batch exception: {0}</value>
+  </data>
+  <data name="calibration.status.s111" xml:space="preserve">
+    <value>PickUpZ calibration failed. Check the Alarm/Event Log. {0}</value>
+  </data>
+  <data name="calibration.status.s112" xml:space="preserve">
+    <value>Completed. FlowZ={0}, SavedPickZ={1}, RecipeSave={2}. Use SAVE RESULT to verify and save the last successful result again.</value>
+  </data>
+  <data name="calibration.status.s113" xml:space="preserve">
+    <value>PickUpZ calibration was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s114" xml:space="preserve">
+    <value>PickUpZ calibration stopped: {0}</value>
+  </data>
+  <data name="calibration.status.s115" xml:space="preserve">
+    <value>PickUpZ calibration exception: {0}</value>
+  </data>
+  <data name="calibration.status.s116" xml:space="preserve">
+    <value>No PickUpZ calibration sequence is running.</value>
+  </data>
+  <data name="calibration.status.s117" xml:space="preserve">
+    <value>PickUpZ calibration stop requested. Check the Z-axis stop log.</value>
+  </data>
+  <data name="calibration.status.s118" xml:space="preserve">
+    <value>Enabled items changed. Press SAVE to save them.</value>
+  </data>
+  <data name="calibration.status.s119" xml:space="preserve">
+    <value>Checking picker material presence and start conditions.</value>
+  </data>
+  <data name="calibration.status.s120" xml:space="preserve">
+    <value>Auto calibration running.</value>
+  </data>
+  <data name="calibration.status.s121" xml:space="preserve">
+    <value>Auto calibration failed. Check the Alarm/Event Log and progress history.</value>
+  </data>
+  <data name="calibration.status.s122" xml:space="preserve">
+    <value>All auto calibration tasks completed.</value>
+  </data>
+  <data name="calibration.status.s123" xml:space="preserve">
+    <value>Auto calibration was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s124" xml:space="preserve">
+    <value>Auto calibration stopped: {0}</value>
+  </data>
+  <data name="calibration.status.s125" xml:space="preserve">
+    <value>Exception while running auto calibration: {0}</value>
+  </data>
+  <data name="calibration.status.s126" xml:space="preserve">
+    <value>{0} Vacuum/Flow check failed: {1}</value>
+  </data>
+  <data name="calibration.status.s127" xml:space="preserve">
+    <value>Material detected on a picker. Calibration will not start.</value>
+  </data>
+  <data name="calibration.status.s128" xml:space="preserve">
+    <value>The user canceled at the picker material-data check.</value>
+  </data>
+  <data name="calibration.status.s129" xml:space="preserve">
+    <value>An empty wafer has not been confirmed. PickZ calibration will not start.</value>
+  </data>
+  <data name="calibration.status.s130" xml:space="preserve">
+    <value>OutputStageUnit is unavailable. Cannot check PlaceZ calibration readiness.</value>
+  </data>
+  <data name="calibration.status.s131" xml:space="preserve">
+    <value>Good/NG output-stage material sensors were not found. PlaceZ calibration will not start.</value>
+  </data>
+  <data name="calibration.status.s132" xml:space="preserve">
+    <value>The user canceled at the output-stage material-sensor check.</value>
+  </data>
+  <data name="calibration.status.s133" xml:space="preserve">
+    <value>The user canceled at the output-stage material-data check.</value>
+  </data>
+  <data name="calibration.status.s134" xml:space="preserve">
+    <value>Cannot load auto calibration settings.</value>
+  </data>
+  <data name="calibration.status.s135" xml:space="preserve">
+    <value>Saved auto calibration enable settings loaded.</value>
+  </data>
+  <data name="calibration.status.s136" xml:space="preserve">
+    <value>Failed to load auto calibration settings: {0}</value>
+  </data>
+  <data name="calibration.status.s137" xml:space="preserve">
+    <value>No destination for saving auto calibration settings.</value>
+  </data>
+  <data name="calibration.status.s138" xml:space="preserve">
+    <value>Failed to save auto calibration enable settings: {0}</value>
+  </data>
+  <data name="calibration.status.s139" xml:space="preserve">
+    <value>Could not save auto calibration settings to equipment Config.</value>
+  </data>
+  <data name="calibration.status.s140" xml:space="preserve">
+    <value>Auto calibration enable settings saved.</value>
+  </data>
+  <data name="calibration.status.s141" xml:space="preserve">
+    <value>Exception saving auto calibration settings: {0}</value>
+  </data>
+  <data name="calibration.status.s142" xml:space="preserve">
+    <value>Auto calibration stop requested.</value>
+  </data>
+  <data name="calibration.status.s143" xml:space="preserve">
+    <value>Failed to request auto calibration stop: {0}</value>
+  </data>
+  <data name="calibration.status.s144" xml:space="preserve">
+    <value>{0} / {1}{2} / {3} / {4} / {5}</value>
+  </data>
+  <data name="calibration.status.s145" xml:space="preserve">
+    <value>No needle calibration sequence is running.</value>
+  </data>
+  <data name="calibration.status.s146" xml:space="preserve">
+    <value>Needle calibration stop requested. Check the axis stop log.</value>
+  </data>
+  <data name="calibration.status.s147" xml:space="preserve">
+    <value>Failed to request stop: {0}</value>
+  </data>
+  <data name="calibration.status.s148" xml:space="preserve">
+    <value>Cannot load needle calibration settings.</value>
+  </data>
+  <data name="calibration.status.s149" xml:space="preserve">
+    <value>Settings loaded. Double-click numeric cells to enter values with the keypad.</value>
+  </data>
+  <data name="calibration.status.s150" xml:space="preserve">
+    <value>Current StageY/NeedleX/EjectPinZ/NeedleZ positions applied as calibration teaching values. Use PARAMETER SAVE to save them.</value>
+  </data>
+  <data name="calibration.status.s151" xml:space="preserve">
+    <value>Failed to apply current positions: {0}</value>
+  </data>
+  <data name="calibration.status.s152" xml:space="preserve">
+    <value>Needle calibration data was not found.</value>
+  </data>
+  <data name="calibration.status.s153" xml:space="preserve">
+    <value>Needle Z calibration settings saved.</value>
+  </data>
+  <data name="calibration.status.s154" xml:space="preserve">
+    <value>No needle Z measurement result to save. Complete START CAL successfully, then press SAVE RESULT.</value>
+  </data>
+  <data name="calibration.status.s155" xml:space="preserve">
+    <value>Needle Z results changed after the last successful measurement. SAVE RESULT is blocked. Measure again.</value>
+  </data>
+  <data name="calibration.status.s156" xml:space="preserve">
+    <value>Last successful result saved. CapTouch={0}, PinFlush={1}, PinReady={2}</value>
+  </data>
+  <data name="calibration.status.s157" xml:space="preserve">
+    <value>Failed to save needle Z measurement results: {0}</value>
+  </data>
+  <data name="calibration.status.s158" xml:space="preserve">
+    <value>InputStageUnit was not found.</value>
+  </data>
+  <data name="calibration.status.s159" xml:space="preserve">
+    <value>WaferStageTouchSensor was not found.</value>
+  </data>
+  <data name="calibration.status.s160" xml:space="preserve">
+    <value>Ready to run. Check the touch-sensor position and Z start position.</value>
+  </data>
+  <data name="calibration.status.s161" xml:space="preserve">
+    <value>Axis {0} was not found.</value>
+  </data>
+  <data name="calibration.status.s162" xml:space="preserve">
+    <value>Axis {0} is not ready. servo={1}, alarm={2}</value>
+  </data>
+  <data name="calibration.status.s163" xml:space="preserve">
+    <value>Needle Z calibration failed. Check the Alarm/Event Log. {0}</value>
+  </data>
+  <data name="calibration.status.s164" xml:space="preserve">
+    <value>Measurement complete. Use SAVE RESULT to verify and save the last successful measurement. CapTouch={0}, PinFlush={1}, PinReady={2}</value>
+  </data>
+  <data name="calibration.status.s165" xml:space="preserve">
+    <value>Needle Z calibration was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s166" xml:space="preserve">
+    <value>Needle Z calibration stopped: {0}</value>
+  </data>
+  <data name="calibration.status.s167" xml:space="preserve">
+    <value>Needle Z calibration exception: {0}</value>
+  </data>
+  <data name="calibration.status.s168" xml:space="preserve">
+    <value>InputStageUnit was not found. Reopen from the Calibration page.</value>
+  </data>
+  <data name="calibration.status.s169" xml:space="preserve">
+    <value>Settings loaded. Follow: 1) MOVE READY  2) USE CURRENT  3) MOVE TEACH  4) START CAL.</value>
+  </data>
+  <data name="calibration.status.s170" xml:space="preserve">
+    <value>Vision Target is a text field and cannot be edited with the numeric keypad.</value>
+  </data>
+  <data name="calibration.status.s171" xml:space="preserve">
+    <value>Only Admin can manually edit needle pin calibration results.</value>
+  </data>
+  <data name="calibration.status.s172" xml:space="preserve">
+    <value>Manual edit for {0} saved. value={1} {2}</value>
+  </data>
+  <data name="calibration.status.s173" xml:space="preserve">
+    <value>VisionUnit calibration data was not found.</value>
+  </data>
+  <data name="calibration.status.s174" xml:space="preserve">
+    <value>Failed to save the manual result offset: {0}</value>
+  </data>
+  <data name="calibration.status.s175" xml:space="preserve">
+    <value>InputStage Recipe/Setup is unavailable.</value>
+  </data>
+  <data name="calibration.status.s176" xml:space="preserve">
+    <value>Form1/Controller was not found.</value>
+  </data>
+  <data name="calibration.status.s177" xml:space="preserve">
+    <value>Teaching values were applied on screen but not saved: Form1 host was not found.</value>
+  </data>
+  <data name="calibration.status.s178" xml:space="preserve">
+    <value>Failed to save teaching values to the recipe. recipe={0} — values may be lost after restart.</value>
+  </data>
+  <data name="calibration.status.s179" xml:space="preserve">
+    <value>Current axis positions taught and saved as Needle Pin Cal Position. recipe={0} — verify by moving with MOVE TEACH next.</value>
+  </data>
+  <data name="calibration.status.s180" xml:space="preserve">
+    <value>Teaching failed: {0}</value>
+  </data>
+  <data name="calibration.status.s181" xml:space="preserve">
+    <value>Settings saved. Cal Position teaching values and measurement results were not changed.</value>
+  </data>
+  <data name="calibration.status.s182" xml:space="preserve">
+    <value>Save failed: {0}</value>
+  </data>
+  <data name="calibration.status.s183" xml:space="preserve">
+    <value>Last needle pin calibration result saved. updatedAt={0}</value>
+  </data>
+  <data name="calibration.status.s184" xml:space="preserve">
+    <value>Moving to Ready. OutputCamera/Picker move to Avoid; InputStage moves to Process.</value>
+  </data>
+  <data name="calibration.status.s185" xml:space="preserve">
+    <value>Ready move completed. Jog Needle/Camera into position, then teach with USE CURRENT.</value>
+  </data>
+  <data name="calibration.status.s186" xml:space="preserve">
+    <value>Ready move failed: {0}</value>
+  </data>
+  <data name="calibration.status.s187" xml:space="preserve">
+    <value>Ready move was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s188" xml:space="preserve">
+    <value>Ready move exception: {0}</value>
+  </data>
+  <data name="calibration.status.s189" xml:space="preserve">
+    <value>Moving to the teaching position.</value>
+  </data>
+  <data name="calibration.status.s190" xml:space="preserve">
+    <value>Teaching-position move completed. If the position is correct, run START CAL.</value>
+  </data>
+  <data name="calibration.status.s191" xml:space="preserve">
+    <value>Teaching-position move failed: {0}</value>
+  </data>
+  <data name="calibration.status.s192" xml:space="preserve">
+    <value>Teaching-position move was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s193" xml:space="preserve">
+    <value>Teaching-position move exception: {0}</value>
+  </data>
+  <data name="calibration.status.s194" xml:space="preserve">
+    <value>Needle pin calibration running.</value>
+  </data>
+  <data name="calibration.status.s195" xml:space="preserve">
+    <value>Needle pin calibration failed: {0}</value>
+  </data>
+  <data name="calibration.status.s196" xml:space="preserve">
+    <value>Completed. Pixel X={0}, Pixel Y={1}, NeedleX-To-VisionX={2}</value>
+  </data>
+  <data name="calibration.status.s197" xml:space="preserve">
+    <value>Needle pin calibration was interrupted by a stop request.</value>
+  </data>
+  <data name="calibration.status.s198" xml:space="preserve">
+    <value>Needle pin calibration exception: {0}</value>
+  </data>
+  <data name="calibration.status.s199" xml:space="preserve">
+    <value>Double-click the {0} cell to enter a value with the numeric keypad.</value>
+  </data>
+  <data name="calibration.status.s200" xml:space="preserve">
+    <value>Entered {0} = {1}{2}. Press SAVE to save it.</value>
+  </data>
+  <data name="calibration.status.s201" xml:space="preserve">
+    <value>Failed to process numeric input. {0}</value>
+  </data>
+  <data name="calibration.status.s202" xml:space="preserve">
+    <value>Ready. Check the target collets and cleaning settings, then press START.</value>
+  </data>
+  <data name="calibration.status.s203" xml:space="preserve">
+    <value>Failed to load settings. {0}</value>
+  </data>
+  <data name="calibration.status.s204" xml:space="preserve">
+    <value>Failed to save settings. {0}</value>
+  </data>
+  <data name="calibration.status.s205" xml:space="preserve">
+    <value>Settings saved.</value>
+  </data>
+  <data name="calibration.status.s206" xml:space="preserve">
+    <value>Exception saving settings. {0}</value>
+  </data>
+  <data name="calibration.status.s207" xml:space="preserve">
+    <value>No collets selected.</value>
+  </data>
+  <data name="calibration.status.s208" xml:space="preserve">
+    <value>Collet cleaning running.</value>
+  </data>
+  <data name="calibration.status.s209" xml:space="preserve">
+    <value>Collet cleaning failed. Check the Alarm/Event Log.</value>
+  </data>
+  <data name="calibration.status.s210" xml:space="preserve">
+    <value>[Not run] {0}</value>
+  </data>
+  <data name="calibration.status.s211" xml:space="preserve">
+    <value>Collet cleaning completed.</value>
+  </data>
+  <data name="calibration.status.s212" xml:space="preserve">
+    <value>Collet cleaning stopped.</value>
+  </data>
+  <data name="calibration.status.s213" xml:space="preserve">
+    <value>Exception during collet cleaning. {0}</value>
+  </data>
+  <data name="calibration.status.s214" xml:space="preserve">
+    <value>{0} in progress...</value>
+  </data>
+  <data name="calibration.status.s215" xml:space="preserve">
+    <value>{0} PICKER {1} completed.</value>
+  </data>
+  <data name="calibration.status.s216" xml:space="preserve">
+    <value>{0} PICKER {1} failed (result={2}). Check the Alarm/Event Log.</value>
+  </data>
+  <data name="calibration.status.s217" xml:space="preserve">
+    <value>{0} exception: {1}</value>
+  </data>
+  <data name="calibration.status.s218" xml:space="preserve">
+    <value>Ready. The calibration sequence will be connected in the next implementation stage.</value>
+  </data>
+  <data name="calibration.status.s219" xml:space="preserve">
+    <value>Manual calibration is permitted. This gate will be shared after the sequence is connected.</value>
+  </data>
+  <data name="calibration.tip.manualOffset" xml:space="preserve">
+    <value>Double-click to enter a manual offset using the keypad.</value>
+  </data>
+  <data name="calibration.tip.t000" xml:space="preserve">
+    <value>Picker side to calibrate. Front and Rear store separate #4 references and collet offsets.</value>
+  </data>
+  <data name="calibration.tip.t001" xml:space="preserve">
+    <value>Collet number to calibrate. #4 is the Bottom Camera reference teaching position; #3/#2/#1 store offsets at pitch positions relative to #4.</value>
+  </data>
+  <data name="calibration.tip.t002" xml:space="preserve">
+    <value>Finder name requested on the Vision PC BottomInspection channel. It must match the collet detection name registered on the Vision PC.</value>
+  </data>
+  <data name="calibration.tip.t003" xml:space="preserve">
+    <value>T-axis angle used at collet calibration start and Bottom AutoFocus preparation. Default: 0 degrees; an angle such as 180 degrees may be selected for checking. Shared by all front/rear collets. Separate from recipe T teaching and T HOME origin application after calibration.</value>
+  </data>
+  <data name="calibration.tip.t004" xml:space="preserve">
+    <value>Angle tolerance for completing T-axis correction. Correction is OK when the absolute Theta reported by Vision is at or below this value.</value>
+  </data>
+  <data name="calibration.tip.t005" xml:space="preserve">
+    <value>Maximum T-axis correction attempts. The result is NG if Theta does not reach the tolerance within this count.</value>
+  </data>
+  <data name="calibration.tip.t006" xml:space="preserve">
+    <value>Multiplier for the opposite-direction move that brings the measured Theta to zero. A value of 1.0 corrects by the measured amount.</value>
+  </data>
+  <data name="calibration.tip.t007" xml:space="preserve">
+    <value>Distance tolerance for completing XY centering. Diagonal mode checks diagonal distance; Axis mode checks the absolute X and Y values separately.</value>
+  </data>
+  <data name="calibration.tip.t008" xml:space="preserve">
+    <value>Maximum XY centering attempts. The result is NG if the offset does not reach XY Tol within this count.</value>
+  </data>
+  <data name="calibration.tip.t009" xml:space="preserve">
+    <value>Multiplier applied to the Vision X correction. A value of 1.0 applies the measured amount.</value>
+  </data>
+  <data name="calibration.tip.t010" xml:space="preserve">
+    <value>Multiplier applied to the Vision Y correction. A value of 1.0 applies the measured amount.</value>
+  </data>
+  <data name="calibration.tip.t011" xml:space="preserve">
+    <value>Maximum XY fine correction while Z remains at inspection height. X/Y movements at or below this value use FineAlign; larger movements use Z/Y Avoid before the large move.</value>
+  </data>
+  <data name="calibration.tip.t012" xml:space="preserve">
+    <value>XY tolerance mode. Diagonal uses sqrt(X^2+Y^2); Axis checks that both |X| and |Y| are at or below the tolerance.</value>
+  </data>
+  <data name="calibration.tip.t013" xml:space="preserve">
+    <value>Minimum Vision detection score. Zero disables the score criterion. A positive value makes scores below the threshold NG.</value>
+  </data>
+  <data name="calibration.tip.t014" xml:space="preserve">
+    <value>Time to wait for the Vision PC Collet Finder response. No response within this time results in Timeout NG.</value>
+  </data>
+  <data name="calibration.tip.t015" xml:space="preserve">
+    <value>Dedicated XY/T/Z and initial safe-position movement speed for collet calibration. AutoFocus scanning uses the separate Vision Focus Cal speed setting.</value>
+  </data>
+  <data name="calibration.tip.t016" xml:space="preserve">
+    <value>Dedicated collet calibration movement acceleration. Existing axis interlocks remain in effect.</value>
+  </data>
+  <data name="calibration.tip.t017" xml:space="preserve">
+    <value>Dedicated collet calibration movement deceleration. Existing axis interlocks remain in effect.</value>
+  </data>
+  <data name="calibration.tip.t018" xml:space="preserve">
+    <value>Time to wait for collet calibration movement completion/InPosition.</value>
+  </data>
+  <data name="calibration.tip.t019" xml:space="preserve">
+    <value>Selected collet T-axis speed for the 360-degree COC START rotation. Shared by all collets; default: 30 deg/s.</value>
+  </data>
+  <data name="calibration.tip.t020" xml:space="preserve">
+    <value>When True, run Bottom AutoFocus and collet correction, detect/apply the COC rotation center, then run Side AutoFocus at 0 and 90 degrees. Side Focus requires the current picker's Bottom Die inspection result.</value>
+  </data>
+  <data name="calibration.tip.t021" xml:space="preserve">
+    <value>When True, run Side AutoFocus at 0/90 degrees after detecting the COC rotation center. When False, stop after COC and skip Side AutoFocus. Effective only when AutoFocus is True.</value>
+  </data>
+  <data name="calibration.tip.t022" xml:space="preserve">
+    <value>Die thickness added to Best Z measured after AutoFocus during Collet Cal. Saved inspection Z = measured Z + Die Thickness + Film Thickness + current Collet Type Offset.</value>
+  </data>
+  <data name="calibration.tip.t023" xml:space="preserve">
+    <value>Collet offset added to measured Z when recipe Collet Type is Rim. Down is negative and up is positive; enter a positive value to raise Z.</value>
+  </data>
+  <data name="calibration.tip.t024" xml:space="preserve">
+    <value>Collet offset added to measured Z when recipe Collet Type is Flat. Down is negative and up is positive; enter a positive value to raise Z.</value>
+  </data>
+  <data name="calibration.tip.t025" xml:space="preserve">
+    <value>Film thickness added to Best Z measured after AutoFocus during Collet Cal. Saved inspection Z = measured Z + Die Thickness + Film Thickness + current Collet Type Offset.</value>
+  </data>
+  <data name="calibration.tip.t026" xml:space="preserve">
+    <value>PlaceZ preparation speed for safe-position, X/T/Y alignment and scan-start moves. Flow searches use the separate Search speed settings.</value>
+  </data>
+  <data name="calibration.tip.t027" xml:space="preserve">
+    <value>Coarse downward PickerZ speed for the first Flow detection.</value>
+  </data>
+  <data name="calibration.tip.t028" xml:space="preserve">
+    <value>Coarse search acceleration for the first Flow detection.</value>
+  </data>
+  <data name="calibration.tip.t029" xml:space="preserve">
+    <value>Coarse search deceleration for the first Flow detection.</value>
+  </data>
+  <data name="calibration.tip.t030" xml:space="preserve">
+    <value>Fine search speed for detecting the final Flow position again after BackOff, Blow and Flow OFF confirmation.</value>
+  </data>
+  <data name="calibration.tip.t031" xml:space="preserve">
+    <value>PlaceZ preparation acceleration. Flow searches use the separate Search acceleration settings.</value>
+  </data>
+  <data name="calibration.tip.t032" xml:space="preserve">
+    <value>PlaceZ preparation deceleration. Flow searches use the separate Search deceleration settings.</value>
+  </data>
+  <data name="calibration.tip.t033" xml:space="preserve">
+    <value>Fine search acceleration for detecting Flow again after BackOff.</value>
+  </data>
+  <data name="calibration.tip.t034" xml:space="preserve">
+    <value>Fine search deceleration for detecting Flow again after BackOff.</value>
+  </data>
+  <data name="calibration.tip.t035" xml:space="preserve">
+    <value>Maximum time to wait for InPosition after each Z movement command. Exceeding it fails calibration.</value>
+  </data>
+  <data name="calibration.tip.t036" xml:space="preserve">
+    <value>Z position where PickerZ starts Flow searching. After safe-position alignment, the selected PickerZ first moves here.</value>
+  </data>
+  <data name="calibration.tip.t037" xml:space="preserve">
+    <value>Die thickness. Saved Place Z = Flow Z + Die Thickness + Film Thickness.</value>
+  </data>
+  <data name="calibration.tip.t038" xml:space="preserve">
+    <value>Film thickness. Saved Place Z = Flow Z + Die Thickness + Film Thickness.</value>
+  </data>
+  <data name="calibration.tip.t039" xml:space="preserve">
+    <value>Additional X displacement from the Output Process reference. Used as receiveTargetX in the place-position calculation relative to OutputVision.</value>
+  </data>
+  <data name="calibration.tip.t040" xml:space="preserve">
+    <value>Additional Y displacement from the Output Process reference. Used as receiveTargetY in the OutputStageY place-position calculation.</value>
+  </data>
+  <data name="calibration.tip.t041" xml:space="preserve">
+    <value>Start searching this distance above the current Place position, leaving clearance to avoid immediate contact with the target surface.</value>
+  </data>
+  <data name="calibration.tip.t042" xml:space="preserve">
+    <value>Maximum downward Z distance for finding the Vacuum/Flow contact signal. The search fails if no signal is detected within this distance.</value>
+  </data>
+  <data name="calibration.tip.t043" xml:space="preserve">
+    <value>Distance PickerZ retreats after Flow ON and before fine searching again. Used to remove residual vacuum/air.</value>
+  </data>
+  <data name="calibration.tip.t044" xml:space="preserve">
+    <value>Legacy compatibility value. Currently saved with the same value as Die Thickness.</value>
+  </data>
+  <data name="calibration.tip.t045" xml:space="preserve">
+    <value>Wait after turning Vacuum ON for the Flow signal to stabilize before searching.</value>
+  </data>
+  <data name="calibration.tip.t046" xml:space="preserve">
+    <value>Wait after turning Vacuum ON again following BackOff/Blow, before confirming Flow OFF.</value>
+  </data>
+  <data name="calibration.tip.t047" xml:space="preserve">
+    <value>Short Blow ON pulse after BackOff and Vacuum OFF to remove residual vacuum/air.</value>
+  </data>
+  <data name="calibration.tip.t048" xml:space="preserve">
+    <value>Wait for pressure to settle after Blow OFF before turning Vacuum ON again.</value>
+  </data>
+  <data name="calibration.tip.t049" xml:space="preserve">
+    <value>Maximum time to confirm Flow OFF after BackOff/Blow/Vacuum ON.</value>
+  </data>
+  <data name="calibration.tip.t050" xml:space="preserve">
+    <value>Flow contact must remain active for this duration to count as contact.</value>
+  </data>
+  <data name="calibration.tip.t051" xml:space="preserve">
+    <value>Interval between Flow-signal checks during contact searching.</value>
+  </data>
+  <data name="calibration.tip.t052" xml:space="preserve">
+    <value>Number of fine Flow searches. The maximum-minus-minimum result must be within Repeat Tolerance.</value>
+  </data>
+  <data name="calibration.tip.t053" xml:space="preserve">
+    <value>Maximum allowed deviation between repeated fine Flow detections.</value>
+  </data>
+  <data name="calibration.tip.t054" xml:space="preserve">
+    <value>Whether to return Picker Z to Avoid after calibration completes or fails.</value>
+  </data>
+  <data name="calibration.tip.t055" xml:space="preserve">
+    <value>Whether to fail immediately for an invalid initial state when Flow is already ON before searching.</value>
+  </data>
+  <data name="calibration.tip.t056" xml:space="preserve">
+    <value>PickUpZ preparation speed for safe-position and scan-start moves. Flow searches use the separate Search speed settings.</value>
+  </data>
+  <data name="calibration.tip.t057" xml:space="preserve">
+    <value>PickUpZ preparation acceleration. Flow searches use separate Search acceleration settings.</value>
+  </data>
+  <data name="calibration.tip.t058" xml:space="preserve">
+    <value>PickUpZ preparation deceleration. Flow searches use separate Search deceleration settings.</value>
+  </data>
+  <data name="calibration.tip.t059" xml:space="preserve">
+    <value>Absolute Z position where PickerZ starts Flow searching. After safe-position alignment, the selected PickerZ first moves here.</value>
+  </data>
+  <data name="calibration.tip.t060" xml:space="preserve">
+    <value>Die thickness. Saved Pick Z = Flow Z + Die Thickness + Film Thickness.</value>
+  </data>
+  <data name="calibration.tip.t061" xml:space="preserve">
+    <value>Wafer film thickness. Saved Pick Z = Flow Z + Die Thickness + Film Thickness.</value>
+  </data>
+  <data name="calibration.tip.t062" xml:space="preserve">
+    <value>Additional X correction from the Process reference for PickUp Z Cal. Added to the InputVisionX reference in the automatic pickup calculation.</value>
+  </data>
+  <data name="calibration.tip.t063" xml:space="preserve">
+    <value>Additional Y correction from the Process reference for PickUp Z Cal. Added to the InputStageY reference in the automatic pickup calculation.</value>
+  </data>
+  <data name="calibration.tip.t064" xml:space="preserve">
+    <value>Start searching this distance above the current Pick position, leaving clearance to avoid immediate contact with the film.</value>
+  </data>
+  <data name="calibration.tip.t065" xml:space="preserve">
+    <value>Distance to move back after Flow ON before Vacuum OFF and Blow pulse.</value>
+  </data>
+  <data name="calibration.tip.t066" xml:space="preserve">
+    <value>Correction added to or subtracted from the detected contact position when saving final Pick Z. Used to compensate for film compression.</value>
+  </data>
+  <data name="calibration.tip.t067" xml:space="preserve">
+    <value>Delay after Vacuum ON again before Flow OFF confirmation.</value>
+  </data>
+  <data name="calibration.tip.t068" xml:space="preserve">
+    <value>Short Blow ON time after BackOff and Vacuum OFF.</value>
+  </data>
+  <data name="calibration.tip.t069" xml:space="preserve">
+    <value>Settle delay after Blow OFF before Vacuum ON again.</value>
+  </data>
+  <data name="calibration.tip.t070" xml:space="preserve">
+    <value>Timeout to confirm Flow OFF after BackOff/Blow/Vacuum ON.</value>
+  </data>
+  <data name="calibration.tip.t071" xml:space="preserve">
+    <value>Fine search repeat count. Max-min result must be within Repeat Tolerance.</value>
+  </data>
+  <data name="calibration.tip.t072" xml:space="preserve">
+    <value>Allowed max-min difference between fine Flow detections.</value>
+  </data>
+  <data name="calibration.tip.t073" xml:space="preserve">
+    <value>Dedicated speed for moving StageY, NeedleX, NeedleZ and EjectPinZ to teaching/search positions during needle Z calibration.</value>
+  </data>
+  <data name="calibration.tip.t074" xml:space="preserve">
+    <value>Dedicated needle Z calibration acceleration. Avoid excessive values to reduce contact-search impact.</value>
+  </data>
+  <data name="calibration.tip.t075" xml:space="preserve">
+    <value>Dedicated needle Z calibration deceleration. Affects stopping stability after contact detection.</value>
+  </data>
+  <data name="calibration.tip.t076" xml:space="preserve">
+    <value>Maximum time to wait for InPosition after each movement command. Exceeding it fails calibration.</value>
+  </data>
+  <data name="calibration.tip.t077" xml:space="preserve">
+    <value>StageY position of WaferStageTouchSensor. The Y reference used when NeedleX moves above the sensor.</value>
+  </data>
+  <data name="calibration.tip.t078" xml:space="preserve">
+    <value>NeedleX position aligned over WaferStageTouchSensor. Reference for MOVE TOUCH and Cap/Pin contact searches.</value>
+  </data>
+  <data name="calibration.tip.t079" xml:space="preserve">
+    <value>EjectPinZ search-start reference used as NeedleCap. USE CURRENT applies the current EjectPinZ position.</value>
+  </data>
+  <data name="calibration.tip.t080" xml:space="preserve">
+    <value>NeedlePinZ search-start reference. NeedleZ moves here before searching for the NeedlePin/NeedleCap flush position.</value>
+  </data>
+  <data name="calibration.tip.t081" xml:space="preserve">
+    <value>Clearance from the saved NeedleCapTouchPosition when approaching contact. Places the cap near contact before pin searching.</value>
+  </data>
+  <data name="calibration.tip.t082" xml:space="preserve">
+    <value>Distance below NeedlePinFlushPosition. Final NeedlePinReadyPosition is this distance farther from Flush in the NeedlePin contact-search direction.</value>
+  </data>
+  <data name="calibration.tip.t083" xml:space="preserve">
+    <value>Maximum distance to lower NeedleCap in 100um steps to find the touch sensor. Fails immediately if not detected.</value>
+  </data>
+  <data name="calibration.tip.t084" xml:space="preserve">
+    <value>Maximum 10um-step NeedleCap re-search distance from the BackOff position after the 100um search.</value>
+  </data>
+  <data name="calibration.tip.t085" xml:space="preserve">
+    <value>Maximum 1um-step fine NeedleCap search distance from the BackOff position after the 10um search.</value>
+  </data>
+  <data name="calibration.tip.t086" xml:space="preserve">
+    <value>Maximum 10um-step NeedlePin search distance for finding the NeedlePinZ/NeedleCap flush position.</value>
+  </data>
+  <data name="calibration.tip.t087" xml:space="preserve">
+    <value>Maximum 1um-step fine search distance from the BackOff position after the NeedlePin 10um search.</value>
+  </data>
+  <data name="calibration.tip.t088" xml:space="preserve">
+    <value>The touch sensor must remain ON for this duration to count as contact.</value>
+  </data>
+  <data name="calibration.tip.t089" xml:space="preserve">
+    <value>Interval between touch-sensor checks during contact searching.</value>
+  </data>
+  <data name="calibration.tip.t090" xml:space="preserve">
+    <value>Whether to return NeedleZ/EjectPinZ to Avoid after calibration completes or fails.</value>
+  </data>
+  <data name="calibration.tip.t091" xml:space="preserve">
+    <value>Needle Pin Calibration Finder name requested from the Vision PC. Must match the registered Target name.</value>
+  </data>
+  <data name="calibration.tip.t092" xml:space="preserve">
+    <value>Time to wait for the Vision PC Needle Pin Calibration response. Exceeding it fails the sequence.</value>
+  </data>
+  <data name="calibration.tip.t093" xml:space="preserve">
+    <value>Dedicated StageY, VisionX, NeedleX/Z and EjectPinZ movement speed for needle pin calibration.</value>
+  </data>
+  <data name="calibration.tip.t094" xml:space="preserve">
+    <value>Dedicated needle pin calibration movement acceleration.</value>
+  </data>
+  <data name="calibration.tip.t095" xml:space="preserve">
+    <value>Dedicated needle pin calibration movement deceleration.</value>
+  </data>
+  <data name="calibration.tip.t096" xml:space="preserve">
+    <value>Maximum time to wait for InPosition after each axis movement command.</value>
+  </data>
+  <data name="calibration.tip.t097" xml:space="preserve">
+    <value>Camera X-axis calibration imaging position used for Needle Pin detection.</value>
+  </data>
+  <data name="calibration.tip.t098" xml:space="preserve">
+    <value>StageY process/imaging reference position for needle pin calibration.</value>
+  </data>
+  <data name="calibration.tip.t099" xml:space="preserve">
+    <value>NeedleX reference position aligned with the Vision field of view during needle pin calibration.</value>
+  </data>
+  <data name="calibration.tip.t100" xml:space="preserve">
+    <value>NeedleZ imaging/detection height reference for needle pin calibration.</value>
+  </data>
+  <data name="calibration.tip.t101" xml:space="preserve">
+    <value>EjectPinZ imaging/detection height reference for needle pin calibration.</value>
+  </data>
+  <data name="calibration.tip.t102" xml:space="preserve">
+    <value>Picker Z-axis speed while pressing the collet for cleaning.&#13;&#10;Higher values descend faster and increase impact. Start by verifying at a low value.</value>
+  </data>
+  <data name="calibration.tip.t103" xml:space="preserve">
+    <value>Z-axis acceleration during pressing. Together with speed, affects contact impact.</value>
+  </data>
+  <data name="calibration.tip.t104" xml:space="preserve">
+    <value>Z-axis deceleration during pressing. Affects deceleration just before contact.</value>
+  </data>
+  <data name="calibration.tip.t105" xml:space="preserve">
+    <value>User contact-Z correction.&#13;&#10;Sign convention: positive raises Z (less pressing); negative lowers Z (more pressing).&#13;&#10;Contact Z = Place teaching Z - die height - rim height - film height + this offset</value>
+  </data>
+  <data name="calibration.tip.t106" xml:space="preserve">
+    <value>Overpressure protection limit.&#13;&#10;Maximum additional depth (positive) below the calculated contact Z.&#13;&#10;Execution is blocked when a negative Contact Z Offset exceeds this limit.</value>
+  </data>
+  <data name="calibration.tip.t107" xml:space="preserve">
+    <value>Time to hold pressure after reaching contact Z.</value>
+  </data>
+  <data name="calibration.tip.t108" xml:space="preserve">
+    <value>Number of press-and-release repetitions for each collet.</value>
+  </data>
+  <data name="calibration.tip.t109" xml:space="preserve">
+    <value>Positive lift height between repeated presses.&#13;&#10;Rise to contact Z + this value, then descend again.</value>
+  </data>
+  <data name="calibration.tip.t110" xml:space="preserve">
+    <value>Maximum time to wait for axis movement completion. Exceeding it stops with an alarm.</value>
+  </data>
+  <data name="calibration.tip.t111" xml:space="preserve">
+    <value>Die height included in Place teaching Z.&#13;&#10;Teaching Z is raised by this height, so it is subtracted when calculating cleaning contact Z.</value>
+  </data>
+  <data name="calibration.tip.t112" xml:space="preserve">
+    <value>Rim height included in Place teaching Z. Subtracted in the contact-Z calculation.</value>
+  </data>
+  <data name="calibration.tip.t113" xml:space="preserve">
+    <value>Film height included in Place teaching Z. Subtracted in the contact-Z calculation.</value>
+  </data>
+  <data name="calibration.tip.t114" xml:space="preserve">
+    <value>Maximum clean-then-inspect retries after an NG collet inspection.&#13;&#10;If still NG after all retries, a collet replacement alarm is raised.</value>
+  </data>
+  <data name="calibration.tip.t115" xml:space="preserve">
+    <value>Whether production NG dies may be placed in NG map cells used for cleaning.&#13;&#10;True: allow continued use.&#13;&#10;False: exclude the cell from placement targets.</value>
+  </data>
+  <data name="calibration.tip.t116" xml:space="preserve">
+    <value>Whether to exclude only the affected picker from production after a collet replacement alarm,&#13;&#10;and continue with the remaining pickers.</value>
+  </data>
+  <data name="calibration.tip.t117" xml:space="preserve">
+    <value>Whether to trigger collet cleaning by GOOD Stage empty-bin loading count during automatic operation.</value>
+  </data>
+  <data name="calibration.tip.t118" xml:space="preserve">
+    <value>GOOD empty-bin loading trigger interval. Clean collets every n loads.</value>
+  </data>
+  <data name="calibration.tip.t119" xml:space="preserve">
+    <value>Whether to trigger collet cleaning by processed quantity during automatic operation.</value>
+  </data>
+  <data name="calibration.tip.t120" xml:space="preserve">
+    <value>Process-count trigger interval. Execute every n units of the Process Unit selected below.</value>
+  </data>
+  <data name="calibration.tip.t121" xml:space="preserve">
+    <value>Counting unit for the process-count trigger.&#13;&#10;Die: die count. Wafer: wafer count.</value>
+  </data>
+  <data name="calibration.tip.t122" xml:space="preserve">
+    <value>Whether to clean collets once when Auto operation starts (after Ready and before the first Pick).</value>
+  </data>
+</root>

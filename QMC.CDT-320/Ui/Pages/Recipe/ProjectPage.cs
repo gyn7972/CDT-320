@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -38,6 +39,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         public ProjectPage()
         {
             InitializeComponent();
+            InitializeRecipeLanguageBindings();
             ConfigureRuntimeUi();
             DisableColumnSorting();
 
@@ -115,6 +117,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             grid.Columns.Add(key);
             grid.Columns.Add(name);
             grid.Columns.Add(value);
+            Lang.BindKey(name, "recipeUi.projectColumn.item");
+            Lang.BindKey(value, "recipeUi.projectColumn.value");
         }
 
         private void ConfigureMapGrid()
@@ -131,6 +135,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             gridMap.Columns.Add(new DataGridViewTextBoxColumn { Name = "Configured", HeaderText = "등록 맵 파일", FillWeight = 38 });
             gridMap.Columns.Add(new DataGridViewTextBoxColumn { Name = "Resolved", HeaderText = "실제 파일 경로", FillWeight = 50, ReadOnly = true });
             gridMap.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = "상태", FillWeight = 18, ReadOnly = true });
+            Lang.BindKey(gridMap.Columns["Map"], "recipeUi.projectColumn.map");
+            Lang.BindKey(gridMap.Columns["Configured"], "recipeUi.projectColumn.configured");
+            Lang.BindKey(gridMap.Columns["Resolved"], "recipeUi.projectColumn.resolved");
+            Lang.BindKey(gridMap.Columns["Status"], "recipeUi.projectColumn.status");
         }
 
         private void ConfigureStatusGrid()
@@ -144,6 +152,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             gridStatus.Columns.Add(new DataGridViewTextBoxColumn { Name = "Item", HeaderText = "점검 항목", FillWeight = 34 });
             gridStatus.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = "상태", FillWeight = 18 });
             gridStatus.Columns.Add(new DataGridViewTextBoxColumn { Name = "Detail", HeaderText = "상세 내용", FillWeight = 64 });
+            Lang.BindKey(gridStatus.Columns["Item"], "recipeUi.projectColumn.check");
+            Lang.BindKey(gridStatus.Columns["Status"], "recipeUi.projectColumn.status");
+            Lang.BindKey(gridStatus.Columns["Detail"], "recipeUi.projectColumn.detail");
         }
 
         private void listProjects_SelectedIndexChanged(object sender, EventArgs e)
@@ -252,6 +263,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void gridProjectEdit_CellValueChanged(object sender, DataGridViewCellEventArgs e)
         {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
             if (!_loading && _current != null) UpdateProjectIdentity();
         }
 
@@ -478,7 +490,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 gridMapApproval.Rows.Clear();
                 gridMapApproval.Rows.Add("전체", "확인 실패", ex.Message);
                 _mapCheckSignature = null;
-                lblCurrentProject.Text = "선택 레시피: " + _loadedProjectName + " | 설정 확인 실패: " + ex.Message;
+                Lang.BindFormat(lblCurrentProject, "recipeUi.projectPage.lblCurrentProject.text", (object)(_loadedProjectName), (object)(ex.Message));
                 lblCurrentProject.ForeColor = Color.Firebrick;
                 if (!string.Equals(_lastMonitorError, ex.Message, StringComparison.Ordinal))
                     EventLogger.Write(EventKind.Warning, Security.UserSession.Name, "RECIPE-MONITOR", "설정 모니터 갱신 실패: " + ex);
@@ -494,9 +506,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             bool same = !string.IsNullOrWhiteSpace(active) && string.Equals(active, selected, StringComparison.OrdinalIgnoreCase);
             bool edited = HasPendingProjectEdits();
             string applyStatus = host == null ? "장비 반영 상태 확인 불가" : host.GetProjectConfigurationStatus(_monitorProject ?? _current);
-            lblCurrentProject.Text = "선택: " + selected + "   |   장비 적용: " +
-                (string.IsNullOrWhiteSpace(active) ? "확인되지 않음" : active) + "\r\n" +
-                (edited ? "● 미저장 변경 있음" : "저장된 프로젝트 정보") + "   ·   " + applyStatus;
+            Lang.BindFormat(lblCurrentProject, "recipeUi.projectPage.lblCurrentProject.state2", (object)(selected), (object)((string.IsNullOrWhiteSpace(active) ? "확인되지 않음" : active)), (object)((edited ? "● 미저장 변경 있음" : "저장된 프로젝트 정보")), (object)(applyStatus));
             lblCurrentProject.ForeColor = edited ? Color.Firebrick : same ? Color.FromArgb(35, 65, 90) : Color.DarkOrange;
         }
 
@@ -1512,6 +1522,46 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 QMC.Common.MessageDialog.Show("경로 열기 실패:\r\n" + ex.Message, "폴더 열기",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+        // Keep Designer declarations intact; language bindings only affect displayed captions.
+        private void InitializeRecipeLanguageBindings()
+        {
+            Lang.BindKey(this.toolTipSettings, this.btnCopy, "recipeUi.tooltip.21");
+            Lang.BindKey(this.toolTipSettings, this.btnManage, "recipeUi.tooltip.22");
+            Lang.BindKey(this.toolTipSettings, this.btnBrowseMap, "recipeUi.tooltip.23");
+            Lang.BindKey(this.toolTipSettings, this.grpSummary, "recipeUi.tooltip.24");
+            Lang.BindKey(this.toolTipSettings, this.lblCurrentProject, "recipeUi.tooltip.25");
+            Lang.BindKey(this.toolTipSettings, this.btnReload, "recipeUi.tooltip.26");
+            Lang.BindKey(this.toolTipSettings, this.btnSaveRecipe, "recipeUi.tooltip.27");
+            Lang.BindKey(this.toolTipSettings, this.btnApplyCurrent, "recipeUi.tooltip.28");
+            Lang.BindKey(this.toolTipSettings, this.grpMapApproval, "recipeUi.tooltip.29");
+            Lang.BindKey(this.lblHeader, "recipeUi.projectPage.lblHeader.text");
+            Lang.BindKey(this.tabBasic, "recipeUi.projectPage.tabBasic.text");
+            Lang.BindKey(this.tabDetails, "recipeUi.projectPage.tabDetails.text");
+            Lang.BindKey(this.tabAdvanced, "recipeUi.projectPage.tabAdvanced.text");
+            Lang.BindKey(this.grpProjects, "recipeUi.projectPage.grpProjects.text");
+            Lang.BindKey(this.grpSummary, "recipeUi.projectPage.grpSummary.text");
+            Lang.BindKey(this.grpProjectOption, "recipeUi.projectPage.grpProjectOption.text");
+            Lang.BindKey(this.grpInputMap, "recipeUi.projectPage.grpInputMap.text");
+            Lang.BindKey(this.grpOutputMap, "recipeUi.projectPage.grpOutputMap.text");
+            Lang.BindKey(this.grpMapApproval, "recipeUi.projectPage.grpMapApproval.text");
+            Lang.BindKey(this.grpMap, "recipeUi.projectPage.grpMap.text");
+            Lang.BindKey(this.grpStatus, "recipeUi.projectPage.grpStatus.text");
+            Lang.BindKey(this.grpGlobal, "recipeUi.projectPage.grpGlobal.text");
+            Lang.BindKey(this.grpXml, "recipeUi.projectPage.grpXml.text");
+            Lang.BindKey(this.lblFooterHint, "recipeUi.projectPage.lblFooterHint.text");
+            Lang.BindKey(this.btnCopy, "recipeUi.projectPage.btnCopy.text");
+            Lang.BindKey(this.btnManage, "recipeUi.projectPage.btnManage.text");
+            Lang.BindKey(this.btnReload, "recipeUi.projectPage.btnReload.text");
+            Lang.BindKey(this.btnSaveRecipe, "recipeUi.projectPage.btnSaveRecipe.text");
+            Lang.BindKey(this.btnApplyCurrent, "recipeUi.projectPage.btnApplyCurrent.text");
+            Lang.BindKey(this.btnBrowseMap, "recipeUi.projectPage.btnBrowseMap.text");
+            Lang.BindKey(this.menuNewRecipe, "recipeUi.projectPage.menuNewRecipe.text");
+            Lang.BindKey(this.menuDeleteRecipe, "recipeUi.projectPage.menuDeleteRecipe.text");
+            Lang.BindKey(this.menuProjectFolder, "recipeUi.projectPage.menuProjectFolder.text");
+            Lang.BindKey(this.menuRecipeFolder, "recipeUi.projectPage.menuRecipeFolder.text");
+            Lang.BindKey(this.menuMapFolder, "recipeUi.projectPage.menuMapFolder.text");
+            Lang.BindKey(this.menuXmlPath, "recipeUi.projectPage.menuXmlPath.text");
         }
     }
 

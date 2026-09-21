@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -16,7 +17,7 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public sealed partial class PlaceZCalibrationDialog : Form
+    public sealed partial class PlaceZCalibrationDialog : Form, ILocalizedView
     {
         private const string MoveSpeedKey = "Move Speed";
         private const string MoveAccKey = "Move Acc";
@@ -72,9 +73,62 @@ namespace QMC.CDT_320.Ui.Dialogs
                 () => new PlaceZCalibrationDialog());
         }
 
+        private void InitializeLocalization()
+        {
+            Lang.BindKey(_headerLabel, "calibration.placez.headerLabel");
+            Lang.BindKey(_batchGroup, "calibration.placez.batchGroup");
+            Lang.BindKey(_chkBatchAll, "calibration.placez.chkBatchAll");
+            Lang.BindKey(_btnBatchStart, "calibration.placez.btnBatchStart");
+            Lang.BindKey(_sideLabel, "calibration.placez.sideLabel");
+            Lang.BindKey(_outputLabel, "calibration.placez.outputLabel");
+            Lang.BindKey(_pickerLabel, "calibration.placez.pickerLabel");
+            Lang.BindKey(_settingsGroup, "calibration.placez.settingsGroup");
+            Lang.BindKey(_settingsParameterColumn, "calibration.placez.settingsParameterColumn");
+            Lang.BindKey(_settingsValueColumn, "calibration.placez.settingsValueColumn");
+            Lang.BindKey(_settingsUnitColumn, "calibration.placez.settingsUnitColumn");
+            Lang.BindKey(_btnParameterSave, "calibration.placez.btnParameterSave");
+            Lang.BindKey(_resultGroup, "calibration.placez.resultGroup");
+            Lang.BindKey(_resultItemColumn, "calibration.placez.resultItemColumn");
+            Lang.BindKey(_resultSideColumn, "calibration.placez.resultSideColumn");
+            Lang.BindKey(_resultOutputColumn, "calibration.placez.resultOutputColumn");
+            Lang.BindKey(_resultPickerColumn, "calibration.placez.resultPickerColumn");
+            Lang.BindKey(_resultOldPlaceColumn, "calibration.placez.resultOldPlaceColumn");
+            Lang.BindKey(_resultStartZColumn, "calibration.placez.resultStartZColumn");
+            Lang.BindKey(_resultFlowZColumn, "calibration.placez.resultFlowZColumn");
+            Lang.BindKey(_resultDieColumn, "calibration.placez.resultDieColumn");
+            Lang.BindKey(_resultFilmColumn, "calibration.placez.resultFilmColumn");
+            Lang.BindKey(_resultSavedPlaceColumn, "calibration.placez.resultSavedPlaceColumn");
+            Lang.BindKey(_resultValidColumn, "calibration.placez.resultValidColumn");
+            Lang.BindKey(_status, "calibration.placez.status");
+            Lang.BindKey(_btnCheck, "calibration.placez.btnCheck");
+            Lang.BindKey(_btnMoveStart, "calibration.placez.btnMoveStart");
+            Lang.BindKey(_btnStartScan, "calibration.placez.btnStartScan");
+            Lang.BindKey(_btnMoveAvoid, "calibration.placez.btnMoveAvoid");
+            Lang.BindKey(_btnVacOff, "calibration.placez.btnVacOff");
+            Lang.BindKey(_btnSeqStop, "calibration.placez.btnSeqStop");
+            Lang.BindKey(_btnReload, "calibration.placez.btnReload");
+            Lang.BindKey(_btnSave, "calibration.placez.btnSave");
+            Lang.BindKey(_btnClose, "calibration.placez.btnClose");
+            Lang.BindKey(this, "calibration.placez.this");
+            CalibrationDialogText.BindGrid(_settingsGrid);
+            CalibrationDialogText.BindGrid(_resultGrid);
+            CalibrationDialogText.BindCombo(_cmbSide);
+            CalibrationDialogText.BindCombo(_cmbOutputSide);
+            CalibrationDialogText.BindCombo(_cmbPickerNo);
+        }
+
+        public void ApplyLanguage()
+        {
+            // 언어 변경은 표시만 무효화하며 선택/입력/설정값을 다시 불러오지 않습니다.
+            foreach (DataGridViewRow row in _settingsGrid.Rows)
+                ApplySettingToolTip(row, GetSettingToolTip(Convert.ToString(row.Tag, CultureInfo.InvariantCulture)));
+            Invalidate(true);
+        }
+
         public PlaceZCalibrationDialog()
         {
             InitializeComponent();
+            InitializeLocalization();
             CalibrationDialogGridBehavior.Apply(_settingsGrid, _resultGrid);
             CalibrationDialogButtonStyle.ApplyFooterButtons(
                 new[] { _btnCheck, _btnMoveStart, _btnMoveAvoid, _btnVacOff, _btnSeqStop, _btnReload, _btnClose },
@@ -171,8 +225,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     }
 
                     DialogResult result = QMC.Common.MessageDialog.Show(this,
-                        "Place Z Calibration이 실행 중입니다. 정지 요청 후 창을 닫을까요?",
-                        "PLACE Z CAL",
+                        Lang.T("calibration.message.m004"),
+                        Lang.T("calibration.message.m005"),
                         MessageBoxButtons.YesNo,
                         MessageBoxIcon.Warning);
                     if (result == DialogResult.Yes)
@@ -303,7 +357,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 PlaceZCalibrationData data = ResolveData();
                 if (data == null)
                 {
-                    _status.Text = "PlaceZ CalibrationData를 찾을 수 없습니다.";
+                    Lang.BindFormat(_status, "calibration.status.s047");
                     return;
                 }
 
@@ -339,11 +393,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddSetting(MoveAvoidAfterScanKey, settings.MoveAvoidAfterScan ? "True" : "False", "");
                 AddSetting(FailIfFlowAlreadyOnKey, settings.FailIfFlowAlreadyOn ? "True" : "False", "");
                 RefreshResultGrid();
-                _status.Text = "설정을 불러왔습니다. Output Good/NG와 Picker를 선택한 후 START SCAN을 실행하세요.";
+                Lang.BindFormat(_status, "calibration.status.s048");
             }
             catch (Exception ex)
             {
-                _status.Text = "설정 로드 실패: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s049", ex.Message);
             }
         }
 
@@ -361,7 +415,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                _status.Text = "결과 표시 실패: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s050", ex.Message);
             }
         }
 
@@ -428,65 +482,65 @@ namespace QMC.CDT_320.Ui.Dialogs
             switch (name)
             {
                 case MoveSpeedKey:
-                    return "PlaceZ Calibration 준비 이동 속도입니다. 안전 위치, X/T/Y 정렬, Scan Start 이동에 사용하며 Flow 검색 속도는 별도 Search 설정을 사용합니다.";
+                    return Lang.T("calibration.tip.t026");
                 case CoarseSearchSpeedKey:
-                    return "처음 Flow 위치를 찾을 때 PickerZ가 내려가는 Coarse 검색 속도입니다.";
+                    return Lang.T("calibration.tip.t027");
                 case CoarseSearchAccKey:
-                    return "처음 Flow 위치를 찾을 때 사용하는 Coarse 검색 가속도입니다.";
+                    return Lang.T("calibration.tip.t028");
                 case CoarseSearchDecKey:
-                    return "처음 Flow 위치를 찾을 때 사용하는 Coarse 검색 감속도입니다.";
+                    return Lang.T("calibration.tip.t029");
                 case FineSearchSpeedKey:
-                    return "BackOff, Blow, Flow OFF 확인 후 최종 Flow 위치를 다시 찾을 때 사용하는 정밀 탐색 속도입니다.";
+                    return Lang.T("calibration.tip.t030");
                 case MoveAccKey:
-                    return "PlaceZ Calibration 준비 이동 가속도입니다. Flow 검색 가속도는 별도 Search 설정을 사용합니다.";
+                    return Lang.T("calibration.tip.t031");
                 case MoveDecKey:
-                    return "PlaceZ Calibration 준비 이동 감속도입니다. Flow 검색 감속도는 별도 Search 설정을 사용합니다.";
+                    return Lang.T("calibration.tip.t032");
                 case FineSearchAccKey:
-                    return "BackOff 후 정밀 Flow 위치를 다시 찾을 때 사용하는 Fine 검색 가속도입니다.";
+                    return Lang.T("calibration.tip.t033");
                 case FineSearchDecKey:
-                    return "BackOff 후 정밀 Flow 위치를 다시 찾을 때 사용하는 Fine 검색 감속도입니다.";
+                    return Lang.T("calibration.tip.t034");
                 case MoveTimeoutKey:
-                    return "각 Z 이동 명령 후 인포지션 완료를 기다리는 최대 시간입니다. 초과하면 캘리브레이션을 실패 처리합니다.";
+                    return Lang.T("calibration.tip.t035");
                 case StartZKey:
-                    return "PickerZ가 Flow 탐색을 시작할 Z 위치입니다. 안전 위치 정렬 후 선택 PickerZ가 이 위치로 먼저 이동합니다.";
+                    return Lang.T("calibration.tip.t036");
                 case DieThicknessKey:
-                    return "Die thickness. Saved Place Z = Flow Z + Die Thickness + Film Thickness.";
+                    return Lang.T("calibration.tip.t037");
                 case FilmThicknessKey:
-                    return "Film thickness. Saved Place Z = Flow Z + Die Thickness + Film Thickness.";
+                    return Lang.T("calibration.tip.t038");
                 case PositionOffsetXKey:
-                    return "Output Process 기준 위치에서 X 방향으로 추가 이동할 거리입니다. OutputVision 기준 Place 계산식의 receiveTargetX로 적용됩니다.";
+                    return Lang.T("calibration.tip.t039");
                 case PositionOffsetYKey:
-                    return "Output Process 기준 위치에서 Y 방향으로 추가 이동할 거리입니다. OutputStageY Place 계산식의 receiveTargetY로 적용됩니다.";
+                    return Lang.T("calibration.tip.t040");
                 case SearchStartOffsetKey:
-                    return "현재 Place 위치보다 이 거리만큼 위쪽 안전 위치에서 탐색을 시작합니다. 대상면에 바로 닿지 않도록 여유를 둡니다.";
+                    return Lang.T("calibration.tip.t041");
                 case SearchMaxDistanceKey:
-                    return "Vacuum/Flow 접촉 신호를 찾기 위해 Z를 내릴 수 있는 최대 거리입니다. 이 거리 안에 신호가 없으면 실패합니다.";
+                    return Lang.T("calibration.tip.t042");
                 case BackOffDistanceKey:
-                    return "Flow ON 감지 후 정밀 재탐색 전에 PickerZ를 되돌리는 거리입니다. 잔진공/잔에어 제거 구간입니다.";
+                    return Lang.T("calibration.tip.t043");
                 case ContactOffsetKey:
-                    return "기존 호환용 값입니다. 현재는 Die Thickness와 같은 값으로 저장됩니다.";
+                    return Lang.T("calibration.tip.t044");
                 case VacuumOnDelayKey:
-                    return "탐색 시작 전 Vacuum을 켠 뒤 Flow 신호가 안정될 때까지 기다리는 시간입니다.";
+                    return Lang.T("calibration.tip.t045");
                 case VacuumReOnDelayKey:
-                    return "BackOff/Blow 후 Vacuum을 다시 켠 뒤 Flow OFF 확인 전 기다리는 시간입니다.";
+                    return Lang.T("calibration.tip.t046");
                 case BlowPulseTimeKey:
-                    return "BackOff 후 Vacuum을 끄고 잔진공/잔에어를 제거하기 위해 Blow를 짧게 켜는 시간입니다.";
+                    return Lang.T("calibration.tip.t047");
                 case BlowSettleTimeKey:
-                    return "Blow OFF 후 다시 Vacuum ON 하기 전에 압력이 안정되도록 기다리는 시간입니다.";
+                    return Lang.T("calibration.tip.t048");
                 case FlowOffConfirmTimeoutKey:
-                    return "BackOff/Blow/Vacuum ON 후 Flow OFF 상태가 확인될 때까지 기다리는 최대 시간입니다.";
+                    return Lang.T("calibration.tip.t049");
                 case FlowStableKey:
-                    return "Flow 접촉 신호가 이 시간 동안 유지되어야 접촉으로 인정합니다.";
+                    return Lang.T("calibration.tip.t050");
                 case FlowPollIntervalKey:
-                    return "접촉 탐색 중 Flow 신호를 다시 확인하는 주기입니다.";
+                    return Lang.T("calibration.tip.t051");
                 case RepeatCountKey:
-                    return "정밀 Flow 탐색 반복 횟수입니다. 반복 결과의 최대-최소 차이가 Repeat Tolerance 안이어야 합니다.";
+                    return Lang.T("calibration.tip.t052");
                 case RepeatToleranceKey:
-                    return "정밀 Flow 탐색 반복 결과 사이에 허용되는 최대 편차입니다.";
+                    return Lang.T("calibration.tip.t053");
                 case MoveAvoidAfterScanKey:
-                    return "캘리브레이션 완료 또는 실패 후 Picker Z를 Avoid 위치로 복귀할지 선택합니다.";
+                    return Lang.T("calibration.tip.t054");
                 case FailIfFlowAlreadyOnKey:
-                    return "탐색 시작 전에 Flow가 이미 ON이면 시작 상태 이상으로 보고 즉시 실패 처리할지 선택합니다.";
+                    return Lang.T("calibration.tip.t055");
                 default:
                     return string.Empty;
             }
@@ -521,7 +575,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 PlaceZCalibrationData data = ResolveData();
                 if (data == null)
                 {
-                    _status.Text = "PlaceZ CalibrationData를 찾을 수 없습니다.";
+                    Lang.BindFormat(_status, "calibration.status.s047");
                     return false;
                 }
 
@@ -565,12 +619,12 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 LoadFromMachine();
                 if (showMessage)
-                    _status.Text = "PlaceZ Calibration 설정값을 저장했습니다.";
+                    Lang.BindFormat(_status, "calibration.status.s051");
                 return true;
             }
             catch (Exception ex)
             {
-                _status.Text = "설정 저장 실패: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s052", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "PLACE-Z-CAL-SAVE-SETTING", _status.Text);
                 return false;
             }
@@ -582,11 +636,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 if (!_hasLastSuccessfulResult)
                 {
-                    _status.Text = "저장할 PlaceZ 측정 결과가 없습니다. START SCAN 또는 BATCH를 먼저 완료하세요.";
+                    Lang.BindFormat(_status, "calibration.status.s053");
                     QMC.Common.MessageDialog.Show(
                         this,
                         _status.Text,
-                        "PLACE Z CAL",
+                        Lang.T("calibration.message.m005"),
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
                     return;
@@ -595,18 +649,17 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Form1 host = ResolveHost();
                 if (host == null || string.IsNullOrWhiteSpace(host.ActiveRecipeName))
                 {
-                    _status.Text = "활성 Recipe가 없어 PlaceZ 측정 결과를 저장할 수 없습니다.";
+                    Lang.BindFormat(_status, "calibration.status.s054");
                     return;
                 }
 
                 if (!string.Equals(host.ActiveRecipeName, _lastSuccessfulRecipeName, StringComparison.Ordinal))
                 {
-                    _status.Text = "측정 완료 후 활성 Recipe가 변경되었습니다. 결과 저장을 차단합니다. measuredRecipe=" +
-                                   _lastSuccessfulRecipeName + ", activeRecipe=" + host.ActiveRecipeName;
+                    Lang.BindFormat(_status, "calibration.status.s055", _lastSuccessfulRecipeName, host.ActiveRecipeName);
                     QMC.Common.MessageDialog.Show(
                         this,
                         _status.Text,
-                        "PLACE Z CAL",
+                        Lang.T("calibration.message.m005"),
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
                     return;
@@ -624,17 +677,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                     record.UpdatedAt != _lastSuccessfulResultUpdatedAt ||
                     Math.Abs(record.SavedPlacePosition - _lastSuccessfulSavedPlacePosition) > 0.000001)
                 {
-                    _status.Text = "마지막 PlaceZ 측정 결과와 저장 대상 데이터가 일치하지 않습니다. 저장을 차단합니다. side=" +
-                                   _lastSuccessfulSide + ", output=" + _lastSuccessfulOutputSide +
-                                   ", pickerNo=" + _lastSuccessfulPickerNo +
-                                   ", measured=" + _lastSuccessfulSavedPlacePosition.ToString("F6") +
-                                   ", record=" + (record != null
+                    Lang.BindFormat(_status, "calibration.status.s056", _lastSuccessfulSide, _lastSuccessfulOutputSide, _lastSuccessfulPickerNo, _lastSuccessfulSavedPlacePosition.ToString("F6"), (record != null
                                        ? record.OutputSide + "/" + record.SavedPlacePosition.ToString("F6")
-                                       : "null");
+                                       : "null"));
                     QMC.Common.MessageDialog.Show(
                         this,
                         _status.Text,
-                        "PLACE Z CAL",
+                        Lang.T("calibration.message.m005"),
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
                     return;
@@ -643,14 +692,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 bool recipeSaved = host.SaveMachineRecipe(_lastSuccessfulRecipeName);
                 if (!recipeSaved)
                 {
-                    _status.Text = "PlaceZ 측정 결과 Recipe 저장에 실패했습니다. recipe=" +
-                                   _lastSuccessfulRecipeName + ", side=" + _lastSuccessfulSide +
-                                   ", output=" + _lastSuccessfulOutputSide +
-                                   ", pickerNo=" + _lastSuccessfulPickerNo;
+                    Lang.BindFormat(_status, "calibration.status.s057", _lastSuccessfulRecipeName, _lastSuccessfulSide, _lastSuccessfulOutputSide, _lastSuccessfulPickerNo);
                     QMC.Common.MessageDialog.Show(
                         this,
                         _status.Text,
-                        "PLACE Z CAL",
+                        Lang.T("calibration.message.m005"),
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
                     return;
@@ -658,16 +704,12 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 host.SaveMachineSettings();
                 ClearLastSuccessfulResult();
-                _status.Text = "PlaceZ 측정 결과 저장 완료. recipe=" + _lastSuccessfulRecipeName +
-                               ", side=" + _lastSuccessfulSide +
-                               ", output=" + _lastSuccessfulOutputSide +
-                               ", pickerNo=" + _lastSuccessfulPickerNo +
-                               ", PlaceZ=" + _lastSuccessfulSavedPlacePosition.ToString("F6");
+                Lang.BindFormat(_status, "calibration.status.s058", _lastSuccessfulRecipeName, _lastSuccessfulSide, _lastSuccessfulOutputSide, _lastSuccessfulPickerNo, _lastSuccessfulSavedPlacePosition.ToString("F6"));
                 EventLogger.Write(EventKind.Event, "CAL", "PLACE-Z-CAL-SAVE-RESULT", _status.Text);
             }
             catch (Exception ex)
             {
-                _status.Text = "PlaceZ 측정 결과 저장 예외: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s059", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "PLACE-Z-CAL-SAVE-RESULT-EX", _status.Text);
             }
         }
@@ -720,47 +762,45 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!CanRunManualCalibration(out reason))
                 {
-                    _status.Text = reason;
+                    CalibrationDialogText.BindStatus(_status, reason);
                     if (showOk)
-                        QMC.Common.MessageDialog.Show(this, reason, "PLACE Z CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, reason, Lang.T("calibration.message.m005"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
                 Form1 host = ResolveHost();
                 if (host == null || host.Machine == null)
                 {
-                    _status.Text = "장비가 준비되지 않았습니다.";
+                    Lang.BindFormat(_status, "calibration.status.s060");
                     return false;
                 }
 
                 if (string.IsNullOrWhiteSpace(host.ActiveRecipeName))
                 {
-                    _status.Text = "활성 Recipe가 없습니다. PlacePosition 저장을 위해 Recipe를 먼저 로드하세요.";
+                    Lang.BindFormat(_status, "calibration.status.s061");
                     return false;
                 }
 
                 BaseAxis zAxis = ResolvePickerZAxisObject(host);
                 if (zAxis == null)
                 {
-                    _status.Text = "선택 Picker Z축을 찾을 수 없습니다.";
+                    Lang.BindFormat(_status, "calibration.status.s062");
                     return false;
                 }
 
                 if (!zAxis.IsServoOn || zAxis.IsAlarm)
                 {
-                    _status.Text = "선택 Picker Z축 상태가 준비되지 않았습니다. servo=" +
-                                   (zAxis.IsServoOn ? "ON" : "OFF") +
-                                   ", alarm=" + (zAxis.IsAlarm ? "ON" : "OFF");
+                    Lang.BindFormat(_status, "calibration.status.s063", (zAxis.IsServoOn ? "ON" : "OFF"), (zAxis.IsAlarm ? "ON" : "OFF"));
                     return false;
                 }
 
                 if (showOk)
-                    _status.Text = "실행 가능한 상태입니다. 선택 Output Stage와 Picker 기준으로 PlaceZ Calibration을 실행할 수 있습니다.";
+                    Lang.BindFormat(_status, "calibration.status.s064");
                 return true;
             }
             catch (Exception ex)
             {
-                _status.Text = "준비 확인 실패: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s065", ex.Message);
                 return false;
             }
         }
@@ -824,11 +864,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             List<BatchTarget> targets = BuildSelectedBatchTargets();
             if (targets.Count == 0)
             {
-                _status.Text = "Batch로 측정할 Picker를 하나 이상 선택하세요.";
+                Lang.BindFormat(_status, "calibration.status.s066");
                 QMC.Common.MessageDialog.Show(
                     this,
                     _status.Text,
-                    "PLACE Z CAL",
+                    Lang.T("calibration.message.m005"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 return;
@@ -876,10 +916,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     options.PickerNo = target.PickerNo;
                     options.RestrictToPickerNo = target.PickerNo;
 
-                    _status.Text = "PlaceZ Batch " + (index + 1) + "/" + targets.Count +
-                                   " 실행 중. output=" + batchOutputSide +
-                                   ", side=" + target.Side +
-                                   ", pickerNo=" + target.PickerNo;
+                    Lang.BindFormat(_status, "calibration.status.s067", (index + 1), targets.Count, batchOutputSide, target.Side, target.PickerNo);
 
                     var sequence = new PickerPlaceZCalibrationSequence(
                         context,
@@ -895,14 +932,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                     if (result != 0)
                     {
-                        _status.Text = "PlaceZ Batch 실패. output=" + batchOutputSide +
-                                       ", side=" + target.Side +
-                                       ", pickerNo=" + target.PickerNo +
-                                       ", detail=" + sequence.Result.Message;
+                        Lang.BindFormat(_status, "calibration.status.s068", batchOutputSide, target.Side, target.PickerNo, sequence.Result.Message);
                         QMC.Common.MessageDialog.Show(
                             this,
                             _status.Text,
-                            "PLACE Z CAL",
+                            Lang.T("calibration.message.m005"),
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Error);
                         return;
@@ -910,13 +944,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                     if (sequence.Result.OutputSide != batchOutputSide)
                     {
-                        _status.Text = "PlaceZ Batch 결과 Output Side가 고정 대상과 일치하지 않습니다. 실행을 중단합니다. expected=" +
-                                       batchOutputSide + ", actual=" + sequence.Result.OutputSide +
-                                       ", side=" + target.Side + ", pickerNo=" + target.PickerNo;
+                        Lang.BindFormat(_status, "calibration.status.s069", batchOutputSide, sequence.Result.OutputSide, target.Side, target.PickerNo);
                         QMC.Common.MessageDialog.Show(
                             this,
                             _status.Text,
-                            "PLACE Z CAL",
+                            Lang.T("calibration.message.m005"),
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Error);
                         return;
@@ -927,14 +959,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                     host.SaveMachineSettings();
                     if (!recipeSaved)
                     {
-                        _status.Text = "PlaceZ Batch 결과 Recipe 저장 실패. output=" + batchOutputSide +
-                                       ", side=" + target.Side +
-                                       ", pickerNo=" + target.PickerNo +
-                                       ", recipe=" + host.ActiveRecipeName;
+                        Lang.BindFormat(_status, "calibration.status.s070", batchOutputSide, target.Side, target.PickerNo, host.ActiveRecipeName);
                         QMC.Common.MessageDialog.Show(
                             this,
                             _status.Text,
-                            "PLACE Z CAL",
+                            Lang.T("calibration.message.m005"),
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Error);
                         return;
@@ -960,8 +989,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     bool hasNextTarget = index < targets.Count - 1;
                     if (hasNextTarget)
                     {
-                        _status.Text = "PlaceZ Batch " + target.Side + " P" + target.PickerNo +
-                                       " 완료. 다음 대상 준비 단계가 안전 조건을 확보합니다(중복 Avoid 복귀 생략).";
+                        Lang.BindFormat(_status, "calibration.status.s071", target.Side, target.PickerNo);
                         EventLogger.Write(EventKind.Event, "CAL", "PLACE-Z-CAL-BATCH-SAFE-SKIP",
                             "Batch 대상 사이 안전 Avoid 복귀를 생략합니다(다음 대상 준비 단계가 확보). " +
                             "output=" + batchOutputSide +
@@ -970,52 +998,45 @@ namespace QMC.CDT_320.Ui.Dialogs
                         continue;
                     }
 
-                    _status.Text = "PlaceZ Batch 최종 안전위치 복귀 중. output=" + batchOutputSide +
-                                   ", side=" + target.Side +
-                                   ", pickerNo=" + target.PickerNo;
+                    Lang.BindFormat(_status, "calibration.status.s072", batchOutputSide, target.Side, target.PickerNo);
                     var safe = new AutoCalibrationSafePositionSequence(context, target.Side);
                     _activeSafePositionSequence = safe;
                     int safeResult = await safe.RunAsync(runCts.Token, options).ConfigureAwait(true);
                     _activeSafePositionSequence = null;
                     if (safeResult != 0)
                     {
-                        _status.Text = "PlaceZ Batch 최종 안전위치 복귀 실패. 최종 안전 상태를 확인하세요. output=" +
-                                       batchOutputSide + ", side=" + target.Side +
-                                       ", pickerNo=" + target.PickerNo +
-                                       ", result=" + safeResult;
+                        Lang.BindFormat(_status, "calibration.status.s073", batchOutputSide, target.Side, target.PickerNo, safeResult);
                         QMC.Common.MessageDialog.Show(
                             this,
                             _status.Text,
-                            "PLACE Z CAL",
+                            Lang.T("calibration.message.m005"),
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Error);
                         return;
                     }
                 }
 
-                _status.Text = "PlaceZ Batch 완료. output=" + batchOutputSide +
-                               ", count=" + targets.Count +
-                               ". 결과는 자동 저장되었으며 SAVE RESULT로 마지막 성공 결과를 재확인 저장할 수 있습니다.";
+                Lang.BindFormat(_status, "calibration.status.s074", batchOutputSide, targets.Count);
                 EventLogger.Write(EventKind.Event, "CAL", "PLACE-Z-CAL-BATCH-COMPLETE", _status.Text);
             }
             catch (OperationCanceledException)
             {
-                _status.Text = "PlaceZ Batch가 정지 요청으로 중단되었습니다.";
+                Lang.BindFormat(_status, "calibration.status.s075");
                 EventLogger.Write(EventKind.Event, "CAL", "PLACE-Z-CAL-BATCH-STOP", _status.Text);
             }
             catch (SequenceStopException ex)
             {
-                _status.Text = "PlaceZ Batch 정지: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s076", ex.Message);
                 EventLogger.Write(EventKind.Event, "CAL", "PLACE-Z-CAL-BATCH-STOP", _status.Text);
             }
             catch (Exception ex)
             {
-                _status.Text = "PlaceZ Batch 예외: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s077", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "PLACE-Z-CAL-BATCH-EX", _status.Text);
                 QMC.Common.MessageDialog.Show(
                     this,
                     _status.Text,
-                    "PLACE Z CAL",
+                    Lang.T("calibration.message.m005"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -1075,15 +1096,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 options.PickerNo = ResolvePickerNo();
                 options.RestrictToPickerNo = ResolvePickerNo();
 
-                _status.Text = runningMessage;
+                CalibrationDialogText.BindStatus(_status, runningMessage);
                 int result = await action(sequence, runCts.Token, options).ConfigureAwait(true);
                 _activeCalibrationSequence = null;
                 LoadFromMachine();
 
                 if (result != 0)
                 {
-                    _status.Text = "PlaceZ Calibration 실패. Alarm/Event Log를 확인하세요. " + sequence.Result.Message;
-                    QMC.Common.MessageDialog.Show(this, _status.Text, "PLACE Z CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Lang.BindFormat(_status, "calibration.status.s078", sequence.Result.Message);
+                    QMC.Common.MessageDialog.Show(this, _status.Text, Lang.T("calibration.message.m005"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
@@ -1092,31 +1113,28 @@ namespace QMC.CDT_320.Ui.Dialogs
                     bool recipeSaved = host.SaveMachineRecipe(host.ActiveRecipeName);
                     host.SaveMachineSettings();
                     RegisterLastSuccessfulResult(sequence.Result, host.ActiveRecipeName);
-                    _status.Text = "완료. FlowZ=" + sequence.Result.DetectedFlowPosition.ToString("F6") +
-                                   ", SavedPlaceZ=" + sequence.Result.SavedPlacePosition.ToString("F6") +
-                                   ", RecipeSave=" + (recipeSaved ? "OK" : "NG") +
-                                   ". SAVE RESULT로 마지막 성공 결과를 재확인 저장할 수 있습니다.";
+                    Lang.BindFormat(_status, "calibration.status.s079", sequence.Result.DetectedFlowPosition.ToString("F6"), sequence.Result.SavedPlacePosition.ToString("F6"), (recipeSaved ? "OK" : "NG"));
                 }
                 else
                 {
-                    _status.Text = sequence.Result.Message;
+                    CalibrationDialogText.BindStatus(_status, sequence.Result.Message);
                 }
             }
             catch (OperationCanceledException)
             {
-                _status.Text = "PlaceZ Calibration이 정지 요청으로 중단되었습니다.";
+                Lang.BindFormat(_status, "calibration.status.s080");
                 EventLogger.Write(EventKind.Event, "CAL", "PLACE-Z-CAL-STOP", _status.Text);
             }
             catch (SequenceStopException ex)
             {
-                _status.Text = "PlaceZ Calibration 정지: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s081", ex.Message);
                 EventLogger.Write(EventKind.Event, "CAL", "PLACE-Z-CAL-STOP", _status.Text);
             }
             catch (Exception ex)
             {
-                _status.Text = "PlaceZ Calibration 예외: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s082", ex.Message);
                 EventLogger.Write(EventKind.Alarm, "CAL", "PLACE-Z-CAL-RUN", _status.Text);
-                QMC.Common.MessageDialog.Show(this, _status.Text, "PLACE Z CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, _status.Text, Lang.T("calibration.message.m005"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1142,12 +1160,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (ResolveSide() == VisionFocusPickerSide.Rear && host.Machine.PickerRearUnit != null)
                     host.Machine.PickerRearUnit.SetPickerVacuum(pickerNo, false);
 
-                _status.Text = ResolveSide() + " Picker #" + pickerNo + " Vacuum OFF 완료.";
+                Lang.BindFormat(_status, "calibration.status.s083", ResolveSide(), pickerNo);
                 UpdateVacFlowButton();
             }
             catch (Exception ex)
             {
-                _status.Text = "Vacuum OFF 실패: " + ex.Message;
+                Lang.BindFormat(_status, "calibration.status.s084", ex.Message);
             }
         }
 
@@ -1156,12 +1174,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             Action<string> request = _activeStopRequest;
             if (request == null)
             {
-                _status.Text = "실행 중인 PlaceZ Calibration 시퀀스가 없습니다.";
+                Lang.BindFormat(_status, "calibration.status.s085");
                 return;
             }
 
             request(reason);
-            _status.Text = "PlaceZ Calibration 정지 요청을 보냈습니다. Z축 정지 로그를 확인하세요.";
+            Lang.BindFormat(_status, "calibration.status.s086");
         }
 
         private CancellationTokenSource BeginManualCalibrationRun(
@@ -1449,7 +1467,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             string reason;
             if (TryReadPickerFlow(out flowOn, out reason))
             {
-                _btnVacOff.Text = flowOn ? "VAC OFF\r\nFLOW ON" : "VAC OFF\r\nFLOW OFF";
+                { if (flowOn) Lang.BindFormat(_btnVacOff, "calibration.status.s087"); else Lang.BindFormat(_btnVacOff, "calibration.status.s088"); }
                 _btnVacOff.BackColor = flowOn ? Color.FromArgb(46, 160, 67) : Color.White;
                 _btnVacOff.ForeColor = flowOn ? Color.White : Color.Black;
                 _btnVacOff.FlatAppearance.BorderColor = flowOn ? Color.FromArgb(28, 120, 48) : Color.FromArgb(176, 176, 176);
@@ -1457,7 +1475,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             }
 
-            _btnVacOff.Text = "VAC OFF\r\nFLOW ?";
+            Lang.BindFormat(_btnVacOff, "calibration.status.s089");
             _btnVacOff.BackColor = Color.FromArgb(245, 245, 245);
             _btnVacOff.ForeColor = Color.Black;
             _btnVacOff.FlatAppearance.BorderColor = Color.FromArgb(176, 176, 176);

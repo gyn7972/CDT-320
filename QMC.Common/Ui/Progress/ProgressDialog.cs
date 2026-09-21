@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.Common.Ui.Controls;
+using System.Globalization;
 
 namespace QMC.Common.Ui.Dialogs
 {
@@ -62,6 +63,7 @@ namespace QMC.Common.Ui.Dialogs
         private readonly Label _titleLabel;
         private readonly Label _stepLabel;
         private readonly Label _messageLabel;
+        private ProgressInfo _lastProgress;
 
         public ProgressDialog()
         {
@@ -137,6 +139,36 @@ namespace QMC.Common.Ui.Dialogs
         public string CanceledTitle { get; set; } = "정지";
         public string DefaultStepText { get; set; } = "진행 중입니다.";
         public string DefaultMessage { get; set; } = "잠시만 기다려 주세요.";
+        public string CompletedStepsFormat { get; set; } = "{0} / {1} 단계 완료";
+
+        /// <summary>호스트가 제공하는 표시 변환기. 진행 모델과 수치는 원문 그대로 유지합니다.</summary>
+        public Func<string, string> TextFormatter { get; set; }
+
+        /// <summary>UI 스레드에서 마지막 화면의 문구만 갱신합니다. 진행률, 타이머와 동작은 변경하지 않습니다.</summary>
+        public void RefreshDisplay()
+        {
+            if (IsDisposed) return;
+            if (_lastProgress == null)
+            {
+                _titleLabel.Text = FormatDisplayText(RunningTitle);
+                _stepLabel.Text = FormatDisplayText(DefaultStepText);
+                _messageLabel.Text = FormatDisplayText(DefaultMessage);
+                return;
+            }
+            RefreshProgressText(_lastProgress);
+        }
+
+        private string FormatDisplayText(string text)
+        {
+            return TextFormatter != null ? TextFormatter(text) : text;
+        }
+
+        private void RefreshProgressText(ProgressInfo info)
+        {
+            _titleLabel.Text = FormatDisplayText(string.IsNullOrEmpty(info.Title) ? ResolveTitle(info.State) : info.Title);
+            _stepLabel.Text = FormatDisplayText(string.IsNullOrWhiteSpace(info.StepName) ? DefaultStepText : info.StepName);
+            _messageLabel.Text = BuildMessage(info);
+        }
 
         /// <summary>진행 상황을 화면에 반영한다. 비-UI 스레드에서 호출해도 안전하다.</summary>
         public void ApplyProgress(ProgressInfo info)
@@ -163,12 +195,11 @@ namespace QMC.Common.Ui.Dialogs
             try
             {
                 Color accent = ResolveAccent(info.State);
+                _lastProgress = info;
 
                 _progressView.SetState(info.State, info.Percent, accent, info.CompletedSteps, info.TotalSteps);
                 _titleLabel.ForeColor = accent;
-                _titleLabel.Text = string.IsNullOrEmpty(info.Title) ? ResolveTitle(info.State) : info.Title;
-                _stepLabel.Text = string.IsNullOrWhiteSpace(info.StepName) ? DefaultStepText : info.StepName;
-                _messageLabel.Text = BuildMessage(info);
+                RefreshProgressText(info);
             }
             catch
             {
@@ -208,11 +239,11 @@ namespace QMC.Common.Ui.Dialogs
 
         private string BuildMessage(ProgressInfo info)
         {
-            string message = string.IsNullOrWhiteSpace(info.Message) ? DefaultMessage : info.Message;
+            string message = FormatDisplayText(string.IsNullOrWhiteSpace(info.Message) ? DefaultMessage : info.Message);
 
             if (info.TotalSteps > 0)
                 return message + Environment.NewLine +
-                       info.CompletedSteps + " / " + info.TotalSteps + " 단계 완료";
+                       string.Format(CultureInfo.CurrentCulture, CompletedStepsFormat, info.CompletedSteps, info.TotalSteps);
 
             return message;
         }

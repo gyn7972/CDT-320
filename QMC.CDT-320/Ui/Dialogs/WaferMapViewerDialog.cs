@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -14,7 +15,7 @@ using CommonMessageDialog = QMC.Common.MessageDialog;
 namespace QMC.CDT_320.Ui.Dialogs
 {
     /// <summary>파일 사본을 표시하는 웨이퍼맵 뷰어. 공정 맵·설정·캐시를 저장하거나 장비에 적용하지 않는다.</summary>
-    public partial class WaferMapViewerDialog : Form
+    public partial class WaferMapViewerDialog : Form, ILocalizedView
     {
         private const int MaximumListedFiles = 5000;
         private WaferMapViewerData _data;
@@ -23,6 +24,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _synchronizing;
         private int _rotationDegrees;
         private string _openedFrom = "파일 미선택";
+        private string _mapCaptionFileName = "";
+        private int _mapCaptionRotation;
         private readonly Dictionary<string, Color> _binColors = new Dictionary<string, Color>(StringComparer.Ordinal);
 
         internal bool AutoOpenCachedMap { get; set; } = true;
@@ -33,6 +36,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         public WaferMapViewerDialog()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
             _synchronizing = true;
             cmbFormat.SelectedIndex = LotWaferMapFetchService.IsCamtekFormatConfigured ? 1 : 0;
             _synchronizing = false;
@@ -65,7 +69,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 else
                 {
                     if (folderExists) await RefreshFolderAsync(folder);
-                    if (!IsDisposed && !Disposing) lblStatus.Text = "현재/최근 수신 맵이 없습니다. 파일을 열어 확인하세요.";
+                    if (!IsDisposed && !Disposing) AdditionalDialogText.Bind(lblStatus, "현재/최근 수신 맵이 없습니다. 파일을 열어 확인하세요.");
                 }
             }, "초기 맵 조회");
         }
@@ -131,9 +135,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 // 선택 형식은 다음 파일을 읽을 때 사용한다. 표시 중인 맵은 다시 해석하지 않는다.
                 UpdateSourceNotice();
-                lblStatus.Text = _data == null
+                AdditionalDialogText.Bind(lblStatus, _data == null
                     ? "선택한 형식으로 확인할 파일을 여세요."
-                    : "현재 맵은 유지됩니다. 선택한 형식으로 다음 파일을 여세요.";
+                    : "현재 맵은 유지됩니다. 선택한 형식으로 다음 파일을 여세요.");
             }, "열 파일 형식 선택");
         }
 
@@ -203,7 +207,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 PopulateDetails();
                 ShowMap(null);
                 UpdateSourceNotice();
-                lblStatus.Text = "파일 읽기 완료 · 원본 방향 0°";
+                AdditionalDialogText.Bind(lblStatus, "파일 읽기 완료 · 원본 방향 0°");
             }
             catch (Exception ex)
             {
@@ -235,7 +239,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 DieMapEntry retained = selected == null ? null : view.Entries.FirstOrDefault(e =>
                     e.OriginalMapX == selected.OriginalMapX && e.OriginalMapY == selected.OriginalMapY);
                 ShowMap(retained);
-                lblStatus.Text = "보기 회전 " + _rotationDegrees + "° · 확인용 맵";
+                AdditionalDialogText.Bind(lblStatus, "보기 회전 " + _rotationDegrees + "° · 확인용 맵");
             }
             catch (Exception ex)
             {
@@ -269,9 +273,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (IsDisposed || Disposing) return;
             if (candidate == null)
             {
-                lblStatus.Text = recentOnly ? "최근 수신 파일이 로컬에 없습니다." : "현재/최근 수신 파일이 로컬에 없습니다.";
-                CommonMessageDialog.Show(this, lblStatus.Text + "\r\n파일 열기로 직접 선택할 수 있습니다.",
-                    "웨이퍼맵 보기", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                AdditionalDialogText.Bind(lblStatus, recentOnly ? "최근 수신 파일이 로컬에 없습니다." : "현재/최근 수신 파일이 로컬에 없습니다.");
+                CommonMessageDialog.Show(this, AdditionalDialogText.Display(lblStatus.Text + "\r\n파일 열기로 직접 선택할 수 있습니다."),
+                    AdditionalDialogText.Display("웨이퍼맵 보기"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             await LoadFileCoreAsync(candidate.Path, candidate.Source);
@@ -321,9 +325,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     listFiles.SelectedIndex = selectedIndex;
                 }
                 finally { listFiles.EndUpdate(); }
-                lblFiles.Text = truncated ? "파일 목록 · 첫 5,000개 (직접 열기 가능)" : "파일 목록 · " + items.Length.ToString("N0") + "개";
-                lblStatus.Text = truncated ? "파일이 많아 첫 5,000개만 표시합니다. 파일 열기로 다른 파일을 선택할 수 있습니다." :
-                    (_data == null ? "파일을 두 번 누르거나 Enter로 여세요." : "읽기 완료 · 보기 " + _rotationDegrees + "° · 확인용 맵");
+                AdditionalDialogText.Bind(lblFiles, truncated ? "파일 목록 · 첫 5,000개 (직접 열기 가능)" : "파일 목록 · " + items.Length.ToString("N0") + "개");
+                AdditionalDialogText.Bind(lblStatus, truncated ? "파일이 많아 첫 5,000개만 표시합니다. 파일 열기로 다른 파일을 선택할 수 있습니다." :
+                    (_data == null ? "파일을 두 번 누르거나 Enter로 여세요." : "읽기 완료 · 보기 " + _rotationDegrees + "° · 확인용 맵"));
             }
             catch (Exception ex)
             {
@@ -357,20 +361,22 @@ namespace QMC.CDT_320.Ui.Dialogs
             int emptyRow = gridBins.Rows.Add(string.Empty, "빈 셀 (___)", absent.ToString("N0"));
             gridBins.Rows[emptyRow].Cells[0].Style.BackColor = mapViewer.BackColor;
             gridBins.Rows[emptyRow].Cells[0].Style.SelectionBackColor = mapViewer.BackColor;
-            lblSummary.Text = (_data.IsCamtek ? "캠택 CAMTEK" : "삼성 RAD") + " · " + _data.SourceMap.DieMapX + "열 × " +
+            AdditionalDialogText.Bind(lblSummary, (_data.IsCamtek ? "캠택 CAMTEK" : "삼성 RAD") + " · " + _data.SourceMap.DieMapX + "열 × " +
                 _data.SourceMap.DieMapY + "행\r\n존재 " + _data.SourceMap.Entries.Count.ToString("N0") + " · 빈 셀 " + absent.ToString("N0") +
-                "\r\n숫자 BIN은 원본 값으로 표시합니다.";
-            btnProcess.Text = "공정 방향 " + _data.ProcessRotationDegrees + "° 참고";
+                "\r\n숫자 BIN은 원본 값으로 표시합니다.");
+            AdditionalDialogText.Bind(btnProcess, "공정 방향 " + _data.ProcessRotationDegrees + "° 참고");
             gridHeaders.ClearSelection();
             gridBins.ClearSelection();
         }
 
         private void ShowMap(DieMapEntry selected)
         {
-            mapViewer.Caption = Path.GetFileName(LoadedFilePath) + " · 보기 " + _rotationDegrees + "° (확인용)";
+            _mapCaptionFileName = Path.GetFileName(LoadedFilePath);
+            _mapCaptionRotation = _rotationDegrees;
+            RefreshMapCaption();
             mapViewer.SetMap(_viewMap, true);
             mapViewer.SelectedEntry = selected;
-            lblRotation.Text = "보기 " + _rotationDegrees + "° · " + _viewMap.DieMapX + "열 × " + _viewMap.DieMapY + "행";
+            AdditionalDialogText.Bind(lblRotation, "보기 " + _rotationDegrees + "° · " + _viewMap.DieMapX + "열 × " + _viewMap.DieMapY + "행");
             ShowSelectedEntry(selected);
         }
 
@@ -378,21 +384,22 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             string selectedFormat = cmbFormat.SelectedIndex == 1 ? "캠택" : "삼성 RAD";
             string displayedFormat = _data == null ? "없음" : (_data.IsCamtek ? "캠택" : "삼성 RAD");
-            lblNotice.Text = "출처: " + _openedFrom + "\r\n현재 표시: " + displayedFormat +
-                " · 열 파일 형식: " + selectedFormat + " · 형식 선택은 다음 파일 열기에 적용됩니다.";
+            AdditionalDialogText.Bind(lblNotice, "출처: " + _openedFrom + "\r\n현재 표시: " + displayedFormat +
+                " · 열 파일 형식: " + selectedFormat + " · 형식 선택은 다음 파일 열기에 적용됩니다.");
         }
 
         private void ShowSelectedEntry(DieMapEntry entry)
         {
             if (entry == null || _viewMap == null || _data == null)
             {
-                lblSelected.Text = "다이를 선택하면 현재 보기의 X/Y와 BIN을 표시합니다. 보기 원점은 좌하단 0,0입니다.";
+                AdditionalDialogText.Bind(lblSelected, "다이를 선택하면 현재 보기의 X/Y와 BIN을 표시합니다. 보기 원점은 좌하단 0,0입니다.");
                 return;
             }
             string token = _data.GetSourceToken(entry);
-            lblSelected.Text = (token == "@@@" ? "@@@ 마크" : "BIN " + token) +
-                "   |   " + WaferMapProcessService.FormatMapPosition(entry) +
-                "   |   보기 " + _rotationDegrees + "°";
+            if (token == "@@@")
+                Lang.BindFormat(lblSelected, "extraDialog.remaining.viewer.selectedMark", WaferMapProcessService.FormatMapPosition(entry), _rotationDegrees);
+            else
+                Lang.BindFormat(lblSelected, "extraDialog.remaining.viewer.selectedBin", token, WaferMapProcessService.FormatMapPosition(entry), _rotationDegrees);
         }
 
         private Color ResolveEntryColor(DieMapEntry entry)
@@ -409,7 +416,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private string ResolveEntryStatus(DieMapEntry entry)
         {
-            return "확인용";
+            return AdditionalDialogText.Display("확인용");
         }
 
         private Tuple<string, Color>[] ResolveMapLegend()
@@ -434,7 +441,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _busy = busy;
             UseWaitCursor = busy;
-            if (status != null) lblStatus.Text = status;
+            if (status != null) AdditionalDialogText.Bind(lblStatus, status);
             UpdateButtons();
         }
 
@@ -463,10 +470,10 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             LogFailure(operation, LoadedFilePath, ex);
             if (IsDisposed || Disposing) return;
-            lblStatus.Text = operation + " 실패 · " + ex.Message;
-            CommonMessageDialog.Show(this, operation + " 실패\r\n" + ex.Message +
-                "\r\n\r\n원본 파일과 실제 공정은 변경되지 않았습니다.",
-                "웨이퍼맵 보기", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            AdditionalDialogText.Bind(lblStatus, operation + " 실패 · " + ex.Message);
+            CommonMessageDialog.Show(this, AdditionalDialogText.Display(operation + " 실패\r\n" + ex.Message +
+                "\r\n\r\n원본 파일과 실제 공정은 변경되지 않았습니다."),
+                AdditionalDialogText.Display("웨이퍼맵 보기"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         private static void LogFailure(string operation, string path, Exception ex)
@@ -487,5 +494,55 @@ namespace QMC.CDT_320.Ui.Dialogs
             public string Source { get; private set; }
             public CachedMapCandidate(string path, string source) { Path = path; Source = source; }
         }
+        private void RefreshMapCaption()
+        {
+            mapViewer.Caption = string.IsNullOrEmpty(_mapCaptionFileName) ? "" :
+                Lang.Format("extraDialog.remaining.viewer.caption", _mapCaptionFileName, _mapCaptionRotation);
+        }
+
+        public void ApplyLanguage()
+        {
+            openMapDialog.Title = AdditionalDialogText.Display("웨이퍼맵 파일 열기");
+            openMapDialog.Filter = AdditionalDialogText.Display("모든 웨이퍼맵 파일 (*.*)|*.*|텍스트 파일 (*.txt)|*.txt");
+            folderMapDialog.Description = AdditionalDialogText.Display("웨이퍼맵이 있는 폴더를 선택하세요.");
+            RefreshMapCaption();
+            mapViewer.Invalidate();
+        }
+
+        private void InitializeLanguageBindings()
+        {
+            AdditionalDialogText.Bind(this, "웨이퍼맵 보기");
+            Lang.BindChoices(cmbFormat, AdditionalDialogText.Display);
+            Lang.BindReadOnlyCells(gridBins, AdditionalDialogText.Display, cell => cell.ColumnIndex == colBinName.Index);
+            AdditionalDialogText.Bind(lblStatus, lblStatus.Text);
+            AdditionalDialogText.Bind(lblFiles, lblFiles.Text);
+            AdditionalDialogText.Bind(lblSummary, lblSummary.Text);
+            AdditionalDialogText.Bind(btnProcess, btnProcess.Text);
+            AdditionalDialogText.Bind(lblRotation, lblRotation.Text);
+            AdditionalDialogText.Bind(lblNotice, lblNotice.Text);
+            AdditionalDialogText.Bind(lblSelected, lblSelected.Text);
+
+            Lang.BindKey(lblFormat, "extraDialog.waferMapViewerDialog.lblFormat.caption");
+            Lang.BindKey(btnOpen, "extraDialog.waferMapViewerDialog.btnOpen.caption");
+            Lang.BindKey(btnCurrent, "extraDialog.waferMapViewerDialog.btnCurrent.caption");
+            Lang.BindKey(btnRecent, "extraDialog.waferMapViewerDialog.btnRecent.caption");
+            Lang.BindKey(btnRefresh, "extraDialog.waferMapViewerDialog.btnRefresh.caption");
+            Lang.BindKey(lblFileHint, "extraDialog.waferMapViewerDialog.lblFileHint.caption");
+            Lang.BindKey(btnOriginal, "extraDialog.waferMapViewerDialog.btnOriginal.caption");
+            Lang.BindKey(btnRotateLeft, "extraDialog.waferMapViewerDialog.btnRotateLeft.caption");
+            Lang.BindKey(btnRotateRight, "extraDialog.waferMapViewerDialog.btnRotateRight.caption");
+            Lang.BindKey(btnFit, "extraDialog.waferMapViewerDialog.btnFit.caption");
+            Lang.BindKey(lblMapHint, "extraDialog.waferMapViewerDialog.lblMapHint.caption");
+            Lang.BindKey(lblHeaderTitle, "extraDialog.waferMapViewerDialog.lblHeaderTitle.caption");
+            Lang.BindKey(colHeaderName, "extraDialog.waferMapViewerDialog.colHeaderName.caption");
+            Lang.BindKey(colHeaderValue, "extraDialog.waferMapViewerDialog.colHeaderValue.caption");
+            Lang.BindKey(lblBinTitle, "extraDialog.waferMapViewerDialog.lblBinTitle.caption");
+            Lang.BindKey(colBinColor, "extraDialog.waferMapViewerDialog.colBinColor.caption");
+            Lang.BindKey(colBinName, "extraDialog.waferMapViewerDialog.colBinName.caption");
+            Lang.BindKey(colBinCount, "extraDialog.waferMapViewerDialog.colBinCount.caption");
+            Lang.BindKey(btnClose, "extraDialog.waferMapViewerDialog.btnClose.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 }

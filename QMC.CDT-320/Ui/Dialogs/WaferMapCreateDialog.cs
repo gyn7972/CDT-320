@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
@@ -45,10 +46,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             GeneratedWaferMap savedMap, Func<GeneratedWaferMap, string> saveMap)
         {
             InitializeComponent();
+            InitializeLanguageBindings();
             _outputRole = outputRole;
             _saveMap = saveMap;
-            lblTitle.Text = (outputRole ? "OUTPUT" : "INPUT") + " WAFER MAP CREATE";
-            Text = (outputRole ? "OUTPUT" : "INPUT") + " · 맵 생성 미리보기 / 저장";
+            Lang.BindKey(lblTitle, outputRole ? "extraDialog.mapCreate.outputHeading" : "extraDialog.mapCreate.inputHeading");
+            Lang.BindKey(this, outputRole ? "extraDialog.mapCreate.outputTitle" : "extraDialog.mapCreate.inputTitle");
             var notices = new List<string>();
             _synchronizing = true;
             try
@@ -75,7 +77,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 SetRequestedEdgeCounts(savedMap.RequestedEdgeCounts ?? savedMap.EdgeCounts);
                 numTotalCount.Value = savedMap.RequestedTotalCount ?? savedMap.Count;
                 PublishMap(savedMap);
-                lblStatus.Text = WithMapNotice("저장된 맵의 회전과 개수 조건을 복원했습니다.", savedMap);
+                SetMapStatus("저장된 맵의 회전과 개수 조건을 복원했습니다.", savedMap);
             }
             else if (savedMap != null && notices.Count == 0)
             {
@@ -96,7 +98,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_synchronizing || _busy || _baseMap == null) return;
             _edgePending = true;
             _generatedMap = null;
-            lblStatus.Text = WithMapNotice("입력 조건 미적용 · 저장할 수 없습니다. 직전 결과를 표시합니다. 개수 적용 / 재생성으로 상단 사양과 개수를 함께 적용하세요.", mapView.Map, false);
+            SetMapStatus("입력 조건 미적용 · 저장할 수 없습니다. 직전 결과를 표시합니다. 개수 적용 / 재생성으로 상단 사양과 개수를 함께 적용하세요.", mapView.Map, false);
             UpdateButtons();
         }
 
@@ -115,8 +117,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             UpdateCenterSteps();
             if (_baseMap == null)
             {
-                lblStatus.Text = cmbRotation.SelectedIndex == 1 || cmbRotation.SelectedIndex == 3
-                    ? QuarterTurnNotice : "사양을 확인한 뒤 AUTO WAFER CREATE를 누르세요.";
+                AdditionalDialogText.Bind(lblStatus, cmbRotation.SelectedIndex == 1 || cmbRotation.SelectedIndex == 3
+                    ? QuarterTurnNotice : "사양을 확인한 뒤 AUTO WAFER CREATE를 누르세요.");
                 return;
             }
             if (_settingsPending)
@@ -140,7 +142,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!string.IsNullOrWhiteSpace(error)) throw new InvalidOperationException(error);
                 HasSaved = true;
                 bool configurationOnly = IsQuarterTurn(map);
-                lblStatus.Text = WithMapNotice(
+                SetMapStatus(
                     (_outputRole ? "OUTPUT Base / GOOD / NG" : "INPUT Base / INPUT") +
                     " 맵 " + map.Count.ToString("N0") + (configurationOnly
                         ? "개의 설정을 저장했습니다. PENDING · FINAL APPLY / 장비 사용 차단"
@@ -150,10 +152,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "맵 저장 실패: " + ex.Message;
+                AdditionalDialogText.Bind(lblStatus, "맵 저장 실패: " + ex.Message);
                 QMC.Common.Log.Write("Main", "UI", "WaferMapCreateDialog.Save", "생성 맵 저장 실패: " + ex);
-                QMC.Common.MessageDialog.Show(this, "생성한 맵을 저장할 수 없습니다.\r\n" + ex.Message,
-                    "맵 저장", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("extraDialog.mapCreate.saveFailed", ex.Message),
+                    AdditionalDialogText.Display("맵 저장"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally { SetBusy(false, null); }
         }
@@ -180,7 +182,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             RestoreBaseSettings();
             SetEdgeControls(_baseMap);
             PublishMap(_baseMap);
-            lblStatus.Text = WithMapNotice("마지막으로 생성한 사양과 회전의 AUTO 결과로 복원했습니다.", _baseMap);
+            SetMapStatus("마지막으로 생성한 사양과 회전의 AUTO 결과로 복원했습니다.", _baseMap);
         }
 
         private void btnFit_Click(object sender, EventArgs e)
@@ -201,12 +203,13 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void mapView_DieSelected(GeneratedWaferDie die)
         {
-            lblSelection.Text = die == null
-                ? "다이를 클릭하면 원본 주소와 웨이퍼 중심 기준 위치를 표시합니다.\r\n마우스 휠: 확대/축소 · +Y: 위쪽"
-                : "원본 주소: Column " + die.RawColumn + " / Row " + die.RawRow +
-                  "\r\n중심 위치: X " + FormatPosition(die.CenterXMm) + " mm / Y " + FormatPosition(die.CenterYMm) + " mm";
-            if (die != null && mapView.Map != null && !mapView.Map.IsWithinBoundary(die))
-                lblSelection.Text += " · 허용 원 영역 초과";
+            if (die == null)
+                Lang.BindKey(lblSelection, "extraDialog.mapCreate.selectHint");
+            else
+                Lang.BindFormat(lblSelection, mapView.Map != null && !mapView.Map.IsWithinBoundary(die)
+                    ? "extraDialog.mapCreate.selectedOutside"
+                    : "extraDialog.mapCreate.selected",
+                    die.RawColumn, die.RawRow, FormatPosition(die.CenterXMm), FormatPosition(die.CenterYMm));
         }
 
         private async Task RunGenerationAsync(Func<GeneratedWaferMap> operation, bool generateBase)
@@ -224,7 +227,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     SetEdgeControls(result);
                 }
                 PublishMap(result);
-                lblStatus.Text = WithMapNotice(result.Count == 0
+                SetMapStatus(result.Count == 0
                     ? "현재 조건에서 AUTO 생성된 다이가 없습니다. 개수 조건을 입력하여 미리볼 수 있습니다."
                     : (result.IsAdjusted ? "개수 조건을 적용했습니다. " : "웨이퍼 맵을 생성했습니다. ") +
                       "생성 결과 " + result.Count.ToString("N0") + "개 · 시계 방향 " + result.RotationDegrees + "°.", result);
@@ -237,13 +240,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 {
                     _generatedMap = null;
                     _edgePending = true;
-                    lblStatus.Text = WithMapNotice("입력 조건 미적용: " + ex.Message + " 직전 미리보기를 유지하며 저장할 수 없습니다.", mapView.Map, false);
+                    SetMapStatus("입력 조건 미적용: " + ex.Message + " 직전 미리보기를 유지하며 저장할 수 없습니다.", mapView.Map, false);
                 }
                 if (!(ex is ArgumentException) && !(ex is InvalidOperationException) && !(ex is OverflowException))
                 {
                     QMC.Common.Log.Write("Main", "UI", "WaferMapCreateDialog", "웨이퍼 맵 미리보기 처리 실패: " + ex);
-                    QMC.Common.MessageDialog.Show(this, "웨이퍼 맵 미리보기 처리에 실패했습니다.\r\n" + ex.Message,
-                        "Wafer Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    QMC.Common.MessageDialog.Show(this, Lang.Format("extraDialog.mapCreate.previewFailed", ex.Message),
+                        Lang.T("extraDialog.mapCreate.inputTitle"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
             finally
@@ -267,9 +270,10 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _settingsPending = true;
             _generatedMap = null;
-            lblStatus.Text = _baseMap == null
-                ? "사양을 확인한 뒤 AUTO WAFER CREATE를 누르세요."
-                : WithMapNotice("사양 편집 중 · 아직 미적용이므로 저장할 수 없습니다. 직전 결과와 요청 개수를 유지합니다. 개수 적용 / 재생성으로 함께 적용하세요.", mapView.Map, false);
+            if (_baseMap == null)
+                AdditionalDialogText.Bind(lblStatus, "사양을 확인한 뒤 AUTO WAFER CREATE를 누르세요.");
+            else
+                SetMapStatus("사양 편집 중 · 아직 미적용이므로 저장할 수 없습니다. 직전 결과와 요청 개수를 유지합니다. 개수 적용 / 재생성으로 함께 적용하세요.", mapView.Map, false);
             UpdateButtons();
         }
 
@@ -296,6 +300,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             return map != null && (map.RotationDegrees == 90 || map.RotationDegrees == 270);
         }
 
+        private void SetMapStatus(string message, GeneratedWaferMap map, bool storageReady = true)
+        {
+            string notice = WithMapNotice(string.Empty, map, storageReady);
+            Lang.BindDisplay(lblStatus, message, raw => AdditionalDialogText.Display(raw) +
+                AdditionalDialogText.DisplayOwnedLines(notice));
+        }
+
         private static string WithMapNotice(string message, GeneratedWaferMap map, bool storageReady = true)
         {
             if (map == null) return message;
@@ -312,10 +323,10 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void SetMarginMode(bool legacy)
         {
             _legacyPreview = legacy;
-            lblEdgeMargin.Text = legacy ? "이전식 외곽 여유 (+mm)" : "내부 여백 (mm)";
-            toolTip.SetToolTip(numEdgeMargin, legacy
-                ? "현재 맵은 이전 수식의 반경 바깥쪽 여유 +0.200 mm를 사용합니다. 값을 편집하거나 AUTO 생성하면 새 내부 여백 방식으로 전환됩니다."
-                : "웨이퍼 원에서 안쪽으로 비울 반경 여백입니다. 허용 반경 = 직경/2 - 여백. DIE GAP과 다른 값입니다.");
+            Lang.BindKey(lblEdgeMargin, legacy ? "extraDialog.mapCreate.legacyMargin" : "extraDialog.mapCreate.innerMargin");
+            Lang.BindKey(toolTip, numEdgeMargin, legacy
+                ? "extraDialog.remaining.create.legacyTip"
+                : "extraDialog.remaining.create.marginTip");
         }
 
         private bool MatchesDisplayedSpecification(GeneratedWaferMap map)
@@ -333,14 +344,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             _settingsPending = false;
             SetMarginMode(map.Settings.GenerationVersion == 1);
             mapView.Map = map;
-            lblCounts.Text = "생성 다이: " + map.Count.ToString("N0") + "개" +
-                " · 회전 " + map.RotationDegrees + "°" +
-                "\r\n현재 맵 격자: " + map.UsedColumns + " columns × " + map.UsedRows + " rows" +
-                "\r\n끝줄 실제: 상 " + map.EdgeCounts.Top + " / 하 " + map.EdgeCounts.Bottom +
-                " / 좌 " + map.EdgeCounts.Left + " / 우 " + map.EdgeCounts.Right +
-                "\r\n" + (map.Settings.GenerationVersion == 1 ? "이전식 외곽 여유: +0.200 mm" :
-                    "내부 여백: " + map.Settings.EdgeMarginMm.ToString("0.000") + " mm") +
-                "\r\n원 영역 초과: " + map.OutOfBoundsCount.ToString("N0") + "개";
+            Lang.BindFormat(lblCounts, map.Settings.GenerationVersion == 1
+                ? "extraDialog.mapCreate.countsLegacy"
+                : "extraDialog.mapCreate.counts",
+                map.Count.ToString("N0"), map.RotationDegrees, map.UsedColumns, map.UsedRows,
+                map.EdgeCounts.Top, map.EdgeCounts.Bottom, map.EdgeCounts.Left, map.EdgeCounts.Right,
+                map.Settings.EdgeMarginMm.ToString("0.000"), map.OutOfBoundsCount.ToString("N0"));
             UpdateButtons();
         }
 
@@ -389,17 +398,17 @@ namespace QMC.CDT_320.Ui.Dialogs
                 numTotalCount.Value = 1;
             }
             finally { _synchronizing = false; }
-            lblCounts.Text = "생성 다이: —\r\n현재 맵 격자: —\r\n끝줄 실제: —\r\n원 영역 초과: —";
-            lblBoundaryStatus.Text = "내부 여백을 뺀 원 안에 다이 전체가 들어오는지 확인합니다. 여백은 DIE GAP과 별개입니다.";
+            Lang.BindKey(lblCounts, "extraDialog.mapCreate.noCounts");
+            Lang.BindKey(lblBoundaryStatus, "extraDialog.mapCreate.boundaryHint");
             lblBoundaryStatus.ForeColor = System.Drawing.Color.FromArgb(48, 66, 79);
-            lblStatus.Text = notice;
+            AdditionalDialogText.Bind(lblStatus, notice);
             UpdateButtons();
         }
 
         private void SetBusy(bool busy, string notice)
         {
             _busy = busy;
-            if (notice != null) lblStatus.Text = notice;
+            if (notice != null) AdditionalDialogText.Bind(lblStatus, notice);
             UseWaitCursor = busy;
             UpdateButtons();
         }
@@ -422,13 +431,14 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             GeneratedWaferMap map = mapView.Map;
             if (map == null) return;
-            lblBoundaryStatus.Text = map.OutOfBoundsCount > 0
-                ? "빨간 다이 " + map.OutOfBoundsCount.ToString("N0") + "개가 허용 원 영역 밖에 있습니다. " +
-                    (_settingsPending || _edgePending ? "입력 미적용 · 저장 차단" : "설정 저장 가능") +
-                    " · 생성된 배치 유지\r\n현재 배치 필요 직경: " + map.RequiredOuterDiameterMm.ToString("0.000") + " mm 이상"
-                : map.Settings.GenerationVersion == 1
-                    ? "이전 방식: 외곽 여유 +0.200 mm · 새로 생성하면 내부 여백 방식으로 전환됩니다."
-                    : "실선: 웨이퍼 외곽 / 점선: 내부 여백을 뺀 허용 원 · 초록: 내부 / 빨강: 초과";
+            if (map.OutOfBoundsCount > 0)
+                Lang.BindFormat(lblBoundaryStatus, _settingsPending || _edgePending
+                    ? "extraDialog.mapCreate.outsidePending"
+                    : "extraDialog.mapCreate.outside",
+                    map.OutOfBoundsCount.ToString("N0"), map.RequiredOuterDiameterMm.ToString("0.000"));
+            else Lang.BindKey(lblBoundaryStatus, map.Settings.GenerationVersion == 1
+                ? "extraDialog.mapCreate.legacyBoundary"
+                : "extraDialog.mapCreate.boundaryLegend");
             lblBoundaryStatus.ForeColor = map.OutOfBoundsCount > 0 ? System.Drawing.Color.Firebrick : System.Drawing.Color.FromArgb(48, 66, 79);
         }
 
@@ -462,5 +472,43 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             return value.ToString("0.####", CultureInfo.CurrentCulture);
         }
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(toolTip, numGapX, "extraDialog.remaining.create.tip.gapX");
+            Lang.BindKey(toolTip, numGapY, "extraDialog.remaining.create.tip.gapY");
+            Lang.BindKey(toolTip, btnGenerate, "extraDialog.remaining.create.tip.generate");
+            Lang.BindKey(toolTip, groupEdges, "extraDialog.remaining.create.tip.edges");
+            Lang.BindKey(toolTip, btnApplyEdges, "extraDialog.remaining.create.tip.applyEdges");
+            Lang.BindKey(toolTip, numDiameter, "extraDialog.remaining.create.tip.diameter");
+            Lang.BindKey(toolTip, cmbRotation, "extraDialog.remaining.create.tip.rotation");
+            Lang.BindKey(toolTip, btnRestore, "extraDialog.remaining.create.tip.restore");
+            Lang.BindKey(toolTip, numDieX, "extraDialog.remaining.create.tip.dieSpecification");
+            Lang.BindKey(toolTip, numDieY, "extraDialog.remaining.create.tip.dieSpecification");
+            AdditionalDialogText.Bind(lblStatus, lblStatus.Text);
+            Lang.BindChoices(cmbRotation, AdditionalDialogText.Display);
+            Lang.BindKey(groupSettings, "extraDialog.waferMapCreateDialog.groupSettings.caption");
+            Lang.BindKey(lblDiameter, "extraDialog.waferMapCreateDialog.lblDiameter.caption");
+            Lang.BindKey(lblDieX, "extraDialog.waferMapCreateDialog.lblDieX.caption");
+            Lang.BindKey(lblDieY, "extraDialog.waferMapCreateDialog.lblDieY.caption");
+            Lang.BindKey(lblGapX, "extraDialog.waferMapCreateDialog.lblGapX.caption");
+            Lang.BindKey(lblGapY, "extraDialog.waferMapCreateDialog.lblGapY.caption");
+            Lang.BindKey(lblStepX, "extraDialog.waferMapCreateDialog.lblStepX.caption");
+            Lang.BindKey(lblStepY, "extraDialog.waferMapCreateDialog.lblStepY.caption");
+            Lang.BindKey(lblRotation, "extraDialog.waferMapCreateDialog.lblRotation.caption");
+            Lang.BindKey(btnGenerate, "extraDialog.waferMapCreateDialog.btnGenerate.caption");
+            Lang.BindKey(groupEdges, "extraDialog.waferMapCreateDialog.groupEdges.caption");
+            Lang.BindKey(lblEdgeTop, "extraDialog.waferMapCreateDialog.lblEdgeTop.caption");
+            Lang.BindKey(lblEdgeBottom, "extraDialog.waferMapCreateDialog.lblEdgeBottom.caption");
+            Lang.BindKey(lblEdgeLeft, "extraDialog.waferMapCreateDialog.lblEdgeLeft.caption");
+            Lang.BindKey(lblEdgeRight, "extraDialog.waferMapCreateDialog.lblEdgeRight.caption");
+            Lang.BindKey(lblTotalCount, "extraDialog.waferMapCreateDialog.lblTotalCount.caption");
+            Lang.BindKey(btnApplyEdges, "extraDialog.waferMapCreateDialog.btnApplyEdges.caption");
+            Lang.BindKey(btnRestore, "extraDialog.waferMapCreateDialog.btnRestore.caption");
+            Lang.BindKey(btnFit, "extraDialog.waferMapCreateDialog.btnFit.caption");
+            Lang.BindKey(btnClose, "extraDialog.waferMapCreateDialog.btnClose.caption");
+            Lang.BindKey(btnSave, "extraDialog.waferMapCreateDialog.btnSave.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 }

@@ -62,6 +62,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             _titleI18n = titleI18n;
             InitializeComponent();
+            InitializeRecipeLanguageBindings();
             ApplyTitle();
             InitializeMapEditor();
         }
@@ -107,17 +108,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             EnableBinAuthoringControls();
             UpdateEdgeSkipModeUi();
 
-            lblHeader.Text = _isOutputMap ? "출력 다이 맵 생성" : "입력 다이 맵 생성";
-            lblSettingTitle.Text = "맵 사양 · 확인용";
-            lblActionTitle.Text = "확인 및 적용";
-            _btnMapLoad.Text = "사양 불러오기";
-            btnSave.Text = "맵 확인 및 적용";
-            rbStandard.Text = "CLICK TOGGLE";
-            rbManualSelectPick.Text = "CLICK TARGET";
-            rbAlignCheckIndex.Text = "CLICK SKIP";
-            rbDragSelectPick.Text = "RIGHT CLICK MENU";
+            {
+                if (_isOutputMap)
+                    Lang.BindKey(lblHeader, "recipeUi.mapCreatePage.lblHeader.text");
+                else
+                    Lang.BindKey(lblHeader, "recipeUi.mapCreatePage.lblHeader.state2");
+            }
+            Lang.BindKey(lblSettingTitle, "recipeUi.mapCreatePage.lblSettingTitle.text");
+            Lang.BindKey(lblActionTitle, "recipeUi.mapCreatePage.lblActionTitle.text");
+            Lang.BindKey(_btnMapLoad, "recipeUi.dieSubsetPage.btnLoadSpec.text");
+            Lang.BindKey(btnSave, "recipeUi.mapCreatePage.btnSave.text");
+            Lang.BindKey(rbStandard, "recipeUi.mapCreatePage.rbStandard.text");
+            Lang.BindKey(rbManualSelectPick, "recipeUi.mapCreatePage.rbManualSelectPick.text");
+            Lang.BindKey(rbAlignCheckIndex, "recipeUi.mapCreatePage.rbAlignCheckIndex.text");
+            Lang.BindKey(rbDragSelectPick, "recipeUi.mapCreatePage.rbDragSelectPick.text");
             // 입력/빈 모두 원형 형상 고정(직사각 미사용). 토글 비활성·체크 유지.
-            chkCircularMap.Text = _isOutputMap ? "BIN CIRCLE DIE MAP" : "INPUT CIRCLE DIE MAP";
+            {
+                if (_isOutputMap)
+                    Lang.BindKey(chkCircularMap, "recipeUi.mapCreatePage.chkCircularMap.text");
+                else
+                    Lang.BindKey(chkCircularMap, "recipeUi.mapCreatePage.chkCircularMap.state2");
+            }
             chkCircularMap.Checked = true;
             chkCircularMap.Enabled = false;
             rbStartIndex.Enabled = false;
@@ -141,9 +152,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 _btnMapDelete.Visible = false;
                 _cbMapLibrary.Enabled = false;
                 _btnMapLoad.Enabled = false;
-                _btnMapLoad.Text = "웨이퍼 사양에서 설정";
-                _recipeLocationToolTip.SetToolTip(_cbMapLibrary, "레시피 → 웨이퍼 사양 → 웨이퍼 맵 불러오기에서 설정합니다.");
-                _recipeLocationToolTip.SetToolTip(_btnMapLoad, "레시피 → 웨이퍼 사양 → 웨이퍼 맵 불러오기에서 설정합니다.");
+                Lang.BindKey(_btnMapLoad, "recipeUi.mapCreatePage._btnMapLoad.text");
+                Lang.BindKey(_recipeLocationToolTip, _cbMapLibrary, "recipeUi.tooltip.9");
+                Lang.BindKey(_recipeLocationToolTip, _btnMapLoad, "recipeUi.tooltip.9");
 
                 chkCircularMap.Visible = false;
                 rbStandard.Visible = false;
@@ -274,9 +285,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _nTopBottomEdgeSkip.DecimalPlaces = mmMode ? 3 : 0;
             _nSideEdgeSkip.Increment = mmMode ? 0.1M : 1M;
             _nTopBottomEdgeSkip.Increment = mmMode ? 0.1M : 1M;
-            lblAxisYKey.Text = externalMap
-                ? "가장자리 제외 (외부 맵)"
-                : (mmMode ? "가장자리 제외 좌우/상하 (mm)" : "가장자리 제외 좌우/상하 (칸)");
+            {
+                if (externalMap)
+                    Lang.BindKey(lblAxisYKey, "recipeUi.mapCreatePage.lblAxisYKey.text");
+                else
+                    Lang.BindFormat(lblAxisYKey, "recipeUi.literal", (object)((mmMode ? "가장자리 제외 좌우/상하 (mm)" : "가장자리 제외 좌우/상하 (칸)")));
+            }
         }
 
         private WaferEdgeSkipMode GetSelectedEdgeSkipMode()
@@ -322,8 +336,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (!bin)
                 return;
 
-            rbBinGood.Text = "양품 맵";
-            rbBinNg.Text = "불량 맵";
+            Lang.BindKey(rbBinGood, "recipeUi.mapCreatePage.rbBinGood.text");
+            Lang.BindKey(rbBinNg, "recipeUi.mapCreatePage.rbBinNg.text");
             rbBinGood.Checked = _mode != MapEditorMode.OutputNg;
             rbBinNg.Checked = _mode == MapEditorMode.OutputNg;
             ConfigureBinSideButton(rbBinGood);
@@ -415,7 +429,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 }
 
                 _mode = next;
-                chkCircularMap.Text = "BIN CIRCLE DIE MAP";
+                Lang.BindKey(chkCircularMap, "recipeUi.mapCreatePage.chkCircularMap.text");
                 _currentMapPath = "";
                 _currentFrameSpecName = "";
                 if (!LoadSavedRecipeMap(false))
@@ -536,9 +550,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             var menu = new ContextMenuStrip();
             menu.Opening += OnMapContextMenuOpening;
-            menu.Items.Add("TARGET ALL", null, (s, e) => SetAllTargets(true));
-            menu.Items.Add("SKIP ALL", null, (s, e) => SetAllTargets(false));
-            menu.Items.Add("INVERT TARGET", null, (s, e) => InvertMapTargets());
+            Lang.BindKey(menu.Items.Add("TARGET ALL", null, (s, e) => SetAllTargets(true)), "recipeUi.menu.targetAll");
+            Lang.BindKey(menu.Items.Add("SKIP ALL", null, (s, e) => SetAllTargets(false)), "recipeUi.menu.skipAll");
+            Lang.BindKey(menu.Items.Add("INVERT TARGET", null, (s, e) => InvertMapTargets()), "recipeUi.menu.invert");
             return menu;
         }
 
@@ -1004,15 +1018,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             RefreshRegisteredMapPreview();
             if (_map == null)
             {
-                lblMapTitle.Text = "다이 맵";
+                Lang.BindKey(lblMapTitle, "recipeUi.mapCreatePage.lblMapTitle.text");
                 UpdateMapApplyInfo();
                 return;
             }
 
             int targetCount = _preview != null ? _preview.Map.Entries.Count(e => e.IsTarget) : 0;
-            lblMapTitle.Text = "다이 맵 · 작업 대상 " + targetCount + " / " +
-                               (_map.Entries != null ? _map.Entries.Count : 0) +
-                               "   X/Y: 셀 가리키기   숫자: 공정 순서   클릭: 대상/제외";
+            Lang.BindFormat(lblMapTitle, "recipeUi.mapCreatePage.lblMapTitle.state2", (object)(targetCount), (object)((_map.Entries != null ? _map.Entries.Count : 0)));
             _mapView.Invalidate();
             UpdateMapApplyInfo();
         }
@@ -2234,7 +2246,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             using (var ok = new Button())
             using (var cancel = new Button())
             {
-                form.Text = title;
+                Lang.BindFormat(form, "recipeUi.literal", (object)(title));
                 form.StartPosition = FormStartPosition.CenterParent;
                 form.FormBorderStyle = FormBorderStyle.FixedDialog;
                 form.MinimizeBox = false;
@@ -2246,12 +2258,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 textBox.Location = new Point(12, 12);
                 textBox.Size = new Size(396, 24);
 
-                ok.Text = "OK";
+                Lang.BindKey(ok, "recipeUi.mapCreatePage.ok.text");
                 ok.DialogResult = DialogResult.OK;
                 ok.Location = new Point(246, 52);
                 ok.Size = new Size(78, 28);
 
-                cancel.Text = "CANCEL";
+                Lang.BindKey(cancel, "recipeUi.mapCreatePage.cancel.text");
                 cancel.DialogResult = DialogResult.Cancel;
                 cancel.Location = new Point(330, 52);
                 cancel.Size = new Size(78, 28);
@@ -2292,5 +2304,78 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (decimalValue > max) return max;
             return decimalValue;
         }
+        // Keep Designer declarations intact; language bindings only affect displayed captions.
+        private void InitializeRecipeLanguageBindings()
+        {
+            Lang.BindChoices(_cbEdgeSkipMode, FormatRecipeChoice);
+            Lang.BindKey(this._recipeLocationToolTip, this.settingSection, "recipeUi.tooltip.10");
+            Lang.BindKey(this._recipeLocationToolTip, this.lblChipCountXKey, "recipeUi.tooltip.11");
+            Lang.BindKey(this._recipeLocationToolTip, this._tbFrameSpecName, "recipeUi.tooltip.11");
+            Lang.BindKey(this._recipeLocationToolTip, this.lblChipCountYKey, "recipeUi.tooltip.12");
+            Lang.BindKey(this._recipeLocationToolTip, this._nGridX, "recipeUi.tooltip.13");
+            Lang.BindKey(this._recipeLocationToolTip, this.lblChipPitchXKey, "recipeUi.tooltip.12");
+            Lang.BindKey(this._recipeLocationToolTip, this._nGridY, "recipeUi.tooltip.13");
+            Lang.BindKey(this._recipeLocationToolTip, this.lblChipPitchYKey, "recipeUi.tooltip.14");
+            Lang.BindKey(this._recipeLocationToolTip, this._nPitchX, "recipeUi.tooltip.14");
+            Lang.BindKey(this._recipeLocationToolTip, this.lblWaferDiameterKey, "recipeUi.tooltip.15");
+            Lang.BindKey(this._recipeLocationToolTip, this._nPitchY, "recipeUi.tooltip.15");
+            Lang.BindKey(this._recipeLocationToolTip, this._lblDieSizeXKey, "recipeUi.tooltip.16");
+            Lang.BindKey(this._recipeLocationToolTip, this._nDieSizeX, "recipeUi.tooltip.16");
+            Lang.BindKey(this._recipeLocationToolTip, this._lblDieSizeYKey, "recipeUi.tooltip.17");
+            Lang.BindKey(this._recipeLocationToolTip, this._nDieSizeY, "recipeUi.tooltip.17");
+            Lang.BindKey(this._recipeLocationToolTip, this.lblAxisXKey, "recipeUi.tooltip.18");
+            Lang.BindKey(this._recipeLocationToolTip, this._nDiameter, "recipeUi.tooltip.18");
+            Lang.BindKey(this._recipeLocationToolTip, this._lblEdgeSkipModeKey, "recipeUi.tooltip.19");
+            Lang.BindKey(this._recipeLocationToolTip, this._cbEdgeSkipMode, "recipeUi.tooltip.19");
+            Lang.BindKey(this._recipeLocationToolTip, this.lblAxisYKey, "recipeUi.tooltip.20");
+            Lang.BindKey(this._recipeLocationToolTip, this._nSideEdgeSkip, "recipeUi.tooltip.20");
+            Lang.BindKey(this._recipeLocationToolTip, this._nTopBottomEdgeSkip, "recipeUi.tooltip.20");
+            Lang.BindKey(this.lblHeader, "recipeUi.mapCreatePage.lblHeader.state3");
+            Lang.BindKey(this.lblMapTitle, "recipeUi.mapCreatePage.lblMapTitle.text");
+            Lang.BindKey(this._btnMapLoad, "recipeUi.dieSubsetPage.btnLoadSpec.text");
+            Lang.BindKey(this.lblSettingTitle, "recipeUi.mapCreatePage.lblSettingTitle.text");
+            Lang.BindKey(this.lblChipCountXKey, "recipeUi.mapCreatePage.lblChipCountXKey.text");
+            Lang.BindKey(this.lblChipCountYKey, "recipeUi.mapCreatePage.lblChipCountYKey.text");
+            Lang.BindKey(this.lblChipPitchXKey, "recipeUi.mapCreatePage.lblChipPitchXKey.text");
+            Lang.BindKey(this.lblChipPitchYKey, "recipeUi.mapCreatePage.lblChipPitchYKey.text");
+            Lang.BindKey(this.lblWaferDiameterKey, "recipeUi.mapCreatePage.lblWaferDiameterKey.text");
+            Lang.BindKey(this._lblDieSizeXKey, "recipeUi.mapCreatePage._lblDieSizeXKey.text");
+            Lang.BindKey(this._lblDieSizeYKey, "recipeUi.mapCreatePage._lblDieSizeYKey.text");
+            Lang.BindKey(this.lblAxisXKey, "recipeUi.mapCreatePage.lblAxisXKey.text");
+            Lang.BindKey(this._lblEdgeSkipModeKey, "recipeUi.mapCreatePage._lblEdgeSkipModeKey.text");
+            Lang.BindKey(this.lblAxisYKey, "recipeUi.mapCreatePage.lblAxisYKey.state2");
+            Lang.BindKey(this.lblModeTitle, "recipeUi.mapCreatePage.lblModeTitle.text");
+            Lang.BindKey(this.chkCircularMap, "recipeUi.mapCreatePage.chkCircularMap.state3");
+            Lang.BindKey(this.rbStandard, "recipeUi.mapCreatePage.rbStandard.state2");
+            Lang.BindKey(this.rbStartIndex, "recipeUi.mapCreatePage.rbStartIndex.text");
+            Lang.BindKey(this.rbReference1, "recipeUi.mapCreatePage.rbReference1.text");
+            Lang.BindKey(this.rbReference2, "recipeUi.mapCreatePage.rbReference2.text");
+            Lang.BindKey(this.rbManualSelectPick, "recipeUi.mapCreatePage.rbManualSelectPick.state2");
+            Lang.BindKey(this.rbAlignCheckIndex, "recipeUi.mapCreatePage.rbAlignCheckIndex.state2");
+            Lang.BindKey(this.rbDragSelectPick, "recipeUi.mapCreatePage.rbDragSelectPick.state2");
+            Lang.BindKey(this.rbBinGood, "recipeUi.mapCreatePage.rbBinGood.text");
+            Lang.BindKey(this.rbBinNg, "recipeUi.mapCreatePage.rbBinNg.text");
+            Lang.BindKey(this.lblActionTitle, "recipeUi.mapCreatePage.lblActionTitle.state2");
+            Lang.BindKey(this.btnCreate, "recipeUi.mapCreatePage.btnCreate.text");
+            Lang.BindKey(this.btnSave, "recipeUi.mapCreatePage.btnSave.state2");
+            Lang.BindKey(this.btnFirstDieMoveComplete, "recipeUi.mapCreatePage.btnFirstDieMoveComplete.text");
+            Lang.BindKey(this.btnAutoMatch, "recipeUi.mapCreatePage.btnAutoMatch.text");
+            Lang.BindKey(this.btnThetaMatchMove, "recipeUi.mapCreatePage.btnThetaMatchMove.text");
+            Lang.BindKey(this.btnXyMatchMove, "recipeUi.mapCreatePage.btnXyMatchMove.text");
+            Lang.BindKey(this._btnMapNew, "recipeUi.mapCreatePage._btnMapNew.text");
+            Lang.BindKey(this._btnMapRename, "recipeUi.mapCreatePage._btnMapRename.text");
+            Lang.BindKey(this._btnMapDelete, "recipeUi.mapCreatePage._btnMapDelete.text");
+        }
+        private static string FormatRecipeChoice(string value)
+        {
+            switch (value)
+            {
+                case "격자 수 (GRID)": return Lang.T("recipeUi.choice.edgeGrid");
+                case "거리 (MM)": return Lang.T("recipeUi.choice.edgeMm");
+                case "외부 맵 (EXTERNAL MAP)": return Lang.T("recipeUi.choice.edgeExternal");
+                default: return value;
+            }
+        }
+
     }
 }

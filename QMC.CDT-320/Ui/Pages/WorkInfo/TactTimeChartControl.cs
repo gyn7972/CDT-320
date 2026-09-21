@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -24,7 +25,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         public TactTimeRecord Record { get; private set; }
     }
 
-    internal sealed class TactTimeChartControl : Control
+    internal sealed class TactTimeChartControl : Control, ILocalizedView
     {
         private const int MaxTimelineBars = 15000;
         private const int HeaderHeight = 54;
@@ -47,7 +48,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private TactTimeRecord _selectedRecord;
         private TactTimeRecord _hoverRecord;
         private TactTimeChartViewMode _viewMode = TactTimeChartViewMode.Trend;
-        private string _emptyMessage = "표시할 택타임 기록이 없습니다.";
+        private string _emptyMessage = string.Empty;
+        private string _emptyMessageKey = "diagram.tact.empty";
 
         public TactTimeChartControl()
         {
@@ -82,14 +84,25 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         public string EmptyMessage
         {
-            get { return _emptyMessage; }
+            get { return string.IsNullOrEmpty(_emptyMessageKey) ? _emptyMessage : Lang.T(_emptyMessageKey); }
             set
             {
-                _emptyMessage = string.IsNullOrWhiteSpace(value)
-                    ? "표시할 택타임 기록이 없습니다."
-                    : value;
+                _emptyMessage = value ?? string.Empty;
+                _emptyMessageKey = string.IsNullOrWhiteSpace(value) ? "diagram.tact.empty" : null;
                 Invalidate();
             }
+        }
+
+        public string EmptyMessageKey
+        {
+            get { return _emptyMessageKey; }
+            set { _emptyMessageKey = value; Invalidate(); }
+        }
+
+        public void ApplyLanguage()
+        {
+            if (_hoverRecord != null) _toolTip.SetToolTip(this, BuildToolTip(_hoverRecord));
+            Invalidate();
         }
 
         public void SetRecords(IEnumerable<TactTimeRecord> records)
@@ -269,9 +282,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             using (var titleBrush = new SolidBrush(Color.FromArgb(64, 73, 82)))
             using (var bodyBrush = new SolidBrush(Color.FromArgb(118, 126, 134)))
             {
-                string title = _viewMode == TactTimeChartViewMode.Timeline ? "장비 타임라인" : "택타임 추이";
+                string title = _viewMode == TactTimeChartViewMode.Timeline ? Lang.T("diagram.tact.timeline") : Lang.T("diagram.tact.trend");
                 graphics.DrawString(title, titleFont, titleBrush, 18, 16);
-                graphics.DrawString(_emptyMessage, bodyFont, bodyBrush, 18, 48);
+                graphics.DrawString(EmptyMessage, bodyFont, bodyBrush, 18, 48);
             }
         }
 
@@ -290,7 +303,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             ResolveViewTimes(out viewStart, out viewEnd);
             double viewMs = Math.Max(1.0, (viewEnd - viewStart).TotalMilliseconds);
 
-            DrawChartHeader(graphics, bounds, "장비 타임라인", viewStart, viewEnd);
+            DrawChartHeader(graphics, bounds, Lang.T("diagram.tact.timeline"), viewStart, viewEnd);
             DrawTimelineBackground(graphics, plot, lanes);
             DrawTimeAxis(graphics, plot, viewStart, viewEnd);
 
@@ -372,8 +385,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             if (visible.Count == 0)
             {
-                DrawChartHeader(graphics, bounds, "택타임 추이", viewStart, viewEnd);
-                DrawPlotEmpty(graphics, plot, "선택한 시간 구간에 기록이 없습니다.");
+                DrawChartHeader(graphics, bounds, Lang.T("diagram.tact.trend"), viewStart, viewEnd);
+                DrawPlotEmpty(graphics, plot, Lang.T("diagram.tact.emptyRange"));
                 return;
             }
 
@@ -382,7 +395,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             DrawChartHeader(
                 graphics,
                 bounds,
-                containersExcluded ? "택타임 추이 · Run/Unit 중첩 제외" : "택타임 추이",
+                containersExcluded ? Lang.T("diagram.tact.trendExcluded") : Lang.T("diagram.tact.trend"),
                 viewStart,
                 viewEnd);
 
@@ -393,12 +406,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Skip(1)
                 .Any();
-            string mixedSuffix = mixedSeries ? " (혼합)" : "";
+            string mixedSuffix = mixedSeries ? Lang.T("diagram.tact.mixed") : "";
             maxMs = Math.Max(maxMs, p95) * 1.12;
 
             DrawTrendBackground(graphics, plot, maxMs, viewStart, viewEnd);
-            DrawReferenceLine(graphics, plot, average, maxMs, "AVG" + mixedSuffix + " " + FormatDuration(average), Color.FromArgb(37, 126, 196));
-            DrawReferenceLine(graphics, plot, p95, maxMs, "P95" + mixedSuffix + " " + FormatDuration(p95), Color.FromArgb(205, 91, 52));
+            DrawReferenceLine(graphics, plot, average, maxMs, Lang.Format("diagram.tact.average", mixedSuffix, FormatDuration(average)), Color.FromArgb(37, 126, 196));
+            DrawReferenceLine(graphics, plot, p95, maxMs, Lang.Format("diagram.tact.p95", mixedSuffix, FormatDuration(p95)), Color.FromArgb(205, 91, 52));
 
             List<IGrouping<string, TactTimeRecord>> series = SelectTrendSeries(trendRecords, 8);
             Color[] palette = GetTrendPalette();
@@ -439,7 +452,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                                "  (" + FormatDuration((viewEnd - viewStart).TotalMilliseconds) + ")";
                 graphics.DrawString(range, detailFont, detailBrush, 14, 33);
 
-                string help = "휠: 확대/축소   드래그: 이동   막대/점: 상세 선택";
+                string help = Lang.T("diagram.tact.help");
                 SizeF size = graphics.MeasureString(help, detailFont);
                 graphics.DrawString(help, detailFont, detailBrush, Math.Max(14, bounds.Width - size.Width - 14), 12);
             }
@@ -462,7 +475,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     }
 
                     graphics.DrawLine(linePen, 0, y + laneHeight, ClientSize.Width, y + laneHeight);
-                    graphics.DrawString(lanes[i], labelFont, labelBrush, 10, y + Math.Max(4, laneHeight / 2 - 9));
+                    graphics.DrawString(DisplayName(lanes[i]), labelFont, labelBrush, 10, y + Math.Max(4, laneHeight / 2 - 9));
                 }
 
                 graphics.DrawLine(linePen, plot.Left - 1, plot.Top, plot.Left - 1, plot.Bottom);
@@ -588,7 +601,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             if (bar.Width >= 88 && bar.Height >= 10)
             {
-                string label = ResolveRecordLabel(record) + "  " + FormatDuration(record.ElapsedMs);
+                string label = DisplayName(ResolveRecordLabel(record)) + "  " + FormatDuration(record.ElapsedMs);
                 using (var font = new Font("맑은 고딕", 7.5F, FontStyle.Bold))
                 using (var brush = new SolidBrush(ResolveTextColor(color)))
                 {
@@ -605,12 +618,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var items = new[]
             {
-                new LegendItem("Unit", ResolveCategoryColor(TactTimeCategory.Unit, TactTimeResult.Ok)),
-                new LegendItem("Process", ResolveCategoryColor(TactTimeCategory.Process, TactTimeResult.Ok)),
-                new LegendItem("Vision", ResolveCategoryColor(TactTimeCategory.Vision, TactTimeResult.Ok)),
-                new LegendItem("Motion", ResolveCategoryColor(TactTimeCategory.Motion, TactTimeResult.Ok)),
-                new LegendItem("Wait", ResolveCategoryColor(TactTimeCategory.Wait, TactTimeResult.Ok)),
-                new LegendItem("Fail", ResolveCategoryColor(TactTimeCategory.Process, TactTimeResult.Failed))
+                new LegendItem(Lang.T("diagram.tact.legend.unit"), ResolveCategoryColor(TactTimeCategory.Unit, TactTimeResult.Ok)),
+                new LegendItem(Lang.T("diagram.tact.legend.process"), ResolveCategoryColor(TactTimeCategory.Process, TactTimeResult.Ok)),
+                new LegendItem(Lang.T("diagram.tact.legend.vision"), ResolveCategoryColor(TactTimeCategory.Vision, TactTimeResult.Ok)),
+                new LegendItem(Lang.T("diagram.tact.legend.motion"), ResolveCategoryColor(TactTimeCategory.Motion, TactTimeResult.Ok)),
+                new LegendItem(Lang.T("diagram.tact.legend.wait"), ResolveCategoryColor(TactTimeCategory.Wait, TactTimeResult.Ok)),
+                new LegendItem(Lang.T("diagram.tact.legend.fail"), ResolveCategoryColor(TactTimeCategory.Process, TactTimeResult.Failed))
             };
 
             using (var font = new Font("맑은 고딕", 7.5F))
@@ -641,7 +654,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 int maxX = bounds.Right - 12;
                 for (int i = 0; i < series.Count; i++)
                 {
-                    string name = Shorten(series[i].Key, 24);
+                    string name = Shorten(DisplayName(series[i].Key), 24);
                     int width = TextRenderer.MeasureText(name, font).Width + 24;
                     if (x + width > maxX)
                         break;
@@ -656,7 +669,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void DrawSimplifiedBadge(Graphics graphics, Rectangle bounds, int rendered, int visible)
         {
-            string text = "표시 최적화: " + rendered.ToString("N0") + " / " + visible.ToString("N0") + "건";
+            string text = Lang.Format("diagram.tact.simplified", rendered.ToString("N0"), visible.ToString("N0"));
             using (var font = new Font("맑은 고딕", 8F, FontStyle.Bold))
             {
                 Size size = TextRenderer.MeasureText(text, font);
@@ -1033,16 +1046,52 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return record.Category.ToString();
         }
 
+        // 그룹화/정렬/색상에 쓰는 원문은 그대로 두고 그릴 때만 변환합니다.
+        private static string DisplayName(string value)
+        {
+            switch (value)
+            {
+                case "기타": return Lang.T("diagram.tact.name.other");
+                case "Machine / Run": return Lang.T("diagram.tact.name.machine");
+                case "FrontPicker": return Lang.T("diagram.tact.name.frontPicker");
+                case "RearPicker": return Lang.T("diagram.tact.name.rearPicker");
+                case "Input": return Lang.T("diagram.tact.name.input");
+                case "Output": return Lang.T("diagram.tact.name.output");
+                case "Run": return Lang.T("diagram.tact.name.run");
+                case "Unit": return Lang.T("diagram.tact.name.unit");
+                case "Process": return Lang.T("diagram.tact.name.process");
+                case "Step": return Lang.T("diagram.tact.name.step");
+                case "Motion": return Lang.T("diagram.tact.name.motion");
+                case "Vision": return Lang.T("diagram.tact.name.vision");
+                case "IO": return Lang.T("diagram.tact.name.io");
+                case "Wait": return Lang.T("diagram.tact.name.wait");
+                case "Resource": return Lang.T("diagram.tact.name.resource");
+                case "Logic": return Lang.T("diagram.tact.name.logic");
+                default: return value ?? string.Empty;
+            }
+        }
+
+        private static string ResultDisplay(TactTimeResult result)
+        {
+            switch (result)
+            {
+                case TactTimeResult.Ok: return Lang.T("diagram.tact.result.ok");
+                case TactTimeResult.Failed: return Lang.T("diagram.tact.result.failed");
+                case TactTimeResult.Stopped: return Lang.T("diagram.tact.result.stopped");
+                case TactTimeResult.Canceled: return Lang.T("diagram.tact.result.canceled");
+                case TactTimeResult.Skipped: return Lang.T("diagram.tact.result.skipped");
+                default: return result.ToString();
+            }
+        }
+
         private static string BuildToolTip(TactTimeRecord record)
         {
             return
-                "시간: " + record.StartedAt.ToString("HH:mm:ss.fff") + " ~ " + record.EndedAt.ToString("HH:mm:ss.fff") + Environment.NewLine +
-                "소요: " + record.ElapsedMs.ToString("N0") + " ms (" + FormatDuration(record.ElapsedMs) + ")" + Environment.NewLine +
-                "경로: " + Safe(record.UnitName) + " / " + Safe(record.SequenceName) + " / " +
-                Safe(record.ProcessName) + " / " + Safe(record.StepName) + Environment.NewLine +
-                "결과: " + record.Result +
+                Lang.Format("diagram.tact.tooltip", record.StartedAt.ToString("HH:mm:ss.fff"), record.EndedAt.ToString("HH:mm:ss.fff"),
+                    record.ElapsedMs.ToString("N0"), FormatDuration(record.ElapsedMs), Safe(record.UnitName),
+                    Safe(record.SequenceName), Safe(record.ProcessName), Safe(record.StepName), ResultDisplay(record.Result)) +
                 (string.IsNullOrWhiteSpace(record.AlarmCode) ? "" : " / " + record.AlarmCode) +
-                (string.IsNullOrWhiteSpace(record.Detail) ? "" : Environment.NewLine + "상세: " + record.Detail);
+                (string.IsNullOrWhiteSpace(record.Detail) ? "" : Environment.NewLine + Lang.Format("diagram.tact.detail", record.Detail));
         }
 
         private static double CalculateNearestRankPercentile(List<TactTimeRecord> records, double percentile)

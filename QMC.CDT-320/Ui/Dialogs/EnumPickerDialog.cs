@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -85,6 +86,19 @@ namespace QMC.CDT_320.Ui.Controls
 
             AcceptButton = btnOk;
             CancelButton = btnCancel;
+            Lang.BindKey(btnOk, "common.ok");
+            Lang.BindKey(btnCancel, "common.cancel");
+            if (string.IsNullOrEmpty(title))
+            {
+                Lang.BindKey(this, "dialog.select");
+                Lang.BindKey(lblTitle, "dialog.select");
+            }
+            else
+            {
+                Lang.Bind(this, title);
+                Lang.Bind(lblTitle, title);
+            }
+            Load += (sender, e) => Lang.Apply(this);
         }
 
         private void Commit(ListBox listBox)

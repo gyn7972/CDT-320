@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -41,6 +42,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 : new CancellationTokenSource();
 
             InitializeComponent();
+
+            InitializeLanguageBindings();
             if (System.ComponentModel.LicenseManager.UsageMode == System.ComponentModel.LicenseUsageMode.Designtime)
                 return;
 
@@ -197,6 +200,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             try { _requestLifetimeCts.Dispose(); }
             catch (ObjectDisposedException) { }
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this, "visionUi.waferVisionTestDialog.Text.text");
         }
     }
 }

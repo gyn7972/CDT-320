@@ -122,4 +122,43 @@
   <data name="common.update" xml:space="preserve">
     <value>Update</value>
   </data>
+  <data name="common.message.button.ok" xml:space="preserve">
+    <value>&amp;OK</value>
+  </data>
+  <data name="common.message.button.yes" xml:space="preserve">
+    <value>&amp;Yes</value>
+  </data>
+  <data name="common.message.button.no" xml:space="preserve">
+    <value>&amp;No</value>
+  </data>
+  <data name="common.message.button.cancel" xml:space="preserve">
+    <value>&amp;Cancel</value>
+  </data>
+  <data name="common.message.button.retry" xml:space="preserve">
+    <value>&amp;Retry</value>
+  </data>
+  <data name="common.message.button.skip" xml:space="preserve">
+    <value>&amp;Skip</value>
+  </data>
+  <data name="common.message.countdown" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="common.message.title.message" xml:space="preserve">
+    <value>Message</value>
+  </data>
+  <data name="common.message.title.error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="common.message.title.warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="common.message.title.information" xml:space="preserve">
+    <value>Information</value>
+  </data>
+  <data name="common.message.title.confirm" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="common.message.title.question" xml:space="preserve">
+    <value>Question</value>
+  </data>
 </root>

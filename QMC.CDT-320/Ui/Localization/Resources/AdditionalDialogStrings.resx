@@ -1,0 +1,2633 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="extraDialog.appliedZone.bottom" xml:space="preserve">
+    <value>BOTTOM</value>
+  </data>
+  <data name="extraDialog.appliedZone.guide" xml:space="preserve">
+    <value>Z AVOID → Y AVOID → X/T MOVE → Y MOVE → Z MOVE</value>
+  </data>
+  <data name="extraDialog.appliedZone.move" xml:space="preserve">
+    <value>MOVE</value>
+  </data>
+  <data name="extraDialog.appliedZone.picker" xml:space="preserve">
+    <value>PICKER</value>
+  </data>
+  <data name="extraDialog.appliedZone.pickerNo" xml:space="preserve">
+    <value>PICKER #{0}</value>
+  </data>
+  <data name="extraDialog.appliedZone.place" xml:space="preserve">
+    <value>PLACE</value>
+  </data>
+  <data name="extraDialog.appliedZone.side" xml:space="preserve">
+    <value>SIDE</value>
+  </data>
+  <data name="extraDialog.appliedZone.title" xml:space="preserve">
+    <value>APPLIED ZONE MOVE</value>
+  </data>
+  <data name="extraDialog.appliedZone.zone" xml:space="preserve">
+    <value>ZONE</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.btnNextIndex.caption" xml:space="preserve">
+    <value>Next&#13;&#10;Index</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.btnPrevIndex.caption" xml:space="preserve">
+    <value>Prev&#13;&#10;Index</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.btnStop.caption" xml:space="preserve">
+    <value>STOP</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.grpMove.caption" xml:space="preserve">
+    <value>Move</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.grpMoveMode.caption" xml:space="preserve">
+    <value>Move Mode</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.grpSelectAxis.caption" xml:space="preserve">
+    <value>Select Axis</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.rdoCoarse.caption" xml:space="preserve">
+    <value>Coarse</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.rdoContinuous.caption" xml:space="preserve">
+    <value>Continuous</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.rdoFine.caption" xml:space="preserve">
+    <value>Fine</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.rdoStep.caption" xml:space="preserve">
+    <value>Step</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.this.caption" xml:space="preserve">
+    <value>JogPanel</value>
+  </data>
+  <data name="extraDialog.axisPosition.empty" xml:space="preserve">
+    <value>(Empty)</value>
+  </data>
+  <data name="extraDialog.axisPositionPopup.colAxisName.caption" xml:space="preserve">
+    <value>Axis Name</value>
+  </data>
+  <data name="extraDialog.axisPositionPopup.colAxisNo.caption" xml:space="preserve">
+    <value>NO</value>
+  </data>
+  <data name="extraDialog.axisPositionPopup.colPosition.caption" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="extraDialog.axisPositionPopup.colUnit.caption" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="extraDialog.axisPositionPopup.this.caption" xml:space="preserve">
+    <value>Axis Position Monitor</value>
+  </data>
+  <data name="extraDialog.barcode.abort" xml:space="preserve">
+    <value>Abort operation</value>
+  </data>
+  <data name="extraDialog.barcode.checkAgain" xml:space="preserve">
+    <value>Check again</value>
+  </data>
+  <data name="extraDialog.barcode.checkInput" xml:space="preserve">
+    <value>Check input</value>
+  </data>
+  <data name="extraDialog.barcode.closeRetry" xml:space="preserve">
+    <value>CLOSE / RETRY</value>
+  </data>
+  <data name="extraDialog.barcode.enterValid" xml:space="preserve">
+    <value>Enter a valid barcode to apply manually.</value>
+  </data>
+  <data name="extraDialog.barcode.failureTitle" xml:space="preserve">
+    <value>LAST FAILURE</value>
+  </data>
+  <data name="extraDialog.barcode.header" xml:space="preserve">
+    <value>BARCODE READ RECOVERY</value>
+  </data>
+  <data name="extraDialog.barcode.inputWafer" xml:space="preserve">
+    <value>INPUT WAFER</value>
+  </data>
+  <data name="extraDialog.barcode.manualApply" xml:space="preserve">
+    <value>MANUAL APPLY</value>
+  </data>
+  <data name="extraDialog.barcode.manualGroup" xml:space="preserve">
+    <value>MANUAL BARCODE</value>
+  </data>
+  <data name="extraDialog.barcode.manualGuide" xml:space="preserve">
+    <value>Check the wafer marking before manual entry</value>
+  </data>
+  <data name="extraDialog.barcode.messageTitle" xml:space="preserve">
+    <value>Barcode</value>
+  </data>
+  <data name="extraDialog.barcode.needsReview" xml:space="preserve">
+    <value>Review required</value>
+  </data>
+  <data name="extraDialog.barcode.outputBin" xml:space="preserve">
+    <value>OUTPUT BIN</value>
+  </data>
+  <data name="extraDialog.barcode.retryCurrent" xml:space="preserve">
+    <value>Check the current barcode again</value>
+  </data>
+  <data name="extraDialog.barcode.retryGroup" xml:space="preserve">
+    <value>AUTOMATIC RETRY</value>
+  </data>
+  <data name="extraDialog.barcode.retryScan" xml:space="preserve">
+    <value>RETRY SCAN</value>
+  </data>
+  <data name="extraDialog.barcode.title" xml:space="preserve">
+    <value>Barcode Recovery</value>
+  </data>
+  <data name="extraDialog.barcode.validationDetail" xml:space="preserve">
+    <value>LOT ID: {0}&#13;&#10;Read barcode: {1}&#13;&#10;&#13;&#10;{2}</value>
+  </data>
+  <data name="extraDialog.barcode.validationPrefixDetail" xml:space="preserve">
+    <value>LOT ID: {0}&#13;&#10;Read barcode: {1}&#13;&#10;Prefix comparison: {2} characters&#13;&#10;&#13;&#10;{3}</value>
+  </data>
+  <data name="extraDialog.barcode.waferHeader" xml:space="preserve">
+    <value>Wafer barcode / map confirmation</value>
+  </data>
+  <data name="extraDialog.barcode.waferTitle" xml:space="preserve">
+    <value>Wafer barcode confirmation</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.btnBuzzerStop.caption" xml:space="preserve">
+    <value>BUZZER STOP</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.lblChannelTitle.caption" xml:space="preserve">
+    <value>CHANNEL</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.lblInstanceTitle.caption" xml:space="preserve">
+    <value>INSTANCE</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.lblManualBarcode.caption" xml:space="preserve">
+    <value>BARCODE ID</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.lblMaterialTitle.caption" xml:space="preserve">
+    <value>MATERIAL</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.lblRetryCount.caption" xml:space="preserve">
+    <value>RETRY COUNT</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.lblRetryStep.caption" xml:space="preserve">
+    <value>Y STEP (mm)</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.confirmMove" xml:space="preserve">
+    <value>Move to {0}?</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.confirmSave" xml:space="preserve">
+    <value>Save the die map setup?</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.editFailed" xml:space="preserve">
+    <value>Edit failed: {0}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.loadFailed" xml:space="preserve">
+    <value>Load failed: {0}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.loaded" xml:space="preserve">
+    <value>Loaded. Use InputStage view/jog, then TEACH current position.</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.messageTitle" xml:space="preserve">
+    <value>Die Map Setup</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.moveCommand" xml:space="preserve">
+    <value>{0} move command...</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.moveComplete" xml:space="preserve">
+    <value>{0} move complete.</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.moveFailed" xml:space="preserve">
+    <value>MOVE failed: {0}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.moveResult" xml:space="preserve">
+    <value>{0} move failed. result={1}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.moveTitle" xml:space="preserve">
+    <value>Die Map Setup Move</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.saveFailed" xml:space="preserve">
+    <value>Save failed: {0}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.saved" xml:space="preserve">
+    <value>Saved.</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.taught" xml:space="preserve">
+    <value>{0} taught from current StageY / VisionX.</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.teachFailed" xml:space="preserve">
+    <value>TEACH failed: {0}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.visionFailed" xml:space="preserve">
+    <value>VISION TEST failed: {0}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.visionPlaceholder" xml:space="preserve">
+    <value>Vision PC interface placeholder. Offset=(0, 0).</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.waitInPosition" xml:space="preserve">
+    <value>{0} wait in-position...</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.btnClose.caption" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.btnRefresh.caption" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.btnRunAll.caption" xml:space="preserve">
+    <value>Run All</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.btnRunSelected.caption" xml:space="preserve">
+    <value>Run Step</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colCommand.caption" xml:space="preserve">
+    <value>Command</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colCurrentCheck.caption" xml:space="preserve">
+    <value>Current check</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colDescription.caption" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colGroupName.caption" xml:space="preserve">
+    <value>Group</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colPhase.caption" xml:space="preserve">
+    <value>Phase</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colStatus.caption" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colStepNo.caption" xml:space="preserve">
+    <value>Step</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colTarget.caption" xml:space="preserve">
+    <value>Target</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colTargetType.caption" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.lblTitle.caption" xml:space="preserve">
+    <value>Initialization Sequence Monitor</value>
+  </data>
+  <data name="extraDialog.initialize.allTitle" xml:space="preserve">
+    <value>Complete initialization</value>
+  </data>
+  <data name="extraDialog.initialize.confirmAll" xml:space="preserve">
+    <value>Run complete initialization?</value>
+  </data>
+  <data name="extraDialog.initialize.planFailed" xml:space="preserve">
+    <value>Initialize plan load failed:&#10;{0}</value>
+  </data>
+  <data name="extraDialog.initialize.runError" xml:space="preserve">
+    <value>Initialize execution error:&#10;{0}</value>
+  </data>
+  <data name="extraDialog.initialize.runFailed" xml:space="preserve">
+    <value>Initialize execution failed.</value>
+  </data>
+  <data name="extraDialog.initialize.title" xml:space="preserve">
+    <value>Initialization Monitor</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.calculate" xml:space="preserve">
+    <value>Calculate from current position</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.fallback" xml:space="preserve">
+    <value>Fallback</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.formula" xml:space="preserve">
+    <value>Formula</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.formulaInput" xml:space="preserve">
+    <value>Formula input</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.heading" xml:space="preserve">
+    <value>{0} InputVision → Picker offset settings</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.needleX" xml:space="preserve">
+    <value>Needle X move</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.offset" xml:space="preserve">
+    <value>OFFSET</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.position" xml:space="preserve">
+    <value>Current axis position</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.saved" xml:space="preserve">
+    <value>Saved offset</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.selected" xml:space="preserve">
+    <value>Selected die</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.stack" xml:space="preserve">
+    <value>AUTO offset stack</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.target" xml:space="preserve">
+    <value>Final move target</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.title" xml:space="preserve">
+    <value>{0} INPUT OFFSET</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.variable" xml:space="preserve">
+    <value>Saved variable</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.x" xml:space="preserve">
+    <value>InputVision to picker X</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.y" xml:space="preserve">
+    <value>InputVision to picker Y</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.btnClose.caption" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.btnMove.caption" xml:space="preserve">
+    <value>MOVE</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.btnSave.caption" xml:space="preserve">
+    <value>SAVE</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.btnTeach.caption" xml:space="preserve">
+    <value>TEACH</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.btnVisionTest.caption" xml:space="preserve">
+    <value>VISION TEST</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.colEnabled.caption" xml:space="preserve">
+    <value>Use</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.colName.caption" xml:space="preserve">
+    <value>Point</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.colOffsetX.caption" xml:space="preserve">
+    <value>OffsetX</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.colOffsetY.caption" xml:space="preserve">
+    <value>OffsetY</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.colStageY.caption" xml:space="preserve">
+    <value>StageY</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.colVisionX.caption" xml:space="preserve">
+    <value>VisionX</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.lblRetry.caption" xml:space="preserve">
+    <value>Retry</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.lblVisionTarget.caption" xml:space="preserve">
+    <value>Vision Target</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.this.caption" xml:space="preserve">
+    <value>Input Stage Die Map Setup</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnAbortAuto.caption" xml:space="preserve">
+    <value>CANCEL / RETRY T ALIGN</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnApplyDieState.caption" xml:space="preserve">
+    <value>APPLY SELECTED STATE</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnApplyPickupOrder.caption" xml:space="preserve">
+    <value>APPLY PICKUP ORDER</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnBuzzerStop.caption" xml:space="preserve">
+    <value>BUZZER STOP</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnClose.caption" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnDieDetection.caption" xml:space="preserve">
+    <value>DIE DETECTION</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnJogStop.caption" xml:space="preserve">
+    <value>STOP</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnMappingSetup.caption" xml:space="preserve">
+    <value>MAPPING SETUP</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnMoveSelectedDie.caption" xml:space="preserve">
+    <value>MOVE SELECTED DIE</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnOffsetApply.caption" xml:space="preserve">
+    <value>APPLY OFFSET</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnPreviewPath.caption" xml:space="preserve">
+    <value>Pickup Order</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnRetryAlign.caption" xml:space="preserve">
+    <value>RETRY ALIGN</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnRetryMapping.caption" xml:space="preserve">
+    <value>RUN DIE MAPPING</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnSetStartDie.caption" xml:space="preserve">
+    <value>SET SELECT</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnSetStartIndex.caption" xml:space="preserve">
+    <value>SET INDEX</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnStartRun.caption" xml:space="preserve">
+    <value>CONFIRM / CONTINUE AUTO</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnThetaCorrection.caption" xml:space="preserve">
+    <value>T CORRECTION</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnVisionTest.caption" xml:space="preserve">
+    <value>VISION TEST</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.chkUseSelectedStart.caption" xml:space="preserve">
+    <value>Use selected die as the first</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colBin.caption" xml:space="preserve">
+    <value>BIN</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colDieUid.caption" xml:space="preserve">
+    <value>DIE UID</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colGridX.caption" xml:space="preserve">
+    <value>GRID X</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colGridY.caption" xml:space="preserve">
+    <value>GRID Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colMapX.caption" xml:space="preserve">
+    <value>MAP X</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colMapY.caption" xml:space="preserve">
+    <value>MAP Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colOriginalX.caption" xml:space="preserve">
+    <value>ORG X</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colOriginalY.caption" xml:space="preserve">
+    <value>ORG Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colPosX.caption" xml:space="preserve">
+    <value>MACHINE X</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colPosY.caption" xml:space="preserve">
+    <value>MACHINE Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colResult.caption" xml:space="preserve">
+    <value>RESULT</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colSequence.caption" xml:space="preserve">
+    <value>SEQ</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colState.caption" xml:space="preserve">
+    <value>STATE</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpActions.caption" xml:space="preserve">
+    <value>ACTION</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpDieState.caption" xml:space="preserve">
+    <value>DIE STATE EDIT</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpJog.caption" xml:space="preserve">
+    <value>INPUT STAGE JOG</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpMapInfo.caption" xml:space="preserve">
+    <value>DIE MAP INFO</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpPickupRoute.caption" xml:space="preserve">
+    <value>PICKUP ROUTE</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpStartDie.caption" xml:space="preserve">
+    <value>START DIE</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpWaferVision.caption" xml:space="preserve">
+    <value>WAFER VISION</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpWorkflow.caption" xml:space="preserve">
+    <value>ALIGN / MAPPING / RUN</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblAlignCaption.caption" xml:space="preserve">
+    <value>ALIGN</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblCornerCaption.caption" xml:space="preserve">
+    <value>Start Corner</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblDieSizeXCaption.caption" xml:space="preserve">
+    <value>Die Size X (mm)</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblDieSizeYCaption.caption" xml:space="preserve">
+    <value>Die Size Y (mm)</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblDirectionCaption.caption" xml:space="preserve">
+    <value>Direction</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblEquipmentGridCaption.caption" xml:space="preserve">
+    <value>Map X/Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblInputCameraXCaption.caption" xml:space="preserve">
+    <value>Input Camera X</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblInputStageYCaption.caption" xml:space="preserve">
+    <value>Input Stage Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblJogSpeed.caption" xml:space="preserve">
+    <value>Jog Speed</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblMapGridCaption.caption" xml:space="preserve">
+    <value>Grid X/Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblMapProgressCaption.caption" xml:space="preserve">
+    <value>Progress</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblMappingCaption.caption" xml:space="preserve">
+    <value>MAPPING</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblMappingOriginCaption.caption" xml:space="preserve">
+    <value>Map origin</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblOriginalMapCaption.caption" xml:space="preserve">
+    <value>BIN</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblPatternCaption.caption" xml:space="preserve">
+    <value>Pattern</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblPitchGapXCaption.caption" xml:space="preserve">
+    <value>Pitch Gap X (mm)</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblPitchGapYCaption.caption" xml:space="preserve">
+    <value>Pitch Gap Y (mm)</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblRecipeCaption.caption" xml:space="preserve">
+    <value>RECIPE</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblReviewCaption.caption" xml:space="preserve">
+    <value>REVIEW</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblRevisionCaption.caption" xml:space="preserve">
+    <value>Mapping Revision</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblSelectedDieCaption.caption" xml:space="preserve">
+    <value>Selected Die UID</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblSelectedPositionCaption.caption" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblSelectedSequenceCaption.caption" xml:space="preserve">
+    <value>Selected Sequence</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblStartDieCaption.caption" xml:space="preserve">
+    <value>Selected Die</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblStartIndexCaption.caption" xml:space="preserve">
+    <value>Execution order</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblTargetCountCaption.caption" xml:space="preserve">
+    <value>Target Count</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblTitle.caption" xml:space="preserve">
+    <value>WAFER ALIGN / DIE MAP REVIEW</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblVisionCaption.caption" xml:space="preserve">
+    <value>VISION</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblVisionXCaption.caption" xml:space="preserve">
+    <value>Camera X</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblWaferCaption.caption" xml:space="preserve">
+    <value>WAFER</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblWaferDiameterCaption.caption" xml:space="preserve">
+    <value>Wafer Diameter</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblWaferTCaption.caption" xml:space="preserve">
+    <value>Stage T</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblWaferYCaption.caption" xml:space="preserve">
+    <value>Stage Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbCornerBottomLeft.caption" xml:space="preserve">
+    <value>BOTTOM LEFT</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbCornerBottomRight.caption" xml:space="preserve">
+    <value>BOTTOM RIGHT</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbCornerTopLeft.caption" xml:space="preserve">
+    <value>TOP LEFT</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbCornerTopRight.caption" xml:space="preserve">
+    <value>TOP RIGHT</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbDieStateGood.caption" xml:space="preserve">
+    <value>GOOD / Inspected</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbDieStateNg.caption" xml:space="preserve">
+    <value>NG / Failed inspection</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbDieStateSkip.caption" xml:space="preserve">
+    <value>SKIP / Exclude</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbDieStateWait.caption" xml:space="preserve">
+    <value>WAIT / Awaiting inspection</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbDirectionHorizontal.caption" xml:space="preserve">
+    <value>HORIZONTAL</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbDirectionVertical.caption" xml:space="preserve">
+    <value>VERTICAL</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbPatternStraight.caption" xml:space="preserve">
+    <value>STRAIGHT</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbPatternZigZag.caption" xml:space="preserve">
+    <value>ZIGZAG</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.this.caption" xml:space="preserve">
+    <value>Wafer Align / Die Mapping Review</value>
+  </data>
+  <data name="extraDialog.lotHistory.aborted" xml:space="preserve">
+    <value>Aborted</value>
+  </data>
+  <data name="extraDialog.lotHistory.active" xml:space="preserve">
+    <value>Active LOT: {0}</value>
+  </data>
+  <data name="extraDialog.lotHistory.complete" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="extraDialog.lotHistory.none" xml:space="preserve">
+    <value>Active LOT: none</value>
+  </data>
+  <data name="extraDialog.lotHistory.readFailed" xml:space="preserve">
+    <value>Could not reload LOT history: {0}</value>
+  </data>
+  <data name="extraDialog.lotHistory.running" xml:space="preserve">
+    <value>Running</value>
+  </data>
+  <data name="extraDialog.lotHistory.waiting" xml:space="preserve">
+    <value>Waiting</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.btnClose.caption" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.btnRefresh.caption" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotFinished.caption" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotGood.caption" xml:space="preserve">
+    <value>GOOD</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotId.caption" xml:space="preserve">
+    <value>Lot ID</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotNg.caption" xml:space="preserve">
+    <value>NG</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotProcessed.caption" xml:space="preserve">
+    <value>Processed</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotRecipe.caption" xml:space="preserve">
+    <value>Recipe</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotStarted.caption" xml:space="preserve">
+    <value>START</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotState.caption" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotYield.caption" xml:space="preserve">
+    <value>Yield (%)</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.lblHint.caption" xml:space="preserve">
+    <value>History is saved as one JSON file per LOT in Log\Lots and retained across application restarts.</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.this.caption" xml:space="preserve">
+    <value>LOT History</value>
+  </data>
+  <data name="extraDialog.manualSequence.complete" xml:space="preserve">
+    <value>{0} complete.</value>
+  </data>
+  <data name="extraDialog.manualSequence.confirmStart" xml:space="preserve">
+    <value>Start the {0} process?</value>
+  </data>
+  <data name="extraDialog.manualSequence.confirmTitle" xml:space="preserve">
+    <value>Confirm manual sequence</value>
+  </data>
+  <data name="extraDialog.manualSequence.requested" xml:space="preserve">
+    <value>{0} execution requested.</value>
+  </data>
+  <data name="extraDialog.manualSequence.running" xml:space="preserve">
+    <value>{0} running...</value>
+  </data>
+  <data name="extraDialog.manualSequence.saveFailed" xml:space="preserve">
+    <value>Failed to save speed settings: {0}</value>
+  </data>
+  <data name="extraDialog.manualSequence.sideComplete" xml:space="preserve">
+    <value>{0} {1} complete.</value>
+  </data>
+  <data name="extraDialog.manualSequence.sideRunning" xml:space="preserve">
+    <value>{0} {1} running...</value>
+  </data>
+  <data name="extraDialog.manualSequence.speedChanged" xml:space="preserve">
+    <value>Speed values changed. Press SAVE to save and apply.</value>
+  </data>
+  <data name="extraDialog.manualSequence.speedSaved" xml:space="preserve">
+    <value>Speed settings saved and applied. Manual={0}%, Ready={1}%</value>
+  </data>
+  <data name="extraDialog.manualSequence.targetsFailed" xml:space="preserve">
+    <value>Could not build the loading target list: {0}</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnAllStep.caption" xml:space="preserve">
+    <value>ALL STEP</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnBottom.caption" xml:space="preserve">
+    <value>BOTTOM</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnClose.caption" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnInputLoad.caption" xml:space="preserve">
+    <value>INPUT LOAD</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnInputUnload.caption" xml:space="preserve">
+    <value>INPUT UNLOAD</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnOutputLoad.caption" xml:space="preserve">
+    <value>OUTPUT LOAD</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnOutputUnload.caption" xml:space="preserve">
+    <value>OUTPUT UNLOAD</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnPickUp.caption" xml:space="preserve">
+    <value>PICK UP</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnPickUpZTest.caption" xml:space="preserve">
+    <value>PICK Z TEST</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnPlace.caption" xml:space="preserve">
+    <value>PLACE</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnRefreshLoadTargets.caption" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnSaveSpeedPercent.caption" xml:space="preserve">
+    <value>SAVE</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnSide.caption" xml:space="preserve">
+    <value>SIDE</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.lblInputLoadTarget.caption" xml:space="preserve">
+    <value>INPUT LOAD target</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.lblOutputLoadTarget.caption" xml:space="preserve">
+    <value>OUTPUT LOAD target</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.lblOutputSide.caption" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.lblPickerNo.caption" xml:space="preserve">
+    <value>Picker No</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.lblReadySpeedPercent.caption" xml:space="preserve">
+    <value>Ready speed (%)</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.lblSpeedPercent.caption" xml:space="preserve">
+    <value>Manual speed (%)</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.rbFrontPicker.caption" xml:space="preserve">
+    <value>FrontPicker</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.rbOutputGood.caption" xml:space="preserve">
+    <value>GOOD</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.rbOutputNg.caption" xml:space="preserve">
+    <value>NG</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.rbRearPicker.caption" xml:space="preserve">
+    <value>RearPicker</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.rdoOutputAll.caption" xml:space="preserve">
+    <value>ALL</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.titleLabel.caption" xml:space="preserve">
+    <value>MANUAL SEQUENCE</value>
+  </data>
+  <data name="extraDialog.mapCreate.boundaryHint" xml:space="preserve">
+    <value>Checks whether every die fits inside the circle after subtracting the inner margin. Margin is separate from DIE GAP.</value>
+  </data>
+  <data name="extraDialog.mapCreate.boundaryLegend" xml:space="preserve">
+    <value>Solid: wafer edge / Dashed: allowed circle after inner margin · Green: inside / Red: outside</value>
+  </data>
+  <data name="extraDialog.mapCreate.counts" xml:space="preserve">
+    <value>Generated dies: {0} · Rotation {1}°&#13;&#10;Map grid: {2} columns × {3} rows&#13;&#10;Edge counts: top {4} / bottom {5} / left {6} / right {7}&#13;&#10;Inner margin: {8} mm&#13;&#10;Outside circle: {9}</value>
+  </data>
+  <data name="extraDialog.mapCreate.countsLegacy" xml:space="preserve">
+    <value>Generated dies: {0} · Rotation {1}°&#13;&#10;Map grid: {2} columns × {3} rows&#13;&#10;Edge counts: top {4} / bottom {5} / left {6} / right {7}&#13;&#10;Legacy outer margin: +0.200 mm&#13;&#10;Outside circle: {9}</value>
+  </data>
+  <data name="extraDialog.mapCreate.innerMargin" xml:space="preserve">
+    <value>Inner margin (mm)</value>
+  </data>
+  <data name="extraDialog.mapCreate.inputHeading" xml:space="preserve">
+    <value>INPUT WAFER MAP CREATE</value>
+  </data>
+  <data name="extraDialog.mapCreate.inputTitle" xml:space="preserve">
+    <value>INPUT · Map preview / save</value>
+  </data>
+  <data name="extraDialog.mapCreate.legacyBoundary" xml:space="preserve">
+    <value>Legacy mode: outer margin +0.200 mm · Regenerate to use the inner margin method.</value>
+  </data>
+  <data name="extraDialog.mapCreate.legacyMargin" xml:space="preserve">
+    <value>Legacy outer margin (+mm)</value>
+  </data>
+  <data name="extraDialog.mapCreate.noCounts" xml:space="preserve">
+    <value>Generated dies: —&#13;&#10;Map grid: —&#13;&#10;Edge counts: —&#13;&#10;Outside circle: —</value>
+  </data>
+  <data name="extraDialog.mapCreate.outputHeading" xml:space="preserve">
+    <value>OUTPUT WAFER MAP CREATE</value>
+  </data>
+  <data name="extraDialog.mapCreate.outputTitle" xml:space="preserve">
+    <value>OUTPUT · Map preview / save</value>
+  </data>
+  <data name="extraDialog.mapCreate.outside" xml:space="preserve">
+    <value>{0} red dies are outside the allowed circle. Configuration can be saved · Layout retained&#13;&#10;Required diameter: at least {1} mm</value>
+  </data>
+  <data name="extraDialog.mapCreate.outsidePending" xml:space="preserve">
+    <value>{0} red dies are outside the allowed circle. Pending input · Saving blocked · Layout retained&#13;&#10;Required diameter: at least {1} mm</value>
+  </data>
+  <data name="extraDialog.mapCreate.previewFailed" xml:space="preserve">
+    <value>Wafer map preview failed.&#13;&#10;{0}</value>
+  </data>
+  <data name="extraDialog.mapCreate.saveFailed" xml:space="preserve">
+    <value>Could not save the generated map.&#13;&#10;{0}</value>
+  </data>
+  <data name="extraDialog.mapCreate.selectHint" xml:space="preserve">
+    <value>Click a die to see its original address and position relative to the wafer center.&#13;&#10;Mouse wheel: zoom · +Y: up</value>
+  </data>
+  <data name="extraDialog.mapCreate.selected" xml:space="preserve">
+    <value>Original: Column {0} / Row {1}&#13;&#10;Center: X {2} mm / Y {3} mm</value>
+  </data>
+  <data name="extraDialog.mapCreate.selectedOutside" xml:space="preserve">
+    <value>Original: Column {0} / Row {1}&#13;&#10;Center: X {2} mm / Y {3} mm · Outside allowed circle</value>
+  </data>
+  <data name="extraDialog.mapProcess.applyError" xml:space="preserve">
+    <value>Unable to apply process map settings.&#13;&#10;{0}</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.bottomLeft" xml:space="preserve">
+    <value>Bottom left (X→ Y↑)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.bottomRight" xml:space="preserve">
+    <value>Bottom right (X← Y↑)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.camtek" xml:space="preserve">
+    <value>CAMTEK</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.center" xml:space="preserve">
+    <value>Center (X→ Y↑)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.circle" xml:space="preserve">
+    <value>Circle</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.circleGenerated" xml:space="preserve">
+    <value>Circle (registered generated map)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.goodOutput" xml:space="preserve">
+    <value>Output · Good preview</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.input" xml:space="preserve">
+    <value>Input</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.legacy" xml:space="preserve">
+    <value>Use existing settings</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.ngOutput" xml:space="preserve">
+    <value>Output · NG preview</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.other" xml:space="preserve">
+    <value>Other vendor (unsupported format)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.registeredNoFormat" xml:space="preserve">
+    <value>Use registered map · Format not applied</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.registeredNoRemote" xml:space="preserve">
+    <value>Use registered map (no remote)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.remoteDownload" xml:space="preserve">
+    <value>Remote map download</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.rotate180" xml:space="preserve">
+    <value>Rotate 180°</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.samsung" xml:space="preserve">
+    <value>Samsung (RAD)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.topLeft" xml:space="preserve">
+    <value>Top left (X→ Y↓)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.topRight" xml:space="preserve">
+    <value>Top right (X← Y↓)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.zeroRotation" xml:space="preserve">
+    <value>0° · Keep registered map orientation</value>
+  </data>
+  <data name="extraDialog.mapProcess.excluded" xml:space="preserve">
+    <value>Excluded</value>
+  </data>
+  <data name="extraDialog.mapProcess.inputPreview" xml:space="preserve">
+    <value>Registered map preview · {0} targets · Rotation {1}° · 1,1 reference {2}&#13;&#10;Process order reflects rotation, origin, target/exclusion, and recipe BIN filters. The orange cell is 1,1.</value>
+  </data>
+  <data name="extraDialog.mapProcess.messageTitle" xml:space="preserve">
+    <value>Recipe map settings</value>
+  </data>
+  <data name="extraDialog.mapProcess.noTargets" xml:space="preserve">
+    <value>No process targets with the current settings.</value>
+  </data>
+  <data name="extraDialog.mapProcess.originLegend" xml:space="preserve">
+    <value>Reference 1,1</value>
+  </data>
+  <data name="extraDialog.mapProcess.outputPreview" xml:space="preserve">
+    <value>Registered map preview · {0} targets · Rotation {1}° · 1,1 reference {2}&#13;&#10;Process order reflects rotation, origin, and target/exclusion. The orange cell is 1,1.</value>
+  </data>
+  <data name="extraDialog.mapProcess.preparationRequired" xml:space="preserve">
+    <value>Map preparation required · Format/rotation/origin settings can be saved first.&#13;&#10;{0}&#13;&#10;For registered mode, load or create a wafer map. Format selection applies only to remote input downloads.</value>
+  </data>
+  <data name="extraDialog.mapProcess.previewError" xml:space="preserve">
+    <value>Preview check: {0}</value>
+  </data>
+  <data name="extraDialog.mapProcess.recipe" xml:space="preserve">
+    <value>Recipe: {0}   ·   Input / Output settings</value>
+  </data>
+  <data name="extraDialog.mapProcess.registeredFormat" xml:space="preserve">
+    <value>Registered map</value>
+  </data>
+  <data name="extraDialog.mapProcess.remoteFormat" xml:space="preserve">
+    <value>Remote map format</value>
+  </data>
+  <data name="extraDialog.mapProcess.saveApply" xml:space="preserve">
+    <value>Save and apply settings</value>
+  </data>
+  <data name="extraDialog.mapProcess.selectedCell" xml:space="preserve">
+    <value>{0}  |  Process #{1}  |  BIN {2}</value>
+  </data>
+  <data name="extraDialog.mapProcess.sourceHint" xml:space="preserve">
+    <value>{0}&#13;&#10;Before start: apply immediately · After loading starts: apply to the next wafer</value>
+  </data>
+  <data name="extraDialog.mapProcess.target" xml:space="preserve">
+    <value>Target</value>
+  </data>
+  <data name="extraDialog.motionTest.ajinOnly" xml:space="preserve">
+    <value>This test requires an Ajin physical axis.</value>
+  </data>
+  <data name="extraDialog.motionTest.alarmStopped" xml:space="preserve">
+    <value>Stopped by axis alarm.</value>
+  </data>
+  <data name="extraDialog.motionTest.axisNotReady" xml:space="preserve">
+    <value>Axis is not ready (check servo, alarm and motion).</value>
+  </data>
+  <data name="extraDialog.motionTest.axisState" xml:space="preserve">
+    <value>Servo={0}  Moving={1}  InPos={2}  Alarm={3}</value>
+  </data>
+  <data name="extraDialog.motionTest.captured" xml:space="preserve">
+    <value>Position captured.</value>
+  </data>
+  <data name="extraDialog.motionTest.counter" xml:space="preserve">
+    <value>Cycle {0} / {1}  Legs {2}</value>
+  </data>
+  <data name="extraDialog.motionTest.defaultLoaded" xml:space="preserve">
+    <value>Default profile loaded.</value>
+  </data>
+  <data name="extraDialog.motionTest.endFailed" xml:space="preserve">
+    <value>End move failed. result={0}</value>
+  </data>
+  <data name="extraDialog.motionTest.loadFailed" xml:space="preserve">
+    <value>Default profile load failed: {0}</value>
+  </data>
+  <data name="extraDialog.motionTest.logCleared" xml:space="preserve">
+    <value>Motion log cleared.</value>
+  </data>
+  <data name="extraDialog.motionTest.moveComplete" xml:space="preserve">
+    <value>Move complete.</value>
+  </data>
+  <data name="extraDialog.motionTest.moveFailed" xml:space="preserve">
+    <value>Move failed. result={0}</value>
+  </data>
+  <data name="extraDialog.motionTest.moving" xml:space="preserve">
+    <value>{0} moving...</value>
+  </data>
+  <data name="extraDialog.motionTest.override" xml:space="preserve">
+    <value>OVR CAL&#10;(-100/-300)</value>
+  </data>
+  <data name="extraDialog.motionTest.ready" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="extraDialog.motionTest.repeatComplete" xml:space="preserve">
+    <value>Repeat complete.</value>
+  </data>
+  <data name="extraDialog.motionTest.repeatFailed" xml:space="preserve">
+    <value>Repeat failed: {0}</value>
+  </data>
+  <data name="extraDialog.motionTest.repeatRunning" xml:space="preserve">
+    <value>Repeat test is running. Stop first.</value>
+  </data>
+  <data name="extraDialog.motionTest.running" xml:space="preserve">
+    <value>Motion test is running. Stop first.</value>
+  </data>
+  <data name="extraDialog.motionTest.samePosition" xml:space="preserve">
+    <value>Start and End positions are the same.</value>
+  </data>
+  <data name="extraDialog.motionTest.servoOn" xml:space="preserve">
+    <value>Servo ON requested.</value>
+  </data>
+  <data name="extraDialog.motionTest.startFailed" xml:space="preserve">
+    <value>Start move failed. result={0}</value>
+  </data>
+  <data name="extraDialog.motionTest.stopRequested" xml:space="preserve">
+    <value>Stop requested.</value>
+  </data>
+  <data name="extraDialog.motionTest.stopped" xml:space="preserve">
+    <value>Stopped.</value>
+  </data>
+  <data name="extraDialog.motionTest.swapped" xml:space="preserve">
+    <value>Start/End swapped.</value>
+  </data>
+  <data name="extraDialog.motionTest.tooFast" xml:space="preserve">
+    <value>Motion was too fast to issue an intermediate command. Lower the speed scale and retry.</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnCaptureEnd.caption" xml:space="preserve">
+    <value>Capture</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnCaptureStart.caption" xml:space="preserve">
+    <value>Capture</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnClose.caption" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnMotionLogClear.caption" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnMoveEnd.caption" xml:space="preserve">
+    <value>Move</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnMoveStart.caption" xml:space="preserve">
+    <value>Move</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnReloadDefault.caption" xml:space="preserve">
+    <value>Reload&#13;&#10;Default</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnServoOn.caption" xml:space="preserve">
+    <value>SERVO ON</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnStartRepeat.caption" xml:space="preserve">
+    <value>START REPEAT</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnStop.caption" xml:space="preserve">
+    <value>STOP</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnSwap.caption" xml:space="preserve">
+    <value>Swap</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.chkSoftLimitCheck.caption" xml:space="preserve">
+    <value>Soft limit check</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.chkStopOnAlarm.caption" xml:space="preserve">
+    <value>Stop on alarm</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.colProfileName.caption" xml:space="preserve">
+    <value>Item</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.colProfileUnit.caption" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.colProfileValue.caption" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.grpAxis.caption" xml:space="preserve">
+    <value>Axis</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.grpPosition.caption" xml:space="preserve">
+    <value>Repeat Position</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.grpProfile.caption" xml:space="preserve">
+    <value>Motion Profile</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.grpRepeat.caption" xml:space="preserve">
+    <value>Repeat Option</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.grpStatus.caption" xml:space="preserve">
+    <value>Axis Status</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblActualCaption.caption" xml:space="preserve">
+    <value>Actual</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblAxisNameCaption.caption" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblCommandCaption.caption" xml:space="preserve">
+    <value>Command</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblDwellCaption.caption" xml:space="preserve">
+    <value>Dwell</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblEndCaption.caption" xml:space="preserve">
+    <value>End</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblRepeatCaption.caption" xml:space="preserve">
+    <value>Repeat</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblStartCaption.caption" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblTimeoutCaption.caption" xml:space="preserve">
+    <value>Timeout</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblUnitCaption.caption" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.this.caption" xml:space="preserve">
+    <value>Motion Test</value>
+  </data>
+  <data name="extraDialog.pickerOffset.axisUnavailable" xml:space="preserve">
+    <value>Current PickerX/PickerY/StageY axis information is unavailable.</value>
+  </data>
+  <data name="extraDialog.pickerOffset.calculated" xml:space="preserve">
+    <value>Calculated from current position. PickerX={0} mm, PickerY={1} mm, StageY={2} mm, CameraOffset is applied once inside saved InputVisionToPicker X/Y, PickerYInput={3}, StageYTarget={4} mm</value>
+  </data>
+  <data name="extraDialog.pickerOffset.calculationFailed" xml:space="preserve">
+    <value>Current position calculation failed: {0}</value>
+  </data>
+  <data name="extraDialog.pickerOffset.loadFailed" xml:space="preserve">
+    <value>Load failed: {0}</value>
+  </data>
+  <data name="extraDialog.pickerOffset.previewFailed" xml:space="preserve">
+    <value>Preview failed: {0}</value>
+  </data>
+  <data name="extraDialog.pickerOffset.saveFailed" xml:space="preserve">
+    <value>Save failed: {0}</value>
+  </data>
+  <data name="extraDialog.pickerZone.clearanceFailed" xml:space="preserve">
+    <value>Safety clearance load failed: {0}</value>
+  </data>
+  <data name="extraDialog.pickerZone.current" xml:space="preserve">
+    <value>Current X: {0} mm</value>
+  </data>
+  <data name="extraDialog.pickerZone.invalidLoaded" xml:space="preserve">
+    <value>Loaded - some zones cannot be classified (fix boundaries before saving).</value>
+  </data>
+  <data name="extraDialog.pickerZone.loadFailed" xml:space="preserve">
+    <value>Load failed: {0}</value>
+  </data>
+  <data name="extraDialog.pickerZone.loaded" xml:space="preserve">
+    <value>Loaded.</value>
+  </data>
+  <data name="extraDialog.pickerZone.missing" xml:space="preserve">
+    <value>Picker setup was not found.</value>
+  </data>
+  <data name="extraDialog.pickerZone.noCurrent" xml:space="preserve">
+    <value>Current X: -</value>
+  </data>
+  <data name="extraDialog.pickerZone.overlap" xml:space="preserve">
+    <value>The current X position overlaps multiple zones. Adjust the zone ranges.</value>
+  </data>
+  <data name="extraDialog.pickerZone.saved" xml:space="preserve">
+    <value>Saved.</value>
+  </data>
+  <data name="extraDialog.pickerZone.taught" xml:space="preserve">
+    <value>{0} teaching complete.</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.btnClose.caption" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.btnReload.caption" xml:space="preserve">
+    <value>Reload</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.btnSave.caption" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.btnTeachMax.caption" xml:space="preserve">
+    <value>Teach Max</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.btnTeachMin.caption" xml:space="preserve">
+    <value>Teach Min</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.chkUseEncoderZone.caption" xml:space="preserve">
+    <value>Use encoder zone</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.colCurrent.caption" xml:space="preserve">
+    <value>Current X</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.colMatch.caption" xml:space="preserve">
+    <value>Match</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.colMax.caption" xml:space="preserve">
+    <value>Max X</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.colMin.caption" xml:space="preserve">
+    <value>Min X</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.colUse.caption" xml:space="preserve">
+    <value>Use</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.colZone.caption" xml:space="preserve">
+    <value>Zone</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.lblSide.caption" xml:space="preserve">
+    <value>Picker</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.lblTitle.caption" xml:space="preserve">
+    <value>Picker X Zone Setup</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.lblTolerance.caption" xml:space="preserve">
+    <value>Tolerance</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.lblXClearance.caption" xml:space="preserve">
+    <value>Facing X</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.lblYOutDistance.caption" xml:space="preserve">
+    <value>Y Out Distance</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.this.caption" xml:space="preserve">
+    <value>Picker X Zone Setup</value>
+  </data>
+  <data name="extraDialog.progress.alarmState" xml:space="preserve">
+    <value>Alarm state</value>
+  </data>
+  <data name="extraDialog.progress.axesCompleting" xml:space="preserve">
+    <value>Checking all axis motions have completed.</value>
+  </data>
+  <data name="extraDialog.progress.completedSteps" xml:space="preserve">
+    <value>{0} / {1} steps completed</value>
+  </data>
+  <data name="extraDialog.progress.cycleStopped" xml:space="preserve">
+    <value>Cycle stop completed</value>
+  </data>
+  <data name="extraDialog.progress.idle" xml:space="preserve">
+    <value>Preparing</value>
+  </data>
+  <data name="extraDialog.progress.movingAxes" xml:space="preserve">
+    <value>Moving axes: {0}</value>
+  </data>
+  <data name="extraDialog.progress.readyCanceled" xml:space="preserve">
+    <value>READY stopped</value>
+  </data>
+  <data name="extraDialog.progress.readyComplete" xml:space="preserve">
+    <value>READY completed</value>
+  </data>
+  <data name="extraDialog.progress.readyFailed" xml:space="preserve">
+    <value>READY failed</value>
+  </data>
+  <data name="extraDialog.progress.readyIdle" xml:space="preserve">
+    <value>READY preparing</value>
+  </data>
+  <data name="extraDialog.progress.readyMessage" xml:space="preserve">
+    <value>Wait for motion to complete.</value>
+  </data>
+  <data name="extraDialog.progress.readyRunning" xml:space="preserve">
+    <value>READY running</value>
+  </data>
+  <data name="extraDialog.progress.readyStep" xml:space="preserve">
+    <value>Preparing the Ready sequence.</value>
+  </data>
+  <data name="extraDialog.progress.readyTitle" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="extraDialog.progress.safeStopped" xml:space="preserve">
+    <value>The machine stopped at a safe boundary.</value>
+  </data>
+  <data name="extraDialog.progress.settleAxes" xml:space="preserve">
+    <value>Checking axes have settled</value>
+  </data>
+  <data name="extraDialog.progress.stopAccepted" xml:space="preserve">
+    <value>Stop requested. Stopping after the current operation finishes.</value>
+  </data>
+  <data name="extraDialog.progress.stopAlarm" xml:space="preserve">
+    <value>An alarm occurred while stopping. Check the Alarm/Event Log.</value>
+  </data>
+  <data name="extraDialog.progress.stopCanceled" xml:space="preserve">
+    <value>Stop processing</value>
+  </data>
+  <data name="extraDialog.progress.stopComplete" xml:space="preserve">
+    <value>Stop completed</value>
+  </data>
+  <data name="extraDialog.progress.stopFailed" xml:space="preserve">
+    <value>Alarm occurred</value>
+  </data>
+  <data name="extraDialog.progress.stopIdle" xml:space="preserve">
+    <value>Stop requested</value>
+  </data>
+  <data name="extraDialog.progress.stopMessage" xml:space="preserve">
+    <value>Stop requested. The machine stops at a safe boundary after current motion/work completes.</value>
+  </data>
+  <data name="extraDialog.progress.stopRunning" xml:space="preserve">
+    <value>Stopping</value>
+  </data>
+  <data name="extraDialog.progress.stopStep" xml:space="preserve">
+    <value>Waiting for current operation to finish</value>
+  </data>
+  <data name="extraDialog.progress.stopTitle" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="extraDialog.progress.waitAxes" xml:space="preserve">
+    <value>Waiting for axis motion to finish</value>
+  </data>
+  <data name="extraDialog.remaining.create.adjusted" xml:space="preserve">
+    <value>Count conditions applied. Generated {0} dies · Clockwise {1}°.</value>
+  </data>
+  <data name="extraDialog.remaining.create.diameter" xml:space="preserve">
+    <value>Wafer diameter</value>
+  </data>
+  <data name="extraDialog.remaining.create.dieX" xml:space="preserve">
+    <value>Die X</value>
+  </data>
+  <data name="extraDialog.remaining.create.dieY" xml:space="preserve">
+    <value>Die Y</value>
+  </data>
+  <data name="extraDialog.remaining.create.editPending" xml:space="preserve">
+    <value>Specifications are being edited · Cannot save until applied. Previous results and requested counts are retained. Apply Counts / Regenerate to apply them together.</value>
+  </data>
+  <data name="extraDialog.remaining.create.generated" xml:space="preserve">
+    <value>Wafer map generated. Generated {0} dies · Clockwise {1}°.</value>
+  </data>
+  <data name="extraDialog.remaining.create.generating" xml:space="preserve">
+    <value>Generating wafer map...</value>
+  </data>
+  <data name="extraDialog.remaining.create.generationFailed" xml:space="preserve">
+    <value>Generation failed: {0}</value>
+  </data>
+  <data name="extraDialog.remaining.create.initialValue" xml:space="preserve">
+    <value>The initial {0} value {1} mm could not be displayed exactly and was not entered. Enter a valid value in 0.001 mm increments.</value>
+  </data>
+  <data name="extraDialog.remaining.create.inputApproval" xml:space="preserve">
+    <value>the map in Input Die Map Create</value>
+  </data>
+  <data name="extraDialog.remaining.create.inputFailed" xml:space="preserve">
+    <value>Input conditions not applied: {0} The previous preview is retained; saving is unavailable.</value>
+  </data>
+  <data name="extraDialog.remaining.create.legacyNotice" xml:space="preserve">
+    <value>Legacy outer margin is +0.200 mm. Use Auto or edit specifications and Apply Counts / Regenerate for the new method.</value>
+  </data>
+  <data name="extraDialog.remaining.create.legacyTip" xml:space="preserve">
+    <value>The current map uses the legacy +0.200 mm margin outside the radius. Editing values or Auto generation switches to the new inner-margin method.</value>
+  </data>
+  <data name="extraDialog.remaining.create.margin" xml:space="preserve">
+    <value>Inner margin</value>
+  </data>
+  <data name="extraDialog.remaining.create.marginTip" xml:space="preserve">
+    <value>Radial margin left empty inside the wafer circle. Allowed radius = diameter/2 - margin. This is separate from DIE GAP.</value>
+  </data>
+  <data name="extraDialog.remaining.create.mismatch" xml:space="preserve">
+    <value>The entered specifications differ from the saved map. Regenerate using Auto Wafer Create.</value>
+  </data>
+  <data name="extraDialog.remaining.create.noDies" xml:space="preserve">
+    <value>No dies were generated automatically under the current conditions. Enter count conditions to preview.</value>
+  </data>
+  <data name="extraDialog.remaining.create.outputApproval" xml:space="preserve">
+    <value>GOOD and NG separately in Bin Die Map Create</value>
+  </data>
+  <data name="extraDialog.remaining.create.outsidePending" xml:space="preserve">
+    <value>{0} dies exceed the allowed circle: Generated placement is retained. This placement requires a diameter of at least {1} mm.</value>
+  </data>
+  <data name="extraDialog.remaining.create.outsideReady" xml:space="preserve">
+    <value>{0} dies exceed the allowed circle: Settings can be saved · Generated placement is retained. This placement requires a diameter of at least {1} mm.</value>
+  </data>
+  <data name="extraDialog.remaining.create.preview270" xml:space="preserve">
+    <value>270° (preview only)</value>
+  </data>
+  <data name="extraDialog.remaining.create.preview90" xml:space="preserve">
+    <value>90° (preview only)</value>
+  </data>
+  <data name="extraDialog.remaining.create.quarterTurn" xml:space="preserve">
+    <value>90°/270° cannot be used by this machine. Preview/settings can be saved; FINAL APPLY is blocked.</value>
+  </data>
+  <data name="extraDialog.remaining.create.recalculating" xml:space="preserve">
+    <value>Recalculating with current specifications and edge/total count conditions...</value>
+  </data>
+  <data name="extraDialog.remaining.create.restoredAuto" xml:space="preserve">
+    <value>Restored the Auto result using the last generated specifications and rotation.</value>
+  </data>
+  <data name="extraDialog.remaining.create.restoredSaved" xml:space="preserve">
+    <value>Restored the saved map rotation and count conditions.</value>
+  </data>
+  <data name="extraDialog.remaining.create.saveFailed" xml:space="preserve">
+    <value>Map save failed: {0}</value>
+  </data>
+  <data name="extraDialog.remaining.create.saveTitle" xml:space="preserve">
+    <value>Save map</value>
+  </data>
+  <data name="extraDialog.remaining.create.saved" xml:space="preserve">
+    <value>Saved {1} {0} map dies. Approval is PENDING.&#13;&#10;Check {2}, then FINAL APPLY.</value>
+  </data>
+  <data name="extraDialog.remaining.create.savedPending" xml:space="preserve">
+    <value>Saved settings for {1} {0} map dies. PENDING · FINAL APPLY / machine use blocked</value>
+  </data>
+  <data name="extraDialog.remaining.create.saving" xml:space="preserve">
+    <value>Saving the generated map...</value>
+  </data>
+  <data name="extraDialog.remaining.create.startHint" xml:space="preserve">
+    <value>Check the specifications, then press Auto Wafer Create.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.applyEdges" xml:space="preserve">
+    <value>Automatically center the circular map for the requested edge and total counts. Grid size is calculated from the result. Out-of-bounds dies appear red; saved placement is used as-is.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.diameter" xml:space="preserve">
+    <value>After editing diameter, Apply Counts / Regenerate recalculates with new specifications while retaining requested counts. Auto also recalculates default counts.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.dieSpecification" xml:space="preserve">
+    <value>Preview input. To save, die X/Y must match Recipe &gt; Die Specifications.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.edges" xml:space="preserve">
+    <value>Set top/bottom/left/right edge counts and total die count together. Counts may be higher or lower than the original.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.gapX" xml:space="preserve">
+    <value>Empty gap between dies (mm). Center distance = DIE X + GAP X.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.gapY" xml:space="preserve">
+    <value>Empty gap between dies (mm). Center distance = DIE Y + GAP Y.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.generate" xml:space="preserve">
+    <value>Create a new base circular map using current specifications. Edge and total count inputs also reset to the Auto result.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.restore" xml:space="preserve">
+    <value>Restore the last successful specifications, rotation and Auto base map. Undo unapplied edits and count adjustments.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.rotation" xml:space="preserve">
+    <value>Changing only rotation restores the base map. When editing specifications, apply them together using Apply Counts / Regenerate or Auto. 90°/270° settings can be saved, but machine application is blocked.</value>
+  </data>
+  <data name="extraDialog.remaining.create.unappliedCounts" xml:space="preserve">
+    <value>Input conditions are not applied · Cannot save. The previous result is shown. Apply Counts / Regenerate to apply specifications and counts together.</value>
+  </data>
+  <data name="extraDialog.remaining.init.allTitle" xml:space="preserve">
+    <value>Full initialization</value>
+  </data>
+  <data name="extraDialog.remaining.init.allcompleted" xml:space="preserve">
+    <value>Full initialization completed</value>
+  </data>
+  <data name="extraDialog.remaining.init.allcompletion" xml:space="preserve">
+    <value>Full initialization completed.</value>
+  </data>
+  <data name="extraDialog.remaining.init.allfailed" xml:space="preserve">
+    <value>Full initialization failed</value>
+  </data>
+  <data name="extraDialog.remaining.init.allfailure" xml:space="preserve">
+    <value>Full initialization failed.</value>
+  </data>
+  <data name="extraDialog.remaining.init.allpreparing" xml:space="preserve">
+    <value>Full initialization preparing</value>
+  </data>
+  <data name="extraDialog.remaining.init.allrunning" xml:space="preserve">
+    <value>Full initialization running</value>
+  </data>
+  <data name="extraDialog.remaining.init.allstopped" xml:space="preserve">
+    <value>Full initialization stopped</value>
+  </data>
+  <data name="extraDialog.remaining.init.axis" xml:space="preserve">
+    <value>Axis</value>
+  </data>
+  <data name="extraDialog.remaining.init.disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="extraDialog.remaining.init.done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="extraDialog.remaining.init.failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="extraDialog.remaining.init.home" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="extraDialog.remaining.init.post" xml:space="preserve">
+    <value>Post-actions</value>
+  </data>
+  <data name="extraDialog.remaining.init.pre" xml:space="preserve">
+    <value>Pre-actions</value>
+  </data>
+  <data name="extraDialog.remaining.init.preparing" xml:space="preserve">
+    <value>Preparing initialization sequence.</value>
+  </data>
+  <data name="extraDialog.remaining.init.progressing" xml:space="preserve">
+    <value>Initialization sequence is in progress.</value>
+  </data>
+  <data name="extraDialog.remaining.init.reinitialize" xml:space="preserve">
+    <value>Reinitialize Required</value>
+  </data>
+  <data name="extraDialog.remaining.init.running" xml:space="preserve">
+    <value>Running</value>
+  </data>
+  <data name="extraDialog.remaining.init.starting" xml:space="preserve">
+    <value>Starting initialization sequence.</value>
+  </data>
+  <data name="extraDialog.remaining.init.stepTitle" xml:space="preserve">
+    <value>Step initialization</value>
+  </data>
+  <data name="extraDialog.remaining.init.stepcompleted" xml:space="preserve">
+    <value>Step initialization completed</value>
+  </data>
+  <data name="extraDialog.remaining.init.stepcompletion" xml:space="preserve">
+    <value>Step initialization completed.</value>
+  </data>
+  <data name="extraDialog.remaining.init.stepfailed" xml:space="preserve">
+    <value>Step initialization failed</value>
+  </data>
+  <data name="extraDialog.remaining.init.stepfailure" xml:space="preserve">
+    <value>Step initialization failed.</value>
+  </data>
+  <data name="extraDialog.remaining.init.steppreparing" xml:space="preserve">
+    <value>Step initialization preparing</value>
+  </data>
+  <data name="extraDialog.remaining.init.steprunning" xml:space="preserve">
+    <value>Step initialization running</value>
+  </data>
+  <data name="extraDialog.remaining.init.stepstopped" xml:space="preserve">
+    <value>Step initialization stopped</value>
+  </data>
+  <data name="extraDialog.remaining.init.unavailable" xml:space="preserve">
+    <value>Unavailable</value>
+  </data>
+  <data name="extraDialog.remaining.init.unknownState" xml:space="preserve">
+    <value>Unable to determine the current state.</value>
+  </data>
+  <data name="extraDialog.remaining.init.waiting" xml:space="preserve">
+    <value>Waiting</value>
+  </data>
+  <data name="extraDialog.remaining.init.waitingComplete" xml:space="preserve">
+    <value>Wait for initialization to complete.</value>
+  </data>
+  <data name="extraDialog.remaining.review.appliedOrderMismatch" xml:space="preserve">
+    <value>The order applied to Review differs from the viewer. Check again before Auto start.</value>
+  </data>
+  <data name="extraDialog.remaining.review.badStart" xml:space="preserve">
+    <value>SKIP/GOOD/NG dies cannot be selected as the start die.</value>
+  </data>
+  <data name="extraDialog.remaining.review.bottomLeft" xml:space="preserve">
+    <value>Bottom left</value>
+  </data>
+  <data name="extraDialog.remaining.review.bottomRight" xml:space="preserve">
+    <value>Bottom right</value>
+  </data>
+  <data name="extraDialog.remaining.review.buzzerStopped" xml:space="preserve">
+    <value>Buzzer stop requested. Choose Confirm or Cancel.</value>
+  </data>
+  <data name="extraDialog.remaining.review.cancelWaiting" xml:space="preserve">
+    <value>Processing rerun/cancel request. Waiting for the sequence completion response.</value>
+  </data>
+  <data name="extraDialog.remaining.review.captureBlocked" xml:space="preserve">
+    <value>Verification images cannot be captured in a read-only or closed review.</value>
+  </data>
+  <data name="extraDialog.remaining.review.center" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="extraDialog.remaining.review.closeAutoBlocked" xml:space="preserve">
+    <value>The window cannot be closed while Auto waits. Choose Confirm or Cancel/Restart T Align.</value>
+  </data>
+  <data name="extraDialog.remaining.review.closeBusyBlocked" xml:space="preserve">
+    <value>The window cannot close during operation. Stop or wait for completion first.</value>
+  </data>
+  <data name="extraDialog.remaining.review.coarse" xml:space="preserve">
+    <value>Coarse</value>
+  </data>
+  <data name="extraDialog.remaining.review.confirmWaiting" xml:space="preserve">
+    <value>Processing confirmation. Waiting for the sequence completion response.</value>
+  </data>
+  <data name="extraDialog.remaining.review.continuous" xml:space="preserve">
+    <value>Continuous</value>
+  </data>
+  <data name="extraDialog.remaining.review.continuousJog" xml:space="preserve">
+    <value>Requesting {0} Jog. Release the button to request stop.</value>
+  </data>
+  <data name="extraDialog.remaining.review.decisionFailed" xml:space="preserve">
+    <value>Confirmation processing failed. {0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.emptyOrder" xml:space="preserve">
+    <value>Applied an empty pickup path draft with 0 pickable targets.</value>
+  </data>
+  <data name="extraDialog.remaining.review.endVisionFailed" xml:space="preserve">
+    <value>Could not end vision use. Press 'End vision use' manually, then select again.</value>
+  </data>
+  <data name="extraDialog.remaining.review.fine" xml:space="preserve">
+    <value>Fine</value>
+  </data>
+  <data name="extraDialog.remaining.review.good" xml:space="preserve">
+    <value>GOOD</value>
+  </data>
+  <data name="extraDialog.remaining.review.goodEnum" xml:space="preserve">
+    <value>Good</value>
+  </data>
+  <data name="extraDialog.remaining.review.invalidCoordinates" xml:space="preserve">
+    <value>Offset candidates contain invalid coordinates. The draft was not changed.</value>
+  </data>
+  <data name="extraDialog.remaining.review.invalidOffset" xml:space="preserve">
+    <value>The review draft die map or offset value is invalid.</value>
+  </data>
+  <data name="extraDialog.remaining.review.jogStopped" xml:space="preserve">
+    <value>Jog stop requested.</value>
+  </data>
+  <data name="extraDialog.remaining.review.loaded" xml:space="preserve">
+    <value>Input die map loaded. Check the start die and pickup path.</value>
+  </data>
+  <data name="extraDialog.remaining.review.loading" xml:space="preserve">
+    <value>Loading wafer alignment / die mapping results.</value>
+  </data>
+  <data name="extraDialog.remaining.review.manualAlign" xml:space="preserve">
+    <value>This wafer uses manual alignment. Align with Jog and complete T Correction before confirming.</value>
+  </data>
+  <data name="extraDialog.remaining.review.manualBusy" xml:space="preserve">
+    <value>Another manual review operation is in progress. Wait for completion or Stop before retrying.</value>
+  </data>
+  <data name="extraDialog.remaining.review.manualEnabled" xml:space="preserve">
+    <value>Manual Review is enabled. Confirm continues the Auto process; cancel restarts from center detection/T Align.</value>
+  </data>
+  <data name="extraDialog.remaining.review.manualStopped" xml:space="preserve">
+    <value>Manual review operation stop requested.</value>
+  </data>
+  <data name="extraDialog.remaining.review.mapCaption" xml:space="preserve">
+    <value>INPUT WAFER MAP</value>
+  </data>
+  <data name="extraDialog.remaining.review.mapCellStatus" xml:space="preserve">
+    <value>Sequence={0}, Map=({1},{2}), EquipmentGrid=({3},{4}), Position=({5},{6}), UID={7}</value>
+  </data>
+  <data name="extraDialog.remaining.review.mappingDone" xml:space="preserve">
+    <value>Mapping complete — Unlocking decisions in the retained window.</value>
+  </data>
+  <data name="extraDialog.remaining.review.mappingResubmit" xml:space="preserve">
+    <value>Saving T correction invalidated mapping. Die Mapping rerun is being submitted automatically.</value>
+  </data>
+  <data name="extraDialog.remaining.review.missingStart" xml:space="preserve">
+    <value>Use selected start die is enabled, but no start die is set.</value>
+  </data>
+  <data name="extraDialog.remaining.review.moveBusy" xml:space="preserve">
+    <value>Selected die move is in progress. Wait for completion or Stop before retrying.</value>
+  </data>
+  <data name="extraDialog.remaining.review.ng" xml:space="preserve">
+    <value>NG</value>
+  </data>
+  <data name="extraDialog.remaining.review.ngEnum" xml:space="preserve">
+    <value>NG</value>
+  </data>
+  <data name="extraDialog.remaining.review.noDecisionControl" xml:space="preserve">
+    <value>No equipment connection is available to process confirmation.</value>
+  </data>
+  <data name="extraDialog.remaining.review.noDraft" xml:space="preserve">
+    <value>No review draft die map to apply.</value>
+  </data>
+  <data name="extraDialog.remaining.review.noMap" xml:space="preserve">
+    <value>No input die map to display.</value>
+  </data>
+  <data name="extraDialog.remaining.review.noSequence" xml:space="preserve">
+    <value>No pickable die matches the entered 1-based sequence. sequence={0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.noVisionControl" xml:space="preserve">
+    <value>Wafer Vision safety control is not connected.</value>
+  </data>
+  <data name="extraDialog.remaining.review.nonproductionOff" xml:space="preserve">
+    <value>Nonproduction manual review display was cleared.</value>
+  </data>
+  <data name="extraDialog.remaining.review.nonproductionOn" xml:space="preserve">
+    <value>Manual review in nonproduction mode.</value>
+  </data>
+  <data name="extraDialog.remaining.review.nonproductionStatus" xml:space="preserve">
+    <value>Not a measured verification | {0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.notSet" xml:space="preserve">
+    <value>NOT SET</value>
+  </data>
+  <data name="extraDialog.remaining.review.offline" xml:space="preserve">
+    <value>Vision disconnected - Image/measurement unavailable (check vision connection settings)</value>
+  </data>
+  <data name="extraDialog.remaining.review.offsetApplied" xml:space="preserve">
+    <value>Offset candidates applied. Check the map and pickup order, then confirm.</value>
+  </data>
+  <data name="extraDialog.remaining.review.offsetDecisionBlocked" xml:space="preserve">
+    <value>Candidate coordinates cannot change while confirmation is being processed.</value>
+  </data>
+  <data name="extraDialog.remaining.review.orderApplied" xml:space="preserve">
+    <value>Pickup path draft applied. Pickable targets={0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.orderFailed" xml:space="preserve">
+    <value>Pickup path apply request failed. {0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.orderMismatch" xml:space="preserve">
+    <value>The generated order differs from the viewer order. Check again.</value>
+  </data>
+  <data name="extraDialog.remaining.review.pathChanged" xml:space="preserve">
+    <value>Pickup path settings changed. Check Preview, then Apply Pickup Order.</value>
+  </data>
+  <data name="extraDialog.remaining.review.pickupBlocked" xml:space="preserve">
+    <value>Pickup order cannot be applied in the current review state.</value>
+  </data>
+  <data name="extraDialog.remaining.review.pickupFailed" xml:space="preserve">
+    <value>Pickup order review/apply failed: {0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.pickupMapChanged" xml:space="preserve">
+    <value>The die map changed while reviewing the order. Reopen the window and check again.</value>
+  </data>
+  <data name="extraDialog.remaining.review.pickupTitle" xml:space="preserve">
+    <value>Review pickup order</value>
+  </data>
+  <data name="extraDialog.remaining.review.readOnly" xml:space="preserve">
+    <value>Read-only view of the current stage wafer/die map. Motion and data changes are unavailable.</value>
+  </data>
+  <data name="extraDialog.remaining.review.readOnlyCommands" xml:space="preserve">
+    <value>Live/Grab commands are unavailable in the read-only view.</value>
+  </data>
+  <data name="extraDialog.remaining.review.readOnlyOffline" xml:space="preserve">
+    <value>Read-only - Vision disconnected (no image)</value>
+  </data>
+  <data name="extraDialog.remaining.review.readOnlyVision" xml:space="preserve">
+    <value>Read-only - Image inspection/measurement only</value>
+  </data>
+  <data name="extraDialog.remaining.review.retryRequest" xml:space="preserve">
+    <value>The request failed. Check the status and try again.</value>
+  </data>
+  <data name="extraDialog.remaining.review.scopeActive" xml:space="preserve">
+    <value>Vision safety area in use - Live/Grab/measurement available</value>
+  </data>
+  <data name="extraDialog.remaining.review.scopeOffline" xml:space="preserve">
+    <value>Safety area in use - Live/Grab/measurement unavailable because vision is disconnected</value>
+  </data>
+  <data name="extraDialog.remaining.review.selectMoveDie" xml:space="preserve">
+    <value>Select a die to move to first.</value>
+  </data>
+  <data name="extraDialog.remaining.review.selectStart" xml:space="preserve">
+    <value>Select the start die in the wafer map or list first.</value>
+  </data>
+  <data name="extraDialog.remaining.review.selectStateDie" xml:space="preserve">
+    <value>Select dies whose state should change.</value>
+  </data>
+  <data name="extraDialog.remaining.review.selectedDies" xml:space="preserve">
+    <value>{0} dies selected. State changes apply to all selected dies.</value>
+  </data>
+  <data name="extraDialog.remaining.review.skip" xml:space="preserve">
+    <value>SKIP</value>
+  </data>
+  <data name="extraDialog.remaining.review.skipEnum" xml:space="preserve">
+    <value>Skip</value>
+  </data>
+  <data name="extraDialog.remaining.review.startLegend" xml:space="preserve">
+    <value>START</value>
+  </data>
+  <data name="extraDialog.remaining.review.startSet" xml:space="preserve">
+    <value>Selected die set as start. UID={0}, Map=({1},{2})</value>
+  </data>
+  <data name="extraDialog.remaining.review.stateApplied" xml:space="preserve">
+    <value>Applied state to {0} dies in review draft: {1}</value>
+  </data>
+  <data name="extraDialog.remaining.review.stateNotifyFailed" xml:space="preserve">
+    <value>Die state was applied to the draft, but external notification failed. {0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.step" xml:space="preserve">
+    <value>Step</value>
+  </data>
+  <data name="extraDialog.remaining.review.stepJog" xml:space="preserve">
+    <value>Requesting {0} Step Jog ({1}).</value>
+  </data>
+  <data name="extraDialog.remaining.review.stopBeforeDecision" xml:space="preserve">
+    <value>Stop ongoing motion/Jog (Stop/release the button), then select again.</value>
+  </data>
+  <data name="extraDialog.remaining.review.thetaDone" xml:space="preserve">
+    <value>T correction complete — Confirmation allowed</value>
+  </data>
+  <data name="extraDialog.remaining.review.thetaPending" xml:space="preserve">
+    <value>Manual fallback alignment — Confirmation blocked until T correction is complete</value>
+  </data>
+  <data name="extraDialog.remaining.review.topLeft" xml:space="preserve">
+    <value>Top left</value>
+  </data>
+  <data name="extraDialog.remaining.review.topRight" xml:space="preserve">
+    <value>Top right</value>
+  </data>
+  <data name="extraDialog.remaining.review.visionAvailable" xml:space="preserve">
+    <value>Image inspection/measurement available - Start vision use to enable Live/Grab</value>
+  </data>
+  <data name="extraDialog.remaining.review.visionEnd" xml:space="preserve">
+    <value>End vision use</value>
+  </data>
+  <data name="extraDialog.remaining.review.visionStart" xml:space="preserve">
+    <value>Start vision use</value>
+  </data>
+  <data name="extraDialog.remaining.review.wait" xml:space="preserve">
+    <value>WAIT</value>
+  </data>
+  <data name="extraDialog.remaining.review.waitBin" xml:space="preserve">
+    <value>WAIT B{0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.waitEnum" xml:space="preserve">
+    <value>Wait</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.address" xml:space="preserve">
+    <value>Display die address</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.camtek" xml:space="preserve">
+    <value>CAMTEK</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.camtekChoice" xml:space="preserve">
+    <value>CAMTEK (RowData)</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.camtekShort" xml:space="preserve">
+    <value>CAMTEK</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.caption" xml:space="preserve">
+    <value>{0} · View {1}° (inspection)</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.checkCache" xml:space="preserve">
+    <value>Checking current/recent local maps...</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.currentCache" xml:space="preserve">
+    <value>Local file for the confirmed input-stage barcode</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.directFile" xml:space="preserve">
+    <value>Manually selected file</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.empty" xml:space="preserve">
+    <value>Empty cell (___)</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.failure" xml:space="preserve">
+    <value>{0} failed · {1}</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.failureMessage" xml:space="preserve">
+    <value>{0} failed&#13;&#10;{1}&#13;&#10;&#13;&#10;The source file and actual process were not changed.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.fileFilter" xml:space="preserve">
+    <value>All wafer map files (*.*)|*.*|Text files (*.txt)|*.txt</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.fileLimit" xml:space="preserve">
+    <value>Only the first 5,000 files are shown. Use Open File to select another file.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.fileList" xml:space="preserve">
+    <value>File list</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.fileTitle" xml:space="preserve">
+    <value>Open wafer map file</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.filesCount" xml:space="preserve">
+    <value>File list · {0} files</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.findingCache" xml:space="preserve">
+    <value>Finding received local maps...</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.firstFiles" xml:space="preserve">
+    <value>File list · First 5,000 (manual open available)</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.fit" xml:space="preserve">
+    <value>Fit to view</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.folderDescription" xml:space="preserve">
+    <value>Select the folder containing wafer maps.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.initialLookup" xml:space="preserve">
+    <value>Initial map lookup</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.initialNotice" xml:space="preserve">
+    <value>File inspection viewer · Orientation and format selection apply only to this window.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.listFile" xml:space="preserve">
+    <value>File selected from folder list</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.lookupFiles" xml:space="preserve">
+    <value>List files</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.mapDimensions" xml:space="preserve">
+    <value>View {0}° · {1} columns × {2} rows</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.mark" xml:space="preserve">
+    <value>@@@ mark</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.nextFormat" xml:space="preserve">
+    <value>The current map is retained. The next file will use the selected format.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.noCache" xml:space="preserve">
+    <value>No current/recent received map. Open a file to inspect it.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.noCurrentLocal" xml:space="preserve">
+    <value>The current/recent received file is not available locally.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.noFile" xml:space="preserve">
+    <value>No file selected</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.noLocalMessage" xml:space="preserve">
+    <value>{0}&#13;&#10;Use Open File to select a file manually.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.noRecentLocal" xml:space="preserve">
+    <value>The recently received file is not available locally.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.none" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openCache" xml:space="preserve">
+    <value>Open current/recent map</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openChosenFormat" xml:space="preserve">
+    <value>Open a file using the selected format.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openFile" xml:space="preserve">
+    <value>Open file</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openHint" xml:space="preserve">
+    <value>Double-click a file or press Enter to open it.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openListFile" xml:space="preserve">
+    <value>Open selected file</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openMap" xml:space="preserve">
+    <value>Open a map.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openRecent" xml:space="preserve">
+    <value>Open recently received map</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.pickManual" xml:space="preserve">
+    <value>Use Open File to select a file manually.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.processReference" xml:space="preserve">
+    <value>Process orientation reference</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.processRotation" xml:space="preserve">
+    <value>Process orientation {0}° reference</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.rad" xml:space="preserve">
+    <value>Samsung RAD</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.radChoice" xml:space="preserve">
+    <value>Samsung (RAD coordinates)</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.readDone" xml:space="preserve">
+    <value>File loaded · Original orientation 0°</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.readFile" xml:space="preserve">
+    <value>Read file</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.readFolder" xml:space="preserve">
+    <value>Reading folder file list...</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.readRotation" xml:space="preserve">
+    <value>Loaded · View {0}° · Inspection map</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.reading" xml:space="preserve">
+    <value>Reading map file...</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.recentCache" xml:space="preserve">
+    <value>Recently received local file</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.recentCacheFallback" xml:space="preserve">
+    <value>Recently received local file (no cache for current barcode)</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.reference" xml:space="preserve">
+    <value>For inspection</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.refreshFiles" xml:space="preserve">
+    <value>Refresh file list</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.rotate" xml:space="preserve">
+    <value>View rotation</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.rotateLeft" xml:space="preserve">
+    <value>Rotate view left</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.rotateRight" xml:space="preserve">
+    <value>Rotate view right</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.rotating" xml:space="preserve">
+    <value>Changing view orientation...</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.rotation" xml:space="preserve">
+    <value>View rotation {0}° · Inspection map</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selectDie" xml:space="preserve">
+    <value>Select a die to display view X/Y and BIN. The view origin is the bottom-left 0,0.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selectFolder" xml:space="preserve">
+    <value>Select folder</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selectFormat" xml:space="preserve">
+    <value>Select file format</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selected" xml:space="preserve">
+    <value>{0}   |   {1}   |   View {2}°</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selectedBin" xml:space="preserve">
+    <value>BIN {0}   |   {1}   |   View {2}°</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selectedInitial" xml:space="preserve">
+    <value>No die selected · Shows the original address and current view address with bottom-left origin at 1.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selectedMark" xml:space="preserve">
+    <value>@@@ mark   |   {0}   |   View {1}°</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.sourceNotice" xml:space="preserve">
+    <value>Source: {0}&#13;&#10;Currently shown: {1} · File format: {2} · Format selection applies to the next file opened.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.statusInitial" xml:space="preserve">
+    <value>Open a file to inspect its wafer map.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.summary" xml:space="preserve">
+    <value>{0} · {1} columns × {2} rows&#13;&#10;Present {3} · Empty {4}&#13;&#10;Numeric BINs retain their original values.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.summaryInitial" xml:space="preserve">
+    <value>File headers and BIN counts&#13;&#10;Shown after opening a file.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.title" xml:space="preserve">
+    <value>Wafer map viewer</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.viewOriginal" xml:space="preserve">
+    <value>View original orientation</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.viewProcess" xml:space="preserve">
+    <value>View process orientation reference</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.waitBusy" xml:space="preserve">
+    <value>Wait for the current file operation to finish, then try again.</value>
+  </data>
+  <data name="extraDialog.review.alignRecovery" xml:space="preserve">
+    <value>ALIGN RECOVERY</value>
+  </data>
+  <data name="extraDialog.review.complete" xml:space="preserve">
+    <value>COMPLETE</value>
+  </data>
+  <data name="extraDialog.review.confirmRequired" xml:space="preserve">
+    <value>USER CONFIRM REQUIRED</value>
+  </data>
+  <data name="extraDialog.review.connected" xml:space="preserve">
+    <value>CONNECTED</value>
+  </data>
+  <data name="extraDialog.review.disconnected" xml:space="preserve">
+    <value>DISCONNECTED</value>
+  </data>
+  <data name="extraDialog.review.manualOk" xml:space="preserve">
+    <value>MANUAL (T OK)</value>
+  </data>
+  <data name="extraDialog.review.manualRequired" xml:space="preserve">
+    <value>MANUAL (T REQUIRED)</value>
+  </data>
+  <data name="extraDialog.review.mappingReview" xml:space="preserve">
+    <value>MAPPING REVIEW</value>
+  </data>
+  <data name="extraDialog.review.nonproduction" xml:space="preserve">
+    <value>NONPRODUCTION REVIEW</value>
+  </data>
+  <data name="extraDialog.review.readOnly" xml:space="preserve">
+    <value>Read only - image viewing / measurement only</value>
+  </data>
+  <data name="extraDialog.review.ready" xml:space="preserve">
+    <value>READY TO START</value>
+  </data>
+  <data name="extraDialog.review.required" xml:space="preserve">
+    <value>REQUIRED</value>
+  </data>
+  <data name="extraDialog.review.reviewRequired" xml:space="preserve">
+    <value>REVIEW REQUIRED</value>
+  </data>
+  <data name="extraDialog.review.visionFailed" xml:space="preserve">
+    <value>Wafer Vision connection failed: {0}</value>
+  </data>
+  <data name="extraDialog.review.visionStopped" xml:space="preserve">
+    <value>Vision image stopped</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.clamped" xml:space="preserve">
+    <value>&#10;&#10;These items were clamped to configuration limits:&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.colMechT" xml:space="preserve">
+    <value>Mechanical T (deg)</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.colMechX" xml:space="preserve">
+    <value>Mechanical X (mm)</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.colMechY" xml:space="preserve">
+    <value>Mechanical Y (mm)</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.colPicker" xml:space="preserve">
+    <value>PICKER</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.colSide" xml:space="preserve">
+    <value>SIDE</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.colUpdated" xml:space="preserve">
+    <value>Last updated</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.confirmCopy" xml:space="preserve">
+    <value>Overwrite saved offset (1) with the current wafer offset (2).&#10;Continue?</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.confirmPick" xml:space="preserve">
+    <value>Transfer Pick runtime offsets to Pick mechanical offsets.&#10;Formula: mechanical X = mechanical X + filter X, mechanical Y = mechanical Y {0} filter Y, mechanical T = mechanical T + filter T.&#10;Filters for transferred channels are reset to zero.&#10;&#10;{1}&#10;Continue?</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.confirmPlace" xml:space="preserve">
+    <value>Transfer Place runtime offsets to Place mechanical offsets.&#10;Formula: mechanical = mechanical − filter (X/Y/T).&#10;Filters for transferred channels are reset to zero.&#10;&#10;{0}&#10;Continue?</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.confirmReset" xml:space="preserve">
+    <value>Reset all {0} runtime offset filters (8 sets of X/Y/T) to zero.&#10;&#10;Current learned values:&#10;{1}&#10;Continue?</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.confirmZReset" xml:space="preserve">
+    <value>Reset all PICKER Z runtime offset filters (8 sets of Z) to zero.&#10;&#10;Current learned values:&#10;{0}&#10;Continue?</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.copied" xml:space="preserve">
+    <value>Copied.</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.copyError" xml:space="preserve">
+    <value>PLACE offset 2→1 copy failed:&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.copyFailed" xml:space="preserve">
+    <value>Copy failed:&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.copyTitle" xml:space="preserve">
+    <value>PLACE offset 2→1 copy</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.formula" xml:space="preserve">
+    <value>Transfer: PLACE mechanical = mechanical − filter (X/Y/T); PICK mechanical = mechanical + filter X − filter Y + filter T. Transferred channel filters are reset to zero. Reset clears all eight sets.</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.noMachine" xml:space="preserve">
+    <value>Cannot apply: the machine object was not found.</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.noPickOffset" xml:space="preserve">
+    <value>No Pick runtime offset to transfer (all channels are zero).</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.noPlaceOffset" xml:space="preserve">
+    <value>No Place runtime offset to transfer (all channels are zero).</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.noTarget" xml:space="preserve">
+    <value>No transfer target.</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.pickResetError" xml:space="preserve">
+    <value>Pick runtime offset reset failed:&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.pickTitle" xml:space="preserve">
+    <value>PICK RUNTIME OFFSET</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.pickTransferError" xml:space="preserve">
+    <value>Pick runtime offset transfer failed:&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.pickTransferred" xml:space="preserve">
+    <value>Pick runtime offsets transferred to mechanical offsets ({0} pickers).</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.placeResetError" xml:space="preserve">
+    <value>Place runtime offset reset failed:&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.placeTitle" xml:space="preserve">
+    <value>PLACE RUNTIME OFFSET</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.placeTransferError" xml:space="preserve">
+    <value>Place runtime offset transfer failed:&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.placeTransferred" xml:space="preserve">
+    <value>Place runtime offsets transferred to mechanical offsets ({0} pickers).</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.readFailed" xml:space="preserve">
+    <value>Runtime offset read failed: {0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.resetDone" xml:space="preserve">
+    <value>{0} runtime offset filters were reset.</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.resetTitle" xml:space="preserve">
+    <value>{0} RUNTIME OFFSET RESET</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.zReset" xml:space="preserve">
+    <value>PICKER Z runtime offset filters were reset.</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.zResetTitle" xml:space="preserve">
+    <value>PICKER Z RUNTIME OFFSET RESET</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnApplyPick.caption" xml:space="preserve">
+    <value>PICK → Apply to mechanical offset</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnApplyPlace.caption" xml:space="preserve">
+    <value>PLACE → Apply to mechanical offset</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnClose.caption" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnCopyWaferPlace.caption" xml:space="preserve">
+    <value>PLACE offset 2→1</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnRefresh.caption" xml:space="preserve">
+    <value>REFRESH</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnResetPick.caption" xml:space="preserve">
+    <value>Reset PICK</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnResetPlace.caption" xml:space="preserve">
+    <value>Reset PLACE</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.grpPick.caption" xml:space="preserve">
+    <value>PICK RUNTIME OFFSET (Bottom inspection closed loop)</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.grpPickerZ.caption" xml:space="preserve">
+    <value>PICKER Z RUNTIME OFFSET (Side FrontSide ch0 closed loop) — Read only</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.grpPlace.caption" xml:space="preserve">
+    <value>PLACE RUNTIME OFFSET (BIN post-inspection closed loop)</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.this.caption" xml:space="preserve">
+    <value>RUNTIME OFFSET MONITOR</value>
+  </data>
+  <data name="extraDialog.selfTest.ajinConfig" xml:space="preserve">
+    <value>Ajin configuration</value>
+  </data>
+  <data name="extraDialog.selfTest.alignment" xml:space="preserve">
+    <value>Alignment solver (3 points)</value>
+  </data>
+  <data name="extraDialog.selfTest.appSettings" xml:space="preserve">
+    <value>Application settings</value>
+  </data>
+  <data name="extraDialog.selfTest.axl" xml:space="preserve">
+    <value>AXL library</value>
+  </data>
+  <data name="extraDialog.selfTest.binMap" xml:space="preserve">
+    <value>BIN code map</value>
+  </data>
+  <data name="extraDialog.selfTest.binVision" xml:space="preserve">
+    <value>Vision/Bin</value>
+  </data>
+  <data name="extraDialog.selfTest.connectFailed" xml:space="preserve">
+    <value>Connection failed</value>
+  </data>
+  <data name="extraDialog.selfTest.dieMap" xml:space="preserve">
+    <value>Die map generator</value>
+  </data>
+  <data name="extraDialog.selfTest.disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="extraDialog.selfTest.eventLog" xml:space="preserve">
+    <value>Event log writable</value>
+  </data>
+  <data name="extraDialog.selfTest.failed" xml:space="preserve">
+    <value>FAIL</value>
+  </data>
+  <data name="extraDialog.selfTest.inspectionVision" xml:space="preserve">
+    <value>Vision/Inspection</value>
+  </data>
+  <data name="extraDialog.selfTest.interlock" xml:space="preserve">
+    <value>Interlock registry</value>
+  </data>
+  <data name="extraDialog.selfTest.jobQueue" xml:space="preserve">
+    <value>Job queue</value>
+  </data>
+  <data name="extraDialog.selfTest.machine" xml:space="preserve">
+    <value>Machine tree</value>
+  </data>
+  <data name="extraDialog.selfTest.noBridge" xml:space="preserve">
+    <value>No bridge</value>
+  </data>
+  <data name="extraDialog.selfTest.notConnected" xml:space="preserve">
+    <value>Not connected</value>
+  </data>
+  <data name="extraDialog.selfTest.passed" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="extraDialog.selfTest.pending" xml:space="preserve">
+    <value>Pending</value>
+  </data>
+  <data name="extraDialog.selfTest.pingFailed" xml:space="preserve">
+    <value>Ping failed</value>
+  </data>
+  <data name="extraDialog.selfTest.recipeDir" xml:space="preserve">
+    <value>Recipe directory writable</value>
+  </data>
+  <data name="extraDialog.selfTest.running" xml:space="preserve">
+    <value>Running</value>
+  </data>
+  <data name="extraDialog.selfTest.simulator" xml:space="preserve">
+    <value>Simulator TCP</value>
+  </data>
+  <data name="extraDialog.selfTest.title" xml:space="preserve">
+    <value>System Self-Test</value>
+  </data>
+  <data name="extraDialog.selfTest.waferVision" xml:space="preserve">
+    <value>Vision/Wafer</value>
+  </data>
+  <data name="extraDialog.sharedRail.actionComplete" xml:space="preserve">
+    <value>{0} complete.</value>
+  </data>
+  <data name="extraDialog.sharedRail.actionException" xml:space="preserve">
+    <value>{0} failed:&#10;{1}</value>
+  </data>
+  <data name="extraDialog.sharedRail.actionFailed" xml:space="preserve">
+    <value>{0} failed. result={1}</value>
+  </data>
+  <data name="extraDialog.sharedRail.applied" xml:space="preserve">
+    <value>Applied to runtime.</value>
+  </data>
+  <data name="extraDialog.sharedRail.close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="extraDialog.sharedRail.error" xml:space="preserve">
+    <value>{0} error.</value>
+  </data>
+  <data name="extraDialog.sharedRail.help" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="extraDialog.sharedRail.homeAll" xml:space="preserve">
+    <value>Home All</value>
+  </data>
+  <data name="extraDialog.sharedRail.homeSelected" xml:space="preserve">
+    <value>Home Selected</value>
+  </data>
+  <data name="extraDialog.sharedRail.loadFailed" xml:space="preserve">
+    <value>SharedRailX setting read failed: {0}</value>
+  </data>
+  <data name="extraDialog.sharedRail.loaded" xml:space="preserve">
+    <value>Loaded.</value>
+  </data>
+  <data name="extraDialog.sharedRail.moveHeadSub" xml:space="preserve">
+    <value>Move Head/Sub</value>
+  </data>
+  <data name="extraDialog.sharedRail.moveSelected" xml:space="preserve">
+    <value>Move Selected</value>
+  </data>
+  <data name="extraDialog.sharedRail.noAxes" xml:space="preserve">
+    <value>No Head/Sub axes are selected.</value>
+  </data>
+  <data name="extraDialog.sharedRail.numericFailed" xml:space="preserve">
+    <value>Numeric input failed: {0}</value>
+  </data>
+  <data name="extraDialog.sharedRail.pairFailed" xml:space="preserve">
+    <value>Pair rule input failed: {0}</value>
+  </data>
+  <data name="extraDialog.sharedRail.pairRule" xml:space="preserve">
+    <value>PAIR CLEARANCE RULE</value>
+  </data>
+  <data name="extraDialog.sharedRail.refreshNow" xml:space="preserve">
+    <value>Refresh Now</value>
+  </data>
+  <data name="extraDialog.sharedRail.reloadFile" xml:space="preserve">
+    <value>Reload File</value>
+  </data>
+  <data name="extraDialog.sharedRail.running" xml:space="preserve">
+    <value>{0} running...</value>
+  </data>
+  <data name="extraDialog.sharedRail.saveApply" xml:space="preserve">
+    <value>Save + Apply</value>
+  </data>
+  <data name="extraDialog.sharedRail.saveFile" xml:space="preserve">
+    <value>Save File</value>
+  </data>
+  <data name="extraDialog.sharedRail.saved" xml:space="preserve">
+    <value>Saved: {0}</value>
+  </data>
+  <data name="extraDialog.sharedRail.stop" xml:space="preserve">
+    <value>STOP</value>
+  </data>
+  <data name="extraDialog.sharedRail.stopComplete" xml:space="preserve">
+    <value>STOP complete.</value>
+  </data>
+  <data name="extraDialog.sharedRail.stopError" xml:space="preserve">
+    <value>STOP error.</value>
+  </data>
+  <data name="extraDialog.sharedRail.stopException" xml:space="preserve">
+    <value>STOP failed: {0}</value>
+  </data>
+  <data name="extraDialog.sharedRail.stopFailed" xml:space="preserve">
+    <value>STOP failed. result={0}</value>
+  </data>
+  <data name="extraDialog.sharedRail.stopRequested" xml:space="preserve">
+    <value>STOP requested...</value>
+  </data>
+  <data name="extraDialog.sharedRail.stopped" xml:space="preserve">
+    <value>{0} stopped.</value>
+  </data>
+  <data name="extraDialog.sharedRail.validate" xml:space="preserve">
+    <value>Validate</value>
+  </data>
+  <data name="extraDialog.sharedRail.validated" xml:space="preserve">
+    <value>Validated {0} axis targets.</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.chkSameVelocity.caption" xml:space="preserve">
+    <value>Require Same Group Velocity</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.chkSubFrontPicker.caption" xml:space="preserve">
+    <value>FrontPickerX</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.chkSubInputVision.caption" xml:space="preserve">
+    <value>InputVisionX</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.chkSubOutputVision.caption" xml:space="preserve">
+    <value>OutputVisionX</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.chkSubRearPicker.caption" xml:space="preserve">
+    <value>RearPickerX</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.colAxis.caption" xml:space="preserve">
+    <value>Axis</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.colCurrent.caption" xml:space="preserve">
+    <value>Current</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.colMessage.caption" xml:space="preserve">
+    <value>Message</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.colStatus.caption" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.colTarget.caption" xml:space="preserve">
+    <value>Move Target</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.colVelocity.caption" xml:space="preserve">
+    <value>Velocity</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.lblHeadAxis.caption" xml:space="preserve">
+    <value>Head</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.lblStatusParameter.caption" xml:space="preserve">
+    <value>STATUS PARAMETER</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.lblSubAxes.caption" xml:space="preserve">
+    <value>Sub</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.lblTestParameter.caption" xml:space="preserve">
+    <value>TEST PARAMETER</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.lblTitle.caption" xml:space="preserve">
+    <value>SharedRailX Setup / Move / X Home Test</value>
+  </data>
+  <data name="extraDialog.systemSelfTestDialog._btnClose.caption" xml:space="preserve">
+    <value>CLOSE</value>
+  </data>
+  <data name="extraDialog.systemSelfTestDialog._btnRun.caption" xml:space="preserve">
+    <value>RUN</value>
+  </data>
+  <data name="extraDialog.systemSelfTestDialog.colDetail.caption" xml:space="preserve">
+    <value>Detail</value>
+  </data>
+  <data name="extraDialog.systemSelfTestDialog.colName.caption" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="extraDialog.systemSelfTestDialog.colState.caption" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.btnApplyEdges.caption" xml:space="preserve">
+    <value>Apply counts / Regenerate</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.btnClose.caption" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.btnFit.caption" xml:space="preserve">
+    <value>Fit to window</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.btnGenerate.caption" xml:space="preserve">
+    <value>AUTO WAFER CREATE</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.btnRestore.caption" xml:space="preserve">
+    <value>Restore original</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.btnSave.caption" xml:space="preserve">
+    <value>SAVE MAP</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.groupEdges.caption" xml:space="preserve">
+    <value>Edge rows / Total count at current orientation</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.groupSettings.caption" xml:space="preserve">
+    <value>Input specification (at 0°) · mm</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblDiameter.caption" xml:space="preserve">
+    <value>WAFER DIAMETER</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblDieX.caption" xml:space="preserve">
+    <value>DIE X</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblDieY.caption" xml:space="preserve">
+    <value>DIE Y</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblEdgeBottom.caption" xml:space="preserve">
+    <value>BOTTOM ROW (-Y)</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblEdgeLeft.caption" xml:space="preserve">
+    <value>LEFT COLUMN (-X)</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblEdgeRight.caption" xml:space="preserve">
+    <value>RIGHT COLUMN (+X)</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblEdgeTop.caption" xml:space="preserve">
+    <value>TOP ROW (+Y)</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblGapX.caption" xml:space="preserve">
+    <value>GAP X</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblGapY.caption" xml:space="preserve">
+    <value>GAP Y</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblRotation.caption" xml:space="preserve">
+    <value>Rotation (clockwise)</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblStepX.caption" xml:space="preserve">
+    <value>Current orientation STEP X</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblStepY.caption" xml:space="preserve">
+    <value>Current orientation STEP Y</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblTotalCount.caption" xml:space="preserve">
+    <value>Target total die count</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.btnCancel.caption" xml:space="preserve">
+    <value>Canceled</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.lblInputSource.caption" xml:space="preserve">
+    <value>Input map source</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.lblNote.caption" xml:space="preserve">
+    <value>Registered input/output maps are used regardless of delimiter. The delimiter is checked only for downloaded remote input files; a mismatch blocks operation with an alarm.&#13;&#10;The preview shows the registered map. Rotation applies to the base map, separately from the mechanical T axis. Processing at 90°/270° is blocked.&#13;&#10;Displayed/result X/Y use a 1,1 origin. Center means grid center; even grids have 0.5/1.5 positions around the reference. Good/NG output maps share rotation and origin.</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.lblOrigin.caption" xml:space="preserve">
+    <value>Coordinate origin (1,1)</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.lblRole.caption" xml:space="preserve">
+    <value>Settings target</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.lblRotation.caption" xml:space="preserve">
+    <value>Map rotation</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.this.caption" xml:space="preserve">
+    <value>Recipe · Process map settings</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnClose.caption" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnCurrent.caption" xml:space="preserve">
+    <value>Current / Recent map</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnFit.caption" xml:space="preserve">
+    <value>Fit to window</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnOpen.caption" xml:space="preserve">
+    <value>Open file...</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnOriginal.caption" xml:space="preserve">
+    <value>Original 0°</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnRecent.caption" xml:space="preserve">
+    <value>Recently received map</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnRefresh.caption" xml:space="preserve">
+    <value>Refresh list</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnRotateLeft.caption" xml:space="preserve">
+    <value>↶ Left 90°</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnRotateRight.caption" xml:space="preserve">
+    <value>↷ Right 90°</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.colBinColor.caption" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.colBinCount.caption" xml:space="preserve">
+    <value>Count</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.colBinName.caption" xml:space="preserve">
+    <value>BIN / Token</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.colHeaderName.caption" xml:space="preserve">
+    <value>Item</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.colHeaderValue.caption" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.lblBinTitle.caption" xml:space="preserve">
+    <value>BIN counts / Viewer colors</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.lblFileHint.caption" xml:space="preserve">
+    <value>Double-click / Enter to open&#13;&#10;Maps without extensions are also listed.</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.lblFormat.caption" xml:space="preserve">
+    <value>File format</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.lblHeaderTitle.caption" xml:space="preserve">
+    <value>Original header</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.lblMapHint.caption" xml:space="preserve">
+    <value>Wheel: zoom · Drag: pan · Click: select die</value>
+  </data>
+</root>

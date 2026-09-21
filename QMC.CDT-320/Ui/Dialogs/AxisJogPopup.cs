@@ -1,4 +1,5 @@
-﻿using QMC.CDT_320.Ui.Controls;
+﻿using QMC.CDT_320.Ui.Localization;
+using QMC.CDT_320.Ui.Controls;
 using QMC.CDT320;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
@@ -36,6 +37,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _unitJogControllers = EnumerateUnitJogControllers(machine).ToList();
 
                 InitializeComponent();
+            InitializeLanguageBindings();
                 // To do: [앱 아이콘] 조그 팝업 작업표시줄/타이틀바 아이콘 (2026-08-05 지시).
                 QMC.CDT_320.Ui.AppIcons.ApplyEmbeddedIcon(this, "axis-jog.ico");
                 BindAxes();
@@ -612,5 +614,21 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
             }
         }
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(grpSelectAxis, "extraDialog.axisJogPopup.grpSelectAxis.caption");
+            Lang.BindKey(grpMove, "extraDialog.axisJogPopup.grpMove.caption");
+            Lang.BindKey(rdoFine, "extraDialog.axisJogPopup.rdoFine.caption");
+            Lang.BindKey(rdoCoarse, "extraDialog.axisJogPopup.rdoCoarse.caption");
+            Lang.BindKey(grpMoveMode, "extraDialog.axisJogPopup.grpMoveMode.caption");
+            Lang.BindKey(rdoContinuous, "extraDialog.axisJogPopup.rdoContinuous.caption");
+            Lang.BindKey(rdoStep, "extraDialog.axisJogPopup.rdoStep.caption");
+            Lang.BindKey(btnStop, "extraDialog.axisJogPopup.btnStop.caption");
+            Lang.BindKey(btnPrevIndex, "extraDialog.axisJogPopup.btnPrevIndex.caption");
+            Lang.BindKey(btnNextIndex, "extraDialog.axisJogPopup.btnNextIndex.caption");
+            Lang.BindKey(this, "extraDialog.axisJogPopup.this.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 }

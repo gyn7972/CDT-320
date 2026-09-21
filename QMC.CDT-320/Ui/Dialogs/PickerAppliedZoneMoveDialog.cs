@@ -1,3 +1,4 @@
+﻿using QMC.CDT_320.Ui.Localization;
 using System;
 using System.Drawing;
 using System.Windows.Forms;
@@ -85,6 +86,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Padding = new Padding(16, 0, 0, 0),
                 TextAlign = ContentAlignment.MiddleLeft
             };
+            if (string.IsNullOrWhiteSpace(title)) Lang.BindKey(header, "extraDialog.appliedZone.title");
+            else Lang.Bind(header, title.ToUpperInvariant());
+            Lang.Bind(this, title);
             root.Controls.Add(header, 0, 0);
 
             TableLayoutPanel content = new TableLayoutPanel
@@ -127,6 +131,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Font = new Font("Malgun Gothic", 9F, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleLeft
             };
+            Lang.BindKey(guide, "extraDialog.appliedZone.guide");
             root.Controls.Add(guide, 0, 2);
 
             FlowLayoutPanel buttons = new FlowLayoutPanel
@@ -156,6 +161,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             buttons.Controls.Add(btnOk);
             buttons.Controls.Add(btnCancel);
 
+            Lang.BindKey(btnOk, "extraDialog.appliedZone.move");
+            Lang.BindKey(btnCancel, "common.cancel");
+            Lang.BindChoices(cboPicker, value => value.StartsWith("PICKER #", StringComparison.Ordinal)
+                ? Lang.Format("extraDialog.appliedZone.pickerNo", value.Substring("PICKER #".Length)) : value);
+            Lang.BindChoices(cboZone, value => value == "BOTTOM" ? Lang.T("extraDialog.appliedZone.bottom") :
+                value == "SIDE" ? Lang.T("extraDialog.appliedZone.side") :
+                value == "PLACE" ? Lang.T("extraDialog.appliedZone.place") : value);
+            Load += (sender, args) => Lang.Apply(this);
             AcceptButton = btnOk;
             CancelButton = btnCancel;
         }
@@ -190,6 +203,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             combo.Margin = new Padding(12, 9, 12, 8);
             combo.Font = new Font("Malgun Gothic", 10F, FontStyle.Bold);
 
+            Lang.BindKey(label, labelText == "PICKER" ? "extraDialog.appliedZone.picker" : "extraDialog.appliedZone.zone");
             rowLayout.Controls.Add(label, 0, 0);
             rowLayout.Controls.Add(combo, 1, 0);
             content.Controls.Add(rowLayout, 0, row);

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Windows.Forms;
@@ -130,7 +131,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 pgPositionClear.ItemClicked += OnConfigItemClicked;
 
                 // ????? PROFILE ???? ???
-                grpPositionClear.Text = "PROFILE";
+                Lang.BindKey(grpPositionClear, "settingsUi.caption.profile");
 
             }
             catch (Exception ex)
@@ -307,7 +308,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 else
                 {
                     string current = GetCurrentText(axis, name);
-                    using (var dlg = new NumericKeypadDialog(name, current, string.Empty))
+                    using (var dlg = new NumericKeypadDialog(SettingsUiText.Display(name), current, string.Empty))
                     {
                         if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
                         string valueText = dlg.ValueText ?? string.Empty;
@@ -319,8 +320,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                             {
                                 QMC.Common.MessageDialog.Show(
                                     this,
-                                    "MOVE TIMEOUT은 0 이상의 정수(ms)로 입력하십시오.",
-                                    "모션 설정",
+                                    Lang.T("settingsUi.motion.moveTimeoutInput"),
+                                    Lang.T("settingsUi.motion.configuration"),
                                     MessageBoxButtons.OK,
                                     MessageBoxIcon.Warning);
                                 return;
@@ -338,8 +339,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 {
                     QMC.Common.MessageDialog.Show(
                         this,
-                        "모션 축 설정 저장에 실패했습니다.\r\n현재 적용값과 저장 파일의 값이 다를 수 있으며, 재시작하면 이전값으로 복원될 수 있습니다.\r\nAlarm/Event Log를 확인하십시오.",
-                        "모션 설정 저장 실패",
+                        Lang.T("settingsUi.motion.configSaveFailed"),
+                        Lang.T("settingsUi.motion.configSaveFailedTitle"),
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
                     return;
@@ -366,7 +367,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private string ShowEnumDialog(string title, Type enumType, string current)
         {
             var names = new List<string>(Enum.GetNames(enumType));
-            using (var dlg = new EnumPickerDialog(title, names, current))
+            using (var dlg = new EnumPickerDialog(SettingsUiText.Display(title), names, current))
             {
                 if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return null;
                 return dlg.SelectedValue;
@@ -584,4 +585,3 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
-

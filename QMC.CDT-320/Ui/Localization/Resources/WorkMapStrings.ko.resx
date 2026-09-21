@@ -1,0 +1,121 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="workMap.inputCreate" xml:space="preserve"><value>입력 다이 맵 생성</value></data>
+  <data name="workMap.inputMap" xml:space="preserve"><value>입력 다이 맵</value></data>
+  <data name="workMap.inputInfo" xml:space="preserve"><value>다이 맵 정보</value></data>
+  <data name="workMap.chipWidth" xml:space="preserve"><value>칩 너비</value></data>
+  <data name="workMap.chipHeight" xml:space="preserve"><value>칩 높이</value></data>
+  <data name="workMap.centerX" xml:space="preserve"><value>중심 간격 X</value></data>
+  <data name="workMap.centerY" xml:space="preserve"><value>중심 간격 Y</value></data>
+  <data name="workMap.diameter" xml:space="preserve"><value>웨이퍼 직경</value></data>
+  <data name="workMap.axisX" xml:space="preserve"><value>축 X</value></data>
+  <data name="workMap.axisY" xml:space="preserve"><value>축 Y</value></data>
+  <data name="workMap.binRank" xml:space="preserve"><value>빈 등급</value></data>
+  <data name="workMap.dieNumber" xml:space="preserve"><value>다이 번호</value></data>
+  <data name="workMap.dieState" xml:space="preserve"><value>다이 상태 변경</value></data>
+  <data name="workMap.waitInspect" xml:space="preserve"><value>검사 대기</value></data>
+  <data name="workMap.goodInspect" xml:space="preserve"><value>검사 완료(양품)</value></data>
+  <data name="workMap.ngInspect" xml:space="preserve"><value>검사 완료(불량)</value></data>
+  <data name="workMap.skip" xml:space="preserve"><value>제외</value></data>
+  <data name="workMap.flying" xml:space="preserve"><value>다이 유실</value></data>
+  <data name="workMap.applyDie" xml:space="preserve"><value>선택 다이에 적용</value></data>
+  <data name="workMap.applyState" xml:space="preserve"><value>선택 상태 적용</value></data>
+  <data name="workMap.review" xml:space="preserve"><value>웨이퍼 얼라인 / 다이 맵 검토</value></data>
+  <data name="workMap.manualAlign" xml:space="preserve"><value>수동 얼라인 완료</value></data>
+  <data name="workMap.reloadInput" xml:space="preserve"><value>현재 맵 다시 읽기</value></data>
+  <data name="workMap.action" xml:space="preserve"><value>동작</value></data>
+  <data name="workMap.theta" xml:space="preserve"><value>T 보정</value></data>
+  <data name="workMap.detect" xml:space="preserve"><value>다이 검출</value></data>
+  <data name="workMap.offset" xml:space="preserve"><value>오프셋 적용</value></data>
+  <data name="workMap.standard" xml:space="preserve"><value>표준</value></data>
+  <data name="workMap.startIndex" xml:space="preserve"><value>시작 순서</value></data>
+  <data name="workMap.selectStatus" xml:space="preserve"><value>픽업 상태 선택</value></data>
+  <data name="workMap.dragStatus" xml:space="preserve"><value>드래그로 픽업 상태 선택</value></data>
+  <data name="workMap.saveStatus" xml:space="preserve"><value>선택한 픽업 상태 저장</value></data>
+  <data name="workMap.needleDown" xml:space="preserve"><value>니들 블록 하강</value></data>
+  <data name="workMap.inputStageMap" xml:space="preserve"><value>입력 스테이지 다이 맵</value></data>
+  <data name="workMap.projectColon" xml:space="preserve"><value>프로젝트 이름 :</value></data>
+  <data name="workMap.barcode" xml:space="preserve"><value>바코드 :</value></data>
+  <data name="workMap.firstBin" xml:space="preserve"><value>1번 빈 :</value></data>
+  <data name="workMap.close" xml:space="preserve"><value>닫기</value></data>
+  <data name="workMap.index" xml:space="preserve"><value>순서</value></data>
+  <data name="workMap.mapX" xml:space="preserve"><value>맵 X</value></data>
+  <data name="workMap.mapY" xml:space="preserve"><value>맵 Y</value></data>
+  <data name="workMap.gridX" xml:space="preserve"><value>격자 X</value></data>
+  <data name="workMap.gridY" xml:space="preserve"><value>격자 Y</value></data>
+  <data name="workMap.state" xml:space="preserve"><value>상태</value></data>
+  <data name="workMap.result" xml:space="preserve"><value>결과</value></data>
+  <data name="workMap.bin" xml:space="preserve"><value>빈</value></data>
+  <data name="workMap.processX" xml:space="preserve"><value>공정 X(mm)</value></data>
+  <data name="workMap.processY" xml:space="preserve"><value>공정 Y(mm)</value></data>
+  <data name="workMap.dieUid" xml:space="preserve"><value>다이 UID</value></data>
+  <data name="workMap.outputGood" xml:space="preserve"><value>출력 양품 수납 맵</value></data>
+  <data name="workMap.outputNg" xml:space="preserve"><value>출력 불량 수납 맵</value></data>
+  <data name="workMap.outputGrid" xml:space="preserve"><value>출력 수납 맵 목록</value></data>
+  <data name="workMap.outputInfo" xml:space="preserve"><value>빈 / 다이 정보</value></data>
+  <data name="workMap.project" xml:space="preserve"><value>프로젝트 이름</value></data>
+  <data name="workMap.sourceWafer" xml:space="preserve"><value>원본 웨이퍼 :</value></data>
+  <data name="workMap.side" xml:space="preserve"><value>구분 :</value></data>
+  <data name="workMap.progress" xml:space="preserve"><value>진행</value></data>
+  <data name="workMap.binState" xml:space="preserve"><value>빈 / 상태</value></data>
+  <data name="workMap.nextTarget" xml:space="preserve"><value>다음 대상</value></data>
+  <data name="workMap.outputStage" xml:space="preserve"><value>출력 스테이지</value></data>
+  <data name="workMap.good" xml:space="preserve"><value>양품</value></data>
+  <data name="workMap.ng" xml:space="preserve"><value>불량</value></data>
+  <data name="workMap.wait" xml:space="preserve"><value>대기</value></data>
+  <data name="workMap.goodDone" xml:space="preserve"><value>양품 완료</value></data>
+  <data name="workMap.ngDone" xml:space="preserve"><value>불량 완료</value></data>
+  <data name="workMap.reloadOutput" xml:space="preserve"><value>출력 다이 맵 다시 읽기</value></data>
+  <data name="workMap.moveSlot" xml:space="preserve"><value>선택 슬롯으로 이동</value></data>
+  <data name="workMap.goodPlan" xml:space="preserve"><value>양품 수납 계획 초기화</value></data>
+  <data name="workMap.ngPlan" xml:space="preserve"><value>불량 수납 계획 초기화</value></data>
+  <data name="workMap.saveMaterial" xml:space="preserve"><value>자재 상태 저장</value></data>
+  <data name="workMap.refresh" xml:space="preserve"><value>화면 새로고침</value></data>
+  <data name="workMap.sizeX" xml:space="preserve"><value>다이 크기 X(mm)</value></data>
+  <data name="workMap.sizeY" xml:space="preserve"><value>다이 크기 Y(mm)</value></data>
+  <data name="workMap.gapX" xml:space="preserve"><value>다이 간격 X(mm)</value></data>
+  <data name="workMap.gapY" xml:space="preserve"><value>다이 간격 Y(mm)</value></data>
+  <data name="workMap.waferDiameter" xml:space="preserve"><value>웨이퍼 직경(mm)</value></data>
+  <data name="workMap.processOrder" xml:space="preserve"><value>공정 순서</value></data>
+  <data name="workMap.noOutput" xml:space="preserve"><value>빈 / 다이 정보   맵 없음</value></data>
+  <data name="workMap.noInput" xml:space="preserve"><value>다이 맵 정보   맵 없음</value></data>
+  <data name="workMap.noMap" xml:space="preserve"><value>맵 없음</value></data>
+  <data name="workMap.input" xml:space="preserve"><value>입력</value></data>
+  <data name="workMap.visionMove" xml:space="preserve"><value>비전 위치로 이동</value></data>
+  <data name="workMap.stageMove" xml:space="preserve"><value>비전 / 스테이지 위치로 이동</value></data>
+  <data name="workMap.frontMove" xml:space="preserve"><value>전면 픽커 이동</value></data>
+  <data name="workMap.rearMove" xml:space="preserve"><value>후면 픽커 이동</value></data>
+  <data name="workMap.frontPlace" xml:space="preserve"><value>전면 픽커 플레이스 시험</value></data>
+  <data name="workMap.rearPlace" xml:space="preserve"><value>후면 픽커 플레이스 시험</value></data>
+  <data name="workMap.frontPick" xml:space="preserve"><value>전면 픽커 픽업 시험</value></data>
+  <data name="workMap.rearPick" xml:space="preserve"><value>후면 픽커 픽업 시험</value></data>
+  <data name="workMap.frontOffset" xml:space="preserve"><value>전면 픽커 오프셋 설정</value></data>
+  <data name="workMap.rearOffset" xml:space="preserve"><value>후면 픽커 오프셋 설정</value></data>
+  <data name="workMap.dataMove" xml:space="preserve"><value>다이 데이터를 픽커로 이동</value></data>
+  <data name="workMap.front" xml:space="preserve"><value>전면 픽커</value></data>
+  <data name="workMap.rear" xml:space="preserve"><value>후면 픽커</value></data>
+  <data name="workMap.noRecipe" xml:space="preserve"><value>입력 맵 - 활성 레시피 없음</value></data>
+  <data name="workMap.noSpec" xml:space="preserve"><value>입력 맵 - 웨이퍼 사양 미설정</value></data>
+  <data name="workMap.recipePreview" xml:space="preserve"><value>레시피 입력 다이 맵(중심 상대 좌표 미리보기)</value></data>
+  <data name="workMap.basePreview" xml:space="preserve"><value>기본 웨이퍼 맵 미리보기(사양 저장 및 최종 적용 필요)</value></data>
+  <data name="workMap.needApply" xml:space="preserve"><value>입력 맵 최종 적용 필요</value></data>
+  <data name="workMap.circlePreview" xml:space="preserve"><value>레시피 입력 원형 다이 맵(중심 상대 좌표 미리보기)</value></data>
+  <data name="workMap.loadFailed" xml:space="preserve"><value>입력 맵 읽기 실패 - 로그 확인</value></data>
+  <data name="workMap.activeMap" xml:space="preserve"><value>활성 입력 다이 맵(장비 절대 좌표)</value></data>
+  <data name="workMap.needAlign" xml:space="preserve"><value>입력 맵 얼라인 / 매핑 필요</value></data>
+  <data name="workMap.needRealign" xml:space="preserve"><value>입력 맵 재얼라인 / 재매핑 필요</value></data>
+  <data name="workMap.needRemap" xml:space="preserve"><value>입력 맵 재매핑 / 최종 적용 필요</value></data>
+  <data name="workMap.waferMap" xml:space="preserve"><value>입력 웨이퍼 맵</value></data>
+  <data name="workMap.noLot" xml:space="preserve"><value>(로트 없음)</value></data>
+  <data name="workMap.pickerNumber" xml:space="preserve"><value>픽커 #{0}</value></data>
+  <data name="workMap.pickerEmpty" xml:space="preserve"><value>픽커 #{0} (비어 있음)</value></data>
+  <data name="workMap.pickerOccupied" xml:space="preserve"><value>픽커 #{0} ({1})</value></data>
+  <data name="workMap.outputProgress" xml:space="preserve"><value>빈 / 다이 정보   격자 {0}x{1}   진행 {2}</value></data>
+  <data name="workMap.inputProgress" xml:space="preserve"><value>다이 맵 정보   격자 {0}x{1}   진행 {2}</value></data>
+  <data name="workMap.inputLotEmpty" xml:space="preserve"><value>입력 웨이퍼 맵   로트 {0}  (입력 다이 맵 없음)</value></data>
+  <data name="workMap.inputLotCounts" xml:space="preserve"><value>입력 웨이퍼 맵   로트 {0}  대상={1}  대기={2}  검사={3}  픽업={4}  양품={5}  불량={6}  미확인={7}</value></data>
+</root>

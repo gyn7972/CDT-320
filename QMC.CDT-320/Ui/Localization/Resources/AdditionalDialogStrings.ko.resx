@@ -1,0 +1,2633 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="extraDialog.appliedZone.bottom" xml:space="preserve">
+    <value>하부</value>
+  </data>
+  <data name="extraDialog.appliedZone.guide" xml:space="preserve">
+    <value>Z 회피 → Y 회피 → X/T 이동 → Y 이동 → Z 이동</value>
+  </data>
+  <data name="extraDialog.appliedZone.move" xml:space="preserve">
+    <value>이동</value>
+  </data>
+  <data name="extraDialog.appliedZone.picker" xml:space="preserve">
+    <value>피커</value>
+  </data>
+  <data name="extraDialog.appliedZone.pickerNo" xml:space="preserve">
+    <value>피커 #{0}</value>
+  </data>
+  <data name="extraDialog.appliedZone.place" xml:space="preserve">
+    <value>안착</value>
+  </data>
+  <data name="extraDialog.appliedZone.side" xml:space="preserve">
+    <value>측면</value>
+  </data>
+  <data name="extraDialog.appliedZone.title" xml:space="preserve">
+    <value>적용 구역 이동</value>
+  </data>
+  <data name="extraDialog.appliedZone.zone" xml:space="preserve">
+    <value>구역</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.btnNextIndex.caption" xml:space="preserve">
+    <value>다음&#13;&#10;인덱스</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.btnPrevIndex.caption" xml:space="preserve">
+    <value>이전&#13;&#10;인덱스</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.btnStop.caption" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.grpMove.caption" xml:space="preserve">
+    <value>이동</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.grpMoveMode.caption" xml:space="preserve">
+    <value>이동 모드</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.grpSelectAxis.caption" xml:space="preserve">
+    <value>축 선택</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.rdoCoarse.caption" xml:space="preserve">
+    <value>일반</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.rdoContinuous.caption" xml:space="preserve">
+    <value>연속</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.rdoFine.caption" xml:space="preserve">
+    <value>미세</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.rdoStep.caption" xml:space="preserve">
+    <value>단계</value>
+  </data>
+  <data name="extraDialog.axisJogPopup.this.caption" xml:space="preserve">
+    <value>조그 패널</value>
+  </data>
+  <data name="extraDialog.axisPosition.empty" xml:space="preserve">
+    <value>(없음)</value>
+  </data>
+  <data name="extraDialog.axisPositionPopup.colAxisName.caption" xml:space="preserve">
+    <value>축 이름</value>
+  </data>
+  <data name="extraDialog.axisPositionPopup.colAxisNo.caption" xml:space="preserve">
+    <value>번호</value>
+  </data>
+  <data name="extraDialog.axisPositionPopup.colPosition.caption" xml:space="preserve">
+    <value>위치</value>
+  </data>
+  <data name="extraDialog.axisPositionPopup.colUnit.caption" xml:space="preserve">
+    <value>유닛</value>
+  </data>
+  <data name="extraDialog.axisPositionPopup.this.caption" xml:space="preserve">
+    <value>축 위치 모니터</value>
+  </data>
+  <data name="extraDialog.barcode.abort" xml:space="preserve">
+    <value>작업 중단</value>
+  </data>
+  <data name="extraDialog.barcode.checkAgain" xml:space="preserve">
+    <value>다시 확인</value>
+  </data>
+  <data name="extraDialog.barcode.checkInput" xml:space="preserve">
+    <value>입력값 검사</value>
+  </data>
+  <data name="extraDialog.barcode.closeRetry" xml:space="preserve">
+    <value>닫기 / 재시도</value>
+  </data>
+  <data name="extraDialog.barcode.enterValid" xml:space="preserve">
+    <value>수기로 적용할 유효한 바코드를 입력하십시오.</value>
+  </data>
+  <data name="extraDialog.barcode.failureTitle" xml:space="preserve">
+    <value>최근 오류</value>
+  </data>
+  <data name="extraDialog.barcode.header" xml:space="preserve">
+    <value>바코드 판독 복구</value>
+  </data>
+  <data name="extraDialog.barcode.inputWafer" xml:space="preserve">
+    <value>입력 웨이퍼</value>
+  </data>
+  <data name="extraDialog.barcode.manualApply" xml:space="preserve">
+    <value>입력값 적용</value>
+  </data>
+  <data name="extraDialog.barcode.manualGroup" xml:space="preserve">
+    <value>바코드 수동 입력</value>
+  </data>
+  <data name="extraDialog.barcode.manualGuide" xml:space="preserve">
+    <value>웨이퍼 표시 확인 후 수동 입력</value>
+  </data>
+  <data name="extraDialog.barcode.messageTitle" xml:space="preserve">
+    <value>바코드</value>
+  </data>
+  <data name="extraDialog.barcode.needsReview" xml:space="preserve">
+    <value>확인 필요</value>
+  </data>
+  <data name="extraDialog.barcode.outputBin" xml:space="preserve">
+    <value>출력 BIN</value>
+  </data>
+  <data name="extraDialog.barcode.retryCurrent" xml:space="preserve">
+    <value>현재 바코드로 다시 확인</value>
+  </data>
+  <data name="extraDialog.barcode.retryGroup" xml:space="preserve">
+    <value>자동 재시도</value>
+  </data>
+  <data name="extraDialog.barcode.retryScan" xml:space="preserve">
+    <value>판독 재시도</value>
+  </data>
+  <data name="extraDialog.barcode.title" xml:space="preserve">
+    <value>바코드 복구</value>
+  </data>
+  <data name="extraDialog.barcode.validationDetail" xml:space="preserve">
+    <value>LOT ID: {0}&#13;&#10;읽은 바코드: {1}&#13;&#10;&#13;&#10;{2}</value>
+  </data>
+  <data name="extraDialog.barcode.validationPrefixDetail" xml:space="preserve">
+    <value>LOT ID: {0}&#13;&#10;읽은 바코드: {1}&#13;&#10;앞부분 비교: {2}글자&#13;&#10;&#13;&#10;{3}</value>
+  </data>
+  <data name="extraDialog.barcode.waferHeader" xml:space="preserve">
+    <value>웨이퍼 바코드 / 맵 확인</value>
+  </data>
+  <data name="extraDialog.barcode.waferTitle" xml:space="preserve">
+    <value>웨이퍼 바코드 확인</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.btnBuzzerStop.caption" xml:space="preserve">
+    <value>부저 정지</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.lblChannelTitle.caption" xml:space="preserve">
+    <value>채널</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.lblInstanceTitle.caption" xml:space="preserve">
+    <value>개체</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.lblManualBarcode.caption" xml:space="preserve">
+    <value>바코드 ID</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.lblMaterialTitle.caption" xml:space="preserve">
+    <value>자재 정보</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.lblRetryCount.caption" xml:space="preserve">
+    <value>재시도 횟수</value>
+  </data>
+  <data name="extraDialog.barcodeRecoveryDialog.lblRetryStep.caption" xml:space="preserve">
+    <value>Y 이동 간격 (mm)</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.confirmMove" xml:space="preserve">
+    <value>{0} 위치로 이동하시겠습니까?</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.confirmSave" xml:space="preserve">
+    <value>다이맵 설정 정보를 저장하시겠습니까?</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.editFailed" xml:space="preserve">
+    <value>수정 실패: {0}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.loadFailed" xml:space="preserve">
+    <value>불러오기 실패: {0}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.loaded" xml:space="preserve">
+    <value>불러왔습니다. 입력 스테이지 화면/조그로 이동한 뒤 현재 위치를 티칭하세요.</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.messageTitle" xml:space="preserve">
+    <value>다이맵 설정</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.moveCommand" xml:space="preserve">
+    <value>{0} 이동 명령 중...</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.moveComplete" xml:space="preserve">
+    <value>{0} 이동 완료.</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.moveFailed" xml:space="preserve">
+    <value>이동 실패: {0}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.moveResult" xml:space="preserve">
+    <value>{0} 이동 실패. result={1}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.moveTitle" xml:space="preserve">
+    <value>다이맵 설정 이동</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.saveFailed" xml:space="preserve">
+    <value>저장 실패: {0}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.saved" xml:space="preserve">
+    <value>저장했습니다.</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.taught" xml:space="preserve">
+    <value>현재 StageY / VisionX 위치로 {0} 티칭 완료.</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.teachFailed" xml:space="preserve">
+    <value>티칭 실패: {0}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.visionFailed" xml:space="preserve">
+    <value>비전 테스트 실패: {0}</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.visionPlaceholder" xml:space="preserve">
+    <value>비전 PC 연동 준비용 동작입니다. 오프셋=(0, 0).</value>
+  </data>
+  <data name="extraDialog.dieMapSetup.waitInPosition" xml:space="preserve">
+    <value>{0} 위치 도달 대기 중...</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.btnClose.caption" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.btnRefresh.caption" xml:space="preserve">
+    <value>갱신</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.btnRunAll.caption" xml:space="preserve">
+    <value>전체 실행</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.btnRunSelected.caption" xml:space="preserve">
+    <value>단계 실행</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colCommand.caption" xml:space="preserve">
+    <value>명령값</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colCurrentCheck.caption" xml:space="preserve">
+    <value>현재 판정</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colDescription.caption" xml:space="preserve">
+    <value>설명</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colGroupName.caption" xml:space="preserve">
+    <value>그룹</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colPhase.caption" xml:space="preserve">
+    <value>공정 단계</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colStatus.caption" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colStepNo.caption" xml:space="preserve">
+    <value>단계</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colTarget.caption" xml:space="preserve">
+    <value>대상</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.colTargetType.caption" xml:space="preserve">
+    <value>유형</value>
+  </data>
+  <data name="extraDialog.initializationMonitorDialog.lblTitle.caption" xml:space="preserve">
+    <value>초기화 시퀀스 모니터</value>
+  </data>
+  <data name="extraDialog.initialize.allTitle" xml:space="preserve">
+    <value>전체 초기화</value>
+  </data>
+  <data name="extraDialog.initialize.confirmAll" xml:space="preserve">
+    <value>전체 초기화를 진행하시겠습니까?</value>
+  </data>
+  <data name="extraDialog.initialize.planFailed" xml:space="preserve">
+    <value>초기화 계획을 불러오지 못했습니다:&#10;{0}</value>
+  </data>
+  <data name="extraDialog.initialize.runError" xml:space="preserve">
+    <value>초기화 실행 오류:&#10;{0}</value>
+  </data>
+  <data name="extraDialog.initialize.runFailed" xml:space="preserve">
+    <value>초기화 실행에 실패했습니다.</value>
+  </data>
+  <data name="extraDialog.initialize.title" xml:space="preserve">
+    <value>초기화 모니터</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.calculate" xml:space="preserve">
+    <value>현재 위치로 계산</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.fallback" xml:space="preserve">
+    <value>대체값</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.formula" xml:space="preserve">
+    <value>계산식</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.formulaInput" xml:space="preserve">
+    <value>계산식 입력</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.heading" xml:space="preserve">
+    <value>{0} 입력 비전 → 피커 오프셋 설정</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.needleX" xml:space="preserve">
+    <value>니들 X 이동</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.offset" xml:space="preserve">
+    <value>오프셋</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.position" xml:space="preserve">
+    <value>현재 축 위치</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.saved" xml:space="preserve">
+    <value>저장 오프셋</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.selected" xml:space="preserve">
+    <value>선택 다이</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.stack" xml:space="preserve">
+    <value>자동 보정 합계</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.target" xml:space="preserve">
+    <value>최종 이동 목표</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.title" xml:space="preserve">
+    <value>{0} 입력 오프셋</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.variable" xml:space="preserve">
+    <value>저장 변수</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.x" xml:space="preserve">
+    <value>입력 비전 → 피커 X</value>
+  </data>
+  <data name="extraDialog.inputPickerOffset.y" xml:space="preserve">
+    <value>입력 비전 → 피커 Y</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.btnClose.caption" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.btnMove.caption" xml:space="preserve">
+    <value>이동</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.btnSave.caption" xml:space="preserve">
+    <value>저장</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.btnTeach.caption" xml:space="preserve">
+    <value>티칭</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.btnVisionTest.caption" xml:space="preserve">
+    <value>비전 시험</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.colEnabled.caption" xml:space="preserve">
+    <value>사용</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.colName.caption" xml:space="preserve">
+    <value>지점</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.colOffsetX.caption" xml:space="preserve">
+    <value>오프셋 X</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.colOffsetY.caption" xml:space="preserve">
+    <value>오프셋 Y</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.colStageY.caption" xml:space="preserve">
+    <value>스테이지 Y</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.colVisionX.caption" xml:space="preserve">
+    <value>비전 X</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.lblRetry.caption" xml:space="preserve">
+    <value>재시도</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.lblVisionTarget.caption" xml:space="preserve">
+    <value>비전 대상</value>
+  </data>
+  <data name="extraDialog.inputStageDieMapSetupDialog.this.caption" xml:space="preserve">
+    <value>입력 스테이지 다이 맵 설정</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnAbortAuto.caption" xml:space="preserve">
+    <value>취소 / T 정렬 재시도</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnApplyDieState.caption" xml:space="preserve">
+    <value>선택 상태 적용</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnApplyPickupOrder.caption" xml:space="preserve">
+    <value>픽업 순서 적용</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnBuzzerStop.caption" xml:space="preserve">
+    <value>부저 정지</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnClose.caption" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnDieDetection.caption" xml:space="preserve">
+    <value>다이 검출</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnJogStop.caption" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnMappingSetup.caption" xml:space="preserve">
+    <value>매핑 설정</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnMoveSelectedDie.caption" xml:space="preserve">
+    <value>선택 다이 이동</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnOffsetApply.caption" xml:space="preserve">
+    <value>오프셋 적용</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnPreviewPath.caption" xml:space="preserve">
+    <value>픽업 순서 보기</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnRetryAlign.caption" xml:space="preserve">
+    <value>정렬 재시도</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnRetryMapping.caption" xml:space="preserve">
+    <value>다이 매핑 실행</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnSetStartDie.caption" xml:space="preserve">
+    <value>선택 지정</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnSetStartIndex.caption" xml:space="preserve">
+    <value>순번 지정</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnStartRun.caption" xml:space="preserve">
+    <value>확정 / 자동 운전 계속</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnThetaCorrection.caption" xml:space="preserve">
+    <value>T 보정</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.btnVisionTest.caption" xml:space="preserve">
+    <value>비전 시험</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.chkUseSelectedStart.caption" xml:space="preserve">
+    <value>선택 다이를 첫 번째 순서로 사용</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colBin.caption" xml:space="preserve">
+    <value>빈</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colDieUid.caption" xml:space="preserve">
+    <value>다이 UID</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colGridX.caption" xml:space="preserve">
+    <value>격자 X</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colGridY.caption" xml:space="preserve">
+    <value>격자 Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colMapX.caption" xml:space="preserve">
+    <value>맵 X</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colMapY.caption" xml:space="preserve">
+    <value>맵 Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colOriginalX.caption" xml:space="preserve">
+    <value>원본 X</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colOriginalY.caption" xml:space="preserve">
+    <value>원본 Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colPosX.caption" xml:space="preserve">
+    <value>장비 X</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colPosY.caption" xml:space="preserve">
+    <value>장비 Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colResult.caption" xml:space="preserve">
+    <value>결과</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colSequence.caption" xml:space="preserve">
+    <value>순번</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.colState.caption" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpActions.caption" xml:space="preserve">
+    <value>동작</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpDieState.caption" xml:space="preserve">
+    <value>다이 상태 편집</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpJog.caption" xml:space="preserve">
+    <value>입력 스테이지 조그</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpMapInfo.caption" xml:space="preserve">
+    <value>다이 맵 정보</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpPickupRoute.caption" xml:space="preserve">
+    <value>픽업 경로</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpStartDie.caption" xml:space="preserve">
+    <value>시작 다이</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpWaferVision.caption" xml:space="preserve">
+    <value>웨이퍼 비전</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.grpWorkflow.caption" xml:space="preserve">
+    <value>정렬 / 매핑 / 실행</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblAlignCaption.caption" xml:space="preserve">
+    <value>정렬</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblCornerCaption.caption" xml:space="preserve">
+    <value>시작 코너</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblDieSizeXCaption.caption" xml:space="preserve">
+    <value>다이 크기 X (mm)</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblDieSizeYCaption.caption" xml:space="preserve">
+    <value>다이 크기 Y (mm)</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblDirectionCaption.caption" xml:space="preserve">
+    <value>진행 방향</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblEquipmentGridCaption.caption" xml:space="preserve">
+    <value>맵 X/Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblInputCameraXCaption.caption" xml:space="preserve">
+    <value>입력 카메라 X</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblInputStageYCaption.caption" xml:space="preserve">
+    <value>입력 스테이지 Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblJogSpeed.caption" xml:space="preserve">
+    <value>조그 속도</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblMapGridCaption.caption" xml:space="preserve">
+    <value>격자 X/Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblMapProgressCaption.caption" xml:space="preserve">
+    <value>진행</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblMappingCaption.caption" xml:space="preserve">
+    <value>매핑</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblMappingOriginCaption.caption" xml:space="preserve">
+    <value>맵 원점</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblOriginalMapCaption.caption" xml:space="preserve">
+    <value>빈</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblPatternCaption.caption" xml:space="preserve">
+    <value>패턴</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblPitchGapXCaption.caption" xml:space="preserve">
+    <value>피치 간격 X (mm)</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblPitchGapYCaption.caption" xml:space="preserve">
+    <value>피치 간격 Y (mm)</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblRecipeCaption.caption" xml:space="preserve">
+    <value>레시피</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblReviewCaption.caption" xml:space="preserve">
+    <value>검토</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblRevisionCaption.caption" xml:space="preserve">
+    <value>매핑 리비전</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblSelectedDieCaption.caption" xml:space="preserve">
+    <value>선택 다이 UID</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblSelectedPositionCaption.caption" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblSelectedSequenceCaption.caption" xml:space="preserve">
+    <value>선택 순번</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblStartDieCaption.caption" xml:space="preserve">
+    <value>선택 다이</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblStartIndexCaption.caption" xml:space="preserve">
+    <value>실행 순번</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblTargetCountCaption.caption" xml:space="preserve">
+    <value>대상 개수</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblTitle.caption" xml:space="preserve">
+    <value>웨이퍼 정렬 / 다이 맵 검토</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblVisionCaption.caption" xml:space="preserve">
+    <value>비전</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblVisionXCaption.caption" xml:space="preserve">
+    <value>카메라 X</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblWaferCaption.caption" xml:space="preserve">
+    <value>웨이퍼</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblWaferDiameterCaption.caption" xml:space="preserve">
+    <value>웨이퍼 직경</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblWaferTCaption.caption" xml:space="preserve">
+    <value>스테이지 T</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.lblWaferYCaption.caption" xml:space="preserve">
+    <value>스테이지 Y</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbCornerBottomLeft.caption" xml:space="preserve">
+    <value>좌측 하단</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbCornerBottomRight.caption" xml:space="preserve">
+    <value>우측 하단</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbCornerTopLeft.caption" xml:space="preserve">
+    <value>좌측 상단</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbCornerTopRight.caption" xml:space="preserve">
+    <value>우측 상단</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbDieStateGood.caption" xml:space="preserve">
+    <value>양품 / 검사 완료</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbDieStateNg.caption" xml:space="preserve">
+    <value>불량 / 검사 불량</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbDieStateSkip.caption" xml:space="preserve">
+    <value>건너뛰기 / 제외</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbDieStateWait.caption" xml:space="preserve">
+    <value>대기 / 검사 대기</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbDirectionHorizontal.caption" xml:space="preserve">
+    <value>가로</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbDirectionVertical.caption" xml:space="preserve">
+    <value>세로</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbPatternStraight.caption" xml:space="preserve">
+    <value>직선</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.rbPatternZigZag.caption" xml:space="preserve">
+    <value>지그재그</value>
+  </data>
+  <data name="extraDialog.inputStageRunReviewDialog.this.caption" xml:space="preserve">
+    <value>웨이퍼 정렬 / 다이 매핑 검토</value>
+  </data>
+  <data name="extraDialog.lotHistory.aborted" xml:space="preserve">
+    <value>중단</value>
+  </data>
+  <data name="extraDialog.lotHistory.active" xml:space="preserve">
+    <value>진행 중인 LOT: {0}</value>
+  </data>
+  <data name="extraDialog.lotHistory.complete" xml:space="preserve">
+    <value>완료</value>
+  </data>
+  <data name="extraDialog.lotHistory.none" xml:space="preserve">
+    <value>진행 중인 LOT: 없음</value>
+  </data>
+  <data name="extraDialog.lotHistory.readFailed" xml:space="preserve">
+    <value>LOT 이력을 다시 읽지 못했습니다: {0}</value>
+  </data>
+  <data name="extraDialog.lotHistory.running" xml:space="preserve">
+    <value>진행중</value>
+  </data>
+  <data name="extraDialog.lotHistory.waiting" xml:space="preserve">
+    <value>대기</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.btnClose.caption" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.btnRefresh.caption" xml:space="preserve">
+    <value>새로고침</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotFinished.caption" xml:space="preserve">
+    <value>종료</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotGood.caption" xml:space="preserve">
+    <value>양품</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotId.caption" xml:space="preserve">
+    <value>LOT ID</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotNg.caption" xml:space="preserve">
+    <value>불량</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotProcessed.caption" xml:space="preserve">
+    <value>처리</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotRecipe.caption" xml:space="preserve">
+    <value>레시피</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotStarted.caption" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotState.caption" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.colLotYield.caption" xml:space="preserve">
+    <value>수율 (%)</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.lblHint.caption" xml:space="preserve">
+    <value>이력은 Log\Lots 폴더에 LOT별 JSON 파일로 저장되며 프로그램을 재시작해도 유지됩니다.</value>
+  </data>
+  <data name="extraDialog.lotHistoryDialog.this.caption" xml:space="preserve">
+    <value>LOT 진행 이력</value>
+  </data>
+  <data name="extraDialog.manualSequence.complete" xml:space="preserve">
+    <value>{0} 완료.</value>
+  </data>
+  <data name="extraDialog.manualSequence.confirmStart" xml:space="preserve">
+    <value>{0} 공정을 시작하시겠습니까?</value>
+  </data>
+  <data name="extraDialog.manualSequence.confirmTitle" xml:space="preserve">
+    <value>수동 시퀀스 실행 확인</value>
+  </data>
+  <data name="extraDialog.manualSequence.requested" xml:space="preserve">
+    <value>{0} 실행 요청 완료.</value>
+  </data>
+  <data name="extraDialog.manualSequence.running" xml:space="preserve">
+    <value>{0} 실행 중...</value>
+  </data>
+  <data name="extraDialog.manualSequence.saveFailed" xml:space="preserve">
+    <value>속도 설정 저장에 실패했습니다: {0}</value>
+  </data>
+  <data name="extraDialog.manualSequence.sideComplete" xml:space="preserve">
+    <value>{0} {1} 완료.</value>
+  </data>
+  <data name="extraDialog.manualSequence.sideRunning" xml:space="preserve">
+    <value>{0} {1} 실행 중...</value>
+  </data>
+  <data name="extraDialog.manualSequence.speedChanged" xml:space="preserve">
+    <value>속도 값이 변경되었습니다. 저장 버튼을 눌러 저장·적용하세요.</value>
+  </data>
+  <data name="extraDialog.manualSequence.speedSaved" xml:space="preserve">
+    <value>속도 설정을 저장하고 적용했습니다. 수동={0}%, 준비 동작={1}%</value>
+  </data>
+  <data name="extraDialog.manualSequence.targetsFailed" xml:space="preserve">
+    <value>로딩 대상 목록을 구성하지 못했습니다: {0}</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnAllStep.caption" xml:space="preserve">
+    <value>전체 단계</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnBottom.caption" xml:space="preserve">
+    <value>하부</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnClose.caption" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnInputLoad.caption" xml:space="preserve">
+    <value>입력 로딩</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnInputUnload.caption" xml:space="preserve">
+    <value>입력 언로딩</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnOutputLoad.caption" xml:space="preserve">
+    <value>출력 로딩</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnOutputUnload.caption" xml:space="preserve">
+    <value>출력 언로딩</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnPickUp.caption" xml:space="preserve">
+    <value>픽업</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnPickUpZTest.caption" xml:space="preserve">
+    <value>픽업 Z 시험</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnPlace.caption" xml:space="preserve">
+    <value>안착</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnRefreshLoadTargets.caption" xml:space="preserve">
+    <value>갱신</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnSaveSpeedPercent.caption" xml:space="preserve">
+    <value>저장</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.btnSide.caption" xml:space="preserve">
+    <value>측면</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.lblInputLoadTarget.caption" xml:space="preserve">
+    <value>입력 로딩 대상</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.lblOutputLoadTarget.caption" xml:space="preserve">
+    <value>출력 로딩 대상</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.lblOutputSide.caption" xml:space="preserve">
+    <value>배출</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.lblPickerNo.caption" xml:space="preserve">
+    <value>피커 번호</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.lblReadySpeedPercent.caption" xml:space="preserve">
+    <value>준비 동작 속도 (%)</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.lblSpeedPercent.caption" xml:space="preserve">
+    <value>수동 속도 (%)</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.rbFrontPicker.caption" xml:space="preserve">
+    <value>전면 피커</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.rbOutputGood.caption" xml:space="preserve">
+    <value>양품</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.rbOutputNg.caption" xml:space="preserve">
+    <value>불량</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.rbRearPicker.caption" xml:space="preserve">
+    <value>후면 피커</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.rdoOutputAll.caption" xml:space="preserve">
+    <value>전체</value>
+  </data>
+  <data name="extraDialog.manualSequenceDialog.titleLabel.caption" xml:space="preserve">
+    <value>수동 시퀀스</value>
+  </data>
+  <data name="extraDialog.mapCreate.boundaryHint" xml:space="preserve">
+    <value>내부 여백을 뺀 원 안에 다이 전체가 들어오는지 확인합니다. 여백은 다이 간격과 별개입니다.</value>
+  </data>
+  <data name="extraDialog.mapCreate.boundaryLegend" xml:space="preserve">
+    <value>실선: 웨이퍼 외곽 / 점선: 내부 여백을 뺀 허용 원 · 초록: 내부 / 빨강: 초과</value>
+  </data>
+  <data name="extraDialog.mapCreate.counts" xml:space="preserve">
+    <value>생성 다이: {0}개 · 회전 {1}°&#13;&#10;현재 맵 격자: {2}열 × {3}행&#13;&#10;끝줄 실제: 상 {4} / 하 {5} / 좌 {6} / 우 {7}&#13;&#10;내부 여백: {8} mm&#13;&#10;원 영역 초과: {9}개</value>
+  </data>
+  <data name="extraDialog.mapCreate.countsLegacy" xml:space="preserve">
+    <value>생성 다이: {0}개 · 회전 {1}°&#13;&#10;현재 맵 격자: {2}열 × {3}행&#13;&#10;끝줄 실제: 상 {4} / 하 {5} / 좌 {6} / 우 {7}&#13;&#10;이전식 외곽 여유: +0.200 mm&#13;&#10;원 영역 초과: {9}개</value>
+  </data>
+  <data name="extraDialog.mapCreate.innerMargin" xml:space="preserve">
+    <value>내부 여백 (mm)</value>
+  </data>
+  <data name="extraDialog.mapCreate.inputHeading" xml:space="preserve">
+    <value>입력 웨이퍼 맵 생성</value>
+  </data>
+  <data name="extraDialog.mapCreate.inputTitle" xml:space="preserve">
+    <value>입력 · 맵 생성 미리보기 / 저장</value>
+  </data>
+  <data name="extraDialog.mapCreate.legacyBoundary" xml:space="preserve">
+    <value>이전 방식: 외곽 여유 +0.200 mm · 새로 생성하면 내부 여백 방식으로 전환됩니다.</value>
+  </data>
+  <data name="extraDialog.mapCreate.legacyMargin" xml:space="preserve">
+    <value>이전식 외곽 여유 (+mm)</value>
+  </data>
+  <data name="extraDialog.mapCreate.noCounts" xml:space="preserve">
+    <value>생성 다이: —&#13;&#10;현재 맵 격자: —&#13;&#10;끝줄 실제: —&#13;&#10;원 영역 초과: —</value>
+  </data>
+  <data name="extraDialog.mapCreate.outputHeading" xml:space="preserve">
+    <value>출력 웨이퍼 맵 생성</value>
+  </data>
+  <data name="extraDialog.mapCreate.outputTitle" xml:space="preserve">
+    <value>출력 · 맵 생성 미리보기 / 저장</value>
+  </data>
+  <data name="extraDialog.mapCreate.outside" xml:space="preserve">
+    <value>빨간 다이 {0}개가 허용 원 영역 밖에 있습니다. 설정 저장 가능 · 생성 배치 유지&#13;&#10;현재 배치 필요 직경: {1} mm 이상</value>
+  </data>
+  <data name="extraDialog.mapCreate.outsidePending" xml:space="preserve">
+    <value>빨간 다이 {0}개가 허용 원 영역 밖에 있습니다. 입력 미적용 · 저장 차단 · 생성 배치 유지&#13;&#10;현재 배치 필요 직경: {1} mm 이상</value>
+  </data>
+  <data name="extraDialog.mapCreate.previewFailed" xml:space="preserve">
+    <value>웨이퍼 맵 미리보기 처리에 실패했습니다.&#13;&#10;{0}</value>
+  </data>
+  <data name="extraDialog.mapCreate.saveFailed" xml:space="preserve">
+    <value>생성한 맵을 저장할 수 없습니다.&#13;&#10;{0}</value>
+  </data>
+  <data name="extraDialog.mapCreate.selectHint" xml:space="preserve">
+    <value>다이를 클릭하면 원본 주소와 웨이퍼 중심 기준 위치를 표시합니다.&#13;&#10;마우스 휠: 확대/축소 · +Y: 위쪽</value>
+  </data>
+  <data name="extraDialog.mapCreate.selected" xml:space="preserve">
+    <value>원본 주소: 열 {0} / 행 {1}&#13;&#10;중심 위치: X {2} mm / Y {3} mm</value>
+  </data>
+  <data name="extraDialog.mapCreate.selectedOutside" xml:space="preserve">
+    <value>원본 주소: 열 {0} / 행 {1}&#13;&#10;중심 위치: X {2} mm / Y {3} mm · 허용 원 영역 초과</value>
+  </data>
+  <data name="extraDialog.mapProcess.applyError" xml:space="preserve">
+    <value>공정 맵 설정을 적용하지 못했습니다.&#13;&#10;{0}</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.bottomLeft" xml:space="preserve">
+    <value>좌하단 (X→ Y↑)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.bottomRight" xml:space="preserve">
+    <value>우하단 (X← Y↑)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.camtek" xml:space="preserve">
+    <value>CAMTEK</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.center" xml:space="preserve">
+    <value>센터 (X→ Y↑)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.circle" xml:space="preserve">
+    <value>서클</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.circleGenerated" xml:space="preserve">
+    <value>서클 (등록 생성 맵)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.goodOutput" xml:space="preserve">
+    <value>출력 · 양품 미리보기</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.input" xml:space="preserve">
+    <value>입력</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.legacy" xml:space="preserve">
+    <value>기존 설정 사용</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.ngOutput" xml:space="preserve">
+    <value>출력 · 불량 미리보기</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.other" xml:space="preserve">
+    <value>타업체 (미지원 형식)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.registeredNoFormat" xml:space="preserve">
+    <value>등록 맵 사용 · 구분자 미적용</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.registeredNoRemote" xml:space="preserve">
+    <value>등록 맵 사용 (원격 미사용)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.remoteDownload" xml:space="preserve">
+    <value>원격 맵 다운로드</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.rotate180" xml:space="preserve">
+    <value>180° 회전</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.samsung" xml:space="preserve">
+    <value>삼성 (RAD)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.topLeft" xml:space="preserve">
+    <value>좌상단 (X→ Y↓)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.topRight" xml:space="preserve">
+    <value>우상단 (X← Y↓)</value>
+  </data>
+  <data name="extraDialog.mapProcess.choice.zeroRotation" xml:space="preserve">
+    <value>0° · 등록 맵 방향 유지</value>
+  </data>
+  <data name="extraDialog.mapProcess.excluded" xml:space="preserve">
+    <value>제외</value>
+  </data>
+  <data name="extraDialog.mapProcess.inputPreview" xml:space="preserve">
+    <value>등록 맵 미리보기 · 대상 {0}개 · 회전 {1}° · 1,1 기준 {2}&#13;&#10;회전·원점과 작업 대상/제외·레시피 BIN 필터를 반영한 공정 순서입니다. 주황색 셀은 1,1입니다.</value>
+  </data>
+  <data name="extraDialog.mapProcess.messageTitle" xml:space="preserve">
+    <value>레시피 맵 설정</value>
+  </data>
+  <data name="extraDialog.mapProcess.noTargets" xml:space="preserve">
+    <value>현재 설정으로 공정 대상이 없습니다.</value>
+  </data>
+  <data name="extraDialog.mapProcess.originLegend" xml:space="preserve">
+    <value>기준 1,1</value>
+  </data>
+  <data name="extraDialog.mapProcess.outputPreview" xml:space="preserve">
+    <value>등록 맵 미리보기 · 대상 {0}개 · 회전 {1}° · 1,1 기준 {2}&#13;&#10;회전·원점과 작업 대상/제외를 반영한 공정 순서입니다. 주황색 셀은 1,1입니다.</value>
+  </data>
+  <data name="extraDialog.mapProcess.preparationRequired" xml:space="preserve">
+    <value>맵 준비 필요 · 구분자/회전/원점 설정은 먼저 저장할 수 있습니다.&#13;&#10;{0}&#13;&#10;등록 모드는 웨이퍼 맵 불러오기 또는 맵 생성을 진행하세요. 구분자는 원격 입력 다운로드에만 적용됩니다.</value>
+  </data>
+  <data name="extraDialog.mapProcess.previewError" xml:space="preserve">
+    <value>미리보기 확인: {0}</value>
+  </data>
+  <data name="extraDialog.mapProcess.recipe" xml:space="preserve">
+    <value>레시피: {0}   ·   입력 / 출력 설정</value>
+  </data>
+  <data name="extraDialog.mapProcess.registeredFormat" xml:space="preserve">
+    <value>등록 맵 사용</value>
+  </data>
+  <data name="extraDialog.mapProcess.remoteFormat" xml:space="preserve">
+    <value>원격 맵 구분자</value>
+  </data>
+  <data name="extraDialog.mapProcess.saveApply" xml:space="preserve">
+    <value>설정 저장 및 적용</value>
+  </data>
+  <data name="extraDialog.mapProcess.selectedCell" xml:space="preserve">
+    <value>{0}  |  공정 #{1}  |  BIN {2}</value>
+  </data>
+  <data name="extraDialog.mapProcess.sourceHint" xml:space="preserve">
+    <value>{0}&#13;&#10;시작 전: 바로 적용 · 투입 시작 후: 다음 웨이퍼 적용</value>
+  </data>
+  <data name="extraDialog.mapProcess.target" xml:space="preserve">
+    <value>대상</value>
+  </data>
+  <data name="extraDialog.motionTest.ajinOnly" xml:space="preserve">
+    <value>Ajin 실축에서만 지원하는 시험입니다.</value>
+  </data>
+  <data name="extraDialog.motionTest.alarmStopped" xml:space="preserve">
+    <value>축 알람으로 정지했습니다.</value>
+  </data>
+  <data name="extraDialog.motionTest.axisNotReady" xml:space="preserve">
+    <value>축 상태가 준비되지 않았습니다 (서보/알람/이동 확인).</value>
+  </data>
+  <data name="extraDialog.motionTest.axisState" xml:space="preserve">
+    <value>서보={0}  이동={1}  위치 도달={2}  알람={3}</value>
+  </data>
+  <data name="extraDialog.motionTest.captured" xml:space="preserve">
+    <value>현재 위치를 취득했습니다.</value>
+  </data>
+  <data name="extraDialog.motionTest.counter" xml:space="preserve">
+    <value>사이클 {0} / {1}  이동 횟수 {2}</value>
+  </data>
+  <data name="extraDialog.motionTest.defaultLoaded" xml:space="preserve">
+    <value>기본 프로파일을 불러왔습니다.</value>
+  </data>
+  <data name="extraDialog.motionTest.endFailed" xml:space="preserve">
+    <value>종료 위치 이동 실패. 결과={0}</value>
+  </data>
+  <data name="extraDialog.motionTest.loadFailed" xml:space="preserve">
+    <value>기본 프로파일을 불러오지 못했습니다: {0}</value>
+  </data>
+  <data name="extraDialog.motionTest.logCleared" xml:space="preserve">
+    <value>모션 로그를 지웠습니다.</value>
+  </data>
+  <data name="extraDialog.motionTest.moveComplete" xml:space="preserve">
+    <value>이동을 완료했습니다.</value>
+  </data>
+  <data name="extraDialog.motionTest.moveFailed" xml:space="preserve">
+    <value>이동 실패. 결과={0}</value>
+  </data>
+  <data name="extraDialog.motionTest.moving" xml:space="preserve">
+    <value>{0} 이동 중...</value>
+  </data>
+  <data name="extraDialog.motionTest.override" xml:space="preserve">
+    <value>오버라이드 보정&#10;(-100/-300)</value>
+  </data>
+  <data name="extraDialog.motionTest.ready" xml:space="preserve">
+    <value>준비</value>
+  </data>
+  <data name="extraDialog.motionTest.repeatComplete" xml:space="preserve">
+    <value>반복을 완료했습니다.</value>
+  </data>
+  <data name="extraDialog.motionTest.repeatFailed" xml:space="preserve">
+    <value>반복 실패: {0}</value>
+  </data>
+  <data name="extraDialog.motionTest.repeatRunning" xml:space="preserve">
+    <value>반복 시험 중입니다. 먼저 정지하세요.</value>
+  </data>
+  <data name="extraDialog.motionTest.running" xml:space="preserve">
+    <value>모션 시험 중입니다. 먼저 정지하세요.</value>
+  </data>
+  <data name="extraDialog.motionTest.samePosition" xml:space="preserve">
+    <value>시작 위치와 종료 위치가 같습니다.</value>
+  </data>
+  <data name="extraDialog.motionTest.servoOn" xml:space="preserve">
+    <value>서보 켜기를 요청했습니다.</value>
+  </data>
+  <data name="extraDialog.motionTest.startFailed" xml:space="preserve">
+    <value>시작 위치 이동 실패. 결과={0}</value>
+  </data>
+  <data name="extraDialog.motionTest.stopRequested" xml:space="preserve">
+    <value>정지를 요청했습니다.</value>
+  </data>
+  <data name="extraDialog.motionTest.stopped" xml:space="preserve">
+    <value>정지했습니다.</value>
+  </data>
+  <data name="extraDialog.motionTest.swapped" xml:space="preserve">
+    <value>시작/종료 위치를 바꿨습니다.</value>
+  </data>
+  <data name="extraDialog.motionTest.tooFast" xml:space="preserve">
+    <value>이동이 너무 빨라 중간 발행을 못 했습니다. 속도 스케일을 낮추고 재시도하십시오.</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnCaptureEnd.caption" xml:space="preserve">
+    <value>현재값 취득</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnCaptureStart.caption" xml:space="preserve">
+    <value>현재값 취득</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnClose.caption" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnMotionLogClear.caption" xml:space="preserve">
+    <value>지우기</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnMoveEnd.caption" xml:space="preserve">
+    <value>이동</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnMoveStart.caption" xml:space="preserve">
+    <value>이동</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnReloadDefault.caption" xml:space="preserve">
+    <value>기본값&#13;&#10;불러오기</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnServoOn.caption" xml:space="preserve">
+    <value>서보 켜기</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnStartRepeat.caption" xml:space="preserve">
+    <value>반복 시작</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnStop.caption" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.btnSwap.caption" xml:space="preserve">
+    <value>서로 바꾸기</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.chkSoftLimitCheck.caption" xml:space="preserve">
+    <value>소프트 리미트 확인</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.chkStopOnAlarm.caption" xml:space="preserve">
+    <value>알람 시 정지</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.colProfileName.caption" xml:space="preserve">
+    <value>항목</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.colProfileUnit.caption" xml:space="preserve">
+    <value>유닛</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.colProfileValue.caption" xml:space="preserve">
+    <value>값</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.grpAxis.caption" xml:space="preserve">
+    <value>축</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.grpPosition.caption" xml:space="preserve">
+    <value>반복 위치</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.grpProfile.caption" xml:space="preserve">
+    <value>모션 프로파일</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.grpRepeat.caption" xml:space="preserve">
+    <value>반복 설정</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.grpStatus.caption" xml:space="preserve">
+    <value>축 상태</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblActualCaption.caption" xml:space="preserve">
+    <value>실제값</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblAxisNameCaption.caption" xml:space="preserve">
+    <value>이름</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblCommandCaption.caption" xml:space="preserve">
+    <value>명령값</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblDwellCaption.caption" xml:space="preserve">
+    <value>대기 시간</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblEndCaption.caption" xml:space="preserve">
+    <value>종료</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblRepeatCaption.caption" xml:space="preserve">
+    <value>반복</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblStartCaption.caption" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblTimeoutCaption.caption" xml:space="preserve">
+    <value>제한 시간</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.lblUnitCaption.caption" xml:space="preserve">
+    <value>유닛</value>
+  </data>
+  <data name="extraDialog.motionTestDialog.this.caption" xml:space="preserve">
+    <value>모션 시험</value>
+  </data>
+  <data name="extraDialog.pickerOffset.axisUnavailable" xml:space="preserve">
+    <value>현재 PickerX/PickerY/StageY 축 정보를 찾을 수 없습니다.</value>
+  </data>
+  <data name="extraDialog.pickerOffset.calculated" xml:space="preserve">
+    <value>현재 위치 기준 계산 완료. PickerX={0} mm, PickerY={1} mm, StageY={2} mm, 카메라 오프셋은 저장된 InputVisionToPicker X/Y에 한 번 적용됩니다, PickerYInput={3}, StageYTarget={4} mm</value>
+  </data>
+  <data name="extraDialog.pickerOffset.calculationFailed" xml:space="preserve">
+    <value>현재 위치 계산 실패: {0}</value>
+  </data>
+  <data name="extraDialog.pickerOffset.loadFailed" xml:space="preserve">
+    <value>불러오기 실패: {0}</value>
+  </data>
+  <data name="extraDialog.pickerOffset.previewFailed" xml:space="preserve">
+    <value>미리보기 실패: {0}</value>
+  </data>
+  <data name="extraDialog.pickerOffset.saveFailed" xml:space="preserve">
+    <value>저장 실패: {0}</value>
+  </data>
+  <data name="extraDialog.pickerZone.clearanceFailed" xml:space="preserve">
+    <value>안전거리 불러오기 실패: {0}</value>
+  </data>
+  <data name="extraDialog.pickerZone.current" xml:space="preserve">
+    <value>현재 X: {0} mm</value>
+  </data>
+  <data name="extraDialog.pickerZone.invalidLoaded" xml:space="preserve">
+    <value>불러오기 완료 - 판정 불가 구간 있음 (저장하려면 경계 수정 필요).</value>
+  </data>
+  <data name="extraDialog.pickerZone.loadFailed" xml:space="preserve">
+    <value>불러오기 실패: {0}</value>
+  </data>
+  <data name="extraDialog.pickerZone.loaded" xml:space="preserve">
+    <value>불러오기 완료.</value>
+  </data>
+  <data name="extraDialog.pickerZone.missing" xml:space="preserve">
+    <value>피커 설정을 찾을 수 없습니다.</value>
+  </data>
+  <data name="extraDialog.pickerZone.noCurrent" xml:space="preserve">
+    <value>현재 X: -</value>
+  </data>
+  <data name="extraDialog.pickerZone.overlap" xml:space="preserve">
+    <value>현재 X 위치가 여러 구역에 겹칩니다. 구역 범위를 다시 설정하세요.</value>
+  </data>
+  <data name="extraDialog.pickerZone.saved" xml:space="preserve">
+    <value>저장 완료.</value>
+  </data>
+  <data name="extraDialog.pickerZone.taught" xml:space="preserve">
+    <value>{0} 티칭 완료.</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.btnClose.caption" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.btnReload.caption" xml:space="preserve">
+    <value>다시 불러오기</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.btnSave.caption" xml:space="preserve">
+    <value>저장</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.btnTeachMax.caption" xml:space="preserve">
+    <value>최대값 티칭</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.btnTeachMin.caption" xml:space="preserve">
+    <value>최소값 티칭</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.chkUseEncoderZone.caption" xml:space="preserve">
+    <value>엔코더 구역 사용</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.colCurrent.caption" xml:space="preserve">
+    <value>현재 X</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.colMatch.caption" xml:space="preserve">
+    <value>일치</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.colMax.caption" xml:space="preserve">
+    <value>최대 X</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.colMin.caption" xml:space="preserve">
+    <value>최소 X</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.colUse.caption" xml:space="preserve">
+    <value>사용</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.colZone.caption" xml:space="preserve">
+    <value>구역</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.lblSide.caption" xml:space="preserve">
+    <value>피커</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.lblTitle.caption" xml:space="preserve">
+    <value>피커 X 구역 설정</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.lblTolerance.caption" xml:space="preserve">
+    <value>허용 오차</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.lblXClearance.caption" xml:space="preserve">
+    <value>마주보기 X</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.lblYOutDistance.caption" xml:space="preserve">
+    <value>Y 진출 거리</value>
+  </data>
+  <data name="extraDialog.pickerZoneSetupDialog.this.caption" xml:space="preserve">
+    <value>피커 X 구역 설정</value>
+  </data>
+  <data name="extraDialog.progress.alarmState" xml:space="preserve">
+    <value>알람 상태</value>
+  </data>
+  <data name="extraDialog.progress.axesCompleting" xml:space="preserve">
+    <value>모든 축 이동 완료 확인 중입니다.</value>
+  </data>
+  <data name="extraDialog.progress.completedSteps" xml:space="preserve">
+    <value>{0} / {1} 단계 완료</value>
+  </data>
+  <data name="extraDialog.progress.cycleStopped" xml:space="preserve">
+    <value>사이클 정지 완료</value>
+  </data>
+  <data name="extraDialog.progress.idle" xml:space="preserve">
+    <value>준비 중</value>
+  </data>
+  <data name="extraDialog.progress.movingAxes" xml:space="preserve">
+    <value>이동 중 축: {0}</value>
+  </data>
+  <data name="extraDialog.progress.readyCanceled" xml:space="preserve">
+    <value>준비 동작 정지</value>
+  </data>
+  <data name="extraDialog.progress.readyComplete" xml:space="preserve">
+    <value>준비 동작 완료</value>
+  </data>
+  <data name="extraDialog.progress.readyFailed" xml:space="preserve">
+    <value>준비 동작 실패</value>
+  </data>
+  <data name="extraDialog.progress.readyIdle" xml:space="preserve">
+    <value>준비 동작 준비</value>
+  </data>
+  <data name="extraDialog.progress.readyMessage" xml:space="preserve">
+    <value>모션이 완료될 때까지 기다려 주세요.</value>
+  </data>
+  <data name="extraDialog.progress.readyRunning" xml:space="preserve">
+    <value>준비 동작 진행 중</value>
+  </data>
+  <data name="extraDialog.progress.readyStep" xml:space="preserve">
+    <value>준비 동작 시퀀스를 준비합니다.</value>
+  </data>
+  <data name="extraDialog.progress.readyTitle" xml:space="preserve">
+    <value>준비 동작</value>
+  </data>
+  <data name="extraDialog.progress.safeStopped" xml:space="preserve">
+    <value>장비가 안전 경계에서 정지했습니다.</value>
+  </data>
+  <data name="extraDialog.progress.settleAxes" xml:space="preserve">
+    <value>축 정지 안정 확인</value>
+  </data>
+  <data name="extraDialog.progress.stopAccepted" xml:space="preserve">
+    <value>정지 요청이 접수되었습니다. 현재 동작 완료 후 정지합니다.</value>
+  </data>
+  <data name="extraDialog.progress.stopAlarm" xml:space="preserve">
+    <value>정지 처리 중 알람이 발생했습니다. 알람/이벤트 로그를 확인하세요.</value>
+  </data>
+  <data name="extraDialog.progress.stopCanceled" xml:space="preserve">
+    <value>정지 처리</value>
+  </data>
+  <data name="extraDialog.progress.stopComplete" xml:space="preserve">
+    <value>정지 완료</value>
+  </data>
+  <data name="extraDialog.progress.stopFailed" xml:space="preserve">
+    <value>알람 발생</value>
+  </data>
+  <data name="extraDialog.progress.stopIdle" xml:space="preserve">
+    <value>정지 요청</value>
+  </data>
+  <data name="extraDialog.progress.stopMessage" xml:space="preserve">
+    <value>정지 요청이 접수되었습니다. 현재 이동/작업 완료 후 안전 경계에서 정지합니다.</value>
+  </data>
+  <data name="extraDialog.progress.stopRunning" xml:space="preserve">
+    <value>정지 처리 중</value>
+  </data>
+  <data name="extraDialog.progress.stopStep" xml:space="preserve">
+    <value>현재 동작 완료 대기</value>
+  </data>
+  <data name="extraDialog.progress.stopTitle" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="extraDialog.progress.waitAxes" xml:space="preserve">
+    <value>축 이동 완료 대기</value>
+  </data>
+  <data name="extraDialog.remaining.create.adjusted" xml:space="preserve">
+    <value>개수 조건을 적용했습니다. 생성 결과 {0}개 · 시계 방향 {1}°.</value>
+  </data>
+  <data name="extraDialog.remaining.create.diameter" xml:space="preserve">
+    <value>웨이퍼 직경</value>
+  </data>
+  <data name="extraDialog.remaining.create.dieX" xml:space="preserve">
+    <value>다이 X</value>
+  </data>
+  <data name="extraDialog.remaining.create.dieY" xml:space="preserve">
+    <value>다이 Y</value>
+  </data>
+  <data name="extraDialog.remaining.create.editPending" xml:space="preserve">
+    <value>사양 편집 중 · 아직 미적용이므로 저장할 수 없습니다. 직전 결과와 요청 개수를 유지합니다. 개수 적용 / 재생성으로 함께 적용하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.create.generated" xml:space="preserve">
+    <value>웨이퍼 맵을 생성했습니다. 생성 결과 {0}개 · 시계 방향 {1}°.</value>
+  </data>
+  <data name="extraDialog.remaining.create.generating" xml:space="preserve">
+    <value>웨이퍼 맵을 생성하는 중입니다...</value>
+  </data>
+  <data name="extraDialog.remaining.create.generationFailed" xml:space="preserve">
+    <value>생성 실패: {0}</value>
+  </data>
+  <data name="extraDialog.remaining.create.initialValue" xml:space="preserve">
+    <value>{0} 초기값 {1} mm를 그대로 표시할 수 없어 입력하지 않았습니다. 0.001 mm 단위의 유효한 값을 입력하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.create.inputApproval" xml:space="preserve">
+    <value>INPUT DIE MAP CREATE에서</value>
+  </data>
+  <data name="extraDialog.remaining.create.inputFailed" xml:space="preserve">
+    <value>입력 조건 미적용: {0} 직전 미리보기를 유지하며 저장할 수 없습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.legacyNotice" xml:space="preserve">
+    <value>이전식 외곽 여유 +0.200 mm입니다. 새 방식은 AUTO 또는 사양 편집 후 개수 적용 / 재생성으로 만드세요.</value>
+  </data>
+  <data name="extraDialog.remaining.create.legacyTip" xml:space="preserve">
+    <value>현재 맵은 이전 수식의 반경 바깥쪽 여유 +0.200 mm를 사용합니다. 값을 편집하거나 AUTO 생성하면 새 내부 여백 방식으로 전환됩니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.margin" xml:space="preserve">
+    <value>내부 여백</value>
+  </data>
+  <data name="extraDialog.remaining.create.marginTip" xml:space="preserve">
+    <value>웨이퍼 원에서 안쪽으로 비울 반경 여백입니다. 허용 반경 = 직경/2 - 여백. DIE GAP과 다른 값입니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.mismatch" xml:space="preserve">
+    <value>입력 사양과 저장된 맵 조건이 다릅니다. AUTO WAFER CREATE로 다시 생성하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.create.noDies" xml:space="preserve">
+    <value>현재 조건에서 AUTO 생성된 다이가 없습니다. 개수 조건을 입력하여 미리볼 수 있습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.outputApproval" xml:space="preserve">
+    <value>BIN DIE MAP CREATE에서 GOOD·NG 각각</value>
+  </data>
+  <data name="extraDialog.remaining.create.outsidePending" xml:space="preserve">
+    <value>허용 원 영역 초과 {0}개: 생성된 배치를 유지합니다. 현재 배치 필요 직경 {1} mm 이상.</value>
+  </data>
+  <data name="extraDialog.remaining.create.outsideReady" xml:space="preserve">
+    <value>허용 원 영역 초과 {0}개: 설정 저장 가능 · 생성된 배치를 유지합니다. 현재 배치 필요 직경 {1} mm 이상.</value>
+  </data>
+  <data name="extraDialog.remaining.create.preview270" xml:space="preserve">
+    <value>270° (미리보기 전용)</value>
+  </data>
+  <data name="extraDialog.remaining.create.preview90" xml:space="preserve">
+    <value>90° (미리보기 전용)</value>
+  </data>
+  <data name="extraDialog.remaining.create.quarterTurn" xml:space="preserve">
+    <value>90°·270°는 현재 장비에서 사용할 수 없습니다. 미리보기/설정 저장만 가능하며 FINAL APPLY는 차단됩니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.recalculating" xml:space="preserve">
+    <value>현재 입력 사양과 끝줄·전체 개수 조건으로 다시 계산하는 중입니다...</value>
+  </data>
+  <data name="extraDialog.remaining.create.restoredAuto" xml:space="preserve">
+    <value>마지막으로 생성한 사양과 회전의 AUTO 결과로 복원했습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.restoredSaved" xml:space="preserve">
+    <value>저장된 맵의 회전과 개수 조건을 복원했습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.saveFailed" xml:space="preserve">
+    <value>맵 저장 실패: {0}</value>
+  </data>
+  <data name="extraDialog.remaining.create.saveTitle" xml:space="preserve">
+    <value>맵 저장</value>
+  </data>
+  <data name="extraDialog.remaining.create.saved" xml:space="preserve">
+    <value>{0} 맵 {1}개를 저장했습니다. 현재 승인은 PENDING입니다.&#13;&#10;{2} 확인 후 FINAL APPLY 하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.create.savedPending" xml:space="preserve">
+    <value>{0} 맵 {1}개의 설정을 저장했습니다. PENDING · FINAL APPLY / 장비 사용 차단</value>
+  </data>
+  <data name="extraDialog.remaining.create.saving" xml:space="preserve">
+    <value>생성한 맵을 저장하는 중입니다...</value>
+  </data>
+  <data name="extraDialog.remaining.create.startHint" xml:space="preserve">
+    <value>사양을 확인한 뒤 AUTO WAFER CREATE를 누르세요.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.applyEdges" xml:space="preserve">
+    <value>입력한 끝줄·전체 개수에 맞춰 원형 맵의 중심 배치를 자동으로 맞춥니다. 격자 수는 결과로 계산합니다. 범위를 초과한 다이는 빨간색으로 표시하며, 저장한 배치를 그대로 사용합니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.diameter" xml:space="preserve">
+    <value>외경을 편집한 뒤 개수 적용 / 재생성을 누르면 요청 개수를 유지하며 새 사양으로 계산합니다. AUTO는 개수도 기본값으로 다시 계산합니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.dieSpecification" xml:space="preserve">
+    <value>미리보기용 입력입니다. 저장하려면 Recipe &gt; 다이 사양의 다이 X/Y와 같아야 합니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.edges" xml:space="preserve">
+    <value>상·하·좌·우 끝줄과 전체 다이 개수를 함께 지정합니다. 원본보다 늘리거나 줄일 수 있습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.gapX" xml:space="preserve">
+    <value>다이 사이의 빈 간격(mm)입니다. 중심 간 거리 = DIE X + GAP X.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.gapY" xml:space="preserve">
+    <value>다이 사이의 빈 간격(mm)입니다. 중심 간 거리 = DIE Y + GAP Y.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.generate" xml:space="preserve">
+    <value>현재 입력 사양으로 기본 원형 맵을 새로 만듭니다. 끝줄과 전체 개수 입력도 AUTO 결과로 초기화됩니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.restore" xml:space="preserve">
+    <value>마지막으로 생성에 성공한 사양·회전과 그 AUTO 기본 맵으로 복원합니다. 미적용 편집값과 개수 보정을 되돌립니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.tip.rotation" xml:space="preserve">
+    <value>회전만 바꾸면 기본 맵으로 돌아갑니다. 사양 편집 중에는 개수 적용 / 재생성 또는 AUTO로 함께 적용합니다. 90°·270°는 설정 저장만 가능하며 장비 적용은 차단됩니다.</value>
+  </data>
+  <data name="extraDialog.remaining.create.unappliedCounts" xml:space="preserve">
+    <value>입력 조건 미적용 · 저장할 수 없습니다. 직전 결과를 표시합니다. 개수 적용 / 재생성으로 상단 사양과 개수를 함께 적용하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.init.allTitle" xml:space="preserve">
+    <value>전체 초기화</value>
+  </data>
+  <data name="extraDialog.remaining.init.allcompleted" xml:space="preserve">
+    <value>전체 초기화 완료</value>
+  </data>
+  <data name="extraDialog.remaining.init.allcompletion" xml:space="preserve">
+    <value>전체 초기화 가 완료되었습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.init.allfailed" xml:space="preserve">
+    <value>전체 초기화 실패</value>
+  </data>
+  <data name="extraDialog.remaining.init.allfailure" xml:space="preserve">
+    <value>전체 초기화 가 실패했습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.init.allpreparing" xml:space="preserve">
+    <value>전체 초기화 준비</value>
+  </data>
+  <data name="extraDialog.remaining.init.allrunning" xml:space="preserve">
+    <value>전체 초기화 진행 중</value>
+  </data>
+  <data name="extraDialog.remaining.init.allstopped" xml:space="preserve">
+    <value>전체 초기화 정지</value>
+  </data>
+  <data name="extraDialog.remaining.init.axis" xml:space="preserve">
+    <value>축</value>
+  </data>
+  <data name="extraDialog.remaining.init.disabled" xml:space="preserve">
+    <value>비활성</value>
+  </data>
+  <data name="extraDialog.remaining.init.done" xml:space="preserve">
+    <value>완료</value>
+  </data>
+  <data name="extraDialog.remaining.init.failed" xml:space="preserve">
+    <value>실패</value>
+  </data>
+  <data name="extraDialog.remaining.init.home" xml:space="preserve">
+    <value>원점 복귀</value>
+  </data>
+  <data name="extraDialog.remaining.init.post" xml:space="preserve">
+    <value>이후 동작</value>
+  </data>
+  <data name="extraDialog.remaining.init.pre" xml:space="preserve">
+    <value>이전 동작</value>
+  </data>
+  <data name="extraDialog.remaining.init.preparing" xml:space="preserve">
+    <value>초기화 시퀀스를 준비합니다.</value>
+  </data>
+  <data name="extraDialog.remaining.init.progressing" xml:space="preserve">
+    <value>초기화 시퀀스를 진행합니다.</value>
+  </data>
+  <data name="extraDialog.remaining.init.reinitialize" xml:space="preserve">
+    <value>초기화 다시 필요</value>
+  </data>
+  <data name="extraDialog.remaining.init.running" xml:space="preserve">
+    <value>진행 중</value>
+  </data>
+  <data name="extraDialog.remaining.init.starting" xml:space="preserve">
+    <value>초기화 시퀀스를 시작합니다.</value>
+  </data>
+  <data name="extraDialog.remaining.init.stepTitle" xml:space="preserve">
+    <value>스텝 초기화</value>
+  </data>
+  <data name="extraDialog.remaining.init.stepcompleted" xml:space="preserve">
+    <value>스텝 초기화 완료</value>
+  </data>
+  <data name="extraDialog.remaining.init.stepcompletion" xml:space="preserve">
+    <value>스텝 초기화 가 완료되었습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.init.stepfailed" xml:space="preserve">
+    <value>스텝 초기화 실패</value>
+  </data>
+  <data name="extraDialog.remaining.init.stepfailure" xml:space="preserve">
+    <value>스텝 초기화 가 실패했습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.init.steppreparing" xml:space="preserve">
+    <value>스텝 초기화 준비</value>
+  </data>
+  <data name="extraDialog.remaining.init.steprunning" xml:space="preserve">
+    <value>스텝 초기화 진행 중</value>
+  </data>
+  <data name="extraDialog.remaining.init.stepstopped" xml:space="preserve">
+    <value>스텝 초기화 정지</value>
+  </data>
+  <data name="extraDialog.remaining.init.unavailable" xml:space="preserve">
+    <value>확인 불가</value>
+  </data>
+  <data name="extraDialog.remaining.init.unknownState" xml:space="preserve">
+    <value>현재 상태를 확인하지 못했습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.init.waiting" xml:space="preserve">
+    <value>대기</value>
+  </data>
+  <data name="extraDialog.remaining.init.waitingComplete" xml:space="preserve">
+    <value>초기화가 완료될 때까지 기다려 주세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.appliedOrderMismatch" xml:space="preserve">
+    <value>Review에 반영된 순서가 뷰어와 다릅니다. 자동 시작 전에 다시 확인하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.badStart" xml:space="preserve">
+    <value>SKIP/GOOD/NG Die는 시작 Die로 설정할 수 없습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.bottomLeft" xml:space="preserve">
+    <value>좌하단</value>
+  </data>
+  <data name="extraDialog.remaining.review.bottomRight" xml:space="preserve">
+    <value>우하단</value>
+  </data>
+  <data name="extraDialog.remaining.review.buzzerStopped" xml:space="preserve">
+    <value>부저 정지를 요청했습니다. 확인 또는 취소를 선택하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.cancelWaiting" xml:space="preserve">
+    <value>재실행/취소 요청을 처리하고 있습니다. Sequence 완료 응답을 기다립니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.captureBlocked" xml:space="preserve">
+    <value>읽기 전용 또는 종료된 Review에서는 검증 영상을 촬영할 수 없습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.center" xml:space="preserve">
+    <value>중앙</value>
+  </data>
+  <data name="extraDialog.remaining.review.closeAutoBlocked" xml:space="preserve">
+    <value>Auto 대기 중에는 창을 직접 닫을 수 없습니다. 확인 또는 취소/T ALIGN 재시작을 선택하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.closeBusyBlocked" xml:space="preserve">
+    <value>동작 진행 중에는 화면을 닫을 수 없습니다. 먼저 STOP 또는 작업 완료를 확인하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.coarse" xml:space="preserve">
+    <value>고속</value>
+  </data>
+  <data name="extraDialog.remaining.review.confirmWaiting" xml:space="preserve">
+    <value>확인 요청을 처리하고 있습니다. Sequence 완료 응답을 기다립니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.continuous" xml:space="preserve">
+    <value>연속</value>
+  </data>
+  <data name="extraDialog.remaining.review.continuousJog" xml:space="preserve">
+    <value>{0} Jog 요청 중입니다. 버튼을 놓으면 정지 요청합니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.decisionFailed" xml:space="preserve">
+    <value>사용자 확인 처리에 실패했습니다. {0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.emptyOrder" xml:space="preserve">
+    <value>Pickable Target이 0개인 빈 픽업 경로 Draft를 적용했습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.endVisionFailed" xml:space="preserve">
+    <value>비전 사용을 종료하지 못했습니다. '비전 사용 종료'를 직접 누른 뒤 다시 선택하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.fine" xml:space="preserve">
+    <value>미세</value>
+  </data>
+  <data name="extraDialog.remaining.review.good" xml:space="preserve">
+    <value>양품</value>
+  </data>
+  <data name="extraDialog.remaining.review.goodEnum" xml:space="preserve">
+    <value>양품</value>
+  </data>
+  <data name="extraDialog.remaining.review.invalidCoordinates" xml:space="preserve">
+    <value>OFFSET 적용 후보에 유효하지 않은 좌표가 있습니다. Draft는 변경하지 않았습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.invalidOffset" xml:space="preserve">
+    <value>Review Draft Die Map 또는 Offset 값이 유효하지 않습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.jogStopped" xml:space="preserve">
+    <value>Jog 정지를 요청했습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.loaded" xml:space="preserve">
+    <value>Input Die Map을 불러왔습니다. 시작 Die와 픽업 경로를 확인하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.loading" xml:space="preserve">
+    <value>Wafer Align / Die Mapping 결과를 불러오는 중입니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.manualAlign" xml:space="preserve">
+    <value>수동 얼라인 웨이퍼입니다. Jog로 정렬 후 [T 보정]을 완료해야 확정할 수 있습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.manualBusy" xml:space="preserve">
+    <value>다른 Review 수동 동작이 진행 중입니다. 완료 또는 STOP 후 다시 실행하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.manualEnabled" xml:space="preserve">
+    <value>Manual Review 기능이 활성화되었습니다. 확인 시 Auto 공정을 계속하고, 취소 시 센터 검출/T Align부터 다시 수행합니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.manualStopped" xml:space="preserve">
+    <value>Review 수동 동작 정지를 요청했습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.mapCaption" xml:space="preserve">
+    <value>입력 웨이퍼 맵</value>
+  </data>
+  <data name="extraDialog.remaining.review.mapCellStatus" xml:space="preserve">
+    <value>순번={0}, 맵=({1},{2}), 장비 격자=({3},{4}), 위치=({5},{6}), UID={7}</value>
+  </data>
+  <data name="extraDialog.remaining.review.mappingDone" xml:space="preserve">
+    <value>매핑 완료 — 유지 중이던 창의 결정 잠금을 해제합니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.mappingResubmit" xml:space="preserve">
+    <value>T 보정 저장으로 Mapping이 무효화되어 Die Mapping 재실행을 자동 제출합니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.missingStart" xml:space="preserve">
+    <value>선택 시작 Die 사용이 켜져 있지만 시작 Die가 지정되지 않았습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.moveBusy" xml:space="preserve">
+    <value>선택 Die 이동이 진행 중입니다. 완료 또는 STOP 후 다시 실행하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.ng" xml:space="preserve">
+    <value>불량</value>
+  </data>
+  <data name="extraDialog.remaining.review.ngEnum" xml:space="preserve">
+    <value>불량</value>
+  </data>
+  <data name="extraDialog.remaining.review.noDecisionControl" xml:space="preserve">
+    <value>사용자 확인 요청을 처리할 장비 연결이 없습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.noDraft" xml:space="preserve">
+    <value>적용할 Review Draft Die Map이 없습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.noMap" xml:space="preserve">
+    <value>표시할 Input Die Map이 없습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.noSequence" xml:space="preserve">
+    <value>입력한 1-base 순번에 해당하는 Pickable Die가 없습니다. sequence={0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.noVisionControl" xml:space="preserve">
+    <value>Wafer Vision 안전 제어 연결이 없습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.nonproductionOff" xml:space="preserve">
+    <value>비생산 모드의 수동 Review 표시를 해제했습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.nonproductionOn" xml:space="preserve">
+    <value>비생산 모드의 수동 Review 확인입니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.nonproductionStatus" xml:space="preserve">
+    <value>실측 검증 아님 | {0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.notSet" xml:space="preserve">
+    <value>미지정</value>
+  </data>
+  <data name="extraDialog.remaining.review.offline" xml:space="preserve">
+    <value>비전 미연결 - 영상/측정 불가(설정에서 비전 연결 확인)</value>
+  </data>
+  <data name="extraDialog.remaining.review.offsetApplied" xml:space="preserve">
+    <value>OFFSET 후보를 반영했습니다. 맵과 픽업 순서를 확인한 뒤 CONFIRM을 누르세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.offsetDecisionBlocked" xml:space="preserve">
+    <value>확인 요청을 처리 중이므로 후보 좌표를 변경할 수 없습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.orderApplied" xml:space="preserve">
+    <value>픽업 경로 Draft를 적용했습니다. Pickable Target={0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.orderFailed" xml:space="preserve">
+    <value>픽업 경로 적용 요청에 실패했습니다. {0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.orderMismatch" xml:space="preserve">
+    <value>설정으로 생성한 순서와 뷰어 순서가 다릅니다. 다시 확인하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.pathChanged" xml:space="preserve">
+    <value>픽업 경로 설정이 변경되었습니다. PREVIEW를 확인한 뒤 APPLY PICKUP ORDER를 실행하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.pickupBlocked" xml:space="preserve">
+    <value>현재 Review 상태에서는 픽업 순서를 적용할 수 없습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.pickupFailed" xml:space="preserve">
+    <value>픽업 순서 확인/적용 실패: {0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.pickupMapChanged" xml:space="preserve">
+    <value>순서 확인 중 Die Map이 변경되었습니다. 창을 다시 열어 확인하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.pickupTitle" xml:space="preserve">
+    <value>픽업 순서 확인</value>
+  </data>
+  <data name="extraDialog.remaining.review.readOnly" xml:space="preserve">
+    <value>현재 Stage Wafer/DieMap의 읽기 전용 화면입니다. 모션 및 데이터 변경 기능은 연결되지 않았습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.readOnlyCommands" xml:space="preserve">
+    <value>읽기 전용 화면에서는 Live/Grab 명령을 사용할 수 없습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.readOnlyOffline" xml:space="preserve">
+    <value>읽기 전용 - 비전 미연결(영상 없음)</value>
+  </data>
+  <data name="extraDialog.remaining.review.readOnlyVision" xml:space="preserve">
+    <value>읽기 전용 - 영상 확인/측정만 가능</value>
+  </data>
+  <data name="extraDialog.remaining.review.retryRequest" xml:space="preserve">
+    <value>요청 처리에 실패했습니다. 상태를 확인한 뒤 다시 시도하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.scopeActive" xml:space="preserve">
+    <value>비전 안전 영역 사용 중 - Live/Grab/측정 가능</value>
+  </data>
+  <data name="extraDialog.remaining.review.scopeOffline" xml:space="preserve">
+    <value>안전 영역 사용 중 - 비전 미연결로 Live/Grab/측정 불가</value>
+  </data>
+  <data name="extraDialog.remaining.review.selectMoveDie" xml:space="preserve">
+    <value>이동할 Die를 먼저 선택하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.selectStart" xml:space="preserve">
+    <value>시작할 Die를 Wafer Map 또는 목록에서 먼저 선택하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.selectStateDie" xml:space="preserve">
+    <value>상태를 변경할 Die를 선택하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.selectedDies" xml:space="preserve">
+    <value>{0}개 Die가 선택되었습니다. 상태 변경 시 전체 선택 대상에 적용됩니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.skip" xml:space="preserve">
+    <value>건너뜀</value>
+  </data>
+  <data name="extraDialog.remaining.review.skipEnum" xml:space="preserve">
+    <value>건너뜀</value>
+  </data>
+  <data name="extraDialog.remaining.review.startLegend" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="extraDialog.remaining.review.startSet" xml:space="preserve">
+    <value>선택 Die를 시작점으로 설정했습니다. UID={0}, Map=({1},{2})</value>
+  </data>
+  <data name="extraDialog.remaining.review.stateApplied" xml:space="preserve">
+    <value>{0}개 Die 상태를 Review Draft에 적용했습니다: {1}</value>
+  </data>
+  <data name="extraDialog.remaining.review.stateNotifyFailed" xml:space="preserve">
+    <value>Die 상태는 Draft에 반영되었지만 외부 알림 처리에 실패했습니다. {0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.step" xml:space="preserve">
+    <value>스텝</value>
+  </data>
+  <data name="extraDialog.remaining.review.stepJog" xml:space="preserve">
+    <value>{0} Step Jog({1}) 요청 중입니다.</value>
+  </data>
+  <data name="extraDialog.remaining.review.stopBeforeDecision" xml:space="preserve">
+    <value>진행 중인 이동/Jog를 정지(STOP/버튼 놓기)한 뒤 다시 선택하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.review.thetaDone" xml:space="preserve">
+    <value>T 보정 완료 — 확정 허용</value>
+  </data>
+  <data name="extraDialog.remaining.review.thetaPending" xml:space="preserve">
+    <value>수동 폴백 얼라인 — T 보정 완료 전 확정 차단</value>
+  </data>
+  <data name="extraDialog.remaining.review.topLeft" xml:space="preserve">
+    <value>좌상단</value>
+  </data>
+  <data name="extraDialog.remaining.review.topRight" xml:space="preserve">
+    <value>우상단</value>
+  </data>
+  <data name="extraDialog.remaining.review.visionAvailable" xml:space="preserve">
+    <value>영상 확인/측정 가능 - Live/Grab은 비전 사용 시작 후 가능</value>
+  </data>
+  <data name="extraDialog.remaining.review.visionEnd" xml:space="preserve">
+    <value>비전 사용 종료</value>
+  </data>
+  <data name="extraDialog.remaining.review.visionStart" xml:space="preserve">
+    <value>비전 사용 시작</value>
+  </data>
+  <data name="extraDialog.remaining.review.wait" xml:space="preserve">
+    <value>대기</value>
+  </data>
+  <data name="extraDialog.remaining.review.waitBin" xml:space="preserve">
+    <value>대기 B{0}</value>
+  </data>
+  <data name="extraDialog.remaining.review.waitEnum" xml:space="preserve">
+    <value>대기</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.address" xml:space="preserve">
+    <value>다이 주소 표시</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.camtek" xml:space="preserve">
+    <value>캠택 CAMTEK</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.camtekChoice" xml:space="preserve">
+    <value>캠택 (CAMTEK RowData)</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.camtekShort" xml:space="preserve">
+    <value>캠택</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.caption" xml:space="preserve">
+    <value>{0} · 보기 {1}° (확인용)</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.checkCache" xml:space="preserve">
+    <value>현재/최근 로컬 맵을 확인하는 중입니다...</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.currentCache" xml:space="preserve">
+    <value>현재 InputStage 확정 바코드의 로컬 파일</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.directFile" xml:space="preserve">
+    <value>직접 선택한 파일</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.empty" xml:space="preserve">
+    <value>빈 셀 (___)</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.failure" xml:space="preserve">
+    <value>{0} 실패 · {1}</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.failureMessage" xml:space="preserve">
+    <value>{0} 실패&#13;&#10;{1}&#13;&#10;&#13;&#10;원본 파일과 실제 공정은 변경되지 않았습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.fileFilter" xml:space="preserve">
+    <value>모든 웨이퍼맵 파일 (*.*)|*.*|텍스트 파일 (*.txt)|*.txt</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.fileLimit" xml:space="preserve">
+    <value>파일이 많아 첫 5,000개만 표시합니다. 파일 열기로 다른 파일을 선택할 수 있습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.fileList" xml:space="preserve">
+    <value>파일 목록</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.fileTitle" xml:space="preserve">
+    <value>웨이퍼맵 파일 열기</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.filesCount" xml:space="preserve">
+    <value>파일 목록 · {0}개</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.findingCache" xml:space="preserve">
+    <value>수신된 로컬 맵을 찾는 중입니다...</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.firstFiles" xml:space="preserve">
+    <value>파일 목록 · 첫 5,000개 (직접 열기 가능)</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.fit" xml:space="preserve">
+    <value>화면 맞춤</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.folderDescription" xml:space="preserve">
+    <value>웨이퍼맵이 있는 폴더를 선택하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.initialLookup" xml:space="preserve">
+    <value>초기 맵 조회</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.initialNotice" xml:space="preserve">
+    <value>파일 확인용 뷰어 · 보기 방향과 형식 선택은 이 창에만 적용됩니다.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.listFile" xml:space="preserve">
+    <value>폴더 목록에서 선택한 파일</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.lookupFiles" xml:space="preserve">
+    <value>파일 목록 조회</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.mapDimensions" xml:space="preserve">
+    <value>보기 {0}° · {1}열 × {2}행</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.mark" xml:space="preserve">
+    <value>@@@ 마크</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.nextFormat" xml:space="preserve">
+    <value>현재 맵은 유지됩니다. 선택한 형식으로 다음 파일을 여세요.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.noCache" xml:space="preserve">
+    <value>현재/최근 수신 맵이 없습니다. 파일을 열어 확인하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.noCurrentLocal" xml:space="preserve">
+    <value>현재/최근 수신 파일이 로컬에 없습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.noFile" xml:space="preserve">
+    <value>파일 미선택</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.noLocalMessage" xml:space="preserve">
+    <value>{0}&#13;&#10;파일 열기로 직접 선택할 수 있습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.noRecentLocal" xml:space="preserve">
+    <value>최근 수신 파일이 로컬에 없습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.none" xml:space="preserve">
+    <value>없음</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openCache" xml:space="preserve">
+    <value>현재/최근 맵 열기</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openChosenFormat" xml:space="preserve">
+    <value>선택한 형식으로 확인할 파일을 여세요.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openFile" xml:space="preserve">
+    <value>파일 열기</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openHint" xml:space="preserve">
+    <value>파일을 두 번 누르거나 Enter로 여세요.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openListFile" xml:space="preserve">
+    <value>목록 파일 열기</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openMap" xml:space="preserve">
+    <value>맵을 열어 주세요.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.openRecent" xml:space="preserve">
+    <value>최근 수신 맵 열기</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.pickManual" xml:space="preserve">
+    <value>파일 열기로 직접 선택할 수 있습니다.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.processReference" xml:space="preserve">
+    <value>공정 방향 참고</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.processRotation" xml:space="preserve">
+    <value>공정 방향 {0}° 참고</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.rad" xml:space="preserve">
+    <value>삼성 RAD</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.radChoice" xml:space="preserve">
+    <value>삼성 (RAD 좌표형)</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.readDone" xml:space="preserve">
+    <value>파일 읽기 완료 · 원본 방향 0°</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.readFile" xml:space="preserve">
+    <value>파일 읽기</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.readFolder" xml:space="preserve">
+    <value>폴더 파일 목록을 읽는 중입니다...</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.readRotation" xml:space="preserve">
+    <value>읽기 완료 · 보기 {0}° · 확인용 맵</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.reading" xml:space="preserve">
+    <value>맵 파일을 읽는 중입니다...</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.recentCache" xml:space="preserve">
+    <value>최근 수신한 로컬 파일</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.recentCacheFallback" xml:space="preserve">
+    <value>최근 수신한 로컬 파일 (현재 바코드 캐시 없음)</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.reference" xml:space="preserve">
+    <value>확인용</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.refreshFiles" xml:space="preserve">
+    <value>파일 목록 갱신</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.rotate" xml:space="preserve">
+    <value>보기 회전</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.rotateLeft" xml:space="preserve">
+    <value>왼쪽 보기 회전</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.rotateRight" xml:space="preserve">
+    <value>오른쪽 보기 회전</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.rotating" xml:space="preserve">
+    <value>보기 방향을 바꾸는 중입니다...</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.rotation" xml:space="preserve">
+    <value>보기 회전 {0}° · 확인용 맵</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selectDie" xml:space="preserve">
+    <value>다이를 선택하면 현재 보기의 X/Y와 BIN을 표시합니다. 보기 원점은 좌하단 0,0입니다.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selectFolder" xml:space="preserve">
+    <value>폴더 선택</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selectFormat" xml:space="preserve">
+    <value>열 파일 형식 선택</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selected" xml:space="preserve">
+    <value>{0}   |   {1}   |   보기 {2}°</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selectedBin" xml:space="preserve">
+    <value>BIN {0}   |   {1}   |   보기 {2}°</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selectedInitial" xml:space="preserve">
+    <value>선택한 다이 없음 · 원본 주소와 현재 보기의 좌하단 1 기준 주소를 표시합니다.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.selectedMark" xml:space="preserve">
+    <value>@@@ 마크   |   {0}   |   보기 {1}°</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.sourceNotice" xml:space="preserve">
+    <value>출처: {0}&#13;&#10;현재 표시: {1} · 열 파일 형식: {2} · 형식 선택은 다음 파일 열기에 적용됩니다.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.statusInitial" xml:space="preserve">
+    <value>파일을 열어 웨이퍼맵을 확인하세요.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.summary" xml:space="preserve">
+    <value>{0} · {1}열 × {2}행&#13;&#10;존재 {3} · 빈 셀 {4}&#13;&#10;숫자 BIN은 원본 값으로 표시합니다.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.summaryInitial" xml:space="preserve">
+    <value>파일 헤더와 BIN 수량&#13;&#10;파일을 열면 표시됩니다.</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.title" xml:space="preserve">
+    <value>웨이퍼맵 보기</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.viewOriginal" xml:space="preserve">
+    <value>원본 방향 보기</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.viewProcess" xml:space="preserve">
+    <value>공정 방향 참고 보기</value>
+  </data>
+  <data name="extraDialog.remaining.viewer.waitBusy" xml:space="preserve">
+    <value>현재 파일 작업이 끝난 후 다시 시도하세요.</value>
+  </data>
+  <data name="extraDialog.review.alignRecovery" xml:space="preserve">
+    <value>정렬 복구</value>
+  </data>
+  <data name="extraDialog.review.complete" xml:space="preserve">
+    <value>완료</value>
+  </data>
+  <data name="extraDialog.review.confirmRequired" xml:space="preserve">
+    <value>사용자 확정 필요</value>
+  </data>
+  <data name="extraDialog.review.connected" xml:space="preserve">
+    <value>연결됨</value>
+  </data>
+  <data name="extraDialog.review.disconnected" xml:space="preserve">
+    <value>연결 끊김</value>
+  </data>
+  <data name="extraDialog.review.manualOk" xml:space="preserve">
+    <value>수동 (T 정렬 완료)</value>
+  </data>
+  <data name="extraDialog.review.manualRequired" xml:space="preserve">
+    <value>수동 (T 정렬 필요)</value>
+  </data>
+  <data name="extraDialog.review.mappingReview" xml:space="preserve">
+    <value>매핑 검토</value>
+  </data>
+  <data name="extraDialog.review.nonproduction" xml:space="preserve">
+    <value>비생산 검토</value>
+  </data>
+  <data name="extraDialog.review.readOnly" xml:space="preserve">
+    <value>읽기 전용 - 영상 확인/측정만 가능</value>
+  </data>
+  <data name="extraDialog.review.ready" xml:space="preserve">
+    <value>시작 준비 완료</value>
+  </data>
+  <data name="extraDialog.review.required" xml:space="preserve">
+    <value>필요</value>
+  </data>
+  <data name="extraDialog.review.reviewRequired" xml:space="preserve">
+    <value>검토 필요</value>
+  </data>
+  <data name="extraDialog.review.visionFailed" xml:space="preserve">
+    <value>웨이퍼 비전 연결 실패: {0}</value>
+  </data>
+  <data name="extraDialog.review.visionStopped" xml:space="preserve">
+    <value>비전 영상 정지</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.clamped" xml:space="preserve">
+    <value>&#10;&#10;다음 항목은 설정 한계로 클램프되었습니다:&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.colMechT" xml:space="preserve">
+    <value>기구 T (deg)</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.colMechX" xml:space="preserve">
+    <value>기구 X (mm)</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.colMechY" xml:space="preserve">
+    <value>기구 Y (mm)</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.colPicker" xml:space="preserve">
+    <value>피커</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.colSide" xml:space="preserve">
+    <value>측</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.colUpdated" xml:space="preserve">
+    <value>최종 갱신</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.confirmCopy" xml:space="preserve">
+    <value>웨이퍼 오프셋 (2번) 현재값을 저장 오프셋 (1번)에 덮어써 저장합니다.&#10;계속하시겠습니까?</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.confirmPick" xml:space="preserve">
+    <value>픽업 런타임 보정값을 픽업 기구 오프셋으로 이관합니다.&#10;적용식: 기구X = 기구X + 필터X, 기구Y = 기구Y {0} 필터Y, 기구T = 기구T + 필터T.&#10;이관한 채널의 필터는 0으로 초기화됩니다.&#10;&#10;{1}&#10;계속하시겠습니까?</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.confirmPlace" xml:space="preserve">
+    <value>안착 런타임 보정값을 안착 기구 오프셋으로 이관합니다.&#10;적용식: 기구값 = 기구값 − 필터값 (X/Y/T).&#10;이관한 채널의 필터는 0으로 초기화됩니다.&#10;&#10;{0}&#10;계속하시겠습니까?</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.confirmReset" xml:space="preserve">
+    <value>{0} 런타임 보정 필터 (8세트 X/Y/T)를 모두 0으로 초기화합니다.&#10;&#10;현재 학습값:&#10;{1}&#10;계속하시겠습니까?</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.confirmZReset" xml:space="preserve">
+    <value>피커 Z 런타임 보정 필터 (8세트 Z)를 모두 0으로 초기화합니다.&#10;&#10;현재 학습값:&#10;{0}&#10;계속하시겠습니까?</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.copied" xml:space="preserve">
+    <value>복사했습니다.</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.copyError" xml:space="preserve">
+    <value>안착 오프셋 2→1 복사 중 오류가 발생했습니다.&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.copyFailed" xml:space="preserve">
+    <value>복사하지 못했습니다.&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.copyTitle" xml:space="preserve">
+    <value>안착 오프셋 2→1 복사</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.formula" xml:space="preserve">
+    <value>이관식: PLACE 기구 = 기구 − 필터(X/Y/T), PICK 기구 = 기구 + 필터X − 필터Y + 필터T. 이관 채널 필터는 0으로 초기화. 리셋은 8세트 전체 0.</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.noMachine" xml:space="preserve">
+    <value>장비 객체를 찾을 수 없어 적용할 수 없습니다.</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.noPickOffset" xml:space="preserve">
+    <value>이관할 픽업 런타임 보정값이 없습니다 (전 채널 0).</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.noPlaceOffset" xml:space="preserve">
+    <value>이관할 안착 런타임 보정값이 없습니다 (전 채널 0).</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.noTarget" xml:space="preserve">
+    <value>이관 대상이 없습니다.</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.pickResetError" xml:space="preserve">
+    <value>픽업 런타임 보정 초기화 중 오류가 발생했습니다.&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.pickTitle" xml:space="preserve">
+    <value>픽업 런타임 보정</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.pickTransferError" xml:space="preserve">
+    <value>픽업 런타임 보정 이관 중 오류가 발생했습니다.&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.pickTransferred" xml:space="preserve">
+    <value>픽업 런타임 보정을 기구 오프셋으로 이관했습니다. ({0}개 피커)</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.placeResetError" xml:space="preserve">
+    <value>안착 런타임 보정 초기화 중 오류가 발생했습니다.&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.placeTitle" xml:space="preserve">
+    <value>안착 런타임 보정</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.placeTransferError" xml:space="preserve">
+    <value>안착 런타임 보정 이관 중 오류가 발생했습니다.&#10;{0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.placeTransferred" xml:space="preserve">
+    <value>안착 런타임 보정을 기구 오프셋으로 이관했습니다. ({0}개 피커)</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.readFailed" xml:space="preserve">
+    <value>런타임 보정 값 조회 실패: {0}</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.resetDone" xml:space="preserve">
+    <value>{0} 런타임 보정 필터를 초기화했습니다.</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.resetTitle" xml:space="preserve">
+    <value>{0} 런타임 보정 초기화</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.zReset" xml:space="preserve">
+    <value>피커 Z 런타임 보정 필터를 초기화했습니다.</value>
+  </data>
+  <data name="extraDialog.runtimeOffset.zResetTitle" xml:space="preserve">
+    <value>피커 Z 런타임 보정 초기화</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnApplyPick.caption" xml:space="preserve">
+    <value>픽업 → 기구 오프셋 적용</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnApplyPlace.caption" xml:space="preserve">
+    <value>안착 → 기구 오프셋 적용</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnClose.caption" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnCopyWaferPlace.caption" xml:space="preserve">
+    <value>안착 오프셋 2→1</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnRefresh.caption" xml:space="preserve">
+    <value>갱신</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnResetPick.caption" xml:space="preserve">
+    <value>픽업 초기화</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.btnResetPlace.caption" xml:space="preserve">
+    <value>안착 초기화</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.grpPick.caption" xml:space="preserve">
+    <value>픽업 런타임 보정 (하부 검사 폐루프)</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.grpPickerZ.caption" xml:space="preserve">
+    <value>피커 Z 런타임 보정 (측면 FrontSide ch0 폐루프) — 표시 전용</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.grpPlace.caption" xml:space="preserve">
+    <value>안착 런타임 보정 (BIN 후검사 폐루프)</value>
+  </data>
+  <data name="extraDialog.runtimeOffsetMonitorDialog.this.caption" xml:space="preserve">
+    <value>런타임 보정 모니터</value>
+  </data>
+  <data name="extraDialog.selfTest.ajinConfig" xml:space="preserve">
+    <value>Ajin 설정</value>
+  </data>
+  <data name="extraDialog.selfTest.alignment" xml:space="preserve">
+    <value>3점 정렬 계산</value>
+  </data>
+  <data name="extraDialog.selfTest.appSettings" xml:space="preserve">
+    <value>프로그램 설정</value>
+  </data>
+  <data name="extraDialog.selfTest.axl" xml:space="preserve">
+    <value>AXL 라이브러리</value>
+  </data>
+  <data name="extraDialog.selfTest.binMap" xml:space="preserve">
+    <value>BIN 코드 맵</value>
+  </data>
+  <data name="extraDialog.selfTest.binVision" xml:space="preserve">
+    <value>BIN 비전</value>
+  </data>
+  <data name="extraDialog.selfTest.connectFailed" xml:space="preserve">
+    <value>연결 실패</value>
+  </data>
+  <data name="extraDialog.selfTest.dieMap" xml:space="preserve">
+    <value>다이 맵 생성</value>
+  </data>
+  <data name="extraDialog.selfTest.disabled" xml:space="preserve">
+    <value>사용 안 함</value>
+  </data>
+  <data name="extraDialog.selfTest.eventLog" xml:space="preserve">
+    <value>이벤트 로그 쓰기</value>
+  </data>
+  <data name="extraDialog.selfTest.failed" xml:space="preserve">
+    <value>실패</value>
+  </data>
+  <data name="extraDialog.selfTest.inspectionVision" xml:space="preserve">
+    <value>검사 비전</value>
+  </data>
+  <data name="extraDialog.selfTest.interlock" xml:space="preserve">
+    <value>인터락 등록</value>
+  </data>
+  <data name="extraDialog.selfTest.jobQueue" xml:space="preserve">
+    <value>작업 대기열</value>
+  </data>
+  <data name="extraDialog.selfTest.machine" xml:space="preserve">
+    <value>장비 구성</value>
+  </data>
+  <data name="extraDialog.selfTest.noBridge" xml:space="preserve">
+    <value>브리지 없음</value>
+  </data>
+  <data name="extraDialog.selfTest.notConnected" xml:space="preserve">
+    <value>연결 안 됨</value>
+  </data>
+  <data name="extraDialog.selfTest.passed" xml:space="preserve">
+    <value>정상</value>
+  </data>
+  <data name="extraDialog.selfTest.pending" xml:space="preserve">
+    <value>대기</value>
+  </data>
+  <data name="extraDialog.selfTest.pingFailed" xml:space="preserve">
+    <value>응답 확인 실패</value>
+  </data>
+  <data name="extraDialog.selfTest.recipeDir" xml:space="preserve">
+    <value>레시피 폴더 쓰기</value>
+  </data>
+  <data name="extraDialog.selfTest.running" xml:space="preserve">
+    <value>실행 중</value>
+  </data>
+  <data name="extraDialog.selfTest.simulator" xml:space="preserve">
+    <value>시뮬레이터 TCP</value>
+  </data>
+  <data name="extraDialog.selfTest.title" xml:space="preserve">
+    <value>자가진단</value>
+  </data>
+  <data name="extraDialog.selfTest.waferVision" xml:space="preserve">
+    <value>웨이퍼 비전</value>
+  </data>
+  <data name="extraDialog.sharedRail.actionComplete" xml:space="preserve">
+    <value>{0} 완료했습니다.</value>
+  </data>
+  <data name="extraDialog.sharedRail.actionException" xml:space="preserve">
+    <value>{0} 실패:&#10;{1}</value>
+  </data>
+  <data name="extraDialog.sharedRail.actionFailed" xml:space="preserve">
+    <value>{0} 실패. 결과={1}</value>
+  </data>
+  <data name="extraDialog.sharedRail.applied" xml:space="preserve">
+    <value>현재 실행 설정에 적용했습니다.</value>
+  </data>
+  <data name="extraDialog.sharedRail.close" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="extraDialog.sharedRail.error" xml:space="preserve">
+    <value>{0} 오류가 발생했습니다.</value>
+  </data>
+  <data name="extraDialog.sharedRail.help" xml:space="preserve">
+    <value>도움말</value>
+  </data>
+  <data name="extraDialog.sharedRail.homeAll" xml:space="preserve">
+    <value>전체 원점 복귀</value>
+  </data>
+  <data name="extraDialog.sharedRail.homeSelected" xml:space="preserve">
+    <value>선택 축 원점 복귀</value>
+  </data>
+  <data name="extraDialog.sharedRail.loadFailed" xml:space="preserve">
+    <value>공유 X 레일 설정 읽기 실패: {0}</value>
+  </data>
+  <data name="extraDialog.sharedRail.loaded" xml:space="preserve">
+    <value>불러왔습니다.</value>
+  </data>
+  <data name="extraDialog.sharedRail.moveHeadSub" xml:space="preserve">
+    <value>주축/종속 축 이동</value>
+  </data>
+  <data name="extraDialog.sharedRail.moveSelected" xml:space="preserve">
+    <value>선택 축 이동</value>
+  </data>
+  <data name="extraDialog.sharedRail.noAxes" xml:space="preserve">
+    <value>선택한 주축/종속 축이 없습니다.</value>
+  </data>
+  <data name="extraDialog.sharedRail.numericFailed" xml:space="preserve">
+    <value>숫자 입력 실패: {0}</value>
+  </data>
+  <data name="extraDialog.sharedRail.pairFailed" xml:space="preserve">
+    <value>축 간 규칙 입력 실패: {0}</value>
+  </data>
+  <data name="extraDialog.sharedRail.pairRule" xml:space="preserve">
+    <value>축 간 안전거리 규칙</value>
+  </data>
+  <data name="extraDialog.sharedRail.refreshNow" xml:space="preserve">
+    <value>지금 갱신</value>
+  </data>
+  <data name="extraDialog.sharedRail.reloadFile" xml:space="preserve">
+    <value>파일 불러오기</value>
+  </data>
+  <data name="extraDialog.sharedRail.running" xml:space="preserve">
+    <value>{0} 실행 중...</value>
+  </data>
+  <data name="extraDialog.sharedRail.saveApply" xml:space="preserve">
+    <value>저장 및 적용</value>
+  </data>
+  <data name="extraDialog.sharedRail.saveFile" xml:space="preserve">
+    <value>파일 저장</value>
+  </data>
+  <data name="extraDialog.sharedRail.saved" xml:space="preserve">
+    <value>저장 완료: {0}</value>
+  </data>
+  <data name="extraDialog.sharedRail.stop" xml:space="preserve">
+    <value>정지</value>
+  </data>
+  <data name="extraDialog.sharedRail.stopComplete" xml:space="preserve">
+    <value>정지를 완료했습니다.</value>
+  </data>
+  <data name="extraDialog.sharedRail.stopError" xml:space="preserve">
+    <value>정지 오류가 발생했습니다.</value>
+  </data>
+  <data name="extraDialog.sharedRail.stopException" xml:space="preserve">
+    <value>정지 실패: {0}</value>
+  </data>
+  <data name="extraDialog.sharedRail.stopFailed" xml:space="preserve">
+    <value>정지 실패. 결과={0}</value>
+  </data>
+  <data name="extraDialog.sharedRail.stopRequested" xml:space="preserve">
+    <value>정지를 요청했습니다...</value>
+  </data>
+  <data name="extraDialog.sharedRail.stopped" xml:space="preserve">
+    <value>{0} 정지했습니다.</value>
+  </data>
+  <data name="extraDialog.sharedRail.validate" xml:space="preserve">
+    <value>검증</value>
+  </data>
+  <data name="extraDialog.sharedRail.validated" xml:space="preserve">
+    <value>축 목표 {0}개를 검증했습니다.</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.chkSameVelocity.caption" xml:space="preserve">
+    <value>그룹 내 동일 속도 필수</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.chkSubFrontPicker.caption" xml:space="preserve">
+    <value>전면 피커 X</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.chkSubInputVision.caption" xml:space="preserve">
+    <value>입력 비전 X</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.chkSubOutputVision.caption" xml:space="preserve">
+    <value>출력 비전 X</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.chkSubRearPicker.caption" xml:space="preserve">
+    <value>후면 피커 X</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.colAxis.caption" xml:space="preserve">
+    <value>축</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.colCurrent.caption" xml:space="preserve">
+    <value>현재값</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.colMessage.caption" xml:space="preserve">
+    <value>메시지</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.colStatus.caption" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.colTarget.caption" xml:space="preserve">
+    <value>이동 목표</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.colVelocity.caption" xml:space="preserve">
+    <value>속도</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.lblHeadAxis.caption" xml:space="preserve">
+    <value>주축</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.lblStatusParameter.caption" xml:space="preserve">
+    <value>상태 파라미터</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.lblSubAxes.caption" xml:space="preserve">
+    <value>종속 축</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.lblTestParameter.caption" xml:space="preserve">
+    <value>시험 파라미터</value>
+  </data>
+  <data name="extraDialog.sharedRailXSetupDialog.lblTitle.caption" xml:space="preserve">
+    <value>공유 X 레일 설정 / 이동 / 원점 시험</value>
+  </data>
+  <data name="extraDialog.systemSelfTestDialog._btnClose.caption" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="extraDialog.systemSelfTestDialog._btnRun.caption" xml:space="preserve">
+    <value>실행</value>
+  </data>
+  <data name="extraDialog.systemSelfTestDialog.colDetail.caption" xml:space="preserve">
+    <value>상세</value>
+  </data>
+  <data name="extraDialog.systemSelfTestDialog.colName.caption" xml:space="preserve">
+    <value>점검</value>
+  </data>
+  <data name="extraDialog.systemSelfTestDialog.colState.caption" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.btnApplyEdges.caption" xml:space="preserve">
+    <value>개수 적용 / 재생성</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.btnClose.caption" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.btnFit.caption" xml:space="preserve">
+    <value>화면 맞춤</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.btnGenerate.caption" xml:space="preserve">
+    <value>웨이퍼 자동 생성</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.btnRestore.caption" xml:space="preserve">
+    <value>원본 복원</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.btnSave.caption" xml:space="preserve">
+    <value>맵 저장</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.groupEdges.caption" xml:space="preserve">
+    <value>현재 방향의 끝줄 / 전체 개수</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.groupSettings.caption" xml:space="preserve">
+    <value>입력 사양 (0° 기준) · mm</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblDiameter.caption" xml:space="preserve">
+    <value>웨이퍼 직경</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblDieX.caption" xml:space="preserve">
+    <value>다이 X</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblDieY.caption" xml:space="preserve">
+    <value>다이 Y</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblEdgeBottom.caption" xml:space="preserve">
+    <value>하단 행 (-Y)</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblEdgeLeft.caption" xml:space="preserve">
+    <value>좌측 열 (-X)</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblEdgeRight.caption" xml:space="preserve">
+    <value>우측 열 (+X)</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblEdgeTop.caption" xml:space="preserve">
+    <value>상단 행 (+Y)</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblGapX.caption" xml:space="preserve">
+    <value>간격 X</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblGapY.caption" xml:space="preserve">
+    <value>간격 Y</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblRotation.caption" xml:space="preserve">
+    <value>회전 (시계 방향)</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblStepX.caption" xml:space="preserve">
+    <value>현재 방향 이동 간격 X</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblStepY.caption" xml:space="preserve">
+    <value>현재 방향 이동 간격 Y</value>
+  </data>
+  <data name="extraDialog.waferMapCreateDialog.lblTotalCount.caption" xml:space="preserve">
+    <value>전체 다이 목표 개수</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.btnCancel.caption" xml:space="preserve">
+    <value>취소</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.lblInputSource.caption" xml:space="preserve">
+    <value>입력 맵 사용</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.lblNote.caption" xml:space="preserve">
+    <value>입력/출력 등록 맵은 구분자와 관계없이 사용합니다. 구분자는 원격 입력 다운로드 파일만 검사하며, 불일치하면 알람으로 차단합니다.&#13;&#10;아래 미리보기는 등록 맵입니다. 회전은 기준 맵에 적용하며 기구 T축은 별도입니다. 90°/270° 맵 공정 사용은 차단됩니다.&#13;&#10;화면·결과 X/Y는 1,1 기준입니다. 센터는 격자 중심이며 짝수 격자는 기준점 양옆이 0.5/1.5입니다. 출력 양품/불량는 같은 회전·원점을 사용합니다.</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.lblOrigin.caption" xml:space="preserve">
+    <value>좌표 기준 (1,1)</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.lblRole.caption" xml:space="preserve">
+    <value>설정 대상</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.lblRotation.caption" xml:space="preserve">
+    <value>맵 회전</value>
+  </data>
+  <data name="extraDialog.waferMapProcessSettingsDialog.this.caption" xml:space="preserve">
+    <value>레시피 · 공정 맵 설정</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnClose.caption" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnCurrent.caption" xml:space="preserve">
+    <value>현재 / 최근 맵</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnFit.caption" xml:space="preserve">
+    <value>화면 맞춤</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnOpen.caption" xml:space="preserve">
+    <value>파일 열기...</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnOriginal.caption" xml:space="preserve">
+    <value>원본 0°</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnRecent.caption" xml:space="preserve">
+    <value>최근 수신 맵</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnRefresh.caption" xml:space="preserve">
+    <value>목록 갱신</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnRotateLeft.caption" xml:space="preserve">
+    <value>↶ 왼쪽 90°</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.btnRotateRight.caption" xml:space="preserve">
+    <value>↷ 오른쪽 90°</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.colBinColor.caption" xml:space="preserve">
+    <value>색</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.colBinCount.caption" xml:space="preserve">
+    <value>수량</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.colBinName.caption" xml:space="preserve">
+    <value>BIN / 토큰</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.colHeaderName.caption" xml:space="preserve">
+    <value>항목</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.colHeaderValue.caption" xml:space="preserve">
+    <value>값</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.lblBinTitle.caption" xml:space="preserve">
+    <value>BIN 수량 / 뷰어 구분 색상</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.lblFileHint.caption" xml:space="preserve">
+    <value>두 번 누르기 / Enter로 열기&#13;&#10;확장자 없는 맵도 표시합니다.</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.lblFormat.caption" xml:space="preserve">
+    <value>열 파일 형식</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.lblHeaderTitle.caption" xml:space="preserve">
+    <value>원본 헤더</value>
+  </data>
+  <data name="extraDialog.waferMapViewerDialog.lblMapHint.caption" xml:space="preserve">
+    <value>휠: 확대/축소 · 끌기: 이동 · 클릭: 다이 선택</value>
+  </data>
+</root>

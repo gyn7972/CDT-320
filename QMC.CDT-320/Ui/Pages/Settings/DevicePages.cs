@@ -14,17 +14,52 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private bool _loadingSettings;
         private bool _readerActionBusy;
 
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(grpInputBarcode, "settingsUi.caption.inputWaferBarcode");
+            Lang.BindKey(chkInputUse, "settingsUi.caption.useInputWaferBarcode");
+            Lang.BindKey(lblInputPort, "settingsUi.caption.serialPortCom");
+            Lang.BindKey(lblInputBaud, "settingsUi.caption.baudRate");
+            Lang.BindKey(lblInputTimeout, "settingsUi.caption.readTimeoutMs");
+            Lang.BindKey(lblInputRetry, "settingsUi.caption.retryCount");
+            Lang.BindKey(lblInputRetryStep, "settingsUi.caption.yRetryStepMm");
+            Lang.BindKey(btnInputTest, "settingsUi.caption.testRead");
+            Lang.BindKey(grpOutputBarcode, "settingsUi.caption.outputBinBarcode");
+            Lang.BindKey(chkOutputUse, "settingsUi.caption.useOutputBinBarcode");
+            Lang.BindKey(lblOutputPort, "settingsUi.caption.serialPortCom");
+            Lang.BindKey(lblOutputBaud, "settingsUi.caption.baudRate");
+            Lang.BindKey(lblOutputTimeout, "settingsUi.caption.readTimeoutMs");
+            Lang.BindKey(lblOutputRetry, "settingsUi.caption.retryCount");
+            Lang.BindKey(lblOutputRetryStep, "settingsUi.caption.yRetryStepMm");
+            Lang.BindKey(btnOutputTest, "settingsUi.caption.testRead");
+            Lang.BindKey(btnSaveBarcode, "settingsUi.caption.saveBarcodeSettings");
+            Lang.BindKey(lblPortTitle, "settingsUi.caption.port");
+            Lang.BindKey(lblBaudTitle, "settingsUi.caption.baudRate");
+            Lang.BindKey(lblDataBitsTitle, "settingsUi.caption.dataBits");
+            Lang.BindKey(lblParityTitle, "settingsUi.caption.parity");
+            Lang.BindKey(lblStopBitsTitle, "settingsUi.caption.stopBits");
+            Lang.BindKey(lblHeadCharTitle, "settingsUi.caption.headChar");
+            Lang.BindKey(lblTailCharTitle, "settingsUi.caption.tailChar");
+            Lang.BindKey(lblTimeoutTitle, "settingsUi.caption.readTimeout");
+            Lang.BindKey(lblRetryTitle, "settingsUi.caption.retryCount");
+            Lang.BindKey(btnConnect, "settingsUi.caption.connect");
+            Lang.BindKey(btnTestRead, "settingsUi.caption.testRead");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
         public BarcodeReaderPage()
         {
             InitializeComponent();
             ApplyRuntimeUi();
             SettingsPageLayoutStyler.Apply(this);
             ApplyCompactLayout();
+            InitializeLanguageBindings();
             btnSaveBarcode.Click += btnSaveBarcode_Click;
             btnInputConnect.Click += (s, e) => ToggleConnection(true);
             btnOutputConnect.Click += (s, e) => ToggleConnection(false);
             btnInputTest.Click += async (s, e) => await TestReadAsync(true);
             btnOutputTest.Click += async (s, e) => await TestReadAsync(false);
+            Lang.BindFormat(lblLastResult, "settingsUi.barcode.lastResult", string.Empty);
             LoadSettingsToUi();
         }
 
@@ -32,8 +67,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             lblHeader.Text = Lang.T("set.barcode");
             lblHeader.Tag = "i18n:set.barcode";
-            lblInputTrigger.Text = "NLV-5201 TRIGGER (blank=Z/Y)";
-            lblOutputTrigger.Text = "NLV-5201 TRIGGER (blank=Z/Y)";
+            Lang.BindKey(lblInputTrigger, "settingsUi.barcode.trigger");
+            Lang.BindKey(lblOutputTrigger, "settingsUi.barcode.trigger");
         }
 
         private void ApplyCompactLayout()
@@ -51,7 +86,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             base.OnVisibleChanged(e);
             if (Visible && !_readerActionBusy)
-                LoadSettingsToUi();
+                Lang.BindFormat(lblLastResult, "settingsUi.barcode.lastResult", string.Empty);
+            LoadSettingsToUi();
         }
 
         private Form1 Host => FindForm() as Form1;
@@ -99,7 +135,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (RejectReaderActionWhileRunning("Barcode 설정 저장"))
                 return;
             if (SaveSettingsFromUi())
-                SetResult("Barcode settings saved. Reader instances reloaded.", true);
+                SetResult("settingsUi.barcode.saved", true);
         }
 
         private bool SaveSettingsFromUi()
@@ -112,14 +148,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     txtInputTrigger.Text,
                     out triggerError))
             {
-                SetResult("INPUT WAFER Trigger 설정 오류: " + triggerError, false);
+                SetResult("settingsUi.barcode.inputTriggerError", false, triggerError);
                 return false;
             }
             if (!QMC.CDT320.VisionComm.Nlv5201BarcodeReader.TryValidateTriggerCommand(
                     txtOutputTrigger.Text,
                     out triggerError))
             {
-                SetResult("OUTPUT BIN Trigger 설정 오류: " + triggerError, false);
+                SetResult("settingsUi.barcode.outputTriggerError", false, triggerError);
                 return false;
             }
 
@@ -166,7 +202,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (current != null && current.IsConnected)
             {
                 current.Close();
-                SetResult(current.ReaderName + " disconnected.", true);
+                SetResult("settingsUi.barcode.disconnected", true, current.ReaderName);
                 UpdateConnectionButtons();
                 return;
             }
@@ -176,9 +212,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             current = ResolveReader(inputChannel);
             bool connected = current != null && current.TryOpen();
             SetResult(
-                (current != null ? current.ReaderName : (inputChannel ? "INPUT WAFER" : "OUTPUT BIN")) +
-                (connected ? " connected." : " connection failed."),
-                connected);
+                connected ? "settingsUi.barcode.connected" : "settingsUi.barcode.connectionFailed",
+                connected,
+                current != null ? current.ReaderName : (inputChannel ? "INPUT WAFER" : "OUTPUT BIN"));
             UpdateConnectionButtons();
         }
 
@@ -192,7 +228,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             IBarcodeReader reader = ResolveReader(inputChannel);
             if (reader == null || !reader.TryOpen())
             {
-                SetResult((inputChannel ? "INPUT WAFER" : "OUTPUT BIN") + " reader connection failed.", false);
+                SetResult("settingsUi.barcode.readerFailed", false, inputChannel ? "INPUT WAFER" : "OUTPUT BIN");
                 UpdateConnectionButtons();
                 return;
             }
@@ -204,17 +240,17 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 int timeoutMs = inputChannel
                     ? settings.InputBarcodeReadTimeoutMs
                     : settings.OutputBarcodeReadTimeoutMs;
-                SetResult(reader.ReaderName + " waiting for barcode...", true);
+                SetResult("settingsUi.barcode.waiting", true, reader.ReaderName);
                 string value = await reader.ReadAsync(timeoutMs);
                 SetResult(
                     string.IsNullOrWhiteSpace(value)
-                        ? reader.ReaderName + " TEST READ failed/timeout."
-                        : reader.ReaderName + " TEST READ: " + value,
-                    !string.IsNullOrWhiteSpace(value));
+                        ? "settingsUi.barcode.readTimeout"
+                        : "settingsUi.barcode.readResult",
+                    !string.IsNullOrWhiteSpace(value), reader.ReaderName, value);
             }
             catch (Exception ex)
             {
-                SetResult(reader.ReaderName + " TEST READ failed: " + ex.Message, false);
+                SetResult("settingsUi.barcode.readFailed", false, reader.ReaderName, ex.Message);
             }
             finally
             {
@@ -247,8 +283,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 return false;
 
             QMC.Common.MessageDialog.Show(
-                "장비 동작 중에는 " + (action ?? "Barcode 설정 변경") +
-                "을 수행할 수 없습니다. 장비를 정지한 뒤 다시 시도하십시오.");
+                Lang.Format("settingsUi.message.blockedWhileRunning", SettingsUiText.Display(action ?? "Barcode 설정 변경")));
             return true;
         }
 
@@ -266,13 +301,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             IBarcodeReader input = ResolveReader(true);
             IBarcodeReader output = ResolveReader(false);
-            btnInputConnect.Text = input != null && input.IsConnected ? "DISCONNECT" : "CONNECT";
-            btnOutputConnect.Text = output != null && output.IsConnected ? "DISCONNECT" : "CONNECT";
+            Lang.BindKey(btnInputConnect, input != null && input.IsConnected ? "settingsUi.caption.disconnect" : "settingsUi.caption.connect");
+            Lang.BindKey(btnOutputConnect, output != null && output.IsConnected ? "settingsUi.caption.disconnect" : "settingsUi.caption.connect");
         }
 
-        private void SetResult(string message, bool success)
+        private void SetResult(string key, bool success, params object[] args)
         {
-            lblLastResult.Text = "Last Result : " + (message ?? "");
+            Lang.BindDisplay(lblLastResult, key, resourceKey =>
+                Lang.Format("settingsUi.barcode.lastResult", Lang.Format(resourceKey, args)));
             lblLastResult.ForeColor = success ? Color.LimeGreen : Color.OrangeRed;
         }
     }
@@ -280,12 +316,30 @@ namespace QMC.CDT_320.Ui.Pages.Settings
     /// <summary>Settings - zoom lens.</summary>
     public partial class ZoomLensPage : PageBase
     {
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(grpInputVision, "settingsUi.caption.inputVision");
+            Lang.BindKey(grpOutputVision, "settingsUi.caption.outputVision");
+            Lang.BindKey(grpLowerVision, "settingsUi.caption.lowerVision");
+            Lang.BindKey(grpBottomVision, "settingsUi.caption.bottomVision");
+            Lang.BindKey(grpSideVisionFront, "settingsUi.caption.sideVisionFront");
+            Lang.BindKey(grpSideVisionRear, "settingsUi.caption.sideVisionRear");
+            foreach (var table in new[] { inputVisionLayout, outputVisionLayout, lowerVisionLayout, bottomVisionLayout, sideVisionFrontLayout, sideVisionRearLayout })
+            {
+                foreach (System.Windows.Forms.Control caption in table.Controls)
+                    if (caption is System.Windows.Forms.Label || caption is System.Windows.Forms.Button)
+                        Lang.BindDisplay(caption, caption.Text, SettingsUiText.Display);
+            }
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
         public ZoomLensPage()
         {
             InitializeComponent();
             ApplyRuntimeUi();
             SettingsPageLayoutStyler.Apply(this);
             ApplyCompactLayout();
+            InitializeLanguageBindings();
         }
 
         private void ApplyRuntimeUi()
@@ -304,12 +358,26 @@ namespace QMC.CDT_320.Ui.Pages.Settings
     /// <summary>Settings - height sensor.</summary>
     public partial class HeightSensorPage : PageBase
     {
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(grpSensor1, "settingsUi.caption.sensor1");
+            Lang.BindKey(grpSensor2, "settingsUi.caption.sensor2");
+            foreach (var table in new[] { sensor1Layout, sensor2Layout })
+            {
+                foreach (System.Windows.Forms.Control caption in table.Controls)
+                    if (caption is System.Windows.Forms.Label || caption is System.Windows.Forms.Button)
+                        Lang.BindDisplay(caption, caption.Text, SettingsUiText.Display);
+            }
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
         public HeightSensorPage()
         {
             InitializeComponent();
             ApplyRuntimeUi();
             SettingsPageLayoutStyler.Apply(this);
             ApplyCompactLayout();
+            InitializeLanguageBindings();
         }
 
         private void ApplyRuntimeUi()

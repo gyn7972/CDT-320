@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.ComponentModel;
 using System.Windows.Forms;
 using QMC.CDT320.Barcode;
@@ -20,11 +21,12 @@ namespace QMC.CDT_320.Ui.Dialogs
         public BarcodeRecoveryDialog(BarcodeRecoveryRequest request)
         {
             InitializeComponent();
+            InitializeLanguageBindings();
             BarcodeRecoveryRequest value = request ?? new BarcodeRecoveryRequest();
             _validationRecovery = value.ValidationRecovery;
-            lblChannelValue.Text = value.Channel == BarcodeReaderChannel.InputWafer
-                ? "INPUT WAFER"
-                : "OUTPUT BIN";
+            Lang.BindKey(lblChannelValue, value.Channel == BarcodeReaderChannel.InputWafer
+                ? "extraDialog.barcode.inputWafer"
+                : "extraDialog.barcode.outputBin");
             lblMaterialValue.Text = string.IsNullOrWhiteSpace(value.MaterialId)
                 ? "-"
                 : value.MaterialId;
@@ -40,25 +42,25 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (_validationRecovery)
             {
-                Text = "웨이퍼 바코드 확인";
-                lblHeader.Text = "웨이퍼 바코드 / 맵 확인";
-                lblFailureTitle.Text = "확인 필요";
-                txtFailure.Text = "LOT ID: " + (string.IsNullOrWhiteSpace(value.LotId) ? "없음" : value.LotId) +
-                    Environment.NewLine + "읽은 바코드: " + (value.CurrentBarcode ?? "") +
-                    (value.PrefixLength > 0 ? Environment.NewLine + "앞부분 비교: " + value.PrefixLength + "글자" : "") +
-                    Environment.NewLine + Environment.NewLine + (value.FailureMessage ?? "");
+                Lang.BindKey(this, "extraDialog.barcode.waferTitle");
+                Lang.BindKey(lblHeader, "extraDialog.barcode.waferHeader");
+                Lang.BindKey(lblFailureTitle, "extraDialog.barcode.needsReview");
+                if (value.PrefixLength > 0)
+                    Lang.BindFormat(txtFailure, "extraDialog.barcode.validationPrefixDetail", string.IsNullOrWhiteSpace(value.LotId) ? "-" : value.LotId, value.CurrentBarcode ?? "", value.PrefixLength, value.FailureMessage ?? "");
+                else
+                    Lang.BindFormat(txtFailure, "extraDialog.barcode.validationDetail", string.IsNullOrWhiteSpace(value.LotId) ? "-" : value.LotId, value.CurrentBarcode ?? "", value.FailureMessage ?? "");
                 txtManualBarcode.Text = value.CurrentBarcode ?? "";
-                grpRetry.Text = "현재 바코드로 다시 확인";
+                Lang.BindKey(grpRetry, "extraDialog.barcode.retryCurrent");
                 lblRetryCount.Visible = false;
                 numRetryCount.Visible = false;
                 lblRetryStep.Visible = false;
                 numRetryStep.Visible = false;
                 retryLayout.SetColumn(btnRetry, 0);
                 retryLayout.SetColumnSpan(btnRetry, 5);
-                btnRetry.Text = "다시 확인";
-                grpManual.Text = "웨이퍼 표시 확인 후 수동 입력";
-                btnManualApply.Text = "입력값 검사";
-                btnCloseRetry.Text = "작업 중단";
+                Lang.BindKey(btnRetry, "extraDialog.barcode.checkAgain");
+                Lang.BindKey(grpManual, "extraDialog.barcode.manualGuide");
+                Lang.BindKey(btnManualApply, "extraDialog.barcode.checkInput");
+                Lang.BindKey(btnCloseRetry, "extraDialog.barcode.abort");
             }
 
             btnRetry.Click += btnRetry_Click;
@@ -92,7 +94,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (string.IsNullOrWhiteSpace(barcode) ||
                 string.Equals(barcode, "WAFER-NULL-ID", StringComparison.OrdinalIgnoreCase))
             {
-                QMC.Common.MessageDialog.Show(this, "수기로 적용할 유효한 Barcode를 입력하십시오.", "BARCODE");
+                QMC.Common.MessageDialog.Show(this, Lang.T("extraDialog.barcode.enterValid"), Lang.T("extraDialog.barcode.messageTitle"));
                 txtManualBarcode.Focus();
                 txtManualBarcode.SelectAll();
                 return;
@@ -164,5 +166,25 @@ namespace QMC.CDT_320.Ui.Dialogs
             _cancellationClose = true;
             Close();
         }
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this, "extraDialog.barcode.title");
+            Lang.BindKey(lblHeader, "extraDialog.barcode.header");
+            Lang.BindKey(lblFailureTitle, "extraDialog.barcode.failureTitle");
+            Lang.BindKey(grpRetry, "extraDialog.barcode.retryGroup");
+            Lang.BindKey(btnRetry, "extraDialog.barcode.retryScan");
+            Lang.BindKey(grpManual, "extraDialog.barcode.manualGroup");
+            Lang.BindKey(btnManualApply, "extraDialog.barcode.manualApply");
+            Lang.BindKey(btnCloseRetry, "extraDialog.barcode.closeRetry");
+            Lang.BindKey(lblChannelTitle, "extraDialog.barcodeRecoveryDialog.lblChannelTitle.caption");
+            Lang.BindKey(lblMaterialTitle, "extraDialog.barcodeRecoveryDialog.lblMaterialTitle.caption");
+            Lang.BindKey(lblInstanceTitle, "extraDialog.barcodeRecoveryDialog.lblInstanceTitle.caption");
+            Lang.BindKey(lblRetryCount, "extraDialog.barcodeRecoveryDialog.lblRetryCount.caption");
+            Lang.BindKey(lblRetryStep, "extraDialog.barcodeRecoveryDialog.lblRetryStep.caption");
+            Lang.BindKey(lblManualBarcode, "extraDialog.barcodeRecoveryDialog.lblManualBarcode.caption");
+            Lang.BindKey(btnBuzzerStop, "extraDialog.barcodeRecoveryDialog.btnBuzzerStop.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 }

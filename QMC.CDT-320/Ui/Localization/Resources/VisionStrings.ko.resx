@@ -1,0 +1,2706 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="visionUi.literal" xml:space="preserve">
+    <value>{0}</value>
+    <comment>Display an external value verbatim; never translate model identifiers or protocol payloads.</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.btnExpose.text" xml:space="preserve">
+    <value>하부 노출</value>
+    <comment>Source: TpuVisionTestControl.cs:btnExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.btnExpose.state2" xml:space="preserve">
+    <value>측면 노출</value>
+    <comment>Source: TpuVisionTestControl.cs:btnExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.btnResult.text" xml:space="preserve">
+    <value>하부 결과</value>
+    <comment>Source: TpuVisionTestControl.cs:btnResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.btnResult.state2" xml:space="preserve">
+    <value>측면 검사</value>
+    <comment>Source: TpuVisionTestControl.cs:btnResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.text" xml:space="preserve">
+    <value>Picker {0} 노출 ACK 대기</value>
+    <comment>Source: TpuVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.state2" xml:space="preserve">
+    <value>Side 노출 ACK 대기</value>
+    <comment>Source: TpuVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.text" xml:space="preserve">
+    <value>4 Picker DieFinder offset/OK 대기</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state2" xml:space="preserve">
+    <value>{0} 검사 결과 대기</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblHint.text" xml:space="preserve">
+    <value>Bottom 검사는 TpuVisionAdapter의 Inspection 채널에 노출을 요청합니다. 모션 구동은 하지 않습니다.</value>
+    <comment>Source: TpuVisionTestControl.cs:lblHint.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblHint.state2" xml:space="preserve">
+    <value>Side 검사는 해당 Side Vision 모듈에 EXPOSE/INSPECT를 요청합니다. Vision READY 상태에서만 사용하세요.</value>
+    <comment>Source: TpuVisionTestControl.cs:lblHint.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.target.text" xml:space="preserve">
+    <value>Vision 모듈이 없습니다.</value>
+    <comment>Source: TpuVisionTestControl.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.target.state2" xml:space="preserve">
+    <value>Vision이 연결되지 않았습니다. port={0}</value>
+    <comment>Source: TpuVisionTestControl.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.state3" xml:space="preserve">
+    <value>EXPOSE 실행 중...</value>
+    <comment>Source: TpuVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.state4" xml:space="preserve">
+    <value>EXPOSE ACK 완료</value>
+    <comment>Source: TpuVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.state5" xml:space="preserve">
+    <value>EXPOSE 실패. Vision READY/연결 상태를 확인하세요.</value>
+    <comment>Source: TpuVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.state6" xml:space="preserve">
+    <value>EXPOSE 실패: {0}</value>
+    <comment>Source: TpuVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state3" xml:space="preserve">
+    <value>{0} 실행 중...</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state4" xml:space="preserve">
+    <value>{0} 실패: {1}</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state5" xml:space="preserve">
+    <value>결과가 없습니다.</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state6" xml:space="preserve">
+    <value>Side Vision 카메라 채널을 확인할 수 없습니다.</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state7" xml:space="preserve">
+    <value>INSPECT 실패: no response</value>
+    <comment>Source: TpuVisionTestControl.cs:lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.btnExpose.state3" xml:space="preserve">
+    <value>노출</value>
+    <comment>Source: TpuVisionTestControl.Designer.cs:this.btnExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.btnResult.state3" xml:space="preserve">
+    <value>결과</value>
+    <comment>Source: TpuVisionTestControl.Designer.cs:this.btnResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblExpose.state7" xml:space="preserve">
+    <value>EXPOSE ACK 대기</value>
+    <comment>Source: TpuVisionTestControl.Designer.cs:this.lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblResult.state8" xml:space="preserve">
+    <value>결과 대기</value>
+    <comment>Source: TpuVisionTestControl.Designer.cs:this.lblResult.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestControl.lblHint.state3" xml:space="preserve">
+    <value>Vision 테스트 버튼입니다. 모션 구동은 하지 않습니다.</value>
+    <comment>Source: TpuVisionTestControl.Designer.cs:this.lblHint.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.text" xml:space="preserve">
+    <value>모듈을 선택하세요.</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state2" xml:space="preserve">
+    <value>연결 중...</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state3" xml:space="preserve">
+    <value>Vision 명령 채널이 연결되어 있지 않습니다.</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state4" xml:space="preserve">
+    <value>Vision Live 시작 요청...</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state5" xml:space="preserve">
+    <value>Vision Live 정지 요청...</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state6" xml:space="preserve">
+    <value>Vision Live 명령 거부: {0}</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state7" xml:space="preserve">
+    <value>Vision 실시간 켜짐</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state8" xml:space="preserve">
+    <value>Vision 실시간 꺼짐</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state9" xml:space="preserve">
+    <value>Vision Live 명령 실패: {0}</value>
+    <comment>Source: VisionMonitorControl.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.btnLive.text" xml:space="preserve">
+    <value>실시간 켜짐</value>
+    <comment>Source: VisionMonitorControl.cs:btnLive.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.btnLive.state2" xml:space="preserve">
+    <value>실시간 꺼짐</value>
+    <comment>Source: VisionMonitorControl.cs:btnLive.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblModule.text" xml:space="preserve">
+    <value>모듈</value>
+    <comment>Source: VisionMonitorControl.Designer.cs:this.lblModule.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblHost.text" xml:space="preserve">
+    <value>비전 IP</value>
+    <comment>Source: VisionMonitorControl.Designer.cs:this.lblHost.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.btnConnect.text" xml:space="preserve">
+    <value>연결</value>
+    <comment>Source: VisionMonitorControl.Designer.cs:this.btnConnect.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.btnDisconnect.text" xml:space="preserve">
+    <value>해제</value>
+    <comment>Source: VisionMonitorControl.Designer.cs:this.btnDisconnect.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorControl.lblStatus.state10" xml:space="preserve">
+    <value>대기</value>
+    <comment>Source: VisionMonitorControl.Designer.cs:this.lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblStat.text" xml:space="preserve">
+    <value>대기 — Vision Live/Grab 준비</value>
+    <comment>Source: VisionViewerPanel.cs:_lblStat.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblStat.state2" xml:space="preserve">
+    <value>대기 — Grab 이미지 수신 준비</value>
+    <comment>Source: VisionViewerPanel.cs:_lblStat.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblStat.state3" xml:space="preserve">
+    <value>뷰어 포트 없음</value>
+    <comment>Source: VisionViewerPanel.cs:_lblStat.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblStat.state4" xml:space="preserve">
+    <value>검증점 별도 촬상 영상 표시 — {0}x{1}</value>
+    <comment>Source: VisionViewerPanel.cs:_lblStat.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblStat.state5" xml:space="preserve">
+    <value>Grab 이미지 수신 중</value>
+    <comment>Source: VisionViewerPanel.cs:_lblStat.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblStat.state6" xml:space="preserve">
+    <value>Vision Live 수신 중</value>
+    <comment>Source: VisionViewerPanel.cs:_lblStat.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._chkViewer.text" xml:space="preserve">
+    <value>{0} 켜짐</value>
+    <comment>Source: VisionViewerPanel.cs:_chkViewer.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._chkViewer.state2" xml:space="preserve">
+    <value>{0} 꺼짐</value>
+    <comment>Source: VisionViewerPanel.cs:_chkViewer.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel.message.text" xml:space="preserve">
+    <value>뷰어 전환에 실패했습니다.&#13;&#10;{0}</value>
+    <comment>Source: VisionViewerPanel.cs:message</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel.message.state2" xml:space="preserve">
+    <value>뷰어 ON/OFF</value>
+    <comment>Source: VisionViewerPanel.cs:message</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._chkViewer.state3" xml:space="preserve">
+    <value>뷰어 OFF</value>
+    <comment>Source: VisionViewerPanel.Designer.cs:this._chkViewer.Text</comment>
+  </data>
+  <data name="visionUi.visionViewerPanel._lblTitle.text" xml:space="preserve">
+    <value>이미지</value>
+    <comment>Source: VisionViewerPanel.Designer.cs:this._lblTitle.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.target.text" xml:space="preserve">
+    <value>Wafer Vision 모듈이 없습니다.</value>
+    <comment>Source: WaferVisionTestControl.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.target.state2" xml:space="preserve">
+    <value>Wafer Vision이 연결되지 않았습니다. port={0}</value>
+    <comment>Source: WaferVisionTestControl.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblExpose.text" xml:space="preserve">
+    <value>GRAB 실행 중...</value>
+    <comment>Source: WaferVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblExpose.state2" xml:space="preserve">
+    <value>요청→응답 {0} ms | {1}</value>
+    <comment>Source: WaferVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblExpose.state3" xml:space="preserve">
+    <value>REQ→ACK {0} ms | GRAB 실패: {1}</value>
+    <comment>Source: WaferVisionTestControl.cs:lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.text" xml:space="preserve">
+    <value>INSPECT_SYNC 요청/EPD 대기 중...</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state2" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}실패 또는 EPD 타임아웃</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state3" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}EPD→RESULT {2} ms{3}전체 {4} ms | {5}</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state4" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}INSPECT_SYNC 실패: {2}</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state5" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}전체 {2} ms{3}INSPECT_SYNC 실패 또는 EPD 타임아웃</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state6" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}RESULT 최종 결과 대기 중...</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state7" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}EPD→RESULT {2} ms{3}전체 {4} ms | 결과 실패: {5}</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state8" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}EPD→RESULT {2} ms{3}전체 {4} ms | 완료 데이터 변환 실패</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state9" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}EPD→RESULT {2} ms{3}전체 {4} ms | DONE score={5}</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state10" xml:space="preserve">
+    <value>전체 {0} ms{1}INSPECT_SYNC + RESULT 실패: {2}</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state11" xml:space="preserve">
+    <value>REQ→EPD {0} ms{1}EPD→RESULT {2} ms{3}전체 {4} ms | {5} score={6}</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.label.state12" xml:space="preserve">
+    <value>Vision 요청이 취소되었습니다.</value>
+    <comment>Source: WaferVisionTestControl.cs:label.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblSummary.text" xml:space="preserve">
+    <value>저장된 결과 없음</value>
+    <comment>Source: WaferVisionTestControl.cs:lblSummary.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblSummary.state2" xml:space="preserve">
+    <value>저장됨: DieOffset X={0}  Y={1}  R={2}   |   DieCheck={3}</value>
+    <comment>Source: WaferVisionTestControl.cs:lblSummary.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblSummary.state3" xml:space="preserve">
+    <value>요약 표시 실패: {0}</value>
+    <comment>Source: WaferVisionTestControl.cs:lblSummary.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnExpose.text" xml:space="preserve">
+    <value>이미지 촬영</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnExpose.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnCenterMatchAsync.text" xml:space="preserve">
+    <value>ALIGN: Center INSPECT_SYNC 확인</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnCenterMatchAsync.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnCenterMatchResult.text" xml:space="preserve">
+    <value>ALIGN: Center INSPECT_SYNC + 적용</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnCenterMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnRef1MatchAsync.text" xml:space="preserve">
+    <value>ALIGN: Ref1 INSPECT_SYNC 확인</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnRef1MatchAsync.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnRef1MatchResult.text" xml:space="preserve">
+    <value>ALIGN: Ref1 INSPECT_SYNC + 적용</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnRef1MatchResult.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnRef2MatchAsync.text" xml:space="preserve">
+    <value>ALIGN: Ref2 INSPECT_SYNC 확인</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnRef2MatchAsync.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnRef2MatchResult.text" xml:space="preserve">
+    <value>ALIGN: Ref2 INSPECT_SYNC + 적용</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnRef2MatchResult.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnDieCheckMatchAsync.text" xml:space="preserve">
+    <value>DIE CHECK INSPECT_SYNC 확인</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnDieCheckMatchAsync.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.btnDieCheckMatchResult.text" xml:space="preserve">
+    <value>DIE CHECK INSPECT_SYNC + 판정</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.btnDieCheckMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblExpose.state4" xml:space="preserve">
+    <value>노출 트리거 ACK 대기</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.lblExpose.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblCenterMatchAsync.text" xml:space="preserve">
+    <value>INSPECT_SYNC 대기</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.lblCenterMatchAsync.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblCenterMatchResult.text" xml:space="preserve">
+    <value>INSPECT_SYNC + 적용 대기</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.lblCenterMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblDieCheckMatchResult.text" xml:space="preserve">
+    <value>INSPECT_SYNC + 판정 대기</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.lblDieCheckMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestControl.lblHint.text" xml:space="preserve">
+    <value>모든 버튼은 INSPECT_SYNC 요청 후 request_id EPD와 RESULT까지 확인합니다. 적용/판정 버튼은 결과를 Handler 상태에도 반영하며 전체 택을 표시합니다.</value>
+    <comment>Source: WaferVisionTestControl.Designer.cs:this.lblHint.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog.Text.text" xml:space="preserve">
+    <value>원격 뷰어</value>
+    <comment>Source: RemoteViewerDialog.cs:Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog.lblPort.text" xml:space="preserve">
+    <value>PORT</value>
+    <comment>Source: RemoteViewerDialog.cs:lblPort.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog._lblClients.text" xml:space="preserve">
+    <value>연결된 뷰어: 0</value>
+    <comment>Source: RemoteViewerDialog.cs:_lblClients.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog.message.text" xml:space="preserve">
+    <value>시작 실패: {0}</value>
+    <comment>Source: RemoteViewerDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog.message.state2" xml:space="preserve">
+    <value>원격 뷰어</value>
+    <comment>Source: RemoteViewerDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog.lblTitle.text" xml:space="preserve">
+    <value>원격 뷰어</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this.lblTitle.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog.lblPort.state2" xml:space="preserve">
+    <value>포트:</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this.lblPort.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog._btnStart.text" xml:space="preserve">
+    <value>시작</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this._btnStart.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog._btnStop.text" xml:space="preserve">
+    <value>정지</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this._btnStop.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog._lblStatus.text" xml:space="preserve">
+    <value>정지됨</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this._lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog._lblClients.state2" xml:space="preserve">
+    <value>연결된 뷰어: 0</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this._lblClients.Text</comment>
+  </data>
+  <data name="visionUi.remoteViewerDialog._btnClose.text" xml:space="preserve">
+    <value>닫기</value>
+    <comment>Source: RemoteViewerDialog.Designer.cs:this._btnClose.Text</comment>
+  </data>
+  <data name="visionUi.sideVisionViewerDialog.Text.text" xml:space="preserve">
+    <value>측면 비전 뷰어 - 전방 / 후방</value>
+    <comment>Source: SideVisionViewerDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.tpuVisionTestDialog.Text.text" xml:space="preserve">
+    <value>비전 테스트</value>
+    <comment>Source: TpuVisionTestDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.text" xml:space="preserve">
+    <value>초기 상태 확인 실패: {0}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblGuide.text" xml:space="preserve">
+    <value>Bottom/Input/Output 카메라가 같은 Reticle Mark를 찾은 좌표와 현재 모터 위치를 VisionUnit Config에 저장합니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblGuide.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblValueTitle.text" xml:space="preserve">
+    <value>기준 마크 오프셋</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblValueTitle.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnSaveReticleValues.text" xml:space="preserve">
+    <value>저장 / 적용</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:btnSaveReticleValues.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state2" xml:space="preserve">
+    <value>대기 중입니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state3" xml:space="preserve">
+    <value>실행 가능한 상태입니다. 각 카메라를 Reticle Mark가 보이는 위치에 준비한 뒤 Find를 실행하세요.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state4" xml:space="preserve">
+    <value>상태 확인 실패: {0}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state5" xml:space="preserve">
+    <value>수행 순서 표시 실패: {0}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state6" xml:space="preserve">
+    <value>미저장 편집을 취소하고 저장된 Settings와 현재 Recipe를 불러왔습니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state7" xml:space="preserve">
+    <value>값 로드 실패: {0}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state8" xml:space="preserve">
+    <value>미저장 편집이 있습니다. SAVE / APPLY 또는 LOAD 후 측정하세요.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state9" xml:space="preserve">
+    <value>{0} 실행 중입니다. Vision 응답을 기다립니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state10" xml:space="preserve">
+    <value>{0} 완료. 측정값이 VisionUnit Config에 반영되었습니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state11" xml:space="preserve">
+    <value>{0} 실패. result={1}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state12" xml:space="preserve">
+    <value>{0} 작업이 취소되었습니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state13" xml:space="preserve">
+    <value>{0} 예외 발생: {1}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblOffsets.text" xml:space="preserve">
+    <value>Offset: 데이터 없음</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblOffsets.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblOffsets.state2" xml:space="preserve">
+    <value>{0}오프셋: 하부-투입=({1}, {2}) mm / 하부-배출=({3}, {4}) mm / 유효={5}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblOffsets.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state14" xml:space="preserve">
+    <value>측정값 표시 실패: {0}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state15" xml:space="preserve">
+    <value>Admin 권한에서만 Vision Camera Calibration 값을 수정할 수 있습니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state16" xml:space="preserve">
+    <value>{0} 수정값은 미저장 상태입니다. SAVE / APPLY로 저장·적용하세요. LOAD는 편집을 취소합니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblStatus.state17" xml:space="preserve">
+    <value>{0} 키패드 수정 실패: {1}</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.text" xml:space="preserve">
+    <value>저장 파일에서 Machine Settings와 현재 Recipe 값을 다시 읽어 표시합니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state2" xml:space="preserve">
+    <value>수정값을 저장하고 픽커 보정에 적용합니다.&#13;&#10;이번에 측정하거나 직접 수정한 Encoder 위치만 현재 Recipe에도 저장합니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state3" xml:space="preserve">
+    <value>Admin 권한에서 더블클릭하여 편집합니다. SAVE / APPLY 전까지 운전값은 변경되지 않습니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state4" xml:space="preserve">
+    <value>자동 운전, 다른 수동 동작, 알람 상태를 확인합니다.&#13;&#10;측정 버튼을 누르기 전에 현재 장비 상태가 안전한지 확인합니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state5" xml:space="preserve">
+    <value>사전 준비 후 Bottom Vision에 ReticleFinder 실행을 요청합니다.&#13;&#10;Picker 이동 전 Reticle을 Rear Back -&gt; Lift Down으로 복귀한 뒤 Front/Rear Picker를 Output-side Avoid로 안전 순차 이동합니다. Front Slide는 Rear Back 기준으로 확인합니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state6" xml:space="preserve">
+    <value>Bottom Vision에 ReticleFinder 실행을 요청합니다.&#13;&#10;성공하면 X/Y/T/Score를 VisionUnit Config의 Bottom 측정값으로 저장합니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state7" xml:space="preserve">
+    <value>Input Vision에 ReticleFinder 실행을 요청합니다.&#13;&#10;Picker 이동 전 Reticle을 안전 위치로 복귀하고 Front/Rear Picker를 Output-side Avoid로 안전 순차 이동한 뒤 InputVisionX를 Reticle 위치로 이동합니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state8" xml:space="preserve">
+    <value>Output Vision에 ReticleFinder 실행을 요청합니다.&#13;&#10;Picker 이동 전 Reticle을 안전 위치로 복귀하고 Front/Rear Picker를 Input-side Avoid로 안전 순차 이동한 뒤 OutputVisionX를 Reticle 위치로 이동합니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state9" xml:space="preserve">
+    <value>Reticle을 촬영 준비 위치에서 복귀합니다.&#13;&#10;Rear Slide 후진, Lift Down 순서로 실행하고 최종 위치를 확인합니다. Front Slide는 Rear Back 기준으로 확인합니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state10" xml:space="preserve">
+    <value>Bottom/Input/Output 측정값으로 카메라 간 Offset을 계산하고 수동 보정량을 유지합니다.&#13;&#10;SAVE / APPLY와 동일하게 파일과 픽커 보정을 함께 저장·적용합니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state11" xml:space="preserve">
+    <value>Vision Camera Calibration 수행 순서를 표시합니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.tooltip.state12" xml:space="preserve">
+    <value>Vision Camera Calibration 창을 닫습니다.</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:tooltip</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.message.text" xml:space="preserve">
+    <value>저장하지 않은 수정값을 취소하고 닫으시겠습니까?</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.message.state2" xml:space="preserve">
+    <value>비전 카메라 보정</value>
+    <comment>Source: VisionCameraCalibrationDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colItem.text" xml:space="preserve">
+    <value>카메라</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colItem.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colPixelX.text" xml:space="preserve">
+    <value>PIXEL X</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colPixelX.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colPixelY.text" xml:space="preserve">
+    <value>PIXEL Y</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colPixelY.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colMmX.text" xml:space="preserve">
+    <value>MM X</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colMmX.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colMmY.text" xml:space="preserve">
+    <value>MM Y</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colMmY.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colAngle.text" xml:space="preserve">
+    <value>각도 T</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colAngle.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colAxis.text" xml:space="preserve">
+    <value>축 위치</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colAxis.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colScore.text" xml:space="preserve">
+    <value>점수</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colScore.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colValueName.text" xml:space="preserve">
+    <value>항목</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colValueName.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colSavedValue.text" xml:space="preserve">
+    <value>저장값</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colSavedValue.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colCurrentValue.text" xml:space="preserve">
+    <value>현재값</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colCurrentValue.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.colApplyValue.text" xml:space="preserve">
+    <value>값</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.colApplyValue.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnLoadValues.text" xml:space="preserve">
+    <value>불러오기</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnLoadValues.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnSaveReticleValues.state2" xml:space="preserve">
+    <value>위치 저장</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnSaveReticleValues.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.lblOffsets.state3" xml:space="preserve">
+    <value>오프셋: -</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.lblOffsets.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnCheck.text" xml:space="preserve">
+    <value>준비 상태 확인</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnCheck.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnRunAll.text" xml:space="preserve">
+    <value>준비 및 하부 찾기</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnRunAll.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnFindBottom.text" xml:space="preserve">
+    <value>하부 찾기</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnFindBottom.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnFindInput.text" xml:space="preserve">
+    <value>투입 찾기</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnFindInput.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnFindOutput.text" xml:space="preserve">
+    <value>배출 찾기</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnFindOutput.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnRetractReticle.text" xml:space="preserve">
+    <value>레티클 복귀</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnRetractReticle.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnCalculateSave.text" xml:space="preserve">
+    <value>계산 / 저장</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnCalculateSave.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.btnClose.text" xml:space="preserve">
+    <value>닫기</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.btnClose.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.Text.text" xml:space="preserve">
+    <value>비전 카메라 보정</value>
+    <comment>Source: VisionCameraCalibrationDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.ManualSave.lblStatus.text" xml:space="preserve">
+    <value>저장·적용 실패: {0}</value>
+    <comment>Source: VisionCameraCalibrationDialog.ManualSave.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.message.text" xml:space="preserve">
+    <value>Camera Setting을 요청할 카메라를 선택하세요.</value>
+    <comment>Source: VisionCameraScaleDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.message.state2" xml:space="preserve">
+    <value>비전</value>
+    <comment>Source: VisionCameraScaleDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.message.state3" xml:space="preserve">
+    <value>{0} VisionPC가 연결되지 않았습니다. 연결 후 다시 요청하세요.</value>
+    <comment>Source: VisionCameraScaleDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.message.state4" xml:space="preserve">
+    <value>카메라 Pixel Scale을 저장했습니다.&#13;&#10;Center는 Width/2, Height/2로 자동 계산됩니다.&#13;&#10;Vision Camera Cal Offset은 CALC/SAVE를 다시 실행해 갱신하세요.</value>
+    <comment>Source: VisionCameraScaleDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.lblHeader.text" xml:space="preserve">
+    <value>카메라 픽셀 스케일 설정</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.lblDescription.text" xml:space="preserve">
+    <value>VisionPC는 pixel 좌표를 전송합니다. Handler는 카메라별 Width/Height와 Scale(mm/px)을 저장하고, Center는 Width/2, Height/2로 자동 계산합니다.</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.lblDescription.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.colWidth.text" xml:space="preserve">
+    <value>너비(px)</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.colWidth.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.colHeight.text" xml:space="preserve">
+    <value>높이(px)</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.colHeight.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.colScaleX.text" xml:space="preserve">
+    <value>X 스케일(mm/px)</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.colScaleX.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.colScaleY.text" xml:space="preserve">
+    <value>Y 스케일(mm/px)</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.colScaleY.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.colSource.text" xml:space="preserve">
+    <value>출발 위치</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.colSource.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.btnReload.text" xml:space="preserve">
+    <value>다시 불러오기</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.btnReload.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.btnCameraSettingReq.text" xml:space="preserve">
+    <value>카메라 설정 요청</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.btnCameraSettingReq.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.btnSave.text" xml:space="preserve">
+    <value>저장</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.btnSave.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.Text.text" xml:space="preserve">
+    <value>카메라 픽셀 스케일 설정</value>
+    <comment>Source: VisionCameraScaleDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.text" xml:space="preserve">
+    <value>대기 중입니다. Side Focus 기준 위치를 확인한 뒤 START SCAN을 실행하세요.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state2" xml:space="preserve">
+    <value>대기 중입니다. Focus 기준 위치를 확인한 뒤 START SCAN을 실행하세요.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.Text.text" xml:space="preserve">
+    <value>측면 비전 초점 보정</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblHeader.text" xml:space="preserve">
+    <value>측면 비전 초점 보정</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblHeader.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state3" xml:space="preserve">
+    <value>Focus 설정 변경 실패: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state4" xml:space="preserve">
+    <value>{0} 항목은 숫자 키패드 수정 대상이 아닙니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state5" xml:space="preserve">
+    <value>숫자 입력 처리 실패: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state6" xml:space="preserve">
+    <value>Admin 권한에서만 BEST 위치를 수동 수정할 수 있습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state7" xml:space="preserve">
+    <value>BEST 입력값이 올바른 숫자가 아닙니다. value={0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state8" xml:space="preserve">
+    <value>BEST 입력값이 {0} 소프트리밋을 벗어났습니다. target={1}, min={2}, max={3}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state9" xml:space="preserve">
+    <value>BEST 수동 입력값 저장에 실패했습니다. Machine 설정 저장 상태를 확인하세요.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state10" xml:space="preserve">
+    <value>{0} BEST 수동 입력 저장 완료. old={1}, new={2}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state11" xml:space="preserve">
+    <value>BEST 수동 입력 처리 실패: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state12" xml:space="preserve">
+    <value>실행 가능한 상태입니다. Default Pos는 저장된 Focus Cal 등록값만 사용합니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state13" xml:space="preserve">
+    <value>실행 조건 확인 실패: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state14" xml:space="preserve">
+    <value>현재 축 위치를 Default Pos로 적용했습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state15" xml:space="preserve">
+    <value>현재 위치 적용 실패: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state16" xml:space="preserve">
+    <value>Vision Focus Cal 설정값을 다시 불러왔습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state17" xml:space="preserve">
+    <value>정지 처리 중입니다. 완료 후 창을 닫으세요.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state18" xml:space="preserve">
+    <value>현재 정지 요청할 Vision Focus Calibration 동작이 없습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state19" xml:space="preserve">
+    <value>{0}으로 Vision Focus Calibration 정지를 요청했습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state20" xml:space="preserve">
+    <value>Vision Focus Calibration 정지 요청 실패: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state21" xml:space="preserve">
+    <value>Default Pos 이동 완료.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state22" xml:space="preserve">
+    <value>Default Pos 이동 실패. Alarm/Event Log를 확인하세요.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state23" xml:space="preserve">
+    <value>Default Pos 이동이 정지 요청으로 중단되었습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state24" xml:space="preserve">
+    <value>Default Pos 이동 예외 발생: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state25" xml:space="preserve">
+    <value>Z AVOID는 Bottom Collet/Bottom Die 모드에서만 사용할 수 있습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state26" xml:space="preserve">
+    <value>Picker Z Avoid 이동 완료. {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state27" xml:space="preserve">
+    <value>Picker Z Avoid 이동 실패. Alarm/Event Log를 확인하세요.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state28" xml:space="preserve">
+    <value>Picker Z Avoid 이동이 정지 요청으로 중단되었습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state29" xml:space="preserve">
+    <value>Picker Z Avoid 이동 예외 발생: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state30" xml:space="preserve">
+    <value>Picker Y Avoid는 Bottom 모드에서만 사용할 수 있습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state31" xml:space="preserve">
+    <value>Picker Y Avoid 이동 전 선택 Picker Z를 먼저 Avoid 위치로 이동하세요.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state32" xml:space="preserve">
+    <value>Picker Y Avoid 이동 완료. {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state33" xml:space="preserve">
+    <value>Picker Y Avoid 이동 실패. Alarm/Event Log를 확인하세요.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state34" xml:space="preserve">
+    <value>Picker Y Avoid 이동이 정지 요청으로 중단되었습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state35" xml:space="preserve">
+    <value>Picker Y Avoid 이동 예외 발생: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state36" xml:space="preserve">
+    <value>Batch 측정 대상을 하나 이상 선택하세요.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state37" xml:space="preserve">
+    <value>Batch {0}/{1} {2} Focus 측정 중입니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state38" xml:space="preserve">
+    <value>Batch {0} Focus 측정 실패: {1}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state39" xml:space="preserve">
+    <value>Batch {0} 완료. 다음 대상 준비 단계가 안전 조건을 확보합니다(중복 Avoid 복귀 생략).</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state40" xml:space="preserve">
+    <value>Batch {0} 완료. 최종 안전 Avoid 복귀 중입니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state41" xml:space="preserve">
+    <value>Batch {0} 완료 후 최종 안전 Avoid 복귀에 실패했습니다. 최종 안전 상태를 확인하세요. code={1}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state42" xml:space="preserve">
+    <value>Batch Focus 측정을 모두 완료했습니다. 대상={0}. SAVE RESULT는 마지막 정상 측정 대상을 확인 저장합니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state43" xml:space="preserve">
+    <value>Batch Focus 측정이 정지 요청으로 중단되었습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state44" xml:space="preserve">
+    <value>Batch Focus 측정 예외 발생: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state45" xml:space="preserve">
+    <value>Focus Scan 실패: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state46" xml:space="preserve">
+    <value>Focus Scan 완료. SAVE RESULT로 마지막 정상 측정값을 확인 저장하세요. Best={0}, Score={1}, Sample={2}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state47" xml:space="preserve">
+    <value>Focus Scan이 정지 요청으로 중단되었습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state48" xml:space="preserve">
+    <value>Focus Scan 예외 발생: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state49" xml:space="preserve">
+    <value>저장할 Focus 측정 결과가 없습니다. START SCAN 또는 BATCH START를 정상 완료한 뒤 SAVE RESULT를 누르세요.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state50" xml:space="preserve">
+    <value>마지막 정상 측정 이후 해당 Focus 결과가 변경되어 SAVE RESULT를 차단했습니다. 다시 측정하세요. target={0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state51" xml:space="preserve">
+    <value>마지막 정상 Focus 결과를 저장했습니다. target={0}, best={1}, score={2}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state52" xml:space="preserve">
+    <value>Focus 측정 결과 저장 실패: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state53" xml:space="preserve">
+    <value>Focus Cal 설정 로드 실패: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state54" xml:space="preserve">
+    <value>총 Pick 횟수 AutoFocus를 사용할 때 AF Total Pick Interval은 1 이상이어야 합니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state55" xml:space="preserve">
+    <value>Bottom Vision/AF To Bottom Delay Recipe 저장에 실패했습니다. 활성 Recipe를 확인하세요.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state56" xml:space="preserve">
+    <value>T Teaching을 포함한 Vision Focus Cal 파라미터를 저장하지 못했습니다. 저장 상태를 확인한 후 다시 시도하세요.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state57" xml:space="preserve">
+    <value>Vision Focus Cal 설정값과 Bottom Vision/AF To Bottom Delay Recipe 값을 저장했습니다. Teaching Z는 변경하지 않았습니다.{0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state58" xml:space="preserve">
+    <value>Vision Focus Cal 설정 저장 실패: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state59" xml:space="preserve">
+    <value>적용할 Best Focus 결과가 없습니다. 먼저 START SCAN을 실행하세요.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state60" xml:space="preserve">
+    <value>Best Focus 기준값 저장 완료. Default={0}, Recipe/Teaching Z 변경 없음</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state61" xml:space="preserve">
+    <value>Best Focus 적용 실패: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state62" xml:space="preserve">
+    <value>Focus 설정값 적용 실패: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state63" xml:space="preserve">
+    <value>T Teaching은 0, 180, -90과 같은 유한한 숫자로 입력하세요. 입력값={0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state64" xml:space="preserve">
+    <value>AutoFocus Count Reset은 생산 Runtime Focus 기준인 Bottom Die 모드에서만 사용할 수 있습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state65" xml:space="preserve">
+    <value>생산 Bottom Die AutoFocus 전체 Pick 누적 수와 마지막 Wafer 기준을 초기화했습니다.</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.lblStatus.state66" xml:space="preserve">
+    <value>AutoFocus Count Reset 실패: {0}</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:lblStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colAutoFocusCount.text" xml:space="preserve">
+    <value>총 픽업 수</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:colAutoFocusCount.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colAutoFocusCount.state2" xml:space="preserve">
+    <value>자동 초점 횟수</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:colAutoFocusCount.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colAutoFocusWafer.text" xml:space="preserve">
+    <value>마지막 자동 초점 웨이퍼</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:colAutoFocusWafer.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colAutoFocusWafer.state2" xml:space="preserve">
+    <value>자동 초점 웨이퍼</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:colAutoFocusWafer.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.message.text" xml:space="preserve">
+    <value>BEST 위치를 수동으로 덮어씁니다.&#13;&#10;실제 측정 없이 캘리브레이션 값을 바꾸는 조작이며 즉시 저장됩니다.&#13;&#10;&#13;&#10;진행할까요?</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.message.state2" xml:space="preserve">
+    <value>비전 초점 보정</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.message.state3" xml:space="preserve">
+    <value>Vision Focus Calibration이 실행 중입니다. 정지 요청 후 창을 닫을까요?</value>
+    <comment>Source: VisionFocusCalibrationDialog.cs:message</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.batchGroup.text" xml:space="preserve">
+    <value>BATCH (현재 Mode 고정 · 선택 Picker 순차 Focus 측정)</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.batchGroup.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchAll.text" xml:space="preserve">
+    <value>전체</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchAll.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchFront4.text" xml:space="preserve">
+    <value>F P4</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchFront4.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchFront3.text" xml:space="preserve">
+    <value>F P3</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchFront3.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchFront2.text" xml:space="preserve">
+    <value>F P2</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchFront2.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchFront1.text" xml:space="preserve">
+    <value>F P1</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchFront1.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchRear4.text" xml:space="preserve">
+    <value>R P4</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchRear4.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchRear3.text" xml:space="preserve">
+    <value>R P3</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchRear3.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchRear2.text" xml:space="preserve">
+    <value>R P2</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchRear2.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.chkBatchRear1.text" xml:space="preserve">
+    <value>R P1</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.chkBatchRear1.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnBatchStart.text" xml:space="preserve">
+    <value>일괄 시작</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnBatchStart.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.groupSetting.text" xml:space="preserve">
+    <value>스캔 설정</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.groupSetting.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colSettingName.text" xml:space="preserve">
+    <value>항목</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colSettingName.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colSettingValue.text" xml:space="preserve">
+    <value>값</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colSettingValue.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colSettingUnit.text" xml:space="preserve">
+    <value>단위</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colSettingUnit.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnSaveParameters.text" xml:space="preserve">
+    <value>파라미터 저장</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnSaveParameters.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.groupResult.text" xml:space="preserve">
+    <value>스캔 샘플</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.groupResult.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colNo.text" xml:space="preserve">
+    <value>번호</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colNo.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colPosition.text" xml:space="preserve">
+    <value>위치</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colPosition.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colRaw.text" xml:space="preserve">
+    <value>원문</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colRaw.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.groupSaved.text" xml:space="preserve">
+    <value>저장된 결과</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.groupSaved.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colItem.text" xml:space="preserve">
+    <value>항목</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colItem.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colDefaultPos.text" xml:space="preserve">
+    <value>기준값</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colDefaultPos.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colBestPos.text" xml:space="preserve">
+    <value>최적값</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colBestPos.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colPickerZ.text" xml:space="preserve">
+    <value>피커 Z</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colPickerZ.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.colValid.text" xml:space="preserve">
+    <value>정상</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.colValid.HeaderText</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnUseCurrent.text" xml:space="preserve">
+    <value>현재 위치 사용</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnUseCurrent.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnMoveDefault.text" xml:space="preserve">
+    <value>이동</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnMoveDefault.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnMoveZAvoid.text" xml:space="preserve">
+    <value>Z축 회피</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnMoveZAvoid.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnMoveYAvoid.text" xml:space="preserve">
+    <value>피커 Y축 회피</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnMoveYAvoid.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnStartScan.text" xml:space="preserve">
+    <value>스캔 시작</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnStartScan.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnSeqStop.text" xml:space="preserve">
+    <value>시퀀스 정지</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnSeqStop.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnApplyBest.text" xml:space="preserve">
+    <value>최적값 적용</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnApplyBest.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnResetAutoFocus.text" xml:space="preserve">
+    <value>자동 초점 초기화</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnResetAutoFocus.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.btnSave.text" xml:space="preserve">
+    <value>결과 저장</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.btnSave.Text</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.Text.state2" xml:space="preserve">
+    <value>비전 초점 보정</value>
+    <comment>Source: VisionFocusCalibrationDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog.Text.text" xml:space="preserve">
+    <value>VISION 동작 테스트 - {0}{1}</value>
+    <comment>Source: VisionModuleTestDialog.cs:Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblGrab.text" xml:space="preserve">
+    <value>초기화 실패: {0}</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblGrab.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblGrab.state2" xml:space="preserve">
+    <value>GRAB 중...</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblGrab.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblGrab.state3" xml:space="preserve">
+    <value>GRAB 실패: {0}</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblGrab.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblMatch.text" xml:space="preserve">
+    <value>finder 이름을 입력하세요.</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblMatch.state2" xml:space="preserve">
+    <value>MATCH({0}) 중...</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblMatch.state3" xml:space="preserve">
+    <value>성공  x={0:F2}  y={1:F2}  t={2:F3}  점수={3:F3}</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblMatch.state4" xml:space="preserve">
+    <value>MATCH 실패: {0}</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblInsp.text" xml:space="preserve">
+    <value>inspector 이름을 입력하세요.</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblInsp.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblInsp.state2" xml:space="preserve">
+    <value>INSPECT({0}) 중...</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblInsp.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblInsp.state3" xml:space="preserve">
+    <value>INSPECT 실패: {0}</value>
+    <comment>Source: VisionModuleTestDialog.cs:_lblInsp.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog.target.text" xml:space="preserve">
+    <value>신규 검사 규약을 지원하는 Vision 카메라 채널이 아닙니다.</value>
+    <comment>Source: VisionModuleTestDialog.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog.target.state2" xml:space="preserve">
+    <value>모듈 없음</value>
+    <comment>Source: VisionModuleTestDialog.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog.target.state3" xml:space="preserve">
+    <value>미연결 (port {0}) - 먼저 연결하세요.</value>
+    <comment>Source: VisionModuleTestDialog.cs:target.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblGrab.state4" xml:space="preserve">
+    <value>대기</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this._lblGrab.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._btnMatch.text" xml:space="preserve">
+    <value>패턴 찾기</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this._btnMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblMatch.state5" xml:space="preserve">
+    <value>finder 입력 후 MATCH - x/y/t/score</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this._lblMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._btnInspect.text" xml:space="preserve">
+    <value>검사</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this._btnInspect.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._lblInsp.state4" xml:space="preserve">
+    <value>inspector 입력 후 INSPECT - PASS/FAIL</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this._lblInsp.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog._hint.text" xml:space="preserve">
+    <value>Vision RUN 상태에서만 명령을 수락합니다. finder/inspector는 레시피에 등록된 도구명입니다.</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this._hint.Text</comment>
+  </data>
+  <data name="visionUi.visionModuleTestDialog.Text.state2" xml:space="preserve">
+    <value>VISION 동작 테스트</value>
+    <comment>Source: VisionModuleTestDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionMonitorDialog.Text.text" xml:space="preserve">
+    <value>비전 카메라 모니터</value>
+    <comment>Source: VisionMonitorDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionViewDialog._tabWafer.text" xml:space="preserve">
+    <value>웨이퍼 비전</value>
+    <comment>Source: VisionViewDialog.Designer.cs:this._tabWafer.Text</comment>
+  </data>
+  <data name="visionUi.visionViewDialog._tabBottom.text" xml:space="preserve">
+    <value>하부 검사</value>
+    <comment>Source: VisionViewDialog.Designer.cs:this._tabBottom.Text</comment>
+  </data>
+  <data name="visionUi.visionViewDialog._tabBin.text" xml:space="preserve">
+    <value>빈 비전</value>
+    <comment>Source: VisionViewDialog.Designer.cs:this._tabBin.Text</comment>
+  </data>
+  <data name="visionUi.visionViewDialog._tabSide.text" xml:space="preserve">
+    <value>측면(전방+후방)</value>
+    <comment>Source: VisionViewDialog.Designer.cs:this._tabSide.Text</comment>
+  </data>
+  <data name="visionUi.visionViewDialog.Text.text" xml:space="preserve">
+    <value>Vision View — 통합 카메라 뷰</value>
+    <comment>Source: VisionViewDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.waferVisionTestDialog.Text.text" xml:space="preserve">
+    <value>웨이퍼 비전 테스트</value>
+    <comment>Source: WaferVisionTestDialog.Designer.cs:this.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.tabBottom.text" xml:space="preserve">
+    <value>하부</value>
+    <comment>Source: VisionRecipePage.cs:tabBottom.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.tabSide.text" xml:space="preserve">
+    <value>측면</value>
+    <comment>Source: VisionRecipePage.cs:tabSide.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVisionInfo.text" xml:space="preserve">
+    <value>비전{0}전방 Y : {1}{2}후방 Y : {3}{4}전방 회피 : {5}{6}후방 회피 : {7}{8}전방 공정 : {9}{10}후방 공정 : {11}</value>
+    <comment>Source: VisionRecipePage.cs:lblVisionInfo.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.text" xml:space="preserve">
+    <value>비전</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state2" xml:space="preserve">
+    <value>비전 불러오기</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state3" xml:space="preserve">
+    <value>비전 배치</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state4" xml:space="preserve">
+    <value>비전 구성</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state5" xml:space="preserve">
+    <value>비전 항목 확인</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state6" xml:space="preserve">
+    <value>비전 파라미터</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state7" xml:space="preserve">
+    <value>비전 표 메뉴</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state8" xml:space="preserve">
+    <value>비전 이동</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state9" xml:space="preserve">
+    <value>비전 티칭</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state10" xml:space="preserve">
+    <value>비전 입출력</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state11" xml:space="preserve">
+    <value>비전 조그</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state12" xml:space="preserve">
+    <value>{0} 진행하시겠습니까?</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state13" xml:space="preserve">
+    <value>{0} 실패{1}</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.message.state14" xml:space="preserve">
+    <value>비전 저장</value>
+    <comment>Source: VisionRecipePage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblHeader.text" xml:space="preserve">
+    <value>비전 스테이지</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVisionInfo.state2" xml:space="preserve">
+    <value>스테이지&#13;&#10;너비 : 640&#13;&#10;높이 : 480&#13;&#10;X : 0&#13;&#10;Y : 0&#13;&#10;T : 0</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblVisionInfo.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVisionInfo2.text" xml:space="preserve">
+    <value>측면 비전 1</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblVisionInfo2.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVisionInfo3.text" xml:space="preserve">
+    <value>측면 비전 2</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblVisionInfo3.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.grpManual.text" xml:space="preserve">
+    <value>수동 동작</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.grpManual.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.grpOptions.text" xml:space="preserve">
+    <value>옵션</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.grpOptions.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.grpWait.text" xml:space="preserve">
+    <value>대기 시간</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.grpWait.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.grpIo.text" xml:space="preserve">
+    <value>실린더 및 입출력</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.grpIo.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.grpJog.text" xml:space="preserve">
+    <value>조그 운전</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.grpJog.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.grpSpeed.text" xml:space="preserve">
+    <value>속도</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.grpSpeed.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblLoadingPositionKey.text" xml:space="preserve">
+    <value>로딩 위치</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblLoadingPositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblLoadingPositionValue.text" xml:space="preserve">
+    <value>설정</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblLoadingPositionValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblCenterPositionKey.text" xml:space="preserve">
+    <value>중심 위치</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblCenterPositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedlePositionKey.text" xml:space="preserve">
+    <value>니들 위치</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedlePositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblTestBedPositionKey.text" xml:space="preserve">
+    <value>테스트 베드 위치</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblTestBedPositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblBarcodePositionKey.text" xml:space="preserve">
+    <value>바코드 위치</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblBarcodePositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVisionAlignKey.text" xml:space="preserve">
+    <value>비전 정렬</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblVisionAlignKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblWorkRadiusKey.text" xml:space="preserve">
+    <value>작업 반경</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblWorkRadiusKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblFirstDiePositionKey.text" xml:space="preserve">
+    <value>첫 다이 위치</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblFirstDiePositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleMeasurePositionKey.text" xml:space="preserve">
+    <value>니들 측정 위치</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleMeasurePositionKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleUpWaitKey.text" xml:space="preserve">
+    <value>니들 상승</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleUpWaitKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleUpWaitValue.text" xml:space="preserve">
+    <value>0 ms</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleUpWaitValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVacuumOnWaitKey.text" xml:space="preserve">
+    <value>진공 켜짐</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblVacuumOnWaitKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleDownWaitKey.text" xml:space="preserve">
+    <value>니들 하강</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleDownWaitKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblVacuumOffWaitKey.text" xml:space="preserve">
+    <value>진공 꺼짐</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblVacuumOffWaitKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblMovingWaitKey.text" xml:space="preserve">
+    <value>이동 중</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblMovingWaitKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleVacuumKey.text" xml:space="preserve">
+    <value>니들 진공</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleVacuumKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleVacuumValue.text" xml:space="preserve">
+    <value>진공</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleVacuumValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblRingSensorKey.text" xml:space="preserve">
+    <value>링 센서</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblRingSensorKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblRingSensorValue.text" xml:space="preserve">
+    <value>꺼짐</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblRingSensorValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblExpandCylinderKey.text" xml:space="preserve">
+    <value>확장 실린더</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblExpandCylinderKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblExpandCylinderValue.text" xml:space="preserve">
+    <value>준비</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblExpandCylinderValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleBlockKey.text" xml:space="preserve">
+    <value>니들 블록</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleBlockKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblAxisXKey.text" xml:space="preserve">
+    <value>X축</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblAxisXKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblAxisXValue.text" xml:space="preserve">
+    <value>0 um</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblAxisXValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblAxisYKey.text" xml:space="preserve">
+    <value>Y축</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblAxisYKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblAxisTKey.text" xml:space="preserve">
+    <value>T축</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblAxisTKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblAxisTValue.text" xml:space="preserve">
+    <value>0 deg</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblAxisTValue.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblExpandZKey.text" xml:space="preserve">
+    <value>확장 Z축</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblExpandZKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleZKey.text" xml:space="preserve">
+    <value>니들 Z</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleZKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleBlockZKey.text" xml:space="preserve">
+    <value>니들 블록 Z축</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleBlockZKey.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblExpandAxis.text" xml:space="preserve">
+    <value>확장</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblExpandAxis.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblNeedleAxis.text" xml:space="preserve">
+    <value>니들</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblNeedleAxis.Text</comment>
+  </data>
+  <data name="visionUi.visionRecipePage.lblBlockAxis.text" xml:space="preserve">
+    <value>블록</value>
+    <comment>Source: VisionRecipePage.Designer.cs:this.lblBlockAxis.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.grpLink.text" xml:space="preserve">
+    <value>TCP 포트 / 상태 (명령=Handler ↔ Vision, Viewer=영상 스트림)</value>
+    <comment>Source: VisionLinkPage.cs:grpLink.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.grpLog.text" xml:space="preserve">
+    <value>통신 로그 (TX / RX / EPD / ARM)</value>
+    <comment>Source: VisionLinkPage.cs:grpLog.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColCmd.text" xml:space="preserve">
+    <value>명령 포트</value>
+    <comment>Source: VisionLinkPage.cs:lblColCmd.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColViewer.text" xml:space="preserve">
+    <value>뷰어 포트</value>
+    <comment>Source: VisionLinkPage.cs:lblColViewer.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColStatus.text" xml:space="preserve">
+    <value>상태</value>
+    <comment>Source: VisionLinkPage.cs:lblColStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColRx.text" xml:space="preserve">
+    <value>RX</value>
+    <comment>Source: VisionLinkPage.cs:lblColRx.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColViewerStatus.text" xml:space="preserve">
+    <value>뷰어 상태</value>
+    <comment>Source: VisionLinkPage.cs:lblColViewerStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._btnClearLog.text" xml:space="preserve">
+    <value>로그 지우기</value>
+    <comment>Source: VisionLinkPage.cs:_btnClearLog.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._btnCameraScale.text" xml:space="preserve">
+    <value>카메라 스케일 설정</value>
+    <comment>Source: VisionLinkPage.cs:_btnCameraScale.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.rx.text" xml:space="preserve">
+    <value>수신 -</value>
+    <comment>Source: VisionLinkPage.cs:rx.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.rx.state2" xml:space="preserve">
+    <value>수신 {0}</value>
+    <comment>Source: VisionLinkPage.cs:rx.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblHeader.text" xml:space="preserve">
+    <value>비전 연결</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.grpLink.state2" xml:space="preserve">
+    <value>TCP 포트 / 상태 (명령=핸들러→Vision · 뷰어=영상 스트림)</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.grpLink.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblHost.text" xml:space="preserve">
+    <value>비전 PC IP</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblHost.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColModule.text" xml:space="preserve">
+    <value>모듈</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblColModule.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColCmd.state2" xml:space="preserve">
+    <value>명령 포트</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblColCmd.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColViewer.state2" xml:space="preserve">
+    <value>뷰어 포트</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblColViewer.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColStatus.state2" xml:space="preserve">
+    <value>상태</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblColStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColRx.state2" xml:space="preserve">
+    <value>RX (마지막 수신)</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblColRx.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblColViewerStatus.state2" xml:space="preserve">
+    <value>뷰어 상태</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblColViewerStatus.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblWaferPort.text" xml:space="preserve">
+    <value>웨이퍼</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblWaferPort.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._lblWafer.text" xml:space="preserve">
+    <value>● 미연결</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._lblWafer.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblInspectionPort.text" xml:space="preserve">
+    <value>하부 검사</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblInspectionPort.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblBinPort.text" xml:space="preserve">
+    <value>빈</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblBinPort.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblMainPort.text" xml:space="preserve">
+    <value>메인(레시피)</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblMainPort.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblTopPort.text" xml:space="preserve">
+    <value>전방 측면 비전</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblTopPort.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage.lblBotPort.text" xml:space="preserve">
+    <value>후방 측면 비전</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this.lblBotPort.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._cbAuto.text" xml:space="preserve">
+    <value>프로그램 시작 시 자동 연결</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._cbAuto.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._actionGroup.text" xml:space="preserve">
+    <value>동작</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._actionGroup.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._btnConnect.text" xml:space="preserve">
+    <value>연결</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._btnConnect.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._btnDisconnect.text" xml:space="preserve">
+    <value>연결 해제</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._btnDisconnect.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._btnPing.text" xml:space="preserve">
+    <value>전체 통신 확인</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._btnPing.Text</comment>
+  </data>
+  <data name="visionUi.visionLinkPage._btnClearLog.state2" xml:space="preserve">
+    <value>로그 지움</value>
+    <comment>Source: VisionLinkPage.Designer.cs:this._btnClearLog.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblCameraInfo.text" xml:space="preserve">
+    <value>스테이지&#13;&#10;너비 : 640&#13;&#10;높이 : 480</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblCameraInfo.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblLive.text" xml:space="preserve">
+    <value>실시간 영상</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblLive.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.btnAutoAlign.text" xml:space="preserve">
+    <value>자동 정렬</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.btnAutoAlign.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.btnManualAlign.text" xml:space="preserve">
+    <value>수동 정렬</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.btnManualAlign.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.btnFirstMark.text" xml:space="preserve">
+    <value>첫 번째 마크</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.btnFirstMark.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.btnSecondMark.text" xml:space="preserve">
+    <value>두 번째 마크</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.btnSecondMark.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.btnThetaMatch.text" xml:space="preserve">
+    <value>회전각 맞춤</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.btnThetaMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.btnXyMatch.text" xml:space="preserve">
+    <value>X/Y 맞춤</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.btnXyMatch.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblDeltaXCaption.text" xml:space="preserve">
+    <value>X 편차</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblDeltaXCaption.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblDeltaYCaption.text" xml:space="preserve">
+    <value>Y 편차</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblDeltaYCaption.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblDeltaThetaCaption.text" xml:space="preserve">
+    <value>회전각 편차</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblDeltaThetaCaption.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblDeltaThetaValue.text" xml:space="preserve">
+    <value>0.000 deg</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblDeltaThetaValue.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblScoreCaption.text" xml:space="preserve">
+    <value>점수</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblScoreCaption.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.lblHeader.text" xml:space="preserve">
+    <value>웨이퍼 맵 열기</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="visionUi.visionAlignPage.grpList.text" xml:space="preserve">
+    <value>맵 파일 목록</value>
+    <comment>Source: VisionAlignPage.Designer.cs:this.grpList.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblGrabResult.text" xml:space="preserve">
+    <value>{0}: 모듈 없음</value>
+    <comment>Source: VisionTestPage.cs:_lblGrabResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblGrabResult.state2" xml:space="preserve">
+    <value>{0} GRAB 중...</value>
+    <comment>Source: VisionTestPage.cs:_lblGrabResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblGrabResult.state3" xml:space="preserve">
+    <value>{0} GRAB 실패: {1}</value>
+    <comment>Source: VisionTestPage.cs:_lblGrabResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblMatchResult.text" xml:space="preserve">
+    <value>finder 이름을 입력하세요</value>
+    <comment>Source: VisionTestPage.cs:_lblMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblMatchResult.state2" xml:space="preserve">
+    <value>{0} MATCH 실패: {1}</value>
+    <comment>Source: VisionTestPage.cs:_lblMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblInspectResult.text" xml:space="preserve">
+    <value>inspector 이름을 입력하세요</value>
+    <comment>Source: VisionTestPage.cs:_lblInspectResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblInspectResult.state2" xml:space="preserve">
+    <value>{0} INSPECT 실패: {1}</value>
+    <comment>Source: VisionTestPage.cs:_lblInspectResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblCommResult.text" xml:space="preserve">
+    <value>통신 테스트 중...</value>
+    <comment>Source: VisionTestPage.cs:_lblCommResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblCommResult.state2" xml:space="preserve">
+    <value>통신 테스트 실패: {0}</value>
+    <comment>Source: VisionTestPage.cs:_lblCommResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage.message.text" xml:space="preserve">
+    <value>VISION 통신 테스트</value>
+    <comment>Source: VisionTestPage.cs:message</comment>
+  </data>
+  <data name="visionUi.visionTestPage.lblHeader.text" xml:space="preserve">
+    <value>비전 시험</value>
+    <comment>Source: VisionTestPage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage.grpComm.text" xml:space="preserve">
+    <value>VISION 통신 / 동작 테스트</value>
+    <comment>Source: VisionTestPage.Designer.cs:this.grpComm.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._btnCommTest.text" xml:space="preserve">
+    <value>통신 테스트 (PING ALL)</value>
+    <comment>Source: VisionTestPage.Designer.cs:this._btnCommTest.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblCommResult.state3" xml:space="preserve">
+    <value>대기 — 버튼을 눌러 6채널 PING 테스트</value>
+    <comment>Source: VisionTestPage.Designer.cs:this._lblCommResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblGrabResult.state4" xml:space="preserve">
+    <value>대기 — 모듈 선택 후 GRAB(1장 그랩 요청)</value>
+    <comment>Source: VisionTestPage.Designer.cs:this._lblGrabResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblMatchResult.state3" xml:space="preserve">
+    <value>finder 이름 입력 후 MATCH → x/y/θ/score</value>
+    <comment>Source: VisionTestPage.Designer.cs:this._lblMatchResult.Text</comment>
+  </data>
+  <data name="visionUi.visionTestPage._lblInspectResult.state3" xml:space="preserve">
+    <value>inspector 이름 입력 후 INSPECT → PASS/FAIL</value>
+    <comment>Source: VisionTestPage.Designer.cs:this._lblInspectResult.Text</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.1" xml:space="preserve">
+    <value>하부</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.2" xml:space="preserve">
+    <value>입력</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.3" xml:space="preserve">
+    <value>출력</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.4" xml:space="preserve">
+    <value>이동 속도</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.5" xml:space="preserve">
+    <value>이동 가속도</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.6" xml:space="preserve">
+    <value>이동 감속도</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.7" xml:space="preserve">
+    <value>이동 제한 시간</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.8" xml:space="preserve">
+    <value>하부 픽셀 X</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.9" xml:space="preserve">
+    <value>하부 픽셀 Y</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.10" xml:space="preserve">
+    <value>입력 픽셀 X</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.11" xml:space="preserve">
+    <value>입력 픽셀 Y</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.12" xml:space="preserve">
+    <value>출력 픽셀 X</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.13" xml:space="preserve">
+    <value>출력 픽셀 Y</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.14" xml:space="preserve">
+    <value>입력 비전 X 엔코더</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.15" xml:space="preserve">
+    <value>출력 비전 X 엔코더</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.16" xml:space="preserve">
+    <value>하부-입력 보정 X</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.17" xml:space="preserve">
+    <value>하부-입력 보정 Y</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.18" xml:space="preserve">
+    <value>하부-출력 보정 X</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraCalibrationDialog.row.19" xml:space="preserve">
+    <value>하부-출력 보정 Y</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.1" xml:space="preserve">
+    <value>하부 카메라</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.2" xml:space="preserve">
+    <value>입력 카메라</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.3" xml:space="preserve">
+    <value>출력 카메라</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.4" xml:space="preserve">
+    <value>전면 측면 카메라</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.5" xml:space="preserve">
+    <value>후면 측면 카메라</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.6" xml:space="preserve">
+    <value>비전</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.7" xml:space="preserve">
+    <value>수동</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionCameraScaleDialog.row.8" xml:space="preserve">
+    <value>데이터 없음</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.1" xml:space="preserve">
+    <value>모드</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.2" xml:space="preserve">
+    <value>피커 방향</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.3" xml:space="preserve">
+    <value>피커 번호</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.4" xml:space="preserve">
+    <value>콜렛 번호</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.5" xml:space="preserve">
+    <value>피커 X 기준 (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.6" xml:space="preserve">
+    <value>피커 Y 기준 (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.7" xml:space="preserve">
+    <value>피커 Z 기준 (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.8" xml:space="preserve">
+    <value>피커 T 기준 (deg)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.9" xml:space="preserve">
+    <value>측면 카메라 Y 기준</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.10" xml:space="preserve">
+    <value>기준 위치 (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.11" xml:space="preserve">
+    <value>T 티칭 (deg)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.12" xml:space="preserve">
+    <value>거친 스캔 - 범위 (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.13" xml:space="preserve">
+    <value>거친 스캔 + 범위 (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.14" xml:space="preserve">
+    <value>거친 스캔 간격 (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.15" xml:space="preserve">
+    <value>정밀 스캔 - 범위 (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.16" xml:space="preserve">
+    <value>정밀 스캔 + 범위 (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.17" xml:space="preserve">
+    <value>정밀 스캔 간격 (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.18" xml:space="preserve">
+    <value>반복 횟수 (ea)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.19" xml:space="preserve">
+    <value>모터 속도 (mm/s)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.20" xml:space="preserve">
+    <value>가속도 (mm/s2)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.21" xml:space="preserve">
+    <value>감속도 (mm/s2)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.22" xml:space="preserve">
+    <value>안정 대기 시간 (ms)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.23" xml:space="preserve">
+    <value>이동 제한 시간 (ms)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.24" xml:space="preserve">
+    <value>비전 제한 시간 (ms)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.25" xml:space="preserve">
+    <value>최적값 제한 시간 (ms)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.26" xml:space="preserve">
+    <value>초점값 수신 모드</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.27" xml:space="preserve">
+    <value>기준 위치 복귀</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.28" xml:space="preserve">
+    <value>시작 시 자동 초점</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.29" xml:space="preserve">
+    <value>웨이퍼 교체 시 자동 초점</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.30" xml:space="preserve">
+    <value>총 픽업 수 기준 자동 초점</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.31" xml:space="preserve">
+    <value>자동 초점 픽업 간격 (ea)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.32" xml:space="preserve">
+    <value>하부 비전 대기 (ms)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.33" xml:space="preserve">
+    <value>자동 초점 후 하부 대기 (ms)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.34" xml:space="preserve">
+    <value>하부→측면 Z 보정 사용</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.35" xml:space="preserve">
+    <value>하부→측면 Z 보정 (mm)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.36" xml:space="preserve">
+    <value>전면 90도 크기 부호</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.37" xml:space="preserve">
+    <value>후면 90도 크기 부호</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.38" xml:space="preserve">
+    <value>전면 COC 0도 부호</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.39" xml:space="preserve">
+    <value>후면 COC 0도 부호</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.40" xml:space="preserve">
+    <value>전면 COC 90도 부호</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.visionFocusCalibrationDialog.row.41" xml:space="preserve">
+    <value>후면 COC 90도 부호</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.noViewer" xml:space="preserve">
+    <value>—</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.streaming" xml:space="preserve">
+    <value>● 스트리밍 :{0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.waitingPort" xml:space="preserve">
+    <value>● 대기 :{0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.connected" xml:space="preserve">
+    <value>● 접속됨{0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.waiting" xml:space="preserve">
+    <value>● 대기{0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.secondsAgo" xml:space="preserve">
+    <value>수신 {0}초 전</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.minutesAgo" xml:space="preserve">
+    <value>수신 {0}분 전</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.link.hoursAgo" xml:space="preserve">
+    <value>수신 {0}시간 전</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.viewer.defaultWithPort" xml:space="preserve">
+    <value>이미지  (뷰어 {0})</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.viewer.defaultNoPort" xml:space="preserve">
+    <value>이미지  (뷰어 없음)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.viewer.titleWithPort" xml:space="preserve">
+    <value>{0}  (뷰어 {1})</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.viewer.titleNoPort" xml:space="preserve">
+    <value>{0}  (뷰어 없음)</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.remote.listening" xml:space="preserve">
+    <value>포트 {0} 수신 대기</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.remote.stopped" xml:space="preserve">
+    <value>중지됨</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraScale.loaded" xml:space="preserve">
+    <value>카메라 스케일 설정을 불러왔습니다.</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraScale.loadFailed" xml:space="preserve">
+    <value>카메라 스케일 표시 실패: {0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraScale.requesting" xml:space="preserve">
+    <value>VisionPC에 {0} 카메라 설정을 요청 중입니다.</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraScale.received" xml:space="preserve">
+    <value>VisionPC에서 받은 {0} 카메라 설정을 저장했습니다. 중심은 너비/2, 높이/2로 자동 계산됩니다.</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraScale.requestFailed" xml:space="preserve">
+    <value>카메라 설정 요청 실패: {0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraScale.saveFailed" xml:space="preserve">
+    <value>카메라 픽셀 스케일 저장 실패: {0}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.notConnectedPort" xml:space="preserve">
+    <value>{0} ({1}): 미연결 — 먼저 연결하세요</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.notConnected" xml:space="preserve">
+    <value>{0}: 미연결 — 먼저 연결하세요</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.matching" xml:space="preserve">
+    <value>{0} MATCH({1}) 중...</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.inspecting" xml:space="preserve">
+    <value>{0} INSPECT({1}) 중...</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.matchOk" xml:space="preserve">
+    <value>{0} MATCH 성공  x={1:F2}  y={2:F2}  θ={3:F3}  점수={4:F3}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.inspectNoResponse" xml:space="preserve">
+    <value>{0} INSPECT 실패: 응답 없음</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.commSummary" xml:space="preserve">
+    <value>통신 테스트 완료 — {0}/{1} OK</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.matchNoResponse" xml:space="preserve">
+    <value>{0} MATCH 실패: 응답 없음</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.matchFailed" xml:space="preserve">
+    <value>{0} MATCH 실패: {1}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.inspectPass" xml:space="preserve">
+    <value>{0} INSPECT: 합격   ({1})</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.inspectFail" xml:space="preserve">
+    <value>{0} INSPECT: 불합격   ({1})</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.grabNoResponse" xml:space="preserve">
+    <value>{0} GRAB: 응답 없음</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.test.grabResponse" xml:space="preserve">
+    <value>{0} GRAB: {1}</value>
+    <comment>Vision UI display only; source values and protocol identifiers remain unchanged.</comment>
+  </data>
+  <data name="visionUi.launch.bottom" xml:space="preserve">
+    <value>비전: 하부 검사</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.launch.front" xml:space="preserve">
+    <value>비전: 전면 측면</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.launch.rear" xml:space="preserve">
+    <value>비전: 후면 측면</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.tpuTitle.ports" xml:space="preserve">
+    <value>비전 테스트 - {0}  (명령 {1} / 영상 {2})</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.tpuTitle.name" xml:space="preserve">
+    <value>비전 테스트 - {0}</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.11" xml:space="preserve">
+    <value>Reticle 촬영 위치 이동 완료를 기다리는 최대 시간입니다. 더블클릭하면 키패드로 수정합니다.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.10" xml:space="preserve">
+    <value>Vision Camera Calibration 전용 이동 감속도입니다. 더블클릭하면 키패드로 수정합니다.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.9" xml:space="preserve">
+    <value>Vision Camera Calibration 전용 이동 가속도입니다. 더블클릭하면 키패드로 수정합니다.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.8" xml:space="preserve">
+    <value>Vision Camera Calibration에서 Reticle 촬영 위치로 이동할 때 사용하는 전용 속도입니다. 더블클릭하면 키패드로 수정합니다.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.7" xml:space="preserve">
+    <value>측정 산식과 수동 보정을 합친 Output 최종 Offset입니다. 수정 후 SAVE / APPLY로 저장하며 CALC 후에도 수동 보정이 유지됩니다.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.6" xml:space="preserve">
+    <value>측정 산식과 수동 보정을 합친 Input 최종 Offset입니다. 수정 후 SAVE / APPLY로 저장하며 CALC 후에도 수동 보정이 유지됩니다.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.5" xml:space="preserve">
+    <value>Output 카메라 Reticle 촬영 시 VisionX 실제 Encoder 위치입니다. 이번에 측정하거나 직접 수정한 경우 SAVE / APPLY로 현재 Recipe에 저장합니다.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.4" xml:space="preserve">
+    <value>Input 카메라 Reticle 촬영 시 VisionX 실제 Encoder 위치입니다. 이번에 측정하거나 직접 수정한 경우 SAVE / APPLY로 현재 Recipe에 저장합니다.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.3" xml:space="preserve">
+    <value>Output 카메라에서 Reticle Finder로 측정한 픽셀 좌표입니다. Bottom 기준 Output Camera Offset 계산에 사용합니다.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.2" xml:space="preserve">
+    <value>Input 카메라에서 Reticle Finder로 측정한 픽셀 좌표입니다. Bottom 기준 Input Camera Offset 계산에 사용합니다.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.cameraCalibration.tip.1" xml:space="preserve">
+    <value>Bottom 카메라에서 Reticle Finder로 측정한 픽셀 좌표입니다. 카메라 간 Offset 계산의 기준이 됩니다.</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.moduleChoice.wafer" xml:space="preserve">
+    <value>입력 웨이퍼</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.moduleChoice.inspection" xml:space="preserve">
+    <value>하부 검사</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.moduleChoice.bin" xml:space="preserve">
+    <value>출력 비전</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.moduleChoice.front" xml:space="preserve">
+    <value>전면 측면 비전</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.moduleChoice.rear" xml:space="preserve">
+    <value>후면 측면 비전</value>
+    <comment>Vision UI display; raw values remain unchanged.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.mode" xml:space="preserve">
+    <value>Focus Scan 대상 모드입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.pickerSide" xml:space="preserve">
+    <value>Focus 기준 제품을 보유한 Front/Rear Picker를 선택합니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.colletNo" xml:space="preserve">
+    <value>Focus 기준으로 사용할 Picker 번호를 선택합니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.pickerReferenceX" xml:space="preserve">
+    <value>자동 통합 Side 검사와 동일한 Picker 번호의 DieSidePosition 기준 X입니다. {0}</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.pickerReferenceY" xml:space="preserve">
+    <value>자동 통합 Side 검사와 동일한 Picker 번호의 DieSidePosition 기준 Y입니다. {0}</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.pickerReferenceZ" xml:space="preserve">
+    <value>선택 PickerZ의 SidePosition 기준 Z이며 Focus 스캔 중에는 고정합니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.pickerReferenceT" xml:space="preserve">
+    <value>생산 Side 검사와 동일한 DieSidePosition 기준 T입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.pickerTTeaching" xml:space="preserve">
+    <value>단독 Bottom Focus MOVE DEFAULT/START/BATCH의 Picker T 절대 기준각입니다. 기본값은 0도이며 필요 시 180도 등으로 설정합니다. Bottom Collet/Bottom Die별로 저장하며 레시피 T 티칭과 독립입니다. Collet Calibration 내부 AF는 콜렛 캘의 T Teaching을 사용하고 생산 Runtime AF는 현재 T를 유지합니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.minusRange" xml:space="preserve">
+    <value>Default Pos 기준 Rough 마이너스 방향으로 스캔할 거리입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.plusRange" xml:space="preserve">
+    <value>Default Pos 기준 Rough 플러스 방향으로 스캔할 거리입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.step" xml:space="preserve">
+    <value>Rough Focus 측정 지점 사이의 이동 간격입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.fineMinusRange" xml:space="preserve">
+    <value>Rough Best Focus 기준 Fine 마이너스 방향으로 재스캔할 거리입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.finePlusRange" xml:space="preserve">
+    <value>Rough Best Focus 기준 Fine 플러스 방향으로 재스캔할 거리입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.fineStep" xml:space="preserve">
+    <value>Fine Focus 측정 지점 사이의 이동 간격입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.repeatCount" xml:space="preserve">
+    <value>동일 스캔 범위를 반복 측정할 횟수입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.moveVelocity" xml:space="preserve">
+    <value>Focus Scan 축 이동에 사용할 속도입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.moveAcceleration" xml:space="preserve">
+    <value>Focus Scan 축 이동에 사용할 가속도입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.moveDeceleration" xml:space="preserve">
+    <value>Focus Scan 축 이동에 사용할 감속도입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.settleDelay" xml:space="preserve">
+    <value>각 위치 도착 후 Vision Focus 값을 요청하기 전 대기 시간입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.motionTimeout" xml:space="preserve">
+    <value>축 이동 완료 대기 시간입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.visionTimeout" xml:space="preserve">
+    <value>VisionPC Focus 응답 대기 시간입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.visionBestTimeout" xml:space="preserve">
+    <value>VisionPC FOCUS_BEST 응답 대기 시간입니다. 백그라운드 Focus 점수 처리가 완료될 때까지 기다립니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.focusValueMode" xml:space="preserve">
+    <value>Ack Only는 FOCUS_VAL 그랩 ACK만 받고 진행하며 최종 점수는 FOCUS_BEST에서만 받습니다. Wait Result는 테스트용 기존 대기 모드입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.returnDefault" xml:space="preserve">
+    <value>스캔 완료 후 Default Pos로 복귀할지 선택합니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.autoFocusOnStart" xml:space="preserve">
+    <value>장비를 정지한 뒤 START 버튼으로 다시 시작할 때 AutoFocus 선택창을 표시합니다. 다른 조건과 동시에 사용할 수 있습니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.autoFocusOnWaferChange" xml:space="preserve">
+    <value>새 Input Wafer의 Die가 처음 Bottom 촬영에 진입할 때 Rough+Fine AutoFocus를 실행합니다. 다른 조건과 동시에 사용할 수 있습니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.autoFocusOnPickCount" xml:space="preserve">
+    <value>Front/Rear 전체 Pick 완료 Die 누적 수가 설정 횟수에 도달하면 Rough+Fine AutoFocus를 실행합니다. 다른 조건과 동시에 사용할 수 있습니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.autoFocusPickInterval" xml:space="preserve">
+    <value>Front/Rear 전체에서 Pick 완료한 총 Die 수 기준 AutoFocus 실행 간격입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.bottomVisionDelay" xml:space="preserve">
+    <value>생산 Bottom Vision 검사에서 INSPECTASYNC/Grab 명령을 보내기 전에 대기할 시간입니다. Front/Rear 공통 Recipe 값입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.autoFocusToBottomInspectionDelay" xml:space="preserve">
+    <value>런타임 AutoFocus 후 Bottom Grab 명령의 ACK를 받은 다음, 다음 모션을 시작하기 전에 대기할 시간입니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.useBottomToSideZOffset" xml:space="preserve">
+    <value>사용 시 Side 촬영 PickerZ를 SidePosition 티칭 대신 '콜렛별 Bottom AF Best Z + Z Offset'으로 계산합니다(Front/Rear 공용).</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.bottomToSideZOffset" xml:space="preserve">
+    <value>Bottom 카메라 초점 Z와 Side 카메라 광축 사이의 기계적 Z 옵셋입니다(Front/Rear 공용).</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.sideFocusSize90SignFront" xml:space="preserve">
+    <value>90도 다이사이즈 항((가로-세로)/2) 부호(Front). -1/0/+1. 0은 항 비활성. 실장비 테스트로 확정합니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.sideFocusSize90SignRear" xml:space="preserve">
+    <value>90도 다이사이즈 항((가로-세로)/2) 부호(Rear). -1/0/+1.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.sideFocusCoc0SignFront" xml:space="preserve">
+    <value>0도 COC(Y성분) 항 부호(Front). -1/0/+1.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.sideFocusCoc0SignRear" xml:space="preserve">
+    <value>0도 COC(Y성분) 항 부호(Rear). -1/0/+1.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.sideFocusCoc90SignFront" xml:space="preserve">
+    <value>90도 COC(X성분, 회전 후) 항 부호(Front). -1/0/+1.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.sideFocusCoc90SignRear" xml:space="preserve">
+    <value>90도 COC(X성분, 회전 후) 항 부호(Rear). -1/0/+1.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.defaultSide" xml:space="preserve">
+    <value>Side Camera Y Focus 기준입니다. 저장값이 없으면 선택 카메라/각도의 Process0/90 티칭값을 사용하며 USE CURRENT로 현재 Camera Y를 적용할 수 있습니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.defaultBottom" xml:space="preserve">
+    <value>Focus 기준 위치입니다. 저장된 Focus Cal 등록값만 불러오며, USE CURRENT로 현재 축 위치를 덮어쓸 수 있습니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="visionUi.focusTooltip.editBest" xml:space="preserve">
+    <value>더블클릭하여 BEST 위치를 수동 입력합니다.</value>
+    <comment>Focus setting tooltip; keyed by original setting identifier, displayed without changing stored values.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.overrideTitle" xml:space="preserve">
+    <value>오버라이드 보정</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.softLimitMargin" xml:space="preserve">
+    <value>소프트리밋 여유 부족: target2={0}, limit-={1}&#13;&#10;축을 +방향으로 옮긴 뒤 다시 시도하십시오.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.confirmOverride" xml:space="preserve">
+    <value>{0} 오버라이드 확정 테스트&#13;&#10;start={1} → ①{2} 이동&#13;&#10;②이동 중 {3} 오버라이드&#13;&#10;진행할까요?</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.overrideFailed" xml:space="preserve">
+    <value>오버라이드 발행 실패. ret={0}</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.verdict.start" xml:space="preserve">
+    <value>기준=모션시작(변환 정상)</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.verdict.current" xml:space="preserve">
+    <value>기준=현재위치(변환 결함 확정)</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.verdict.unknown" xml:space="preserve">
+    <value>판정불가(예측 밖)</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.overrideSummary" xml:space="preserve">
+    <value>start={0}, 발행순간={1}, intent={2}, 착지={3}, 예측(모션시작)={4}, 예측(현재)={5} =&gt; {6}</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.reason.axisMissing" xml:space="preserve">
+    <value>축이 선택되지 않았습니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.reason.profileInvalid" xml:space="preserve">
+    <value>프로파일 값이 올바르지 않습니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.reason.profilePositive" xml:space="preserve">
+    <value>속도/가속도/감속도는 0보다 커야 합니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.reason.softLimit" xml:space="preserve">
+    <value>목표가 소프트리밋 범위를 벗어났습니다. {0}</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.reason.checkFailed" xml:space="preserve">
+    <value>소프트리밋 확인 실패: {0}</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.velocity" xml:space="preserve">
+    <value>이 설정 창에서 테스트 이동에 사용할 속도입니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.homeGap" xml:space="preserve">
+    <value>두 축이 서로 접근하기 전 홈 위치에서의 축 사이 거리입니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.signA" xml:space="preserve">
+    <value>+1은 A축의 +방향이 B축에 접근하는 방향이며, -1은 -방향이 접근하는 방향입니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.signB" xml:space="preserve">
+    <value>+1은 B축의 +방향이 A축에 접근하는 방향이며, -1은 -방향이 접근하는 방향입니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.safety" xml:space="preserve">
+    <value>해당 축 쌍의 최소 안전 간격입니다. 비어 있으면 10 mm를 사용합니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.savedVelocity" xml:space="preserve">
+    <value>이 창에서 테스트 이동할 때 사용할 속도(mm/sec)입니다. 저장하면 파일에 기록되고 이동 실행 시 이 값을 사용합니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.head" xml:space="preserve">
+    <value>주 축입니다. Move Head/Sub 실행 시 항상 이동 대상에 포함됩니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.sub" xml:space="preserve">
+    <value>Head 축과 같이 이동할 Sub 축입니다. Head 선택에 따라 선택 가능 여부가 달라집니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.tip.help" xml:space="preserve">
+    <value>SharedRailX 설정값 설명을 표시합니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.helpBody" xml:space="preserve">
+    <value>SharedRailX 설정값 설명&#13;&#10;&#13;&#10;Velocity&#13;&#10;- 이 창에서 테스트 이동할 때 사용할 속도입니다. 단위는 mm/sec입니다.&#13;&#10;- 저장하면 shared_rail_x.json 파일에 남고, 이동 버튼을 누를 때도 먼저 파일에 저장한 뒤 이 값을 사용합니다.&#13;&#10;&#13;&#10;Pair Clearance Rule&#13;&#10;- 이 화면의 충돌 인터락 기준입니다.&#13;&#10;- Home Gap은 두 축이 홈 위치일 때 기준 간격입니다.&#13;&#10;- A/B Sign은 각 축이 상대 축 쪽으로 가까워지는 엔코더 방향입니다. +방향 접근은 1, -방향 접근은 -1입니다.&#13;&#10;- Clearance = Home Gap - A Sign*A Pos - B Sign*B Pos 로 계산하며 Safety 이하이면 이동을 막습니다.&#13;&#10;&#13;&#10;FrontPickerX &lt;-&gt; RearPickerX는 이 화면에서 설정하지 않습니다.&#13;&#10;- 두 Picker는 병렬 X축에서 서로 마주보는 구조라 Home Gap/sign 방식이 아닙니다.&#13;&#10;- Picker Y 동시 전진 방지는 PICKER ZONE의 X Clearance 값으로 판단합니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.helpTitle" xml:space="preserve">
+    <value>공유 X 레일 설정 설명</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.axis" xml:space="preserve">
+    <value>축</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.unit" xml:space="preserve">
+    <value>단위</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.current" xml:space="preserve">
+    <value>현재 위치</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.state" xml:space="preserve">
+    <value>축 상태</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.message" xml:space="preserve">
+    <value>메시지</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.target" xml:space="preserve">
+    <value>이동 목표</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.velocity" xml:space="preserve">
+    <value>속도</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.pair" xml:space="preserve">
+    <value>축 쌍</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.gap" xml:space="preserve">
+    <value>홈 간격</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.signA" xml:space="preserve">
+    <value>A축 부호</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.signB" xml:space="preserve">
+    <value>B축 부호</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.column.safety" xml:space="preserve">
+    <value>안전 간격</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.axisInput" xml:space="preserve">
+    <value>입력 비전 X</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.axisOutput" xml:space="preserve">
+    <value>출력 비전 X</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.axisFront" xml:space="preserve">
+    <value>전면 피커 X</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.axisRear" xml:space="preserve">
+    <value>후면 피커 X</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.ok" xml:space="preserve">
+    <value>정상</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.blocked" xml:space="preserve">
+    <value>차단</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.done" xml:space="preserve">
+    <value>완료</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.failed" xml:space="preserve">
+    <value>실패</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.moving" xml:space="preserve">
+    <value>이동 중</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.homeDone" xml:space="preserve">
+    <value>원점 복귀 완료</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.homeFailed" xml:space="preserve">
+    <value>원점 복귀 실패</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.homing" xml:space="preserve">
+    <value>원점 복귀 중</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.controllerMissing" xml:space="preserve">
+    <value>제어기가 준비되지 않았습니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.value.axisMissing" xml:space="preserve">
+    <value>축이 연결되지 않았습니다.</value>
+    <comment>GUI text only; original motion data, log content and safety formulas are preserved.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.profile.velocity" xml:space="preserve">
+    <value>속도</value>
+    <comment>Profile caption only; grid values and index-based editing stay unchanged.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.profile.acceleration" xml:space="preserve">
+    <value>가속도</value>
+    <comment>Profile caption only; grid values and index-based editing stay unchanged.</comment>
+  </data>
+  <data name="sharedDialog.motionTest.profile.deceleration" xml:space="preserve">
+    <value>감속도</value>
+    <comment>Profile caption only; grid values and index-based editing stay unchanged.</comment>
+  </data>
+  <data name="sharedDialog.sharedRail.title" xml:space="preserve">
+    <value>공유 X 레일</value>
+    <comment>Dialog display title only.</comment>
+  </data>
+</root>

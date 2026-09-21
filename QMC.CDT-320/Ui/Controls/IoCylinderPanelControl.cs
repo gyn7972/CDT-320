@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.Common.Logging;
 
+using QMC.CDT_320.Ui.Localization;
+
 namespace QMC.CDT_320.Ui.Controls
 {
     public partial class IoCylinderPanelControl : UserControl
@@ -141,7 +143,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 string message = "I/O panel set failed: " + Name + Environment.NewLine + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "IO-PANEL", message);
-                QMC.Common.MessageDialog.Show(this, message, "I/O Panel", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("controls.io.setFailed", Name, ex.Message), Lang.T("controls.io.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -160,7 +162,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 string message = "I/O panel refresh failed: " + Name + Environment.NewLine + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "IO-PANEL", message);
-                QMC.Common.MessageDialog.Show(this, message, "I/O Panel", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("controls.io.refreshFailed", Name, ex.Message), Lang.T("controls.io.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -256,7 +258,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 string message = "I/O row add failed: " + (item != null ? item.DisplayName : string.Empty) + Environment.NewLine + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "IO-PANEL", message);
-                QMC.Common.MessageDialog.Show(this, message, "I/O Panel", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("controls.io.rowAddFailed", item != null ? item.DisplayName : string.Empty, ex.Message), Lang.T("controls.io.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -312,7 +314,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 string message = "I/O row refresh failed: " + (item != null ? item.DisplayName : string.Empty) + Environment.NewLine + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "IO-PANEL", message);
-                QMC.Common.MessageDialog.Show(this, message, "I/O Panel", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("controls.io.rowRefreshFailed", item != null ? item.DisplayName : string.Empty, ex.Message), Lang.T("controls.io.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -365,7 +367,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "IO-PANEL",
                     "입력 신호 복구 요청 중 오류가 발생했습니다. " + item.DisplayName + ": " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "FLOW 강제 ON",
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("controls.io.forceFlow"),
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
@@ -405,7 +407,7 @@ namespace QMC.CDT_320.Ui.Controls
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "IO-PANEL", "Row click failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "I/O Panel", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("controls.io.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -423,7 +425,7 @@ namespace QMC.CDT_320.Ui.Controls
                     out scope, out reason))
                 return true;
 
-            QMC.Common.MessageDialog.Show(this, reason, "I/O Panel",
+            QMC.Common.MessageDialog.Show(this, reason, Lang.T("controls.io.title"),
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return false;
         }
@@ -438,14 +440,14 @@ namespace QMC.CDT_320.Ui.Controls
                 int result = await item.OutputWriter(value);
                 EventLogger.Write(EventKind.Event, "QMC", "IO-PANEL", item.DisplayName + "=" + (value ? "ON" : "OFF"));
                 if (result != 0)
-                    QMC.Common.MessageDialog.Show(this, item.DisplayName + " output failed.", "I/O Panel", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.Format("controls.io.outputFailed", item.DisplayName), Lang.T("controls.io.title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
                 RefreshStates();
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "IO-PANEL", "Output write failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "I/O Panel", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("controls.io.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -467,7 +469,7 @@ namespace QMC.CDT_320.Ui.Controls
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "IO-PANEL", "Cylinder toggle failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "I/O Panel", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("controls.io.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -484,14 +486,14 @@ namespace QMC.CDT_320.Ui.Controls
                 int result = await command();
                 EventLogger.Write(EventKind.Event, "QMC", "IO-PANEL", item.DisplayName + "=" + commandName);
                 if (result != 0)
-                    QMC.Common.MessageDialog.Show(this, item.DisplayName + " " + commandName + " failed.", "I/O Panel", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.Format("controls.io.commandFailed", item.DisplayName, commandName), Lang.T("controls.io.title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
                 RefreshStates();
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "IO-PANEL", "Cylinder command failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "I/O Panel", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("controls.io.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

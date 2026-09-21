@@ -1,3 +1,4 @@
+﻿using QMC.CDT_320.Ui.Localization;
 using System;
 using System.Drawing;
 using System.Windows.Forms;
@@ -58,7 +59,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             SuspendLayout();
 
-            Text = ResolvePickerTitle() + " INPUT OFFSET";
+            Lang.BindFormat(this, "extraDialog.inputPickerOffset.title", ResolvePickerTitle());
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -86,6 +87,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Dock = DockStyle.Fill,
                 Text = ResolvePickerTitle() + " 기준 InputVision -> Picker Offset 설정"
             };
+            Lang.BindFormat(header, "extraDialog.inputPickerOffset.heading", ResolvePickerTitle());
             root.Controls.Add(header, 0, 0);
 
             TableLayoutPanel summary = CreateValueTable(4);
@@ -102,6 +104,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             TableLayoutPanel editor = CreateValueTable(11);
             editor.Dock = DockStyle.Fill;
             editor.Padding = new Padding(8);
+            Lang.BindKey(editorGroup, "extraDialog.inputPickerOffset.offset");
             editorGroup.Controls.Add(editor);
 
             _offsetX = CreateNumberBox();
@@ -147,6 +150,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             _saveButton.Click += (s, e) => SaveAndClose();
             _calculateButton.Click += (s, e) => ApplyCurrentPositionCalculation();
 
+            Lang.BindKey(_saveButton, "common.save");
+            Lang.BindKey(cancelButton, "common.cancel");
+            Lang.BindKey(_calculateButton, "extraDialog.inputPickerOffset.calculate");
+            Load += (sender, args) => Lang.Apply(this);
             buttons.Controls.Add(_saveButton);
             buttons.Controls.Add(cancelButton);
             buttons.Controls.Add(_calculateButton);
@@ -185,7 +192,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                SetStatus("Load failed: " + ex.Message);
+                SetStatusFormat("extraDialog.pickerOffset.loadFailed", ex.Message);
                 SetEditorEnabled(false);
             }
             finally
@@ -216,7 +223,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                SetStatus("Save failed: " + ex.Message);
+                SetStatusFormat("extraDialog.pickerOffset.saveFailed", ex.Message);
             }
             finally
             {
@@ -240,7 +247,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 InputStageUnit stage = _machine.InputStageUnit;
                 if (pickerX == null || pickerY == null || stage == null || stage.StageY == null)
                 {
-                    SetStatus("현재 PickerX/PickerY/StageY 축 정보를 찾을 수 없습니다.");
+                    SetStatusKey("extraDialog.pickerOffset.axisUnavailable");
                     return;
                 }
 
@@ -258,17 +265,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _offsetX.Value = ClampDecimal(effectiveX);
                 _offsetY.Value = ClampDecimal(effectiveY);
                 RefreshPreview();
-                SetStatus(
-                    "현재 위치 기준 계산 완료. PickerX=" + F(currentPickerX) +
-                    " mm, PickerY=" + F(currentPickerY) +
-                    " mm, StageY=" + F(currentStageY) +
-                    " mm, CameraOffset is applied once inside saved InputVisionToPicker X/Y" +
-                    ", PickerYInput=" + F(effectiveY) +
-                    ", StageYTarget=" + F(expectedStageY) + " mm");
+                SetStatusFormat("extraDialog.pickerOffset.calculated",
+                    F(currentPickerX), F(currentPickerY), F(currentStageY), F(effectiveY), F(expectedStageY));
             }
             catch (Exception ex)
             {
-                SetStatus("현재 위치 계산 실패: " + ex.Message);
+                SetStatusFormat("extraDialog.pickerOffset.calculationFailed", ex.Message);
             }
             finally
             {
@@ -326,7 +328,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                SetStatus("Preview failed: " + ex.Message);
+                SetStatusFormat("extraDialog.pickerOffset.previewFailed", ex.Message);
             }
             finally
             {
@@ -550,10 +552,22 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _calculateButton.Enabled = enabled;
         }
 
+        private void SetStatusKey(string key)
+        {
+            if (_statusValue != null)
+                Lang.BindKey(_statusValue, key);
+        }
+
+        private void SetStatusFormat(string key, params object[] args)
+        {
+            if (_statusValue != null)
+                Lang.BindFormat(_statusValue, key, args);
+        }
+
         private void SetStatus(string text)
         {
             if (_statusValue != null)
-                _statusValue.Text = text ?? string.Empty;
+                Lang.Bind(_statusValue, text ?? string.Empty);
         }
 
         private string ResolvePickerTitle()
@@ -666,14 +680,29 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private static Label CreateTitleLabel(string text)
         {
-            return new Label
+            var label = new Label
             {
-                AutoSize = false,
-                Dock = DockStyle.Fill,
-                Height = 26,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Text = text
+                AutoSize = false, Dock = DockStyle.Fill, Height = 26,
+                TextAlign = ContentAlignment.MiddleLeft, Text = text
             };
+            string key = null;
+            switch (text)
+            {
+                case "선택 Die": key = "extraDialog.inputPickerOffset.selected"; break;
+                case "저장 변수": key = "extraDialog.inputPickerOffset.variable"; break;
+                case "InputVisionToPicker X": key = "extraDialog.inputPickerOffset.x"; break;
+                case "InputVisionToPicker Y": key = "extraDialog.inputPickerOffset.y"; break;
+                case "Saved Offset": key = "extraDialog.inputPickerOffset.saved"; break;
+                case "AUTO Stack": key = "extraDialog.inputPickerOffset.stack"; break;
+                case "Formula Input": key = "extraDialog.inputPickerOffset.formulaInput"; break;
+                case "최종 이동 목표": key = "extraDialog.inputPickerOffset.target"; break;
+                case "Needle X 이동": key = "extraDialog.inputPickerOffset.needleX"; break;
+                case "현재 축 위치": key = "extraDialog.inputPickerOffset.position"; break;
+                case "Fallback": key = "extraDialog.inputPickerOffset.fallback"; break;
+                case "Formula": key = "extraDialog.inputPickerOffset.formula"; break;
+            }
+            if (key != null) Lang.BindKey(label, key);
+            return label;
         }
 
         private static Label CreateValueLabel(string text)

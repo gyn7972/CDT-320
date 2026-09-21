@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -32,6 +33,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _axes = SortAxes(axes).ToList();
                 InitializeComponent();
+                InitializeLanguageBindings();
                 InitializeRuntimeUi();
                 BindAxes();
                 WireEvents();
@@ -102,7 +104,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 gridProfile.Rows.Add("Deceleration", "0", "");
                 gridProfile.ClearSelection();
                 lstMotionLog.Items.Clear();
-                lblStatus.Text = "Ready";
+                Lang.BindKey(lblStatus, "extraDialog.motionTest.ready");
                 UpdateRunButtons();
             }
             catch (Exception ex)
@@ -128,7 +130,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "MOTION-TEST", "Axis bind failed: " + ex.Message);
-                MessageDialog.Show(this, ex.Message, "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageDialog.Show(this, ex.Message, Lang.T("extraDialog.motionTestDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -143,7 +145,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 {
                     if (IsRunning)
                     {
-                        MessageDialog.Show(this, "Motion test is running. Stop first.", "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        MessageDialog.Show(this, Lang.T("extraDialog.motionTest.running"), Lang.T("extraDialog.motionTestDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
@@ -168,7 +170,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 // 오버라이드 발행 → 착지점으로 보드의 상대 기준을 한 번에 판정한다.
                 System.Windows.Forms.Button btnOverrideCalTest = new System.Windows.Forms.Button();
                 btnOverrideCalTest.Name = "btnOverrideCalTest";
-                btnOverrideCalTest.Text = "OVR CAL\n(-100/-300)";
+                Lang.BindKey(btnOverrideCalTest, "extraDialog.motionTest.override");
                 btnOverrideCalTest.Size = new System.Drawing.Size(90, 30);
                 btnOverrideCalTest.Click += async (s, e) => await RunOverrideCalibrationTestAsync();
                 commandLayout.Controls.Add(btnOverrideCalTest);
@@ -193,7 +195,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (IsRunning)
             {
-                MessageDialog.Show(this, "Motion test is running. Stop first.", "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageDialog.Show(this, Lang.T("extraDialog.motionTest.running"), Lang.T("extraDialog.motionTestDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -201,14 +203,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             QMC.CDT320.Ajin.AjinAxis ajin = axis as QMC.CDT320.Ajin.AjinAxis;
             if (ajin == null)
             {
-                MessageDialog.Show(this, "Ajin 실축에서만 지원하는 테스트입니다.", "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageDialog.Show(this, Lang.T("extraDialog.motionTest.ajinOnly"), Lang.T("sharedDialog.motionTest.overrideTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             ajin.UpdateStatus();
             if (!ajin.IsServoOn || ajin.IsAlarm || ajin.IsMoving)
             {
-                MessageDialog.Show(this, "축 상태가 준비되지 않았습니다(서보/알람/이동 확인).", "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageDialog.Show(this, Lang.T("extraDialog.motionTest.axisNotReady"), Lang.T("sharedDialog.motionTest.overrideTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -217,19 +219,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             double target2 = start - 300.0;
             if (ajin.Setup != null && ajin.Setup.SoftLimitEnabled && target2 < ajin.Setup.SoftLimitMinus + 1.0)
             {
-                MessageDialog.Show(this,
-                    "소프트리밋 여유 부족: target2=" + target2.ToString("F3") +
-                    ", limit-=" + ajin.Setup.SoftLimitMinus.ToString("F3") + "\r\n축을 +방향으로 옮긴 뒤 다시 시도하십시오.",
-                    "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageDialog.Show(this,Lang.Format("sharedDialog.motionTest.softLimitMargin", (object)(target2.ToString("F3")), (object)(ajin.Setup.SoftLimitMinus.ToString("F3"))),
+                    Lang.T("sharedDialog.motionTest.overrideTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (MessageDialog.Show(this,
-                    ajin.Name + " 오버라이드 확정 테스트\r\n" +
-                    "start=" + start.ToString("F3") +
-                    " → ①" + target1.ToString("F3") + " 이동\r\n" +
-                    "②이동 중 " + target2.ToString("F3") + " 오버라이드\r\n진행할까요?",
-                    "Override Cal", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
+            if (MessageDialog.Show(this,Lang.Format("sharedDialog.motionTest.confirmOverride", (object)(ajin.Name), (object)(start.ToString("F3")), (object)(target1.ToString("F3")), (object)(target2.ToString("F3"))),
+                    Lang.T("sharedDialog.motionTest.overrideTitle"), MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
                 return;
 
             SetBusy(true);
@@ -258,8 +254,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                         int earlyResult = await moveTask.ConfigureAwait(true);
                         QMC.Common.Log.Write("Motion", "SYSTEM", "OVR-CAL-TEST",
                             ajin.Name + " 이동이 오버라이드 발행 전에 끝났습니다(속도 과다). result=" + earlyResult + " - Failed");
-                        MessageDialog.Show(this, "이동이 너무 빨라 중간 발행을 못 했습니다. 속도 스케일을 낮추고 재시도하십시오.",
-                            "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        MessageDialog.Show(this, Lang.T("extraDialog.motionTest.tooFast"),
+                            Lang.T("sharedDialog.motionTest.overrideTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
                     ajin.UpdateStatus();
@@ -289,7 +285,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", ret=" + overrideRet + " - Check");
                 if (overrideRet != 0)
                 {
-                    MessageDialog.Show(this, "오버라이드 발행 실패. ret=" + overrideRet, "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageDialog.Show(this,Lang.Format("sharedDialog.motionTest.overrideFailed", (object)(overrideRet)), Lang.T("sharedDialog.motionTest.overrideTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     await moveTask.ConfigureAwait(true);
                     return;
                 }
@@ -344,13 +340,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", 예측(현재)=" + predictCurrentBase.ToString("F3") +
                     " => " + verdict;
                 QMC.Common.Log.Write("Motion", "SYSTEM", "OVR-CAL-TEST", ajin.Name + " " + summary + " - Ok");
-                lblStatus.Text = verdict;
-                MessageDialog.Show(this, summary, "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Lang.BindKey(lblStatus, OverrideVerdictKey(verdict));
+                MessageDialog.Show(this, Lang.Format("sharedDialog.motionTest.overrideSummary", start.ToString("F3"), actualAtOverride.ToString("F3"), target2.ToString("F3"), landing.ToString("F3"), predictMotionStartBase.ToString("F3"), predictCurrentBase.ToString("F3"), Lang.T(OverrideVerdictKey(verdict))), Lang.T("sharedDialog.motionTest.overrideTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Motion", "SYSTEM", "OVR-CAL-TEST", "예외: " + ex.Message + " - Failed");
-                MessageDialog.Show(this, ex.Message, "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageDialog.Show(this, ex.Message, Lang.T("sharedDialog.motionTest.overrideTitle"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -364,7 +360,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             try
             {
                 lstMotionLog.Items.Clear();
-                lblStatus.Text = "Motion log cleared.";
+                Lang.BindKey(lblStatus, "extraDialog.motionTest.logCleared");
             }
             catch (Exception ex)
             {
@@ -402,12 +398,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                     config != null ? AxisUnitConverter.ToDisplayVelocity(config.GetRawDeceleration(), axis) : 0.0,
                     unit);
 
-                lblStatus.Text = "Default profile loaded.";
+                Lang.BindKey(lblStatus, "extraDialog.motionTest.defaultLoaded");
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Warning, "UI", "MOTION-TEST", "Load default profile failed: " + ex.Message);
-                MessageDialog.Show(this, "Default profile load failed: " + ex.Message, "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageDialog.Show(this, Lang.Format("extraDialog.motionTest.loadFailed", ex.Message), Lang.T("extraDialog.motionTestDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -455,7 +451,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 MotionTestProfile profile;
                 string reason;
                 if (!TryReadProfile(out profile, out reason))
-                    lblStatus.Text = reason;
+                    BindMotionReason(lblStatus, reason);
             }
             catch
             {
@@ -476,12 +472,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 axis.UpdateStatus();
                 decimal value = ToDecimal(AxisUnitConverter.ToDisplay(axis.ActualPosition, axis));
                 targetControl.Value = ClampDecimal(value, targetControl);
-                lblStatus.Text = "Position captured.";
+                Lang.BindKey(lblStatus, "extraDialog.motionTest.captured");
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Warning, "UI", "MOTION-TEST", "Capture position failed: " + ex.Message);
-                MessageDialog.Show(this, ex.Message, "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageDialog.Show(this, ex.Message, Lang.T("extraDialog.motionTestDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -496,7 +492,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 decimal start = nudStartPosition.Value;
                 nudStartPosition.Value = nudEndPosition.Value;
                 nudEndPosition.Value = start;
-                lblStatus.Text = "Start/End swapped.";
+                Lang.BindKey(lblStatus, "extraDialog.motionTest.swapped");
             }
             catch
             {
@@ -516,12 +512,12 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 axis.ServoOn();
                 EventLogger.Write(EventKind.Event, "UI", "MOTION-TEST", axis.Name + " servo on requested.");
-                lblStatus.Text = "Servo ON requested.";
+                Lang.BindKey(lblStatus, "extraDialog.motionTest.servoOn");
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "MOTION-TEST", "Servo on failed: " + ex.Message);
-                MessageDialog.Show(this, ex.Message, "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageDialog.Show(this, ex.Message, Lang.T("extraDialog.motionTestDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -533,7 +529,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (IsRunning)
             {
-                MessageDialog.Show(this, "Repeat test is running. Stop first.", "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageDialog.Show(this, Lang.T("extraDialog.motionTest.repeatRunning"), Lang.T("extraDialog.motionTestDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -545,7 +541,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             string reason;
             if (!TryReadProfile(out profile, out reason))
             {
-                MessageDialog.Show(this, reason, "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageDialog.Show(this, DisplayMotionReason(reason), Lang.T("extraDialog.motionTestDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -556,12 +552,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 {
                     double nativeTarget = AxisUnitConverter.FromDisplay((double)displayTarget, axis);
                     int result = await MoveAxisAndVerifyAsync(axis, nativeTarget, profile, source, cts.Token).ConfigureAwait(true);
-                    lblStatus.Text = result == 0 ? "Move complete." : "Move failed. result=" + result;
+                    Lang.BindFormat(lblStatus, result == 0 ? "extraDialog.motionTest.moveComplete" : "extraDialog.motionTest.moveFailed", result);
                 }
                 catch (Exception ex)
                 {
                     EventLogger.Write(EventKind.Alarm, "UI", "MOTION-TEST", source + " failed: " + ex.Message);
-                    MessageDialog.Show(this, ex.Message, "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageDialog.Show(this, ex.Message, Lang.T("extraDialog.motionTestDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
                 finally
                 {
@@ -586,7 +582,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string reason;
                 if (!TryReadProfile(out profile, out reason))
                 {
-                    MessageDialog.Show(this, reason, "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageDialog.Show(this, DisplayMotionReason(reason), Lang.T("extraDialog.motionTestDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -594,13 +590,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 double end = AxisUnitConverter.FromDisplay((double)nudEndPosition.Value, axis);
                 if (Math.Abs(start - end) <= ResolveTolerance(axis))
                 {
-                    MessageDialog.Show(this, "Start and End positions are the same.", "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageDialog.Show(this, Lang.T("extraDialog.motionTest.samePosition"), Lang.T("extraDialog.motionTestDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 if (chkSoftLimitCheck.Checked && !CheckSoftLimit(axis, start, end, out reason))
                 {
-                    MessageDialog.Show(this, reason, "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageDialog.Show(this, DisplayMotionReason(reason), Lang.T("extraDialog.motionTestDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -612,7 +608,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "MOTION-TEST", "Start repeat failed: " + ex.Message);
-                MessageDialog.Show(this, ex.Message, "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageDialog.Show(this, ex.Message, Lang.T("extraDialog.motionTestDialog.this.caption"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                 UpdateRunButtons();
             }
             finally
@@ -644,7 +640,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     int result = await MoveAxisAndVerifyAsync(axis, start, profile, "MotionTestRepeatStart", ct).ConfigureAwait(true);
                     if (result != 0)
                     {
-                        lblStatus.Text = "Start move failed. result=" + result;
+                        Lang.BindFormat(lblStatus, "extraDialog.motionTest.startFailed", result);
                         break;
                     }
 
@@ -656,7 +652,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     result = await MoveAxisAndVerifyAsync(axis, end, profile, "MotionTestRepeatEnd", ct).ConfigureAwait(true);
                     if (result != 0)
                     {
-                        lblStatus.Text = "End move failed. result=" + result;
+                        Lang.BindFormat(lblStatus, "extraDialog.motionTest.endFailed", result);
                         break;
                     }
 
@@ -668,24 +664,24 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                     if (chkStopOnAlarm.Checked && axis.IsAlarm)
                     {
-                        lblStatus.Text = "Stopped by axis alarm.";
+                        Lang.BindKey(lblStatus, "extraDialog.motionTest.alarmStopped");
                         break;
                     }
                 }
 
                 if (ct.IsCancellationRequested)
-                    lblStatus.Text = "Stopped.";
+                    Lang.BindKey(lblStatus, "extraDialog.motionTest.stopped");
                 else if (repeatCount > 0 && cycle >= repeatCount)
-                    lblStatus.Text = "Repeat complete.";
+                    Lang.BindKey(lblStatus, "extraDialog.motionTest.repeatComplete");
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "Stopped.";
+                Lang.BindKey(lblStatus, "extraDialog.motionTest.stopped");
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "MOTION-TEST", "Repeat failed: " + ex.Message);
-                lblStatus.Text = "Repeat failed: " + ex.Message;
+                Lang.BindFormat(lblStatus, "extraDialog.motionTest.repeatFailed", ex.Message);
             }
             finally
             {
@@ -732,7 +728,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddMotionLog(startMessage);
                 EventLogger.Write(EventKind.Event, "UI", "MOTION-TEST", startMessage);
 
-                lblStatus.Text = source + " moving...";
+                Lang.BindFormat(lblStatus, "extraDialog.motionTest.moving", Lang.Display(source));
                 moveWatch = Stopwatch.StartNew();
                 int result = await axis.MoveAbsoluteAsync(nativeTarget, profile.Velocity).ConfigureAwait(true);
                 if (result != 0)
@@ -944,7 +940,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     axis.Stop();
 
                 if (showStatus)
-                    lblStatus.Text = "Stop requested.";
+                    Lang.BindKey(lblStatus, "extraDialog.motionTest.stopRequested");
 
                 EventLogger.Write(EventKind.Event, "UI", "MOTION-TEST", "Motion test stop requested.");
             }
@@ -971,7 +967,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 {
                     lblActual.Text = "-";
                     lblCommand.Text = "-";
-                    lblAxisState.Text = "-";
+                    Lang.Bind(lblAxisState, "-");
                     return;
                 }
 
@@ -979,11 +975,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string unit = AxisUnitConverter.DisplayUnitFor(axis);
                 lblActual.Text = AxisUnitConverter.ToDisplay(axis.ActualPosition, axis).ToString("0.###", CultureInfo.InvariantCulture);
                 lblCommand.Text = AxisUnitConverter.ToDisplay(axis.CommandPosition, axis).ToString("0.###", CultureInfo.InvariantCulture);
-                lblAxisState.Text =
-                    "Servo=" + (axis.IsServoOn ? "ON" : "OFF") +
-                    "  Moving=" + (axis.IsMoving ? "ON" : "OFF") +
-                    "  InPos=" + (axis.IsInPosition ? "ON" : "OFF") +
-                    "  Alarm=" + (axis.IsAlarm ? "ON" : "OFF");
+                Lang.BindFormat(lblAxisState, "extraDialog.motionTest.axisState",
+                    axis.IsServoOn ? "ON" : "OFF", axis.IsMoving ? "ON" : "OFF",
+                    axis.IsInPosition ? "ON" : "OFF", axis.IsAlarm ? "ON" : "OFF");
                 lblUnit.Text = unit;
             }
             catch (Exception ex)
@@ -1037,9 +1031,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             }
 
-            lblCounter.Text = "Cycle " + completedCycle.ToString(CultureInfo.InvariantCulture) +
-                              (repeatCount > 0 ? " / " + repeatCount.ToString(CultureInfo.InvariantCulture) : " / INF") +
-                              "  Legs " + _completedLegs.ToString(CultureInfo.InvariantCulture);
+            Lang.BindFormat(lblCounter, "extraDialog.motionTest.counter",
+                completedCycle.ToString(CultureInfo.InvariantCulture),
+                repeatCount > 0 ? repeatCount.ToString(CultureInfo.InvariantCulture) : "INF",
+                _completedLegs.ToString(CultureInfo.InvariantCulture));
         }
 
         private int ResolveMoveTimeout(BaseAxis axis)
@@ -1211,5 +1206,101 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _axis.Config.Deceleration = _deceleration;
             }
         }
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindReadOnlyCells(gridProfile, DisplayProfileCaption, cell => cell.ColumnIndex == 0);
+            Lang.BindKey(grpAxis, "extraDialog.motionTestDialog.grpAxis.caption");
+            Lang.BindKey(grpStatus, "extraDialog.motionTestDialog.grpStatus.caption");
+            Lang.BindKey(lblAxisNameCaption, "extraDialog.motionTestDialog.lblAxisNameCaption.caption");
+            Lang.BindKey(lblActualCaption, "extraDialog.motionTestDialog.lblActualCaption.caption");
+            Lang.BindKey(lblCommandCaption, "extraDialog.motionTestDialog.lblCommandCaption.caption");
+            Lang.BindKey(lblUnitCaption, "extraDialog.motionTestDialog.lblUnitCaption.caption");
+            Lang.BindKey(grpPosition, "extraDialog.motionTestDialog.grpPosition.caption");
+            Lang.BindKey(lblStartCaption, "extraDialog.motionTestDialog.lblStartCaption.caption");
+            Lang.BindKey(btnCaptureStart, "extraDialog.motionTestDialog.btnCaptureStart.caption");
+            Lang.BindKey(btnMoveStart, "extraDialog.motionTestDialog.btnMoveStart.caption");
+            Lang.BindKey(lblEndCaption, "extraDialog.motionTestDialog.lblEndCaption.caption");
+            Lang.BindKey(btnCaptureEnd, "extraDialog.motionTestDialog.btnCaptureEnd.caption");
+            Lang.BindKey(btnMoveEnd, "extraDialog.motionTestDialog.btnMoveEnd.caption");
+            Lang.BindKey(btnSwap, "extraDialog.motionTestDialog.btnSwap.caption");
+            Lang.BindKey(grpProfile, "extraDialog.motionTestDialog.grpProfile.caption");
+            Lang.BindKey(colProfileName, "extraDialog.motionTestDialog.colProfileName.caption");
+            Lang.BindKey(colProfileValue, "extraDialog.motionTestDialog.colProfileValue.caption");
+            Lang.BindKey(colProfileUnit, "extraDialog.motionTestDialog.colProfileUnit.caption");
+            Lang.BindKey(btnReloadDefault, "extraDialog.motionTestDialog.btnReloadDefault.caption");
+            Lang.BindKey(grpRepeat, "extraDialog.motionTestDialog.grpRepeat.caption");
+            Lang.BindKey(lblRepeatCaption, "extraDialog.motionTestDialog.lblRepeatCaption.caption");
+            Lang.BindKey(lblDwellCaption, "extraDialog.motionTestDialog.lblDwellCaption.caption");
+            Lang.BindKey(lblTimeoutCaption, "extraDialog.motionTestDialog.lblTimeoutCaption.caption");
+            Lang.BindKey(chkSoftLimitCheck, "extraDialog.motionTestDialog.chkSoftLimitCheck.caption");
+            Lang.BindKey(chkStopOnAlarm, "extraDialog.motionTestDialog.chkStopOnAlarm.caption");
+            Lang.BindKey(btnServoOn, "extraDialog.motionTestDialog.btnServoOn.caption");
+            Lang.BindKey(btnStartRepeat, "extraDialog.motionTestDialog.btnStartRepeat.caption");
+            Lang.BindKey(btnStop, "extraDialog.motionTestDialog.btnStop.caption");
+            Lang.BindKey(btnClose, "extraDialog.motionTestDialog.btnClose.caption");
+            Lang.BindKey(btnMotionLogClear, "extraDialog.motionTestDialog.btnMotionLogClear.caption");
+            Lang.BindKey(this, "extraDialog.motionTestDialog.this.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
+        private static string OverrideVerdictKey(string verdict)
+        {
+            switch (verdict)
+            {
+                case "기준=모션시작(변환 정상)": return "sharedDialog.motionTest.verdict.start";
+                case "기준=현재위치(변환 결함 확정)": return "sharedDialog.motionTest.verdict.current";
+                case "판정불가(예측 밖)": return "sharedDialog.motionTest.verdict.unknown";
+                default: return verdict;
+            }
+        }
+
+        private static string MotionReasonKey(string reason, out object[] values)
+        {
+            values = new object[0];
+            switch (reason)
+            {
+                case "Axis is not selected.": return "sharedDialog.motionTest.reason.axisMissing";
+                case "Profile value is invalid.": return "sharedDialog.motionTest.reason.profileInvalid";
+                case "Velocity/Acceleration/Deceleration must be greater than zero.": return "sharedDialog.motionTest.reason.profilePositive";
+            }
+            if (reason != null && reason.StartsWith("Target is outside soft limit. ", StringComparison.Ordinal))
+            {
+                values = new object[] { reason.Substring(30) };
+                return "sharedDialog.motionTest.reason.softLimit";
+            }
+            if (reason != null && reason.StartsWith("Soft limit check failed: ", StringComparison.Ordinal))
+            {
+                values = new object[] { reason.Substring(25) };
+                return "sharedDialog.motionTest.reason.checkFailed";
+            }
+            values = new object[] { reason };
+            return "visionUi.literal";
+        }
+
+        private static string DisplayMotionReason(string reason)
+        {
+            object[] values;
+            string key = MotionReasonKey(reason, out values);
+            return Lang.Format(key, values);
+        }
+
+        private static void BindMotionReason(Control control, string reason)
+        {
+            object[] values;
+            string key = MotionReasonKey(reason, out values);
+            Lang.BindFormat(control, key, values);
+        }
+
+        private static string DisplayProfileCaption(string value)
+        {
+            switch (value)
+            {
+                case "Velocity": return Lang.T("sharedDialog.motionTest.profile.velocity");
+                case "Acceleration": return Lang.T("sharedDialog.motionTest.profile.acceleration");
+                case "Deceleration": return Lang.T("sharedDialog.motionTest.profile.deceleration");
+                default: return value;
+            }
+        }
+
     }
 }

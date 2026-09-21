@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using QMC.CDT_320.Ui.Localization;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Controls;
 
@@ -9,6 +10,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         public ForceControlPage()
         {
             InitializeComponent();
+            InitializeRecipeLanguageBindings();
             BuildActions();
             DisableColumnSorting();
             LoadSampleRows();
@@ -45,6 +47,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 gridDo.Rows.Add(i + 1, "Y" + i.ToString("D3"), "Sample DO " + i, "OFF");
                 gridDi.Rows.Add(i + 1, "X" + i.ToString("D3"), "Sample DI " + i, "OFF");
             }
+        }
+        // Keep Designer declarations intact; language bindings only affect displayed captions.
+        private void InitializeRecipeLanguageBindings()
+        {
+            Lang.BindKey(this.lblHeader, "recipeUi.forceControlPage.lblHeader.text");
+            Lang.BindKey(this.grpDo, "recipeUi.forceControlPage.grpDo.text");
+            Lang.BindKey(this.grpDi, "recipeUi.forceControlPage.grpDi.text");
+            Lang.BindKey(this.grpActions, "recipeUi.forceControlPage.grpActions.text");
         }
     }
 }

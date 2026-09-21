@@ -42,6 +42,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         public FrontPickerRecipePage()
         {
             InitializeComponent();
+            InitializeRecipeLanguageBindings();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                 return;
 
@@ -109,8 +110,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void InstallVisionPreview()
         {
-            tabBottom.Text = "BOTTOM";
-            tabSide.Text = "SIDE";
+            Lang.BindKey(tabBottom, "recipeUi.frontPickerRecipePage.tabBottom.text");
+            Lang.BindKey(tabSide, "recipeUi.frontPickerRecipePage.tabSide.text");
             bottomVisionPreview = RecipeVisionPreview.ShowSingle(tabBottom, "BOTTOM VISION", VisionViewerPorts.BottomInspection);
             sideVisionPreview = RecipeVisionPreview.ShowVertical(
                 tabSide,
@@ -1788,9 +1789,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "CDA: " + OnOff(unit.IsPickerCdaPressureOk()) + Environment.NewLine +
                 "VAC: " + OnOff(unit.IsPickerVacuumPressureOk());
 
-            lblVisionInfo.Text = "BOTTOM VISION" + Environment.NewLine + body;
-            lblVisionInfo2.Text = "SIDE VISION 1" + Environment.NewLine + body;
-            lblVisionInfo3.Text = "SIDE VISION 2" + Environment.NewLine + body;
+            Lang.BindFormat(lblVisionInfo, "recipeUi.frontPickerRecipePage.lblVisionInfo.text", (object)(Environment.NewLine), (object)(body));
+            Lang.BindFormat(lblVisionInfo2, "recipeUi.frontPickerRecipePage.lblVisionInfo2.text", (object)(Environment.NewLine), (object)(body));
+            Lang.BindFormat(lblVisionInfo3, "recipeUi.frontPickerRecipePage.lblVisionInfo3.text", (object)(Environment.NewLine), (object)(body));
         }
 
         private BaseAxis GetAxis(PickerAxis axis)
@@ -1855,6 +1856,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return host;
             }
             return FindForm() as Form1;
+        }
+        // Keep Designer declarations intact; language bindings only affect displayed captions.
+        private void InitializeRecipeLanguageBindings()
+        {
+            Lang.BindKey(this.lblHeader, "recipeUi.frontPickerRecipePage.lblHeader.text");
+            Lang.BindKey(this.grpVision, "recipeUi.frontPickerRecipePage.grpVision.text");
+            Lang.BindKey(this.tabBottom, "recipeUi.frontPickerRecipePage.tabBottom.text");
+            Lang.BindKey(this.lblVisionInfo, "recipeUi.frontPickerRecipePage.lblVisionInfo.state2");
+            Lang.BindKey(this.tabSide, "recipeUi.frontPickerRecipePage.tabSide.text");
+            Lang.BindKey(this.lblVisionInfo2, "recipeUi.frontPickerRecipePage.lblVisionInfo2.state2");
+            Lang.BindKey(this.lblVisionInfo3, "recipeUi.frontPickerRecipePage.lblVisionInfo3.state2");
+            Lang.BindKey(this.grpManual, "recipeUi.forceControlPage.grpActions.text");
+            Lang.BindKey(this.grpOptions, "recipeUi.frontPickerRecipePage.grpOptions.text");
+            Lang.BindKey(this.grpWait, "recipeUi.frontPickerRecipePage.grpWait.text");
+            Lang.BindKey(this.grpIo, "recipeUi.frontPickerRecipePage.grpIo.text");
+            Lang.BindKey(this.grpJog, "recipeUi.frontPickerRecipePage.grpJog.text");
+            Lang.BindKey(this.grpSpeed, "recipeUi.frontPickerRecipePage.grpSpeed.text");
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -18,6 +19,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         public VisionModuleTestDialog()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
         }
 
         public VisionModuleTestDialog(VisionTcpClient client, string displayName)
@@ -33,7 +35,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _client = client;
 
                 string title = string.IsNullOrWhiteSpace(displayName) ? "VISION" : displayName;
-                Text = "VISION 동작 테스트 - " + title + (client != null ? "  (port " + client.Port + ")" : string.Empty);
+                Lang.BindFormat(this, "visionUi.visionModuleTestDialog.Text.text", (object)(title), (object)((client != null ? "  (port " + client.Port + ")" : string.Empty)));
 
                 int viewerPort = 0;
                 AutoVisionChannel channel;
@@ -44,7 +46,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             catch (Exception ex)
             {
                 _lblGrab.ForeColor = Color.Firebrick;
-                _lblGrab.Text = "초기화 실패: " + ex.Message;
+                Lang.BindFormat(_lblGrab, "visionUi.visionModuleTestDialog._lblGrab.text", (object)(ex.Message));
             }
             finally
             {
@@ -115,19 +117,24 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             _btnGrab.Enabled = false;
             _lblGrab.ForeColor = Color.DimGray;
-            _lblGrab.Text = "GRAB 중...";
+            Lang.BindKey(_lblGrab, "visionUi.visionModuleTestDialog._lblGrab.state2");
 
             try
             {
                 VisionProtocolResponse response = await _client.SendCommandAsync(VisionProtocolCommand.Grab, 30000, System.Threading.CancellationToken.None, 0).ConfigureAwait(true);
                 bool ok = response != null && response.IsAck;
                 _lblGrab.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
-                _lblGrab.Text = ok ? response.Payload : (response != null ? response.RawLine : "응답 없음");
+                {
+                    if (ok)
+                        Lang.BindFormat(_lblGrab, "visionUi.literal", (object)(response.Payload));
+                    else
+                        Lang.BindFormat(_lblGrab, "visionUi.literal", (object)((response != null ? response.RawLine : "응답 없음")));
+                }
             }
             catch (Exception ex)
             {
                 _lblGrab.ForeColor = Color.Firebrick;
-                _lblGrab.Text = "GRAB 실패: " + ex.Message;
+                Lang.BindFormat(_lblGrab, "visionUi.visionModuleTestDialog._lblGrab.state3", (object)(ex.Message));
             }
             finally
             {
@@ -144,13 +151,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (finder.Length == 0)
             {
                 _lblMatch.ForeColor = Color.Firebrick;
-                _lblMatch.Text = "finder 이름을 입력하세요.";
+                Lang.BindKey(_lblMatch, "visionUi.visionModuleTestDialog._lblMatch.text");
                 return;
             }
 
             _btnMatch.Enabled = false;
             _lblMatch.ForeColor = Color.DimGray;
-            _lblMatch.Text = "MATCH(" + finder + ") 중...";
+            Lang.BindFormat(_lblMatch, "visionUi.visionModuleTestDialog._lblMatch.state2", (object)(finder));
 
             try
             {
@@ -167,23 +174,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (result != null && result.Success)
                 {
                     _lblMatch.ForeColor = Color.SeaGreen;
-                    _lblMatch.Text = string.Format(
-                        "OK  x={0:F2}  y={1:F2}  t={2:F3}  score={3:F3}",
-                        result.X,
-                        result.Y,
-                        result.AngleDeg,
-                        result.Score);
+                    Lang.BindFormat(_lblMatch, "visionUi.visionModuleTestDialog._lblMatch.state3", (object)(result.X), (object)(result.Y), (object)(result.AngleDeg), (object)(result.Score));
                 }
                 else
                 {
                     _lblMatch.ForeColor = Color.Firebrick;
-                    _lblMatch.Text = "MATCH 실패: " + (result != null && !string.IsNullOrEmpty(result.RawError) ? result.RawError : "no match");
+                    Lang.BindFormat(_lblMatch, "visionUi.visionModuleTestDialog._lblMatch.state4", (object)((result != null && !string.IsNullOrEmpty(result.RawError) ? result.RawError : "no match")));
                 }
             }
             catch (Exception ex)
             {
                 _lblMatch.ForeColor = Color.Firebrick;
-                _lblMatch.Text = "MATCH 실패: " + ex.Message;
+                Lang.BindFormat(_lblMatch, "visionUi.visionModuleTestDialog._lblMatch.state4", (object)(ex.Message));
             }
             finally
             {
@@ -200,13 +202,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (inspector.Length == 0)
             {
                 _lblInsp.ForeColor = Color.Firebrick;
-                _lblInsp.Text = "inspector 이름을 입력하세요.";
+                Lang.BindKey(_lblInsp, "visionUi.visionModuleTestDialog._lblInsp.text");
                 return;
             }
 
             _btnInspect.Enabled = false;
             _lblInsp.ForeColor = Color.DimGray;
-            _lblInsp.Text = "INSPECT(" + inspector + ") 중...";
+            Lang.BindFormat(_lblInsp, "visionUi.visionModuleTestDialog._lblInsp.state2", (object)(inspector));
 
             try
             {
@@ -223,18 +225,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (result != null)
                 {
                     _lblInsp.ForeColor = result.IsPass ? Color.SeaGreen : Color.Firebrick;
-                    _lblInsp.Text = (result.IsPass ? "PASS" : "FAIL") + "   (" + result.Raw + ")";
+                    Lang.BindFormat(_lblInsp, "visionUi.literal", (object)((result.IsPass ? "PASS" : "FAIL") + "   (" + result.Raw + ")"));
                 }
                 else
                 {
                     _lblInsp.ForeColor = Color.Firebrick;
-                    _lblInsp.Text = "INSPECT 실패: " + (result != null ? result.Raw : "응답 없음");
+                    Lang.BindFormat(_lblInsp, "visionUi.visionModuleTestDialog._lblInsp.state3", (object)((result != null ? result.Raw : "응답 없음")));
                 }
             }
             catch (Exception ex)
             {
                 _lblInsp.ForeColor = Color.Firebrick;
-                _lblInsp.Text = "INSPECT 실패: " + ex.Message;
+                Lang.BindFormat(_lblInsp, "visionUi.visionModuleTestDialog._lblInsp.state3", (object)(ex.Message));
             }
             finally
             {
@@ -251,7 +253,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return true;
 
             target.ForeColor = Color.Firebrick;
-            target.Text = "신규 검사 규약을 지원하는 Vision 카메라 채널이 아닙니다.";
+            Lang.BindKey(target, "visionUi.visionModuleTestDialog.target.text");
             return false;
         }
 
@@ -260,14 +262,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_client == null)
             {
                 target.ForeColor = Color.Firebrick;
-                target.Text = "모듈 없음";
+                Lang.BindKey(target, "visionUi.visionModuleTestDialog.target.state2");
                 return false;
             }
 
             if (!_client.IsConnected)
             {
                 target.ForeColor = Color.Firebrick;
-                target.Text = "미연결 (port " + _client.Port + ") - 먼저 연결하세요.";
+                Lang.BindFormat(target, "visionUi.visionModuleTestDialog.target.state3", (object)(_client.Port));
                 return false;
             }
 
@@ -288,6 +290,18 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 base.OnFormClosing(e);
             }
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this._btnGrab, "visionUi.waferVisionTestControl.btnExpose.text");
+            Lang.BindKey(this._lblGrab, "visionUi.visionModuleTestDialog._lblGrab.state4");
+            Lang.BindKey(this._btnMatch, "visionUi.visionModuleTestDialog._btnMatch.text");
+            Lang.BindKey(this._lblMatch, "visionUi.visionModuleTestDialog._lblMatch.state5");
+            Lang.BindKey(this._btnInspect, "visionUi.visionModuleTestDialog._btnInspect.text");
+            Lang.BindKey(this._lblInsp, "visionUi.visionModuleTestDialog._lblInsp.state4");
+            Lang.BindKey(this._hint, "visionUi.visionModuleTestDialog._hint.text");
+            Lang.BindKey(this, "visionUi.visionModuleTestDialog.Text.state2");
         }
     }
 }

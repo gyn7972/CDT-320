@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
@@ -34,6 +35,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         public TapeFrameSubsetPage() : base("recipe.tapeFrameSubset")
         {
             InitializeComponent();
+            InitializeRecipeLanguageBindings();
             // Recipe Pitch는 center-to-center가 아니라 Die 사이 Gap이다. 접촉 배치는 0 mm가 정상값이다.
             _nPitchX.Minimum = 0M;
             _nPitchY.Minimum = 0M;
@@ -42,17 +44,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // [사용자 확정 2026-08-17] 라벨을 "Pitch Gap"에서 "DIE GAP"으로 정정한다.
             //   실제 값은 다이 사이 간격인데 "Pitch"라는 이름 때문에 중심 간 거리로 오해됐다.
             //   중심 간 거리는 lblCenterPitchValue에 항상 계산해 보여준다.
-            lblPitchX.Text = "다이 간격 X (mm)";
-            lblPitchY.Text = "다이 간격 Y (mm)";
-            toolTipRecipeLocation.SetToolTip(_nPitchX, "다이 사이 X 간격입니다. 중심 간 거리 = Recipe Die Width + DIE GAP X");
-            toolTipRecipeLocation.SetToolTip(_nPitchY, "다이 사이 Y 간격입니다. 중심 간 거리 = Recipe Die Height + DIE GAP Y");
+            Lang.BindKey(lblPitchX, "recipeUi.mapCreatePage.lblChipPitchYKey.text");
+            Lang.BindKey(lblPitchY, "recipeUi.mapCreatePage.lblWaferDiameterKey.text");
+            Lang.BindKey(toolTipRecipeLocation, _nPitchX, "recipeUi.tooltip.30");
+            Lang.BindKey(toolTipRecipeLocation, _nPitchY, "recipeUi.tooltip.31");
             _nPitchX.ValueChanged += OnPitchValueChanged;
             _nPitchY.ValueChanged += OnPitchValueChanged;
             _nGridX.ValueChanged += OnGridValueChanged;
             _nGridY.ValueChanged += OnGridValueChanged;
-            _btnImportWaferMap.Text = "웨이퍼 맵 불러오기";
-            toolTipRecipeLocation.SetToolTip(_btnImportWaferMap, "외부 RAD TXT/CSV/JSON Wafer Map을 선택 역할의 Base Map으로 연결합니다.");
-            toolTipRecipeLocation.SetToolTip(btnGridMapCreate, "현재 Grid X/Y, Die Size, Pitch Gap, Wafer Diameter로 선택 역할의 Grid Base Map을 생성합니다.");
+            Lang.BindKey(_btnImportWaferMap, "recipeUi.tapeFrameSubsetPage._btnImportWaferMap.text");
+            Lang.BindKey(toolTipRecipeLocation, _btnImportWaferMap, "recipeUi.tooltip.32");
+            Lang.BindKey(toolTipRecipeLocation, btnGridMapCreate, "recipeUi.tooltip.33");
             UpdateEdgeSkipModeUi();
         }
 
@@ -783,9 +785,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (_lblMapFileValue == null || _project == null)
                 return;
 
-            _lblMapFileValue.Text = _currentRoleIsOutput
-                ? "OUTPUT BASE=" + EmptyDash(RecipeMapPaths.ConfiguredBaseFileName(_project, RecipeMapKind.GoodBin)) + " / GOOD=" + EmptyDash(_project.GoodBinDieMapFileName) + " / NG=" + EmptyDash(_project.NgBinDieMapFileName)
-                : "INPUT BASE=" + EmptyDash(RecipeMapPaths.ConfiguredBaseFileName(_project, RecipeMapKind.Input)) + " / INPUT=" + EmptyDash(_project.InputDieMapFileName);
+            {
+                if (_currentRoleIsOutput)
+                    Lang.BindFormat(_lblMapFileValue, "recipeUi.tapeFrameSubsetPage._lblMapFileValue.text", (object)(EmptyDash(RecipeMapPaths.ConfiguredBaseFileName(_project, RecipeMapKind.GoodBin))), (object)(EmptyDash(_project.GoodBinDieMapFileName)), (object)(EmptyDash(_project.NgBinDieMapFileName)));
+                else
+                    Lang.BindFormat(_lblMapFileValue, "recipeUi.tapeFrameSubsetPage._lblMapFileValue.state2", (object)(EmptyDash(RecipeMapPaths.ConfiguredBaseFileName(_project, RecipeMapKind.Input))), (object)(EmptyDash(_project.InputDieMapFileName)));
+            }
         }
 
         private void OnPitchValueChanged(object sender, EventArgs e)
@@ -809,7 +814,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _lastGridCountPreview = "";
             _lastWaferStatus = "[EDITING] Grid X/Y가 변경되었습니다. COUNT CHECK로 개수를 확인한 뒤 GRID MAP CREATE를 눌러야 Base Map에 반영됩니다(상단 SAVE는 Base Map을 바꾸지 않습니다).";
             if (lblGridCountResult != null)
-                lblGridCountResult.Text = "Count: -";
+                Lang.BindKey(lblGridCountResult, "recipeUi.tapeFrameSubsetPage.lblGridCountResult.text");
             UpdateChangeHints();
             UpdateMapSourceInfo();
         }
@@ -849,13 +854,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 double dieY = ResolveRecipeDieSizeY();
                 double gapX = (double)_nPitchX.Value;
                 double gapY = (double)_nPitchY.Value;
-                lblCenterPitchValue.Text =
-                    "X " + FormatNumber(dieX) + " + " + FormatNumber(gapX) + " = " + FormatNumber(dieX + gapX) +
-                    "     |     Y " + FormatNumber(dieY) + " + " + FormatNumber(gapY) + " = " + FormatNumber(dieY + gapY);
+                Lang.BindFormat(lblCenterPitchValue, "recipeUi.tapeFrameSubsetPage.lblCenterPitchValue.text", (object)(FormatNumber(dieX)), (object)(FormatNumber(gapX)), (object)(FormatNumber(dieX + gapX)), (object)(FormatNumber(dieY)), (object)(FormatNumber(gapY)), (object)(FormatNumber(dieY + gapY)));
             }
             catch (Exception ex)
             {
-                lblCenterPitchValue.Text = "계산 실패: " + ex.Message;
+                Lang.BindFormat(lblCenterPitchValue, "recipeUi.tapeFrameSubsetPage.lblCenterPitchValue.state2", (object)(ex.Message));
             }
             finally
             {
@@ -871,12 +874,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (lblBaseHint != null)
             {
                 lblBaseHint.ForeColor = Color.FromArgb(120, 120, 120);
-                lblBaseHint.Text = "맵 생성 미리보기에서 여백·회전·개수 조건을 확인하고 [맵 저장]으로 저장하세요.";
+                Lang.BindKey(lblBaseHint, "recipeUi.tapeFrameSubsetPage.lblBaseHint.text");
             }
             if (lblDieHint != null)
             {
                 lblDieHint.ForeColor = Color.FromArgb(120, 120, 120);
-                lblDieHint.Text = "생성 맵의 직경·DIE GAP 변경은 미리보기에서 다시 생성 후 저장하세요. 외부 맵의 GAP 변경은 상단 [저장]을 사용합니다.";
+                Lang.BindKey(lblDieHint, "recipeUi.tapeFrameSubsetPage.lblDieHint.text");
             }
             UpdateApprovalBadges();
         }
@@ -898,7 +901,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 if (_project == null)
                 {
-                    badge.Text = title + " -";
+                    Lang.BindFormat(badge, "recipeUi.literal", (object)(title + " -"));
                     badge.ForeColor = Color.FromArgb(120, 120, 120);
                     return;
                 }
@@ -908,13 +911,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 DieMap map = RecipeDieMapResolver.LoadCompatibleMap(_project, kind, out path, out reason);
                 if (map != null)
                 {
-                    badge.Text = title + " ✅ APPROVED";
+                    Lang.BindFormat(badge, "recipeUi.tapeFrameSubsetPage.badge.text", (object)(title));
                     badge.ForeColor = Color.FromArgb(30, 120, 60);
                     toolTipRecipeLocation.SetToolTip(badge, path ?? "");
                     return;
                 }
 
-                badge.Text = title + " ⚠ PENDING";
+                Lang.BindFormat(badge, "recipeUi.tapeFrameSubsetPage.badge.state2", (object)(title));
                 badge.ForeColor = Color.FromArgb(200, 90, 20);
                 toolTipRecipeLocation.SetToolTip(badge,
                     (string.IsNullOrWhiteSpace(reason) ? "맵을 사용할 수 없습니다." : reason) +
@@ -923,7 +926,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                badge.Text = title + " ?";
+                Lang.BindFormat(badge, "recipeUi.literal", (object)(title + " ?"));
                 badge.ForeColor = Color.FromArgb(120, 120, 120);
                 toolTipRecipeLocation.SetToolTip(badge, ex.Message);
             }
@@ -1159,7 +1162,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 UpdateSavedMapDisplay(null);
-                lblSavedMapSummary.Text = "적용 맵 좌표를 확인하지 못했습니다.";
+                Lang.BindKey(lblSavedMapSummary, "recipeUi.tapeFrameSubsetPage.lblSavedMapSummary.text");
                 _tbMapSourceInfo.Text = "맵 확인 필요: " + ex.Message + Environment.NewLine + (_lastWaferStatus ?? "");
             }
         }
@@ -1185,9 +1188,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     ? map.Generation.Version == 1 ? "  |  이전식 +0.200 mm"
                         : "  |  내부 여백 " + map.Generation.EdgeMarginMm.GetValueOrDefault().ToString("0.000") + " mm"
                     : "";
-                lblSavedMapSummary.Text = "저장 맵: " + count.ToString("N0") + "개  |  회전: " + angle + margin;
+                Lang.BindFormat(lblSavedMapSummary, "recipeUi.tapeFrameSubsetPage.lblSavedMapSummary.state2", (object)(count.ToString("N0")), (object)(angle), (object)(margin));
                 if (lblGridCountResult != null)
-                    lblGridCountResult.Text = "저장 다이: " + count.ToString("N0") + "개 / 격자 " + columns + " × " + rows;
+                    Lang.BindFormat(lblGridCountResult, "recipeUi.tapeFrameSubsetPage.lblGridCountResult.state2", (object)(count.ToString("N0")), (object)(columns), (object)(rows));
                 _lastGridCountPreview = "Saved dies    : " + count + Environment.NewLine +
                     "Used grid     : " + columns + " x " + rows + Environment.NewLine + "Rotation      : " + angle;
             }
@@ -1521,5 +1524,68 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return max;
             return value;
         }
+        // Keep Designer declarations intact; language bindings only affect displayed captions.
+        private void InitializeRecipeLanguageBindings()
+        {
+            Lang.BindChoices(_cbWaferRole, FormatRecipeChoice);
+            Lang.BindChoices(_cbEdgeSkipMode, FormatRecipeChoice);
+            Lang.BindKey(this.toolTipRecipeLocation, this.btnLoadSpec, "recipeUi.tooltip.34");
+            Lang.BindKey(this.toolTipRecipeLocation, this.btnSaveSpec, "recipeUi.tooltip.35");
+            Lang.BindKey(this.toolTipRecipeLocation, this._cbWaferRole, "recipeUi.tooltip.36");
+            Lang.BindKey(this.toolTipRecipeLocation, this.btnPreviewWaferMap, "recipeUi.tooltip.37");
+            Lang.BindKey(this.toolTipRecipeLocation, this._nDieSizeX, "recipeUi.tooltip.38");
+            Lang.BindKey(this.toolTipRecipeLocation, this._nDieSizeY, "recipeUi.tooltip.38");
+            Lang.BindKey(this.toolTipRecipeLocation, this.btnEditDieSpec, "recipeUi.tooltip.39");
+            Lang.BindKey(this.toolTipRecipeLocation, this.lblCenterPitchValue, "recipeUi.tooltip.40");
+            Lang.BindKey(this.toolTipRecipeLocation, this.btnGridCountPreview, "recipeUi.tooltip.41");
+            Lang.BindKey(this.lblSpecLibrary, "recipeUi.dieSubsetPage.lblSpecLibrary.text");
+            Lang.BindKey(this.btnLoadSpec, "recipeUi.dieSubsetPage.btnLoadSpec.text");
+            Lang.BindKey(this.btnSaveSpec, "recipeUi.dieSubsetPage.btnSaveSpec.text");
+            Lang.BindKey(this.lblName, "recipeUi.dieSubsetPage.lblName.text");
+            Lang.BindKey(this.grpBase, "recipeUi.tapeFrameSubsetPage.grpBase.text");
+            Lang.BindKey(this.lblWaferRole, "recipeUi.tapeFrameSubsetPage.lblWaferRole.text");
+            Lang.BindKey(this._btnImportWaferMap, "recipeUi.tapeFrameSubsetPage._btnImportWaferMap.text");
+            Lang.BindKey(this.btnGridMapCreate, "recipeUi.tapeFrameSubsetPage.btnGridMapCreate.text");
+            Lang.BindKey(this.lblGridX, "recipeUi.tapeFrameSubsetPage.lblGridX.text");
+            Lang.BindKey(this.lblGridY, "recipeUi.tapeFrameSubsetPage.lblGridY.text");
+            Lang.BindKey(this.lblDiameter, "recipeUi.mapCreatePage.lblAxisXKey.text");
+            Lang.BindKey(this.lblEdgeMode, "recipeUi.tapeFrameSubsetPage.lblEdgeMode.text");
+            Lang.BindKey(this.lblEdgeLR, "recipeUi.tapeFrameSubsetPage.lblEdgeLR.text");
+            Lang.BindKey(this.lblEdgeTB, "recipeUi.tapeFrameSubsetPage.lblEdgeTB.text");
+            Lang.BindKey(this.lblMapFile, "recipeUi.tapeFrameSubsetPage.lblMapFile.text");
+            Lang.BindKey(this.btnPreviewWaferMap, "recipeUi.tapeFrameSubsetPage.btnPreviewWaferMap.text");
+            Lang.BindKey(this.lblBaseHint, "recipeUi.tapeFrameSubsetPage.lblBaseHint.state2");
+            Lang.BindKey(this.lblSavedMapSummary, "recipeUi.tapeFrameSubsetPage.lblSavedMapSummary.state3");
+            Lang.BindKey(this.lblRotate, "recipeUi.tapeFrameSubsetPage.lblRotate.text");
+            Lang.BindKey(this.grpDie, "recipeUi.tapeFrameSubsetPage.grpDie.text");
+            Lang.BindKey(this.lblDieSizeX, "recipeUi.mapCreatePage._lblDieSizeXKey.text");
+            Lang.BindKey(this.lblDieSizeY, "recipeUi.mapCreatePage._lblDieSizeYKey.text");
+            Lang.BindKey(this.btnEditDieSpec, "recipeUi.tapeFrameSubsetPage.btnEditDieSpec.text");
+            Lang.BindKey(this.lblPitchX, "recipeUi.mapCreatePage.lblChipPitchYKey.text");
+            Lang.BindKey(this.lblPitchY, "recipeUi.mapCreatePage.lblWaferDiameterKey.text");
+            Lang.BindKey(this.lblCenterPitch, "recipeUi.tapeFrameSubsetPage.lblCenterPitch.text");
+            Lang.BindKey(this.lblDieHint, "recipeUi.tapeFrameSubsetPage.lblDieHint.state2");
+            Lang.BindKey(this.grpResult, "recipeUi.tapeFrameSubsetPage.grpResult.text");
+            Lang.BindKey(this.btnGridCountPreview, "recipeUi.tapeFrameSubsetPage.btnGridCountPreview.text");
+            Lang.BindKey(this.lblGridCountResult, "recipeUi.tapeFrameSubsetPage.lblGridCountResult.text");
+            Lang.BindKey(this.lblApprovalInput, "recipeUi.tapeFrameSubsetPage.lblApprovalInput.text");
+            Lang.BindKey(this.lblApprovalGood, "recipeUi.tapeFrameSubsetPage.lblApprovalGood.text");
+            Lang.BindKey(this.lblApprovalNg, "recipeUi.tapeFrameSubsetPage.lblApprovalNg.text");
+            Lang.BindKey(this.btnProcessMapSettings, "recipeUi.tapeFrameSubsetPage.btnProcessMapSettings.text");
+            Lang.BindKey(this.grpMapSource, "recipeUi.tapeFrameSubsetPage.grpMapSource.text");
+        }
+        private static string FormatRecipeChoice(string value)
+        {
+            switch (value)
+            {
+                case "INPUT WAFER": return Lang.T("recipeUi.choice.inputWafer");
+                case "OUTPUT WAFER": return Lang.T("recipeUi.choice.outputWafer");
+                case "격자 수 (GRID)": return Lang.T("recipeUi.choice.edgeGrid");
+                case "거리 (MM)": return Lang.T("recipeUi.choice.edgeMm");
+                case "외부 맵 (EXTERNAL MAP)": return Lang.T("recipeUi.choice.edgeExternal");
+                default: return value;
+            }
+        }
+
     }
 }

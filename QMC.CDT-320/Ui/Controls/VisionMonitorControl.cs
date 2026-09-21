@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -44,6 +45,7 @@ namespace QMC.CDT_320.Ui.Controls
         public VisionMonitorControl()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
 
             foreach (ModulePort module in BuildModules())
                 cbModule.Items.Add(module);
@@ -123,7 +125,7 @@ namespace QMC.CDT_320.Ui.Controls
             ModulePort selected = cbModule.SelectedItem as ModulePort;
             if (selected == null)
             {
-                lblStatus.Text = "모듈을 선택하세요.";
+                Lang.BindKey(lblStatus, "visionUi.visionMonitorControl.lblStatus.text");
                 return;
             }
 
@@ -143,7 +145,7 @@ namespace QMC.CDT_320.Ui.Controls
             btnLive.Enabled = commandClient != null && commandClient.IsConnected;
             cbModule.Enabled = false;
             txtHost.Enabled = false;
-            lblStatus.Text = "연결 중...";
+            Lang.BindKey(lblStatus, "visionUi.visionMonitorControl.lblStatus.state2");
             _liveOn = false;
             UpdateLiveButton();
         }
@@ -156,7 +158,7 @@ namespace QMC.CDT_320.Ui.Controls
             VisionTcpClient commandClient = ResolveCommandClient();
             if (commandClient == null || !commandClient.IsConnected)
             {
-                lblStatus.Text = "Vision 명령 채널이 연결되어 있지 않습니다.";
+                Lang.BindKey(lblStatus, "visionUi.visionMonitorControl.lblStatus.state3");
                 UpdateLiveButton();
                 return;
             }
@@ -164,7 +166,12 @@ namespace QMC.CDT_320.Ui.Controls
             bool nextLive = !_liveOn;
             _liveSwitchBusy = true;
             btnLive.Enabled = false;
-            lblStatus.Text = nextLive ? "Vision Live 시작 요청..." : "Vision Live 정지 요청...";
+            {
+                if (nextLive)
+                    Lang.BindKey(lblStatus, "visionUi.visionMonitorControl.lblStatus.state4");
+                else
+                    Lang.BindKey(lblStatus, "visionUi.visionMonitorControl.lblStatus.state5");
+            }
 
             try
             {
@@ -176,17 +183,22 @@ namespace QMC.CDT_320.Ui.Controls
                 if (result == null || !result.Success)
                 {
                     string raw = result != null ? result.Raw : "null";
-                    lblStatus.Text = "Vision Live 명령 거부: " + raw;
+                    Lang.BindFormat(lblStatus, "visionUi.visionMonitorControl.lblStatus.state6", (object)(raw));
                     return;
                 }
 
                 _liveOn = nextLive;
-                lblStatus.Text = _liveOn ? "Vision Live ON" : "Vision Live OFF";
+                {
+                    if (_liveOn)
+                        Lang.BindKey(lblStatus, "visionUi.visionMonitorControl.lblStatus.state7");
+                    else
+                        Lang.BindKey(lblStatus, "visionUi.visionMonitorControl.lblStatus.state8");
+                }
                 LogVisionLiveSwitch(_liveOn, commandClient.ModuleName, result.Raw);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Vision Live 명령 실패: " + ex.Message;
+                Lang.BindFormat(lblStatus, "visionUi.visionMonitorControl.lblStatus.state9", (object)(ex.Message));
             }
             finally
             {
@@ -217,7 +229,12 @@ namespace QMC.CDT_320.Ui.Controls
             if (btnLive == null || btnLive.IsDisposed)
                 return;
 
-            btnLive.Text = _liveOn ? "Live ON" : "Live OFF";
+            {
+                if (_liveOn)
+                    Lang.BindKey(btnLive, "visionUi.visionMonitorControl.btnLive.text");
+                else
+                    Lang.BindKey(btnLive, "visionUi.visionMonitorControl.btnLive.state2");
+            }
             if (!_liveSwitchBusy)
             {
                 VisionTcpClient commandClient = ResolveCommandClient();
@@ -414,7 +431,7 @@ namespace QMC.CDT_320.Ui.Controls
 
             try
             {
-                BeginInvoke(new Action(() => { lblStatus.Text = status; }));
+                BeginInvoke(new Action(() => { Lang.BindFormat(lblStatus, "visionUi.literal", (object)status); }));
             }
             catch
             {
@@ -425,6 +442,16 @@ namespace QMC.CDT_320.Ui.Controls
         {
             Disconnect();
             base.OnHandleDestroyed(e);
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this.lblModule, "visionUi.visionMonitorControl.lblModule.text");
+            Lang.BindKey(this.lblHost, "visionUi.visionMonitorControl.lblHost.text");
+            Lang.BindKey(this.btnConnect, "visionUi.visionMonitorControl.btnConnect.text");
+            Lang.BindKey(this.btnDisconnect, "visionUi.visionMonitorControl.btnDisconnect.text");
+            Lang.BindKey(this.btnLive, "visionUi.visionMonitorControl.btnLive.state2");
+            Lang.BindKey(this.lblStatus, "visionUi.visionMonitorControl.lblStatus.state10");
         }
     }
 }

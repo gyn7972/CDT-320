@@ -202,8 +202,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 EventLogger.Write(EventKind.Warning, "UI", "OUTPUT-STAGE-ACTION-BLOCKED", actionName + " blocked: " + ex.Message);
                 QMC.Common.MessageDialog.Show(
                     this,
-                    "지금은 수동 동작을 시작할 수 없습니다.\r\n\r\n" + ex.Message,
-                    "Output Stage",
+                    Lang.Format("message.manual.blocked", ex.Message),
+                    Lang.T("message.title.outputStage"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
@@ -236,12 +236,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 string message = SequenceFailureStore.BuildManualFailureMessage(
                     actionName,
-                    actionName + " 실패\r\nAlarm/Event Log를 확인하세요.");
-                QMC.Common.MessageDialog.Show(this, message, "Output Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    Lang.Format("message.manual.failed", Lang.Display(actionName)));
+                QMC.Common.MessageDialog.Show(this, message, Lang.T("message.title.outputStage"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
             if (!string.IsNullOrWhiteSpace(exceptionMessage))
-                QMC.Common.MessageDialog.Show(this, exceptionMessage, "Output Stage", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, exceptionMessage, Lang.T("message.title.outputStage"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private static async Task WaitForCancellationAsync(CancellationToken ct)
@@ -291,7 +291,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private bool ConfirmAction(string actionName)
         {
-            return QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Output Stage", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+            return QMC.Common.MessageDialog.Show(this, Lang.Format("message.manual.confirm", Lang.Display(actionName)), Lang.T("message.title.outputStage"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
         }
 
         private void SetSequenceButtonsEnabled(bool enabled)
@@ -729,7 +729,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             try
             {
-                if (QMC.Common.MessageDialog.Show(this, "Output Stage Good 위치에 Material Data를 생성하시겠습니까?", "Material Data", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                if (QMC.Common.MessageDialog.Show(this, Lang.T("message.outputStage.createGoodConfirm"), Lang.T("message.title.materialData"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;
 
                 MaterialStateService.CreateWaferAtLocation(
@@ -740,7 +740,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Output Stage Material Data 생성 실패:\r\n" + ex.Message, "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("message.outputStage.createFailed", ex.Message), Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -751,7 +751,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             try
             {
-                if (QMC.Common.MessageDialog.Show(this, "Output Stage의 Material Data를 초기화하시겠습니까?", "Material Data", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                if (QMC.Common.MessageDialog.Show(this, Lang.T("message.outputStage.clearConfirm"), Lang.T("message.title.materialData"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;
 
                 MaterialStateService.ClearWaferAtLocation(MaterialLocationKind.OutputStageGood);
@@ -760,7 +760,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Output Stage Material Data 초기화 실패:\r\n" + ex.Message, "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("message.outputStage.clearFailed", ex.Message), Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -775,8 +775,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (host == null || host.Controller == null)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "MachineController가 준비되지 않아 Output Stage 테스트 Data를 생성할 수 없습니다.",
-                        "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("message.outputStage.controllerMissing"),
+                        Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
                 if (_manualSequenceRunning ||
@@ -785,13 +785,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     host.Controller.Status == EquipmentStatus.AutoRunning)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "시퀀스 또는 수동 동작 중에는 생산 LOT을 변경하는 테스트 Data를 생성할 수 없습니다.",
-                        "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.T("message.material.testDataBusy"),
+                        Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 string sideName = _selectedMaterialSide == BinSide.Ng ? "NG" : "Good";
-                if (QMC.Common.MessageDialog.Show(this, "Output Stage " + sideName + " 위치에 Wafer Data를 새로 생성하시겠습니까?", "Material Data", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                if (QMC.Common.MessageDialog.Show(this, Lang.Format("message.outputStage.createSideConfirm", Lang.Display(sideName)), Lang.T("message.title.materialData"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;
 
                 string message;
@@ -801,8 +801,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     QMC.Common.Log.Write("Main", "SYSTEM", "OutputStagePage",
                         "Output Stage 공정 테스트 Wafer Data 생성 실패. side=" + sideName + ", message=" + message + " - Failed");
                     QMC.Common.MessageDialog.Show(this,
-                        "Output Stage Wafer Data 생성에 실패했습니다.\r\n" + message,
-                        "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Lang.Format("message.outputStage.createWaferFailed", message),
+                        Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     RefreshData();
                     return;
                 }
@@ -814,7 +814,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Output Stage Material Data 생성 실패:\r\n" + ex.Message, "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("message.outputStage.createFailed", ex.Message), Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -826,7 +826,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             try
             {
                 string sideName = _selectedMaterialSide == BinSide.Ng ? "NG" : "Good";
-                if (QMC.Common.MessageDialog.Show(this, "Output Stage " + sideName + " Material Data를 초기화하시겠습니까?", "Material Data", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                if (QMC.Common.MessageDialog.Show(this, Lang.Format("message.outputStage.clearSideConfirm", Lang.Display(sideName)), Lang.T("message.title.materialData"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;
 
                 bool cleared = MaterialStateService.ClearWaferAtLocation(ResolveMaterialLocation(_selectedMaterialSide));
@@ -834,9 +834,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 {
                     QMC.Common.MessageDialog.Show(
                         this,
-                        "Output Stage " + sideName + " Material Data는 메모리에서 초기화했지만 저장 파일 갱신에 실패했습니다.\r\n" +
-                        "프로그램을 재시작하지 말고 로그를 확인하십시오.",
-                        "Material Data",
+                        Lang.Format("message.outputStage.clearSideSaveFailed", Lang.Display(sideName)),
+                        Lang.T("message.title.materialData"),
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
                 }
@@ -844,7 +843,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Output Stage Material Data 초기화 실패:\r\n" + ex.Message, "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("message.outputStage.clearFailed", ex.Message), Lang.T("message.title.materialData"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

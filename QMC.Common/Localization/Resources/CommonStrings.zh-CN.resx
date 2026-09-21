@@ -80,4 +80,43 @@
   <data name="common.setting" xml:space="preserve">
     <value>设置</value>
   </data>
+  <data name="common.message.button.ok" xml:space="preserve">
+    <value>确定(&amp;O)</value>
+  </data>
+  <data name="common.message.button.yes" xml:space="preserve">
+    <value>是(&amp;Y)</value>
+  </data>
+  <data name="common.message.button.no" xml:space="preserve">
+    <value>否(&amp;N)</value>
+  </data>
+  <data name="common.message.button.cancel" xml:space="preserve">
+    <value>取消(&amp;C)</value>
+  </data>
+  <data name="common.message.button.retry" xml:space="preserve">
+    <value>重试(&amp;R)</value>
+  </data>
+  <data name="common.message.button.skip" xml:space="preserve">
+    <value>跳过(&amp;S)</value>
+  </data>
+  <data name="common.message.countdown" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="common.message.title.message" xml:space="preserve">
+    <value>消息</value>
+  </data>
+  <data name="common.message.title.error" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="common.message.title.warning" xml:space="preserve">
+    <value>警告</value>
+  </data>
+  <data name="common.message.title.information" xml:space="preserve">
+    <value>提示</value>
+  </data>
+  <data name="common.message.title.confirm" xml:space="preserve">
+    <value>确认</value>
+  </data>
+  <data name="common.message.title.question" xml:space="preserve">
+    <value>询问</value>
+  </data>
 </root>

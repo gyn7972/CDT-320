@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reflection;
 using System.Windows.Forms;
 
@@ -17,7 +17,9 @@ namespace QMC.CDT_320.Ui.Util
             EnableOne(root);
 
             foreach (Control child in root.Controls)
+            {
                 Enable(child);
+            }
         }
 
         private static void EnableOne(Control control)

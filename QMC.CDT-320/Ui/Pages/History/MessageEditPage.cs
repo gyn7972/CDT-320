@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -104,8 +104,8 @@ namespace QMC.CDT_320.Ui.Pages.History
                 RefreshGrid();
 
                 if (announce)
-                    QMC.Common.MessageDialog.Show(_working.Count + "건을 불러왔습니다." + Environment.NewLine + "번역(KO/EN)을 입력한 뒤 SAVE 를 누르세요.",
-                        "MESSAGE", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    QMC.Common.MessageDialog.Show(Lang.Format("historyUi.catalogLoaded", _working.Count),
+                        Lang.T("historyUi.messageTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -179,7 +179,7 @@ namespace QMC.CDT_320.Ui.Pages.History
                 grid.EndEdit();
                 MessageCatalog.ReplaceAll(_working);
                 MessageCatalog.Save();
-                QMC.Common.MessageDialog.Show("저장되었습니다.", "MESSAGE", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                QMC.Common.MessageDialog.Show(Lang.T("historyUi.catalogSaved"), Lang.T("historyUi.messageTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {

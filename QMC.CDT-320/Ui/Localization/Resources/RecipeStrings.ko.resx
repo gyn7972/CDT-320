@@ -1,0 +1,1682 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- CDT-320 문구. 고정 키는 유지하고 값만 번역합니다. 기본 리소스 언어는 영어입니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="recipeUi.literal" xml:space="preserve">
+    <value>{0}</value>
+    <comment>Display external text and values verbatim, without modifying their contents.</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.text" xml:space="preserve">
+    <value>캘리브레이션 항목을 선택하세요. 각 기능은 모달리스 창으로 열립니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state2" xml:space="preserve">
+    <value>장비가 준비되지 않아 안전이동 %를 저장할 수 없습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state3" xml:space="preserve">
+    <value>안전위치(Avoid) 이동 속도 %를 {0}%로 저장했습니다. (각 축 Default × %) 측정 속도와는 무관합니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state4" xml:space="preserve">
+    <value>안전이동 % 저장 실패: {0}</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state5" xml:space="preserve">
+    <value>VISION CAMERA CAL 설정창을 열었습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state6" xml:space="preserve">
+    <value>VISION CAMERA CAL 설정창이 이미 열려 있습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state7" xml:space="preserve">
+    <value>COLLET CAL 설정창을 열었습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state8" xml:space="preserve">
+    <value>COLLET CAL 설정창이 이미 열려 있습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state9" xml:space="preserve">
+    <value>SIDE VISION FOCUS CAL 설정창을 열었습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state10" xml:space="preserve">
+    <value>SIDE VISION FOCUS CAL 설정창이 이미 열려 있습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state11" xml:space="preserve">
+    <value>VISION FOCUS CAL 설정창을 열었습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state12" xml:space="preserve">
+    <value>VISION FOCUS CAL 설정창이 이미 열려 있습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state13" xml:space="preserve">
+    <value>COLLET CAL 화면에서 COC START를 실행하세요.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state14" xml:space="preserve">
+    <value>PICKUP Z CAL 설정창을 열었습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state15" xml:space="preserve">
+    <value>PICKUP Z CAL 설정창이 이미 열려 있습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state16" xml:space="preserve">
+    <value>PLACE Z CAL 설정창을 열었습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state17" xml:space="preserve">
+    <value>PLACE Z CAL 설정창이 이미 열려 있습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state18" xml:space="preserve">
+    <value>NEEDLE Z CAL 설정창을 열었습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state19" xml:space="preserve">
+    <value>NEEDLE Z CAL 설정창이 이미 열려 있습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state20" xml:space="preserve">
+    <value>AUTO CALIBRATION 설정창을 열었습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state21" xml:space="preserve">
+    <value>AUTO CALIBRATION 설정창이 이미 열려 있습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state22" xml:space="preserve">
+    <value>COLLET CLEANING 설정창을 열었습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state23" xml:space="preserve">
+    <value>COLLET CLEANING 설정창이 이미 열려 있습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state24" xml:space="preserve">
+    <value>NEEDLE PIN CAL 설정창을 열었습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state25" xml:space="preserve">
+    <value>NEEDLE PIN CAL 설정창이 이미 열려 있습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state26" xml:space="preserve">
+    <value>{0} 설정창을 열었습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblStatus.state27" xml:space="preserve">
+    <value>{0} 설정창이 이미 열려 있습니다.</value>
+    <comment>CalibrationPage.cs:lblStatus.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblSafeMove.text" xml:space="preserve">
+    <value>안전위치(Avoid) 이동 속도 %</value>
+    <comment>CalibrationPage.Designer.cs:this.lblSafeMove.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblSafeMoveHint.text" xml:space="preserve">
+    <value>= 각 축 Default 속도·가속·감속 × % (측정 속도와 분리, 전역 스케일과 중첩 안 됨). 모든 캘리브레이션 공통.</value>
+    <comment>CalibrationPage.Designer.cs:this.lblSafeMoveHint.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblHeader.text" xml:space="preserve">
+    <value>보정</value>
+    <comment>CalibrationPage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.grpCal.text" xml:space="preserve">
+    <value>보정 항목</value>
+    <comment>CalibrationPage.Designer.cs:this.grpCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnVisionCameraCal.text" xml:space="preserve">
+    <value>비전 카메라 보정</value>
+    <comment>CalibrationPage.Designer.cs:this.btnVisionCameraCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnColletCal.text" xml:space="preserve">
+    <value>하부 콜렛 1:1 보정</value>
+    <comment>CalibrationPage.Designer.cs:this.btnColletCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnNeedleCal.text" xml:space="preserve">
+    <value>니들 핀 보정</value>
+    <comment>CalibrationPage.Designer.cs:this.btnNeedleCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnSideVisionFocusCal.text" xml:space="preserve">
+    <value>측면 비전 초점 보정</value>
+    <comment>CalibrationPage.Designer.cs:this.btnSideVisionFocusCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnVisionFocusCal.text" xml:space="preserve">
+    <value>비전 초점 보정</value>
+    <comment>CalibrationPage.Designer.cs:this.btnVisionFocusCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnColletRotationCenterCal.text" xml:space="preserve">
+    <value>콜렛 회전 중심 보정</value>
+    <comment>CalibrationPage.Designer.cs:this.btnColletRotationCenterCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnPickUpZCal.text" xml:space="preserve">
+    <value>픽업 Z 보정</value>
+    <comment>CalibrationPage.Designer.cs:this.btnPickUpZCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnPlaceZCal.text" xml:space="preserve">
+    <value>배출 Z 보정</value>
+    <comment>CalibrationPage.Designer.cs:this.btnPlaceZCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnNeedleZCal.text" xml:space="preserve">
+    <value>니들 Z 보정</value>
+    <comment>CalibrationPage.Designer.cs:this.btnNeedleZCal.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnAutoCalibration.text" xml:space="preserve">
+    <value>자동 보정</value>
+    <comment>CalibrationPage.Designer.cs:this.btnAutoCalibration.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.btnColletCleaning.text" xml:space="preserve">
+    <value>콜렛 청소</value>
+    <comment>CalibrationPage.Designer.cs:this.btnColletCleaning.Text</comment>
+  </data>
+  <data name="recipeUi.calibrationPage.lblGuide.text" xml:space="preserve">
+    <value>캘리브레이션 허브 화면입니다.&#13;&#10;&#13;&#10;- 각 버튼은 별도 모달리스 설정창을 엽니다.&#13;&#10;- BOTTOM COLLET 1:1 CAL은 Bottom Camera 기준으로 Front/Rear Picker 1~4번 콜렛의 T 성분을 0으로 보정합니다.&#13;&#10;- PICKUP Z CAL은 웨이퍼 필름 위에서 PickerZ를 하강시키며 Vacuum/Flow 신호가 들어온 위치를 PickPosition으로 저장합니다.&#13;&#10;- PLACE Z CAL은 Output Place 위치에서 PickerZ를 하강시키며 Vacuum/Flow 신호가 들어온 위치를 PlacePosition으로 저장합니다.&#13;&#10;- NEEDLE Z CAL은 WaferStageTouchSensor 기준으로 NeedleCap Touch, NeedlePin Flush, NeedlePin Ready 위치를 계산합니다.&#13;&#10;- VISION CAMERA CAL / VISION FOCUS CAL / SIDE VISION FOCUS CAL은 별도 전용 설정창에서 실행합니다.&#13;&#10;- 실장비 안전 인터락, phase gate, resource gate는 우회하지 않습니다.</value>
+    <comment>CalibrationPage.Designer.cs:this.lblGuide.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage._lblCurrentRecipeInfo.text" xml:space="preserve">
+    <value>현재 레시피: {0}&#13;&#10;Base WaferMap : Input={1} / Output={2}</value>
+    <comment>DieSubsetPage.cs:_lblCurrentRecipeInfo.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.grpDieSpec.text" xml:space="preserve">
+    <value>다이 사양</value>
+    <comment>DieSubsetPage.Designer.cs:this.grpDieSpec.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblSpecLibrary.text" xml:space="preserve">
+    <value>저장 사양</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblSpecLibrary.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.btnLoadSpec.text" xml:space="preserve">
+    <value>사양 불러오기</value>
+    <comment>DieSubsetPage.Designer.cs:this.btnLoadSpec.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.btnSaveSpec.text" xml:space="preserve">
+    <value>사양 저장·적용</value>
+    <comment>DieSubsetPage.Designer.cs:this.btnSaveSpec.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblName.text" xml:space="preserve">
+    <value>사양 이름</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblName.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblWidth.text" xml:space="preserve">
+    <value>가로 (mm)</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblWidth.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblHeight.text" xml:space="preserve">
+    <value>세로 (mm)</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblHeight.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblThickness.text" xml:space="preserve">
+    <value>두께 (mm)</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblThickness.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.grpTolerance.text" xml:space="preserve">
+    <value>허용 오차 (mm)</value>
+    <comment>DieSubsetPage.Designer.cs:this.grpTolerance.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblWidthLower.text" xml:space="preserve">
+    <value>가로 하한</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblWidthLower.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblWidthUpper.text" xml:space="preserve">
+    <value>가로 상한</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblWidthUpper.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblHeightLower.text" xml:space="preserve">
+    <value>세로 하한</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblHeightLower.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblHeightUpper.text" xml:space="preserve">
+    <value>세로 상한</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblHeightUpper.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.grpVision.text" xml:space="preserve">
+    <value>비전 검사 기준 (mm)</value>
+    <comment>DieSubsetPage.Designer.cs:this.grpVision.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblChippingDepth.text" xml:space="preserve">
+    <value>치핑 깊이 최대</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblChippingDepth.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblChippingLength.text" xml:space="preserve">
+    <value>치핑 길이 최대</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblChippingLength.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblForeignSize.text" xml:space="preserve">
+    <value>이물 크기 최대</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblForeignSize.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.grpSaveGuide.text" xml:space="preserve">
+    <value>저장 / 불러오기 순서</value>
+    <comment>DieSubsetPage.Designer.cs:this.grpSaveGuide.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.lblButtonMeaning.text" xml:space="preserve">
+    <value>버튼 의미&#13;&#10;• 사양 불러오기 : 저장 사양 → 화면 (아직 미적용)&#13;&#10;• 상단 저장 : 화면 → 현재 레시피 + 연결 맵 재생성&#13;&#10;• 사양 저장·적용 : library 저장 + 현재 Recipe 적용&#13;&#10;• Reload : 저장하지 않은 변경을 버리고 Recipe 재로드</value>
+    <comment>DieSubsetPage.Designer.cs:this.lblButtonMeaning.Text</comment>
+  </data>
+  <data name="recipeUi.dieSubsetPage.grpOperationStatus.text" xml:space="preserve">
+    <value>현재 상태 / 저장 결과</value>
+    <comment>DieSubsetPage.Designer.cs:this.grpOperationStatus.Text</comment>
+  </data>
+  <data name="recipeUi.forceControlPage.lblHeader.text" xml:space="preserve">
+    <value>가압 제어</value>
+    <comment>ForceControlPage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.forceControlPage.grpDo.text" xml:space="preserve">
+    <value>출력 강제 제어</value>
+    <comment>ForceControlPage.Designer.cs:this.grpDo.Text</comment>
+  </data>
+  <data name="recipeUi.forceControlPage.grpDi.text" xml:space="preserve">
+    <value>입력 상태</value>
+    <comment>ForceControlPage.Designer.cs:this.grpDi.Text</comment>
+  </data>
+  <data name="recipeUi.forceControlPage.grpActions.text" xml:space="preserve">
+    <value>수동 동작</value>
+    <comment>ForceControlPage.Designer.cs:this.grpActions.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.tabBottom.text" xml:space="preserve">
+    <value>하부</value>
+    <comment>FrontPickerRecipePage.cs:tabBottom.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.tabSide.text" xml:space="preserve">
+    <value>측면</value>
+    <comment>FrontPickerRecipePage.cs:tabSide.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblVisionInfo.text" xml:space="preserve">
+    <value>하부 비전{0}{1}</value>
+    <comment>FrontPickerRecipePage.cs:lblVisionInfo.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblVisionInfo2.text" xml:space="preserve">
+    <value>측면 비전 1{0}{1}</value>
+    <comment>FrontPickerRecipePage.cs:lblVisionInfo2.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblVisionInfo3.text" xml:space="preserve">
+    <value>측면 비전 2{0}{1}</value>
+    <comment>FrontPickerRecipePage.cs:lblVisionInfo3.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblHeader.text" xml:space="preserve">
+    <value>전면 피커</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.grpVision.text" xml:space="preserve">
+    <value>비전</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.grpVision.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblVisionInfo.state2" xml:space="preserve">
+    <value>비전 화면</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.lblVisionInfo.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblVisionInfo2.state2" xml:space="preserve">
+    <value>측면 비전 1</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.lblVisionInfo2.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.lblVisionInfo3.state2" xml:space="preserve">
+    <value>측면 비전 2</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.lblVisionInfo3.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.grpOptions.text" xml:space="preserve">
+    <value>옵션</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.grpOptions.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.grpWait.text" xml:space="preserve">
+    <value>대기 시간</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.grpWait.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.grpIo.text" xml:space="preserve">
+    <value>실린더 및 입출력</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.grpIo.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.grpJog.text" xml:space="preserve">
+    <value>조그 운전</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.grpJog.Text</comment>
+  </data>
+  <data name="recipeUi.frontPickerRecipePage.grpSpeed.text" xml:space="preserve">
+    <value>속도</value>
+    <comment>FrontPickerRecipePage.Designer.cs:this.grpSpeed.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblWaitScanSettleVal.text" xml:space="preserve">
+    <value>{0} ms</value>
+    <comment>InputCassetteRecipePage.cs:lblWaitScanSettleVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblHeader.text" xml:space="preserve">
+    <value>입력 카세트</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lbl8Inch.text" xml:space="preserve">
+    <value>8인치 카세트</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lbl8Inch.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lbl12Inch.text" xml:space="preserve">
+    <value>12인치 카세트</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lbl12Inch.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblProtrusion.text" xml:space="preserve">
+    <value>웨이퍼 돌출</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblProtrusion.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblMapping.text" xml:space="preserve">
+    <value>웨이퍼 매핑</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblMapping.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeLoadingKey.text" xml:space="preserve">
+    <value>로딩 Z</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeLoadingKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeLoadingVal.text" xml:space="preserve">
+    <value>150000 um</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeLoadingVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeUnloadingKey.text" xml:space="preserve">
+    <value>언로딩 Z</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeUnloadingKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeAvoidKey.text" xml:space="preserve">
+    <value>준비 위치</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeAvoidKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeAvoidVal.text" xml:space="preserve">
+    <value>0 um</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeAvoidVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeFirstSlotKey.text" xml:space="preserve">
+    <value>첫 슬롯</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeFirstSlotKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeFirstSlotVal.text" xml:space="preserve">
+    <value>10000 um</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeFirstSlotVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeMappingStartKey.text" xml:space="preserve">
+    <value>매핑 시작 Z</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeMappingStartKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeMappingStartVal.text" xml:space="preserve">
+    <value>5000 um</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeMappingStartVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeMappingEndKey.text" xml:space="preserve">
+    <value>매핑 종료 Z</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeMappingEndKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblRecipeMappingEndVal.text" xml:space="preserve">
+    <value>130000 um</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblRecipeMappingEndVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigLoadingOffsetKey.text" xml:space="preserve">
+    <value>로딩 오프셋</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigLoadingOffsetKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigUnloadingOffsetKey.text" xml:space="preserve">
+    <value>언로딩 오프셋</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigUnloadingOffsetKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigSlotPitchKey.text" xml:space="preserve">
+    <value>슬롯 간격</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigSlotPitchKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigSlotCountKey.text" xml:space="preserve">
+    <value>슬롯 수</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigSlotCountKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigScanVelocityKey.text" xml:space="preserve">
+    <value>스캔/조그 속도</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigScanVelocityKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigScanVelocityVal.text" xml:space="preserve">
+    <value>20 mm/s</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigScanVelocityVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblSetupToleranceKey.text" xml:space="preserve">
+    <value>위치 도달 허용 오차</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblSetupToleranceKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblSetupToleranceVal.text" xml:space="preserve">
+    <value>50 um</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblSetupToleranceVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigInchKey.text" xml:space="preserve">
+    <value>인치 선택</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigInchKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigLevelKey.text" xml:space="preserve">
+    <value>카세트 단수</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigLevelKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblSetupSimulationKey.text" xml:space="preserve">
+    <value>시뮬레이션 모드</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblSetupSimulationKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblSetupSimulationVal.text" xml:space="preserve">
+    <value>예</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblSetupSimulationVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblConfigDryRunKey.text" xml:space="preserve">
+    <value>공운전</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblConfigDryRunKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblWaitScanSettleKey.text" xml:space="preserve">
+    <value>스캔 안정화 시간</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblWaitScanSettleKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblWaitScanSettleVal.state2" xml:space="preserve">
+    <value>100 ms</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblWaitScanSettleVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblWaitMoveTimeoutKey.text" xml:space="preserve">
+    <value>이동 제한 시간</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblWaitMoveTimeoutKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputCassetteRecipePage.lblWaitMoveTimeoutVal.text" xml:space="preserve">
+    <value>10000 ms</value>
+    <comment>InputCassetteRecipePage.Designer.cs:this.lblWaitMoveTimeoutVal.Text</comment>
+  </data>
+  <data name="recipeUi.inputFeederRecipePage.lblHeader.text" xml:space="preserve">
+    <value>입력 이송부</value>
+    <comment>InputFeederRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblVisionInfo.text" xml:space="preserve">
+    <value>비전 화면{0}원점 X : {1}{2}원점 Y : {3}{4}피치 X : {5}{6}피치 Y : {7}{8}정렬 X : {9}{10}정렬 Y : {11}{12}니들 진공 : {13}</value>
+    <comment>InputStageRecipePage.cs:lblVisionInfo.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblHeader.text" xml:space="preserve">
+    <value>입력 스테이지</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblVisionInfo.state2" xml:space="preserve">
+    <value>스테이지&#13;&#10;너비 : 640&#13;&#10;높이 : 480&#13;&#10;X : 0&#13;&#10;Y : 0&#13;&#10;T : 0</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblVisionInfo.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblLoadingPositionKey.text" xml:space="preserve">
+    <value>로딩 위치</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblLoadingPositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblLoadingPositionValue.text" xml:space="preserve">
+    <value>설정</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblLoadingPositionValue.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblCenterPositionKey.text" xml:space="preserve">
+    <value>중심 위치</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblCenterPositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedlePositionKey.text" xml:space="preserve">
+    <value>니들 위치</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedlePositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblTestBedPositionKey.text" xml:space="preserve">
+    <value>테스트 베드 위치</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblTestBedPositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblBarcodePositionKey.text" xml:space="preserve">
+    <value>바코드 위치</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblBarcodePositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblVisionAlignKey.text" xml:space="preserve">
+    <value>비전 정렬</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblVisionAlignKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblWorkRadiusKey.text" xml:space="preserve">
+    <value>작업 반경</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblWorkRadiusKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblFirstDiePositionKey.text" xml:space="preserve">
+    <value>첫 다이 위치</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblFirstDiePositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleMeasurePositionKey.text" xml:space="preserve">
+    <value>니들 측정 위치</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleMeasurePositionKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleUpWaitKey.text" xml:space="preserve">
+    <value>니들 상승</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleUpWaitKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleUpWaitValue.text" xml:space="preserve">
+    <value>0 ms</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleUpWaitValue.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblVacuumOnWaitKey.text" xml:space="preserve">
+    <value>진공 켜짐</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblVacuumOnWaitKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleDownWaitKey.text" xml:space="preserve">
+    <value>니들 하강</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleDownWaitKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblVacuumOffWaitKey.text" xml:space="preserve">
+    <value>진공 꺼짐</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblVacuumOffWaitKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblMovingWaitKey.text" xml:space="preserve">
+    <value>이동 중</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblMovingWaitKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleVacuumKey.text" xml:space="preserve">
+    <value>니들 진공</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleVacuumKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleVacuumValue.text" xml:space="preserve">
+    <value>진공</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleVacuumValue.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblRingSensorKey.text" xml:space="preserve">
+    <value>링 센서</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblRingSensorKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblRingSensorValue.text" xml:space="preserve">
+    <value>꺼짐</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblRingSensorValue.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblExpandCylinderKey.text" xml:space="preserve">
+    <value>확장 실린더</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblExpandCylinderKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblExpandCylinderValue.text" xml:space="preserve">
+    <value>준비</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblExpandCylinderValue.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleBlockKey.text" xml:space="preserve">
+    <value>니들 블록</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleBlockKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblAxisXKey.text" xml:space="preserve">
+    <value>X축</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblAxisXKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblAxisYKey.text" xml:space="preserve">
+    <value>Y축</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblAxisYKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblAxisTKey.text" xml:space="preserve">
+    <value>T축</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblAxisTKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblAxisTValue.text" xml:space="preserve">
+    <value>0 deg</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblAxisTValue.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblExpandZKey.text" xml:space="preserve">
+    <value>확장 Z축</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblExpandZKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleZKey.text" xml:space="preserve">
+    <value>니들 Z</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleZKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleBlockZKey.text" xml:space="preserve">
+    <value>니들 블록 Z축</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleBlockZKey.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblExpandAxis.text" xml:space="preserve">
+    <value>확장</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblExpandAxis.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblNeedleAxis.text" xml:space="preserve">
+    <value>니들</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblNeedleAxis.Text</comment>
+  </data>
+  <data name="recipeUi.inputStageRecipePage.lblBlockAxis.text" xml:space="preserve">
+    <value>차단</value>
+    <comment>InputStageRecipePage.Designer.cs:this.lblBlockAxis.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage.grpLoad.text" xml:space="preserve">
+    <value>로딩 테이프 프레임 옵션</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this.grpLoad.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage.lblRole.text" xml:space="preserve">
+    <value>구분</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this.lblRole.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage.lblAlignPts.text" xml:space="preserve">
+    <value>정렬 지점</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this.lblAlignPts.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage.lblAutoBarcode.text" xml:space="preserve">
+    <value>바코드</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this.lblAutoBarcode.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage._cbAutoBarcode.text" xml:space="preserve">
+    <value>로딩 시 바코드 자동 판독</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this._cbAutoBarcode.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage.lblAutoAlign.text" xml:space="preserve">
+    <value>정렬</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this.lblAutoAlign.Text</comment>
+  </data>
+  <data name="recipeUi.loadTapeFrameSubsetPage._cbAutoAlign.text" xml:space="preserve">
+    <value>로딩 시 자동 정렬</value>
+    <comment>LoadTapeFrameSubsetPage.Designer.cs:this._cbAutoAlign.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblHeader.text" xml:space="preserve">
+    <value>출력 다이 맵 생성</value>
+    <comment>MapCreatePage.cs:lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblHeader.state2" xml:space="preserve">
+    <value>입력 다이 맵 생성</value>
+    <comment>MapCreatePage.cs:lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblSettingTitle.text" xml:space="preserve">
+    <value>맵 사양 · 확인용</value>
+    <comment>MapCreatePage.cs:lblSettingTitle.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblActionTitle.text" xml:space="preserve">
+    <value>확인 및 적용</value>
+    <comment>MapCreatePage.cs:lblActionTitle.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnSave.text" xml:space="preserve">
+    <value>맵 확인 및 적용</value>
+    <comment>MapCreatePage.cs:btnSave.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbStandard.text" xml:space="preserve">
+    <value>클릭 전환</value>
+    <comment>MapCreatePage.cs:rbStandard.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbManualSelectPick.text" xml:space="preserve">
+    <value>클릭 대상 지정</value>
+    <comment>MapCreatePage.cs:rbManualSelectPick.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbAlignCheckIndex.text" xml:space="preserve">
+    <value>클릭 제외</value>
+    <comment>MapCreatePage.cs:rbAlignCheckIndex.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbDragSelectPick.text" xml:space="preserve">
+    <value>우클릭 메뉴</value>
+    <comment>MapCreatePage.cs:rbDragSelectPick.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.chkCircularMap.text" xml:space="preserve">
+    <value>출력 원형 다이 맵</value>
+    <comment>MapCreatePage.cs:chkCircularMap.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.chkCircularMap.state2" xml:space="preserve">
+    <value>입력 원형 다이 맵</value>
+    <comment>MapCreatePage.cs:chkCircularMap.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._btnMapLoad.text" xml:space="preserve">
+    <value>웨이퍼 사양에서 설정</value>
+    <comment>MapCreatePage.cs:_btnMapLoad.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblAxisYKey.text" xml:space="preserve">
+    <value>가장자리 제외 (외부 맵)</value>
+    <comment>MapCreatePage.cs:lblAxisYKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbBinGood.text" xml:space="preserve">
+    <value>양품 맵</value>
+    <comment>MapCreatePage.cs:rbBinGood.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbBinNg.text" xml:space="preserve">
+    <value>불량 맵</value>
+    <comment>MapCreatePage.cs:rbBinNg.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblMapTitle.text" xml:space="preserve">
+    <value>다이 맵</value>
+    <comment>MapCreatePage.cs:lblMapTitle.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblMapTitle.state2" xml:space="preserve">
+    <value>다이 맵 · 작업 대상 {0} / {1}   X/Y: 셀 가리키기   숫자: 공정 순서   클릭: 대상/제외</value>
+    <comment>MapCreatePage.cs:lblMapTitle.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.ok.text" xml:space="preserve">
+    <value>정상</value>
+    <comment>MapCreatePage.cs:ok.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.cancel.text" xml:space="preserve">
+    <value>취소</value>
+    <comment>MapCreatePage.cs:cancel.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblHeader.state3" xml:space="preserve">
+    <value>다이 맵 생성</value>
+    <comment>MapCreatePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblChipCountXKey.text" xml:space="preserve">
+    <value>웨이퍼 사양 이름</value>
+    <comment>MapCreatePage.Designer.cs:this.lblChipCountXKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblChipCountYKey.text" xml:space="preserve">
+    <value>격자 수 X</value>
+    <comment>MapCreatePage.Designer.cs:this.lblChipCountYKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblChipPitchXKey.text" xml:space="preserve">
+    <value>격자 수 Y</value>
+    <comment>MapCreatePage.Designer.cs:this.lblChipPitchXKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblChipPitchYKey.text" xml:space="preserve">
+    <value>다이 간격 X (mm)</value>
+    <comment>MapCreatePage.Designer.cs:this.lblChipPitchYKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblWaferDiameterKey.text" xml:space="preserve">
+    <value>다이 간격 Y (mm)</value>
+    <comment>MapCreatePage.Designer.cs:this.lblWaferDiameterKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._lblDieSizeXKey.text" xml:space="preserve">
+    <value>다이 가로 (mm)</value>
+    <comment>MapCreatePage.Designer.cs:this._lblDieSizeXKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._lblDieSizeYKey.text" xml:space="preserve">
+    <value>다이 세로 (mm)</value>
+    <comment>MapCreatePage.Designer.cs:this._lblDieSizeYKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblAxisXKey.text" xml:space="preserve">
+    <value>웨이퍼 직경 (mm)</value>
+    <comment>MapCreatePage.Designer.cs:this.lblAxisXKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._lblEdgeSkipModeKey.text" xml:space="preserve">
+    <value>가장자리 제외 방식</value>
+    <comment>MapCreatePage.Designer.cs:this._lblEdgeSkipModeKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblAxisYKey.state2" xml:space="preserve">
+    <value>가장자리 제외 좌우 / 상하</value>
+    <comment>MapCreatePage.Designer.cs:this.lblAxisYKey.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblModeTitle.text" xml:space="preserve">
+    <value>모드</value>
+    <comment>MapCreatePage.Designer.cs:this.lblModeTitle.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.chkCircularMap.state3" xml:space="preserve">
+    <value>원형 다이 맵</value>
+    <comment>MapCreatePage.Designer.cs:this.chkCircularMap.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbStandard.state2" xml:space="preserve">
+    <value>기본</value>
+    <comment>MapCreatePage.Designer.cs:this.rbStandard.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbStartIndex.text" xml:space="preserve">
+    <value>시작 인덱스</value>
+    <comment>MapCreatePage.Designer.cs:this.rbStartIndex.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbReference1.text" xml:space="preserve">
+    <value>1번 기준 인덱스</value>
+    <comment>MapCreatePage.Designer.cs:this.rbReference1.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbReference2.text" xml:space="preserve">
+    <value>2번 기준 인덱스</value>
+    <comment>MapCreatePage.Designer.cs:this.rbReference2.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbManualSelectPick.state2" xml:space="preserve">
+    <value>수동 픽업 선택</value>
+    <comment>MapCreatePage.Designer.cs:this.rbManualSelectPick.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbAlignCheckIndex.state2" xml:space="preserve">
+    <value>정렬 확인 인덱스</value>
+    <comment>MapCreatePage.Designer.cs:this.rbAlignCheckIndex.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.rbDragSelectPick.state2" xml:space="preserve">
+    <value>드래그 픽업 선택</value>
+    <comment>MapCreatePage.Designer.cs:this.rbDragSelectPick.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.lblActionTitle.state2" xml:space="preserve">
+    <value>작업</value>
+    <comment>MapCreatePage.Designer.cs:this.lblActionTitle.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnCreate.text" xml:space="preserve">
+    <value>생성</value>
+    <comment>MapCreatePage.Designer.cs:this.btnCreate.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnSave.state2" xml:space="preserve">
+    <value>저장</value>
+    <comment>MapCreatePage.Designer.cs:this.btnSave.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnFirstDieMoveComplete.text" xml:space="preserve">
+    <value>첫 다이 이동 완료</value>
+    <comment>MapCreatePage.Designer.cs:this.btnFirstDieMoveComplete.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnAutoMatch.text" xml:space="preserve">
+    <value>자동 매칭</value>
+    <comment>MapCreatePage.Designer.cs:this.btnAutoMatch.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnThetaMatchMove.text" xml:space="preserve">
+    <value>세타 매칭 이동</value>
+    <comment>MapCreatePage.Designer.cs:this.btnThetaMatchMove.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage.btnXyMatchMove.text" xml:space="preserve">
+    <value>X/Y 매칭 이동</value>
+    <comment>MapCreatePage.Designer.cs:this.btnXyMatchMove.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._btnMapNew.text" xml:space="preserve">
+    <value>다른 이름으로 저장</value>
+    <comment>MapCreatePage.Designer.cs:this._btnMapNew.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._btnMapRename.text" xml:space="preserve">
+    <value>이름 변경</value>
+    <comment>MapCreatePage.Designer.cs:this._btnMapRename.Text</comment>
+  </data>
+  <data name="recipeUi.mapCreatePage._btnMapDelete.text" xml:space="preserve">
+    <value>삭제</value>
+    <comment>MapCreatePage.Designer.cs:this._btnMapDelete.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.grpPickPlace.text" xml:space="preserve">
+    <value>픽업 / 배치 파라미터</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.grpPickPlace.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.lblPickRetry.text" xml:space="preserve">
+    <value>픽업 재시도 횟수</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.lblPickRetry.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.lblPickDelay.text" xml:space="preserve">
+    <value>픽업 지연 (ms)</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.lblPickDelay.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.lblPlaceDelay.text" xml:space="preserve">
+    <value>배치 지연 (ms)</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.lblPlaceDelay.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.grpCollet.text" xml:space="preserve">
+    <value>콜렛 청소</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.grpCollet.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage._cbColletEnable.text" xml:space="preserve">
+    <value>콜렛 청소 사용</value>
+    <comment>ModuleSubsetPage.Designer.cs:this._cbColletEnable.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.lblColletInterval.text" xml:space="preserve">
+    <value>청소 간격</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.lblColletInterval.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.grpInspection.text" xml:space="preserve">
+    <value>검사 사용</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.grpInspection.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.lblBottomInspection.text" xml:space="preserve">
+    <value>하부 검사</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.lblBottomInspection.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage._cbBottomInspect.text" xml:space="preserve">
+    <value>하부 비전 검사</value>
+    <comment>ModuleSubsetPage.Designer.cs:this._cbBottomInspect.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage.lblPlacementInspection.text" xml:space="preserve">
+    <value>배치 검사</value>
+    <comment>ModuleSubsetPage.Designer.cs:this.lblPlacementInspection.Text</comment>
+  </data>
+  <data name="recipeUi.moduleSubsetPage._cbPlacementInspect.text" xml:space="preserve">
+    <value>배치 빈 검사</value>
+    <comment>ModuleSubsetPage.Designer.cs:this._cbPlacementInspect.Text</comment>
+  </data>
+  <data name="recipeUi.outputCassetteRecipePage.lblHeader.text" xml:space="preserve">
+    <value>출력 카세트</value>
+    <comment>OutputCassetteRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.outputFeederRecipePage.lblHeader.text" xml:space="preserve">
+    <value>출력 이송부</value>
+    <comment>OutputFeederRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.outputStageRecipePage.lblVisionInfo.text" xml:space="preserve">
+    <value>출력 스테이지{0}양품 Y : {1}{2}양품 Z : {3}{4}불량 Y : {5}{6}빈 X   : {7}{8}양품 회피: {9}{10}불량 회피: {11}</value>
+    <comment>OutputStageRecipePage.cs:lblVisionInfo.Text</comment>
+  </data>
+  <data name="recipeUi.outputStageRecipePage.lblHeader.text" xml:space="preserve">
+    <value>출력 스테이지</value>
+    <comment>OutputStageRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.grpOutput.text" xml:space="preserve">
+    <value>플레이트 크기 및 출력 파라미터</value>
+    <comment>OutputSubsetPage.Designer.cs:this.grpOutput.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblGoodMax.text" xml:space="preserve">
+    <value>양품 플레이트 최대 슬롯</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblGoodMax.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblNgMax.text" xml:space="preserve">
+    <value>불량 플레이트 최대 슬롯</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblNgMax.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblDiesPerWafer.text" xml:space="preserve">
+    <value>웨이퍼당 다이 수</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblDiesPerWafer.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblWafersPerBatch.text" xml:space="preserve">
+    <value>출력 묶음당 웨이퍼 수</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblWafersPerBatch.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblAutoBin.text" xml:space="preserve">
+    <value>자동 빈 전환</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblAutoBin.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage._cbAutoBin.text" xml:space="preserve">
+    <value>자동 빈 전환 사용</value>
+    <comment>OutputSubsetPage.Designer.cs:this._cbAutoBin.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblAlarmFull.text" xml:space="preserve">
+    <value>가득 참 알람</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblAlarmFull.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage._cbAlarmFull.text" xml:space="preserve">
+    <value>플레이트가 가득 차면 알람 및 사이클 정지</value>
+    <comment>OutputSubsetPage.Designer.cs:this._cbAlarmFull.Text</comment>
+  </data>
+  <data name="recipeUi.outputSubsetPage.lblDefaultGood.text" xml:space="preserve">
+    <value>기본 양품 카세트</value>
+    <comment>OutputSubsetPage.Designer.cs:this.lblDefaultGood.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage.lblPreviewCaption.text" xml:space="preserve">
+    <value>픽업 경로 미리보기 (S = 시작, E = 종료)   *7×7 예시 도식이며 실제 웨이퍼 맵이 아닙니다</value>
+    <comment>PickupSubsetPage.Designer.cs:this.lblPreviewCaption.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage.lblTargetCaption.text" xml:space="preserve">
+    <value>픽업 대상</value>
+    <comment>PickupSubsetPage.Designer.cs:this.lblTargetCaption.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage.lblCornerCaption.text" xml:space="preserve">
+    <value>시작 코너</value>
+    <comment>PickupSubsetPage.Designer.cs:this.lblCornerCaption.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage.lblDirectionCaption.text" xml:space="preserve">
+    <value>픽업 방향</value>
+    <comment>PickupSubsetPage.Designer.cs:this.lblDirectionCaption.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage.lblPatternCaption.text" xml:space="preserve">
+    <value>픽업 패턴</value>
+    <comment>PickupSubsetPage.Designer.cs:this.lblPatternCaption.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbWafer.text" xml:space="preserve">
+    <value>입력 웨이퍼</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbWafer.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbBin.text" xml:space="preserve">
+    <value>출력 빈</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbBin.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbTL.text" xml:space="preserve">
+    <value>↖  왼쪽 위</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbTL.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbTR.text" xml:space="preserve">
+    <value>↗  오른쪽 위</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbTR.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbBL.text" xml:space="preserve">
+    <value>↙  왼쪽 아래</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbBL.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbBR.text" xml:space="preserve">
+    <value>↘  오른쪽 아래</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbBR.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbHoriz.text" xml:space="preserve">
+    <value>→  가로 방향</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbHoriz.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbVert.text" xml:space="preserve">
+    <value>↓  세로 방향</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbVert.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbStraight.text" xml:space="preserve">
+    <value>→  직선</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbStraight.Text</comment>
+  </data>
+  <data name="recipeUi.pickupSubsetPage._rbZigZag.text" xml:space="preserve">
+    <value>⇄  지그재그</value>
+    <comment>PickupSubsetPage.Designer.cs:this._rbZigZag.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.lblCurrentProject.text" xml:space="preserve">
+    <value>선택 레시피: {0} | 설정 확인 실패: {1}</value>
+    <comment>ProjectPage.cs:lblCurrentProject.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.lblCurrentProject.state2" xml:space="preserve">
+    <value>선택: {0}   |   장비 적용: {1}&#13;&#10;{2}   ·   {3}</value>
+    <comment>ProjectPage.cs:lblCurrentProject.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.lblHeader.text" xml:space="preserve">
+    <value>레시피 · 프로젝트</value>
+    <comment>ProjectPage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.tabBasic.text" xml:space="preserve">
+    <value>기본 확인</value>
+    <comment>ProjectPage.Designer.cs:this.tabBasic.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.tabDetails.text" xml:space="preserve">
+    <value>파일·상태 상세</value>
+    <comment>ProjectPage.Designer.cs:this.tabDetails.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.tabAdvanced.text" xml:space="preserve">
+    <value>고급 설정</value>
+    <comment>ProjectPage.Designer.cs:this.tabAdvanced.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpProjects.text" xml:space="preserve">
+    <value>레시피 목록</value>
+    <comment>ProjectPage.Designer.cs:this.grpProjects.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpSummary.text" xml:space="preserve">
+    <value>프로젝트 정보 · 편집 가능</value>
+    <comment>ProjectPage.Designer.cs:this.grpSummary.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpProjectOption.text" xml:space="preserve">
+    <value>다이 / 웨이퍼 사양 · 확인용</value>
+    <comment>ProjectPage.Designer.cs:this.grpProjectOption.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpInputMap.text" xml:space="preserve">
+    <value>입력 맵 · 레시피 설정</value>
+    <comment>ProjectPage.Designer.cs:this.grpInputMap.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpOutputMap.text" xml:space="preserve">
+    <value>출력 맵 · 레시피 설정</value>
+    <comment>ProjectPage.Designer.cs:this.grpOutputMap.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpMapApproval.text" xml:space="preserve">
+    <value>등록 맵 확인 · 실제 운전 조건은 시작 시 별도 검사</value>
+    <comment>ProjectPage.Designer.cs:this.grpMapApproval.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpMap.text" xml:space="preserve">
+    <value>기준 맵 / 공정 맵 파일</value>
+    <comment>ProjectPage.Designer.cs:this.grpMap.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpStatus.text" xml:space="preserve">
+    <value>레시피 파일 및 사양 점검</value>
+    <comment>ProjectPage.Designer.cs:this.grpStatus.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpGlobal.text" xml:space="preserve">
+    <value>기타 / 고급 설정</value>
+    <comment>ProjectPage.Designer.cs:this.grpGlobal.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.grpXml.text" xml:space="preserve">
+    <value>XML 추적 정보 · 고급</value>
+    <comment>ProjectPage.Designer.cs:this.grpXml.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.lblFooterHint.text" xml:space="preserve">
+    <value>프로젝트 저장과 장비 적용은 별도입니다.</value>
+    <comment>ProjectPage.Designer.cs:this.lblFooterHint.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.btnCopy.text" xml:space="preserve">
+    <value>레시피 복사</value>
+    <comment>ProjectPage.Designer.cs:this.btnCopy.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.btnManage.text" xml:space="preserve">
+    <value>관리 ▾</value>
+    <comment>ProjectPage.Designer.cs:this.btnManage.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.btnReload.text" xml:space="preserve">
+    <value>새로고침</value>
+    <comment>ProjectPage.Designer.cs:this.btnReload.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.btnSaveRecipe.text" xml:space="preserve">
+    <value>프로젝트 정보 저장</value>
+    <comment>ProjectPage.Designer.cs:this.btnSaveRecipe.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.btnApplyCurrent.text" xml:space="preserve">
+    <value>선택 레시피 장비 적용</value>
+    <comment>ProjectPage.Designer.cs:this.btnApplyCurrent.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.btnBrowseMap.text" xml:space="preserve">
+    <value>웨이퍼·맵 설정 열기</value>
+    <comment>ProjectPage.Designer.cs:this.btnBrowseMap.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.menuNewRecipe.text" xml:space="preserve">
+    <value>기본 레시피 생성…</value>
+    <comment>ProjectPage.Designer.cs:this.menuNewRecipe.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.menuDeleteRecipe.text" xml:space="preserve">
+    <value>선택 레시피 삭제…</value>
+    <comment>ProjectPage.Designer.cs:this.menuDeleteRecipe.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.menuProjectFolder.text" xml:space="preserve">
+    <value>전체 레시피 폴더 열기</value>
+    <comment>ProjectPage.Designer.cs:this.menuProjectFolder.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.menuRecipeFolder.text" xml:space="preserve">
+    <value>선택 레시피 폴더 열기</value>
+    <comment>ProjectPage.Designer.cs:this.menuRecipeFolder.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.menuMapFolder.text" xml:space="preserve">
+    <value>선택 맵 폴더 열기</value>
+    <comment>ProjectPage.Designer.cs:this.menuMapFolder.Text</comment>
+  </data>
+  <data name="recipeUi.projectPage.menuXmlPath.text" xml:space="preserve">
+    <value>고급: XML 저장 경로 선택…</value>
+    <comment>ProjectPage.Designer.cs:this.menuXmlPath.Text</comment>
+  </data>
+  <data name="recipeUi.rearPickerRecipePage.lblHeader.text" xml:space="preserve">
+    <value>후면 피커</value>
+    <comment>RearPickerRecipePage.Designer.cs:this.lblHeader.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage._btnImportWaferMap.text" xml:space="preserve">
+    <value>웨이퍼 맵 불러오기</value>
+    <comment>TapeFrameSubsetPage.cs:_btnImportWaferMap.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage._lblMapFileValue.text" xml:space="preserve">
+    <value>출력 기준={0} / 양품={1} / 불량={2}</value>
+    <comment>TapeFrameSubsetPage.cs:_lblMapFileValue.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage._lblMapFileValue.state2" xml:space="preserve">
+    <value>입력 기준={0} / 입력={1}</value>
+    <comment>TapeFrameSubsetPage.cs:_lblMapFileValue.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblGridCountResult.text" xml:space="preserve">
+    <value>개수: -</value>
+    <comment>TapeFrameSubsetPage.cs:lblGridCountResult.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblCenterPitchValue.text" xml:space="preserve">
+    <value>X {0} + {1} = {2}     |     Y {3} + {4} = {5}</value>
+    <comment>TapeFrameSubsetPage.cs:lblCenterPitchValue.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblCenterPitchValue.state2" xml:space="preserve">
+    <value>계산 실패: {0}</value>
+    <comment>TapeFrameSubsetPage.cs:lblCenterPitchValue.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblBaseHint.text" xml:space="preserve">
+    <value>맵 생성 미리보기에서 여백·회전·개수 조건을 확인하고 [맵 저장]으로 저장하세요.</value>
+    <comment>TapeFrameSubsetPage.cs:lblBaseHint.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblDieHint.text" xml:space="preserve">
+    <value>생성 맵의 직경·DIE GAP 변경은 미리보기에서 다시 생성 후 저장하세요. 외부 맵의 GAP 변경은 상단 [저장]을 사용합니다.</value>
+    <comment>TapeFrameSubsetPage.cs:lblDieHint.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.badge.text" xml:space="preserve">
+    <value>{0} ✅ 승인됨</value>
+    <comment>TapeFrameSubsetPage.cs:badge.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.badge.state2" xml:space="preserve">
+    <value>{0} ⚠ 승인 대기</value>
+    <comment>TapeFrameSubsetPage.cs:badge.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblSavedMapSummary.text" xml:space="preserve">
+    <value>적용 맵 좌표를 확인하지 못했습니다.</value>
+    <comment>TapeFrameSubsetPage.cs:lblSavedMapSummary.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblSavedMapSummary.state2" xml:space="preserve">
+    <value>저장 맵: {0}개  |  회전: {1}{2}</value>
+    <comment>TapeFrameSubsetPage.cs:lblSavedMapSummary.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblGridCountResult.state2" xml:space="preserve">
+    <value>저장 다이: {0}개 / 격자 {1} × {2}</value>
+    <comment>TapeFrameSubsetPage.cs:lblGridCountResult.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.grpBase.text" xml:space="preserve">
+    <value>① 웨이퍼 / 맵 생성 — Grid는 저장된 맵의 격자</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.grpBase.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblWaferRole.text" xml:space="preserve">
+    <value>웨이퍼 구분</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblWaferRole.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.btnGridMapCreate.text" xml:space="preserve">
+    <value>격자 맵 생성</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.btnGridMapCreate.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblGridX.text" xml:space="preserve">
+    <value>현재 맵 Grid X</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblGridX.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblGridY.text" xml:space="preserve">
+    <value>현재 맵 Grid Y</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblGridY.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblEdgeMode.text" xml:space="preserve">
+    <value>가장자리 제외 방식</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblEdgeMode.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblEdgeLR.text" xml:space="preserve">
+    <value>가장자리 제외 좌우</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblEdgeLR.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblEdgeTB.text" xml:space="preserve">
+    <value>가장자리 제외 상하</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblEdgeTB.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblMapFile.text" xml:space="preserve">
+    <value>등록 맵 파일</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblMapFile.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.btnPreviewWaferMap.text" xml:space="preserve">
+    <value>맵 생성 미리보기</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.btnPreviewWaferMap.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblBaseHint.state2" xml:space="preserve">
+    <value>맵 생성 미리보기에서 여백·회전·개수 조건을 확인하고 저장하세요.</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblBaseHint.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblSavedMapSummary.state3" xml:space="preserve">
+    <value>저장 맵: —개  |  회전: —</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblSavedMapSummary.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblRotate.text" xml:space="preserve">
+    <value>회전 (예비)</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblRotate.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.grpDie.text" xml:space="preserve">
+    <value>② 다이 배치 (mm)</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.grpDie.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.btnEditDieSpec.text" xml:space="preserve">
+    <value>다이 사양 편집</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.btnEditDieSpec.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblCenterPitch.text" xml:space="preserve">
+    <value>중심 간 거리 (mm)</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblCenterPitch.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblDieHint.state2" xml:space="preserve">
+    <value>생성 맵의 DIE GAP 변경은 미리보기에서 다시 생성 후 저장하세요.</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblDieHint.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.grpResult.text" xml:space="preserve">
+    <value>③ 결과 / 승인</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.grpResult.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.btnGridCountPreview.text" xml:space="preserve">
+    <value>저장 맵 개수 확인</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.btnGridCountPreview.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblApprovalInput.text" xml:space="preserve">
+    <value>입력 -</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblApprovalInput.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblApprovalGood.text" xml:space="preserve">
+    <value>양품 -</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblApprovalGood.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.lblApprovalNg.text" xml:space="preserve">
+    <value>불량 -</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.lblApprovalNg.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.btnProcessMapSettings.text" xml:space="preserve">
+    <value>공정 맵 설정 · 사용 모드 / 형식 / 회전 / 좌표 기준</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.btnProcessMapSettings.Text</comment>
+  </data>
+  <data name="recipeUi.tapeFrameSubsetPage.grpMapSource.text" xml:space="preserve">
+    <value>불러온 웨이퍼 맵 / 적용 순서</value>
+    <comment>TapeFrameSubsetPage.Designer.cs:this.grpMapSource.Text</comment>
+  </data>
+  <data name="recipeUi.unloadTapeFrameSubsetPage.grpUnload.text" xml:space="preserve">
+    <value>언로딩 테이프 프레임 옵션</value>
+    <comment>UnloadTapeFrameSubsetPage.Designer.cs:this.grpUnload.Text</comment>
+  </data>
+  <data name="recipeUi.unloadTapeFrameSubsetPage.lblGapInspection.text" xml:space="preserve">
+    <value>간격 검사</value>
+    <comment>UnloadTapeFrameSubsetPage.Designer.cs:this.lblGapInspection.Text</comment>
+  </data>
+  <data name="recipeUi.unloadTapeFrameSubsetPage._cbGapInsp.text" xml:space="preserve">
+    <value>배치 후 간격 검사 사용</value>
+    <comment>UnloadTapeFrameSubsetPage.Designer.cs:this._cbGapInsp.Text</comment>
+  </data>
+  <data name="recipeUi.unloadTapeFrameSubsetPage.lblGapUpper.text" xml:space="preserve">
+    <value>간격 상한 (mm)</value>
+    <comment>UnloadTapeFrameSubsetPage.Designer.cs:this.lblGapUpper.Text</comment>
+  </data>
+  <data name="recipeUi.unloadTapeFrameSubsetPage.lblGapLower.text" xml:space="preserve">
+    <value>간격 하한 (mm)</value>
+    <comment>UnloadTapeFrameSubsetPage.Designer.cs:this.lblGapLower.Text</comment>
+  </data>
+  <data name="recipeUi.tooltip.1" xml:space="preserve">
+    <value>더블 클릭하면 현재 축 표시 단위로 값을 변경합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.2" xml:space="preserve">
+    <value>더블 클릭하면 슬롯 개수를 변경하고 SlotPosition 버퍼를 다시 맞춥니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.3" xml:space="preserve">
+    <value>Input Feeder Y 티칭 위치를 설정합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.4" xml:space="preserve">
+    <value>Input Feeder Y 이동 대기 시간을 설정합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.5" xml:space="preserve">
+    <value>이름 셀 더블클릭: 현재 위치 티칭, 값 셀 더블클릭: 직접 편집</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.6" xml:space="preserve">
+    <value>Input Stage 대기 관련 파라미터를 표시합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.7" xml:space="preserve">
+    <value>Input Stage 출력 상태를 확인하고 제어합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.8" xml:space="preserve">
+    <value>Input Stage 축을 Unit jog 경로로 이동합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.9" xml:space="preserve">
+    <value>레시피 → 웨이퍼 사양 → 웨이퍼 맵 불러오기에서 설정합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.10" xml:space="preserve">
+    <value>Die는 Recipe → 다이 사양, Wafer/Pitch는 Recipe → 웨이퍼 사양에서 변경합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.11" xml:space="preserve">
+    <value>Recipe → 웨이퍼 사양 → Spec name에서 설정합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.12" xml:space="preserve">
+    <value>Recipe → 웨이퍼 사양 → LOAD WAFER MAP에서 결정됩니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.13" xml:space="preserve">
+    <value>Recipe → 웨이퍼 사양 → 맵 생성 미리보기 저장 또는 LOAD WAFER MAP 결과입니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.14" xml:space="preserve">
+    <value>Recipe → 웨이퍼 사양 → Pitch X에서 설정합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.15" xml:space="preserve">
+    <value>Recipe → 웨이퍼 사양 → Pitch Y에서 설정합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.16" xml:space="preserve">
+    <value>Recipe → 다이 사양 → Width에서 설정합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.17" xml:space="preserve">
+    <value>Recipe → 다이 사양 → Height에서 설정합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.18" xml:space="preserve">
+    <value>Recipe → 웨이퍼 사양 → Outer diameter에서 설정합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.19" xml:space="preserve">
+    <value>Recipe → 웨이퍼 사양 → Edge skip mode에서 설정합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.20" xml:space="preserve">
+    <value>Recipe → 웨이퍼 사양 → Edge skip에서 설정합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.21" xml:space="preserve">
+    <value>현재 화면의 프로젝트 정보와 기존 장치별 레시피·맵 파일을 새 이름으로 복사합니다. 복사 후 장비 적용은 별도로 진행하세요.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.22" xml:space="preserve">
+    <value>기본 생성, 삭제, 폴더 열기, 고급 XML 경로 기능을 모았습니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.23" xml:space="preserve">
+    <value>현재 선택한 레시피와 장비 적용 레시피가 같을 때 웨이퍼 사양 화면을 엽니다. 이 버튼이 레시피를 자동 적용하지는 않습니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.24" xml:space="preserve">
+    <value>맵 항목은 선택 레시피의 저장값을 읽기 전용으로 표시합니다. 항목명이나 값 위에 마우스를 올리면 변경 위치와 방법을 안내합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.25" xml:space="preserve">
+    <value>선택 레시피와 현재 장비에 적용 중인 레시피를 구분합니다. 목록 선택만으로 장비 레시피가 바뀌지 않습니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.26" xml:space="preserve">
+    <value>선택 레시피의 저장값을 다시 불러옵니다. 이 화면에서 저장하지 않은 편집값은 사라집니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.27" xml:space="preserve">
+    <value>이 화면에서 편집한 프로젝트 정보를 파일에 저장합니다. 장비 적용은 [선택 레시피 장비 적용]에서 진행합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.28" xml:space="preserve">
+    <value>선택 레시피를 검증한 뒤 장비에 적용하고 저장합니다. 다른 레시피로 변경할 때는 기존 자재 초기화 확인과 인터락을 따릅니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.29" xml:space="preserve">
+    <value>저장된 등록 맵의 지원 여부·사양·승인을 확인합니다. 원격 입력 맵은 실제 수신 후 검사합니다. 자재·인터락·운전 준비 완료를 뜻하지 않습니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.30" xml:space="preserve">
+    <value>다이 사이 X 간격입니다. 중심 간 거리 = Recipe Die Width + DIE GAP X</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.31" xml:space="preserve">
+    <value>다이 사이 Y 간격입니다. 중심 간 거리 = Recipe Die Height + DIE GAP Y</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.32" xml:space="preserve">
+    <value>외부 RAD TXT/CSV/JSON Wafer Map을 선택 역할의 Base Map으로 연결합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.33" xml:space="preserve">
+    <value>현재 Grid X/Y, Die Size, Pitch Gap, Wafer Diameter로 선택 역할의 Grid Base Map을 생성합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.34" xml:space="preserve">
+    <value>선택한 저장 사양을 화면 값으로만 불러옵니다. Recipe에는 SAVE를 눌러야 반영됩니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.35" xml:space="preserve">
+    <value>Recipe 저장과 함께 현재 역할 값을 저장 사양 라이브러리에 기록합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.36" xml:space="preserve">
+    <value>INPUT = Input Base/Die Map, OUTPUT = Output Base + GOOD/NG Bin Map 2종.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.37" xml:space="preserve">
+    <value>원형 맵의 내부 여백, 회전, 상·하·좌·우 끝줄과 전체 다이 개수를 확인하고 저장합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.38" xml:space="preserve">
+    <value>Recipe 다이 사양(Die Spec) 값입니다. 편집은 [다이 사양 편집] 버튼으로 이동하세요.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.39" xml:space="preserve">
+    <value>Die Size는 이 화면에서 편집할 수 없습니다. Recipe &gt; 다이 사양 화면으로 이동합니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.40" xml:space="preserve">
+    <value>중심 간 거리 = Die size + DIE GAP. 실제 맵 좌표 계산에 쓰이는 값입니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.tooltip.41" xml:space="preserve">
+    <value>현재 Grid/DIE GAP/Die/Wafer Diameter 기준으로 생성 가능 개수를 계산합니다. 파일은 바뀌지 않습니다.</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.inputCassette" xml:space="preserve">
+    <value>입력 카세트 입력 상태 새로고침</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.outputCassette" xml:space="preserve">
+    <value>출력 카세트 입력 상태 새로고침</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.inputFeeder" xml:space="preserve">
+    <value>입력 피더 입력 상태 새로고침</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.outputFeeder" xml:space="preserve">
+    <value>출력 피더 입력 상태 새로고침</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.inputStage" xml:space="preserve">
+    <value>입력 스테이지 입출력 상태 새로고침</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.targetAll" xml:space="preserve">
+    <value>전체 대상 지정</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.skipAll" xml:space="preserve">
+    <value>전체 제외</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.menu.invert" xml:space="preserve">
+    <value>대상 반전</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.load" xml:space="preserve">
+    <value>로딩</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.goodUnload" xml:space="preserve">
+    <value>양품 언로딩</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.ngUnload" xml:space="preserve">
+    <value>불량 언로딩</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.inputWafer" xml:space="preserve">
+    <value>입력 웨이퍼</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.outputWafer" xml:space="preserve">
+    <value>출력 웨이퍼</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.edgeGrid" xml:space="preserve">
+    <value>격자 수 (GRID)</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.edgeMm" xml:space="preserve">
+    <value>거리 (MM)</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.choice.edgeExternal" xml:space="preserve">
+    <value>외부 맵 (EXTERNAL MAP)</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.item" xml:space="preserve">
+    <value>항목</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.value" xml:space="preserve">
+    <value>설정값</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.map" xml:space="preserve">
+    <value>맵 구분</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.configured" xml:space="preserve">
+    <value>등록 맵 파일</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.resolved" xml:space="preserve">
+    <value>실제 파일 경로</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.status" xml:space="preserve">
+    <value>상태</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.check" xml:space="preserve">
+    <value>점검 항목</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.projectColumn.detail" xml:space="preserve">
+    <value>상세 내용</value>
+    <comment>Recipe page display only; values, selections and operation parameters remain unchanged.</comment>
+  </data>
+  <data name="recipeUi.subset.save" xml:space="preserve">
+    <value>저장</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.reload" xml:space="preserve">
+    <value>새로고침</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.none" xml:space="preserve">
+    <value>(프로젝트 없음)</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.project" xml:space="preserve">
+    <value>레시피: {0}</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.failed" xml:space="preserve">
+    <value>(불러오기 실패: {0})</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.noProject" xml:space="preserve">
+    <value>불러온 프로젝트가 없습니다.</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.saved" xml:space="preserve">
+    <value>{0}.Project에 저장했습니다.</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.title" xml:space="preserve">
+    <value>레시피</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.subset.saveFailed" xml:space="preserve">
+    <value>저장 실패: {0}</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.bottom" xml:space="preserve">
+    <value>하부 비전</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.frontSide" xml:space="preserve">
+    <value>전면 측면 비전</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.rearSide" xml:space="preserve">
+    <value>후면 측면 비전</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.wafer" xml:space="preserve">
+    <value>웨이퍼 비전</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.bin" xml:space="preserve">
+    <value>빈 비전</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.vision" xml:space="preserve">
+    <value>비전</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+  <data name="recipeUi.preview.stage" xml:space="preserve">
+    <value>스테이지</value>
+    <comment>Recipe display only. Raw identifiers and operation values are preserved.</comment>
+  </data>
+</root>

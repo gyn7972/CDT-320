@@ -1,0 +1,428 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 대화상자 표시 전용 문구. 고정 키와 자리표시자 번호를 유지하고 값만 편집합니다. -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="dialog.action.bad" xml:space="preserve">
+    <value>NG</value>
+  </data>
+  <data name="dialog.action.buzzerOff" xml:space="preserve">
+    <value>BUZZER OFF</value>
+  </data>
+  <data name="dialog.action.check" xml:space="preserve">
+    <value>CHECK</value>
+  </data>
+  <data name="dialog.action.complete" xml:space="preserve">
+    <value>COMPLETE</value>
+  </data>
+  <data name="dialog.action.continue" xml:space="preserve">
+    <value>CONTINUE</value>
+  </data>
+  <data name="dialog.action.retry" xml:space="preserve">
+    <value>RETRY</value>
+  </data>
+  <data name="dialog.action.skip" xml:space="preserve">
+    <value>SKIP</value>
+  </data>
+  <data name="dialog.action.start" xml:space="preserve">
+    <value>START</value>
+  </data>
+  <data name="dialog.action.stop" xml:space="preserve">
+    <value>STOP</value>
+  </data>
+  <data name="dialog.bin.all" xml:space="preserve">
+    <value>ALL — Pick every die in the map (default)</value>
+  </data>
+  <data name="dialog.bin.chooseOne" xml:space="preserve">
+    <value>Select at least one BIN for selected-BIN mode.&#10;(To pick every die, choose ALL.)</value>
+  </data>
+  <data name="dialog.bin.dieCount" xml:space="preserve">
+    <value>Die count</value>
+  </data>
+  <data name="dialog.bin.empty" xml:space="preserve">
+    <value>No wafer map received. Reopen after starting a LOT (prefetch).</value>
+  </data>
+  <data name="dialog.bin.guide" xml:space="preserve">
+    <value>· Changes apply from the next wafer (when its map is applied).&#10;· Returns to ALL after LOT completion or recipe change.&#10;· Colors follow Config\bin_codes.json.</value>
+  </data>
+  <data name="dialog.bin.missing" xml:space="preserve">
+    <value>(Not in the reference map)</value>
+  </data>
+  <data name="dialog.bin.name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="dialog.bin.noLot" xml:space="preserve">
+    <value>(No active LOT)</value>
+  </data>
+  <data name="dialog.bin.noReference" xml:space="preserve">
+    <value>LOT: {0}   /   No wafer map received (shown after the first wafer barcode is read)</value>
+  </data>
+  <data name="dialog.bin.reference" xml:space="preserve">
+    <value>LOT: {0}   /   Reference map: {1} ({2} dies)</value>
+  </data>
+  <data name="dialog.bin.selected" xml:space="preserve">
+    <value>Pick selected BINs only — choose below</value>
+  </data>
+  <data name="dialog.bin.title" xml:space="preserve">
+    <value>Pickup BIN Selection</value>
+  </data>
+  <data name="dialog.close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="dialog.filter.alpha" xml:space="preserve">
+    <value>Calculated alpha (read only)</value>
+  </data>
+  <data name="dialog.filter.clampT" xml:space="preserve">
+    <value>Clamp T</value>
+  </data>
+  <data name="dialog.filter.clampTCaption" xml:space="preserve">
+    <value>Filter state clamp T (deg)</value>
+  </data>
+  <data name="dialog.filter.clampXy" xml:space="preserve">
+    <value>Clamp X/Y</value>
+  </data>
+  <data name="dialog.filter.clampXyCaption" xml:space="preserve">
+    <value>Filter state clamp X/Y (mm)</value>
+  </data>
+  <data name="dialog.filter.clampZ" xml:space="preserve">
+    <value>Clamp Z</value>
+  </data>
+  <data name="dialog.filter.failed" xml:space="preserve">
+    <value>Save failed (check the log)</value>
+  </data>
+  <data name="dialog.filter.fc" xml:space="preserve">
+    <value>Cutoff fc</value>
+  </data>
+  <data name="dialog.filter.fcCaption" xml:space="preserve">
+    <value>Cutoff fc (cycles/sample)</value>
+  </data>
+  <data name="dialog.filter.info" xml:space="preserve">
+    <value>Measurements beyond the outlier limit are rejected. Clamp limits the accumulated correction. PICKER Z has one channel: X/Y rows set the Z limits; T rows are unused.</value>
+  </data>
+  <data name="dialog.filter.invalid" xml:space="preserve">
+    <value>Not saved. Check the input.&#10;&#10;{0}</value>
+  </data>
+  <data name="dialog.filter.item" xml:space="preserve">
+    <value>Item</value>
+  </data>
+  <data name="dialog.filter.notNumber" xml:space="preserve">
+    <value>{0} {1}: Not a number. Input={2}</value>
+  </data>
+  <data name="dialog.filter.outOfRange" xml:space="preserve">
+    <value>{0} {1}: Outside the allowed range ({2}~{3}). Input={4}</value>
+  </data>
+  <data name="dialog.filter.outlierT" xml:space="preserve">
+    <value>Outlier T</value>
+  </data>
+  <data name="dialog.filter.outlierTCaption" xml:space="preserve">
+    <value>Outlier rejection limit T (deg)</value>
+  </data>
+  <data name="dialog.filter.outlierXy" xml:space="preserve">
+    <value>Outlier X/Y</value>
+  </data>
+  <data name="dialog.filter.outlierXyCaption" xml:space="preserve">
+    <value>Outlier rejection limit X/Y (mm)</value>
+  </data>
+  <data name="dialog.filter.outlierZ" xml:space="preserve">
+    <value>Outlier Z</value>
+  </data>
+  <data name="dialog.filter.pick" xml:space="preserve">
+    <value>PICK</value>
+  </data>
+  <data name="dialog.filter.pickerZ" xml:space="preserve">
+    <value>PICKER Z</value>
+  </data>
+  <data name="dialog.filter.place" xml:space="preserve">
+    <value>PLACE</value>
+  </data>
+  <data name="dialog.filter.result" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="dialog.filter.saved" xml:space="preserve">
+    <value>Saved</value>
+  </data>
+  <data name="dialog.filter.title" xml:space="preserve">
+    <value>RUNTIME FILTER SETTINGS</value>
+  </data>
+  <data name="dialog.filter.unchanged" xml:space="preserve">
+    <value>No items have changed.</value>
+  </data>
+  <data name="dialog.log.saved" xml:space="preserve">
+    <value>Saved.</value>
+  </data>
+  <data name="dialog.log.title" xml:space="preserve">
+    <value>LOG SETTINGS</value>
+  </data>
+  <data name="dialog.login.addUpdate" xml:space="preserve">
+    <value>ADD &amp; UPDATE</value>
+  </data>
+  <data name="dialog.login.enter" xml:space="preserve">
+    <value>ENTER</value>
+  </data>
+  <data name="dialog.login.failed" xml:space="preserve">
+    <value>Login failed.</value>
+  </data>
+  <data name="dialog.login.logout" xml:space="preserve">
+    <value>LOGOUT</value>
+  </data>
+  <data name="dialog.material.field" xml:space="preserve">
+    <value>Field</value>
+  </data>
+  <data name="dialog.material.material" xml:space="preserve">
+    <value>Material</value>
+  </data>
+  <data name="dialog.material.title" xml:space="preserve">
+    <value>Material Value Edit</value>
+  </data>
+  <data name="dialog.numeric.back" xml:space="preserve">
+    <value>BS</value>
+  </data>
+  <data name="dialog.numeric.clear" xml:space="preserve">
+    <value>CLR</value>
+  </data>
+  <data name="dialog.numeric.invalidExpression" xml:space="preserve">
+    <value>Calculation expression is invalid.</value>
+  </data>
+  <data name="dialog.numeric.invalidNumber" xml:space="preserve">
+    <value>Number value is invalid.</value>
+  </data>
+  <data name="dialog.numeric.parameter" xml:space="preserve">
+    <value>Parameter</value>
+  </data>
+  <data name="dialog.numeric.title" xml:space="preserve">
+    <value>Numeric Input</value>
+  </data>
+  <data name="dialog.pickup.all" xml:space="preserve">
+    <value>Full route</value>
+  </data>
+  <data name="dialog.pickup.apply" xml:space="preserve">
+    <value>Apply this order</value>
+  </data>
+  <data name="dialog.pickup.bottomLeft" xml:space="preserve">
+    <value>Bottom left</value>
+  </data>
+  <data name="dialog.pickup.bottomRight" xml:space="preserve">
+    <value>Bottom right</value>
+  </data>
+  <data name="dialog.pickup.corner" xml:space="preserve">
+    <value>Start corner</value>
+  </data>
+  <data name="dialog.pickup.cornerStart" xml:space="preserve">
+    <value>Corner start</value>
+  </data>
+  <data name="dialog.pickup.direction" xml:space="preserve">
+    <value>Direction</value>
+  </data>
+  <data name="dialog.pickup.empty" xml:space="preserve">
+    <value>No pickup target</value>
+  </data>
+  <data name="dialog.pickup.end" xml:space="preserve">
+    <value>END</value>
+  </data>
+  <data name="dialog.pickup.first" xml:space="preserve">
+    <value>First</value>
+  </data>
+  <data name="dialog.pickup.fit" xml:space="preserve">
+    <value>Full map</value>
+  </data>
+  <data name="dialog.pickup.focus" xml:space="preserve">
+    <value>Zoom selection</value>
+  </data>
+  <data name="dialog.pickup.heading" xml:space="preserve">
+    <value>WAFER ALIGN / DIE MAP REVIEW · Pickup Order</value>
+  </data>
+  <data name="dialog.pickup.horizontal" xml:space="preserve">
+    <value>Horizontal</value>
+  </data>
+  <data name="dialog.pickup.jump" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="dialog.pickup.last" xml:space="preserve">
+    <value>Last</value>
+  </data>
+  <data name="dialog.pickup.legend" xml:space="preserve">
+    <value>Orange: start   Blue: selected   → direction   |   Wheel: zoom · Drag: pan</value>
+  </data>
+  <data name="dialog.pickup.list" xml:space="preserve">
+    <value>Order</value>
+  </data>
+  <data name="dialog.pickup.mapX" xml:space="preserve">
+    <value>MAP X</value>
+  </data>
+  <data name="dialog.pickup.mapY" xml:space="preserve">
+    <value>MAP Y</value>
+  </data>
+  <data name="dialog.pickup.near20" xml:space="preserve">
+    <value>Nearby 20</value>
+  </data>
+  <data name="dialog.pickup.near50" xml:space="preserve">
+    <value>Nearby 50</value>
+  </data>
+  <data name="dialog.pickup.noStart" xml:space="preserve">
+    <value>No start die</value>
+  </data>
+  <data name="dialog.pickup.notice" xml:space="preserve">
+    <value>Preview only · No equipment movement</value>
+  </data>
+  <data name="dialog.pickup.pattern" xml:space="preserve">
+    <value>Pattern</value>
+  </data>
+  <data name="dialog.pickup.pause" xml:space="preserve">
+    <value>Ⅱ Pause</value>
+  </data>
+  <data name="dialog.pickup.play" xml:space="preserve">
+    <value>▶ Play order</value>
+  </data>
+  <data name="dialog.pickup.range" xml:space="preserve">
+    <value>Showing {0}–{1} / {2}</value>
+  </data>
+  <data name="dialog.pickup.readOnly" xml:space="preserve">
+    <value>Read-only order review</value>
+  </data>
+  <data name="dialog.pickup.sequence" xml:space="preserve">
+    <value>SEQ</value>
+  </data>
+  <data name="dialog.pickup.setStart" xml:space="preserve">
+    <value>Set selected die as first</value>
+  </data>
+  <data name="dialog.pickup.start" xml:space="preserve">
+    <value>START</value>
+  </data>
+  <data name="dialog.pickup.startAt" xml:space="preserve">
+    <value>Start #1 · {0}</value>
+  </data>
+  <data name="dialog.pickup.state" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="dialog.pickup.straight" xml:space="preserve">
+    <value>Straight</value>
+  </data>
+  <data name="dialog.pickup.summary" xml:space="preserve">
+    <value>Total {0} · Apply, then CONFIRM in the Review screen</value>
+  </data>
+  <data name="dialog.pickup.title" xml:space="preserve">
+    <value>Pickup Order</value>
+  </data>
+  <data name="dialog.pickup.topLeft" xml:space="preserve">
+    <value>Top left</value>
+  </data>
+  <data name="dialog.pickup.topRight" xml:space="preserve">
+    <value>Top right</value>
+  </data>
+  <data name="dialog.pickup.vertical" xml:space="preserve">
+    <value>Vertical</value>
+  </data>
+  <data name="dialog.pickup.wafer" xml:space="preserve">
+    <value>WAFER {0}</value>
+  </data>
+  <data name="dialog.pickup.wait" xml:space="preserve">
+    <value>WAIT</value>
+  </data>
+  <data name="dialog.pickup.wrap" xml:space="preserve">
+    <value>   ┄ Continues at the beginning</value>
+  </data>
+  <data name="dialog.pickup.zigzag" xml:space="preserve">
+    <value>Zigzag</value>
+  </data>
+  <data name="dialog.select" xml:space="preserve">
+    <value>Select</value>
+  </data>
+  <data name="dialog.user.add" xml:space="preserve">
+    <value>USER - ADD</value>
+  </data>
+  <data name="dialog.user.admin" xml:space="preserve">
+    <value>Admin</value>
+  </data>
+  <data name="dialog.user.changePassword" xml:space="preserve">
+    <value>Password (to change)</value>
+  </data>
+  <data name="dialog.user.edit" xml:space="preserve">
+    <value>USER - EDIT</value>
+  </data>
+  <data name="dialog.user.enabled" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="dialog.user.engineer" xml:space="preserve">
+    <value>Engineer</value>
+  </data>
+  <data name="dialog.user.enterId" xml:space="preserve">
+    <value>Enter an ID.</value>
+  </data>
+  <data name="dialog.user.enterPassword" xml:space="preserve">
+    <value>Enter a password.</value>
+  </data>
+  <data name="dialog.user.id" xml:space="preserve">
+    <value>ID</value>
+  </data>
+  <data name="dialog.user.level" xml:space="preserve">
+    <value>Level</value>
+  </data>
+  <data name="dialog.user.maintenance" xml:space="preserve">
+    <value>Maintenance</value>
+  </data>
+  <data name="dialog.user.operator" xml:space="preserve">
+    <value>Operator</value>
+  </data>
+  <data name="dialog.user.password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="dialog.user.title" xml:space="preserve">
+    <value>USER</value>
+  </data>
+</root>

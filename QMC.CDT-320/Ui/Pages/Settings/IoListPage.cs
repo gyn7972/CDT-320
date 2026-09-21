@@ -31,6 +31,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private volatile Dictionary<string, List<DataGridViewRow>> _rowIndex =
             new Dictionary<string, List<DataGridViewRow>>(StringComparer.OrdinalIgnoreCase);
 
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(lblCylinderTestTitle, "settingsUi.caption.cylinderTest");
+            Lang.BindKey(lblFwdTimeout, "settingsUi.caption.fwdWaitMs");
+            Lang.BindKey(lblBwdTimeout, "settingsUi.caption.bwdWaitMs");
+            Lang.BindKey(chkSingleSolenoid, "settingsUi.caption.single");
+            Lang.BindKey(chkUseFwdSensor, "settingsUi.caption.fwdDi");
+            Lang.BindKey(chkUseBwdSensor, "settingsUi.caption.bwdDi");
+            Lang.BindKey(lblFwdLabel, "settingsUi.caption.fwdText");
+            Lang.BindKey(lblBwdLabel, "settingsUi.caption.bwdText");
+            Lang.BindKey(btnCylinderApply, "settingsUi.caption.apply");
+            Lang.BindKey(btnCylinderOff, "settingsUi.caption.off");
+            Lang.BindKey(btnAddRow, "settingsUi.caption.addRow");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
         public IoListPage(string i18nKey, string[] columns, string[][] seedRows)
             : this(i18nKey, columns, () => seedRows)
         {
@@ -50,6 +66,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             BuildColumns();
             ConfigureCylinderTestPanel();
             LoadRows();
+            InitializeLanguageBindings();
 
             HandleCreated += (s, e) => SubscribeIoScan();
             HandleDestroyed += (s, e) => UnsubscribeIoScan();
@@ -63,7 +80,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblHeader.ForeColor = UiTheme.StatusBarFg;
             lblHeader.Font = UiTheme.SectionFont;
 
-            lblSubHeader.Text = ListGroupTitle();
+            Lang.BindDisplay(lblSubHeader, _i18nKey, unused => ListGroupTitle());
             lblSubHeader.Tag = "i18n:" + _i18nKey;
             lblSubHeader.BackColor = UiTheme.StatusBarBg;
             lblSubHeader.ForeColor = System.Drawing.Color.White;
@@ -118,7 +135,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (_listGroup == null)
                 _listGroup = new GroupBox();
 
-            _listGroup.Text = ListGroupTitle();
+            Lang.BindDisplay(_listGroup, _i18nKey, unused => ListGroupTitle());
             SettingsPageLayoutStyler.ApplyGroupBox(_listGroup);
             _listGroup.Padding = new Padding(1, 8, 1, 1);
             _listGroup.Dock = IsCylinderPage() ? DockStyle.Top : DockStyle.Fill;
@@ -136,7 +153,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (_cylinderSettingsGroup == null)
                 _cylinderSettingsGroup = new GroupBox();
 
-            _cylinderSettingsGroup.Text = "CYLINDER TEST";
+            Lang.BindKey(_cylinderSettingsGroup, "settingsUi.caption.cylinderTest");
             SettingsPageLayoutStyler.ApplyGroupBox(_cylinderSettingsGroup);
             _cylinderSettingsGroup.Padding = new Padding(1, 8, 1, 1);
 
@@ -188,7 +205,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (_actionGroup == null)
                 _actionGroup = new GroupBox();
 
-            _actionGroup.Text = "ACTION";
+            Lang.BindKey(_actionGroup, "settingsUi.caption.action");
             SettingsPageLayoutStyler.ApplyGroupBox(_actionGroup);
 
             if (actionsLayout.Parent != _actionGroup)
@@ -281,25 +298,25 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private string ListGroupTitle()
         {
             if (string.Equals(_i18nKey, "set.digital", StringComparison.OrdinalIgnoreCase))
-                return "DIGITAL I/O LIST";
+                return Lang.T("settingsUi.caption.digitalIOList");
             if (string.Equals(_i18nKey, "set.cylinder", StringComparison.OrdinalIgnoreCase))
-                return "CYLINDER LIST";
+                return Lang.T("settingsUi.caption.cylinderList");
             if (string.Equals(_i18nKey, "set.lamp", StringComparison.OrdinalIgnoreCase))
-                return "LAMP LIST";
+                return Lang.T("settingsUi.caption.lampList");
             if (string.Equals(_i18nKey, "set.switch", StringComparison.OrdinalIgnoreCase))
-                return "SWITCH LIST";
+                return Lang.T("settingsUi.caption.switchList");
             if (string.Equals(_i18nKey, "set.lightSource", StringComparison.OrdinalIgnoreCase))
-                return "LIGHT SOURCE LIST";
+                return Lang.T("settingsUi.caption.lightSourceList");
 
-            return Lang.T(_i18nKey) + " LIST";
+            return Lang.Format("settingsUi.io.listTitle", Lang.T(_i18nKey));
         }
 
         private void WireEvents()
         {
             btnSave.Visible = false;
-            btnReload.Text = "REFRESH";
+            Lang.BindKey(btnReload, "settingsUi.caption.refresh");
             btnAddRow.Visible = false;
-            btnSave.Text = "SAVE";
+            Lang.BindKey(btnSave, "settingsUi.caption.save");
         }
 
         private void btnReload_Click(object sender, EventArgs e)
@@ -430,6 +447,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 else if (IsCylinderPage())
                     col.ReadOnly = true;
             }
+            foreach (DataGridViewColumn column in _grid.Columns)
+                SettingsUiText.BindColumn(column);
         }
 
         private void LoadRows()
@@ -533,7 +552,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     rootLayout.RowStyles[2].Height = visible ? 18F : 45F;
                     rootLayout.RowStyles[3].Height = 10F;
                 }
-                lblCylinderResult.Text = visible ? "READY" : string.Empty;
+                Lang.BindDisplay(lblCylinderResult, visible ? "READY" : string.Empty, SettingsUiText.DisplayCylinderStatus);
             }
             catch
             {
@@ -563,7 +582,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 txtBwdLabel.Text = string.IsNullOrWhiteSpace(settings.BwdLabel) ? "BWD" : settings.BwdLabel;
                 btnCylinderFwd.Text = txtFwdLabel.Text;
                 btnCylinderBwd.Text = txtBwdLabel.Text;
-                lblCylinderResult.Text = GetCylinderStateText(name);
+                Lang.BindDisplay(lblCylinderResult, GetCylinderStateText(name), SettingsUiText.DisplayCylinderStatus);
             }
             catch (Exception ex)
             {
@@ -647,15 +666,15 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 btnCylinderBwd.Text = settings.BwdLabel;
 
                 if (showResult)
-                    lblCylinderResult.Text = "APPLIED";
+                    Lang.BindKey(lblCylinderResult, "settingsUi.caption.applied");
                 EventLogger.Write(EventKind.Event, "QMC", "CYL-TEST-APPLY",
                     "Cylinder settings and mapping applied: " + name);
             }
             catch (Exception ex)
             {
-                lblCylinderResult.Text = "APPLY FAIL";
+                Lang.BindKey(lblCylinderResult, "settingsUi.caption.applyFail");
                 EventLogger.Write(EventKind.Alarm, "QMC", "CYL-TEST-APPLY", "Cylinder test settings apply failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "CYLINDER TEST", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("settingsUi.caption.cylinderTest"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -716,7 +735,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 if (cylinder == null) return -1;
 
                 SetCylinderTestButtons(false);
-                lblCylinderResult.Text = command + " RUN";
+                Lang.BindDisplay(lblCylinderResult, command, raw => Lang.Format("settingsUi.io.running", SettingsUiText.Display(raw)));
                 EventLogger.Write(EventKind.Event, "QMC", "CYL-TEST", "Cylinder test command: " + name + " " + command);
 
                 int result = -1;
@@ -732,15 +751,15 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     : string.Equals(command, "BWD", StringComparison.OrdinalIgnoreCase)
                         ? btnCylinderBwd.Text
                         : command;
-                lblCylinderResult.Text = display + (result == 0 ? " OK" : " FAIL");
+                Lang.BindFormat(lblCylinderResult, result == 0 ? "settingsUi.io.success" : "settingsUi.io.failed", display);
                 RefreshCylinderRuntimeState(name);
                 return result;
             }
             catch (Exception ex)
             {
-                lblCylinderResult.Text = command + " ERROR";
+                Lang.BindDisplay(lblCylinderResult, command, raw => Lang.Format("settingsUi.io.error", SettingsUiText.Display(raw)));
                 EventLogger.Write(EventKind.Alarm, "QMC", "CYL-TEST", "Cylinder test failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "CYLINDER TEST", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("settingsUi.caption.cylinderTest"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return -1;
             }
             finally
@@ -896,8 +915,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     return;
 
                 bool next = !IsSimOn(_grid.Rows[0]);
-                string message = "전체 I/O를 " + (next ? "SIM 모드로 변경할까요?" : "REAL 모드로 변경할까요?");
-                if (QMC.Common.MessageDialog.Show(message, "I/O SIM MODE", MessageBoxButtons.OKCancel) != DialogResult.OK)
+                string message = Lang.Format("settingsUi.io.confirmAllMode", next ? "SIM" : "REAL");
+                if (QMC.Common.MessageDialog.Show(message, Lang.T("settingsUi.caption.iOSimMode"), MessageBoxButtons.OKCancel) != DialogResult.OK)
                     return;
 
                 foreach (DataGridViewRow row in _grid.Rows)
@@ -925,8 +944,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 DataGridViewRow row = _grid.Rows[rowIndex];
                 bool next = !IsSimOn(row);
                 string name = IoName(row);
-                string message = name + " I/O를 " + (next ? "SIM 모드로 변경할까요?" : "REAL 모드로 변경할까요?");
-                if (QMC.Common.MessageDialog.Show(message, "I/O SIM MODE", MessageBoxButtons.OKCancel) != DialogResult.OK)
+                string message = Lang.Format("settingsUi.io.confirmMode", name, next ? "SIM" : "REAL");
+                if (QMC.Common.MessageDialog.Show(message, Lang.T("settingsUi.caption.iOSimMode"), MessageBoxButtons.OKCancel) != DialogResult.OK)
                     return;
 
                 ApplySim(row, next);
@@ -975,8 +994,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 {
                     QMC.Common.MessageDialog.Show(
                         this,
-                        "SIM ON 상태에서만 I/O STATE를 직접 변경할 수 있습니다.",
-                        "I/O SIM",
+                        Lang.T("settingsUi.io.simRequired"),
+                        Lang.T("settingsUi.caption.iOSim"),
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
                     return;
@@ -987,9 +1006,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 bool current = string.Equals(Convert.ToString(row.Cells[_stateColumnIndex].Value), "ON", StringComparison.OrdinalIgnoreCase);
                 bool next = !current;
                 string target = outputRow ? "output" : "input";
-                string message = name + " " + target + " state를 " + (next ? "ON" : "OFF") + " 으로 변경할까요?";
+                string message = Lang.Format("settingsUi.io.confirmState", name, SettingsUiText.Display(target), SettingsUiText.Display(next ? "ON" : "OFF"));
 
-                if (QMC.Common.MessageDialog.Show(this, message, "I/O SIM", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                if (QMC.Common.MessageDialog.Show(this, message, Lang.T("settingsUi.caption.iOSim"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;
 
                 if (outputRow)
@@ -1005,7 +1024,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 EventLogger.Write(EventKind.Alarm, "QMC", "IO-SIM-STATE",
                     "Runtime I/O state change failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "I/O SIM", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("settingsUi.caption.iOSim"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -1182,7 +1201,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     return;
 
                 string state = CylinderState(null, name);
-                lblCylinderResult.Text = "STATE : " + state;
+                Lang.BindFormat(lblCylinderResult, "settingsUi.io.state", state);
 
                 if (_stateColumnIndex < 0)
                     return;
@@ -1243,8 +1262,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     RebuildRowIndex();
                     QMC.Common.MessageDialog.Show(
                         this,
-                        "Cylinder I/O mapping saved and applied.\r\n" + AjinConfigStore.Path_,
-                        "CYLINDER",
+                        Lang.Format("settingsUi.io.mappingSaved", AjinConfigStore.Path_),
+                        Lang.T("settingsUi.caption.cylinder"),
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
                 }
@@ -1257,7 +1276,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "QMC", "IO-SIM-SAVE", "I/O simulation settings save failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "I/O SIM MODE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, ex.Message, Lang.T("settingsUi.caption.iOSimMode"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {

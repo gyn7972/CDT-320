@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows.Forms;
@@ -44,7 +45,7 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterActionButton(BtnReady,      "work.ready",      op, () =>
             {
                 if (!EnsureAxesHomeReadyForRun("Ready")) return;
-                if (ConfirmRun("Ready", "모션을 Ready(Avoid) 위치로 이동하시겠습니까?"))
+                if (ConfirmRun("Ready", Lang.T("message.work.readyConfirm")))
                     RunSafe(async c => await RunReadySequenceWithMessageAsync(c), false);
             });
             RegisterActionButton(BtnStart,      "work.start",      op, () =>
@@ -52,7 +53,7 @@ namespace QMC.CDT_320.Ui.Tabs
                 if (!EnsureAxesHomeReadyForRun("Start"))
                     return;
 
-                if (ConfirmRun("Start", "장비를 Start 하여 작업을 진행하시겠습니까?"))
+                if (ConfirmRun("Start", Lang.T("message.work.startConfirm")))
                     StartAutoWithFocusSelection();
             });
             RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c => await RunStopSequenceWithMessageAsync(c), false));
@@ -130,7 +131,7 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 if (Host == null || Host.Controller == null)
                 {
-                    QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Start", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(FindForm(), Lang.T("message.work.controllerMissing"), Lang.T("message.title.start"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -138,7 +139,7 @@ namespace QMC.CDT_320.Ui.Tabs
                 if (Host.Controller.IsRuntimeAutoFocusOnStartEnabled())
                 {
                     using (var dialog = new EnumPickerDialog(
-                        "시작 시 Bottom Die AutoFocus",
+                        Lang.T("message.work.startFocusTitle"),
                         new[] { "AutoFocus 안 함", "Fine", "Rough + Fine" },
                         "AutoFocus 안 함"))
                     {
@@ -159,7 +160,7 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartAutoWithFocusSelection",
                     "시작 AutoFocus 선택창 처리 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(FindForm(), "시작 AutoFocus 선택 처리에 실패했습니다.\r\n" + ex.Message, "Start", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(FindForm(), Lang.Format("message.work.focusSelectionFailed", ex.Message), Lang.T("message.title.start"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -295,10 +296,10 @@ namespace QMC.CDT_320.Ui.Tabs
             string reason;
             if (!Host.Controller.AreAllAxesHomeReady(out reason))
             {
-                string msg = actionName + " 불가: 축 HOME END(원점복귀)가 완료되지 않았습니다.\n" + reason;
+                string msg = Lang.Format("message.work.axesNotHomed", Lang.Display(actionName), reason);
                 QMC.Common.Log.Write("Main", "SYSTEM", "WorkTab",
                     actionName + " blocked: axes not home-ready. " + reason + " - Blocked");
-                QMC.Common.MessageDialog.Show(FindForm(), msg, "Work",
+                QMC.Common.MessageDialog.Show(FindForm(), msg, Lang.T("message.title.work"),
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
@@ -314,7 +315,7 @@ namespace QMC.CDT_320.Ui.Tabs
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunSafe", "Work action failed: Machine controller is not ready. - Failed");
                     if (showFailureDialog)
-                        QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(FindForm(), Lang.T("message.work.controllerMissing"), Lang.T("message.title.work"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -324,7 +325,7 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunSafe", "Work action failed: " + ex.Message + " - Failed");
                 if (showFailureDialog)
-                    QMC.Common.MessageDialog.Show(FindForm(), "Work action failed:\n" + ex.Message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    QMC.Common.MessageDialog.Show(FindForm(), Lang.Format("message.work.actionFailed", ex.Message), Lang.T("message.title.work"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -386,8 +387,8 @@ namespace QMC.CDT_320.Ui.Tabs
                 // 확인 다이얼로그는 정상 동작하므로, 팝업 생성 실패 시 원인을 화면으로도 알린다.
                 QMC.Common.MessageDialog.Show(
                     FindForm(),
-                    "Ready 진행 팝업을 열지 못했습니다.\n" + ex.Message,
-                    "Ready",
+                    Lang.Format("message.work.readyDialogFailed", ex.Message),
+                    Lang.T("message.title.ready"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
             }
@@ -426,13 +427,13 @@ namespace QMC.CDT_320.Ui.Tabs
             }
 
             string reason = string.IsNullOrWhiteSpace(controller.LastActionFailureMessage)
-                ? "Ready 실패."
+                ? Lang.T("message.work.readyFailed")
                 : controller.LastActionFailureMessage;
 
             QMC.Common.MessageDialog.Show(
                 FindForm(),
                 reason,
-                "Ready 실패",
+                Lang.T("message.title.readyFailed"),
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
@@ -444,7 +445,7 @@ namespace QMC.CDT_320.Ui.Tabs
                 return QMC.Common.MessageDialog.Show(
                     FindForm(),
                     message,
-                    actionLabel,
+                    Lang.Display(actionLabel),
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question) == DialogResult.Yes;
             }
@@ -465,7 +466,7 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 if (Host == null || Host.Controller == null)
                 {
-                    QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(FindForm(), Lang.T("message.work.controllerMissing"), Lang.T("message.title.work"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -483,7 +484,7 @@ namespace QMC.CDT_320.Ui.Tabs
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "OpenInitializationMonitor", "Initialization monitor dialog failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(FindForm(), "초기화 모니터를 열 수 없습니다.\n" + ex.Message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(FindForm(), Lang.Format("message.work.initializationDialogFailed", ex.Message), Lang.T("message.title.work"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -527,7 +528,7 @@ namespace QMC.CDT_320.Ui.Tabs
         {
             if (Host == null || Host.Controller == null)
             {
-                QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Cycle Run", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(FindForm(), Lang.T("message.work.controllerMissing"), Lang.T("message.title.cycleRun"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -749,7 +750,7 @@ namespace QMC.CDT_320.Ui.Tabs
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunSafe", "Work action failed: Machine controller is not ready. - Failed");
                     if (showFailureDialog)
-                        QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Work", MessageBoxButtons.OK, failureIcon);
+                        QMC.Common.MessageDialog.Show(FindForm(), Lang.T("message.work.controllerMissing"), Lang.T("message.title.work"), MessageBoxButtons.OK, failureIcon);
                     return;
                 }
 
@@ -758,10 +759,10 @@ namespace QMC.CDT_320.Ui.Tabs
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunSafe", "Work action failed: return=" + result + " - Failed");
                     string message = string.IsNullOrEmpty(Host.Controller.LastActionFailureMessage)
-                        ? "작업 수행에 실패했습니다.\nAlarm/Event Log를 확인하세요."
+                        ? Lang.T("message.work.failedCheckLog")
                         : Host.Controller.LastActionFailureMessage;
                     if (showFailureDialog)
-                        QMC.Common.MessageDialog.Show(FindForm(), message, "Work", MessageBoxButtons.OK, failureIcon);
+                        QMC.Common.MessageDialog.Show(FindForm(), message, Lang.T("message.title.work"), MessageBoxButtons.OK, failureIcon);
                     return;
                 }
             }
@@ -769,7 +770,7 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunSafe", "Work action failed: " + ex.Message + " - Failed");
                 if (showFailureDialog)
-                    QMC.Common.MessageDialog.Show(FindForm(), "Work action failed:\n" + ex.Message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    QMC.Common.MessageDialog.Show(FindForm(), Lang.Format("message.work.actionFailed", ex.Message), Lang.T("message.title.work"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

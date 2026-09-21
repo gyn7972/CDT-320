@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -32,9 +33,45 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         // 실시간 CycleTime 간트 (지연 생성 — CYCLE TIME 탭을 처음 열 때만 만든다).
         private QMC.CDT320.Ui.Controls.CycleTimeGanttControl _cycleGantt;
 
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(lblSourceCaption, "workInfoUi.logic.lblSourceCaption");
+            Lang.BindKey(lblDataSource, "workInfoUi.logic.lblDataSource");
+            Lang.BindKey(btnOpenHistory, "workInfoUi.logic.btnOpenHistory");
+            Lang.BindKey(btnLiveView, "workInfoUi.logic.btnLiveView");
+            Lang.BindKey(lblRunCaption, "workInfoUi.logic.lblRunCaption");
+            Lang.BindKey(btnCancelHistory, "workInfoUi.logic.btnCancelHistory");
+            Lang.BindKey(lblFileInfo, "workInfoUi.logic.lblFileInfo");
+            Lang.BindKey(lblCategoryCaption, "workInfoUi.logic.lblCategoryCaption");
+            Lang.BindKey(lblItemCaption, "workInfoUi.logic.lblItemCaption");
+            Lang.BindKey(lblChartCaption, "workInfoUi.logic.lblChartCaption");
+            Lang.BindKey(chkAutoRefresh, "workInfoUi.logic.chkAutoRefresh");
+            Lang.BindKey(btnClearView, "workInfoUi.logic.btnClearView");
+            Lang.BindKey(btnResetChart, "workInfoUi.logic.btnResetChart");
+            Lang.BindKey(lblSummary, "workInfoUi.logic.lblSummary");
+            Lang.BindKey(tabCycle, "workInfoUi.logic.tabCycle");
+            Lang.BindKey(lblStatus, "workInfoUi.logic.lblStatus");
+            Lang.BindKey(_grid.Columns["NO"], "workInfoUi.logic.column.no");
+            Lang.BindKey(_grid.Columns["CATEGORY"], "workInfoUi.logic.column.category");
+            Lang.BindKey(_grid.Columns["UNIT"], "workInfoUi.logic.column.unit");
+            Lang.BindKey(_grid.Columns["SEQUENCE"], "workInfoUi.logic.column.sequence");
+            Lang.BindKey(_grid.Columns["PROCESS"], "workInfoUi.logic.column.process");
+            Lang.BindKey(_grid.Columns["STEP"], "workInfoUi.logic.column.step");
+            Lang.BindKey(_grid.Columns["RESULT"], "workInfoUi.logic.column.result");
+            Lang.BindKey(_grid.Columns["ELAPSED"], "workInfoUi.logic.column.elapsed");
+            Lang.BindKey(_grid.Columns["START"], "workInfoUi.logic.column.start");
+            Lang.BindKey(_grid.Columns["END"], "workInfoUi.logic.column.end");
+            Lang.BindKey(_grid.Columns["DETAIL"], "workInfoUi.logic.column.detail");
+            Lang.BindChoices(cmbCategory, WorkInfoText.Display);
+            Lang.BindChoices(cmbItemFilter, WorkInfoText.Display);
+            Lang.BindChoices(cmbChartMode, WorkInfoText.Display);
+            Lang.BindReadOnlyCells(_grid, WorkInfoText.Display, cell => cell.ColumnIndex == 1 || cell.ColumnIndex == 6);
+        }
+
         public LogicDetailPage()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
 
             foreach (DataGridViewColumn column in _grid.Columns)
             {
@@ -114,14 +151,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (_historyMode)
                 {
                     _historyRecords.Clear();
-                    lblSummary.Text = "과거 기록 화면을 비웠습니다. 원본 CSV는 변경되지 않았습니다.";
-                    lblStatus.Text = "Run을 다시 선택하면 과거 기록을 다시 불러옵니다.";
+                    Lang.BindFormat(lblSummary, "workInfoUi.logic.status.historyCleared");
+                    Lang.BindFormat(lblStatus, "workInfoUi.logic.status.historyReloadHint");
                 }
                 else
                 {
                     _viewSince = DateTime.Now;
-                    lblSummary.Text = "화면 기록을 초기화했습니다. 이후 발생한 택타임만 표시합니다.";
-                    lblStatus.Text = "실시간 화면 기록을 초기화했습니다.";
+                    Lang.BindFormat(lblSummary, "workInfoUi.logic.status.liveClearedSummary");
+                    Lang.BindFormat(lblStatus, "workInfoUi.logic.status.liveCleared");
                 }
 
                 _timeChart.SetRecords(_chartRecords);
@@ -129,7 +166,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             catch (Exception ex)
             {
                 LogUiFailure("ClearView", ex);
-                lblStatus.Text = "택타임 화면 초기화에 실패했습니다: " + ex.Message;
+                Lang.BindFormat(lblStatus, "workInfoUi.logic.status.clearFailed", ex.Message);
             }
         }
 
@@ -139,8 +176,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 using (var dialog = new OpenFileDialog())
                 {
-                    dialog.Title = "이전 택타임 기록 불러오기";
-                    dialog.Filter = "택타임 CSV (*.csv)|*.csv|모든 파일 (*.*)|*.*";
+                    dialog.Title = Lang.T("workInfoUi.logic.openTitle");
+                    dialog.Filter = Lang.T("workInfoUi.logic.openFilter");
                     dialog.Multiselect = false;
                     dialog.CheckFileExists = true;
                     dialog.InitialDirectory = ResolveTactTimeDirectory();
@@ -152,7 +189,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "과거 택타임 기록 불러오기를 취소했습니다.";
+                Lang.BindFormat(lblStatus, "workInfoUi.logic.status.historyCanceled");
             }
             catch (Exception ex)
             {
@@ -187,7 +224,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private void btnCancelHistory_Click(object sender, EventArgs e)
         {
             CancelHistoryLoad();
-            lblStatus.Text = "과거 택타임 기록 불러오기 취소를 요청했습니다.";
+            Lang.BindFormat(lblStatus, "workInfoUi.logic.status.historyCancelRequested");
         }
 
         private async void cmbRun_SelectedIndexChanged(object sender, EventArgs e)
@@ -205,7 +242,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "선택한 Run 불러오기를 취소했습니다.";
+                Lang.BindFormat(lblStatus, "workInfoUi.logic.status.runCanceled");
             }
             catch (Exception ex)
             {
@@ -279,7 +316,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 UpdateSelectedRecordStatus(e.Record);
                 if (!selected && _grid.Rows.Count >= MaxGridRows)
-                    lblStatus.Text += " / 해당 기록은 Grid 표시 한도 밖에 있습니다.";
+                    UpdateSelectedRecordStatus(e.Record, true);
             }
             finally
             {
@@ -293,7 +330,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             try
             {
                 _historyFilePath = filePath;
-                lblStatus.Text = "과거 택타임 파일의 Run 목록을 확인하고 있습니다.";
+                Lang.BindFormat(lblStatus, "workInfoUi.logic.status.indexLoading");
                 IProgress<TactTimeCsvReadProgress> progress = CreateHistoryProgress();
                 TactTimeCsvIndexResult index = await TactTimeCsvReader.IndexRunsAsync(
                     filePath,
@@ -353,7 +390,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (run == null)
                 throw new ArgumentNullException("run");
 
-            lblStatus.Text = "선택한 Run의 택타임 기록을 불러오고 있습니다. run=" + run.RunId;
+            Lang.BindFormat(lblStatus, "workInfoUi.logic.status.runLoading", run.RunId);
             TactTimeCsvLoadResult load = await TactTimeCsvReader.LoadRunAsync(
                 _historyFilePath,
                 run.RunId,
@@ -367,12 +404,19 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             UpdateHistoryFileInfo(run, load);
             RefreshAll(true);
 
-            string warning = load.SkippedRecordCount > 0 || load.IncompleteLastRecord || load.Warnings.Count > 0
-                ? " / 제외=" + load.SkippedRecordCount + "건" +
-                  (load.IncompleteLastRecord ? ", 마지막 미완성 행 제외" : "") +
-                  (load.Warnings.Count > 0 ? ", 경고=" + load.Warnings.Count + "건" : "")
-                : "";
-            lblStatus.Text = "과거 Run을 불러왔습니다. records=" + _historyRecords.Count.ToString("N0") + warning;
+            int skippedCount = load.SkippedRecordCount;
+            bool incompleteLastRecord = load.IncompleteLastRecord;
+            int warningCount = load.Warnings.Count;
+            string loadedCount = _historyRecords.Count.ToString("N0");
+            Lang.BindDisplay(lblStatus, string.Empty, raw =>
+            {
+                string warning = skippedCount > 0 || incompleteLastRecord || warningCount > 0
+                    ? Lang.Format("workInfoUi.logic.skippedWarning", skippedCount) +
+                      (incompleteLastRecord ? Lang.T("workInfoUi.logic.incompleteWarning") : string.Empty) +
+                      (warningCount > 0 ? Lang.Format("workInfoUi.logic.warningCount", warningCount) : string.Empty)
+                    : string.Empty;
+                return Lang.Format("workInfoUi.logic.status.runLoaded", loadedCount, warning);
+            });
         }
 
         private CancellationTokenSource BeginHistoryLoad()
@@ -418,7 +462,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return;
 
                 progressHistory.Value = Math.Max(progressHistory.Minimum, Math.Min(progressHistory.Maximum, value.Percent));
-                lblFileInfo.Text = value.Phase + " " + value.Percent + "% / " + value.RecordCount.ToString("N0") + "건";
+                WorkInfoText.BindFormat(lblFileInfo, "workInfoUi.logic.status.historyProgress", new object[] { value.Phase, value.Percent, value.RecordCount.ToString("N0") }, 0);
             });
         }
 
@@ -438,24 +482,23 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             if (_historyMode)
             {
-                lblDataSource.Text = "HISTORY";
+                Lang.BindFormat(lblDataSource, "workInfoUi.logic.status.history");
                 lblDataSource.BackColor = Color.FromArgb(0x75, 0x57, 0xA8);
                 chkAutoRefresh.Enabled = false;
                 cmbRun.Enabled = !_historyLoading && cmbRun.Items.Count > 0;
                 if (!string.IsNullOrWhiteSpace(_historyFilePath) && _historyIndex != null)
                 {
                     var file = new FileInfo(_historyFilePath);
-                    lblFileInfo.Text = file.Name + " / " + FormatFileSize(file.Length) +
-                                       " / Run " + _historyIndex.Runs.Count.ToString("N0") + "개";
+                    Lang.BindFormat(lblFileInfo, "workInfoUi.logic.status.historyFile", file.Name, FormatFileSize(file.Length), _historyIndex.Runs.Count.ToString("N0"));
                 }
             }
             else
             {
-                lblDataSource.Text = "LIVE";
+                Lang.BindFormat(lblDataSource, "workInfoUi.logic.status.live");
                 lblDataSource.BackColor = Color.FromArgb(0x2F, 0x80, 0xC9);
                 chkAutoRefresh.Enabled = true;
                 cmbRun.Enabled = false;
-                lblFileInfo.Text = "실시간 메모리 기록 (최대 5,000건)";
+                Lang.BindFormat(lblFileInfo, "workInfoUi.logic.status.liveMemory");
             }
         }
 
@@ -464,9 +507,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var file = new FileInfo(_historyFilePath);
             int runIndex = cmbRun.SelectedIndex >= 0 ? cmbRun.SelectedIndex + 1 : 0;
             int runCount = _historyIndex != null && _historyIndex.Runs != null ? _historyIndex.Runs.Count : 0;
-            lblFileInfo.Text = file.Name + " / " + FormatFileSize(file.Length) +
-                               " / Run " + runIndex + "/" + runCount +
-                               " / " + load.Records.Count.ToString("N0") + "건";
+            Lang.BindFormat(lblFileInfo, "workInfoUi.logic.status.loadedFile", file.Name, FormatFileSize(file.Length), runIndex, runCount, load.Records.Count.ToString("N0"));
         }
 
         private void RefreshAll(bool force)
@@ -486,7 +527,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             catch (Exception ex)
             {
                 LogUiFailure("Refresh", ex);
-                lblStatus.Text = "택타임 화면 갱신에 실패했습니다: " + ex.Message;
+                Lang.BindFormat(lblStatus, "workInfoUi.logic.status.refreshFailed", ex.Message);
             }
         }
 
@@ -857,9 +898,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 _chartRecords.Add(record);
             }
 
-            _timeChart.EmptyMessage = _historyMode
-                ? "선택한 과거 Run에 해당하는 택타임 기록이 없습니다."
-                : "장비가 운전되면 실시간 택타임이 표시됩니다.";
+            _timeChart.EmptyMessageKey = _historyMode
+                ? "diagram.tact.emptyHistory"
+                : "diagram.tact.emptyLive";
             _timeChart.UpdateRecords(_chartRecords, preserveView);
         }
 
@@ -867,10 +908,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             if (records.Count == 0)
             {
-                lblSummary.Text = "표시할 택타임 기록이 없습니다.";
-                lblStatus.Text = _historyMode
-                    ? "선택한 Run 또는 필터에 해당하는 기록이 없습니다."
-                    : "택타임 기록을 기다리는 중입니다.";
+                Lang.BindFormat(lblSummary, "workInfoUi.logic.status.empty");
+                { if (_historyMode) Lang.BindFormat(lblStatus, "workInfoUi.logic.status.emptyHistory"); else Lang.BindFormat(lblStatus, "workInfoUi.logic.status.waiting"); }
                 return;
             }
 
@@ -889,21 +928,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             int statisticGroups = metricRecords.Select(ResolveStatisticItemKey)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Count();
-            string mixedNotice = statisticGroups > 1
-                ? " / 평균·P95 혼합 참고값(" + statisticGroups + "종)"
-                : "";
-
-            lblSummary.Text =
-                "기록 " + records.Count.ToString("N0") + "건" +
-                (records.Count > MaxGridRows ? " (Grid " + displayed.ToString("N0") + "건)" : "") +
-                " / 구간 " + FormatDuration(spanMs) +
-                " / 평균 " + FormatDuration(average) +
-                " / 최소 " + FormatDuration(minimum) +
-                " / P95 " + FormatDuration(p95) +
-                " / 최대 " + FormatDuration(maximum) +
-                " / 실패 " + failed + " / 정지 " + stopped +
-                (containersExcluded ? " / 통계 Run·Unit 중첩 제외" : "") +
-                mixedNotice;
+            bool gridLimited = records.Count > MaxGridRows;
+            string displayedCount = displayed.ToString("N0");
+            object[] summaryValues = new object[]
+            {
+                records.Count.ToString("N0"), string.Empty, FormatDuration(spanMs), FormatDuration(average),
+                FormatDuration(minimum), FormatDuration(p95), FormatDuration(maximum), failed, stopped,
+                string.Empty, string.Empty
+            };
+            Lang.BindDisplay(lblSummary, string.Empty, raw =>
+            {
+                object[] values = (object[])summaryValues.Clone();
+                values[1] = gridLimited ? Lang.Format("workInfoUi.logic.gridCount", displayedCount) : string.Empty;
+                values[9] = containersExcluded ? Lang.T("workInfoUi.logic.containersExcluded") : string.Empty;
+                values[10] = statisticGroups > 1 ? Lang.Format("workInfoUi.logic.mixedStatistics", statisticGroups) : string.Empty;
+                return Lang.Format("workInfoUi.logic.status.summary", values);
+            });
         }
 
         private static List<TactTimeRecord> ResolveMetricRecords(List<TactTimeRecord> records)
@@ -927,17 +967,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return record.Category.ToString();
         }
 
-        private void UpdateSelectedRecordStatus(TactTimeRecord record)
+        private void UpdateSelectedRecordStatus(TactTimeRecord record, bool outsideGrid = false)
         {
-            lblStatus.Text =
-                "선택: " + record.Category +
-                " / " + Safe(record.UnitName) +
-                " / " + Safe(record.ProcessName) +
-                " / " + Safe(record.StepName) +
-                " / " + record.ElapsedMs.ToString("N0") + " ms" +
-                " / " + record.Result +
-                (string.IsNullOrWhiteSpace(record.AlarmCode) ? "" : " / " + record.AlarmCode) +
-                (string.IsNullOrWhiteSpace(record.Detail) ? "" : " / " + record.Detail);
+            object[] displayValues = new object[]
+            {
+                record.Category.ToString(), Safe(record.UnitName), Safe(record.ProcessName), Safe(record.StepName),
+                record.ElapsedMs.ToString("N0"), record.Result.ToString(),
+                string.IsNullOrWhiteSpace(record.AlarmCode) ? "" : " / " + record.AlarmCode,
+                string.IsNullOrWhiteSpace(record.Detail) ? "" : " / " + record.Detail
+            };
+            Lang.BindDisplay(lblStatus, string.Empty, raw =>
+                WorkInfoText.Format("workInfoUi.logic.status.selectedRecord", displayValues, 0, 5) +
+                (outsideGrid ? Lang.T("workInfoUi.logic.outsideGrid") : string.Empty));
         }
 
         private void UpdateRefreshTimer()
@@ -954,9 +995,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private void HandleHistoryFailure(string operation, string message, Exception ex)
         {
             LogUiFailure(operation, ex);
-            lblStatus.Text = message + " " + ex.Message;
-            MessageBox.Show(this, message + Environment.NewLine + Environment.NewLine + ex.Message,
-                "TIMECHART", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            WorkInfoText.BindFormat(lblStatus, "workInfoUi.logic.status.failure", new object[] { message, ex.Message }, 0);
+            MessageBox.Show(this, WorkInfoText.Display(message) + Environment.NewLine + Environment.NewLine + ex.Message,
+                Lang.T("workInfoUi.logic.messageTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         private void LogUiFailure(string operation, Exception ex)

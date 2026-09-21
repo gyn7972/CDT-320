@@ -12,12 +12,28 @@ namespace QMC.CDT_320.Ui.Pages.Settings
     {
         private bool _loadingCategories;
 
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(lblSearch, "settingsUi.caption.search");
+            Lang.BindKey(lblCategory, "settingsUi.caption.category");
+            Lang.BindKey(btnReload, "settingsUi.caption.reloadJson");
+            Lang.BindKey(btnSave, "settingsUi.caption.save");
+            Lang.BindKey(dataGridViewTextBoxColumn1, "settingsUi.caption.code");
+            Lang.BindKey(dataGridViewTextBoxColumn2, "settingsUi.caption.category2");
+            Lang.BindKey(dataGridViewTextBoxColumn3, "settingsUi.caption.severity");
+            Lang.BindKey(dataGridViewTextBoxColumn4, "settingsUi.caption.title");
+            Lang.BindKey(dataGridViewTextBoxColumn5, "settingsUi.caption.cause");
+            Lang.BindKey(dataGridViewTextBoxColumn6, "settingsUi.caption.action2");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
         public AlarmMasterPage()
         {
             InitializeComponent();
             ApplyRuntimeUi();
             SettingsPageLayoutStyler.Apply(this);
             ApplyCompactLayout();
+            InitializeLanguageBindings();
             LoadCategoryItems();
             if (!IsDesignerMode()) LoadGrid();
         }
@@ -170,7 +186,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void btnSave_Click(object sender, EventArgs e)
         {
             AlarmMaster.Save();
-            QMC.Common.MessageDialog.Show("Saved: " + AlarmMaster.Path_, "AlarmMaster", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.alarm.saved", AlarmMaster.Path_), Lang.T("settingsUi.caption.alarmmaster"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void _grid_CellEndEdit(object sender, DataGridViewCellEventArgs e)
@@ -179,5 +195,3 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
-
-

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
@@ -21,6 +22,30 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private readonly Timer _timer;
         private bool _loaded;
 
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(grpDi, "settingsUi.caption.digitalInput");
+            Lang.BindKey(diNo, "settingsUi.caption.no2");
+            Lang.BindKey(diAddress, "settingsUi.caption.addr");
+            Lang.BindKey(diName, "settingsUi.caption.name");
+            Lang.BindKey(diModule, "settingsUi.caption.module");
+            Lang.BindKey(diBit, "settingsUi.caption.bit");
+            Lang.BindKey(diState, "settingsUi.caption.state");
+            Lang.BindKey(grpDo, "settingsUi.caption.digitalOutput");
+            Lang.BindKey(doNo, "settingsUi.caption.no2");
+            Lang.BindKey(doAddress, "settingsUi.caption.addr");
+            Lang.BindKey(doName, "settingsUi.caption.name");
+            Lang.BindKey(doModule, "settingsUi.caption.module");
+            Lang.BindKey(doBit, "settingsUi.caption.bit");
+            Lang.BindKey(doState, "settingsUi.caption.state");
+            Lang.BindKey(grpAction, "settingsUi.caption.action");
+            Lang.BindKey(btnRefresh, "settingsUi.caption.refresh");
+            Lang.BindKey(btnDoOn, "settingsUi.caption.doOn");
+            Lang.BindKey(btnDoOff, "settingsUi.caption.doOff");
+            Lang.BindKey(btnPulse, "settingsUi.caption.pulse200Ms");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
         public IoControlPage()
         {
             InitializeComponent();
@@ -28,6 +53,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             SettingsPageLayoutStyler.Apply(this);   // 그룹 생성 前에 정규화(Motion 순서) → 이후 그룹 패딩·폰트 유지
             BuildLayout();
             TightenActionButtons();
+            InitializeLanguageBindings();
 
             _timer = new Timer { Interval = 200 };
             _timer.Tick += (s, e) =>
@@ -88,8 +114,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private void ApplyRuntimeUi()
         {
-            lblHeader.Text = "DIGITAL LINK";
-            lblStatus.Text = "Live hardware I/O. DO commands are written directly to the mapped Ajin output.";
+            Lang.BindKey(lblHeader, "settingsUi.caption.digitalLink");
+            Lang.BindKey(lblStatus, "settingsUi.io.live");
         }
 
         private void btnRefresh_Click(object sender, EventArgs e)
@@ -124,7 +150,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var host = FindForm() as Form1;
             if (host == null || host.Machine == null)
             {
-                lblStatus.Text = "Machine is not ready.";
+                Lang.BindKey(lblStatus, "settingsUi.io.notReady");
                 return;
             }
 
@@ -142,8 +168,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 row.Tag = item;
             }
 
-            lblStatus.Text = "( Loaded DI " + collector.Inputs.Count + " / DO " + collector.Outputs.Count
-                + (!AjinFactory.IsRealBoardReady ? " · SIM" : "") + " )";
+            Lang.BindFormat(lblStatus, !AjinFactory.IsRealBoardReady ? "settingsUi.io.loadedSim" : "settingsUi.io.loaded",
+                collector.Inputs.Count, collector.Outputs.Count);
             RefreshRows();
         }
 
@@ -208,8 +234,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (output == null) return;
 
             bool next = !output.IsOn;
-            string message = output.Name + " output을 " + (next ? "ON" : "OFF") + " 하시겠습니까?";
-            var result = QMC.Common.MessageDialog.Show(this, message, "I/O Control",
+            string message = Lang.Format("settingsUi.io.confirmOutput", output.Name, SettingsUiText.Display(next ? "ON" : "OFF"));
+            var result = QMC.Common.MessageDialog.Show(this, message, Lang.T("settingsUi.caption.iOControl"),
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (result != DialogResult.Yes) return;
 
@@ -239,9 +265,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void ShowIoError(string message)
         {
             if (string.IsNullOrEmpty(message)) message = "I/O write failed.";
-            lblStatus.Text = message;
+            Lang.BindDisplay(lblStatus, message, raw => raw);
             QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error, "IO-DO", "QMC", message);
-            QMC.Common.MessageDialog.Show(this, message, "I/O Control", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            QMC.Common.MessageDialog.Show(this, message, Lang.T("settingsUi.caption.iOControl"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         internal class IoItem<T>
@@ -600,5 +626,3 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
-
-

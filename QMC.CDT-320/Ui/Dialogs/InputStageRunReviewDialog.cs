@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -19,7 +20,7 @@ namespace QMC.CDT_320.Ui.Dialogs
     /// Wafer Align/Die Mapping 완료 후 작업자가 맵과 픽업 시작 조건을 검토하는 화면입니다.
     /// 이 Form은 장비를 직접 구동하지 않고, 화면에서 발생한 요청을 이벤트로 전달합니다.
     /// </summary>
-    public sealed partial class InputStageRunReviewDialog : Form
+    public sealed partial class InputStageRunReviewDialog : Form, ILocalizedView
     {
         private readonly Dictionary<DieMapEntry, int> _previewSequence =
             new Dictionary<DieMapEntry, int>();
@@ -69,6 +70,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         public InputStageRunReviewDialog()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
             InitializeJogModeControls();
             mapView.EmptyAreaClicked += MapView_EmptyAreaClicked;
             ConfigureMapView();
@@ -105,6 +107,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Anchor = AnchorStyles.Left | AnchorStyles.Right
             };
             _cmbJogMode.Items.AddRange(new object[] { "Continuous", "Step" });
+            Lang.BindChoices(_cmbJogMode, AdditionalDialogText.Display);
             // 기본 선택(팀장님 지시 2026-08-18): Step
             _cmbJogMode.SelectedIndex = 1;
             _cmbJogMode.SelectedIndexChanged += delegate { UpdateActionAvailability(); };
@@ -286,9 +289,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return false;
             }
             ApplyWaferVisionStateLabel();
-            btnWaferVisionControl.Text = _waferVisionControlActive
+            AdditionalDialogText.Bind(btnWaferVisionControl, _waferVisionControlActive
                 ? "비전 사용 종료"
-                : "비전 사용 시작";
+                : "비전 사용 시작");
             if (!string.IsNullOrWhiteSpace(status))
                 SetStatus(status);
             UpdateActionAvailability();
@@ -392,7 +395,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             catch { }
             if (lblWaferVisionState != null && !lblWaferVisionState.IsDisposed)
             {
-                lblWaferVisionState.Text = "비전 영상 정지";
+                Lang.BindKey(lblWaferVisionState, "extraDialog.review.visionStopped");
                 lblWaferVisionState.ForeColor = Color.DimGray;
             }
         }
@@ -420,7 +423,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             catch (Exception ex)
             {
                 waferVisionViewer.CameraCommandsEnabled = false;
-                lblWaferVisionState.Text = "Wafer Vision 연결 실패: " + ex.Message;
+                Lang.BindFormat(lblWaferVisionState, "extraDialog.review.visionFailed", ex.Message);
                 lblWaferVisionState.ForeColor = Color.Firebrick;
                 return false;
             }
@@ -429,9 +432,9 @@ namespace QMC.CDT_320.Ui.Dialogs
         public void SetMode(InputStageRunReviewMode mode)
         {
             _mode = mode;
-            lblDialogMode.Text = mode == InputStageRunReviewMode.AlignRecovery
-                ? "ALIGN RECOVERY"
-                : "MAPPING REVIEW";
+            Lang.BindKey(lblDialogMode, mode == InputStageRunReviewMode.AlignRecovery
+                ? "extraDialog.review.alignRecovery"
+                : "extraDialog.review.mappingReview");
             lblDialogMode.BackColor = mode == InputStageRunReviewMode.AlignRecovery
                 ? Color.FromArgb(192, 80, 64)
                 : Color.FromArgb(38, 113, 82);
@@ -480,12 +483,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             _alignComplete = alignComplete;
             _mappingComplete = mappingComplete;
             _reviewValid = false;
-            lblAlignValue.Text = alignComplete ? "COMPLETE" : "REQUIRED";
+            Lang.BindKey(lblAlignValue, alignComplete ? "extraDialog.review.complete" : "extraDialog.review.required");
             lblAlignValue.ForeColor = alignComplete ? Color.LightGreen : Color.Khaki;
-            lblMappingValue.Text = mappingComplete ? "COMPLETE" : "REQUIRED";
+            Lang.BindKey(lblMappingValue, mappingComplete ? "extraDialog.review.complete" : "extraDialog.review.required");
             lblMappingValue.ForeColor = mappingComplete ? Color.LightGreen : Color.Khaki;
             lblMappingRevisionValue.Text = string.IsNullOrWhiteSpace(mappingRevision) ? "-" : mappingRevision;
-            lblReviewValue.Text = string.IsNullOrWhiteSpace(reviewState) ? "REVIEW REQUIRED" : reviewState;
+            BindReviewState(string.IsNullOrWhiteSpace(reviewState) ? "REVIEW REQUIRED" : reviewState);
             UpdateActionAvailability();
 
             // 창 진입/상태 전환 시점을 남긴다(어떤 웨이퍼를 어떤 상태로 검토했는지 추적).
@@ -507,7 +510,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _manualFallbackThetaDone = false;
             if (required)
             {
-                lblAlignValue.Text = "MANUAL(T REQUIRED)";
+                Lang.BindKey(lblAlignValue, "extraDialog.review.manualRequired");
                 lblAlignValue.ForeColor = Color.Khaki;
                 SetStatus("수동 얼라인 웨이퍼입니다. Jog로 정렬 후 [T 보정]을 완료해야 확정할 수 있습니다.");
                 LogReviewAction("MANUAL-FALLBACK", "수동 폴백 얼라인 — T 보정 완료 전 확정 차단");
@@ -522,7 +525,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
 
             _manualFallbackThetaDone = true;
-            lblAlignValue.Text = "MANUAL(T OK)";
+            Lang.BindKey(lblAlignValue, "extraDialog.review.manualOk");
             lblAlignValue.ForeColor = Color.LightGreen;
             LogReviewAction("MANUAL-FALLBACK", "T 보정 완료 — 확정 허용");
             UpdateActionAvailability();
@@ -573,7 +576,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void ApplyVisionConnectionLabel(bool connected)
         {
-            lblVisionValue.Text = connected ? "CONNECTED" : "DISCONNECTED";
+            Lang.BindKey(lblVisionValue, connected ? "extraDialog.review.connected" : "extraDialog.review.disconnected");
             lblVisionValue.ForeColor = connected ? Color.LightGreen : Color.LightSalmon;
         }
 
@@ -614,16 +617,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 color = Color.DimGray;
             }
 
-            lblWaferVisionState.Text = text;
+            AdditionalDialogText.Bind(lblWaferVisionState, text);
             lblWaferVisionState.ForeColor = color;
         }
 
         public void SetReviewValid(bool valid, string reviewState)
         {
             _reviewValid = valid;
-            lblReviewValue.Text = string.IsNullOrWhiteSpace(reviewState)
+            BindReviewState(string.IsNullOrWhiteSpace(reviewState)
                 ? (valid ? "READY TO START" : "REVIEW REQUIRED")
-                : reviewState;
+                : reviewState);
             lblReviewValue.ForeColor = valid ? Color.LightGreen : Color.Khaki;
             UpdateActionAvailability();
         }
@@ -640,7 +643,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         public void SetReviewApprovalStatus(string reason)
         {
-            lblReviewValue.Text = _reviewValid ? "USER CONFIRM REQUIRED" : "REVIEW REQUIRED";
+            Lang.BindKey(lblReviewValue, _reviewValid ? "extraDialog.review.confirmRequired" : "extraDialog.review.reviewRequired");
             lblReviewValue.ForeColor = _reviewValid ? Color.LightGreen : Color.Khaki;
             if (!string.IsNullOrWhiteSpace(reason))
                 SetStatus(reason);
@@ -671,7 +674,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _waferVisionControlActive = false;
                 ConfigureWaferVisionViewer(false);
-                lblWaferVisionState.Text = "읽기 전용 - 영상 확인/측정만 가능";
+                Lang.BindKey(lblWaferVisionState, "extraDialog.review.readOnly");
             }
             UpdateActionAvailability();
             if (readOnly)
@@ -883,7 +886,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void ConfigureMapView()
         {
-            mapView.Caption = "INPUT WAFER MAP";
+            mapView.Caption = Lang.T("extraDialog.remaining.review.mapCaption");
             mapView.ShowWaferOutline = true;
             mapView.ShowEquipmentAxes = true;
             mapView.CompactUsedBounds = true;
@@ -965,11 +968,10 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             int sequence;
             _previewSequence.TryGetValue(entry, out sequence);
-            return "Sequence=" + (sequence > 0 ? sequence.ToString() : "-") +
-                   ", Map=(" + entry.DieMapX + "," + entry.DieMapY + ")" +
-                   ", EquipmentGrid=(" + FormatGrid(entry.EquipmentGridX) + "," + FormatGrid(entry.EquipmentGridY) + ")" +
-                   ", Position=(" + entry.PosX.ToString("F3") + "," + entry.PosY.ToString("F3") + ")" +
-                   ", UID=" + (entry.DieUid ?? "");
+            return Lang.Format("extraDialog.remaining.review.mapCellStatus",
+                sequence > 0 ? sequence.ToString() : "-", entry.DieMapX, entry.DieMapY,
+                FormatGrid(entry.EquipmentGridX), FormatGrid(entry.EquipmentGridY),
+                entry.PosX.ToString("F3"), entry.PosY.ToString("F3"), entry.DieUid ?? "");
         }
 
         private Tuple<string, Color>[] BuildLegendItems()
@@ -989,18 +991,18 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (waitBins.Count <= 1)
             {
-                legend.Add(Tuple.Create("WAIT", QMC.CDT_320.Ui.Controls.WaferMapPalette.Wait));
+                legend.Add(Tuple.Create(Lang.T("extraDialog.remaining.review.wait"), QMC.CDT_320.Ui.Controls.WaferMapPalette.Wait));
             }
             else
             {
                 foreach (int bin in waitBins)
-                    legend.Add(Tuple.Create("WAIT B" + bin, ResolveWaitBinColor(bin)));
+                    legend.Add(Tuple.Create(Lang.Format("extraDialog.remaining.review.waitBin", bin), ResolveWaitBinColor(bin)));
             }
 
-            legend.Add(Tuple.Create("START", QMC.CDT_320.Ui.Controls.WaferMapPalette.StartMarker));
-            legend.Add(Tuple.Create("GOOD", BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)));
-            legend.Add(Tuple.Create("NG", QMC.CDT_320.Ui.Controls.WaferMapPalette.NgFallback));
-            legend.Add(Tuple.Create("SKIP", QMC.CDT_320.Ui.Controls.WaferMapPalette.Skip));
+            legend.Add(Tuple.Create(Lang.T("extraDialog.remaining.review.startLegend"), QMC.CDT_320.Ui.Controls.WaferMapPalette.StartMarker));
+            legend.Add(Tuple.Create(Lang.T("extraDialog.remaining.review.good"), BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)));
+            legend.Add(Tuple.Create(Lang.T("extraDialog.remaining.review.ng"), QMC.CDT_320.Ui.Controls.WaferMapPalette.NgFallback));
+            legend.Add(Tuple.Create(Lang.T("extraDialog.remaining.review.skip"), QMC.CDT_320.Ui.Controls.WaferMapPalette.Skip));
             return legend.ToArray();
         }
 
@@ -1248,9 +1250,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             lblPitchGapXValue.Text = _dieMap != null ? (_dieMap.PitchX - _dieMap.DieSizeX).ToString("F4") : "-";
             lblPitchGapYValue.Text = _dieMap != null ? (_dieMap.PitchY - _dieMap.DieSizeY).ToString("F4") : "-";
             lblWaferDiameterValue.Text = _dieMap != null ? _dieMap.OuterDiameterMm.ToString("F3") : "-";
-            lblMappingOriginValue.Text = _dieMap != null && _dieMap.ProcessTransform != null
+            AdditionalDialogText.Bind(lblMappingOriginValue, _dieMap != null && _dieMap.ProcessTransform != null
                 ? (_dieMap.ProcessTransform.Settings != null ? _dieMap.ProcessTransform.Settings.GridOrigin : WaferMapGridOrigin.TopLeft).ToString()
-                : "-";
+                : "-");
             RefreshSelectedDieInformation();
         }
 
@@ -1266,18 +1268,19 @@ namespace QMC.CDT_320.Ui.Dialogs
             lblOriginalMapValue.Text = entry != null
                 ? entry.BinCode.ToString()
                 : "-";
-            lblSelectedPositionValue.Text = entry != null
+            AdditionalDialogText.Bind(lblSelectedPositionValue, entry != null
                 ? ResolveDieStateText(entry)
-                : "-";
+                : "-");
             lblSelectedSequenceValue.Text = entry != null && ResolvePreviewSequence(entry) > 0
                 ? ResolvePreviewSequence(entry).ToString()
                 : "-";
             DieMapEntry start = StartDie;
-            lblStartDieValue.Text = start != null
-                ? (string.IsNullOrWhiteSpace(start.DieUid)
+            if (start != null)
+                Lang.Bind(lblStartDieValue, string.IsNullOrWhiteSpace(start.DieUid)
                     ? "Map " + start.DieMapX + "," + start.DieMapY
-                    : start.DieUid)
-                : "NOT SET";
+                    : start.DieUid);
+            else
+                Lang.BindKey(lblStartDieValue, "extraDialog.remaining.review.notSet");
         }
 
         private int ResolvePreviewSequence(DieMapEntry entry)
@@ -1514,8 +1517,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (startIndex > 0)
                 numStartIndex.Value = Math.Min(numStartIndex.Maximum, startIndex);
             RefreshSelectedDieInformation();
-            SetStatus("선택 Die를 시작점으로 설정했습니다. UID=" + (_startDie.DieUid ?? "") +
-                      ", Map=(" + _startDie.DieMapX + "," + _startDie.DieMapY + ")");
+            SetStatusFormat("extraDialog.remaining.review.startSet", _startDie.DieUid ?? "", _startDie.DieMapX, _startDie.DieMapY);
         }
 
         private void BtnSetStartIndex_Click(object sender, EventArgs e)
@@ -2030,7 +2032,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (_nonproductionReviewMode)
             {
-                lblReviewValue.Text = "NONPRODUCTION REVIEW";
+                Lang.BindKey(lblReviewValue, "extraDialog.review.nonproduction");
                 lblReviewValue.ForeColor = Color.Khaki;
             }
             // [라이브 중 버튼 사용 2026-08-17, 팀장님 지시] 기존에는 Wafer Vision Live Scope를 잡으면
@@ -2104,10 +2106,20 @@ namespace QMC.CDT_320.Ui.Dialogs
             SetStatus(message);
         }
 
+        private void SetStatusFormat(string key, params object[] values)
+        {
+            bool nonproduction = _nonproductionReviewMode;
+            Lang.BindDisplay(lblStatus, string.Empty, raw =>
+            {
+                string display = Lang.Format(key, values);
+                return nonproduction ? Lang.Format("extraDialog.remaining.review.nonproductionStatus", display) : display;
+            });
+        }
+
         private void SetStatus(string message)
         {
             string text = string.IsNullOrWhiteSpace(message) ? "-" : message;
-            lblStatus.Text = _nonproductionReviewMode ? "실측 검증 아님 | " + text : text;
+            AdditionalDialogText.Bind(lblStatus, _nonproductionReviewMode ? "실측 검증 아님 | " + text : text);
         }
 
         private void BtnClose_Click(object sender, EventArgs e)
@@ -2201,6 +2213,115 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             _axisPositionProvider = null;
         }
+        private void BindReviewState(string state)
+        {
+            string key = state == "REVIEW REQUIRED" ? "extraDialog.review.reviewRequired" :
+                state == "READY TO START" ? "extraDialog.review.ready" :
+                state == "USER CONFIRM REQUIRED" ? "extraDialog.review.confirmRequired" : null;
+            if (key == null) Lang.Bind(lblReviewValue, state);
+            else Lang.BindKey(lblReviewValue, key);
+        }
+
+        public void ApplyLanguage()
+        {
+            mapView.Caption = Lang.T("extraDialog.remaining.review.mapCaption");
+            mapView.Invalidate();
+        }
+
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindChoices(cmbJogSpeed, AdditionalDialogText.Display);
+            Lang.BindReadOnlyCells(dieGrid, AdditionalDialogText.Display, cell => cell.ColumnIndex == colState.Index || cell.ColumnIndex == colResult.Index);
+            AdditionalDialogText.Bind(btnWaferVisionControl, btnWaferVisionControl.Text);
+            Lang.BindKey(lblTitle, "extraDialog.inputStageRunReviewDialog.lblTitle.caption");
+            Lang.BindKey(lblWaferCaption, "extraDialog.inputStageRunReviewDialog.lblWaferCaption.caption");
+            Lang.BindKey(lblRecipeCaption, "extraDialog.inputStageRunReviewDialog.lblRecipeCaption.caption");
+            Lang.BindKey(lblVisionCaption, "extraDialog.inputStageRunReviewDialog.lblVisionCaption.caption");
+            Lang.BindKey(lblAlignCaption, "extraDialog.inputStageRunReviewDialog.lblAlignCaption.caption");
+            Lang.BindKey(lblMappingCaption, "extraDialog.inputStageRunReviewDialog.lblMappingCaption.caption");
+            Lang.BindKey(lblReviewCaption, "extraDialog.inputStageRunReviewDialog.lblReviewCaption.caption");
+            Lang.BindKey(grpWaferVision, "extraDialog.inputStageRunReviewDialog.grpWaferVision.caption");
+            Lang.BindKey(colSequence, "extraDialog.inputStageRunReviewDialog.colSequence.caption");
+            Lang.BindKey(colMapX, "extraDialog.inputStageRunReviewDialog.colMapX.caption");
+            Lang.BindKey(colMapY, "extraDialog.inputStageRunReviewDialog.colMapY.caption");
+            Lang.BindKey(colGridX, "extraDialog.inputStageRunReviewDialog.colGridX.caption");
+            Lang.BindKey(colGridY, "extraDialog.inputStageRunReviewDialog.colGridY.caption");
+            Lang.BindKey(colOriginalX, "extraDialog.inputStageRunReviewDialog.colOriginalX.caption");
+            Lang.BindKey(colOriginalY, "extraDialog.inputStageRunReviewDialog.colOriginalY.caption");
+            Lang.BindKey(colState, "extraDialog.inputStageRunReviewDialog.colState.caption");
+            Lang.BindKey(colResult, "extraDialog.inputStageRunReviewDialog.colResult.caption");
+            Lang.BindKey(colBin, "extraDialog.inputStageRunReviewDialog.colBin.caption");
+            Lang.BindKey(colPosX, "extraDialog.inputStageRunReviewDialog.colPosX.caption");
+            Lang.BindKey(colPosY, "extraDialog.inputStageRunReviewDialog.colPosY.caption");
+            Lang.BindKey(colDieUid, "extraDialog.inputStageRunReviewDialog.colDieUid.caption");
+            Lang.BindKey(grpDieState, "extraDialog.inputStageRunReviewDialog.grpDieState.caption");
+            Lang.BindKey(rbDieStateWait, "extraDialog.inputStageRunReviewDialog.rbDieStateWait.caption");
+            Lang.BindKey(rbDieStateGood, "extraDialog.inputStageRunReviewDialog.rbDieStateGood.caption");
+            Lang.BindKey(rbDieStateNg, "extraDialog.inputStageRunReviewDialog.rbDieStateNg.caption");
+            Lang.BindKey(rbDieStateSkip, "extraDialog.inputStageRunReviewDialog.rbDieStateSkip.caption");
+            Lang.BindKey(btnApplyDieState, "extraDialog.inputStageRunReviewDialog.btnApplyDieState.caption");
+            Lang.BindKey(grpStartDie, "extraDialog.inputStageRunReviewDialog.grpStartDie.caption");
+            Lang.BindKey(lblStartDieCaption, "extraDialog.inputStageRunReviewDialog.lblStartDieCaption.caption");
+            Lang.BindKey(btnSetStartDie, "extraDialog.inputStageRunReviewDialog.btnSetStartDie.caption");
+            Lang.BindKey(lblStartIndexCaption, "extraDialog.inputStageRunReviewDialog.lblStartIndexCaption.caption");
+            Lang.BindKey(btnSetStartIndex, "extraDialog.inputStageRunReviewDialog.btnSetStartIndex.caption");
+            Lang.BindKey(chkUseSelectedStart, "extraDialog.inputStageRunReviewDialog.chkUseSelectedStart.caption");
+            Lang.BindKey(grpJog, "extraDialog.inputStageRunReviewDialog.grpJog.caption");
+            Lang.BindKey(lblJogSpeed, "extraDialog.inputStageRunReviewDialog.lblJogSpeed.caption");
+            Lang.BindKey(lblVisionXCaption, "extraDialog.inputStageRunReviewDialog.lblVisionXCaption.caption");
+            Lang.BindKey(lblWaferYCaption, "extraDialog.inputStageRunReviewDialog.lblWaferYCaption.caption");
+            Lang.BindKey(lblWaferTCaption, "extraDialog.inputStageRunReviewDialog.lblWaferTCaption.caption");
+            Lang.BindKey(btnJogStop, "extraDialog.inputStageRunReviewDialog.btnJogStop.caption");
+            Lang.BindKey(grpActions, "extraDialog.inputStageRunReviewDialog.grpActions.caption");
+            Lang.BindKey(btnMoveSelectedDie, "extraDialog.inputStageRunReviewDialog.btnMoveSelectedDie.caption");
+            Lang.BindKey(btnThetaCorrection, "extraDialog.inputStageRunReviewDialog.btnThetaCorrection.caption");
+            Lang.BindKey(btnDieDetection, "extraDialog.inputStageRunReviewDialog.btnDieDetection.caption");
+            Lang.BindKey(btnOffsetApply, "extraDialog.inputStageRunReviewDialog.btnOffsetApply.caption");
+            Lang.BindKey(btnVisionTest, "extraDialog.inputStageRunReviewDialog.btnVisionTest.caption");
+            Lang.BindKey(grpMapInfo, "extraDialog.inputStageRunReviewDialog.grpMapInfo.caption");
+            Lang.BindKey(lblMapGridCaption, "extraDialog.inputStageRunReviewDialog.lblMapGridCaption.caption");
+            Lang.BindKey(lblMapProgressCaption, "extraDialog.inputStageRunReviewDialog.lblMapProgressCaption.caption");
+            Lang.BindKey(lblTargetCountCaption, "extraDialog.inputStageRunReviewDialog.lblTargetCountCaption.caption");
+            Lang.BindKey(lblDieSizeXCaption, "extraDialog.inputStageRunReviewDialog.lblDieSizeXCaption.caption");
+            Lang.BindKey(lblDieSizeYCaption, "extraDialog.inputStageRunReviewDialog.lblDieSizeYCaption.caption");
+            Lang.BindKey(lblPitchGapXCaption, "extraDialog.inputStageRunReviewDialog.lblPitchGapXCaption.caption");
+            Lang.BindKey(lblPitchGapYCaption, "extraDialog.inputStageRunReviewDialog.lblPitchGapYCaption.caption");
+            Lang.BindKey(lblWaferDiameterCaption, "extraDialog.inputStageRunReviewDialog.lblWaferDiameterCaption.caption");
+            Lang.BindKey(lblInputCameraXCaption, "extraDialog.inputStageRunReviewDialog.lblInputCameraXCaption.caption");
+            Lang.BindKey(lblInputStageYCaption, "extraDialog.inputStageRunReviewDialog.lblInputStageYCaption.caption");
+            Lang.BindKey(lblEquipmentGridCaption, "extraDialog.inputStageRunReviewDialog.lblEquipmentGridCaption.caption");
+            Lang.BindKey(lblOriginalMapCaption, "extraDialog.inputStageRunReviewDialog.lblOriginalMapCaption.caption");
+            Lang.BindKey(lblMappingOriginCaption, "extraDialog.inputStageRunReviewDialog.lblMappingOriginCaption.caption");
+            Lang.BindKey(lblSelectedDieCaption, "extraDialog.inputStageRunReviewDialog.lblSelectedDieCaption.caption");
+            Lang.BindKey(lblSelectedSequenceCaption, "extraDialog.inputStageRunReviewDialog.lblSelectedSequenceCaption.caption");
+            Lang.BindKey(lblSelectedPositionCaption, "extraDialog.inputStageRunReviewDialog.lblSelectedPositionCaption.caption");
+            Lang.BindKey(grpPickupRoute, "extraDialog.inputStageRunReviewDialog.grpPickupRoute.caption");
+            Lang.BindKey(lblCornerCaption, "extraDialog.inputStageRunReviewDialog.lblCornerCaption.caption");
+            Lang.BindKey(rbCornerTopLeft, "extraDialog.inputStageRunReviewDialog.rbCornerTopLeft.caption");
+            Lang.BindKey(rbCornerTopRight, "extraDialog.inputStageRunReviewDialog.rbCornerTopRight.caption");
+            Lang.BindKey(rbCornerBottomLeft, "extraDialog.inputStageRunReviewDialog.rbCornerBottomLeft.caption");
+            Lang.BindKey(rbCornerBottomRight, "extraDialog.inputStageRunReviewDialog.rbCornerBottomRight.caption");
+            Lang.BindKey(lblDirectionCaption, "extraDialog.inputStageRunReviewDialog.lblDirectionCaption.caption");
+            Lang.BindKey(rbDirectionHorizontal, "extraDialog.inputStageRunReviewDialog.rbDirectionHorizontal.caption");
+            Lang.BindKey(rbDirectionVertical, "extraDialog.inputStageRunReviewDialog.rbDirectionVertical.caption");
+            Lang.BindKey(lblPatternCaption, "extraDialog.inputStageRunReviewDialog.lblPatternCaption.caption");
+            Lang.BindKey(rbPatternStraight, "extraDialog.inputStageRunReviewDialog.rbPatternStraight.caption");
+            Lang.BindKey(rbPatternZigZag, "extraDialog.inputStageRunReviewDialog.rbPatternZigZag.caption");
+            Lang.BindKey(btnPreviewPath, "extraDialog.inputStageRunReviewDialog.btnPreviewPath.caption");
+            Lang.BindKey(btnApplyPickupOrder, "extraDialog.inputStageRunReviewDialog.btnApplyPickupOrder.caption");
+            Lang.BindKey(grpWorkflow, "extraDialog.inputStageRunReviewDialog.grpWorkflow.caption");
+            Lang.BindKey(lblRevisionCaption, "extraDialog.inputStageRunReviewDialog.lblRevisionCaption.caption");
+            Lang.BindKey(btnRetryAlign, "extraDialog.inputStageRunReviewDialog.btnRetryAlign.caption");
+            Lang.BindKey(btnRetryMapping, "extraDialog.inputStageRunReviewDialog.btnRetryMapping.caption");
+            Lang.BindKey(btnMappingSetup, "extraDialog.inputStageRunReviewDialog.btnMappingSetup.caption");
+            Lang.BindKey(btnStartRun, "extraDialog.inputStageRunReviewDialog.btnStartRun.caption");
+            Lang.BindKey(btnAbortAuto, "extraDialog.inputStageRunReviewDialog.btnAbortAuto.caption");
+            Lang.BindKey(btnBuzzerStop, "extraDialog.inputStageRunReviewDialog.btnBuzzerStop.caption");
+            Lang.BindKey(btnClose, "extraDialog.inputStageRunReviewDialog.btnClose.caption");
+            Lang.BindKey(this, "extraDialog.inputStageRunReviewDialog.this.caption");
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
     }
 
     public enum InputStageRunReviewMode
@@ -2279,5 +2400,6 @@ namespace QMC.CDT_320.Ui.Dialogs
         public PickupSubset Options { get; private set; }
         public DieMapEntry StartDie { get; private set; }
         public IReadOnlyList<DieMapEntry> OrderedEntries { get; private set; }
+
     }
 }

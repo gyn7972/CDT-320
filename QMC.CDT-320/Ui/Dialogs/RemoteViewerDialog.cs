@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320.Remote;
@@ -14,6 +15,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _host = host;
             InitializeComponent();
+            InitializeLanguageBindings();
             ApplyDialogStyle();
             WireEvents();
             StartPreviewTimer();
@@ -42,11 +44,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _viewer.Start();
                 _btnStart.Enabled = false;
                 _btnStop.Enabled = true;
-                SetStatus($"listening on {port}", true);
+                SetStatus("visionUi.remote.listening", true, port);
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Start fail: " + ex.Message, "Remote Viewer");
+                QMC.Common.MessageDialog.Show(this, Lang.Format("visionUi.remoteViewerDialog.message.text", (object)(ex.Message)), Lang.T("visionUi.remoteViewerDialog.message.state2"));
             }
         }
 
@@ -56,12 +58,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             _viewer = null;
             _btnStart.Enabled = true;
             _btnStop.Enabled = false;
-            SetStatus("stopped", false);
+            SetStatus("visionUi.remote.stopped", false);
         }
 
         private void ApplyDialogStyle()
         {
-            Text = "원격 뷰어";
+            Lang.BindKey(this, "visionUi.remoteViewerDialog.Text.text");
             ClientSize = new Size(760, 620);
             BackColor = Color.White;
 
@@ -80,7 +82,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 rootLayout.RowStyles[4].Height = 56F;
             }
 
-            lblTitle.Text = "원격 뷰어";
+            Lang.BindKey(lblTitle, "visionUi.remoteViewerDialog.Text.text");
             lblTitle.Margin = Padding.Empty;
             lblTitle.Padding = new Padding(20, 0, 20, 0);
             lblTitle.BackColor = Color.FromArgb(38, 50, 66);
@@ -100,7 +102,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             controlLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             controlLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 0F));
 
-            lblPort.Text = "PORT";
+            Lang.BindKey(lblPort, "visionUi.remoteViewerDialog.lblPort.text");
             lblPort.Margin = Padding.Empty;
             lblPort.Font = new Font("Malgun Gothic", 9F, FontStyle.Bold);
             lblPort.ForeColor = Color.FromArgb(57, 65, 75);
@@ -113,14 +115,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             _lblStatus.Margin = Padding.Empty;
             _lblStatus.Padding = new Padding(12, 0, 12, 0);
             _lblStatus.Font = new Font("Consolas", 10F, FontStyle.Bold);
-            SetStatus("stopped", false);
+            SetStatus("visionUi.remote.stopped", false);
 
             _lblClients.Margin = new Padding(12, 0, 12, 6);
             _lblClients.Padding = new Padding(12, 0, 12, 0);
             _lblClients.BackColor = Color.FromArgb(248, 250, 252);
             _lblClients.ForeColor = Color.FromArgb(57, 65, 75);
             _lblClients.Font = new Font("Malgun Gothic", 9F, FontStyle.Bold);
-            _lblClients.Text = "CONNECTED VIEWERS : 0";
+            Lang.BindKey(_lblClients, "visionUi.remoteViewerDialog._lblClients.text");
 
             _preview.Margin = new Padding(12, 0, 12, 8);
             _preview.BackColor = Color.FromArgb(18, 22, 28);
@@ -136,9 +138,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             StyleActionButton(_btnClose, false);
         }
 
-        private void SetStatus(string text, bool active)
+        private void SetStatus(string key, bool active, params object[] values)
         {
-            _lblStatus.Text = text;
+            Lang.BindFormat(_lblStatus, key, values);
             _lblStatus.ForeColor = active ? Color.FromArgb(30, 113, 75) : Color.FromArgb(92, 101, 114);
             _lblStatus.BackColor = active ? Color.FromArgb(226, 244, 233) : Color.FromArgb(242, 244, 247);
         }
@@ -179,6 +181,18 @@ namespace QMC.CDT_320.Ui.Dialogs
             _previewTimer?.Stop();
             try { _viewer?.Stop(); _viewer?.Dispose(); } catch { }
             base.OnFormClosing(e);
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this.lblTitle, "visionUi.remoteViewerDialog.lblTitle.text");
+            Lang.BindKey(this.lblPort, "visionUi.remoteViewerDialog.lblPort.state2");
+            Lang.BindKey(this._btnStart, "visionUi.remoteViewerDialog._btnStart.text");
+            Lang.BindKey(this._btnStop, "visionUi.remoteViewerDialog._btnStop.text");
+            Lang.BindKey(this._lblStatus, "visionUi.remoteViewerDialog._lblStatus.text");
+            Lang.BindKey(this._lblClients, "visionUi.remoteViewerDialog._lblClients.state2");
+            Lang.BindKey(this._btnClose, "visionUi.remoteViewerDialog._btnClose.text");
+            Lang.BindKey(this, "visionUi.remoteViewerDialog.message.state2");
         }
     }
 }

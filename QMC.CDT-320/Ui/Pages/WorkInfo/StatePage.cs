@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT_320.Ui.Localization;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -9,7 +10,7 @@ using QMC.CDT320.Materials;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
-    public partial class StatePage : QMC.CDT_320.Ui.Pages.PageBase
+    public partial class StatePage : QMC.CDT_320.Ui.Pages.PageBase, ILocalizedView
     {
         private const int SLOTS_PER_PLATE = 25;
         private System.Windows.Forms.Timer _refresh;
@@ -23,6 +24,44 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             InitializeComponent();
             BuildPlateSlots();
+            Lang.BindKey(grpActiveLot, "diagram.state.activeLot");
+            Lang.BindKey(lblIdCaption, "diagram.state.lotId");
+            Lang.BindKey(lblRecipeCaption, "diagram.state.recipe");
+            Lang.BindKey(lblStateCaption, "diagram.state.state");
+            Lang.BindKey(lblStartCaption, "diagram.state.started");
+            Lang.BindKey(lblProcessedCaption, "diagram.state.processed");
+            Lang.BindKey(lblGoodCaption, "diagram.state.good");
+            Lang.BindKey(lblNgCaption, "diagram.state.ng");
+            Lang.BindKey(lblYieldCaption, "diagram.state.yield");
+            Lang.BindKey(grpBin, "diagram.state.binDistribution");
+            Lang.BindKey(grpNg, "diagram.state.ngPlate");
+            Lang.BindKey(grpGood, "diagram.state.goodPlate");
+            Lang.BindKey(grpButtons, "diagram.state.buttons");
+            Lang.BindKey(lblStart, "diagram.state.start");
+            Lang.BindKey(lblStop, "diagram.state.stop");
+            Lang.BindKey(lblReset, "diagram.state.reset");
+            Lang.BindKey(lblEmgF, "diagram.state.emgFront");
+            Lang.BindKey(lblEmgL, "diagram.state.emgLeft");
+            Lang.BindKey(lblEmgR, "diagram.state.emgRear");
+            Lang.BindKey(grpResources, "diagram.state.resources");
+            Lang.BindKey(lblCda1, "diagram.state.cda1");
+            Lang.BindKey(lblCda2, "diagram.state.cda2");
+            Lang.BindKey(grpLamps, "diagram.state.lamps");
+            Lang.BindKey(lblStartLamp, "diagram.state.startLamp");
+            Lang.BindKey(lblStopLamp, "diagram.state.stopLamp");
+            Lang.BindKey(lblResetLamp, "diagram.state.resetLamp");
+            Lang.BindKey(grpTower, "diagram.state.tower");
+            Lang.BindKey(lblTlRed, "diagram.state.red");
+            Lang.BindKey(lblTlYellow, "diagram.state.yellow");
+            Lang.BindKey(lblTlGreen, "diagram.state.green");
+            Lang.BindKey(lblBuzzer, "diagram.state.buzzer");
+            Lang.BindKey(grpIonizer, "diagram.state.ionizer");
+            Lang.BindKey(lblIonizer, "diagram.state.ionizerOk");
+            Lang.BindKey(btnReset, "diagram.state.plateReset");
+            Lang.BindKey(lblVac1, "diagram.state.vacuum1");
+            Lang.BindKey(lblVac2, "diagram.state.vacuum2");
+            Lang.BindKey(lblVac3, "diagram.state.vacuum3");
+            Lang.BindKey(lblVac4, "diagram.state.vacuum4");
 
             if (!IsDesignerMode())
             {
@@ -38,6 +77,25 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 };
                 VisibleChanged += (s, e) => { if (Visible) _refresh.Start(); else _refresh.Stop(); };
                 RefreshAll();
+            }
+        }
+
+        public void ApplyLanguage()
+        {
+            // 표시 문자열만 갱신합니다. 센서와 플레이트 동작은 기존 갱신 경로를 유지합니다.
+            if (!IsDesignerMode()) RefreshLot();
+            _binPanel.Invalidate();
+        }
+
+        private static string LotStateDisplay(LotState state)
+        {
+            switch (state)
+            {
+                case LotState.Open: return Lang.T("diagram.state.lot.open");
+                case LotState.Running: return Lang.T("diagram.state.lot.running");
+                case LotState.Completed: return Lang.T("diagram.state.lot.completed");
+                case LotState.Aborted: return Lang.T("diagram.state.lot.aborted");
+                default: return state.ToString();
             }
         }
 
@@ -70,7 +128,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var lot = LotStorage.ActiveLot;
             string productionLotId = MaterialStateService.GetProductionLotId();
-            _lblId.Text = string.IsNullOrWhiteSpace(productionLotId) ? "(no lot)" : productionLotId;
+            _lblId.Text = string.IsNullOrWhiteSpace(productionLotId) ? Lang.T("diagram.state.noLot") : productionLotId;
             if (lot != null &&
                 (string.IsNullOrWhiteSpace(productionLotId) ||
                  !string.Equals(lot.LotID, productionLotId, StringComparison.Ordinal)))
@@ -79,7 +137,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             if (lot == null)
             {
-                _lblRecipe.Text = _lblState.Text = _lblStart.Text = "(no active lot)";
+                _lblRecipe.Text = _lblState.Text = _lblStart.Text = Lang.T("diagram.state.noActiveLot");
                 _lblProcessed.Text = "0 / 0";
                 _lblGood.Text = _lblNg.Text = "0";
                 _lblYield.Text = "--";
@@ -88,7 +146,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
 
             _lblRecipe.Text = lot.RecipeName;
-            _lblState.Text = lot.State.ToString();
+            _lblState.Text = LotStateDisplay(lot.State);
             _lblStart.Text = lot.StartedAt.ToString("yyyy-MM-dd HH:mm:ss");
             _lblProcessed.Text = $"{lot.ProcessedDies} / {lot.TotalDies}";
             _lblGood.Text = lot.GoodCount.ToString();
@@ -114,7 +172,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 using (var br = new SolidBrush(Color.Gray))
                 using (var f = new Font("맑은 고딕", 14F))
                 {
-                    g.DrawString("(no bin data)", f, br, _binPanel.Width / 2f - 80, _binPanel.Height / 2f - 16);
+                    g.DrawString(Lang.T("diagram.state.noBinData"), f, br, _binPanel.Width / 2f - 80, _binPanel.Height / 2f - 16);
                 }
                 return;
             }
@@ -206,8 +264,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private void ResetPlates()
         {
             if (QMC.Common.MessageDialog.Show(
-                "Plate loaded data will be reset. Continue?",
-                "Plate Reset",
+                Lang.T("diagram.state.resetConfirm"),
+                Lang.T("diagram.state.resetTitle"),
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning) != DialogResult.Yes)
             {

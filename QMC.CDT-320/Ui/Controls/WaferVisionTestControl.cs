@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Localization;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Threading;
@@ -23,6 +24,7 @@ namespace QMC.CDT_320.Ui.Controls
         public WaferVisionTestControl()
         {
             InitializeComponent();
+            InitializeLanguageBindings();
         }
 
         public event Action<bool> RequestBusyChanged;
@@ -260,14 +262,14 @@ namespace QMC.CDT_320.Ui.Controls
             if (client == null)
             {
                 target.ForeColor = Color.Firebrick;
-                target.Text = "Wafer Vision 모듈이 없습니다.";
+                Lang.BindKey(target, "visionUi.waferVisionTestControl.target.text");
                 return false;
             }
 
             if (!client.IsConnected)
             {
                 target.ForeColor = Color.Firebrick;
-                target.Text = "Wafer Vision이 연결되지 않았습니다. port=" + client.Port;
+                Lang.BindFormat(target, "visionUi.waferVisionTestControl.target.state2", (object)(client.Port));
                 return false;
             }
 
@@ -280,7 +282,7 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
 
             lblExpose.ForeColor = Color.DimGray;
-            lblExpose.Text = "GRAB 실행 중...";
+            Lang.BindKey(lblExpose, "visionUi.waferVisionTestControl.lblExpose.text");
             LogLiveAutoStartBlocked("EXPOSE 전 자동 Live 시작 차단");
             Stopwatch requestTact = Stopwatch.StartNew();
             try
@@ -292,8 +294,7 @@ namespace QMC.CDT_320.Ui.Controls
                     cancellationToken).ConfigureAwait(true);
                 requestTact.Stop();
                 lblExpose.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
-                lblExpose.Text = "REQ→ACK " + requestTact.ElapsedMilliseconds + " ms | " +
-                                 (ok ? "EXPOSE ACK 완료" : "EXPOSE 실패. Vision READY/연결 상태를 확인하세요.");
+                Lang.BindFormat(lblExpose, "visionUi.waferVisionTestControl.lblExpose.state2", (object)(requestTact.ElapsedMilliseconds), (object)((ok ? "EXPOSE ACK 완료" : "EXPOSE 실패. Vision READY/연결 상태를 확인하세요.")));
                 if (ok)
                     LogLiveAutoStartBlocked("EXPOSE 완료 후 자동 Live 시작 차단");
             }
@@ -307,7 +308,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 requestTact.Stop();
                 lblExpose.ForeColor = Color.Firebrick;
-                lblExpose.Text = "REQ→ACK " + requestTact.ElapsedMilliseconds + " ms | GRAB 실패: " + ex.Message;
+                Lang.BindFormat(lblExpose, "visionUi.waferVisionTestControl.lblExpose.state3", (object)(requestTact.ElapsedMilliseconds), (object)(ex.Message));
             }
         }
 
@@ -321,7 +322,7 @@ namespace QMC.CDT_320.Ui.Controls
 
             label.ForeColor = Color.DimGray;
             string finder = VisionAlignTargetIds.ResolveWaferFinder(targetId);
-            label.Text = "INSPECT_SYNC 요청/EPD 대기 중...";
+            Lang.BindKey(label, "visionUi.waferVisionTestControl.label.text");
             Stopwatch matchTact = Stopwatch.StartNew();
             try
             {
@@ -337,8 +338,7 @@ namespace QMC.CDT_320.Ui.Controls
                 {
                     matchTact.Stop();
                     label.ForeColor = Color.Firebrick;
-                    label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
-                                 "실패 또는 EPD 타임아웃";
+                    Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state2", (object)(epdElapsedMilliseconds), (object)(Environment.NewLine));
                     return;
                 }
 
@@ -353,10 +353,7 @@ namespace QMC.CDT_320.Ui.Controls
                 matchTact.Stop();
                 bool completed = result != null && result.Success;
                 label.ForeColor = completed ? Color.SeaGreen : Color.Firebrick;
-                label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "EPD→RESULT " + resultTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "전체 " + matchTact.ElapsedMilliseconds + " ms | " +
-                             (completed ? "DONE" : "RESULT 실패");
+                Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state3", (object)(epdElapsedMilliseconds), (object)(Environment.NewLine), (object)(resultTact.ElapsedMilliseconds), (object)(Environment.NewLine), (object)(matchTact.ElapsedMilliseconds), (object)((completed ? "DONE" : "RESULT 실패")));
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -368,8 +365,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 matchTact.Stop();
                 label.ForeColor = Color.Firebrick;
-                label.Text = "REQ→EPD " + matchTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "INSPECT_SYNC 실패: " + ex.Message;
+                Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state4", (object)(matchTact.ElapsedMilliseconds), (object)(Environment.NewLine), (object)(ex.Message));
             }
         }
 
@@ -382,7 +378,7 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
 
             label.ForeColor = Color.DimGray;
-            label.Text = "INSPECT_SYNC 요청/EPD 대기 중...";
+            Lang.BindKey(label, "visionUi.waferVisionTestControl.label.text");
             string finder = VisionAlignTargetIds.ResolveWaferFinder(targetId);
             Stopwatch totalTact = Stopwatch.StartNew();
             try
@@ -399,14 +395,11 @@ namespace QMC.CDT_320.Ui.Controls
                 {
                     totalTact.Stop();
                     label.ForeColor = Color.Firebrick;
-                    label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
-                                 "전체 " + totalTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                                 "INSPECT_SYNC 실패 또는 EPD 타임아웃";
+                    Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state5", (object)(epdElapsedMilliseconds), (object)(Environment.NewLine), (object)(totalTact.ElapsedMilliseconds), (object)(Environment.NewLine));
                     return;
                 }
 
-                label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "RESULT 최종 결과 대기 중...";
+                Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state6", (object)(epdElapsedMilliseconds), (object)(Environment.NewLine));
                 Stopwatch resultTact = Stopwatch.StartNew();
                 MatchResultDto result = await AutoVisionRequestService.WaitMatchResultAsync(
                     AutoVisionChannel.Wafer,
@@ -420,10 +413,7 @@ namespace QMC.CDT_320.Ui.Controls
                 if (result == null || !result.Success)
                 {
                     label.ForeColor = Color.Firebrick;
-                    label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
-                                 "EPD→RESULT " + resultTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                                 "전체 " + totalTact.ElapsedMilliseconds + " ms | 결과 실패: " +
-                                 (result != null ? result.RawError : "응답 없음");
+                    Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state7", (object)(epdElapsedMilliseconds), (object)(Environment.NewLine), (object)(resultTact.ElapsedMilliseconds), (object)(Environment.NewLine), (object)(totalTact.ElapsedMilliseconds), (object)((result != null ? result.RawError : "응답 없음")));
                     return;
                 }
 
@@ -434,17 +424,13 @@ namespace QMC.CDT_320.Ui.Controls
                 if (align == null)
                 {
                     label.ForeColor = Color.Firebrick;
-                    label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
-                                 "EPD→RESULT " + resultTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                                 "전체 " + totalTact.ElapsedMilliseconds + " ms | 완료 데이터 변환 실패";
+                    Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state8", (object)(epdElapsedMilliseconds), (object)(Environment.NewLine), (object)(resultTact.ElapsedMilliseconds), (object)(Environment.NewLine), (object)(totalTact.ElapsedMilliseconds));
                     return;
                 }
 
                 WaferVisionResultStore.RecordAlign(targetId, align);
                 label.ForeColor = Color.SeaGreen;
-                label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "EPD→RESULT " + resultTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "전체 " + totalTact.ElapsedMilliseconds + " ms | DONE score=" + result.Score.ToString("F3");
+                Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state9", (object)(epdElapsedMilliseconds), (object)(Environment.NewLine), (object)(resultTact.ElapsedMilliseconds), (object)(Environment.NewLine), (object)(totalTact.ElapsedMilliseconds), (object)(result.Score.ToString("F3")));
                 LogLiveAutoStartBlocked("ALIGN INSPECT_SYNC + RESULT 완료 후 자동 Live 시작 차단");
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -457,8 +443,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 totalTact.Stop();
                 label.ForeColor = Color.Firebrick;
-                label.Text = "전체 " + totalTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "INSPECT_SYNC + RESULT 실패: " + ex.Message;
+                Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state10", (object)(totalTact.ElapsedMilliseconds), (object)(Environment.NewLine), (object)(ex.Message));
             }
             finally
             {
@@ -475,7 +460,7 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
 
             label.ForeColor = Color.DimGray;
-            label.Text = "INSPECT_SYNC 요청/EPD 대기 중...";
+            Lang.BindKey(label, "visionUi.waferVisionTestControl.label.text");
             string finder = VisionAlignTargetIds.ResolveWaferFinder(targetId);
             Stopwatch totalTact = Stopwatch.StartNew();
             try
@@ -492,14 +477,11 @@ namespace QMC.CDT_320.Ui.Controls
                 {
                     totalTact.Stop();
                     label.ForeColor = Color.Firebrick;
-                    label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
-                                 "전체 " + totalTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                                 "INSPECT_SYNC 실패 또는 EPD 타임아웃";
+                    Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state5", (object)(epdElapsedMilliseconds), (object)(Environment.NewLine), (object)(totalTact.ElapsedMilliseconds), (object)(Environment.NewLine));
                     return;
                 }
 
-                label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "RESULT 최종 결과 대기 중...";
+                Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state6", (object)(epdElapsedMilliseconds), (object)(Environment.NewLine));
                 Stopwatch resultTact = Stopwatch.StartNew();
                 MatchResultDto result = await AutoVisionRequestService.WaitMatchResultAsync(
                     AutoVisionChannel.Wafer,
@@ -513,20 +495,14 @@ namespace QMC.CDT_320.Ui.Controls
                 if (result == null || !result.Success)
                 {
                     label.ForeColor = Color.Firebrick;
-                    label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
-                                 "EPD→RESULT " + resultTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                                 "전체 " + totalTact.ElapsedMilliseconds + " ms | 결과 실패: " +
-                                 (result != null ? result.RawError : "응답 없음");
+                    Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state7", (object)(epdElapsedMilliseconds), (object)(Environment.NewLine), (object)(resultTact.ElapsedMilliseconds), (object)(Environment.NewLine), (object)(totalTact.ElapsedMilliseconds), (object)((result != null ? result.RawError : "응답 없음")));
                     return;
                 }
 
                 bool ok = result.Success && result.Score >= 0.7;
                 WaferVisionResultStore.RecordDieCheck(ok);
                 label.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
-                label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "EPD→RESULT " + resultTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "전체 " + totalTact.ElapsedMilliseconds + " ms | " +
-                             (ok ? "DONE OK" : "DONE NG") + " score=" + result.Score.ToString("F3");
+                Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state11", (object)(epdElapsedMilliseconds), (object)(Environment.NewLine), (object)(resultTact.ElapsedMilliseconds), (object)(Environment.NewLine), (object)(totalTact.ElapsedMilliseconds), (object)((ok ? "DONE OK" : "DONE NG")), (object)(result.Score.ToString("F3")));
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -538,8 +514,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 totalTact.Stop();
                 label.ForeColor = Color.Firebrick;
-                label.Text = "전체 " + totalTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "INSPECT_SYNC + RESULT 실패: " + ex.Message;
+                Lang.BindFormat(label, "visionUi.waferVisionTestControl.label.state10", (object)(totalTact.ElapsedMilliseconds), (object)(Environment.NewLine), (object)(ex.Message));
             }
             finally
             {
@@ -591,7 +566,12 @@ namespace QMC.CDT_320.Ui.Controls
             }
 
             label.ForeColor = Color.DimGray;
-            label.Text = string.IsNullOrWhiteSpace(message) ? "Vision 요청이 취소되었습니다." : message;
+            {
+                if (string.IsNullOrWhiteSpace(message))
+                    Lang.BindKey(label, "visionUi.waferVisionTestControl.label.state12");
+                else
+                    Lang.BindFormat(label, "visionUi.literal", (object)(message));
+            }
         }
 
         private void RefreshSummary()
@@ -618,20 +598,16 @@ namespace QMC.CDT_320.Ui.Controls
 
                 if (last == null)
                 {
-                    lblSummary.Text = "저장된 결과 없음";
+                    Lang.BindKey(lblSummary, "visionUi.waferVisionTestControl.lblSummary.text");
                     return;
                 }
 
-                lblSummary.Text =
-                    "저장됨: DieOffset X=" + last.DieOffsetX.ToString("F4") +
-                    "  Y=" + last.DieOffsetY.ToString("F4") +
-                    "  R=" + last.DieRotation.ToString("F4") +
-                    "   |   DieCheck=" + dieCheck;
+                Lang.BindFormat(lblSummary, "visionUi.waferVisionTestControl.lblSummary.state2", (object)(last.DieOffsetX.ToString("F4")), (object)(last.DieOffsetY.ToString("F4")), (object)(last.DieRotation.ToString("F4")), (object)(dieCheck));
             }
             catch (Exception ex)
             {
                 if (!lblSummary.IsDisposed)
-                    lblSummary.Text = "요약 표시 실패: " + ex.Message;
+                    Lang.BindFormat(lblSummary, "visionUi.waferVisionTestControl.lblSummary.state3", (object)(ex.Message));
             }
         }
 
@@ -652,6 +628,30 @@ namespace QMC.CDT_320.Ui.Controls
                     VisionViewerPorts.Wafer + ", reason=" + reason);
             }
             catch { }
+        }
+        // Keep Designer serialization declarative; register display resources after controls exist.
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(this.btnExpose, "visionUi.waferVisionTestControl.btnExpose.text");
+            Lang.BindKey(this.btnCenterMatchAsync, "visionUi.waferVisionTestControl.btnCenterMatchAsync.text");
+            Lang.BindKey(this.btnCenterMatchResult, "visionUi.waferVisionTestControl.btnCenterMatchResult.text");
+            Lang.BindKey(this.btnRef1MatchAsync, "visionUi.waferVisionTestControl.btnRef1MatchAsync.text");
+            Lang.BindKey(this.btnRef1MatchResult, "visionUi.waferVisionTestControl.btnRef1MatchResult.text");
+            Lang.BindKey(this.btnRef2MatchAsync, "visionUi.waferVisionTestControl.btnRef2MatchAsync.text");
+            Lang.BindKey(this.btnRef2MatchResult, "visionUi.waferVisionTestControl.btnRef2MatchResult.text");
+            Lang.BindKey(this.btnDieCheckMatchAsync, "visionUi.waferVisionTestControl.btnDieCheckMatchAsync.text");
+            Lang.BindKey(this.btnDieCheckMatchResult, "visionUi.waferVisionTestControl.btnDieCheckMatchResult.text");
+            Lang.BindKey(this.lblExpose, "visionUi.waferVisionTestControl.lblExpose.state4");
+            Lang.BindKey(this.lblCenterMatchAsync, "visionUi.waferVisionTestControl.lblCenterMatchAsync.text");
+            Lang.BindKey(this.lblCenterMatchResult, "visionUi.waferVisionTestControl.lblCenterMatchResult.text");
+            Lang.BindKey(this.lblRef1MatchAsync, "visionUi.waferVisionTestControl.lblCenterMatchAsync.text");
+            Lang.BindKey(this.lblRef1MatchResult, "visionUi.waferVisionTestControl.lblCenterMatchResult.text");
+            Lang.BindKey(this.lblRef2MatchAsync, "visionUi.waferVisionTestControl.lblCenterMatchAsync.text");
+            Lang.BindKey(this.lblRef2MatchResult, "visionUi.waferVisionTestControl.lblCenterMatchResult.text");
+            Lang.BindKey(this.lblDieCheckMatchAsync, "visionUi.waferVisionTestControl.lblCenterMatchAsync.text");
+            Lang.BindKey(this.lblDieCheckMatchResult, "visionUi.waferVisionTestControl.lblDieCheckMatchResult.text");
+            Lang.BindKey(this.lblSummary, "visionUi.waferVisionTestControl.lblSummary.text");
+            Lang.BindKey(this.lblHint, "visionUi.waferVisionTestControl.lblHint.text");
         }
     }
 }

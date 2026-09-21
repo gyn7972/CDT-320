@@ -27,6 +27,74 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private Timer _refresh;
         private Dialogs.MotionTestDialog _motionTestDialog;
 
+        private void InitializeLanguageBindings()
+        {
+            Lang.BindKey(grpModule, "settingsUi.caption.moduleList");
+            Lang.BindKey(INDEX, "settingsUi.caption.index");
+            Lang.BindKey(MODULE, "settingsUi.caption.module");
+            Lang.BindKey(KEY, "settingsUi.caption.key");
+            Lang.BindKey(NO, "settingsUi.caption.no");
+            Lang.BindKey(BOARD, "settingsUi.caption.board2");
+            Lang.BindKey(CH, "settingsUi.caption.ch");
+            Lang.BindKey(STATUS, "settingsUi.caption.status");
+            Lang.BindKey(SERVO, "settingsUi.caption.servo");
+            Lang.BindKey(COMMAND_POSITION, "settingsUi.caption.commandPosition");
+            Lang.BindKey(ACTUAL_POSITION, "settingsUi.caption.actualPosition");
+            Lang.BindKey(VELOCITY, "settingsUi.caption.velocity");
+            Lang.BindKey(DONE, "settingsUi.caption.done");
+            Lang.BindKey(INP_DONE, "settingsUi.caption.inpDone");
+            Lang.BindKey(HOME_END, "settingsUi.caption.homeEnd");
+            Lang.BindKey(ALARM, "settingsUi.caption.alarm");
+            Lang.BindKey(PEL, "settingsUi.caption.pel");
+            Lang.BindKey(MEL, "settingsUi.caption.mel");
+            Lang.BindKey(ORG, "settingsUi.caption.org");
+            Lang.BindKey(grpConfiguration, "settingsUi.caption.configuration");
+            Lang.BindKey(tabStatus, "settingsUi.caption.status");
+            Lang.BindKey(tabConfig, "settingsUi.caption.config");
+            Lang.BindKey(grpConfig, "settingsUi.caption.config");
+            Lang.BindKey(grpInposition, "settingsUi.caption.inposition");
+            Lang.BindKey(grpLimit, "settingsUi.caption.limit");
+            Lang.BindKey(grpEmergency, "settingsUi.caption.emergencySignal");
+            Lang.BindKey(grpHome, "settingsUi.caption.home");
+            Lang.BindKey(grpAlarm, "settingsUi.caption.alarm");
+            Lang.BindKey(tabSpeed, "settingsUi.caption.speed");
+            Lang.BindKey(AXIS, "settingsUi.caption.axis");
+            Lang.BindKey(DEFAULT_VEL, "settingsUi.caption.defaultVel");
+            Lang.BindKey(ACCEL, "settingsUi.caption.accel");
+            Lang.BindKey(DECEL, "settingsUi.caption.decel");
+            Lang.BindKey(STOP_DEC, "settingsUi.caption.stopDec");
+            Lang.BindKey(HOME_VEL_1, "settingsUi.caption.homeVel1");
+            Lang.BindKey(HOME_VEL_2, "settingsUi.caption.homeVel2");
+            Lang.BindKey(HOME_VEL_3, "settingsUi.caption.homeVel3");
+            Lang.BindKey(HOME_VEL_4, "settingsUi.caption.homeVel4");
+            Lang.BindKey(HOME_ACC_1, "settingsUi.caption.homeAcc1");
+            Lang.BindKey(HOME_DEC_1, "settingsUi.caption.homeDec1");
+            Lang.BindKey(HOME_ACC_2, "settingsUi.caption.homeAcc2");
+            Lang.BindKey(HOME_DEC_2, "settingsUi.caption.homeDec2");
+            Lang.BindKey(JOG_COARSE, "settingsUi.caption.jogCoarse");
+            Lang.BindKey(JOG_FINE, "settingsUi.caption.jogFine");
+            Lang.BindKey(JOG_ACC, "settingsUi.caption.jogAcc");
+            Lang.BindKey(JOG_DEC, "settingsUi.caption.jogDec");
+            Lang.BindKey(JOG_STOP_DEC, "settingsUi.caption.jogStopDec");
+            Lang.BindKey(INPOS_TOL, "settingsUi.caption.inPosTol");
+            Lang.BindKey(btnSpeedReload, "settingsUi.caption.reload");
+            Lang.BindKey(btnSpeedSave, "settingsUi.caption.save");
+            Lang.BindKey(lblSpeedScaleCaption, "settingsUi.caption.defaultSpeedScale");
+            Lang.BindKey(grpAction, "settingsUi.caption.action");
+            Lang.BindKey(btnHome, "settingsUi.caption.initAxis");
+            Lang.BindKey(btnAllStop, "settingsUi.caption.allStop");
+            Lang.BindKey(btnAlarmClear, "settingsUi.caption.alarmClear");
+            Lang.BindKey(btnServoOn, "settingsUi.caption.servoOn");
+            Lang.BindKey(btnServoOff, "settingsUi.caption.servoOff");
+            Lang.BindKey(btnParaLoad, "settingsUi.caption.paraLoad");
+            Lang.BindKey(btnParaSave, "settingsUi.caption.paraSave");
+            Lang.BindKey(btnBoardScan, "settingsUi.caption.boardScan");
+            Lang.BindKey(btnMotionTest, "settingsUi.caption.motionTest");
+            foreach (var parameters in new[] { pgConfig, pgInposition, pgLimit, pgEmergency, pgHome, pgAlarm, pgPositionClear })
+                parameters.BindNameDisplay(SettingsUiText.Display);
+            Load += (sender, args) => Lang.Apply(this);
+        }
+
         public MotionPage()
         {
             InitializeComponent();
@@ -37,6 +105,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             ConfigureCompactConfigLayout();
             InitializeSpeedTab();
             InitializeStatusPanels();
+            InitializeLanguageBindings();
 
             Disposed += (s, e) =>
             {
@@ -556,18 +625,18 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeAxis",
                         "Axis initialize failed: selected axis is null. - Failed");
-                    QMC.Common.MessageDialog.Show(this, "선택된 축이 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("settingsUi.motion.noAxis"), Lang.T("settingsUi.caption.motion"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                if (!ConfirmMotionAction(AjinAxisDefaults.ToDisplayName(axis.Name) + " 축 초기화를 진행하시겠습니까?"))
+                if (!ConfirmMotionAction(Lang.Format("settingsUi.motion.confirmInitialize", AjinAxisDefaults.ToDisplayName(axis.Name))))
                     return;
 
                 if (Host == null || Host.Controller == null)
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeAxis",
                         "Axis initialize failed: controller is null. - Failed");
-                    QMC.Common.MessageDialog.Show(this, "Machine Controller를 찾을 수 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, Lang.T("settingsUi.motion.noController"), Lang.T("settingsUi.caption.motion"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -578,7 +647,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeAxis",
                     "Axis initialize failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, "축 초기화 실패:\r\n" + ex.Message, "Motion", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("settingsUi.motion.initializeFailed", ex.Message), Lang.T("settingsUi.caption.motion"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -590,7 +659,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             try
             {
-                return QMC.Common.MessageDialog.Show(this, message, "Motion", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+                return QMC.Common.MessageDialog.Show(this, message, Lang.T("settingsUi.caption.motion"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
             }
             catch (Exception ex)
             {
@@ -621,12 +690,16 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         message = axis.LastMotionFailureMessage;
                 }
 
+                string displayMessage = null;
                 if (string.IsNullOrWhiteSpace(message))
+                {
                     message = "Motion 작업이 실패했습니다. result=" + result + ". Alarm/Event Log를 확인하세요.";
+                    displayMessage = Lang.Format("settingsUi.motion.actionFailed", result);
+                }
 
                 QMC.Common.Log.Write("Main", "SYSTEM", source,
                     "Motion action failed: return=" + result + ", message=" + message + " - Failed");
-                QMC.Common.MessageDialog.Show(this, message, "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, displayMessage ?? message, Lang.T("settingsUi.caption.motion"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
@@ -747,7 +820,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "UI", "MOTION-TEST", "Open motion test failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, "Motion Test 창을 열 수 없습니다:\r\n" + ex.Message, "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, Lang.Format("settingsUi.motion.openTestFailed", ex.Message), Lang.T("settingsUi.caption.motion"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -767,11 +840,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             if (!AjinSystem.IsOpen)
             {
-                QMC.Common.MessageDialog.Show("AXL library is not open. Enable UseAjin in Settings > GENERAL and restart.");
+                QMC.Common.MessageDialog.Show(Lang.T("settingsUi.motion.axlDisabled"));
                 return;
             }
 
-            using (var dlg = new OpenFileDialog { Filter = "Motion parameters (*.mot)|*.mot|All files (*.*)|*.*" })
+            using (var dlg = new OpenFileDialog { Filter = Lang.T("settingsUi.motion.openFilter") })
             {
                 if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
                 int r = QMC.Common.Motion.Ajin.AXM.LoadParameters(dlg.FileName);
@@ -779,11 +852,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 {
                     ApplyParametersFromBoard();
                     QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", "PARA-LOAD", dlg.FileName);
-                    QMC.Common.MessageDialog.Show("Parameter load complete.");
+                    QMC.Common.MessageDialog.Show(Lang.T("settingsUi.motion.parameterLoaded"));
                 }
                 else
                 {
-                    QMC.Common.MessageDialog.Show("Parameter load failed. 0x" + r.ToString("X4"));
+                    QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.motion.parameterLoadFailed", r.ToString("X4")));
                 }
             }
         }
@@ -792,28 +865,28 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             if (!AjinSystem.IsOpen)
             {
-                QMC.Common.MessageDialog.Show("AXL library is not open.");
+                QMC.Common.MessageDialog.Show(Lang.T("settingsUi.motion.axlNotOpen"));
                 return;
             }
 
             if (IsMotFileSaveDisabledDuringSetup())
             {
-                QMC.Common.MessageDialog.Show("현재 잔비 Setup중에는 mot 파일 저장 불가.");
+                QMC.Common.MessageDialog.Show(Lang.T("settingsUi.motion.motSaveBlocked"));
                 return;
             }
 
-            using (var dlg = new SaveFileDialog { Filter = "Motion parameters (*.mot)|*.mot", FileName = "axl_para.mot" })
+            using (var dlg = new SaveFileDialog { Filter = Lang.T("settingsUi.motion.saveFilter"), FileName = "axl_para.mot" })
             {
                 if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
                 int r = QMC.Common.Motion.Ajin.AXM.SaveParameters(dlg.FileName);
                 if (r == 0)
                 {
                     QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", "PARA-SAVE", dlg.FileName);
-                    QMC.Common.MessageDialog.Show("Parameter save complete.");
+                    QMC.Common.MessageDialog.Show(Lang.T("settingsUi.motion.parameterSaved"));
                 }
                 else
                 {
-                    QMC.Common.MessageDialog.Show("Parameter save failed. 0x" + r.ToString("X4"));
+                    QMC.Common.MessageDialog.Show(Lang.Format("settingsUi.motion.parameterSaveFailed", r.ToString("X4")));
                 }
             }
         }
@@ -867,5 +940,3 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
-
-

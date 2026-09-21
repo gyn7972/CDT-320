@@ -11,6 +11,7 @@ using QMC.CDT320.Materials;
 using QMC.CDT_320.Ui.Pages;
 using QMC.CDT_320.Ui.Common.WaferMaps;
 using QMC.Common;
+using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Controls
 {
@@ -47,6 +48,8 @@ namespace QMC.CDT_320.Ui.Controls
         private Dictionary<string, string> _displayTrackingTexts =
             new Dictionary<string, string>(StringComparer.Ordinal);
         private string _displayWaferKey = "";
+        private string _displayWaferId = "-";
+        private bool _displayRefreshFailed;
         private long _signature = long.MinValue;
 
         public LiveLotMapView()
@@ -54,6 +57,19 @@ namespace QMC.CDT_320.Ui.Controls
             // 공통 뷰어에 실제 작업 상태 표시만 연결한다. 편집 화면에는 이 조회 기능을 연결하지 않는다.
             CellColorResolver = ResolveLiveEntryColor;
             CellStatusResolver = ResolveLiveEntryStatusText;
+            RefreshLocalizedCaption();
+        }
+
+        public override void ApplyLanguage()
+        {
+            RefreshLocalizedCaption();
+            base.ApplyLanguage();
+        }
+
+        private void RefreshLocalizedCaption()
+        {
+            Caption = Lang.Format("diagram.liveMap.caption", ResolveMapTitle(_sourceKind),
+                _displayRefreshFailed ? Lang.T("diagram.liveMap.refreshFailed") : _displayWaferId);
         }
 
         /// <summary>그리드 크기 — 외부에서 Recipe.Frame.GridX 로 설정 가능.</summary>
@@ -71,7 +87,7 @@ namespace QMC.CDT_320.Ui.Controls
                 _sourceKind = value;
                 _viewGeneration++;
                 ClearDisplay();
-                Caption = ResolveMapTitle(_sourceKind) + "   -";
+                RefreshLocalizedCaption();
                 MarkDirty();
             }
         }
@@ -169,7 +185,9 @@ namespace QMC.CDT_320.Ui.Controls
             _displayStates = snapshot.States;
             _displayTrackingTexts = snapshot.TrackingTexts;
             _displayWaferKey = snapshot.WaferKey;
-            Caption = ResolveMapTitle(snapshot.SourceKind) + "   " + snapshot.WaferId;
+            _displayWaferId = snapshot.WaferId;
+            _displayRefreshFailed = false;
+            RefreshLocalizedCaption();
 
             // 같은 wafer만 선택을 새 entry에 연결한다. 교체/소실 시 이전 선택을 남기지 않는다.
             SetMap(_displayMap, !sameWafer, sameWafer);
@@ -178,7 +196,8 @@ namespace QMC.CDT_320.Ui.Controls
         private void ShowRefreshFailure(string error)
         {
             ClearDisplay();
-            Caption = ResolveMapTitle(_sourceKind) + "   표시 갱신 실패";
+            _displayRefreshFailed = true;
+            RefreshLocalizedCaption();
             if (!string.Equals(_lastRefreshError, error, StringComparison.Ordinal))
             {
                 Log.Write("Main", "SYSTEM", "LiveLotMapView",
@@ -195,6 +214,8 @@ namespace QMC.CDT_320.Ui.Controls
             _displayStates = new Dictionary<string, WaferMapCellState>(StringComparer.Ordinal);
             _displayTrackingTexts = new Dictionary<string, string>(StringComparer.Ordinal);
             _displayWaferKey = "";
+            _displayWaferId = "-";
+            _displayRefreshFailed = false;
             _signature = long.MinValue;
             SetMap(null, true);
         }
@@ -203,9 +224,9 @@ namespace QMC.CDT_320.Ui.Controls
         {
             switch (sourceKind)
             {
-                case LiveLotMapSourceKind.OutputGood: return "OUTPUT GOOD MAP";
-                case LiveLotMapSourceKind.OutputNg: return "OUTPUT NG MAP";
-                default: return "INPUT WAFER MAP";
+                case LiveLotMapSourceKind.OutputGood: return Lang.T("diagram.liveMap.outputGood");
+                case LiveLotMapSourceKind.OutputNg: return Lang.T("diagram.liveMap.outputNg");
+                default: return Lang.T("diagram.liveMap.input");
             }
         }
 
@@ -448,7 +469,7 @@ namespace QMC.CDT_320.Ui.Controls
             string trackingText;
             if (entry != null && _displayTrackingTexts.TryGetValue(BuildEntryGridKey(entry), out trackingText) &&
                 !string.IsNullOrWhiteSpace(trackingText))
-                return stateText + " / " + trackingText;
+                return stateText + " / " + WaferMapDisplayStyle.DisplayTrackingText(trackingText);
             return stateText;
         }
 
