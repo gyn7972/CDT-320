@@ -3,6 +3,7 @@ using QMC.CDT_320.Ui.Localization;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
@@ -27,6 +28,14 @@ namespace QMC.CDT_320.Ui.Pages.History
         private readonly Timer _liveFlushTimer = new Timer();
         private bool _alarmEventSubscribed;
         private bool _initializingFilterControls;
+        // 저장 이력은 화면 전용이다. 현재 알람 목록/해제 판단에 섞지 않는다.
+        private IReadOnlyList<AlarmRecord> _savedHistory = new List<AlarmRecord>();
+        private DateTime? _loadedHistoryDate;
+        private int _historyReadVersion;
+        private bool _historyReadRunning;
+        private bool _historyReadPending;
+        private volatile bool _acceptLiveAlarmRows;
+        private bool _followToday = true;
         // 그리드에 이미 렌더된 알람 Id — 라이브 flush 삽입과 LoadGrid 전체 재빌드가 같은 레코드를 중복으로 그리지 않도록 한다.
         private readonly HashSet<int> _renderedAlarmIds = new HashSet<int>();
 
@@ -58,6 +67,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             _initializingFilterControls = true;
             try
             {
+                dtpHistoryDate.Value = DateTime.Today;
                 _cbSeverity.Items.Add("(All)");
                 foreach (var s in Enum.GetNames(typeof(AlarmSeverity)))
                     _cbSeverity.Items.Add(s);
@@ -171,7 +181,24 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             _liveFlushTimer.Interval = LiveFlushIntervalMs;
             // 주기 갱신에 Clear 버튼 상태도 편승 — 다른 화면/시퀀스에서 알람이 해제돼도 곧 반영된다.
-            _liveFlushTimer.Tick += (s, e) => { FlushPendingAlarmRows(); UpdateClearButtonState(); };
+            _liveFlushTimer.Tick += timerLiveFlush_Tick;
+        }
+
+        private async void timerLiveFlush_Tick(object sender, EventArgs e)
+        {
+            if (IsDesignerMode() || !ShouldRefreshVisible(this))
+                return;
+
+            // 오늘 실시간 모드는 자정/재진입에도 오늘을 따라간다. 선택한 과거 날짜는 유지한다.
+            if ((_followToday && dtpHistoryDate.Value.Date != DateTime.Today) ||
+                (!_acceptLiveAlarmRows && dtpHistoryDate.Value.Date == DateTime.Today))
+            {
+                _followToday = true;
+                await ReloadHistoryAsync();
+            }
+
+            FlushPendingAlarmRows();
+            UpdateClearButtonState();
         }
 
         private void _cbSeverity_SelectedIndexChanged(object sender, EventArgs e)
@@ -185,6 +212,99 @@ namespace QMC.CDT_320.Ui.Pages.History
         private void _tbFilter_TextChanged(object sender, EventArgs e)
         {
             LoadGrid();
+        }
+
+        private async void dtpHistoryDate_ValueChanged(object sender, EventArgs e)
+        {
+            if (_initializingFilterControls)
+                return;
+
+            _followToday = dtpHistoryDate.Value.Date == DateTime.Today;
+            await ReloadHistoryAsync();
+        }
+
+        private async void btnRefreshHistory_Click(object sender, EventArgs e)
+        {
+            await ReloadHistoryAsync();
+        }
+
+        // 오늘은 기존 메모리/라이브 경로, 다른 날짜는 저장 JSON 조회만 사용한다.
+        // 빠른 날짜 변경은 읽기 작업 하나와 마지막 대기 요청 하나로 합친다.
+        private async Task ReloadHistoryAsync()
+        {
+            if (IsDesignerMode() || IsDisposed || dtpHistoryDate == null || !ShouldRefreshVisible(this))
+                return;
+
+            if (_followToday && dtpHistoryDate.Value.Date != DateTime.Today)
+            {
+                _initializingFilterControls = true;
+                try { dtpHistoryDate.Value = DateTime.Today; }
+                finally { _initializingFilterControls = false; }
+            }
+
+            _historyReadVersion++;
+            _historyReadPending = dtpHistoryDate.Value.Date != DateTime.Today;
+            _acceptLiveAlarmRows = !_historyReadPending;
+            _loadedHistoryDate = null;
+            _savedHistory = new List<AlarmRecord>();
+            ClearPendingAlarmRows();
+            LoadGrid();
+
+            if (!_historyReadPending)
+            {
+                _followToday = true;
+                lblHistoryStatus.Text = "오늘 · 실시간";
+                return;
+            }
+
+            lblHistoryStatus.Text = "이력 파일 읽는 중...";
+            if (_historyReadRunning)
+                return;
+
+            _historyReadRunning = true;
+            try
+            {
+                while (_historyReadPending && !IsDisposed && ShouldRefreshVisible(this))
+                {
+                    _historyReadPending = false;
+                    int version = _historyReadVersion;
+                    DateTime date = dtpHistoryDate.Value.Date;
+                    try
+                    {
+                        // 작업 스레드에서는 UI 컨트롤이나 현재 알람 상태를 변경하지 않는다.
+                        var history = await Task.Run(() => AlarmManager.ReadSavedHistory(date, MaxRows));
+                        if (!IsCurrentHistoryRead(version, date))
+                            continue;
+
+                        _savedHistory = history;
+                        _loadedHistoryDate = date;
+                        LoadGrid();
+                        lblHistoryStatus.Text = history.Count == 0
+                            ? "저장된 이력이 없습니다."
+                            : "저장 당시 상태 · 최신 500건";
+                    }
+                    catch (Exception ex)
+                    {
+                        if (!IsCurrentHistoryRead(version, date))
+                            continue;
+
+                        lblHistoryStatus.Text = "조회 실패 · 파일 확인 필요";
+                        QMC.Common.MessageDialog.Show(this,
+                            date.ToString("yyyy-MM-dd") + " 알람 이력을 조회하지 못했습니다.\r\n" + ex.Message,
+                            "알람 이력 조회", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                }
+            }
+            finally
+            {
+                _historyReadRunning = false;
+            }
+        }
+
+        private bool IsCurrentHistoryRead(int version, DateTime date)
+        {
+            return version == _historyReadVersion && !IsDisposed &&
+                ShouldRefreshVisible(this) && dtpHistoryDate.Value.Date == date && date != DateTime.Today;
         }
 
         private void btnClear_Click(object sender, EventArgs e)
@@ -254,8 +374,13 @@ namespace QMC.CDT_320.Ui.Pages.History
             try
             {
                 _renderedAlarmIds.Clear();
+                _lastRowClicked = -1;
                 var rows = new List<DataGridViewRow>();
-                foreach (var a in AlarmManager.History.Reverse().Take(MaxRows)) // 최신순
+                DateTime date = dtpHistoryDate.Value.Date;
+                IEnumerable<AlarmRecord> history = date == DateTime.Today
+                    ? AlarmManager.History.Reverse().Take(MaxRows)
+                    : (_loadedHistoryDate == date ? _savedHistory : Enumerable.Empty<AlarmRecord>());
+                foreach (var a in history) // 오늘 메모리/저장 파일 모두 최신순
                 {
                     if (!PassesFilter(a)) continue;
                     rows.Add(BuildRow(a));
@@ -287,8 +412,8 @@ namespace QMC.CDT_320.Ui.Pages.History
         private bool PassesFilter(AlarmRecord a)
         {
             if (a == null) return false;
-            // 오늘 발생한 알람만 표시한다(재시작 후 오늘자 복원 이력도 함께 보이도록). 개수는 MaxRows 로 제한.
-            if (a.Raised.Date != DateTime.Today) return false;
+            // 선택 날짜만 표시한다. 저장 이력의 미해제 표시는 저장 당시 상태다.
+            if (a.Raised.Date != dtpHistoryDate.Value.Date) return false;
             string sev = _cbSeverity?.SelectedItem?.ToString() ?? "(All)";
             if (sev != "(All)" && a.Severity.ToString() != sev) return false;
 
@@ -494,7 +619,7 @@ namespace QMC.CDT_320.Ui.Pages.History
         // 새 알람은 전체 재생성 없이 맨 위에 1행만 끼워넣는다 → 사용자의 선택이 유지된다.
         private void OnRaise(AlarmRecord r)
         {
-            if (r == null)
+            if (r == null || !_acceptLiveAlarmRows)
                 return;
 
             lock (_pendingAlarmRowsLock)
@@ -505,25 +630,30 @@ namespace QMC.CDT_320.Ui.Pages.History
             }
         }
 
-        protected override void OnVisibleChanged(EventArgs e)
+        protected override async void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
-            UpdateAlarmEventSubscription();
+            await UpdateAlarmEventSubscriptionAsync();
         }
 
-        private void UpdateAlarmEventSubscription()
+        private async Task UpdateAlarmEventSubscriptionAsync()
         {
+            if (IsDesignerMode() || dtpHistoryDate == null)
+                return;
+
             if (ShouldRefreshVisible(this))
             {
-                // 페이지는 캐시되어 재사용되므로, 다시 보일 때마다 AlarmManager.History 를 재로드한다.
-                // 재로드하지 않으면 페이지가 숨겨진 동안 발생한 알람(라이브 큐는 숨김 시 비워짐)이 누락된다.
-                LoadGrid();
                 SubscribeAlarmEvents();
                 if (!_liveFlushTimer.Enabled)
                     _liveFlushTimer.Start();
+                // 캐시된 페이지 재진입 시에도 현재 선택 날짜를 유지하며 다시 조회한다.
+                await ReloadHistoryAsync();
             }
             else
             {
+                _historyReadVersion++;
+                _historyReadPending = false;
+                _acceptLiveAlarmRows = false;
                 UnsubscribeAlarmEvents();
                 _liveFlushTimer.Stop();
                 ClearPendingAlarmRows();
@@ -552,6 +682,12 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             if (!ShouldRefreshVisible(this))
                 return;
+
+            if (dtpHistoryDate.Value.Date != DateTime.Today)
+            {
+                ClearPendingAlarmRows();
+                return;
+            }
 
             List<AlarmRecord> rows = DequeuePendingAlarmRows();
             if (rows.Count == 0)
@@ -615,6 +751,9 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         protected override void OnHandleDestroyed(EventArgs e)
         {
+            _historyReadVersion++;
+            _historyReadPending = false;
+            _acceptLiveAlarmRows = false;
             try
             {
                 UnsubscribeAlarmEvents();

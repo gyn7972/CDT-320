@@ -40,6 +40,11 @@ QMC.CDT-320/
 
 - [공통 언어 처리와 번역 문구 관리](localization-guide.md)
 - [Designer 공통 UI 카탈로그와 페이지 템플릿](designer-catalog.md)
+- [GUI 공용화 순차 적용 — 다른 AI 인계용 프롬프트](ui-standardization-rollout-prompt-2026-09-22.md)
+- [GUI 공용화 순차 적용 — 운영 화면 검증 체크리스트](ui-standardization-rollout-checklist.md)
+- [UI 공용화 첫 작업 선정 분석 — 과거 검토 기록](ui-standardization-first-step-analysis-2026-09-21.md)
+- [Common 공용 버튼 Designer 검증 프롬프트 — 과거 초안, 재실행 대상 아님](ui-common-button-designer-validation-prompt-2026-09-21.md)
+- [Common 공용 버튼 구현·검증 체크리스트](ui-common-button-designer-validation-checklist.md)
 - [WaferMap 공통 상태·색상과 작업 모니터](wafer-map-monitor.md)
 - [RAD 웨이퍼맵 수량 검증 구현 프롬프트](wafer-map-count-validation__01-implementation-prompt.md)
 - [RAD 웨이퍼맵 수량 검증 체크리스트](wafer-map-count-validation__02-validation-checklist.md)

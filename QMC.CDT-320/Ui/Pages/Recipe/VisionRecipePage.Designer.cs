@@ -297,13 +297,13 @@
             this.centerLayout.Controls.Add(this.grpManual, 0, 1);
             this.centerLayout.Controls.Add(this.leftLayout, 1, 0);
             this.centerLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.centerLayout.Location = new System.Drawing.Point(8, 8);
+            this.centerLayout.Location = new System.Drawing.Point(1, 1);
             this.centerLayout.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.centerLayout.Name = "centerLayout";
             this.centerLayout.RowCount = 2;
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 56F));
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 44F));
-            this.centerLayout.Size = new System.Drawing.Size(1141, 854);
+            this.centerLayout.Size = new System.Drawing.Size(1205, 868);
             this.centerLayout.TabIndex = 1;
             // 
             // grpVision
@@ -312,11 +312,11 @@
             this.grpVision.Controls.Add(this.tabVision);
             this.grpVision.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpVision.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpVision.Location = new System.Drawing.Point(4, 4);
+            this.grpVision.Location = new System.Drawing.Point(0, 0);
             this.grpVision.Margin = new System.Windows.Forms.Padding(0, 0, 4, 4);
             this.grpVision.Name = "grpVision";
             this.grpVision.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpVision.Size = new System.Drawing.Size(676, 470);
+            this.grpVision.Size = new System.Drawing.Size(555, 482);
             this.grpVision.TabIndex = 0;
             this.grpVision.TabStop = false;
             this.grpVision.Text = "VISION";
@@ -327,10 +327,10 @@
             this.tabVision.Controls.Add(this.tabSide);
             this.tabVision.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tabVision.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.tabVision.Location = new System.Drawing.Point(3, 21);
+            this.tabVision.Location = new System.Drawing.Point(3, 20);
             this.tabVision.Name = "tabVision";
             this.tabVision.SelectedIndex = 0;
-            this.tabVision.Size = new System.Drawing.Size(670, 446);
+            this.tabVision.Size = new System.Drawing.Size(549, 459);
             this.tabVision.TabIndex = 0;
             // 
             // tabBottom
@@ -340,7 +340,7 @@
             this.tabBottom.Location = new System.Drawing.Point(4, 24);
             this.tabBottom.Name = "tabBottom";
             this.tabBottom.Padding = new System.Windows.Forms.Padding(3);
-            this.tabBottom.Size = new System.Drawing.Size(662, 418);
+            this.tabBottom.Size = new System.Drawing.Size(541, 431);
             this.tabBottom.TabIndex = 0;
             this.tabBottom.Text = "BOTTOM";
             // 
@@ -353,7 +353,7 @@
             this.visionPanel.Location = new System.Drawing.Point(3, 3);
             this.visionPanel.Margin = new System.Windows.Forms.Padding(0);
             this.visionPanel.Name = "visionPanel";
-            this.visionPanel.Size = new System.Drawing.Size(656, 412);
+            this.visionPanel.Size = new System.Drawing.Size(535, 425);
             this.visionPanel.TabIndex = 0;
             // 
             // lblVisionInfo
@@ -376,7 +376,7 @@
             this.tabSide.Location = new System.Drawing.Point(4, 24);
             this.tabSide.Name = "tabSide";
             this.tabSide.Padding = new System.Windows.Forms.Padding(3);
-            this.tabSide.Size = new System.Drawing.Size(662, 418);
+            this.tabSide.Size = new System.Drawing.Size(541, 431);
             this.tabSide.TabIndex = 1;
             this.tabSide.Text = "SIDE";
             // 
@@ -393,7 +393,7 @@
             this.sideLayout.RowCount = 2;
             this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.sideLayout.Size = new System.Drawing.Size(656, 412);
+            this.sideLayout.Size = new System.Drawing.Size(535, 425);
             this.sideLayout.TabIndex = 0;
             // 
             // lblVisionInfo2
@@ -406,7 +406,7 @@
             this.lblVisionInfo2.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.lblVisionInfo2.Name = "lblVisionInfo2";
             this.lblVisionInfo2.Padding = new System.Windows.Forms.Padding(14);
-            this.lblVisionInfo2.Size = new System.Drawing.Size(656, 205);
+            this.lblVisionInfo2.Size = new System.Drawing.Size(535, 211);
             this.lblVisionInfo2.TabIndex = 0;
             this.lblVisionInfo2.Text = "SIDE VISION 1";
             this.lblVisionInfo2.Visible = false;
@@ -417,11 +417,11 @@
             this.lblVisionInfo3.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblVisionInfo3.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold);
             this.lblVisionInfo3.ForeColor = System.Drawing.Color.Lime;
-            this.lblVisionInfo3.Location = new System.Drawing.Point(0, 207);
+            this.lblVisionInfo3.Location = new System.Drawing.Point(0, 213);
             this.lblVisionInfo3.Margin = new System.Windows.Forms.Padding(0, 1, 0, 0);
             this.lblVisionInfo3.Name = "lblVisionInfo3";
             this.lblVisionInfo3.Padding = new System.Windows.Forms.Padding(14);
-            this.lblVisionInfo3.Size = new System.Drawing.Size(656, 205);
+            this.lblVisionInfo3.Size = new System.Drawing.Size(535, 212);
             this.lblVisionInfo3.TabIndex = 1;
             this.lblVisionInfo3.Text = "SIDE VISION 2";
             this.lblVisionInfo3.Visible = false;
@@ -432,22 +432,27 @@
             this.grpManual.Controls.Add(this.manualActionPanel);
             this.grpManual.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpManual.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpManual.Location = new System.Drawing.Point(4, 482);
+            this.grpManual.Location = new System.Drawing.Point(0, 486);
             this.grpManual.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.grpManual.Name = "grpManual";
             this.grpManual.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpManual.Size = new System.Drawing.Size(676, 125);
+            this.grpManual.Size = new System.Drawing.Size(555, 382);
             this.grpManual.TabIndex = 2;
             this.grpManual.TabStop = false;
             this.grpManual.Text = "MANUAL ACTION";
             // 
             // manualActionPanel
             // 
+            this.manualActionPanel.AutoFitParentGroupHeight = false;
+            this.manualActionPanel.AutoScroll = true;
+            this.manualActionPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
+            this.manualActionPanel.ColumnCount = 2;
             this.manualActionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.manualActionPanel.Location = new System.Drawing.Point(3, 21);
+            this.manualActionPanel.Location = new System.Drawing.Point(3, 20);
             this.manualActionPanel.Margin = new System.Windows.Forms.Padding(0);
             this.manualActionPanel.Name = "manualActionPanel";
-            this.manualActionPanel.Size = new System.Drawing.Size(549, 236);
+            this.manualActionPanel.RowHeight = 45;
+            this.manualActionPanel.Size = new System.Drawing.Size(549, 359);
             this.manualActionPanel.TabIndex = 0;
             // 
             // leftLayout
@@ -459,7 +464,7 @@
             this.leftLayout.Controls.Add(this.grpWait, 0, 1);
             this.leftLayout.Controls.Add(this.grpIo, 0, 2);
             this.leftLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.leftLayout.Location = new System.Drawing.Point(684, 0);
+            this.leftLayout.Location = new System.Drawing.Point(559, 0);
             this.leftLayout.Margin = new System.Windows.Forms.Padding(0);
             this.leftLayout.Name = "leftLayout";
             this.leftLayout.RowCount = 3;
@@ -467,7 +472,7 @@
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 400F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 160F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.leftLayout.Size = new System.Drawing.Size(457, 854);
+            this.leftLayout.Size = new System.Drawing.Size(646, 868);
             this.leftLayout.TabIndex = 0;
             // 
             // grpOptions
@@ -476,23 +481,25 @@
             this.grpOptions.Controls.Add(this.optionParameterGrid);
             this.grpOptions.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpOptions.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpOptions.Location = new System.Drawing.Point(4, 4);
+            this.grpOptions.Location = new System.Drawing.Point(0, 0);
             this.grpOptions.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.grpOptions.Name = "grpOptions";
             this.grpOptions.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpOptions.Size = new System.Drawing.Size(449, 392);
+            this.grpOptions.Size = new System.Drawing.Size(646, 396);
             this.grpOptions.TabIndex = 0;
             this.grpOptions.TabStop = false;
             this.grpOptions.Text = "OPTION";
             // 
             // optionParameterGrid
             // 
+            this.optionParameterGrid.AutoFitParentGroupHeight = false;
             this.optionParameterGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.optionParameterGrid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.optionParameterGrid.Location = new System.Drawing.Point(3, 21);
+            this.optionParameterGrid.GridScrollBars = System.Windows.Forms.ScrollBars.Both;
+            this.optionParameterGrid.Location = new System.Drawing.Point(3, 20);
             this.optionParameterGrid.Margin = new System.Windows.Forms.Padding(0);
             this.optionParameterGrid.Name = "optionParameterGrid";
-            this.optionParameterGrid.Size = new System.Drawing.Size(443, 368);
+            this.optionParameterGrid.Size = new System.Drawing.Size(640, 373);
             this.optionParameterGrid.TabIndex = 1;
             // 
             // grpWait
@@ -501,23 +508,25 @@
             this.grpWait.Controls.Add(this.waitParameterGrid);
             this.grpWait.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpWait.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpWait.Location = new System.Drawing.Point(4, 404);
+            this.grpWait.Location = new System.Drawing.Point(0, 400);
             this.grpWait.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.grpWait.Name = "grpWait";
             this.grpWait.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpWait.Size = new System.Drawing.Size(449, 152);
+            this.grpWait.Size = new System.Drawing.Size(646, 156);
             this.grpWait.TabIndex = 1;
             this.grpWait.TabStop = false;
             this.grpWait.Text = "WAIT TIME";
             // 
             // waitParameterGrid
             // 
+            this.waitParameterGrid.AutoFitParentGroupHeight = false;
             this.waitParameterGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.waitParameterGrid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.waitParameterGrid.Location = new System.Drawing.Point(3, 21);
+            this.waitParameterGrid.GridScrollBars = System.Windows.Forms.ScrollBars.Both;
+            this.waitParameterGrid.Location = new System.Drawing.Point(3, 20);
             this.waitParameterGrid.Margin = new System.Windows.Forms.Padding(0);
             this.waitParameterGrid.Name = "waitParameterGrid";
-            this.waitParameterGrid.Size = new System.Drawing.Size(443, 128);
+            this.waitParameterGrid.Size = new System.Drawing.Size(640, 133);
             this.waitParameterGrid.TabIndex = 1;
             // 
             // grpIo
@@ -526,23 +535,25 @@
             this.grpIo.Controls.Add(this.ioCylinderPanel);
             this.grpIo.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpIo.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpIo.Location = new System.Drawing.Point(4, 564);
+            this.grpIo.Location = new System.Drawing.Point(0, 658);
             this.grpIo.Margin = new System.Windows.Forms.Padding(0);
             this.grpIo.Name = "grpIo";
             this.grpIo.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpIo.Size = new System.Drawing.Size(449, 210);
+            this.grpIo.Size = new System.Drawing.Size(646, 210);
             this.grpIo.TabIndex = 3;
             this.grpIo.TabStop = false;
             this.grpIo.Text = "CYLINDER && I/O";
             // 
             // ioCylinderPanel
             // 
+            this.ioCylinderPanel.AutoFitParentGroupHeight = false;
             this.ioCylinderPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(205)))), ((int)(((byte)(205)))), ((int)(((byte)(205)))));
+            this.ioCylinderPanel.ColumnCount = 1;
             this.ioCylinderPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ioCylinderPanel.Location = new System.Drawing.Point(3, 21);
+            this.ioCylinderPanel.Location = new System.Drawing.Point(3, 20);
             this.ioCylinderPanel.Margin = new System.Windows.Forms.Padding(0);
             this.ioCylinderPanel.Name = "ioCylinderPanel";
-            this.ioCylinderPanel.Size = new System.Drawing.Size(443, 262);
+            this.ioCylinderPanel.Size = new System.Drawing.Size(640, 187);
             this.ioCylinderPanel.TabIndex = 1;
             // 
             // grpJog
@@ -551,11 +562,11 @@
             this.grpJog.Controls.Add(this.jogCommonLayout);
             this.grpJog.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpJog.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpJog.Location = new System.Drawing.Point(1153, 12);
+            this.grpJog.Location = new System.Drawing.Point(1210, 1);
             this.grpJog.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.grpJog.Name = "grpJog";
             this.grpJog.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpJog.Size = new System.Drawing.Size(420, 846);
+            this.grpJog.Size = new System.Drawing.Size(383, 868);
             this.grpJog.TabIndex = 1;
             this.grpJog.TabStop = false;
             this.grpJog.Text = "JOG OPERATION";
@@ -567,22 +578,20 @@
             this.jogCommonLayout.Controls.Add(this.jogPositionListControl, 0, 0);
             this.jogCommonLayout.Controls.Add(this.jogAxisMoveControl, 0, 1);
             this.jogCommonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogCommonLayout.Location = new System.Drawing.Point(3, 21);
+            this.jogCommonLayout.Location = new System.Drawing.Point(3, 20);
             this.jogCommonLayout.Name = "jogCommonLayout";
-            this.jogCommonLayout.Visible = true;
             this.jogCommonLayout.RowCount = 2;
             this.jogCommonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 136F));
             this.jogCommonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.jogCommonLayout.Size = new System.Drawing.Size(414, 822);
+            this.jogCommonLayout.Size = new System.Drawing.Size(377, 845);
             this.jogCommonLayout.TabIndex = 1;
             // 
             // jogPositionListControl
             // 
             this.jogPositionListControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogPositionListControl.Location = new System.Drawing.Point(3, 4);
-            this.jogPositionListControl.Margin = new System.Windows.Forms.Padding(3);
+            this.jogPositionListControl.Location = new System.Drawing.Point(3, 3);
             this.jogPositionListControl.Name = "jogPositionListControl";
-            this.jogPositionListControl.Size = new System.Drawing.Size(408, 120);
+            this.jogPositionListControl.Size = new System.Drawing.Size(371, 130);
             this.jogPositionListControl.TabIndex = 0;
             this.jogPositionListControl.WrapColumnsWhenMany = true;
             // 
@@ -596,11 +605,10 @@
             this.jogAxisMoveControl.ButtonAreaMinHeight = 520;
             this.jogAxisMoveControl.ButtonAreaMinWidth = 300;
             this.jogAxisMoveControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogAxisMoveControl.Location = new System.Drawing.Point(3, 132);
-            this.jogAxisMoveControl.Margin = new System.Windows.Forms.Padding(3);
+            this.jogAxisMoveControl.Location = new System.Drawing.Point(3, 139);
             this.jogAxisMoveControl.Name = "jogAxisMoveControl";
             this.jogAxisMoveControl.ShowCurrentSpeedMode = true;
-            this.jogAxisMoveControl.Size = new System.Drawing.Size(408, 686);
+            this.jogAxisMoveControl.Size = new System.Drawing.Size(371, 703);
             this.jogAxisMoveControl.SpeedControl = null;
             this.jogAxisMoveControl.TabIndex = 1;
             // 
@@ -610,12 +618,12 @@
             this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rightLayout.Controls.Add(this.grpSpeed, 0, 0);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rightLayout.Location = new System.Drawing.Point(1577, 8);
+            this.rightLayout.Location = new System.Drawing.Point(1597, 1);
             this.rightLayout.Margin = new System.Windows.Forms.Padding(0);
             this.rightLayout.Name = "rightLayout";
             this.rightLayout.RowCount = 1;
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Size = new System.Drawing.Size(93, 854);
+            this.rightLayout.Size = new System.Drawing.Size(80, 868);
             this.rightLayout.TabIndex = 2;
             // 
             // grpSpeed
@@ -624,11 +632,11 @@
             this.grpSpeed.Controls.Add(this.jogSpeedControl);
             this.grpSpeed.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpSpeed.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpSpeed.Location = new System.Drawing.Point(4, 4);
+            this.grpSpeed.Location = new System.Drawing.Point(0, 0);
             this.grpSpeed.Margin = new System.Windows.Forms.Padding(0);
             this.grpSpeed.Name = "grpSpeed";
             this.grpSpeed.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpSpeed.Size = new System.Drawing.Size(85, 846);
+            this.grpSpeed.Size = new System.Drawing.Size(80, 868);
             this.grpSpeed.TabIndex = 0;
             this.grpSpeed.TabStop = false;
             this.grpSpeed.Text = "SPEED";
@@ -637,10 +645,10 @@
             // 
             this.jogSpeedControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.jogSpeedControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogSpeedControl.Location = new System.Drawing.Point(3, 21);
+            this.jogSpeedControl.Location = new System.Drawing.Point(3, 20);
             this.jogSpeedControl.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.jogSpeedControl.Name = "jogSpeedControl";
-            this.jogSpeedControl.Size = new System.Drawing.Size(79, 822);
+            this.jogSpeedControl.Size = new System.Drawing.Size(74, 845);
             this.jogSpeedControl.SpeedPercent = 50;
             this.jogSpeedControl.TabIndex = 1;
             // 
@@ -670,7 +678,6 @@
             this.optionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.optionLayout.Location = new System.Drawing.Point(3, 26);
             this.optionLayout.Name = "optionLayout";
-            this.optionLayout.Visible = false;
             this.optionLayout.Padding = new System.Windows.Forms.Padding(10, 18, 10, 8);
             this.optionLayout.RowCount = 9;
             this.optionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
@@ -684,6 +691,7 @@
             this.optionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.optionLayout.Size = new System.Drawing.Size(396, 412);
             this.optionLayout.TabIndex = 0;
+            this.optionLayout.Visible = false;
             // 
             // lblLoadingPositionKey
             // 
@@ -937,7 +945,6 @@
             this.waitLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.waitLayout.Location = new System.Drawing.Point(3, 26);
             this.waitLayout.Name = "waitLayout";
-            this.waitLayout.Visible = false;
             this.waitLayout.Padding = new System.Windows.Forms.Padding(10, 18, 10, 8);
             this.waitLayout.RowCount = 5;
             this.waitLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
@@ -947,6 +954,7 @@
             this.waitLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.waitLayout.Size = new System.Drawing.Size(396, 187);
             this.waitLayout.TabIndex = 0;
+            this.waitLayout.Visible = false;
             // 
             // lblNeedleUpWaitKey
             // 
@@ -1099,7 +1107,6 @@
             this.ioLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.ioLayout.Location = new System.Drawing.Point(3, 26);
             this.ioLayout.Name = "ioLayout";
-            this.ioLayout.Visible = false;
             this.ioLayout.Padding = new System.Windows.Forms.Padding(8, 18, 8, 8);
             this.ioLayout.RowCount = 4;
             this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
@@ -1108,6 +1115,7 @@
             this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.ioLayout.Size = new System.Drawing.Size(396, 144);
             this.ioLayout.TabIndex = 0;
+            this.ioLayout.Visible = false;
             // 
             // dotNeedleVacuum
             // 
@@ -1273,12 +1281,12 @@
             this.jogLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.jogLayout.Location = new System.Drawing.Point(3, 26);
             this.jogLayout.Name = "jogLayout";
-            this.jogLayout.Visible = false;
             this.jogLayout.Padding = new System.Windows.Forms.Padding(10, 18, 10, 10);
             this.jogLayout.RowCount = 1;
             this.jogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.jogLayout.Size = new System.Drawing.Size(444, 817);
             this.jogLayout.TabIndex = 0;
+            this.jogLayout.Visible = false;
             // 
             // jogAxisLayout
             // 
@@ -1549,13 +1557,13 @@
             this.speedLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.speedLayout.Location = new System.Drawing.Point(3, 26);
             this.speedLayout.Name = "speedLayout";
-            this.speedLayout.Visible = false;
             this.speedLayout.Padding = new System.Windows.Forms.Padding(12, 18, 12, 12);
             this.speedLayout.RowCount = 2;
             this.speedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.speedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.speedLayout.Size = new System.Drawing.Size(79, 817);
             this.speedLayout.TabIndex = 0;
+            this.speedLayout.Visible = false;
             // 
             // trkSpeed
             // 
@@ -1583,7 +1591,7 @@
             this.lblSpeedValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // VisionRecipePage
-            //
+            // 
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(210)))), ((int)(((byte)(214)))));
             this.Controls.Add(this.rootLayout);
             this.Name = "VisionRecipePage";

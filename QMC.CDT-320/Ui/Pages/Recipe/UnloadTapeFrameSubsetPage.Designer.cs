@@ -95,7 +95,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpUnload.Controls.Add(this.lblGapLower, 0, 3);
             this.tlpUnload.Controls.Add(this._nLower, 1, 3);
             this.tlpUnload.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpUnload.Location = new System.Drawing.Point(6, 25);
+            this.tlpUnload.Location = new System.Drawing.Point(6, 20);
             this.tlpUnload.Margin = new System.Windows.Forms.Padding(0);
             this.tlpUnload.Name = "tlpUnload";
             this.tlpUnload.RowCount = 5;
@@ -104,7 +104,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpUnload.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpUnload.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpUnload.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tlpUnload.Size = new System.Drawing.Size(527, 145);
+            this.tlpUnload.Size = new System.Drawing.Size(527, 150);
             this.tlpUnload.TabIndex = 0;
             // 
             // lblRole
@@ -130,7 +130,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._cbRole.Location = new System.Drawing.Point(223, 5);
             this._cbRole.Margin = new System.Windows.Forms.Padding(3, 5, 3, 4);
             this._cbRole.Name = "_cbRole";
-            this._cbRole.Size = new System.Drawing.Size(301, 28);
+            this._cbRole.Size = new System.Drawing.Size(301, 23);
             this._cbRole.TabIndex = 2;
             // 
             // lblGapInspection
@@ -178,7 +178,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nUpper.Name = "_nUpper";
-            this._nUpper.Size = new System.Drawing.Size(301, 27);
+            this._nUpper.Size = new System.Drawing.Size(301, 23);
             this._nUpper.TabIndex = 6;
             // 
             // lblGapLower
@@ -205,7 +205,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nLower.Name = "_nLower";
-            this._nLower.Size = new System.Drawing.Size(301, 27);
+            this._nLower.Size = new System.Drawing.Size(301, 23);
             this._nLower.TabIndex = 8;
             // 
             // UnloadTapeFrameSubsetPage

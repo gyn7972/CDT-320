@@ -20,19 +20,19 @@ namespace QMC.CDT_320.Ui.Pages.History
         private TextBox txtSearch;
         private CheckBox chkRecentHour;
         private ComboBox cmbLimit;
-        private Button btnRefresh;
-        private Button btnOpenFile;
-        private Button btnLive;
+        private QMC.Common.Ui.Controls.UiStandardButton btnRefresh;
+        private QMC.Common.Ui.Controls.UiStandardButton btnOpenFile;
+        private QMC.Common.Ui.Controls.UiStandardButton btnLive;
         private DataGridView _grid;
 
         private void InitializeComponent()
         {
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle3 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle4 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle5 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle6 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle7 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle8 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle9 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle10 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle11 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle12 = new System.Windows.Forms.DataGridViewCellStyle();
             this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblHeader = new System.Windows.Forms.Label();
             this.filterLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -46,9 +46,9 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.txtSearch = new System.Windows.Forms.TextBox();
             this.chkRecentHour = new System.Windows.Forms.CheckBox();
             this.cmbLimit = new System.Windows.Forms.ComboBox();
-            this.btnRefresh = new System.Windows.Forms.Button();
-            this.btnOpenFile = new System.Windows.Forms.Button();
-            this.btnLive = new System.Windows.Forms.Button();
+            this.btnRefresh = new QMC.Common.Ui.Controls.UiStandardButton();
+            this.btnOpenFile = new QMC.Common.Ui.Controls.UiStandardButton();
+            this.btnLive = new QMC.Common.Ui.Controls.UiStandardButton();
             this._grid = new System.Windows.Forms.DataGridView();
             this.dataGridViewTextBoxColumn1 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.dataGridViewTextBoxColumn2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -95,6 +95,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.lblHeader.Tag = "i18n:hist.event";
             this.lblHeader.Text = "이벤트";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblHeader.TextChanged += new System.EventHandler(this.lblHeader_TextChanged);
             // 
             // filterLayout
             // 
@@ -162,6 +163,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._dp.Name = "_dp";
             this._dp.Size = new System.Drawing.Size(164, 23);
             this._dp.TabIndex = 1;
+            this._dp.ValueChanged += new System.EventHandler(this.dp_ValueChanged);
             // 
             // lblRunId
             // 
@@ -188,6 +190,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.txtRunId.Name = "txtRunId";
             this.txtRunId.Size = new System.Drawing.Size(214, 23);
             this.txtRunId.TabIndex = 5;
+            this.txtRunId.TextChanged += new System.EventHandler(this.FilterTextBox_TextChanged);
             // 
             // lblSource
             // 
@@ -214,6 +217,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.txtSource.Name = "txtSource";
             this.txtSource.Size = new System.Drawing.Size(144, 23);
             this.txtSource.TabIndex = 7;
+            this.txtSource.TextChanged += new System.EventHandler(this.FilterTextBox_TextChanged);
             // 
             // lblSearch
             // 
@@ -238,24 +242,24 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.txtSearch.Location = new System.Drawing.Point(851, 8);
             this.txtSearch.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.txtSearch.Name = "txtSearch";
-            this.txtSearch.Size = new System.Drawing.Size(378, 23);
+            this.txtSearch.Size = new System.Drawing.Size(282, 23);
             this.txtSearch.TabIndex = 9;
+            this.txtSearch.TextChanged += new System.EventHandler(this.FilterTextBox_TextChanged);
             // 
             // chkRecentHour
             // 
             this.chkRecentHour.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.chkRecentHour.AutoSize = true;
             this.chkRecentHour.BackColor = System.Drawing.Color.White;
-            this.chkRecentHour.Checked = true;
-            this.chkRecentHour.CheckState = System.Windows.Forms.CheckState.Checked;
             this.chkRecentHour.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.chkRecentHour.Location = new System.Drawing.Point(1235, 10);
+            this.chkRecentHour.Location = new System.Drawing.Point(1139, 10);
             this.chkRecentHour.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.chkRecentHour.Name = "chkRecentHour";
             this.chkRecentHour.Size = new System.Drawing.Size(87, 19);
             this.chkRecentHour.TabIndex = 10;
             this.chkRecentHour.Text = "Last 1 hour";
             this.chkRecentHour.UseVisualStyleBackColor = true;
+            this.chkRecentHour.CheckedChanged += new System.EventHandler(this.chkRecentHour_CheckedChanged);
             // 
             // cmbLimit
             // 
@@ -267,46 +271,39 @@ namespace QMC.CDT_320.Ui.Pages.History
             "500",
             "2000",
             "ALL"});
-            this.cmbLimit.Location = new System.Drawing.Point(1339, 8);
+            this.cmbLimit.Location = new System.Drawing.Point(1243, 8);
             this.cmbLimit.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.cmbLimit.Name = "cmbLimit";
             this.cmbLimit.Size = new System.Drawing.Size(70, 23);
             this.cmbLimit.TabIndex = 11;
+            this.cmbLimit.SelectedIndexChanged += new System.EventHandler(this.cmbLimit_SelectedIndexChanged);
             // 
             // btnRefresh
             // 
             this.btnRefresh.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnRefresh.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(52)))), ((int)(((byte)(73)))), ((int)(((byte)(94)))));
             this.btnRefresh.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnRefresh.FlatAppearance.BorderSize = 0;
-            this.btnRefresh.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(40)))), ((int)(((byte)(57)))), ((int)(((byte)(74)))));
-            this.btnRefresh.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(69)))), ((int)(((byte)(90)))), ((int)(((byte)(113)))));
             this.btnRefresh.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnRefresh.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnRefresh.ForeColor = System.Drawing.Color.White;
-            this.btnRefresh.Location = new System.Drawing.Point(1416, 8);
+            this.btnRefresh.Location = new System.Drawing.Point(1320, 8);
             this.btnRefresh.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.btnRefresh.MinimumSize = new System.Drawing.Size(116, 24);
             this.btnRefresh.Name = "btnRefresh";
             this.btnRefresh.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
-            this.btnRefresh.Size = new System.Drawing.Size(114, 24);
+            this.btnRefresh.Role = QMC.Common.Ui.Controls.UiStandardButtonRole.Primary;
+            this.btnRefresh.Size = new System.Drawing.Size(116, 24);
             this.btnRefresh.TabIndex = 12;
             this.btnRefresh.Text = "REFRESH";
-            this.btnRefresh.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.btnRefresh.UseVisualStyleBackColor = false;
+            this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
             // 
             // btnOpenFile
             // 
             this.btnOpenFile.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOpenFile.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(84)))), ((int)(((byte)(110)))), ((int)(((byte)(122)))));
             this.btnOpenFile.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnOpenFile.FlatAppearance.BorderSize = 0;
-            this.btnOpenFile.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(66)))), ((int)(((byte)(90)))), ((int)(((byte)(101)))));
-            this.btnOpenFile.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(101)))), ((int)(((byte)(128)))), ((int)(((byte)(140)))));
             this.btnOpenFile.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnOpenFile.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnOpenFile.ForeColor = System.Drawing.Color.White;
-            this.btnOpenFile.Location = new System.Drawing.Point(1538, 8);
+            this.btnOpenFile.Location = new System.Drawing.Point(1442, 8);
             this.btnOpenFile.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.btnOpenFile.MinimumSize = new System.Drawing.Size(128, 24);
             this.btnOpenFile.Name = "btnOpenFile";
@@ -314,43 +311,42 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.btnOpenFile.Size = new System.Drawing.Size(128, 24);
             this.btnOpenFile.TabIndex = 13;
             this.btnOpenFile.Text = "OPEN FILE";
-            this.btnOpenFile.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.btnOpenFile.UseVisualStyleBackColor = false;
+            this.btnOpenFile.Click += new System.EventHandler(this.btnOpenFile_Click);
             // 
             // btnLive
-            //
+            // 
             this.btnLive.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnLive.BackColor = System.Drawing.Color.FromArgb(52, 73, 94);
             this.btnLive.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnLive.FlatAppearance.BorderSize = 0;
-            this.btnLive.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(40, 57, 74);
-            this.btnLive.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(69, 90, 113);
             this.btnLive.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLive.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnLive.ForeColor = System.Drawing.Color.White;
+            this.btnLive.Location = new System.Drawing.Point(1578, 8);
             this.btnLive.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.btnLive.Name = "btnLive";
+            this.btnLive.Role = QMC.Common.Ui.Controls.UiStandardButtonRole.Dark;
             this.btnLive.Size = new System.Drawing.Size(88, 24);
             this.btnLive.TabIndex = 14;
             this.btnLive.Text = "실시간";
             this.btnLive.UseVisualStyleBackColor = false;
-            //
+            this.btnLive.Click += new System.EventHandler(this.btnLive_Click);
+            // 
             // _grid
             // 
             this._grid.AllowUserToAddRows = false;
+            this._grid.AllowUserToResizeRows = false;
             this._grid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this._grid.BackgroundColor = System.Drawing.Color.White;
-            dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            dataGridViewCellStyle1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
-            dataGridViewCellStyle1.Font = new System.Drawing.Font("Consolas", 10F);
-            dataGridViewCellStyle1.ForeColor = System.Drawing.Color.White;
-            dataGridViewCellStyle1.SelectionBackColor = System.Drawing.SystemColors.Highlight;
-            dataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
-            dataGridViewCellStyle1.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
-            this._grid.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle1;
+            dataGridViewCellStyle7.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            dataGridViewCellStyle7.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
+            dataGridViewCellStyle7.Font = new System.Drawing.Font("Consolas", 10F);
+            dataGridViewCellStyle7.ForeColor = System.Drawing.Color.White;
+            dataGridViewCellStyle7.SelectionBackColor = System.Drawing.SystemColors.Highlight;
+            dataGridViewCellStyle7.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
+            dataGridViewCellStyle7.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
+            this._grid.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle7;
             this._grid.ColumnHeadersHeight = 29;
             this._grid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-            this._grid.AllowUserToResizeRows = false;
             this._grid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.dataGridViewTextBoxColumn1,
             this.dataGridViewTextBoxColumn2,
@@ -369,11 +365,13 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._grid.RowTemplate.Height = 26;
             this._grid.Size = new System.Drawing.Size(1672, 824);
             this._grid.TabIndex = 2;
+            this._grid.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.Grid_CellClick);
+            this._grid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.Grid_CellDoubleClick);
             // 
             // dataGridViewTextBoxColumn1
             // 
-            dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            this.dataGridViewTextBoxColumn1.DefaultCellStyle = dataGridViewCellStyle2;
+            dataGridViewCellStyle8.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn1.DefaultCellStyle = dataGridViewCellStyle8;
             this.dataGridViewTextBoxColumn1.FillWeight = 175F;
             this.dataGridViewTextBoxColumn1.HeaderText = "DATE";
             this.dataGridViewTextBoxColumn1.MinimumWidth = 200;
@@ -383,8 +381,8 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             // dataGridViewTextBoxColumn2
             // 
-            dataGridViewCellStyle3.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            this.dataGridViewTextBoxColumn2.DefaultCellStyle = dataGridViewCellStyle3;
+            dataGridViewCellStyle9.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn2.DefaultCellStyle = dataGridViewCellStyle9;
             this.dataGridViewTextBoxColumn2.FillWeight = 75F;
             this.dataGridViewTextBoxColumn2.HeaderText = "KIND";
             this.dataGridViewTextBoxColumn2.MinimumWidth = 6;
@@ -394,8 +392,8 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             // dataGridViewTextBoxColumn3
             // 
-            dataGridViewCellStyle4.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            this.dataGridViewTextBoxColumn3.DefaultCellStyle = dataGridViewCellStyle4;
+            dataGridViewCellStyle10.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn3.DefaultCellStyle = dataGridViewCellStyle10;
             this.dataGridViewTextBoxColumn3.FillWeight = 75F;
             this.dataGridViewTextBoxColumn3.HeaderText = "ACTOR";
             this.dataGridViewTextBoxColumn3.MinimumWidth = 6;
@@ -405,8 +403,8 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             // dataGridViewTextBoxColumn4
             // 
-            dataGridViewCellStyle5.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            this.dataGridViewTextBoxColumn4.DefaultCellStyle = dataGridViewCellStyle5;
+            dataGridViewCellStyle11.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn4.DefaultCellStyle = dataGridViewCellStyle11;
             this.dataGridViewTextBoxColumn4.FillWeight = 190F;
             this.dataGridViewTextBoxColumn4.HeaderText = "CODE";
             this.dataGridViewTextBoxColumn4.MinimumWidth = 6;
@@ -416,8 +414,8 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             // dataGridViewTextBoxColumn6
             // 
-            dataGridViewCellStyle6.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            this.dataGridViewTextBoxColumn6.DefaultCellStyle = dataGridViewCellStyle6;
+            dataGridViewCellStyle12.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn6.DefaultCellStyle = dataGridViewCellStyle12;
             this.dataGridViewTextBoxColumn6.FillWeight = 170F;
             this.dataGridViewTextBoxColumn6.HeaderText = "SOURCE";
             this.dataGridViewTextBoxColumn6.MinimumWidth = 6;
@@ -433,24 +431,9 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.dataGridViewTextBoxColumn5.Name = "dataGridViewTextBoxColumn5";
             this.dataGridViewTextBoxColumn5.ReadOnly = true;
             this.dataGridViewTextBoxColumn5.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            //
-            // events (디자이너 관리)
-            //
-            this._grid.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.Grid_CellClick);
-            this._grid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.Grid_CellDoubleClick);
-            this._dp.ValueChanged += new System.EventHandler(this.dp_ValueChanged);
-            this.lblHeader.TextChanged += new System.EventHandler(this.lblHeader_TextChanged);
-            this.txtRunId.TextChanged += new System.EventHandler(this.FilterTextBox_TextChanged);
-            this.txtSource.TextChanged += new System.EventHandler(this.FilterTextBox_TextChanged);
-            this.txtSearch.TextChanged += new System.EventHandler(this.FilterTextBox_TextChanged);
-            this.chkRecentHour.CheckedChanged += new System.EventHandler(this.chkRecentHour_CheckedChanged);
-            this.cmbLimit.SelectedIndexChanged += new System.EventHandler(this.cmbLimit_SelectedIndexChanged);
-            this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
-            this.btnOpenFile.Click += new System.EventHandler(this.btnOpenFile_Click);
-            this.btnLive.Click += new System.EventHandler(this.btnLive_Click);
-            //
+            // 
             // EventLogPage
-            //
+            // 
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "EventLogPage";

@@ -112,6 +112,8 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> VerifyOutputStageReadyAsync(CancellationToken ct)
         {
+            // 이번 대기의 로그 상태만 보관한다. 실제 준비 조건과 폴링 결과는 캐시하지 않는다.
+            var waitLog = new OutputStageReadyWaitLogState();
             try
             {
                 bool safeWaitPositionPrepared = false;
@@ -151,6 +153,7 @@ namespace QMC.CDT320.Sequencing
 
                     if (materialReady && (!autoMode || signalReady))
                     {
+                        FlushOutputStageReadyWaitLog(waitLog);
                         BeginOutputPostPlaceInspectionBatch();
                         WriteLog("PickerPlaceSequence",
                             Name + " OutputStage 수령 준비 확인 완료. side=" + _currentOutputSide +
@@ -164,13 +167,9 @@ namespace QMC.CDT320.Sequencing
                         return 0;
                     }
 
-                    string detail =
-                        "OutputStage가 Die를 받을 준비가 되지 않았습니다. side=" + _currentOutputSide +
-                        ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
-                        ", pickerNo=" + _currentPickerNo +
-                        ", materialReady=" + materialReady +
-                        ", signalReady=" + signalReady +
-                        ", reason=" + reason;
+                    string detail = GetOutputStageReadyWaitDetail(waitLog,
+                        _currentOutputSide, _currentDie != null ? _currentDie.DieId : "-",
+                        _currentPickerNo, materialReady, signalReady, reason);
 
                     if (!autoMode)
                         return Fail("PICKER-PLACE-OUTPUT-STAGE-NOT-READY", "Material", detail);
@@ -339,7 +338,7 @@ namespace QMC.CDT320.Sequencing
                         }
                     }
 
-                    WriteLog("PickerPlaceSequence", Name + " Place 대기: " + detail + " - Wait");
+                    WriteOutputStageReadyWaitLog(waitLog, detail, stageReceiveComplete);
                     Context.StopIfCycleStopRequested(
                         "PickerPlaceSequence.WaitOutputStageReady",
                         ShouldDeferCycleStopForPickerDrain(),
@@ -371,7 +370,110 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                // 성공·실패·취소·Cycle Stop 모두 남은 로그 횟수만 정리한다. 장비 상태는 변경하지 않는다.
+                FlushOutputStageReadyWaitLog(waitLog);
             }
+        }
+
+        private sealed class OutputStageReadyWaitLogState
+        {
+            public BinSide OutputSide;
+            public string DieId;
+            public int PickerNo;
+            public bool MaterialReady;
+            public bool SignalReady;
+            public string Reason;
+            public string CachedDetail;
+            public string LastLoggedDetail;
+            public bool LastStageReceiveComplete;
+            public string WaitId;
+            public long EntryNumber;
+            public long SuppressedCount;
+            public int LastEmitTick;
+        }
+
+        private static string GetOutputStageReadyWaitDetail(OutputStageReadyWaitLogState state,
+            BinSide outputSide, string dieId, int pickerNo, bool materialReady, bool signalReady, string reason)
+        {
+            if (state.CachedDetail == null || state.OutputSide != outputSide ||
+                !string.Equals(state.DieId, dieId, StringComparison.Ordinal) || state.PickerNo != pickerNo ||
+                state.MaterialReady != materialReady || state.SignalReady != signalReady ||
+                !string.Equals(state.Reason, reason, StringComparison.Ordinal))
+            {
+                state.OutputSide = outputSide;
+                state.DieId = dieId;
+                state.PickerNo = pickerNo;
+                state.MaterialReady = materialReady;
+                state.SignalReady = signalReady;
+                state.Reason = reason;
+                state.CachedDetail =
+                    "OutputStage가 Die를 받을 준비가 되지 않았습니다. side=" + outputSide +
+                    ", die=" + dieId +
+                    ", pickerNo=" + pickerNo +
+                    ", materialReady=" + materialReady +
+                    ", signalReady=" + signalReady +
+                    ", reason=" + reason;
+            }
+            return state.CachedDetail;
+        }
+
+        private void WriteOutputStageReadyWaitLog(OutputStageReadyWaitLogState state,
+            string detail, bool stageReceiveComplete)
+        {
+            const int waitLogIntervalMs = 1000;
+            if (!string.Equals(state.LastLoggedDetail, detail, StringComparison.Ordinal) ||
+                state.LastStageReceiveComplete != stageReceiveComplete)
+            {
+                FlushOutputStageReadyWaitLog(state);
+                state.LastLoggedDetail = detail;
+                state.LastStageReceiveComplete = stageReceiveComplete;
+                WriteOutputStageReadyWaitLogEntry(state, 0, 0);
+                state.LastEmitTick = Environment.TickCount;
+                return;
+            }
+
+            state.SuppressedCount++;
+            int elapsedMs = unchecked(Environment.TickCount - state.LastEmitTick);
+            if (elapsedMs < 0 || elapsedMs >= waitLogIntervalMs)
+                FlushOutputStageReadyWaitLog(state);
+        }
+
+        private void FlushOutputStageReadyWaitLog(OutputStageReadyWaitLogState state)
+        {
+            try
+            {
+                if (state.SuppressedCount == 0)
+                    return;
+
+                int now = Environment.TickCount;
+                int elapsedMs = Math.Max(0, unchecked(now - state.LastEmitTick));
+                WriteOutputStageReadyWaitLogEntry(state, state.SuppressedCount, elapsedMs);
+                state.SuppressedCount = 0;
+                state.LastEmitTick = now;
+            }
+            catch (Exception ex)
+            {
+                // 종료 요약 실패로 원래 시퀀스 반환값이나 취소/정지 예외를 바꾸지 않는다.
+                System.Diagnostics.Debug.WriteLine("OutputStage 대기 로그 요약 실패: " + ex.Message);
+            }
+        }
+
+        private void WriteOutputStageReadyWaitLogEntry(OutputStageReadyWaitLogState state,
+            long suppressedCount, int elapsedMs)
+        {
+            if (state.WaitId == null)
+                state.WaitId = SequenceTrace.NextTraceId();
+            state.EntryNumber++;
+
+            // Source와 기존 로그 경로는 유지한다. 호출 ID/기록 순번으로 하위 필터의 재축약을 방지한다.
+            WriteLog("PickerPlaceSequence",
+                Name + (suppressedCount == 0 ? " Place 대기: " : " Place 대기 반복 요약: ") +
+                state.LastLoggedDetail +
+                ", stageReceiveComplete=" + state.LastStageReceiveComplete +
+                ", waitId=" + state.WaitId +
+                ", waitEntry=" + state.EntryNumber +
+                ", repeatSuppressed=" + suppressedCount +
+                ", intervalMs=" + elapsedMs + " - Wait");
         }
 
         private async Task<int> MovePickerToSafeYBeforeOutputStageReadyWaitAsync(CancellationToken ct)

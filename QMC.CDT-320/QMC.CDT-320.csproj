@@ -614,6 +614,7 @@
     <Compile Include="Equipment\Recipes\RecipeMapPreviewService.cs" />
     <Compile Include="Ui\Pages\Recipe\TapeFrameSubsetPage.MapProcessing.cs">
       <SubType>UserControl</SubType>
+      <DependentUpon>TapeFrameSubsetPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\WaferMapProcessSettingsDialog.cs">
       <SubType>Form</SubType>
@@ -1526,6 +1527,9 @@
     </Compile>
     <EmbeddedResource Include="Ui\Common\Catalog\UiStandardCatalogForm.resx">
       <DependentUpon>UiStandardCatalogForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Common\Templates\UiPageTemplate.resx">
+      <DependentUpon>UiPageTemplate.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Controls\CassetteSlotView.resx">
       <DependentUpon>CassetteSlotView.cs</DependentUpon>

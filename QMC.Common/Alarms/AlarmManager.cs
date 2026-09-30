@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -62,6 +62,50 @@ namespace QMC.Common.Alarms
         public static IReadOnlyList<AlarmRecord> History
         {
             get { lock (_lock) return _all.ToList(); }
+        }
+
+        /// <summary>
+        /// 날짜별 저장 이력을 최신순으로 읽는다. 파일이 없으면 빈 목록을 반환한다.
+        /// 반환값은 화면 조회 전용이며 현재 History/Active, 알람 Id, 저장 상태를 변경하지 않는다.
+        /// 파일 읽기는 호출하는 화면의 백그라운드 작업에서 수행한다.
+        /// </summary>
+        public static IReadOnlyList<AlarmRecord> ReadSavedHistory(DateTime date, int maxRows)
+        {
+            if (maxRows <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maxRows));
+
+            string path = FilePath(date.Date);
+            try
+            {
+                using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                {
+                    var serializer = new DataContractJsonSerializer(typeof(List<AlarmSaveDto>));
+                    var saved = serializer.ReadObject(stream) as List<AlarmSaveDto>;
+                    if (saved == null)
+                        throw new SerializationException("알람 이력 목록 형식이 올바르지 않습니다.");
+
+                    // 저장 경로/DTO/복원 변환은 기존 형식을 사용하되 _all에는 절대 넣지 않는다.
+                    return saved.Where(item => item != null && item.Raised.Date == date.Date)
+                        .OrderByDescending(item => item.Raised)
+                        .ThenByDescending(item => item.Id)
+                        .Take(maxRows)
+                        .Select(item => item.ToRecord(restored: true))
+                        .ToList();
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                return new List<AlarmRecord>();
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return new List<AlarmRecord>();
+            }
+            catch (Exception ex)
+            {
+                throw new IOException("알람 저장 이력을 읽지 못했습니다. 날짜=" +
+                    date.ToString("yyyy-MM-dd") + ", 파일=" + path, ex);
+            }
         }
 
         public static bool HasActive

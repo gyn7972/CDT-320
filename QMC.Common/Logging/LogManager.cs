@@ -43,8 +43,8 @@ namespace QMC.Common
 	public class LogManager
     {
         private const int RepeatLogSummaryIntervalMs = 1000;
+        private const int RepeatLogSweepIntervalMs = 100;
         private const int MaxRepeatStateCount = 4096;
-		private string m_strTemp;
 
         #region Singleton 
         private static LogManager g_logManager;
@@ -66,8 +66,10 @@ namespace QMC.Common
 		private CancellationTokenSource m_tokenSourceCancel;
 		private CancellationToken m_tokenCancel;
         private AutoResetEvent m_logQueued;
-        private readonly object m_repeatSync = new object();
-        private readonly Dictionary<string, RepeatLogState> m_repeatStates = new Dictionary<string, RepeatLogState>(StringComparer.Ordinal);
+        // 큐와 반복 상태는 같은 잠금으로 보호한다. 파일 쓰기는 이 잠금 밖에서만 수행한다.
+        private readonly Dictionary<Tuple<string, string>, RepeatLogState> m_repeatStates =
+            new Dictionary<Tuple<string, string>, RepeatLogState>();
+        private int _lastRepeatFlushTick = Environment.TickCount;
 		private readonly string m_strLogPath;
 		#endregion
 
@@ -117,15 +119,7 @@ namespace QMC.Common
 		{
 			if (CheckLogLevel(level))
 			{
-                string filteredMessage;
-                if (!TryFilterRepeatedLog(level, strClassification, source, message, out filteredMessage))
-                    return;
-
-				lock (m_queLogs.SyncRoot)
-				{
-					m_queLogs.Enqueue(new LogInfo(level, source, filteredMessage, strClassification));
-				}
-                SignalLogQueued();
+                QueueLog(level, strClassification, source, message);
 			}
 		}
 
@@ -134,66 +128,88 @@ namespace QMC.Common
             if (CheckLogLevel(level))
             {
                 string logSource = string.Format(" [사용자 : {0}]  {1} ", Op_User, source);
-                string filteredMessage;
-                if (!TryFilterRepeatedLog(level, strClassification, logSource, message, out filteredMessage))
-                    return;
-
-                lock (m_queLogs.SyncRoot)
-                {
-                    m_strTemp = logSource;
-
-                    m_queLogs.Enqueue(new LogInfo(level, m_strTemp, filteredMessage, strClassification));
-                }
-                SignalLogQueued();
+                QueueLog(level, strClassification, logSource, message);
             }
         }
 
-        private bool TryFilterRepeatedLog(LogLevel level, string classification, string source, string message, out string filteredMessage)
+        private void QueueLog(LogLevel level, string classification, string source, string message)
         {
-            filteredMessage = message ?? string.Empty;
+            string safeMessage = message ?? string.Empty;
+            var key = Tuple.Create(classification ?? string.Empty, source ?? string.Empty);
+            bool canRepeat = level <= LogLevel.Normal && IsRepeatThrottleCandidate(safeMessage);
 
-            try
+            lock (m_queLogs.SyncRoot)
             {
-                if (level >= LogLevel.AboveNormal || !IsRepeatThrottleCandidate(filteredMessage))
-                    return true;
-
-                string key = (classification ?? string.Empty) + "\n" + (source ?? string.Empty) + "\n" + filteredMessage;
                 int now = Environment.TickCount;
-
-                lock (m_repeatSync)
+                RepeatLogState state;
+                if (m_repeatStates.TryGetValue(key, out state))
                 {
-                    if (m_repeatStates.Count > MaxRepeatStateCount)
-                        m_repeatStates.Clear();
-
-                    RepeatLogState state;
-                    if (!m_repeatStates.TryGetValue(key, out state))
-                    {
-                        m_repeatStates[key] = new RepeatLogState { LastEmitTick = now };
-                        return true;
-                    }
-
                     int elapsedMs = unchecked(now - state.LastEmitTick);
-                    if (elapsedMs < RepeatLogSummaryIntervalMs)
+                    bool sameMessage = canRepeat && state.Level == level &&
+                        string.Equals(state.Message, safeMessage, StringComparison.Ordinal);
+                    if (sameMessage && elapsedMs >= 0 && elapsedMs < RepeatLogSummaryIntervalMs)
                     {
                         state.SuppressedCount++;
-                        return false;
+                        return;
                     }
 
-                    int suppressed = state.SuppressedCount;
-                    state.LastEmitTick = now;
-                    state.SuppressedCount = 0;
+                    // 다른 상태/중요도/완료 로그가 들어오면 이전 대기의 요약을 먼저 기록한다.
+                    // A → B → A도 새 상태이므로 첫 A의 1초 제한에 가려지지 않는다.
+                    QueueRepeatSummary(key, state, now);
+                    m_repeatStates.Remove(key);
+                }
 
-                    if (suppressed > 0)
-                        filteredMessage = filteredMessage + " [repeat suppressed: " + suppressed + ", intervalMs=" + elapsedMs + "]";
+                m_queLogs.Enqueue(new LogInfo(level, source, safeMessage, classification));
+                if (canRepeat && m_repeatStates.Count < MaxRepeatStateCount)
+                {
+                    m_repeatStates[key] = new RepeatLogState
+                    {
+                        Level = level,
+                        Message = safeMessage,
+                        LastEmitTick = now
+                    };
+                }
+                // 상태 상한에 도달하면 새 출처는 축약하지 않는다. 기존 요약을 버리지 않는다.
+            }
+            SignalLogQueued();
+        }
 
-                    return true;
+        // 호출자는 반드시 m_queLogs.SyncRoot 잠금을 보유한다. 파일 IO는 하지 않는다.
+        private void QueueRepeatSummary(Tuple<string, string> key, RepeatLogState state, int now)
+        {
+            if (state.SuppressedCount == 0)
+                return;
+
+            int elapsedMs = Math.Max(0, unchecked(now - state.LastEmitTick));
+            string summary = "반복 로그 요약: " + state.Message +
+                " [repeat suppressed: " + state.SuppressedCount + ", intervalMs=" + elapsedMs + "]";
+            m_queLogs.Enqueue(new LogInfo(state.Level, key.Item2, summary, key.Item1));
+        }
+
+        // 큐 잠금 안에서 기존 writer가 회수한다. 다음 동일 로그가 없어도 마지막 횟수를 남긴다.
+        private void FlushRepeatedLogs(int now, bool flushAll)
+        {
+            if (m_repeatStates.Count == 0)
+                return;
+
+            // 로그 한 건마다 전체 상태를 순회하지 않는다. 새 타이머/작업 스레드는 만들지 않는다.
+            int sinceLastFlush = unchecked(now - _lastRepeatFlushTick);
+            if (!flushAll && sinceLastFlush >= 0 && sinceLastFlush < RepeatLogSweepIntervalMs)
+                return;
+            _lastRepeatFlushTick = now;
+
+            var expiredKeys = new List<Tuple<string, string>>();
+            foreach (var item in m_repeatStates)
+            {
+                int elapsedMs = unchecked(now - item.Value.LastEmitTick);
+                if (flushAll || elapsedMs < 0 || elapsedMs >= RepeatLogSummaryIntervalMs)
+                {
+                    QueueRepeatSummary(item.Key, item.Value, now);
+                    expiredKeys.Add(item.Key);
                 }
             }
-            catch
-            {
-                filteredMessage = message ?? string.Empty;
-                return true;
-            }
+            foreach (var key in expiredKeys)
+                m_repeatStates.Remove(key);
         }
 
         private static bool IsRepeatThrottleCandidate(string message)
@@ -201,21 +217,42 @@ namespace QMC.Common
             if (string.IsNullOrWhiteSpace(message))
                 return false;
 
-            if (IndexOf(message, "- Failed") >= 0 ||
-                IndexOf(message, "- Stopped") >= 0 ||
-                IndexOf(message, "- Alarm") >= 0 ||
-                IndexOf(message, "- Start") >= 0 ||
-                IndexOf(message, "- Ok") >= 0)
+            // 레거시 호출 중 실제 실패를 '- Check'로 끝내는 경우도 있으므로 먼저 보존한다.
+            // 단순 timeoutMs 같은 설정값은 오류로 간주하지 않는다.
+            if (IndexOf(message, "failed") >= 0 ||
+                IndexOf(message, "failure") >= 0 ||
+                IndexOf(message, "exception") >= 0 ||
+                IndexOf(message, "실패") >= 0 ||
+                IndexOf(message, "오류") >= 0 ||
+                IndexOf(message, "예외") >= 0 ||
+                IndexOf(message, "차단") >= 0 ||
+                IndexOf(message, "거부") >= 0 ||
+                IndexOf(message, "타임아웃") >= 0 ||
+                IndexOf(message, "재시도") >= 0 ||
+                IndexOf(message, "취소") >= 0)
             {
                 return false;
             }
 
-            return IndexOf(message, "- Wait") >= 0 ||
-                   IndexOf(message, " - Wait") >= 0 ||
-                   IndexOf(message, "- Check") >= 0 ||
-                   IndexOf(message, " - Check") >= 0 ||
-                   IndexOf(message, "Gate") >= 0 ||
-                   IndexOf(message, "Pending") >= 0;
+            if (IndexOf(message, "- Failed") >= 0 ||
+                IndexOf(message, "- Stopped") >= 0 ||
+                IndexOf(message, "- Alarm") >= 0 ||
+                IndexOf(message, "- Start") >= 0 ||
+                IndexOf(message, "- Ok") >= 0 ||
+                IndexOf(message, "- Blocked") >= 0 ||
+                IndexOf(message, "- Timeout") >= 0 ||
+                IndexOf(message, "- Canceled") >= 0 ||
+                IndexOf(message, "- Cancelled") >= 0 ||
+                IndexOf(message, "- Error") >= 0 ||
+                IndexOf(message, "- Warning") >= 0 ||
+                IndexOf(message, "- Retry") >= 0)
+            {
+                return false;
+            }
+
+            // Gate/Pending라는 단어만으로 명령·차단·재시도 기록을 축약하지 않는다.
+            return message.EndsWith("- Wait", StringComparison.OrdinalIgnoreCase) ||
+                   message.EndsWith("- Check", StringComparison.OrdinalIgnoreCase);
         }
 
         private static int IndexOf(string text, string value)
@@ -225,8 +262,10 @@ namespace QMC.Common
 
         private sealed class RepeatLogState
         {
+            public LogLevel Level;
+            public string Message;
             public int LastEmitTick;
-            public int SuppressedCount;
+            public long SuppressedCount;
         }
 
         private void SignalLogQueued()
@@ -266,7 +305,7 @@ namespace QMC.Common
 
 					if (bExit)
                     {
-                        DrainQueuedLogs(listLog);
+                        DrainQueuedLogs(listLog, true);
                         WriteLog(listLog);
 						break;
                     }
@@ -282,13 +321,14 @@ namespace QMC.Common
 
 		}
 
-        private void DrainQueuedLogs(List<LogInfo> listLog)
+        private void DrainQueuedLogs(List<LogInfo> listLog, bool flushAllRepeatedLogs = false)
         {
             if (listLog == null)
                 return;
 
             lock (m_queLogs.SyncRoot)
             {
+                FlushRepeatedLogs(Environment.TickCount, flushAllRepeatedLogs);
                 listLog.Clear();
                 while (m_queLogs.Count > 0)
                 {

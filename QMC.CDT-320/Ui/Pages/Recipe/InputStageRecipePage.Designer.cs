@@ -311,10 +311,10 @@
             this.visionPanel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.visionPanel.Controls.Add(this.lblVisionInfo);
             this.visionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.visionPanel.Location = new System.Drawing.Point(3, 25);
+            this.visionPanel.Location = new System.Drawing.Point(3, 20);
             this.visionPanel.Margin = new System.Windows.Forms.Padding(10);
             this.visionPanel.Name = "visionPanel";
-            this.visionPanel.Size = new System.Drawing.Size(549, 454);
+            this.visionPanel.Size = new System.Drawing.Size(549, 459);
             this.visionPanel.TabIndex = 0;
             // 
             // lblVisionInfo
@@ -325,7 +325,7 @@
             this.lblVisionInfo.ForeColor = System.Drawing.Color.Lime;
             this.lblVisionInfo.Location = new System.Drawing.Point(10, 10);
             this.lblVisionInfo.Name = "lblVisionInfo";
-            this.lblVisionInfo.Size = new System.Drawing.Size(72, 114);
+            this.lblVisionInfo.Size = new System.Drawing.Size(56, 90);
             this.lblVisionInfo.TabIndex = 0;
             this.lblVisionInfo.Text = "STAGE\r\nW : 640\r\nH : 480\r\nX : 0\r\nY : 0\r\nT : 0";
             this.lblVisionInfo.Visible = false;
@@ -352,11 +352,11 @@
             this.manualActionPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.manualActionPanel.ColumnCount = 2;
             this.manualActionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.manualActionPanel.Location = new System.Drawing.Point(3, 25);
+            this.manualActionPanel.Location = new System.Drawing.Point(3, 20);
             this.manualActionPanel.Margin = new System.Windows.Forms.Padding(0);
             this.manualActionPanel.Name = "manualActionPanel";
             this.manualActionPanel.RowHeight = 45;
-            this.manualActionPanel.Size = new System.Drawing.Size(549, 187);
+            this.manualActionPanel.Size = new System.Drawing.Size(549, 192);
             this.manualActionPanel.TabIndex = 0;
             // 
             // leftLayout
@@ -400,11 +400,11 @@
             this.optionParameterGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.optionParameterGrid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.optionParameterGrid.GridScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.optionParameterGrid.ShowParameterDescriptions = true;
-            this.optionParameterGrid.Location = new System.Drawing.Point(3, 25);
+            this.optionParameterGrid.Location = new System.Drawing.Point(3, 20);
             this.optionParameterGrid.Margin = new System.Windows.Forms.Padding(0);
             this.optionParameterGrid.Name = "optionParameterGrid";
-            this.optionParameterGrid.Size = new System.Drawing.Size(640, 596);
+            this.optionParameterGrid.ShowParameterDescriptions = true;
+            this.optionParameterGrid.Size = new System.Drawing.Size(640, 601);
             this.optionParameterGrid.TabIndex = 1;
             // 
             // grpWait
@@ -429,7 +429,7 @@
             this.waitParameterGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.waitParameterGrid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.waitParameterGrid.GridScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.waitParameterGrid.Location = new System.Drawing.Point(3, 25);
+            this.waitParameterGrid.Location = new System.Drawing.Point(3, 20);
             this.waitParameterGrid.Margin = new System.Windows.Forms.Padding(0);
             this.waitParameterGrid.Name = "waitParameterGrid";
             this.waitParameterGrid.Size = new System.Drawing.Size(640, 0);
@@ -456,10 +456,10 @@
             this.ioCylinderPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(205)))), ((int)(((byte)(205)))), ((int)(((byte)(205)))));
             this.ioCylinderPanel.ColumnCount = 1;
             this.ioCylinderPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ioCylinderPanel.Location = new System.Drawing.Point(3, 25);
+            this.ioCylinderPanel.Location = new System.Drawing.Point(3, 20);
             this.ioCylinderPanel.Margin = new System.Windows.Forms.Padding(0);
             this.ioCylinderPanel.Name = "ioCylinderPanel";
-            this.ioCylinderPanel.Size = new System.Drawing.Size(640, 92);
+            this.ioCylinderPanel.Size = new System.Drawing.Size(640, 97);
             this.ioCylinderPanel.TabIndex = 1;
             // 
             // grpJog
@@ -484,12 +484,12 @@
             this.jogCommonLayout.Controls.Add(this.jogPositionListControl, 0, 0);
             this.jogCommonLayout.Controls.Add(this.jogAxisMoveControl, 0, 1);
             this.jogCommonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogCommonLayout.Location = new System.Drawing.Point(3, 25);
+            this.jogCommonLayout.Location = new System.Drawing.Point(3, 20);
             this.jogCommonLayout.Name = "jogCommonLayout";
             this.jogCommonLayout.RowCount = 2;
             this.jogCommonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 136F));
             this.jogCommonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.jogCommonLayout.Size = new System.Drawing.Size(377, 840);
+            this.jogCommonLayout.Size = new System.Drawing.Size(377, 845);
             this.jogCommonLayout.TabIndex = 1;
             // 
             // jogPositionListControl
@@ -516,7 +516,7 @@
             this.jogAxisMoveControl.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.jogAxisMoveControl.Name = "jogAxisMoveControl";
             this.jogAxisMoveControl.ShowCurrentSpeedMode = true;
-            this.jogAxisMoveControl.Size = new System.Drawing.Size(371, 696);
+            this.jogAxisMoveControl.Size = new System.Drawing.Size(371, 701);
             this.jogAxisMoveControl.SpeedControl = null;
             this.jogAxisMoveControl.TabIndex = 1;
             // 
@@ -553,10 +553,10 @@
             // 
             this.jogSpeedControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.jogSpeedControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogSpeedControl.Location = new System.Drawing.Point(3, 25);
+            this.jogSpeedControl.Location = new System.Drawing.Point(3, 20);
             this.jogSpeedControl.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.jogSpeedControl.Name = "jogSpeedControl";
-            this.jogSpeedControl.Size = new System.Drawing.Size(74, 840);
+            this.jogSpeedControl.Size = new System.Drawing.Size(74, 845);
             this.jogSpeedControl.SpeedPercent = 50;
             this.jogSpeedControl.TabIndex = 1;
             // 

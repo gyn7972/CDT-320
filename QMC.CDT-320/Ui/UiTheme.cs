@@ -1,5 +1,7 @@
 ﻿using System.Drawing;
 
+using QMC.Common.Ui.Standards;
+
 namespace QMC.CDT_320.Ui
 {
     /// <summary>
@@ -11,10 +13,11 @@ namespace QMC.CDT_320.Ui
         public static readonly Color HeaderBg           = Color.FromArgb(0x2D, 0x2D, 0x30);
         public static readonly Color HeaderFg           = Color.White;
         public static readonly Color LogoOrange         = Color.FromArgb(0xE8, 0x5D, 0x1A);
-        public static readonly Color StatusBarBg        = Color.FromArgb(0xD9, 0x77, 0x06);
+        // 공용 배경색만 공유한다. 헤더의 흰 글자와 기존 배치/글꼴은 그대로 유지한다.
+        public static readonly Color StatusBarBg        = UiStandardPalette.PrimaryBackColor;
         public static readonly Color StatusBarFg        = Color.White;
         public static readonly Color MainBg             = Color.FromArgb(0xBF, 0xBF, 0xBF);
-        public static readonly Color OptionHeaderBg     = Color.FromArgb(0xD9, 0x77, 0x06);
+        public static readonly Color OptionHeaderBg     = UiStandardPalette.PrimaryBackColor;
         public static readonly Color OptionHeaderFg     = Color.White;
         public static readonly Color OptionPanelBg      = Color.FromArgb(0xF0, 0xF0, 0xF0);
         public static readonly Color SidebarBg          = Color.FromArgb(0x59, 0x59, 0x59);
@@ -26,7 +29,7 @@ namespace QMC.CDT_320.Ui
         public static readonly Color SidebarBtnSelFg    = Color.FromArgb(0x22, 0x22, 0x22);
         public static readonly Color BottomBarBg        = Color.FromArgb(0x2D, 0x2D, 0x30);
         public static readonly Color BottomBarFg        = Color.White;
-        public static readonly Color MenuLabelBg        = Color.FromArgb(0x40, 0x40, 0x40);
+        public static readonly Color MenuLabelBg        = UiStandardPalette.DarkBackColor;
         public static readonly Color MenuLabelFg        = Color.FromArgb(0x90, 0x90, 0x90);
         public static readonly Color VisionBg           = Color.Black;
         public static readonly Color VisionInfoFg       = Color.LightGreen;

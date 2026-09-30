@@ -26,10 +26,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._cbRole = new System.Windows.Forms.ComboBox();
             this.lblAlignPts = new System.Windows.Forms.Label();
             this._nAlignPts = new System.Windows.Forms.NumericUpDown();
-            this.lblAutoBarcode = new System.Windows.Forms.Label();
-            this._cbAutoBarcode = new System.Windows.Forms.CheckBox();
             this.lblAutoAlign = new System.Windows.Forms.Label();
             this._cbAutoAlign = new System.Windows.Forms.CheckBox();
+            this.lblAutoBarcode = new System.Windows.Forms.Label();
+            this._cbAutoBarcode = new System.Windows.Forms.CheckBox();
             this._editorPanel.SuspendLayout();
             this.editorLayout.SuspendLayout();
             this.grpLoad.SuspendLayout();
@@ -89,7 +89,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpLoad.Controls.Add(this._cbRole, 1, 0);
             this.tlpLoad.Controls.Add(this.lblAlignPts, 0, 1);
             this.tlpLoad.Controls.Add(this._nAlignPts, 1, 1);
-            // 바코드 사용 설정은 설정(Settings) → 바코드 화면에서만 관리한다. 레시피 항목은 제거.
             this.tlpLoad.Controls.Add(this.lblAutoAlign, 0, 2);
             this.tlpLoad.Controls.Add(this._cbAutoAlign, 1, 2);
             this.tlpLoad.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -157,6 +156,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._nAlignPts.Size = new System.Drawing.Size(301, 23);
             this._nAlignPts.TabIndex = 4;
             // 
+            // lblAutoAlign
+            // 
+            this.lblAutoAlign.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAutoAlign.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblAutoAlign.Location = new System.Drawing.Point(3, 68);
+            this.lblAutoAlign.Name = "lblAutoAlign";
+            this.lblAutoAlign.Size = new System.Drawing.Size(214, 34);
+            this.lblAutoAlign.TabIndex = 7;
+            this.lblAutoAlign.Text = "Alignment";
+            this.lblAutoAlign.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _cbAutoAlign
+            // 
+            this._cbAutoAlign.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._cbAutoAlign.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this._cbAutoAlign.Location = new System.Drawing.Point(223, 71);
+            this._cbAutoAlign.Name = "_cbAutoAlign";
+            this._cbAutoAlign.Size = new System.Drawing.Size(301, 28);
+            this._cbAutoAlign.TabIndex = 8;
+            this._cbAutoAlign.Text = "Auto alignment on load";
+            // 
             // lblAutoBarcode
             // 
             this.lblAutoBarcode.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -177,27 +197,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._cbAutoBarcode.Size = new System.Drawing.Size(301, 28);
             this._cbAutoBarcode.TabIndex = 6;
             this._cbAutoBarcode.Text = "Auto barcode read on load";
-            // 
-            // lblAutoAlign
-            // 
-            this.lblAutoAlign.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAutoAlign.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblAutoAlign.Location = new System.Drawing.Point(3, 102);
-            this.lblAutoAlign.Name = "lblAutoAlign";
-            this.lblAutoAlign.Size = new System.Drawing.Size(214, 34);
-            this.lblAutoAlign.TabIndex = 7;
-            this.lblAutoAlign.Text = "Alignment";
-            this.lblAutoAlign.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // _cbAutoAlign
-            // 
-            this._cbAutoAlign.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._cbAutoAlign.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this._cbAutoAlign.Location = new System.Drawing.Point(223, 105);
-            this._cbAutoAlign.Name = "_cbAutoAlign";
-            this._cbAutoAlign.Size = new System.Drawing.Size(301, 28);
-            this._cbAutoAlign.TabIndex = 8;
-            this._cbAutoAlign.Text = "Auto alignment on load";
             // 
             // LoadTapeFrameSubsetPage
             // 

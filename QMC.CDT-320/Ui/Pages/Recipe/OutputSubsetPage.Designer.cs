@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
@@ -51,19 +51,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             ((System.ComponentModel.ISupportInitialize)(this._nDiesPerWafer)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._nWafersPerBatch)).BeginInit();
             this.SuspendLayout();
-            //
+            // 
             // _editorPanel
-            //
+            // 
             this._editorPanel.BackColor = System.Drawing.Color.White;
             this._editorPanel.Controls.Add(this.editorLayout);
             this._editorPanel.Size = new System.Drawing.Size(1094, 676);
-            //
+            // 
             // _lblProject
-            //
+            // 
             this._lblProject.Size = new System.Drawing.Size(794, 36);
-            //
-            // editorLayout  (좌측 50%만 사용, 그룹박스 세로 배치)
-            //
+            // 
+            // editorLayout
+            // 
             this.editorLayout.BackColor = System.Drawing.Color.White;
             this.editorLayout.ColumnCount = 2;
             this.editorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -73,28 +73,29 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.editorLayout.Location = new System.Drawing.Point(8, 12);
             this.editorLayout.Margin = new System.Windows.Forms.Padding(0);
             this.editorLayout.Name = "editorLayout";
-            this.editorLayout.Padding = new System.Windows.Forms.Padding(0);
             this.editorLayout.RowCount = 2;
             this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 280F));
             this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.editorLayout.Size = new System.Drawing.Size(1078, 656);
             this.editorLayout.TabIndex = 0;
-            //
+            // 
             // grpOutput
-            //
+            // 
             this.grpOutput.BackColor = System.Drawing.Color.White;
             this.grpOutput.Controls.Add(this.tlpOutput);
             this.grpOutput.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpOutput.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.grpOutput.Location = new System.Drawing.Point(0, 0);
             this.grpOutput.Margin = new System.Windows.Forms.Padding(0);
             this.grpOutput.Name = "grpOutput";
             this.grpOutput.Padding = new System.Windows.Forms.Padding(6, 2, 6, 6);
+            this.grpOutput.Size = new System.Drawing.Size(539, 280);
             this.grpOutput.TabIndex = 0;
             this.grpOutput.TabStop = false;
             this.grpOutput.Text = "Plate size and output parameters";
-            //
+            // 
             // tlpOutput
-            //
+            // 
             this.tlpOutput.BackColor = System.Drawing.Color.White;
             this.tlpOutput.ColumnCount = 2;
             this.tlpOutput.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 220F));
@@ -114,6 +115,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpOutput.Controls.Add(this.lblDefaultGood, 0, 6);
             this.tlpOutput.Controls.Add(this._tbDefaultGood, 1, 6);
             this.tlpOutput.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tlpOutput.Location = new System.Drawing.Point(6, 20);
             this.tlpOutput.Margin = new System.Windows.Forms.Padding(0);
             this.tlpOutput.Name = "tlpOutput";
             this.tlpOutput.RowCount = 8;
@@ -125,21 +127,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpOutput.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpOutput.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpOutput.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tlpOutput.Size = new System.Drawing.Size(527, 254);
             this.tlpOutput.TabIndex = 0;
-            //
+            // 
             // lblGoodMax
-            //
+            // 
             this.lblGoodMax.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblGoodMax.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblGoodMax.Location = new System.Drawing.Point(3, 0);
             this.lblGoodMax.Name = "lblGoodMax";
+            this.lblGoodMax.Size = new System.Drawing.Size(214, 34);
             this.lblGoodMax.TabIndex = 1;
             this.lblGoodMax.Text = "Good plate max slots";
             this.lblGoodMax.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _nGoodMax
-            //
+            // 
             this._nGoodMax.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nGoodMax.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nGoodMax.Location = new System.Drawing.Point(223, 5);
             this._nGoodMax.Margin = new System.Windows.Forms.Padding(3, 5, 3, 4);
             this._nGoodMax.Minimum = new decimal(new int[] {
             1,
@@ -147,26 +153,30 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nGoodMax.Name = "_nGoodMax";
+            this._nGoodMax.Size = new System.Drawing.Size(301, 23);
             this._nGoodMax.TabIndex = 2;
             this._nGoodMax.Value = new decimal(new int[] {
             1,
             0,
             0,
             0});
-            //
+            // 
             // lblNgMax
-            //
+            // 
             this.lblNgMax.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNgMax.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblNgMax.Location = new System.Drawing.Point(3, 34);
             this.lblNgMax.Name = "lblNgMax";
+            this.lblNgMax.Size = new System.Drawing.Size(214, 34);
             this.lblNgMax.TabIndex = 3;
             this.lblNgMax.Text = "NG plate max slots";
             this.lblNgMax.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _nNgMax
-            //
+            // 
             this._nNgMax.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nNgMax.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nNgMax.Location = new System.Drawing.Point(223, 39);
             this._nNgMax.Margin = new System.Windows.Forms.Padding(3, 5, 3, 4);
             this._nNgMax.Minimum = new decimal(new int[] {
             1,
@@ -174,26 +184,30 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nNgMax.Name = "_nNgMax";
+            this._nNgMax.Size = new System.Drawing.Size(301, 23);
             this._nNgMax.TabIndex = 4;
             this._nNgMax.Value = new decimal(new int[] {
             1,
             0,
             0,
             0});
-            //
+            // 
             // lblDiesPerWafer
-            //
+            // 
             this.lblDiesPerWafer.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDiesPerWafer.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblDiesPerWafer.Location = new System.Drawing.Point(3, 68);
             this.lblDiesPerWafer.Name = "lblDiesPerWafer";
+            this.lblDiesPerWafer.Size = new System.Drawing.Size(214, 34);
             this.lblDiesPerWafer.TabIndex = 5;
             this.lblDiesPerWafer.Text = "Dies per wafer";
             this.lblDiesPerWafer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _nDiesPerWafer
-            //
+            // 
             this._nDiesPerWafer.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nDiesPerWafer.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nDiesPerWafer.Location = new System.Drawing.Point(223, 73);
             this._nDiesPerWafer.Margin = new System.Windows.Forms.Padding(3, 5, 3, 4);
             this._nDiesPerWafer.Minimum = new decimal(new int[] {
             1,
@@ -201,26 +215,30 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nDiesPerWafer.Name = "_nDiesPerWafer";
+            this._nDiesPerWafer.Size = new System.Drawing.Size(301, 23);
             this._nDiesPerWafer.TabIndex = 6;
             this._nDiesPerWafer.Value = new decimal(new int[] {
             1,
             0,
             0,
             0});
-            //
+            // 
             // lblWafersPerBatch
-            //
+            // 
             this.lblWafersPerBatch.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblWafersPerBatch.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblWafersPerBatch.Location = new System.Drawing.Point(3, 102);
             this.lblWafersPerBatch.Name = "lblWafersPerBatch";
+            this.lblWafersPerBatch.Size = new System.Drawing.Size(214, 34);
             this.lblWafersPerBatch.TabIndex = 7;
             this.lblWafersPerBatch.Text = "Wafers per output batch";
             this.lblWafersPerBatch.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _nWafersPerBatch
-            //
+            // 
             this._nWafersPerBatch.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nWafersPerBatch.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nWafersPerBatch.Location = new System.Drawing.Point(223, 107);
             this._nWafersPerBatch.Margin = new System.Windows.Forms.Padding(3, 5, 3, 4);
             this._nWafersPerBatch.Minimum = new decimal(new int[] {
             1,
@@ -228,66 +246,79 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nWafersPerBatch.Name = "_nWafersPerBatch";
+            this._nWafersPerBatch.Size = new System.Drawing.Size(301, 23);
             this._nWafersPerBatch.TabIndex = 8;
             this._nWafersPerBatch.Value = new decimal(new int[] {
             1,
             0,
             0,
             0});
-            //
+            // 
             // lblAutoBin
-            //
+            // 
             this.lblAutoBin.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblAutoBin.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblAutoBin.Location = new System.Drawing.Point(3, 136);
             this.lblAutoBin.Name = "lblAutoBin";
+            this.lblAutoBin.Size = new System.Drawing.Size(214, 34);
             this.lblAutoBin.TabIndex = 9;
             this.lblAutoBin.Text = "Auto bin";
             this.lblAutoBin.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _cbAutoBin
-            //
+            // 
             this._cbAutoBin.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbAutoBin.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this._cbAutoBin.Location = new System.Drawing.Point(223, 139);
             this._cbAutoBin.Name = "_cbAutoBin";
+            this._cbAutoBin.Size = new System.Drawing.Size(301, 28);
             this._cbAutoBin.TabIndex = 10;
             this._cbAutoBin.Text = "Auto bin transition enable";
-            //
+            // 
             // lblAlarmFull
-            //
+            // 
             this.lblAlarmFull.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblAlarmFull.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblAlarmFull.Location = new System.Drawing.Point(3, 170);
             this.lblAlarmFull.Name = "lblAlarmFull";
+            this.lblAlarmFull.Size = new System.Drawing.Size(214, 34);
             this.lblAlarmFull.TabIndex = 11;
             this.lblAlarmFull.Text = "Full alarm";
             this.lblAlarmFull.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _cbAlarmFull
-            //
+            // 
             this._cbAlarmFull.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbAlarmFull.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this._cbAlarmFull.Location = new System.Drawing.Point(223, 173);
             this._cbAlarmFull.Name = "_cbAlarmFull";
+            this._cbAlarmFull.Size = new System.Drawing.Size(301, 28);
             this._cbAlarmFull.TabIndex = 12;
             this._cbAlarmFull.Text = "Alarm and cycle stop when plate full";
-            //
+            // 
             // lblDefaultGood
-            //
+            // 
             this.lblDefaultGood.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDefaultGood.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblDefaultGood.Location = new System.Drawing.Point(3, 204);
             this.lblDefaultGood.Name = "lblDefaultGood";
+            this.lblDefaultGood.Size = new System.Drawing.Size(214, 34);
             this.lblDefaultGood.TabIndex = 13;
             this.lblDefaultGood.Text = "Default good cassette";
             this.lblDefaultGood.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _tbDefaultGood
-            //
+            // 
             this._tbDefaultGood.Dock = System.Windows.Forms.DockStyle.Fill;
             this._tbDefaultGood.Font = new System.Drawing.Font("Consolas", 10F);
+            this._tbDefaultGood.Location = new System.Drawing.Point(223, 209);
             this._tbDefaultGood.Margin = new System.Windows.Forms.Padding(3, 5, 3, 4);
             this._tbDefaultGood.Name = "_tbDefaultGood";
+            this._tbDefaultGood.Size = new System.Drawing.Size(301, 23);
             this._tbDefaultGood.TabIndex = 14;
-            //
+            // 
             // OutputSubsetPage
-            //
+            // 
             this.Name = "OutputSubsetPage";
             this.Size = new System.Drawing.Size(1094, 742);
             this.Controls.SetChildIndex(this._editorPanel, 0);

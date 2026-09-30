@@ -85,13 +85,13 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this._cbRotate = new System.Windows.Forms.ComboBox();
             this.grpActions = new System.Windows.Forms.GroupBox();
             this.actionLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.grpResult = new System.Windows.Forms.GroupBox();
-            this.resultLayout = new System.Windows.Forms.TableLayoutPanel();
             this.btnLoadActive = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnGenerate = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnDemo = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnLoad = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnSave = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.grpResult = new System.Windows.Forms.GroupBox();
+            this.resultLayout = new System.Windows.Forms.TableLayoutPanel();
             this._lblStats = new System.Windows.Forms.Label();
             this._lblCellInfo = new System.Windows.Forms.Label();
             this.rootLayout.SuspendLayout();
@@ -121,7 +121,6 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
-            this.rootLayout.Padding = new System.Windows.Forms.Padding(0);
             this.rootLayout.RowCount = 2;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -156,7 +155,6 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.contentLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.contentLayout.Location = new System.Drawing.Point(3, 33);
             this.contentLayout.Name = "contentLayout";
-            this.contentLayout.Padding = new System.Windows.Forms.Padding(0);
             this.contentLayout.RowCount = 2;
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 70F));
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 30F));
@@ -167,11 +165,18 @@ namespace QMC.CDT_320.Ui.Pages.Material
             // 
             this._view.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(30)))), ((int)(((byte)(30)))));
             this._view.Caption = "Die Map";
+            this._view.CompactUsedBounds = false;
             this._view.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._view.EnableRectangleSelection = false;
+            this._view.FitCellTextToCell = false;
+            this._view.KeepOverlaysVisible = false;
             this._view.Location = new System.Drawing.Point(0, 0);
             this._view.Map = null;
             this._view.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this._view.Name = "_view";
+            this._view.SelectedEntry = null;
+            this._view.ShowEquipmentAxes = false;
+            this._view.ShowWaferOutline = false;
             this._view.Size = new System.Drawing.Size(1170, 602);
             this._view.TabIndex = 0;
             // 
@@ -271,12 +276,12 @@ namespace QMC.CDT_320.Ui.Pages.Material
             // 
             // rightLayout
             // 
+            this.rightLayout.BackColor = System.Drawing.Color.White;
             this.rightLayout.ColumnCount = 1;
             this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rightLayout.Controls.Add(this.grpParams, 0, 0);
             this.rightLayout.Controls.Add(this.grpActions, 0, 1);
             this.rightLayout.Controls.Add(this.grpResult, 0, 3);
-            this.rightLayout.BackColor = System.Drawing.Color.White;
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rightLayout.Location = new System.Drawing.Point(1172, 0);
             this.rightLayout.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
@@ -368,7 +373,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             0,
             0});
             this._nGridX.Name = "_nGridX";
-            this._nGridX.Size = new System.Drawing.Size(352, 23);
+            this._nGridX.Size = new System.Drawing.Size(300, 23);
             this._nGridX.TabIndex = 1;
             this._nGridX.Value = new decimal(new int[] {
             5,
@@ -403,7 +408,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             0,
             0});
             this._nGridY.Name = "_nGridY";
-            this._nGridY.Size = new System.Drawing.Size(352, 23);
+            this._nGridY.Size = new System.Drawing.Size(300, 23);
             this._nGridY.TabIndex = 3;
             this._nGridY.Value = new decimal(new int[] {
             5,
@@ -439,7 +444,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             0,
             196608});
             this._nPitchX.Name = "_nPitchX";
-            this._nPitchX.Size = new System.Drawing.Size(352, 23);
+            this._nPitchX.Size = new System.Drawing.Size(300, 23);
             this._nPitchX.TabIndex = 5;
             this._nPitchX.Value = new decimal(new int[] {
             1,
@@ -475,7 +480,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             0,
             196608});
             this._nPitchY.Name = "_nPitchY";
-            this._nPitchY.Size = new System.Drawing.Size(352, 23);
+            this._nPitchY.Size = new System.Drawing.Size(300, 23);
             this._nPitchY.TabIndex = 7;
             this._nPitchY.Value = new decimal(new int[] {
             1,
@@ -511,7 +516,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             0,
             0});
             this._nOriginX.Name = "_nOriginX";
-            this._nOriginX.Size = new System.Drawing.Size(352, 23);
+            this._nOriginX.Size = new System.Drawing.Size(300, 23);
             this._nOriginX.TabIndex = 9;
             // 
             // lblOriginY
@@ -542,7 +547,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             0,
             0});
             this._nOriginY.Name = "_nOriginY";
-            this._nOriginY.Size = new System.Drawing.Size(352, 23);
+            this._nOriginY.Size = new System.Drawing.Size(300, 23);
             this._nOriginY.TabIndex = 11;
             // 
             // lblRotate
@@ -563,7 +568,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this._cbRotate.Font = new System.Drawing.Font("Consolas", 10F);
             this._cbRotate.Location = new System.Drawing.Point(171, 237);
             this._cbRotate.Name = "_cbRotate";
-            this._cbRotate.Size = new System.Drawing.Size(352, 23);
+            this._cbRotate.Size = new System.Drawing.Size(300, 23);
             this._cbRotate.TabIndex = 13;
             // 
             // grpActions
@@ -607,68 +612,87 @@ namespace QMC.CDT_320.Ui.Pages.Material
             // btnLoadActive
             // 
             this.btnLoadActive.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.actionLayout.SetColumnSpan(this.btnLoadActive, 1);
+            this.btnLoadActive.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnLoadActive.BadgeText = "ACTION";
+            this.btnLoadActive.BorderColor = System.Drawing.Color.Empty;
+            this.btnLoadActive.BorderWidth = 0;
             this.btnLoadActive.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnLoadActive.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnLoadActive.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnLoadActive.ForeColor = System.Drawing.Color.White;
-            this.btnLoadActive.Margin = new System.Windows.Forms.Padding(3);
+            this.btnLoadActive.Location = new System.Drawing.Point(11, 9);
             this.btnLoadActive.Name = "btnLoadActive";
             this.btnLoadActive.Size = new System.Drawing.Size(470, 40);
             this.btnLoadActive.TabIndex = 6;
             this.btnLoadActive.Text = "LOAD ACTIVE / STAGE MAP";
             this.btnLoadActive.Click += new System.EventHandler(this.btnLoadActive_Click);
-            //
+            // 
             // btnGenerate
-            //
+            // 
             this.btnGenerate.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnGenerate.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnGenerate.BadgeText = "ACTION";
+            this.btnGenerate.BorderColor = System.Drawing.Color.Empty;
+            this.btnGenerate.BorderWidth = 0;
             this.btnGenerate.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnGenerate.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnGenerate.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnGenerate.ForeColor = System.Drawing.Color.White;
-            this.btnGenerate.Margin = new System.Windows.Forms.Padding(3);
+            this.btnGenerate.Location = new System.Drawing.Point(11, 55);
             this.btnGenerate.Name = "btnGenerate";
             this.btnGenerate.Size = new System.Drawing.Size(470, 40);
             this.btnGenerate.TabIndex = 0;
             this.btnGenerate.Text = "GENERATE";
             this.btnGenerate.Click += new System.EventHandler(this.btnGenerate_Click);
-            //
+            // 
             // btnDemo
-            //
+            // 
             this.btnDemo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnDemo.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnDemo.BadgeText = "ACTION";
+            this.btnDemo.BorderColor = System.Drawing.Color.Empty;
+            this.btnDemo.BorderWidth = 0;
             this.btnDemo.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnDemo.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnDemo.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnDemo.ForeColor = System.Drawing.Color.White;
-            this.btnDemo.Margin = new System.Windows.Forms.Padding(3);
+            this.btnDemo.Location = new System.Drawing.Point(11, 101);
             this.btnDemo.Name = "btnDemo";
             this.btnDemo.Size = new System.Drawing.Size(470, 40);
             this.btnDemo.TabIndex = 1;
             this.btnDemo.Text = "FILL DEMO RESULTS";
             this.btnDemo.Click += new System.EventHandler(this.btnDemo_Click);
-            //
+            // 
             // btnLoad
-            //
+            // 
             this.btnLoad.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnLoad.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnLoad.BadgeText = "ACTION";
+            this.btnLoad.BorderColor = System.Drawing.Color.Empty;
+            this.btnLoad.BorderWidth = 0;
             this.btnLoad.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnLoad.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnLoad.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnLoad.ForeColor = System.Drawing.Color.White;
-            this.btnLoad.Margin = new System.Windows.Forms.Padding(3);
+            this.btnLoad.Location = new System.Drawing.Point(11, 147);
             this.btnLoad.Name = "btnLoad";
             this.btnLoad.Size = new System.Drawing.Size(470, 40);
             this.btnLoad.TabIndex = 2;
             this.btnLoad.Text = "LOAD JSON/CSV";
             this.btnLoad.Click += new System.EventHandler(this.btnLoad_Click);
-            //
+            // 
             // btnSave
-            //
+            // 
             this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnSave.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnSave.BadgeText = "ACTION";
+            this.btnSave.BorderColor = System.Drawing.Color.Empty;
+            this.btnSave.BorderWidth = 0;
             this.btnSave.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnSave.ForeColor = System.Drawing.Color.White;
-            this.btnSave.Margin = new System.Windows.Forms.Padding(3);
+            this.btnSave.Location = new System.Drawing.Point(11, 193);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(470, 40);
             this.btnSave.TabIndex = 3;

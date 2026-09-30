@@ -14,8 +14,8 @@
         private System.Windows.Forms.Label lblMainTitle;
         private System.Windows.Forms.TableLayoutPanel tableCommands;
         private System.Windows.Forms.Label lblCommandHint;
-        private System.Windows.Forms.Button btnDefaultSample;
-        private System.Windows.Forms.Button btnPrimarySample;
+        private QMC.Common.Ui.Controls.UiStandardButton btnDefaultSample;
+        private QMC.Common.Ui.Controls.UiStandardButton btnPrimarySample;
 
         protected override void Dispose(bool disposing)
         {
@@ -41,8 +41,8 @@
             this.lblMainTitle = new System.Windows.Forms.Label();
             this.tableCommands = new System.Windows.Forms.TableLayoutPanel();
             this.lblCommandHint = new System.Windows.Forms.Label();
-            this.btnDefaultSample = new System.Windows.Forms.Button();
-            this.btnPrimarySample = new System.Windows.Forms.Button();
+            this.btnDefaultSample = new QMC.Common.Ui.Controls.UiStandardButton();
+            this.btnPrimarySample = new QMC.Common.Ui.Controls.UiStandardButton();
             this.tableRoot.SuspendLayout();
             this.tableContent.SuspendLayout();
             this.panelLeft.SuspendLayout();
@@ -72,9 +72,8 @@
             //
             // lblPageTitle
             //
-            this.lblPageTitle.AutoSize = false;
             this.lblPageTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPageTitle.Font = new System.Drawing.Font("맑은 고딕", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            this.lblPageTitle.Font = new System.Drawing.Font("맑은 고딕", 18F, System.Drawing.FontStyle.Bold);
             this.lblPageTitle.ForeColor = System.Drawing.Color.Black;
             this.lblPageTitle.Location = new System.Drawing.Point(16, 16);
             this.lblPageTitle.Margin = new System.Windows.Forms.Padding(4);
@@ -116,10 +115,9 @@
             //
             // lblLeftContent
             //
-            this.lblLeftContent.AutoSize = false;
             this.lblLeftContent.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLeftContent.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.lblLeftContent.ForeColor = System.Drawing.Color.FromArgb(85, 85, 85);
+            this.lblLeftContent.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this.lblLeftContent.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this.lblLeftContent.Location = new System.Drawing.Point(0, 40);
             this.lblLeftContent.Name = "lblLeftContent";
             this.lblLeftContent.Padding = new System.Windows.Forms.Padding(12);
@@ -129,10 +127,9 @@
             //
             // lblLeftTitle
             //
-            this.lblLeftTitle.AutoSize = false;
-            this.lblLeftTitle.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
+            this.lblLeftTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.lblLeftTitle.Dock = System.Windows.Forms.DockStyle.Top;
-            this.lblLeftTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            this.lblLeftTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblLeftTitle.ForeColor = System.Drawing.Color.White;
             this.lblLeftTitle.Location = new System.Drawing.Point(0, 0);
             this.lblLeftTitle.Name = "lblLeftTitle";
@@ -157,10 +154,9 @@
             //
             // lblMainContent
             //
-            this.lblMainContent.AutoSize = false;
             this.lblMainContent.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMainContent.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.lblMainContent.ForeColor = System.Drawing.Color.FromArgb(85, 85, 85);
+            this.lblMainContent.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this.lblMainContent.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this.lblMainContent.Location = new System.Drawing.Point(0, 40);
             this.lblMainContent.Name = "lblMainContent";
             this.lblMainContent.Padding = new System.Windows.Forms.Padding(12);
@@ -170,10 +166,9 @@
             //
             // lblMainTitle
             //
-            this.lblMainTitle.AutoSize = false;
-            this.lblMainTitle.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
+            this.lblMainTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.lblMainTitle.Dock = System.Windows.Forms.DockStyle.Top;
-            this.lblMainTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            this.lblMainTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblMainTitle.ForeColor = System.Drawing.Color.White;
             this.lblMainTitle.Location = new System.Drawing.Point(0, 0);
             this.lblMainTitle.Name = "lblMainTitle";
@@ -204,27 +199,24 @@
             //
             // lblCommandHint
             //
-            this.lblCommandHint.AutoSize = false;
             this.lblCommandHint.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCommandHint.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.lblCommandHint.ForeColor = System.Drawing.Color.FromArgb(85, 85, 85);
+            this.lblCommandHint.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblCommandHint.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this.lblCommandHint.Location = new System.Drawing.Point(4, 4);
             this.lblCommandHint.Margin = new System.Windows.Forms.Padding(4);
             this.lblCommandHint.Name = "lblCommandHint";
+            this.lblCommandHint.Size = new System.Drawing.Size(696, 56);
             this.lblCommandHint.TabIndex = 0;
-            this.lblCommandHint.Text = "배치 샘플 · 버튼에 동작이 연결되어 있지 않습니다.";
+            this.lblCommandHint.Text = "배치 샘플 · Common 버튼의 크기와 위치는 Designer에서 수정합니다.";
             this.lblCommandHint.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // btnDefaultSample
             //
             this.btnDefaultSample.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.btnDefaultSample.AutoSize = false;
-            this.btnDefaultSample.BackColor = System.Drawing.Color.White;
             this.btnDefaultSample.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnDefaultSample.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(128, 128, 128);
-            this.btnDefaultSample.FlatAppearance.BorderSize = 1;
             this.btnDefaultSample.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnDefaultSample.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-            this.btnDefaultSample.ForeColor = System.Drawing.Color.Black;
+            this.btnDefaultSample.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnDefaultSample.Location = new System.Drawing.Point(712, 10);
             this.btnDefaultSample.Margin = new System.Windows.Forms.Padding(4);
             this.btnDefaultSample.Name = "btnDefaultSample";
             this.btnDefaultSample.Size = new System.Drawing.Size(120, 44);
@@ -235,15 +227,14 @@
             // btnPrimarySample
             //
             this.btnPrimarySample.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.btnPrimarySample.AutoSize = false;
-            this.btnPrimarySample.BackColor = System.Drawing.Color.FromArgb(217, 119, 6);
             this.btnPrimarySample.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnPrimarySample.FlatAppearance.BorderSize = 0;
             this.btnPrimarySample.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnPrimarySample.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-            this.btnPrimarySample.ForeColor = System.Drawing.Color.Black;
+            this.btnPrimarySample.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnPrimarySample.Location = new System.Drawing.Point(848, 10);
             this.btnPrimarySample.Margin = new System.Windows.Forms.Padding(4);
             this.btnPrimarySample.Name = "btnPrimarySample";
+            this.btnPrimarySample.Role = QMC.Common.Ui.Controls.UiStandardButtonRole.Primary;
             this.btnPrimarySample.Size = new System.Drawing.Size(120, 44);
             this.btnPrimarySample.TabIndex = 1;
             this.btnPrimarySample.Text = "주요 버튼";
@@ -253,19 +244,20 @@
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
-            this.BackColor = System.Drawing.Color.FromArgb(245, 245, 245);
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.Controls.Add(this.tableRoot);
-            this.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.Font = new System.Drawing.Font("맑은 고딕", 10F);
             this.Margin = new System.Windows.Forms.Padding(0);
             this.MinimumSize = new System.Drawing.Size(760, 480);
             this.Name = "UiPageTemplate";
             this.Size = new System.Drawing.Size(1000, 640);
-            this.tableCommands.ResumeLayout(false);
-            this.panelMain.ResumeLayout(false);
-            this.panelLeft.ResumeLayout(false);
-            this.tableContent.ResumeLayout(false);
             this.tableRoot.ResumeLayout(false);
+            this.tableContent.ResumeLayout(false);
+            this.panelLeft.ResumeLayout(false);
+            this.panelMain.ResumeLayout(false);
+            this.tableCommands.ResumeLayout(false);
             this.ResumeLayout(false);
+
         }
 
         #endregion
