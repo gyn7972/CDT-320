@@ -777,6 +777,15 @@ namespace QMC.CDT320
             Components.Add(WaferStageTouchSensor);
         }
 
+        /// <summary>
+        /// 니들 진공의 논리 출력을 설정합니다.
+        /// 센서 확인이나 대기 없이 기존 출력 객체의 Write를 그대로 호출합니다.
+        /// </summary>
+        public void SetNeedleVacuum(bool on)
+        {
+            NeedleVacuum.Write(on);
+        }
+
         // ──────────────────────────────────────────────────────────────────────
         //  Stage 61 — Runtime 얼라인 결과 (Setup 아님 — 웨이퍼 로딩 후 얼라인 시 set)
         // ──────────────────────────────────────────────────────────────────────

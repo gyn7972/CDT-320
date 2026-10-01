@@ -532,7 +532,7 @@ namespace QMC.CDT320.Sequencing
                 return Fail("PICKER-PICKUP-NEEDLE-VAC-NO-OUTPUT", "InputStageUnit",
                     reason + " Needle Vacuum 출력이 없습니다.");
 
-            stage.NeedleVacuum.On();
+            stage.SetNeedleVacuum(true);
             _needleVacuumOffConfirmedAtUtc = DateTime.MinValue;
             WriteLog("PickerPickUpZ",
                 reason + " Needle Vacuum ON. outputOn=" + stage.NeedleVacuum.IsOn);
@@ -550,7 +550,7 @@ namespace QMC.CDT320.Sequencing
                 return Fail("PICKER-PICKUP-NEEDLE-VAC-OFF-NO-OUTPUT", "InputStageUnit",
                     reason + " Needle Vacuum 출력이 없습니다.");
 
-            stage.NeedleVacuum.Off();
+            stage.SetNeedleVacuum(false);
             if (stage.NeedleVacuum.IsOn)
             {
                 _needleVacuumOffConfirmedAtUtc = DateTime.MinValue;
@@ -575,7 +575,7 @@ namespace QMC.CDT320.Sequencing
                     return;
                 }
 
-                stage.NeedleVacuum.Off();
+                stage.SetNeedleVacuum(false);
                 _needleVacuumOffConfirmedAtUtc = stage.NeedleVacuum.IsOn
                     ? DateTime.MinValue
                     : DateTime.UtcNow;

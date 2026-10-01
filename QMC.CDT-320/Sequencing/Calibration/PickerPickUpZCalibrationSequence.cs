@@ -752,7 +752,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return Fail("PICKUP-Z-CAL-NEEDLE-VAC-ON-NO-OUTPUT", "InputStageUnit",
                     reason + " Needle Vacuum 출력이 없습니다.");
 
-            stage.NeedleVacuum.On();
+            stage.SetNeedleVacuum(true);
             WriteLog("PickUpZCalibration",
                 reason + " Needle Vacuum ON. outputOn=" + stage.NeedleVacuum.IsOn + " - Ok");
             return 0;
@@ -769,7 +769,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return Fail("PICKUP-Z-CAL-NEEDLE-VAC-OFF-NO-OUTPUT", "InputStageUnit",
                     reason + " Needle Vacuum 출력이 없습니다.");
 
-            stage.NeedleVacuum.Off();
+            stage.SetNeedleVacuum(false);
             WriteLog("PickUpZCalibration",
                 reason + " Needle Vacuum OFF. outputOn=" + stage.NeedleVacuum.IsOn + " - Ok");
             return 0;
@@ -787,7 +787,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return;
                 }
 
-                stage.NeedleVacuum.Off();
+                stage.SetNeedleVacuum(false);
                 WriteLog("PickUpZCalibration",
                     reason + " Needle Vacuum OFF. outputOn=" + stage.NeedleVacuum.IsOn + " - Check");
             }

@@ -2100,7 +2100,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputStageUnit == null || _InputStageUnit.NeedleVacuum == null)
                     return -1;
 
-                _InputStageUnit.NeedleVacuum.Write(value);
+                _InputStageUnit.SetNeedleVacuum(value);
                 await Task.CompletedTask;
                 return 0;
             }

@@ -346,7 +346,7 @@ namespace QMC.CDT320.Sequencing
         {
             InputStageUnit stage = ResolveStage();
             if (stage != null && stage.NeedleVacuum != null && Options.UseVacuum)
-                stage.NeedleVacuum.On();
+                stage.SetNeedleVacuum(true);
 
             CurrentStep = InputFeederLoadToStageStep.PrepareFeederUnclamp;
             return 0;

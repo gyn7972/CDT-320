@@ -1725,7 +1725,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     if (stage.NeedleVacuum != null && stage.NeedleVacuum.IsOn)
                     {
-                        stage.NeedleVacuum.Off();
+                        stage.SetNeedleVacuum(false);
                         if (stage.NeedleVacuum.IsOn)
                             return Fail("INPUT-DIE-VISION-PREPARE-NEEDLE-VAC-OFF", stage.Name,
                                 description + " 전 EjectPinZ 하강을 위해 Needle Vacuum OFF를 명령했지만 출력이 계속 ON 상태입니다.");
