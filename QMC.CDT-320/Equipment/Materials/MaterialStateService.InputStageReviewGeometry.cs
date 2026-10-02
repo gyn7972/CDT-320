@@ -1028,7 +1028,10 @@ namespace QMC.CDT320.Materials
                 stage.CameraX.IsMoving || stage.StageY.IsMoving || stage.StageT.IsMoving ||
                 !stage.CameraX.IsInPosition || !stage.StageY.IsInPosition || !stage.StageT.IsInPosition ||
                 stage.CameraX.IsAlarm || stage.StageY.IsAlarm || stage.StageT.IsAlarm)
-                return FailInputStageReviewGeometry("Review 검출/검증 전에 Camera X, Stage Y/T 정지 상태를 확인하세요.", out reason);
+                return FailInputStageReviewGeometry("Review 검출/검증 전에 Camera X, Stage Y/T 정지 상태를 확인하세요. " +
+                    DescribeInputStageReviewAxisState("Camera X", stage != null ? stage.CameraX : null) + "; " +
+                    DescribeInputStageReviewAxisState("Stage Y", stage != null ? stage.StageY : null) + "; " +
+                    DescribeInputStageReviewAxisState("Stage T", stage != null ? stage.StageT : null), out reason);
             if (!IsFiniteInputStageReviewNumber(stage.CameraX.ActualPosition) ||
                 !IsFiniteInputStageReviewNumber(stage.StageY.ActualPosition))
                 return FailInputStageReviewGeometry("Review 촬영/확정 시 실제 X/Y 좌표를 읽을 수 없습니다.", out reason);
@@ -1041,6 +1044,15 @@ namespace QMC.CDT320.Materials
                 return FailInputStageReviewGeometry("실제 Stage T가 Mapping T와 다릅니다. T 저장 후 재매핑이 필요합니다.", out reason);
             reason = "최종 Mapping T에서 축이 정지했습니다.";
             return true;
+        }
+
+        private static string DescribeInputStageReviewAxisState(string label, QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis == null)
+                return label + "[missing]";
+            // Read only the cached status flags; do not add native position reads.
+            return label + "[" + axis.Name + ", moving=" + axis.IsMoving +
+                ", inPosition=" + axis.IsInPosition + ", alarm=" + axis.IsAlarm + "]";
         }
 
         private static double ResolveInputStageReviewActualThetaTolerance()
@@ -1233,6 +1245,15 @@ namespace QMC.CDT320.Materials
                     AppendInputStageReviewDiagnosticValue(json, "actualCameraX", stage != null && stage.CameraX != null ? (object)stage.CameraX.ActualPosition : null);
                     AppendInputStageReviewDiagnosticValue(json, "actualStageY", stage != null && stage.StageY != null ? (object)stage.StageY.ActualPosition : null);
                     AppendInputStageReviewDiagnosticValue(json, "actualStageT", stage != null && stage.StageT != null ? (object)stage.StageT.ActualPosition : null);
+                    AppendInputStageReviewDiagnosticValue(json, "cameraXIsMoving", stage != null && stage.CameraX != null ? (object)stage.CameraX.IsMoving : null);
+                    AppendInputStageReviewDiagnosticValue(json, "cameraXIsInPosition", stage != null && stage.CameraX != null ? (object)stage.CameraX.IsInPosition : null);
+                    AppendInputStageReviewDiagnosticValue(json, "cameraXIsAlarm", stage != null && stage.CameraX != null ? (object)stage.CameraX.IsAlarm : null);
+                    AppendInputStageReviewDiagnosticValue(json, "stageYIsMoving", stage != null && stage.StageY != null ? (object)stage.StageY.IsMoving : null);
+                    AppendInputStageReviewDiagnosticValue(json, "stageYIsInPosition", stage != null && stage.StageY != null ? (object)stage.StageY.IsInPosition : null);
+                    AppendInputStageReviewDiagnosticValue(json, "stageYIsAlarm", stage != null && stage.StageY != null ? (object)stage.StageY.IsAlarm : null);
+                    AppendInputStageReviewDiagnosticValue(json, "stageTIsMoving", stage != null && stage.StageT != null ? (object)stage.StageT.IsMoving : null);
+                    AppendInputStageReviewDiagnosticValue(json, "stageTIsInPosition", stage != null && stage.StageT != null ? (object)stage.StageT.IsInPosition : null);
+                    AppendInputStageReviewDiagnosticValue(json, "stageTIsAlarm", stage != null && stage.StageT != null ? (object)stage.StageT.IsAlarm : null);
                     AppendInputStageReviewDiagnosticValue(json, "alignT", wafer != null && wafer.HasInputStageThetaAlignResult ? (object)wafer.InputStageAlignCorrectedT : null);
                     AppendInputStageReviewDiagnosticValue(json, "mappingT", wafer != null && wafer.HasInputStageDieMappingThetaSnapshot ? (object)wafer.InputStageDieMappingCorrectedT : null);
                     AppendInputStageReviewDiagnosticValue(json, "singleLimitX", config != null ? (object)config.ManualDieDetectOffsetLimitX : null);

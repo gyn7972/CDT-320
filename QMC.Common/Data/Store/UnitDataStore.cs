@@ -1,8 +1,56 @@
-﻿namespace QMC.Common.Data.Store
+﻿using System.Reflection;
+using System.Runtime.CompilerServices;
+
+namespace QMC.Common.Data.Store
 {
     /// <summary>BaseEquipmentNode가 사용하는 Setup / Config / Recipe Store facade입니다.</summary>
     public static class UnitDataStore
     {
+        private sealed class TemporaryDryRunValue
+        {
+            public bool OriginalValue { get; private set; }
+
+            public TemporaryDryRunValue(bool originalValue)
+            {
+                OriginalValue = originalValue;
+            }
+        }
+
+        private static readonly ConditionalWeakTable<object, TemporaryDryRunValue> TemporaryDryRunValues =
+            new ConditionalWeakTable<object, TemporaryDryRunValue>();
+        private static readonly MethodInfo CloneConfig = typeof(object).GetMethod(
+            "MemberwiseClone", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        // Keep global runtime overrides out of the persisted Unit configuration.
+        public static void RegisterTemporaryDryRunOverride(object config, bool originalValue)
+        {
+            if (config == null) return;
+            TemporaryDryRunValues.GetValue(config, key => new TemporaryDryRunValue(originalValue));
+        }
+
+        public static void ClearTemporaryDryRunOverride(object config)
+        {
+            if (config != null)
+                TemporaryDryRunValues.Remove(config);
+        }
+
+        public static T GetPersistentConfigSnapshot<T>(T data)
+        {
+            if ((object)data == null) return data;
+            TemporaryDryRunValue temporary;
+            if (!TemporaryDryRunValues.TryGetValue(data, out temporary))
+                return data;
+
+            // Change only the detached root copy; running sequences retain their mode.
+            object snapshot = CloneConfig.Invoke(data, null);
+            PropertyInfo dryRun = snapshot.GetType().GetProperty("bDryRun",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (dryRun == null || dryRun.PropertyType != typeof(bool) || !dryRun.CanWrite)
+                throw new System.InvalidOperationException("Temporary DryRun configuration has no writable bool bDryRun.");
+            dryRun.SetValue(snapshot, temporary.OriginalValue, null);
+            return (T)snapshot;
+        }
+
         public static T LoadSetup<T>(string storageKey) where T : new()
         {
             try
@@ -181,7 +229,7 @@
         {
             try
             {
-                DataStoreResult result = EquipmentDataStore.Save(data, storageKey, "Config");
+                DataStoreResult result = EquipmentDataStore.Save(GetPersistentConfigSnapshot(data), storageKey, "Config");
                 LogSaveFailureIfNeeded(result, "Config", storageKey, string.Empty);
                 return result.Success;
             }

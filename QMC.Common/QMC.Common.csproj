@@ -81,6 +81,7 @@
     <Compile Include="BaseComponent.cs" />
     <Compile Include="BaseEquipmentNode.cs" />
     <Compile Include="BaseUnit.cs" />
+    <Compile Include="StatusPollingTimer.cs" />
     <Compile Include="Ui\Standards\UiStandardPalette.cs" />
     <Compile Include="Ui\Controls\UiStandardButton.cs">
       <SubType>Component</SubType>

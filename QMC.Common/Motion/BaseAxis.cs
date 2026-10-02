@@ -154,6 +154,7 @@ namespace QMC.Common.Motion
 
         /// <summary>백그라운드 상태 업데이트 태스크 취소 토큰 소스.</summary>
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        private StatusPollingTimer _statusPollingTimer;
 
         /// <summary>시뮬레이션 프로파일 재구성과 틱 갱신을 직렬화하는 동기화 객체.</summary>
         private readonly object _simulationSync = new object();
@@ -311,7 +312,9 @@ namespace QMC.Common.Motion
         protected BaseAxis(string name) : base(name)
         {
             if (UseInternalStatusUpdate)
+            {
                 StartStatusUpdateTask();
+            }
         }
 
         /// <summary>
@@ -1354,33 +1357,12 @@ namespace QMC.Common.Motion
         // ─────────────────────────────────────────────
 
         /// <summary>
-        /// 10ms 주기로 <see cref="UpdateStatus"/>를 호출하는 백그라운드 태스크를 시작합니다.
-        /// 태스크는 객체 폐기 시 <see cref="Dispose"/>를 통해 종료됩니다.
+        /// <see cref="UpdateStatus"/> 완료 후 10ms를 기다리는 백그라운드 상태 갱신을 시작합니다.
+        /// 객체 폐기 시 <see cref="Dispose"/>를 통해 종료됩니다.
         /// </summary>
         private void StartStatusUpdateTask()
         {
-            CancellationToken token = _cts.Token;
-
-            Task.Run(async () =>
-            {
-                while (!token.IsCancellationRequested)
-                {
-                    try
-                    {
-                        UpdateStatus();
-                        await Task.Delay(10, token);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        break;
-                    }
-                    catch (Exception)
-                    {
-                        // 상태 업데이트 중 예외는 루프를 중단시키지 않는다.
-                        await Task.Delay(10, token).ContinueWith(_ => { });
-                    }
-                }
-            }, token);
+            _statusPollingTimer = new StatusPollingTimer(UpdateStatus, _cts.Token);
         }
 
         /// <summary>
@@ -1689,6 +1671,8 @@ namespace QMC.Common.Motion
         {
             _cts.Cancel();
             _cts.Dispose();
+            if (_statusPollingTimer != null)
+                _statusPollingTimer.Dispose();
         }
     }
 }

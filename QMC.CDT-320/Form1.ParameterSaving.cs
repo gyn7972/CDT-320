@@ -118,7 +118,8 @@ namespace QMC.CDT_320
         {
             try
             {
-                var snapshots = sources.Select(s => JsonDataSaveCoordinator.Capture(s.Value, s.Key)).ToList();
+                var snapshots = sources.Select(s => JsonDataSaveCoordinator.Capture(
+                    UnitDataStore.GetPersistentConfigSnapshot(s.Value), s.Key)).ToList();
                 foreach (string path in sources.Keys) _parameterSaveUncaptured.Remove(path);
                 return snapshots;
             }

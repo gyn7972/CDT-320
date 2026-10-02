@@ -101,6 +101,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private IDisposable _visionPreview;
         private readonly ToolTip _toolTip = new ToolTip();
         private InputStageUnit _InputStageUnit;
+        private IonizerUnit _ionizerUnit;
 
         private static StageTeachingPosition[] CreateTeachingPositions()
         {
@@ -559,6 +560,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 var machine = FindMachine();
                 _InputStageUnit = machine != null ? machine.InputStageUnit : null;
+                _ionizerUnit = machine != null ? machine.IonizerUnit : null;
                 SetEnabledState(_InputStageUnit != null);
             }
             catch (Exception ex)
@@ -2038,7 +2040,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     IoCylinderItem.Input("TOUCH SENSOR", () => _InputStageUnit.WaferStageTouchSensor != null && _InputStageUnit.WaferStageTouchSensor.IsOn),
 
                     // ===== OUTPUT (DO) — 3개 =====
-                    IoCylinderItem.Output("IONIZER ON", () => _InputStageUnit.Ionizer != null && _InputStageUnit.Ionizer.IsOn, WriteIonizerAsync),
+                    IoCylinderItem.Output("IONIZER ON", () => _ionizerUnit != null && _ionizerUnit.IsOn, WriteIonizerAsync),
                     IoCylinderItem.Output("NEEDLE VACUUM", () => _InputStageUnit.NeedleVacuum != null && _InputStageUnit.NeedleVacuum.IsOn, WriteNeedleVacuumAsync),
                     IoCylinderItem.Output("NEEDLE BLOW", () => _InputStageUnit.NeedleBlow != null && _InputStageUnit.NeedleBlow.IsOn, WriteNeedleBlowAsync)
                 });
@@ -2121,7 +2123,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputStageUnit == null || _InputStageUnit.NeedleBlow == null)
                     return -1;
 
-                _InputStageUnit.NeedleBlow.Write(value);
+                _InputStageUnit.SetNeedleBlow(value);
                 await Task.CompletedTask;
                 return 0;
             }
@@ -2139,10 +2141,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                if (_InputStageUnit == null || _InputStageUnit.Ionizer == null)
+                if (_InputStageUnit == null || _ionizerUnit == null || _ionizerUnit.IonizerOn == null)
                     return -1;
 
-                _InputStageUnit.Ionizer.Write(value);
+                _ionizerUnit.SetEnabled(value);
                 await Task.CompletedTask;
                 return 0;
             }

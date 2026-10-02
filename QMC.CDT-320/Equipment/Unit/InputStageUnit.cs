@@ -651,9 +651,6 @@ namespace QMC.CDT320
         /// <summary>니들 블로우 DO. 흡착 해제 시 에어를 분사하여 다이/테이프 분리를 돕는다.</summary>
         public BaseDigitalOutput NeedleBlow { get; private set; }
 
-        /// <summary>이오나이저 On DO. 정전기 제거를 위해 사용한다.</summary>
-        public BaseDigitalOutput Ionizer { get; private set; }
-
         /// <summary>8인치 웨이퍼 링 감지 DI.</summary>
         public BaseDigitalInput WaferStage8RingCheckSensor { get; private set; }
 
@@ -731,12 +728,14 @@ namespace QMC.CDT320
         /// <param name="vision">비전 PC TCP 통신 인터페이스</param>
         /// <param name="mapHandler">웨이퍼 맵 핸들러 인터페이스</param>
         /// <param name="tpu">TPU 연동 인터페이스</param>
-        public InputStageUnit(IVisionTcpClient    vision, IWaferMapHandler mapHandler)
+        /// <param name="ionizer">Machine이 공유하는 이오나이저 제어 주체</param>
+        public InputStageUnit(IVisionTcpClient    vision, IWaferMapHandler mapHandler, IonizerUnit ionizer)
             : base("InputStageUnit")
         {
             // ── 외부 인터페이스 저장 ───────────────────────────────────────
             Vision = vision ?? throw new ArgumentNullException("vision");
             MapHandler = mapHandler ?? throw new ArgumentNullException("mapHandler");
+            if (ionizer == null) throw new ArgumentNullException("ionizer");
 
             //Loader     = loader     ?? throw new ArgumentNullException("loader");
             //Barcode    = barcode    ?? throw new ArgumentNullException("barcode");
@@ -754,7 +753,8 @@ namespace QMC.CDT320
             // ── Digital Output ─────────────────────────────────────────────
             NeedleVacuum = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.NeedleVacuum);
             NeedleBlow = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.NeedleBlow);
-            Ionizer = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.IonizerOn);
+            // 공용 출력은 IonizerUnit이 생성한다. 기존 출력 생성 순서는 유지한다.
+            BaseDigitalOutput ionizerOutput = ionizer.InitializeOutput();
 
             // ── Digital Input ──────────────────────────────────────────────
             WaferStage8RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeeder8RingCheck);
@@ -771,7 +771,8 @@ namespace QMC.CDT320
             Components.Add(EjectPinZ);
             Components.Add(NeedleVacuum);
             Components.Add(NeedleBlow);
-            Components.Add(Ionizer);
+            // 스캔·모드·설정 순회 호환 참조이며, 생성과 제어의 주체는 IonizerUnit이다.
+            Components.Add(ionizerOutput);
             Components.Add(WaferStage8RingCheckSensor);
             Components.Add(WaferStage12RingCheckSensor);
             Components.Add(WaferStageTouchSensor);
@@ -784,6 +785,15 @@ namespace QMC.CDT320
         public void SetNeedleVacuum(bool on)
         {
             NeedleVacuum.Write(on);
+        }
+
+        /// <summary>
+        /// 니들 블로우의 논리 출력을 설정합니다.
+        /// 센서 확인이나 대기 없이 기존 출력 객체의 Write를 그대로 호출합니다.
+        /// </summary>
+        public void SetNeedleBlow(bool on)
+        {
+            NeedleBlow.Write(on);
         }
 
         // ──────────────────────────────────────────────────────────────────────

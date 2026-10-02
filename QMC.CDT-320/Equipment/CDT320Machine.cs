@@ -309,13 +309,17 @@ namespace QMC.CDT320
             InputFeederUnit = new InputFeederUnit();
             InputCassetteUnit.BindMachine(this);
 
+            // 공용 주체를 먼저 만들고, I/O 생성 시점은 기존 위치에서 유지한다.
+            IonizerUnit = new IonizerUnit(deferInitialization: true);
+
             // InputStageUnit - Wafer Vision 은 실 TCP Adapter 사용 (QMC.Vision 과 통신).
             // VisionHub 가 연결 안 된 경우 Adapter 는 안전 fallback(Expose/Match = false).
             // Stage 28 - NullWaferLoader 를 WaferLoaderAdapter(InputLoader) 로 교체:
             //   InputStage 의 안전 인터락이 실 InputLoader.FeederY 위치 + Cyl 상태를 체크하도록 함.
             InputStageUnit = new InputStageUnit(
                 vision: new VisionComm.WaferVisionAdapter(),
-                mapHandler: new NullWaferMapHandler());
+                mapHandler: new NullWaferMapHandler(),
+                ionizer: IonizerUnit);
                 //loader:     new QMC.CDT320.Sim.WaferLoaderAdapter(InputFeeder),
                 //barcode:    new NullBarcodeReader(),
                 //tpu:        new NullTransferPickerUnit());
@@ -334,6 +338,7 @@ namespace QMC.CDT320
             OutputStageUnit = new OutputStageUnit(
                 tpu: new NullTpuUnit(),
                 unloader: new QMC.CDT320.Sim.OutputUnloaderAdapter(OutputCassetteUnit, OutputFeederUnit));
+            VisionUnit.InitializeBottomVisionBlowOutputs();
 
 
             // Stage 45 - Operation Panel + Tower Lamp + Buzzer 신규
@@ -343,7 +348,7 @@ namespace QMC.CDT320
             ResourcesUnit = new ResourceSensorsUnit();
 
             // Stage 47 - Ionizer (정전기 제거기)
-            IonizerUnit = new IonizerUnit();
+            IonizerUnit.Initialize();
 
             // Input/Output 카메라에 설치된 두 Barcode Reader는 AppSettings 채널별 설정으로 구성합니다.
             ReloadBarcodeReaders();

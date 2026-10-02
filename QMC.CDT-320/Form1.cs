@@ -1950,8 +1950,8 @@ namespace QMC.CDT_320
                           System.Reflection.BindingFlags.Public |
                           System.Reflection.BindingFlags.NonPublic;
 
-            object setup = GetPropertyValue(node, "Setup", binding);
-            object config = GetPropertyValue(node, "Config", binding);
+            object setup = node.Setup;
+            object config = node.Config;
             bool hasDryRun = HasBoolProperty(config, "bDryRun", binding);
             bool localSimulation = GetBoolProperty(setup, "IsSimulationMode", binding) ||
                                    (!hasDryRun && GetBoolProperty(config, "IsSimulationMode", binding));
@@ -2008,11 +2008,27 @@ namespace QMC.CDT_320
             if (components == null)
                 return;
 
+            var visionUnit = node as VisionUnit;
+            int componentIndex = 0;
             foreach (object child in components)
             {
+                bool deferredBottomVision = visionUnit != null &&
+                    visionUnit.IsBottomVisionBlowComponent(componentIndex);
+                componentIndex++;
+                if (deferredBottomVision)
+                    continue;
+
                 BaseEquipmentNode childNode = child as BaseEquipmentNode;
                 if (childNode != null)
                     ApplyNodeLocalRuntimeMode(childNode, simulation, dryRun);
+            }
+
+            // Preserve the existing OutputStage mode for the two migrated outputs only.
+            if (Machine != null && ReferenceEquals(node, Machine.OutputStageUnit) &&
+                Machine.VisionUnit != null && Machine.VisionUnit.BottomVisionBlowOutputsInitialized)
+            {
+                ApplyNodeLocalRuntimeMode(Machine.VisionUnit.BottomVisionBlowOnOut, simulation, dryRun);
+                ApplyNodeLocalRuntimeMode(Machine.VisionUnit.BottomVisionBlowOffOut, simulation, dryRun);
             }
         }
 
@@ -2084,8 +2100,7 @@ namespace QMC.CDT_320
             var binding = System.Reflection.BindingFlags.Instance |
                           System.Reflection.BindingFlags.Public |
                           System.Reflection.BindingFlags.NonPublic;
-            var configProp = node.GetType().GetProperty("Config", binding);
-            object config = configProp != null ? configProp.GetValue(node, null) : null;
+            object config = node.Config;
             if (config != null)
             {
                 var dryRunProp = config.GetType().GetProperty("bDryRun", binding);
@@ -2094,7 +2109,11 @@ namespace QMC.CDT_320
                     if (dryRun)
                     {
                         if (!_unitDryRunOverrides.ContainsKey(config))
-                            _unitDryRunOverrides[config] = (bool)dryRunProp.GetValue(config, null);
+                        {
+                            bool original = (bool)dryRunProp.GetValue(config, null);
+                            _unitDryRunOverrides[config] = original;
+                            QMC.Common.Data.Store.UnitDataStore.RegisterTemporaryDryRunOverride(config, original);
+                        }
                         dryRunProp.SetValue(config, true, null);
                     }
                     else
@@ -2103,6 +2122,7 @@ namespace QMC.CDT_320
                         if (_unitDryRunOverrides.TryGetValue(config, out original))
                         {
                             dryRunProp.SetValue(config, original, null);
+                            QMC.Common.Data.Store.UnitDataStore.ClearTemporaryDryRunOverride(config);
                             _unitDryRunOverrides.Remove(config);
                         }
                     }
@@ -2126,8 +2146,37 @@ namespace QMC.CDT_320
         {
             if (machine == null) yield break;
             foreach (var unit in machine.Units)
-                foreach (var output in EnumerateOutputs(unit))
-                    yield return output;
+            {
+                var visionUnit = unit as VisionUnit;
+                if (visionUnit != null && visionUnit.BottomVisionBlowOutputsInitialized)
+                {
+                    int componentIndex = 0;
+                    foreach (var child in visionUnit.Components)
+                    {
+                        bool deferredBottomVision = visionUnit.IsBottomVisionBlowComponent(componentIndex);
+                        componentIndex++;
+                        if (deferredBottomVision)
+                            continue;
+                        foreach (var output in EnumerateOutputs(child))
+                            yield return output;
+                    }
+                }
+                else
+                {
+                    foreach (var output in EnumerateOutputs(unit))
+                        yield return output;
+                }
+
+                // Keep the startup scan order at the outputs' former registration point.
+                if (ReferenceEquals(unit, machine.OutputStageUnit) && machine.VisionUnit != null &&
+                    machine.VisionUnit.BottomVisionBlowOutputsInitialized)
+                {
+                    if (machine.VisionUnit.BottomVisionBlowOnOut != null)
+                        yield return machine.VisionUnit.BottomVisionBlowOnOut;
+                    if (machine.VisionUnit.BottomVisionBlowOffOut != null)
+                        yield return machine.VisionUnit.BottomVisionBlowOffOut;
+                }
+            }
         }
 
         private static IEnumerable<BaseCylinder> EnumerateCylinders(CDT320_Machine machine)

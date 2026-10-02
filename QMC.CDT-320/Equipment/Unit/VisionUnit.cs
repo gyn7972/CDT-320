@@ -193,6 +193,10 @@ namespace QMC.CDT320
         public BaseCylinder ReticleFrontSideSlide { get; private set; }
         public BaseCylinder ReticleRearSideSlide { get; private set; }
         public BaseDigitalOutput NeedleVacuumOutput { get; private set; }
+        public BaseDigitalOutput BottomVisionBlowOnOut { get; private set; }
+        public BaseDigitalOutput BottomVisionBlowOffOut { get; private set; }
+        public bool BottomVisionBlowOutputsInitialized { get; private set; }
+        private int _bottomVisionBlowComponentStartIndex = -1;
 
         public VisionUnit() : base("VisionUnit")
         {
@@ -217,6 +221,57 @@ namespace QMC.CDT320
             Components.Add(ReticleFrontSideSlide);
             Components.Add(ReticleRearSideSlide);
             Components.Add(NeedleVacuumOutput);
+        }
+
+        // Machine calls this at the original output creation point.
+        internal void InitializeBottomVisionBlowOutputs()
+        {
+            _bottomVisionBlowComponentStartIndex = Components.Count;
+            BottomVisionBlowOnOut = RegisterOutput("BottomVisionBlow");
+            BottomVisionBlowOffOut = RegisterOutput("BottomVisionBlowOff");
+            BottomVisionBlowOutputsInitialized = true;
+        }
+
+        // Identify registration slots, preserving any pre-existing shared I/O aliases.
+        internal bool IsBottomVisionBlowComponent(int componentIndex)
+        {
+            return BottomVisionBlowOutputsInitialized &&
+                (componentIndex == _bottomVisionBlowComponentStartIndex ||
+                 componentIndex == _bottomVisionBlowComponentStartIndex + 1);
+        }
+
+        public void SetBottomVisionBlow(bool on)
+        {
+            if (BottomVisionBlowOnOut != null)
+                BottomVisionBlowOnOut.Write(on);
+            if (BottomVisionBlowOffOut != null)
+                BottomVisionBlowOffOut.Write(!on);
+        }
+
+        private BaseDigitalOutput RegisterOutput(string catalogName)
+        {
+            DioDefault catalog = AjinIoCatalog.FindOutput(catalogName);
+            BaseDigitalOutput item = catalog != null
+                ? AjinFactory.CreateDigitalOutput(catalog)
+                : CreateMissingOutput(catalogName, catalogName);
+
+            Components.Add(item);
+            return item;
+        }
+
+        private static BaseDigitalOutput CreateMissingOutput(string signalName, string fallbackCatalogName)
+        {
+            string name = string.IsNullOrWhiteSpace(fallbackCatalogName)
+                ? signalName
+                : fallbackCatalogName;
+            BaseDigitalOutput item = new SimDigitalOutput(name);
+            item.Setup.ModuleNo = -1;
+            item.Setup.BitNo = -1;
+            item.Config.IsSimulationMode = true;
+
+            EventLogger.Write(EventKind.Warning, "QMC", "OS-CYL-IO",
+                "OutputStage output signal is not mapped. Safe simulation output created. signal=" + signalName + ", fallback=" + fallbackCatalogName);
+            return item;
         }
 
         public override bool SaveSettings()

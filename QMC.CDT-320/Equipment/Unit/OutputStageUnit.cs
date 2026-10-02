@@ -521,8 +521,6 @@ namespace QMC.CDT320
         public BaseDigitalOutput GoodBinClampDownOut { get; private set; }
         public BaseDigitalOutput GoodBinClampOut { get; private set; }
         public BaseDigitalOutput GoodBinUnclampOut { get; private set; }
-        public BaseDigitalOutput BottomVisionBlowOnOut { get; private set; }
-        public BaseDigitalOutput BottomVisionBlowOffOut { get; private set; }
 
         // Bin Guide/Clamp 실린더 — Settings > CYLINDER와 같은 CylinderManager 객체를 Unit에서 소유합니다.
 
@@ -598,8 +596,6 @@ namespace QMC.CDT320
             GoodBinClampDownOut = RegisterCylinderOutput("GoodBinGuideClampLift", false, "GoodBinClampDown");
             GoodBinClampOut     = RegisterCylinderOutput("GoodBinGuideClamp", true, "GoodBinClamp");
             GoodBinUnclampOut   = RegisterCylinderOutput("GoodBinGuideClamp", false, "GoodBinUnclamp");
-            BottomVisionBlowOnOut  = RegisterOutput("BottomVisionBlow");
-            BottomVisionBlowOffOut = RegisterOutput("BottomVisionBlowOff");
 
             Components.Add(GoodStage);
             Components.Add(NgStage);
@@ -612,17 +608,6 @@ namespace QMC.CDT320
             BaseDigitalInput item = catalog != null
                 ? AjinFactory.CreateDigitalInput(catalog)
                 : CreateMissingInput(catalogName, catalogName);
-
-            Components.Add(item);
-            return item;
-        }
-
-        private BaseDigitalOutput RegisterOutput(string catalogName)
-        {
-            DioDefault catalog = AjinIoCatalog.FindOutput(catalogName);
-            BaseDigitalOutput item = catalog != null
-                ? AjinFactory.CreateDigitalOutput(catalog)
-                : CreateMissingOutput(catalogName, catalogName);
 
             Components.Add(item);
             return item;

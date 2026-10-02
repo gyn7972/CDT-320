@@ -23,6 +23,7 @@ namespace QMC.Common.IO
 
         /// <summary>백그라운드 폴링 태스크 취소 토큰 소스.</summary>
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        private StatusPollingTimer _statusPollingTimer;
         private bool _isOn;
 
         protected virtual bool UseInternalStatusUpdate
@@ -230,32 +231,11 @@ namespace QMC.Common.IO
         // ──────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// 10ms 주기로 <see cref="UpdateStatus"/>를 호출하는 백그라운드 태스크를 시작한다.
+        /// <see cref="UpdateStatus"/> 완료 후 10ms를 기다리는 백그라운드 폴링을 시작한다.
         /// </summary>
         private void StartPollingTask()
         {
-            CancellationToken token = _cts.Token;
-
-            Task.Run(async () =>
-            {
-                while (!token.IsCancellationRequested)
-                {
-                    try
-                    {
-                        UpdateStatus();
-                        await Task.Delay(10, token);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        break;
-                    }
-                    catch (Exception)
-                    {
-                        // 폴링 중 예외는 루프를 중단시키지 않는다.
-                        await Task.Delay(10, token).ContinueWith(_ => { });
-                    }
-                }
-            }, token);
+            _statusPollingTimer = new StatusPollingTimer(UpdateStatus, _cts.Token);
         }
 
         // ──────────────────────────────────────────────────────────────────────
@@ -269,6 +249,8 @@ namespace QMC.Common.IO
         {
             _cts.Cancel();
             _cts.Dispose();
+            if (_statusPollingTimer != null)
+                _statusPollingTimer.Dispose();
         }
     }
 }

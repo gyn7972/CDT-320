@@ -22,7 +22,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private IDisposable bottomVisionPreview;
         private IDisposable sideVisionPreview;
         private VisionUnit _visionUnit;
-        private OutputStageUnit _outputStageUnit;
 
         public VisionRecipePage() : this("recipe.inputVision")
         {
@@ -211,7 +210,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 var machine = FindMachine();
                 _visionUnit = machine != null ? machine.VisionUnit : null;
-                _outputStageUnit = machine != null ? machine.OutputStageUnit : null;
                 if (_visionUnit != null && _visionUnit.Recipe != null)
                     _visionUnit.Recipe.EnsurePositionObjects();
                 SetEnabledState(_visionUnit != null);
@@ -701,7 +699,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 var unit = _visionUnit;
-                var outputStageUnit = _outputStageUnit;
                 var items = new List<IoCylinderItem>
                 {
                     // ===== SET: RETICLE LIFT (Up/Down 체크 센서 + Up/Down 출력 통합 실린더) =====
@@ -720,12 +717,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     IoCylinderItem.Cylinder("RETICLE REAR SLIDE", unit.ReticleRearSideSlide, "FW", "BW")
                 };
 
-                if (outputStageUnit != null)
+                if (unit.BottomVisionBlowOutputsInitialized)
                 {
-                    // 물리 출력의 소유 Unit은 유지하고, 수동 조작 위치만 Vision 화면으로 옮긴다.
-                    items.Add(IoCylinderItem.Output("BTM VISION BLOW", () => IsOn(outputStageUnit.BottomVisionBlowOnOut),
+                    items.Add(IoCylinderItem.Output("BTM VISION BLOW", () => IsOn(unit.BottomVisionBlowOnOut),
                         on => GuardedPairOut("BottomVisionBlow", null,
-                            outputStageUnit.BottomVisionBlowOnOut, outputStageUnit.BottomVisionBlowOffOut, on), "ON", "OFF"));
+                            unit.SetBottomVisionBlow, on), "ON", "OFF"));
                 }
 
                 ioCylinderPanel.ColumnCount = 2;   // 2열 배치 (Front Head 기준)
@@ -753,33 +749,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return output != null && output.IsOn;
         }
 
-        private static void WriteOut(QMC.Common.IO.BaseDigitalOutput output, bool on)
-        {
-            if (output == null) return;
-            if (on) output.On(); else output.Off();
-        }
-
-        private static Task<int> WritePairOut(QMC.Common.IO.BaseDigitalOutput forward,
-            QMC.Common.IO.BaseDigitalOutput backward, bool forwardOn)
-        {
-            try
-            {
-                WriteOut(forward, forwardOn);
-                WriteOut(backward, !forwardOn);
-                return Task.FromResult(0);
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-            }
-        }
-
         // 기존 Output Stage 화면과 동일하게 모션가드 검증 후 DO pair를 조작한다.
         private Task<int> GuardedPairOut(string movingName, QMC.Common.IO.BaseCylinder cylinder,
-            QMC.Common.IO.BaseDigitalOutput forward, QMC.Common.IO.BaseDigitalOutput backward, bool forwardOn)
+            Action<bool> writePair, bool forwardOn)
         {
             try
             {
@@ -799,7 +771,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     }
                 }
 
-                return WritePairOut(forward, backward, forwardOn);
+                writePair(forwardOn);
+                return Task.FromResult(0);
             }
             catch
             {
